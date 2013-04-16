@@ -1,5 +1,11 @@
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.SchemaTableMetadata;
+import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.tpch.TpchColumnHandle;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -85,7 +91,7 @@ public class InMemoryMetadata
         checkNotNull(prefix, "prefix is null");
 
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> tableColumns = ImmutableMap.builder();
-        for (SchemaTableName tableName : listTables(prefix.getSchemaName())) {
+        for (SchemaTableName tableName : listTables(Optional.fromNullable(prefix.getSchemaName()))) {
             int position = 1;
             ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
             for (ColumnMetadata column : tables.get(tableName).getColumns()) {
@@ -159,12 +165,6 @@ public class InMemoryMetadata
         public InMemoryTableHandle(SchemaTableName schemaTableName)
         {
             this.tableName = schemaTableName;
-        }
-
-        @Override
-        public DataSourceType getDataSourceType()
-        {
-            return DataSourceType.INTERNAL;
         }
 
         public SchemaTableName getTableName()

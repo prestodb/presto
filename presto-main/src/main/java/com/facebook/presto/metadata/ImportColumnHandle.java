@@ -1,6 +1,7 @@
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Function;
@@ -13,25 +14,22 @@ public class ImportColumnHandle
 {
     private final String columnName;
     private final int columnId;
-    private final TupleInfo.Type columnType;
+    private final ColumnType columnType;
+    private final ColumnHandle columnHandle;
 
     @JsonCreator
     public ImportColumnHandle(
             @JsonProperty("columnName") String columnName,
             @JsonProperty("columnId") int columnId,
-            @JsonProperty("columnType") TupleInfo.Type columnType)
+            @JsonProperty("columnType") ColumnType columnType,
+            @JsonProperty("columnHandle") ColumnHandle columnHandle)
     {
         Preconditions.checkArgument(columnId >= 0, "columnId must be >= 0");
 
         this.columnName = checkNotNull(columnName, "columnName is null");
         this.columnType = checkNotNull(columnType, "columnType is null");
         this.columnId = columnId;
-    }
-
-    @Override
-    public DataSourceType getDataSourceType()
-    {
-        return DataSourceType.IMPORT;
+        this.columnHandle = checkNotNull(columnHandle, "columnHandle is null");
     }
 
     @JsonProperty
@@ -47,9 +45,15 @@ public class ImportColumnHandle
     }
 
     @JsonProperty
-    public TupleInfo.Type getColumnType()
+    public ColumnType getColumnType()
     {
         return columnType;
+    }
+
+    @JsonProperty
+    public ColumnHandle getColumnHandle()
+    {
+        return columnHandle;
     }
 
     public static Function<ImportColumnHandle, String> columnNameGetter()

@@ -10,6 +10,7 @@ import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.serde.BlocksFileReader;
 import com.facebook.presto.serde.BlocksFileStats;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.util.KeyBoundedExecutor;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
@@ -34,7 +35,6 @@ import org.skife.jdbi.v2.TransactionStatus;
 import org.skife.jdbi.v2.VoidTransactionCallback;
 
 import javax.annotation.PreDestroy;
-
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
@@ -288,7 +288,7 @@ public class DatabaseLocalStorageManager
 
     private static File getColumnFile(File shardPath, ColumnHandle columnHandle, BlocksFileEncoding encoding)
     {
-        checkState(columnHandle.getDataSourceType() == DataSourceType.NATIVE, "Can only import in a native column");
+        checkState(columnHandle instanceof NativeColumnHandle, "Can only import in a native column");
         long columnId = ((NativeColumnHandle) columnHandle).getColumnId();
         return new File(shardPath, format("%s.%s.column", columnId, encoding.getName()));
     }
@@ -307,7 +307,7 @@ public class DatabaseLocalStorageManager
                     ColumnHandle columnHandle = entry.getKey();
                     File file = entry.getValue();
 
-                    checkState(columnHandle.getDataSourceType() == DataSourceType.NATIVE, "Can only import in a native column");
+                    checkState(columnHandle instanceof NativeColumnHandle, "Can only import in a native column");
                     long columnId = ((NativeColumnHandle) columnHandle).getColumnId();
                     String filename = file.getName();
                     dao.insertColumn(columnFileHandle.getShardId(), columnId, filename);
@@ -320,7 +320,7 @@ public class DatabaseLocalStorageManager
     public BlockIterable getBlocks(long shardId, ColumnHandle columnHandle)
     {
         checkNotNull(columnHandle);
-        checkState(columnHandle.getDataSourceType() == DataSourceType.NATIVE, "Can only load blocks from a native column");
+        checkState(columnHandle instanceof NativeColumnHandle, "Can only load blocks from a native column");
         long columnId = ((NativeColumnHandle) columnHandle).getColumnId();
 
         checkState(shardExists(shardId), "shard %s has not yet been imported", shardId);

@@ -3,6 +3,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.metadata.ColumnFileHandle.Builder;
 import com.facebook.presto.operator.Operator;
+import com.facebook.presto.spi.ColumnHandle;
 import com.google.common.base.Throwables;
 import com.google.common.io.Files;
 

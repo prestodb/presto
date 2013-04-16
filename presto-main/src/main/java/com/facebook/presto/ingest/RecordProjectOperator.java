@@ -12,6 +12,7 @@ import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -43,7 +44,7 @@ public class RecordProjectOperator
 
         ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
         for (ImportColumnHandle column : columns) {
-            tupleInfos.add(new TupleInfo(column.getColumnType()));
+            tupleInfos.add(new TupleInfo(Type.fromColumnType(column.getColumnType())));
         }
         this.tupleInfos = tupleInfos.build();
     }

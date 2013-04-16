@@ -1,10 +1,10 @@
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.TableHandle;
 import com.google.common.base.Optional;
 import com.google.common.collect.Multimap;
 
 import javax.annotation.Nullable;
-
 import java.util.Map;
 import java.util.Set;
 

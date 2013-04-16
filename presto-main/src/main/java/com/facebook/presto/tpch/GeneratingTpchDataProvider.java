@@ -145,7 +145,8 @@ public class GeneratingTpchDataProvider
                     Splitter.on("|")
             );
 
-            RecordProjectOperator source = new RecordProjectOperator(records, new ImportColumnHandle("column" + columnHandle.getFieldIndex(), columnHandle.getFieldIndex(), columnHandle.getType()));
+            RecordProjectOperator source = new RecordProjectOperator(records,
+                    new ImportColumnHandle("column" + columnHandle.getFieldIndex(), columnHandle.getFieldIndex(), columnHandle.getType(), columnHandle));
 
             ImportingOperator.importData(source, new BlocksFileWriter(encoding, newOutputStreamSupplier(cachedFile)));
 

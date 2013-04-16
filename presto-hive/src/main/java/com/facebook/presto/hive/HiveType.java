@@ -1,6 +1,6 @@
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.SchemaField;
+import com.facebook.presto.spi.ColumnType;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 
@@ -9,26 +9,26 @@ import static org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspe
 
 public enum HiveType
 {
-    BOOLEAN(SchemaField.Type.LONG),
-    BYTE(SchemaField.Type.LONG),
-    SHORT(SchemaField.Type.LONG),
-    INT(SchemaField.Type.LONG),
-    LONG(SchemaField.Type.LONG),
-    FLOAT(SchemaField.Type.DOUBLE),
-    DOUBLE(SchemaField.Type.DOUBLE),
-    STRING(SchemaField.Type.STRING),
-    LIST(SchemaField.Type.STRING),
-    MAP(SchemaField.Type.STRING),
-    STRUCT(SchemaField.Type.STRING);
+    BOOLEAN(ColumnType.LONG),
+    BYTE(ColumnType.LONG),
+    SHORT(ColumnType.LONG),
+    INT(ColumnType.LONG),
+    LONG(ColumnType.LONG),
+    FLOAT(ColumnType.DOUBLE),
+    DOUBLE(ColumnType.DOUBLE),
+    STRING(ColumnType.STRING),
+    LIST(ColumnType.STRING),
+    MAP(ColumnType.STRING),
+    STRUCT(ColumnType.STRING);
 
-    private final SchemaField.Type nativeType;
+    private final ColumnType nativeType;
 
-    private HiveType(SchemaField.Type nativeType)
+    private HiveType(ColumnType nativeType)
     {
         this.nativeType = nativeType;
     }
 
-    public SchemaField.Type getNativeType()
+    public ColumnType getNativeType()
     {
         return nativeType;
     }

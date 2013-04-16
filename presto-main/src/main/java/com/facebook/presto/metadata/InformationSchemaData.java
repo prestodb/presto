@@ -1,5 +1,6 @@
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
@@ -17,6 +18,7 @@ import static com.facebook.presto.metadata.InformationSchemaMetadata.TABLE_TABLE
 import static com.facebook.presto.metadata.InformationSchemaMetadata.informationSchemaColumnIndex;
 import static com.facebook.presto.metadata.InformationSchemaMetadata.informationSchemaTupleInfo;
 import static com.facebook.presto.metadata.MetadataUtil.checkTable;
+import static com.facebook.presto.tuple.TupleInfo.Type.fromColumnType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
@@ -63,10 +65,10 @@ public class InformationSchemaData
                         .append(tableName.getSchemaName())
                         .append(tableName.getTableName())
                         .append(column.getName())
-                        .append(column.getOrdinalPosition())
+                        .append(column.getOrdinalPosition() + 1)
                         .appendNull()
                         .append("YES")
-                        .append(column.getType().getName())
+                        .append(fromColumnType(column.getType()).getName())
                         .build());
             }
         }

@@ -1,6 +1,5 @@
 package com.facebook.presto.sql.analyzer;
 
-import com.facebook.presto.metadata.ColumnMetadata;
 import com.facebook.presto.metadata.ConnectorMetadata;
 import com.facebook.presto.metadata.InMemoryMetadata;
 import com.facebook.presto.metadata.InternalSchemaMetadata;
@@ -8,9 +7,10 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableMetadata;
+import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Statement;
-import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -429,24 +429,24 @@ public class TestAnalyzer
         QualifiedTableName table1 = new QualifiedTableName("tpch", "default", "t1");
         metadata.createTable(new TableMetadata(table1,
                 ImmutableList.<ColumnMetadata>of(
-                        new ColumnMetadata("a", TupleInfo.Type.FIXED_INT_64, 0),
-                        new ColumnMetadata("b", TupleInfo.Type.FIXED_INT_64, 1),
-                        new ColumnMetadata("c", TupleInfo.Type.FIXED_INT_64, 2),
-                        new ColumnMetadata("d", TupleInfo.Type.FIXED_INT_64, 3)
+                        new ColumnMetadata("a", ColumnType.LONG, 0),
+                        new ColumnMetadata("b", ColumnType.LONG, 1),
+                        new ColumnMetadata("c", ColumnType.LONG, 2),
+                        new ColumnMetadata("d", ColumnType.LONG, 3)
                 ), ImmutableList.<String>of()));
 
         QualifiedTableName table2 = new QualifiedTableName("tpch", "default", "t2");
         metadata.createTable(new TableMetadata(table2,
                 ImmutableList.<ColumnMetadata>of(
-                        new ColumnMetadata("a", TupleInfo.Type.FIXED_INT_64, 0),
-                        new ColumnMetadata("b", TupleInfo.Type.FIXED_INT_64, 1)
+                        new ColumnMetadata("a", ColumnType.LONG, 0),
+                        new ColumnMetadata("b", ColumnType.LONG, 1)
                 ), ImmutableList.<String>of()));
 
         QualifiedTableName table3 = new QualifiedTableName("tpch", "default", "t3");
         metadata.createTable(new TableMetadata(table3,
                 ImmutableList.<ColumnMetadata>of(
-                        new ColumnMetadata("a", TupleInfo.Type.FIXED_INT_64, 0),
-                        new ColumnMetadata("b", TupleInfo.Type.FIXED_INT_64, 1)
+                        new ColumnMetadata("a", ColumnType.LONG, 0),
+                        new ColumnMetadata("b", ColumnType.LONG, 1)
                 ), ImmutableList.<String>of()));
 
         analyzer = new Analyzer(new Session(null, "tpch", "default"), metadata);

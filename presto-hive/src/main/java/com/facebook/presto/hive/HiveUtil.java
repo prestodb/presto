@@ -1,6 +1,6 @@
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.SchemaField;
+import com.facebook.presto.spi.ColumnType;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
@@ -51,7 +51,7 @@ class HiveUtil
         return name;
     }
 
-    static SchemaField.Type convertHiveType(String type)
+    static ColumnType convertHiveType(String type)
     {
         return HiveType.getSupportedHiveType(convertNativeHiveType(type)).getNativeType();
     }

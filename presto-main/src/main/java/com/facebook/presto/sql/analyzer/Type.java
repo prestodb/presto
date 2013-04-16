@@ -1,5 +1,6 @@
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Function;
 
@@ -23,6 +24,16 @@ public enum Type
     public TupleInfo.Type getRawType()
     {
         return rawType;
+    }
+
+    public ColumnType getColumnType()
+    {
+        return rawType.toColumnType();
+    }
+
+    public static Type fromRaw(ColumnType type)
+    {
+        return fromRaw(TupleInfo.Type.fromColumnType(type));
     }
 
     public static Type fromRaw(TupleInfo.Type raw)

@@ -1,5 +1,6 @@
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.TableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
@@ -15,12 +16,6 @@ public class InternalTableHandle
     public InternalTableHandle(@JsonProperty("tableName") QualifiedTableName table)
     {
         this.tableName = checkTable(table);
-    }
-
-    @Override
-    public DataSourceType getDataSourceType()
-    {
-        return DataSourceType.INTERNAL;
     }
 
     @JsonProperty

@@ -1,5 +1,6 @@
 package com.facebook.presto.tuple;
 
+import com.facebook.presto.spi.ColumnType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import com.google.common.base.Charsets;
@@ -93,6 +94,34 @@ public class TupleInfo
         public String getName()
         {
             return name;
+        }
+
+        public ColumnType toColumnType()
+        {
+            switch (this) {
+                case FIXED_INT_64:
+                    return ColumnType.LONG;
+                case VARIABLE_BINARY:
+                    return ColumnType.STRING;
+                case DOUBLE:
+                    return ColumnType.DOUBLE;
+                default:
+                    throw new IllegalStateException("Unknown type " + this);
+            }
+        }
+
+        public static Type fromColumnType(ColumnType type)
+        {
+            switch (type) {
+                case DOUBLE:
+                    return DOUBLE;
+                case LONG:
+                    return FIXED_INT_64;
+                case STRING:
+                    return VARIABLE_BINARY;
+                default:
+                    throw new IllegalStateException("Unknown type " + type);
+            }
         }
 
         @JsonCreator

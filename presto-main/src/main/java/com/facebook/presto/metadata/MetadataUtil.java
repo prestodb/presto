@@ -1,5 +1,7 @@
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.tuple.TupleInfo;
@@ -12,6 +14,7 @@ import com.google.common.collect.Lists;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.facebook.presto.tuple.TupleInfo.Type.fromColumnType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -97,7 +100,7 @@ public class MetadataUtil
             @Override
             public TupleInfo.Type apply(ColumnMetadata column)
             {
-                return column.getType();
+                return fromColumnType(column.getType());
             }
         };
     }
@@ -131,9 +134,9 @@ public class MetadataUtil
     public static class ColumnMetadataListBuilder
     {
         private final List<ColumnMetadata> columns = new ArrayList<>();
-        private int ordinalPosition;
+        private int ordinalPosition = 0;
 
-        public ColumnMetadataListBuilder column(String columnName, TupleInfo.Type type)
+        public ColumnMetadataListBuilder column(String columnName, ColumnType type)
         {
             columns.add(new ColumnMetadata(columnName, type, ordinalPosition++));
             return this;

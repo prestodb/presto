@@ -1,6 +1,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.metadata.ShardManagerDao.Utils;
+import com.facebook.presto.spi.TableHandle;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
@@ -11,7 +12,6 @@ import org.skife.jdbi.v2.VoidTransactionCallback;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
-
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -41,7 +41,7 @@ public class DatabaseShardManager
     public long allocateShard(TableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
-        checkState(tableHandle.getDataSourceType() == DataSourceType.NATIVE, "can only allocate shards for native tables");
+        checkState(tableHandle instanceof NativeTableHandle, "can only allocate shards for native tables");
         long tableId = ((NativeTableHandle) tableHandle).getTableId();
         return dao.insertShard(tableId, false);
     }
@@ -66,7 +66,7 @@ public class DatabaseShardManager
     public void commitPartition(TableHandle tableHandle, final String partition, final Map<Long, String> shards)
     {
         checkNotNull(tableHandle, "tableHandle is null");
-        checkState(tableHandle.getDataSourceType() == DataSourceType.NATIVE, "can only commit partitions for native tables");
+        checkState(tableHandle instanceof NativeTableHandle, "can only commit partitions for native tables");
         final long tableId = ((NativeTableHandle) tableHandle).getTableId();
 
         dbi.inTransaction(new VoidTransactionCallback()
@@ -113,7 +113,7 @@ public class DatabaseShardManager
     public Set<String> getPartitions(TableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
-        checkState(tableHandle.getDataSourceType() == DataSourceType.NATIVE, "can only commit partitions for native tables");
+        checkState(tableHandle instanceof NativeTableHandle, "can only commit partitions for native tables");
         final long tableId = ((NativeTableHandle) tableHandle).getTableId();
         return dao.getPartitions(tableId);
     }
@@ -148,7 +148,7 @@ public class DatabaseShardManager
     public void dropPartition(final TableHandle tableHandle, final String partitionName)
     {
         checkNotNull(tableHandle, "tableHandle is null");
-        checkState(tableHandle.getDataSourceType() == DataSourceType.NATIVE, "can only commit partitions for native tables");
+        checkState(tableHandle instanceof NativeTableHandle, "can only commit partitions for native tables");
         final long tableId = ((NativeTableHandle) tableHandle).getTableId();
 
         dbi.inTransaction(new VoidTransactionCallback()

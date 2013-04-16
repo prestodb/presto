@@ -1,7 +1,7 @@
 package com.facebook.presto.hive;
 
+import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.SchemaField.Type;
 import com.google.common.base.Charsets;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
@@ -41,7 +41,7 @@ class BytesHiveRecordCursor<K>
     private final K key;
     private final BytesRefArrayWritable value;
 
-    private final Type[] types;
+    private final ColumnType[] types;
     private final HiveType[] hiveTypes;
     private final ObjectInspector[] fieldInspectors; // DON'T USE THESE UNLESS EXTRACTION WILL BE SLOW ANYWAY
 
@@ -72,7 +72,7 @@ class BytesHiveRecordCursor<K>
         this.partitionKeyCount = partitionKeys.size();
         int size = partitionKeyCount + Ordering.natural().max(Iterables.transform(columns, indexGetter())) + 1;
 
-        this.types = new Type[size];
+        this.types = new ColumnType[size];
         this.hiveTypes = new HiveType[size];
         this.longs = new long[size];
         this.doubles = new double[size];
@@ -220,21 +220,21 @@ class BytesHiveRecordCursor<K>
     @Override
     public long getLong(int fieldId)
     {
-        validateType(fieldId, Type.LONG);
+        validateType(fieldId, ColumnType.LONG);
         return longs[fieldId];
     }
 
     @Override
     public double getDouble(int fieldId)
     {
-        validateType(fieldId, Type.DOUBLE);
+        validateType(fieldId, ColumnType.DOUBLE);
         return doubles[fieldId];
     }
 
     @Override
     public byte[] getString(int fieldId)
     {
-        validateType(fieldId, Type.STRING);
+        validateType(fieldId, ColumnType.STRING);
         return strings[fieldId];
     }
 
@@ -244,7 +244,7 @@ class BytesHiveRecordCursor<K>
         return nulls[fieldId];
     }
 
-    private void validateType(int fieldId, Type type)
+    private void validateType(int fieldId, ColumnType type)
     {
         if (types[fieldId] != type) {
             // we don't use Preconditions.checkArgument because it requires boxing fieldId, which affects inner loop performance

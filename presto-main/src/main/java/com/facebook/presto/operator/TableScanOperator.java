@@ -3,7 +3,7 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.split.Split;
 import com.facebook.presto.tuple.TupleInfo;

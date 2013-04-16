@@ -1,13 +1,16 @@
 package com.facebook.presto.hive;
 
+import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.ImportClient;
-import com.facebook.presto.spi.ObjectNotFoundException;
 import com.facebook.presto.spi.PartitionChunk;
 import com.facebook.presto.spi.PartitionInfo;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.SchemaField;
-import com.facebook.presto.spi.SchemaField.Category;
-import com.facebook.presto.spi.SchemaField.Type;
+import com.facebook.presto.spi.SchemaNotFoundException;
+import com.facebook.presto.spi.SchemaTableMetadata;
+import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.TableNotFoundException;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
@@ -22,10 +25,12 @@ import io.airlift.json.ObjectMapperProvider;
 import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 
+import static com.google.common.collect.Maps.uniqueIndex;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
@@ -35,10 +40,10 @@ public abstract class AbstractTestHiveClient
 {
     public static final String DATABASE = "default";
     public static final String INVALID_DATABASE = "totally_invalid_database";
-    public static final String TABLE = "presto_test";
-    public static final String TABLE_UNPARTITIONED = "presto_test_unpartitioned";
-    public static final String VIEW = "presto_test_view";
-    public static final String INVALID_TABLE = "totally_invalid_table_name";
+    public static final SchemaTableName TABLE = new SchemaTableName(DATABASE, "presto_test");
+    public static final SchemaTableName TABLE_UNPARTITIONED = new SchemaTableName(DATABASE, "presto_test_unpartitioned");
+    public static final SchemaTableName VIEW = new SchemaTableName(DATABASE, "presto_test_view");
+    public static final SchemaTableName INVALID_TABLE = new SchemaTableName(DATABASE, "totally_invalid_table_name");
     public static final String INVALID_COLUMN = "totally_invalid_column_name";
     public static final List<String> PARTITIONS = ImmutableList.of(
             "ds=2012-12-29/file_format=rcfile/dummy=1",
@@ -51,7 +56,7 @@ public abstract class AbstractTestHiveClient
     public void testGetDatabaseNames()
             throws Exception
     {
-        List<String> databases = client.getDatabaseNames();
+        List<String> databases = client.listSchemaNames();
         assertTrue(databases.contains(DATABASE));
     }
 
@@ -59,40 +64,34 @@ public abstract class AbstractTestHiveClient
     public void testGetTableNames()
             throws Exception
     {
-        List<String> tables = client.getTableNames(DATABASE);
+        List<SchemaTableName> tables = client.listTables(DATABASE);
         assertTrue(tables.contains(TABLE));
     }
 
-    @Test(expectedExceptions = ObjectNotFoundException.class)
+    @Test(expectedExceptions = SchemaNotFoundException.class)
     public void testGetTableNamesException()
             throws Exception
     {
-        client.getTableNames(INVALID_DATABASE);
+        client.listTables(INVALID_DATABASE);
     }
 
     @Test
     public void testGetPartitionKeys()
             throws Exception
     {
-        List<SchemaField> partitionKeys = client.getPartitionKeys(DATABASE, TABLE);
+        TableHandle tableHandle = client.getTableHandle(TABLE);
+        List<String> partitionKeys = client.getTableMetadata(tableHandle).getPartitionKeys();
         assertEquals(partitionKeys.size(), 3);
-        assertEquals(partitionKeys.get(0).getFieldName(), "ds");
-        assertEquals(partitionKeys.get(1).getFieldName(), "file_format");
-        assertEquals(partitionKeys.get(2).getFieldName(), "dummy");
-    }
-
-    @Test(expectedExceptions = ObjectNotFoundException.class)
-    public void testGetPartitionKeysException()
-            throws Exception
-    {
-        client.getPartitionKeys(DATABASE, INVALID_TABLE);
+        assertEquals(partitionKeys.get(0), "ds");
+        assertEquals(partitionKeys.get(1), "file_format");
+        assertEquals(partitionKeys.get(2), "dummy");
     }
 
     @Test
     public void testGetPartitions()
             throws Exception
     {
-        List<PartitionInfo> partitions = client.getPartitions(DATABASE, TABLE);
+        List<PartitionInfo> partitions = client.getPartitions(TABLE, Collections.<String, Object>emptyMap());
         ImmutableSet.Builder<String> names = ImmutableSet.builder();
         for (PartitionInfo partition : partitions) {
             names.add(partition.getName());
@@ -100,18 +99,18 @@ public abstract class AbstractTestHiveClient
         assertEquals(names.build(), new HashSet<>(PARTITIONS));
     }
 
-    @Test(expectedExceptions = ObjectNotFoundException.class)
+    @Test(expectedExceptions = TableNotFoundException.class)
     public void testGetPartitionsException()
             throws Exception
     {
-        client.getPartitions(DATABASE, INVALID_TABLE);
+        client.getPartitions(INVALID_TABLE, Collections.<String, Object>emptyMap());
     }
 
     @Test
     public void testGetPartitionNames()
             throws Exception
     {
-        List<String> partitions = client.getPartitionNames(DATABASE, TABLE);
+        List<String> partitions = client.getPartitionNames(TABLE);
         assertEquals(partitions.size(), 3);
         assertEquals(new HashSet<>(partitions), new HashSet<>(PARTITIONS));
     }
@@ -120,67 +119,68 @@ public abstract class AbstractTestHiveClient
     public void testGetPartitionNamesUnpartitioned()
             throws Exception
     {
-        List<String> partitions = client.getPartitionNames(DATABASE, TABLE_UNPARTITIONED);
+        List<String> partitions = client.getPartitionNames(TABLE_UNPARTITIONED);
         assertEquals(partitions.size(), 1);
         assertEquals(partitions, ImmutableList.of(UnpartitionedPartition.UNPARTITIONED_NAME));
     }
 
-    @Test(expectedExceptions = ObjectNotFoundException.class)
+    @Test(expectedExceptions = TableNotFoundException.class)
     public void testGetPartitionNamesException()
             throws Exception
     {
-        client.getPartitionNames(DATABASE, INVALID_TABLE);
+        client.getPartitionNames(INVALID_TABLE);
     }
 
     @Test
     public void testGetTableSchema()
             throws Exception
     {
-        List<SchemaField> schema = client.getTableSchema(DATABASE, TABLE);
-        Map<String, SchemaField> map = schemaFieldMap(schema);
+        SchemaTableMetadata tableMetadata = client.getTableMetadata(client.getTableHandle(TABLE));
+        Map<String, ColumnMetadata> map = uniqueIndex(tableMetadata.getColumns(), columnNameGetter());
 
-        assertPrimitiveField(map, "t_string", Type.STRING);
-        assertPrimitiveField(map, "t_tinyint", Type.LONG);
-        assertPrimitiveField(map, "t_smallint", Type.LONG);
-        assertPrimitiveField(map, "t_int", Type.LONG);
-        assertPrimitiveField(map, "t_bigint", Type.LONG);
-        assertPrimitiveField(map, "t_float", Type.DOUBLE);
-        assertPrimitiveField(map, "t_double", Type.DOUBLE);
-        assertPrimitiveField(map, "t_boolean", Type.LONG);
+        assertPrimitiveField(map, "t_string", ColumnType.STRING);
+        assertPrimitiveField(map, "t_tinyint", ColumnType.LONG);
+        assertPrimitiveField(map, "t_smallint", ColumnType.LONG);
+        assertPrimitiveField(map, "t_int", ColumnType.LONG);
+        assertPrimitiveField(map, "t_bigint", ColumnType.LONG);
+        assertPrimitiveField(map, "t_float", ColumnType.DOUBLE);
+        assertPrimitiveField(map, "t_double", ColumnType.DOUBLE);
+        assertPrimitiveField(map, "t_boolean", ColumnType.LONG);
 //        assertPrimitiveField(map, "t_timestamp", Type.LONG);
 //        assertPrimitiveField(map, "t_binary", Type.STRING);
-        assertPrimitiveField(map, "t_array_string", Type.STRING); // Currently mapped as a string
-        assertPrimitiveField(map, "t_map", Type.STRING); // Currently mapped as a string
-        assertPrimitiveField(map, "t_complex", Type.STRING); // Currently mapped as a string
-        assertPrimitiveField(map, "ds", Type.STRING);
-        assertPrimitiveField(map, "file_format", Type.STRING);
-        assertPrimitiveField(map, "dummy", Type.LONG);
+        assertPrimitiveField(map, "t_array_string", ColumnType.STRING); // Currently mapped as a string
+        assertPrimitiveField(map, "t_map", ColumnType.STRING); // Currently mapped as a string
+        assertPrimitiveField(map, "t_complex", ColumnType.STRING); // Currently mapped as a string
+        assertPrimitiveField(map, "ds", ColumnType.STRING);
+        assertPrimitiveField(map, "file_format", ColumnType.STRING);
+        assertPrimitiveField(map, "dummy", ColumnType.LONG);
     }
 
     @Test
     public void testGetTableSchemaUnpartitioned()
             throws Exception
     {
-        List<SchemaField> schema = client.getTableSchema(DATABASE, TABLE_UNPARTITIONED);
-        Map<String, SchemaField> map = schemaFieldMap(schema);
+        TableHandle tableHandle = client.getTableHandle(TABLE_UNPARTITIONED);
+        SchemaTableMetadata tableMetadata = client.getTableMetadata(tableHandle);
+        Map<String, ColumnMetadata> map = uniqueIndex(tableMetadata.getColumns(), columnNameGetter());
 
-        assertPrimitiveField(map, "t_string", Type.STRING);
-        assertPrimitiveField(map, "t_tinyint", Type.LONG);
+        assertPrimitiveField(map, "t_string", ColumnType.STRING);
+        assertPrimitiveField(map, "t_tinyint", ColumnType.LONG);
     }
 
-    @Test(expectedExceptions = ObjectNotFoundException.class)
+    @Test(expectedExceptions = TableNotFoundException.class)
     public void testGetTableSchemaException()
             throws Exception
     {
-        client.getTableSchema(DATABASE, INVALID_TABLE);
+        client.getTableHandle(INVALID_TABLE);
     }
 
     @Test
     public void testGetPartitionChunksBatch()
             throws Exception
     {
-        List<String> partitions = client.getPartitionNames(DATABASE, TABLE);
-        Iterable<PartitionChunk> iterator = client.getPartitionChunks(DATABASE, TABLE, partitions, ImmutableList.<String>of());
+        List<String> partitions = client.getPartitionNames(TABLE);
+        Iterable<PartitionChunk> iterator = client.getPartitionChunks(TABLE, partitions, ImmutableList.<String>of());
 
         List<PartitionChunk> chunks = ImmutableList.copyOf(iterator);
         assertEquals(chunks.size(), 3);
@@ -190,33 +190,33 @@ public abstract class AbstractTestHiveClient
     public void testGetPartitionChunksBatchUnpartitioned()
             throws Exception
     {
-        List<String> partitions = client.getPartitionNames(DATABASE, TABLE_UNPARTITIONED);
-        Iterable<PartitionChunk> iterator = client.getPartitionChunks(DATABASE, TABLE_UNPARTITIONED, partitions, ImmutableList.<String>of());
+        List<String> partitions = client.getPartitionNames(TABLE_UNPARTITIONED);
+        Iterable<PartitionChunk> iterator = client.getPartitionChunks(TABLE_UNPARTITIONED, partitions, ImmutableList.<String>of());
 
         List<PartitionChunk> chunks = ImmutableList.copyOf(iterator);
         assertEquals(chunks.size(), 1);
     }
 
-    @Test(expectedExceptions = ObjectNotFoundException.class)
+    @Test(expectedExceptions = TableNotFoundException.class)
     public void testGetPartitionChunksBatchInvalidTable()
             throws Exception
     {
-        List<String> partitions = client.getPartitionNames(DATABASE, TABLE);
-        client.getPartitionChunks(DATABASE, INVALID_TABLE, partitions, ImmutableList.<String>of());
+        List<String> partitions = client.getPartitionNames(TABLE);
+        client.getPartitionChunks(INVALID_TABLE, partitions, ImmutableList.<String>of());
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = ".*" + INVALID_COLUMN + ".*")
     public void testGetPartitionChunksBatchInvalidColumn()
             throws Exception
     {
-        client.getPartitionChunks(DATABASE, TABLE, PARTITIONS, ImmutableList.of(INVALID_COLUMN));
+        client.getPartitionChunks(TABLE, PARTITIONS, ImmutableList.of(INVALID_COLUMN));
     }
 
     @Test
     public void testGetPartitionChunksEmpty()
             throws Exception
     {
-        Iterable<PartitionChunk> iterator = client.getPartitionChunks(DATABASE, TABLE, ImmutableList.<String>of(), ImmutableList.<String>of());
+        Iterable<PartitionChunk> iterator = client.getPartitionChunks(TABLE, ImmutableList.<String>of(), ImmutableList.<String>of());
         List<PartitionChunk> chunks = ImmutableList.copyOf(iterator);
         assertTrue(chunks.isEmpty());
     }
@@ -225,8 +225,9 @@ public abstract class AbstractTestHiveClient
     public void testGetRecords()
             throws Exception
     {
-        List<SchemaField> schema = client.getTableSchema(DATABASE, TABLE);
-        List<PartitionChunk> partitions = ImmutableList.copyOf(client.getPartitionChunks(DATABASE, TABLE, PARTITIONS, Lists.transform(schema, nameGetter())));
+        TableHandle tableHandle = client.getTableHandle(TABLE);
+        SchemaTableMetadata tableMetadata = client.getTableMetadata(tableHandle);
+        List<PartitionChunk> partitions = ImmutableList.copyOf(client.getPartitionChunks(TABLE, PARTITIONS, Lists.transform(tableMetadata.getColumns(), columnNameGetter())));
         assertEquals(partitions.size(), PARTITIONS.size());
         for (PartitionChunk partitionChunk : partitions) {
             HivePartitionChunk chunk = (HivePartitionChunk) partitionChunk;
@@ -234,7 +235,7 @@ public abstract class AbstractTestHiveClient
             byte[] bytes = client.serializePartitionChunk(chunk);
             chunk = (HivePartitionChunk) client.deserializePartitionChunk(bytes);
 
-            Map<String, SchemaField> map = schemaFieldMap(schema);
+            Map<String, ColumnMetadata> map = uniqueIndex(tableMetadata.getColumns(), columnNameGetter());
 
             List<HivePartitionKey> partitionKeys = chunk.getPartitionKeys();
             String ds = partitionKeys.get(0).getValue();
@@ -250,7 +251,7 @@ public abstract class AbstractTestHiveClient
 
                 while (cursor.advanceNextPosition()) {
                     try {
-                        assertReadFields(cursor, schema);
+                        assertReadFields(cursor, tableMetadata.getColumns());
                     }
                     catch (Exception e) {
                         throw new RuntimeException("row " + rowNumber, e);
@@ -259,60 +260,60 @@ public abstract class AbstractTestHiveClient
                     rowNumber++;
 
                     if (rowNumber % 19 == 0) {
-                        assertTrue(cursor.isNull(map.get("t_string").getFieldId()));
+                        assertTrue(cursor.isNull(map.get("t_string").getOrdinalPosition()));
                     }
                     else {
-                        assertEquals(cursor.getString(map.get("t_string").getFieldId()), (fileType + " test").getBytes(Charsets.UTF_8));
+                        assertEquals(cursor.getString(map.get("t_string").getOrdinalPosition()), (fileType + " test").getBytes(Charsets.UTF_8));
                     }
 
-                    assertEquals(cursor.getLong(map.get("t_tinyint").getFieldId()), (long) ((byte) (baseValue + 1 + rowNumber)));
-                    assertEquals(cursor.getLong(map.get("t_smallint").getFieldId()), baseValue + 2 + rowNumber);
-                    assertEquals(cursor.getLong(map.get("t_int").getFieldId()), baseValue + 3 + rowNumber);
+                    assertEquals(cursor.getLong(map.get("t_tinyint").getOrdinalPosition()), (long) ((byte) (baseValue + 1 + rowNumber)));
+                    assertEquals(cursor.getLong(map.get("t_smallint").getOrdinalPosition()), baseValue + 2 + rowNumber);
+                    assertEquals(cursor.getLong(map.get("t_int").getOrdinalPosition()), baseValue + 3 + rowNumber);
 
                     if (rowNumber % 13 == 0) {
-                        assertTrue(cursor.isNull(map.get("t_bigint").getFieldId()));
+                        assertTrue(cursor.isNull(map.get("t_bigint").getOrdinalPosition()));
                     }
                     else {
-                        assertEquals(cursor.getLong(map.get("t_bigint").getFieldId()), baseValue + 4 + rowNumber);
+                        assertEquals(cursor.getLong(map.get("t_bigint").getOrdinalPosition()), baseValue + 4 + rowNumber);
                     }
 
-                    assertEquals(cursor.getDouble(map.get("t_float").getFieldId()), baseValue + 5.1 + rowNumber, 0.001);
-                    assertEquals(cursor.getDouble(map.get("t_double").getFieldId()), baseValue + 6.2 + rowNumber);
+                    assertEquals(cursor.getDouble(map.get("t_float").getOrdinalPosition()), baseValue + 5.1 + rowNumber, 0.001);
+                    assertEquals(cursor.getDouble(map.get("t_double").getOrdinalPosition()), baseValue + 6.2 + rowNumber);
 
                     if (rowNumber % 3 == 2) {
-                        assertTrue(cursor.isNull(map.get("t_boolean").getFieldId()));
+                        assertTrue(cursor.isNull(map.get("t_boolean").getOrdinalPosition()));
                     }
                     else {
-                        assertEquals(cursor.getLong(map.get("t_boolean").getFieldId()), rowNumber % 3, String.format("row = %s", rowNumber));
+                        assertEquals(cursor.getLong(map.get("t_boolean").getOrdinalPosition()), rowNumber % 3, String.format("row = %s", rowNumber));
                     }
 
                     if (rowNumber % 29 == 0) {
-                        assertTrue(cursor.isNull(map.get("t_map").getFieldId()));
+                        assertTrue(cursor.isNull(map.get("t_map").getOrdinalPosition()));
                     }
                     else {
                         String expectedJson = "{\"format\":\"" + fileType + "\"}";
-                        assertEquals(cursor.getString(map.get("t_map").getFieldId()), expectedJson.getBytes(Charsets.UTF_8));
+                        assertEquals(cursor.getString(map.get("t_map").getOrdinalPosition()), expectedJson.getBytes(Charsets.UTF_8));
                     }
 
                     if (rowNumber % 27 == 0) {
-                        assertTrue(cursor.isNull(map.get("t_array_string").getFieldId()));
+                        assertTrue(cursor.isNull(map.get("t_array_string").getOrdinalPosition()));
                     }
                     else {
                         String expectedJson = "[\"" + fileType + "\",\"test\",\"data\"]";
-                        assertEquals(cursor.getString(map.get("t_array_string").getFieldId()), expectedJson.getBytes(Charsets.UTF_8));
+                        assertEquals(cursor.getString(map.get("t_array_string").getOrdinalPosition()), expectedJson.getBytes(Charsets.UTF_8));
                     }
 
                     if (rowNumber % 31 == 0) {
-                        assertTrue(cursor.isNull(map.get("t_complex").getFieldId()));
+                        assertTrue(cursor.isNull(map.get("t_complex").getOrdinalPosition()));
                     }
                     else {
                         String expectedJson = "{1:[{\"s_string\":\"" + fileType + "-a\",\"s_double\":0.1},{\"s_string\":\"" + fileType + "-b\",\"s_double\":0.2}]}";
-                        assertEquals(cursor.getString(map.get("t_complex").getFieldId()), expectedJson.getBytes(Charsets.UTF_8));
+                        assertEquals(cursor.getString(map.get("t_complex").getOrdinalPosition()), expectedJson.getBytes(Charsets.UTF_8));
                     }
 
-                    assertEquals(cursor.getString(map.get("ds").getFieldId()), ds.getBytes(Charsets.UTF_8));
-                    assertEquals(cursor.getString(map.get("file_format").getFieldId()), fileType.getBytes(Charsets.UTF_8));
-                    assertEquals(cursor.getLong(map.get("dummy").getFieldId()), dummy);
+                    assertEquals(cursor.getString(map.get("ds").getOrdinalPosition()), ds.getBytes(Charsets.UTF_8));
+                    assertEquals(cursor.getString(map.get("file_format").getOrdinalPosition()), fileType.getBytes(Charsets.UTF_8));
+                    assertEquals(cursor.getLong(map.get("dummy").getOrdinalPosition()), dummy);
 
                     long newCompletedBytes = cursor.getCompletedBytes();
                     assertTrue(newCompletedBytes >= completedBytes);
@@ -329,8 +330,9 @@ public abstract class AbstractTestHiveClient
     public void testGetPartialRecords()
             throws Exception
     {
-        List<SchemaField> schema = client.getTableSchema(DATABASE, TABLE);
-        List<PartitionChunk> partitions = ImmutableList.copyOf(client.getPartitionChunks(DATABASE, TABLE, PARTITIONS, ImmutableList.of("t_double")));
+        TableHandle tableHandle = client.getTableHandle(TABLE);
+        SchemaTableMetadata tableMetadata = client.getTableMetadata(tableHandle);
+        List<PartitionChunk> partitions = ImmutableList.copyOf(client.getPartitionChunks(TABLE, PARTITIONS, ImmutableList.of("t_double")));
         assertEquals(partitions.size(), PARTITIONS.size());
         for (PartitionChunk partitionChunk : partitions) {
             HivePartitionChunk chunk = (HivePartitionChunk) partitionChunk;
@@ -338,7 +340,7 @@ public abstract class AbstractTestHiveClient
             byte[] bytes = client.serializePartitionChunk(chunk);
             chunk = (HivePartitionChunk) client.deserializePartitionChunk(bytes);
 
-            Map<String, SchemaField> map = schemaFieldMap(schema);
+            Map<String, ColumnMetadata> map = uniqueIndex(tableMetadata.getColumns(), columnNameGetter());
 
             List<HivePartitionKey> partitionKeys = chunk.getPartitionKeys();
             String ds = partitionKeys.get(0).getValue();
@@ -352,10 +354,10 @@ public abstract class AbstractTestHiveClient
                 while (cursor.advanceNextPosition()) {
                     rowNumber++;
 
-                    assertEquals(cursor.getDouble(map.get("t_double").getFieldId()), baseValue + 6.2 + rowNumber);
-                    assertEquals(cursor.getString(map.get("ds").getFieldId()), ds.getBytes(Charsets.UTF_8));
-                    assertEquals(cursor.getString(map.get("file_format").getFieldId()), fileType.getBytes(Charsets.UTF_8));
-                    assertEquals(cursor.getLong(map.get("dummy").getFieldId()), dummy);
+                    assertEquals(cursor.getDouble(map.get("t_double").getOrdinalPosition()), baseValue + 6.2 + rowNumber);
+                    assertEquals(cursor.getString(map.get("ds").getOrdinalPosition()), ds.getBytes(Charsets.UTF_8));
+                    assertEquals(cursor.getString(map.get("file_format").getOrdinalPosition()), fileType.getBytes(Charsets.UTF_8));
+                    assertEquals(cursor.getLong(map.get("dummy").getOrdinalPosition()), dummy);
                 }
             }
             assertEquals(rowNumber, 100);
@@ -366,10 +368,9 @@ public abstract class AbstractTestHiveClient
     public void testGetRecordsUnpartitioned()
             throws Exception
     {
-        List<SchemaField> schema = client.getTableSchema(DATABASE, TABLE_UNPARTITIONED);
-        List<String> partitionNames = client.getPartitionNames(DATABASE, TABLE_UNPARTITIONED);
-        List<String> columns = Lists.transform(schema, nameGetter());
-        List<PartitionChunk> partitions = ImmutableList.copyOf(client.getPartitionChunks(DATABASE, TABLE_UNPARTITIONED, partitionNames, columns));
+        TableHandle tableHandle = client.getTableHandle(TABLE_UNPARTITIONED);
+        SchemaTableMetadata tableMetadata = client.getTableMetadata(tableHandle);
+        List<PartitionChunk> partitions = ImmutableList.copyOf(client.getPartitionChunks(TABLE_UNPARTITIONED, PARTITIONS, Lists.transform(tableMetadata.getColumns(), columnNameGetter())));
         assertEquals(partitions.size(), 1);
 
         for (PartitionChunk partitionChunk : partitions) {
@@ -378,7 +379,7 @@ public abstract class AbstractTestHiveClient
             byte[] bytes = client.serializePartitionChunk(chunk);
             chunk = (HivePartitionChunk) client.deserializePartitionChunk(bytes);
 
-            Map<String, SchemaField> map = schemaFieldMap(schema);
+            Map<String, ColumnMetadata> map = uniqueIndex(tableMetadata.getColumns(), columnNameGetter());
 
             assertEquals(chunk.getPartitionKeys(), ImmutableList.of());
 
@@ -390,24 +391,24 @@ public abstract class AbstractTestHiveClient
                     rowNumber++;
 
                     if (rowNumber % 19 == 0) {
-                        assertTrue(cursor.isNull(map.get("t_string").getFieldId()));
+                        assertTrue(cursor.isNull(map.get("t_string").getOrdinalPosition()));
                     }
                     else {
-                        assertEquals(cursor.getString(map.get("t_string").getFieldId()), "unpartitioned".getBytes(Charsets.UTF_8));
+                        assertEquals(cursor.getString(map.get("t_string").getOrdinalPosition()), "unpartitioned".getBytes(Charsets.UTF_8));
                     }
 
-                    assertEquals(cursor.getLong(map.get("t_tinyint").getFieldId()), 1 + rowNumber);
+                    assertEquals(cursor.getLong(map.get("t_tinyint").getOrdinalPosition()), 1 + rowNumber);
                 }
             }
             assertEquals(rowNumber, 100);
         }
     }
 
-    @Test(expectedExceptions = ObjectNotFoundException.class, expectedExceptionsMessageRegExp = HiveClient.HIVE_VIEWS_NOT_SUPPORTED)
+    @Test(expectedExceptions = TableNotFoundException.class, expectedExceptionsMessageRegExp = HiveClient.HIVE_VIEWS_NOT_SUPPORTED)
     public void testViewsAreNotSupported()
             throws Exception
     {
-        client.getTableSchema(DATABASE, VIEW);
+        client.getTableHandle(VIEW);
     }
 
     private long getBaseValueForFileType(String fileType)
@@ -424,48 +425,37 @@ public abstract class AbstractTestHiveClient
         }
     }
 
-    private void assertReadFields(RecordCursor cursor, List<SchemaField> schema)
+    private void assertReadFields(RecordCursor cursor, List<ColumnMetadata> schema)
     {
-        for (SchemaField field : schema) {
-            assertEquals(field.getCategory(), Category.PRIMITIVE);
-            if (!cursor.isNull(field.getFieldId())) {
-                switch (field.getPrimitiveType()) {
+        for (ColumnMetadata column : schema) {
+            if (!cursor.isNull(column.getOrdinalPosition())) {
+                switch (column.getType()) {
                     case LONG:
-                        cursor.getLong(field.getFieldId());
+                        cursor.getLong(column.getOrdinalPosition());
                         break;
                     case DOUBLE:
-                        cursor.getDouble(field.getFieldId());
+                        cursor.getDouble(column.getOrdinalPosition());
                         break;
                     case STRING:
                         try {
-                            cursor.getString(field.getFieldId());
+                            cursor.getString(column.getOrdinalPosition());
                         }
                         catch (Exception e) {
-                            throw new RuntimeException("field " + field, e);
+                            throw new RuntimeException("column " + column, e);
                         }
                         break;
                     default:
-                        fail("Unknown primitive type " + field.getPrimitiveType());
+                        fail("Unknown primitive type " + column.getOrdinalPosition());
                 }
             }
         }
     }
 
-    private static void assertPrimitiveField(Map<String, SchemaField> map, String name, Type type)
+    private static void assertPrimitiveField(Map<String, ColumnMetadata> map, String name, ColumnType type)
     {
         assertTrue(map.containsKey(name));
-        SchemaField field = map.get(name);
-        assertEquals(field.getCategory(), Category.PRIMITIVE);
-        assertEquals(field.getPrimitiveType(), type);
-    }
-
-    private static Map<String, SchemaField> schemaFieldMap(List<SchemaField> schema)
-    {
-        ImmutableMap.Builder<String, SchemaField> map = ImmutableMap.builder();
-        for (SchemaField field : schema) {
-            map.put(field.getFieldName(), field);
-        }
-        return map.build();
+        ColumnMetadata column = map.get(name);
+        assertEquals(column.getType(), type);
     }
 
     protected HiveChunkEncoder getHiveChunkEncoder()
@@ -476,14 +466,14 @@ public abstract class AbstractTestHiveClient
         return new HiveChunkEncoder(new JsonCodecFactory(objectMapperProvider).jsonCodec(HivePartitionChunk.class));
     }
 
-    private static Function<SchemaField, String> nameGetter()
+    private static Function<ColumnMetadata, String> columnNameGetter()
     {
-        return new Function<SchemaField, String>()
+        return new Function<ColumnMetadata, String>()
         {
             @Override
-            public String apply(SchemaField input)
+            public String apply(ColumnMetadata input)
             {
-                return input.getFieldName();
+                return input.getName();
             }
         };
     }

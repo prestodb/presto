@@ -1,5 +1,11 @@
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.SchemaTableMetadata;
+import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.TableHandle;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -14,9 +20,9 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.metadata.MetadataUtil.ColumnMetadataListBuilder.columnsBuilder;
-import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
-import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
-import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
+import static com.facebook.presto.spi.ColumnType.DOUBLE;
+import static com.facebook.presto.spi.ColumnType.LONG;
+import static com.facebook.presto.spi.ColumnType.STRING;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
@@ -74,10 +80,10 @@ public class TestNativeMetadata
         metadata.createTable(getOrdersTable());
         Map<SchemaTableName, List<ColumnMetadata>> columns = metadata.listTableColumns(new SchemaTablePrefix());
         assertEquals(columns, ImmutableMap.of(DEFAULT_TEST_ORDERS, columnsBuilder()
-                .column("orderkey", FIXED_INT_64)
-                .column("custkey", FIXED_INT_64)
+                .column("orderkey", LONG)
+                .column("custkey", LONG)
                 .column("totalprice", DOUBLE)
-                .column("orderdate", VARIABLE_BINARY)
+                .column("orderdate", STRING)
                 .build()));
     }
 
@@ -95,10 +101,10 @@ public class TestNativeMetadata
     private static SchemaTableMetadata getOrdersTable()
     {
         return new SchemaTableMetadata(DEFAULT_TEST_ORDERS, columnsBuilder()
-                .column("orderkey", FIXED_INT_64)
-                .column("custkey", FIXED_INT_64)
+                .column("orderkey", LONG)
+                .column("custkey", LONG)
                 .column("totalprice", DOUBLE)
-                .column("orderdate", VARIABLE_BINARY)
+                .column("orderdate", STRING)
                 .build());
     }
 

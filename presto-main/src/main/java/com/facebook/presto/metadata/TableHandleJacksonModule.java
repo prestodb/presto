@@ -1,5 +1,7 @@
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.TableHandle;
+
 import javax.inject.Inject;
 
 import java.util.Map;

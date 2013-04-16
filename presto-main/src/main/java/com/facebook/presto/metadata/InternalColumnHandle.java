@@ -1,5 +1,6 @@
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.ColumnHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -20,9 +21,4 @@ public class InternalColumnHandle
         return columnIndex;
     }
 
-    @Override
-    public DataSourceType getDataSourceType()
-    {
-        return DataSourceType.INTERNAL;
-    }
 }

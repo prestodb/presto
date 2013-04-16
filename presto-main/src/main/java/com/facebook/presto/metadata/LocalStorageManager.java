@@ -2,6 +2,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.operator.Operator;
+import com.facebook.presto.spi.ColumnHandle;
 
 import java.io.IOException;
 import java.util.List;
