@@ -80,8 +80,8 @@ public class QueryMonitor
         try {
             eventClient.post(
                     new SplitCompletionEvent(
-                            taskInfo.getQueryId(),
-                            taskInfo.getStageId(),
+                            taskInfo.getTaskId().getQueryId(),
+                            taskInfo.getTaskId().getStageId(),
                             taskInfo.getTaskId(),
                             splitExecutionStats.getExecutionStartTime(),
                             splitExecutionStats.getTimeToFirstByte(),
