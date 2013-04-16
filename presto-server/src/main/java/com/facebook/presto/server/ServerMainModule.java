@@ -8,6 +8,7 @@ import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.event.query.QueryCompletionEvent;
 import com.facebook.presto.event.query.QueryCreatedEvent;
 import com.facebook.presto.event.query.QueryMonitor;
+import com.facebook.presto.event.query.SplitCompletionEvent;
 import com.facebook.presto.execution.CreateOrReplaceMaterializedViewExecution.CreateOrReplaceMaterializedViewExecutionFactory;
 import com.facebook.presto.execution.DropTableExecution.DropTableExecutionFactory;
 import com.facebook.presto.execution.LocationFactory;
@@ -178,11 +179,10 @@ public class ServerMainModule
         jsonBinder(binder).addDeserializerBinding(Expression.class).to(ExpressionDeserializer.class);
         jsonBinder(binder).addDeserializerBinding(FunctionCall.class).to(FunctionCallDeserializer.class);
 
-        jsonCodecBinder(binder).bindJsonCodec(StageInfo.class);
-        jsonCodecBinder(binder).bindJsonCodec(FailureInfo.class);
         binder.bind(QueryMonitor.class).in(Scopes.SINGLETON);
         eventBinder(binder).bindEventClient(QueryCreatedEvent.class);
         eventBinder(binder).bindEventClient(QueryCompletionEvent.class);
+        eventBinder(binder).bindEventClient(SplitCompletionEvent.class);
 
         discoveryBinder(binder).bindSelector("presto");
 
