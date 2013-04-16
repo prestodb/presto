@@ -8,7 +8,6 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableHandle;
 import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import org.skife.jdbi.v2.Handle;
@@ -148,13 +147,6 @@ public class NativeMetadata
         }
         // This is safe for a list multimap
         return (Map<SchemaTableName, List<ColumnMetadata>>) (Object) columns.build().asMap();
-    }
-
-    @Override
-    public List<Map<String, String>> listTablePartitionValues(SchemaTablePrefix prefix)
-    {
-        checkNotNull(prefix, "prefix is null");
-        return ImmutableList.of();
     }
 
     private SchemaTableName getTableName(TableHandle tableHandle)

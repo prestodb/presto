@@ -106,14 +106,6 @@ public class ClassLoaderSafeImportClient
     }
 
     @Override
-    public List<Map<String, String>> listTablePartitionValues(SchemaTablePrefix prefix)
-    {
-        try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
-            return delegate.listTablePartitionValues(prefix);
-        }
-    }
-
-    @Override
     public List<Partition> getPartitions(TableHandle table, Map<ColumnHandle, Object> bindings)
     {
         try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {

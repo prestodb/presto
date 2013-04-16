@@ -36,7 +36,6 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.MetaStoreUtils;
-import org.apache.hadoop.hive.metastore.Warehouse;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
@@ -68,7 +67,6 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
@@ -80,11 +78,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.HivePartitionChunk.makeLastChunk;
 import static com.facebook.presto.hive.HiveUtil.convertHiveType;
 import static com.facebook.presto.hive.HiveUtil.convertNativeHiveType;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
-import static com.facebook.presto.hive.UnpartitionedPartition.UNPARTITIONED_NAME;
+import static com.facebook.presto.hive.UnpartitionedPartition.UNPARTITIONED_PARTITION;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -268,22 +267,6 @@ public class HiveClient
     }
 
     @Override
-    public List<Map<String, String>> listTablePartitionValues(SchemaTablePrefix prefix)
-    {
-        ImmutableList.Builder<Map<String, String>> partitionValues = ImmutableList.builder();
-        for (SchemaTableName table : listTables(prefix)) {
-            for (Partition partition : getPartitions(getTableHandle(table), Collections.<ColumnHandle, Object>emptyMap())) {
-                ImmutableMap.Builder<String, String> values = ImmutableMap.builder();
-                for (Entry<ColumnHandle, String> entry : partition.getKeys().entrySet()) {
-                    values.put(((HiveColumnHandle) entry.getKey()).getColumnName(), entry.getValue());
-                }
-                partitionValues.add(values.build());
-            }
-        }
-        return partitionValues.build();
-    }
-
-    @Override
     public List<Partition> getPartitions(TableHandle table, Map<ColumnHandle, Object> bindings)
     {
         SchemaTableName tableName = getTableName(table);
@@ -326,7 +309,7 @@ public class HiveClient
         }
 
         // do a final pass to filter based on fields that could not be used to build the prefix
-        Iterable<Partition> partitions = transform(partitionNames, toPartition(tableName, partitionColumns));
+        Iterable<Partition> partitions = transform(partitionNames, toPartition(tableName));
         return ImmutableList.copyOf(Iterables.filter(partitions, partitionMatches(bindings)));
     }
 
@@ -337,8 +320,10 @@ public class HiveClient
         checkNotNull(columns, "columns is null");
 
         Partition partition = Iterables.getFirst(partitions, null);
-        checkArgument(partition != null, "partitions is empty");
-        checkArgument(partition instanceof HivePartition, "Partition must be an hive partition");
+        if (partition == null) {
+            return ImmutableList.of();
+        }
+        checkArgument(partition instanceof HivePartition, "Partition must be a hive partition");
         SchemaTableName tableName = ((HivePartition) partition).getTableName();
 
         List<String> partitionNames = Lists.transform(partitions, new Function<Partition, String>()
@@ -366,8 +351,8 @@ public class HiveClient
     private Iterable<org.apache.hadoop.hive.metastore.api.Partition> getPartitions(final SchemaTableName tableName, final List<String> partitionNames)
             throws NoSuchObjectException
     {
-        if (partitionNames.equals(ImmutableList.of(UNPARTITIONED_NAME))) {
-            return ImmutableList.<org.apache.hadoop.hive.metastore.api.Partition>of(UnpartitionedPartition.INSTANCE);
+        if (partitionNames.equals(ImmutableList.of(UNPARTITIONED_ID))) {
+            return ImmutableList.of(UNPARTITIONED_PARTITION);
         }
 
         Iterable<List<String>> partitionNameBatches = partitionExponentially(partitionNames, partitionBatchSize);
@@ -840,29 +825,18 @@ public class HiveClient
         }
     }
 
-    private static Function<String, Partition> toPartition(final SchemaTableName tableName, final List<String> keys)
+    private static Function<String, Partition> toPartition(final SchemaTableName tableName)
     {
         return new Function<String, Partition>()
         {
             @Override
             public Partition apply(String partitionName)
             {
-                if (partitionName.equals(UNPARTITIONED_NAME)) {
-                    return new HivePartition(tableName, UNPARTITIONED_NAME, ImmutableMap.<ColumnHandle, String>of());
+                if (partitionName.equals(UNPARTITIONED_ID)) {
+                    return new HivePartition(tableName);
                 }
 
-                try {
-                    ImmutableMap.Builder<ColumnHandle, String> builder = ImmutableMap.builder();
-                    List<String> parts = Warehouse.getPartValuesFromPartName(partitionName);
-                    for (int i = 0; i < parts.size(); i++) {
-                        builder.put(new HiveColumnHandle(keys.get(i)), parts.get(i));
-                    }
-
-                    return new HivePartition(tableName, partitionName, builder.build());
-                }
-                catch (MetaException e) {
-                    throw Throwables.propagate(e);
-                }
+                return new HivePartition(tableName, partitionName);
             }
         };
     }
@@ -920,7 +894,7 @@ public class HiveClient
 
     private static List<HivePartitionKey> getPartitionKeys(Table table, org.apache.hadoop.hive.metastore.api.Partition partition)
     {
-        if (partition instanceof UnpartitionedPartition) {
+        if (partition == UNPARTITIONED_PARTITION) {
             return ImmutableList.of();
         }
         ImmutableList.Builder<HivePartitionKey> partitionKeys = ImmutableList.builder();
@@ -940,7 +914,7 @@ public class HiveClient
 
     private static Properties getPartitionSchema(Table table, org.apache.hadoop.hive.metastore.api.Partition partition)
     {
-        if (partition instanceof UnpartitionedPartition) {
+        if (partition == UNPARTITIONED_PARTITION) {
             return MetaStoreUtils.getSchema(table);
         }
         return MetaStoreUtils.getSchema(partition, table);
@@ -948,7 +922,7 @@ public class HiveClient
 
     private static String getPartitionLocation(Table table, org.apache.hadoop.hive.metastore.api.Partition partition)
     {
-        if (partition instanceof UnpartitionedPartition) {
+        if (partition == UNPARTITIONED_PARTITION) {
             return table.getSd().getLocation();
         }
         return partition.getSd().getLocation();

@@ -56,18 +56,6 @@ public class ImportColumnHandle
         return columnHandle;
     }
 
-    public static Function<ImportColumnHandle, String> columnNameGetter()
-    {
-        return new Function<ImportColumnHandle, String>()
-        {
-            @Override
-            public String apply(ImportColumnHandle input)
-            {
-                return input.getColumnName();
-            }
-        };
-    }
-
     public static Function<ImportColumnHandle, Integer> idGetter()
     {
         return new Function<ImportColumnHandle, Integer>()

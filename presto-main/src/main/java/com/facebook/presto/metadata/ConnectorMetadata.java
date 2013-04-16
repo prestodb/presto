@@ -56,8 +56,6 @@ public interface ConnectorMetadata
      */
     Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(SchemaTablePrefix prefix);
 
-    List<Map<String, String>> listTablePartitionValues(SchemaTablePrefix prefix);
-
     /**
      * Creates a table using the specified table metadata.
      */

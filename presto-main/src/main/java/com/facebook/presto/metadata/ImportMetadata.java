@@ -123,12 +123,6 @@ public class ImportMetadata
     }
 
     @Override
-    public List<Map<String, String>> listTablePartitionValues(SchemaTablePrefix prefix)
-    {
-        return client.listTablePartitionValues(prefix);
-    }
-
-    @Override
     public TableHandle createTable(SchemaTableMetadata tableMetadata)
     {
         throw new UnsupportedOperationException();

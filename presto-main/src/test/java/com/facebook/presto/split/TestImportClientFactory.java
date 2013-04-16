@@ -121,12 +121,6 @@ public class TestImportClientFactory
                 }
 
                 @Override
-                public List<Map<String, String>> listTablePartitionValues(SchemaTablePrefix prefix)
-                {
-                    throw new UnsupportedOperationException();
-                }
-
-                @Override
                 public List<Partition> getPartitions(TableHandle table, Map<ColumnHandle, Object> bindings)
                 {
                     throw new UnsupportedOperationException();
