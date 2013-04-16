@@ -1,16 +1,16 @@
 package com.facebook.presto.tpch;
 
-import com.facebook.presto.metadata.ColumnHandle;
-import com.facebook.presto.metadata.ColumnMetadata;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.metadata.ConnectorMetadata;
 import com.facebook.presto.metadata.InternalColumnHandle;
 import com.facebook.presto.metadata.InternalSchemaMetadata;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.SchemaTableMetadata;
-import com.facebook.presto.metadata.SchemaTableName;
-import com.facebook.presto.metadata.SchemaTablePrefix;
-import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.spi.SchemaTableMetadata;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.TableHandle;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -21,9 +21,9 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.metadata.MetadataUtil.ColumnMetadataListBuilder.columnsBuilder;
-import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
-import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
-import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
+import static com.facebook.presto.spi.ColumnType.DOUBLE;
+import static com.facebook.presto.spi.ColumnType.LONG;
+import static com.facebook.presto.spi.ColumnType.STRING;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -34,36 +34,37 @@ public class TpchMetadata
     public static final String TPCH_SCHEMA_NAME = "default";
 
     public static final String TPCH_ORDERS_NAME = "orders";
+
     public static final SchemaTableMetadata TPCH_ORDERS_METADATA = new SchemaTableMetadata(new SchemaTableName(TPCH_SCHEMA_NAME, TPCH_ORDERS_NAME), columnsBuilder()
-            .column("orderkey", FIXED_INT_64) // Mostly increasing IDs
-            .column("custkey", FIXED_INT_64) // 15:1
-            .column("orderstatus", VARIABLE_BINARY) // 3 unique
+            .column("orderkey", LONG) // Mostly increasing IDs
+            .column("custkey", LONG) // 15:1
+            .column("orderstatus", STRING) // 3 unique
             .column("totalprice", DOUBLE) // High cardinality
-            .column("orderdate", VARIABLE_BINARY) // 2400 unique
-            .column("orderpriority", VARIABLE_BINARY) // 5 unique
-            .column("clerk", VARIABLE_BINARY) // High cardinality
-            .column("shippriority", VARIABLE_BINARY) // 1 unique
-            .column("comment", VARIABLE_BINARY)
+            .column("orderdate", STRING) // 2400 unique
+            .column("orderpriority", STRING) // 5 unique
+            .column("clerk", STRING) // High cardinality
+            .column("shippriority", STRING) // 1 unique
+            .column("comment", STRING)
             .build()); // Arbitrary strings
 
     public static final String TPCH_LINEITEM_NAME = "lineitem";
     public static final SchemaTableMetadata TPCH_LINEITEM_METADATA = new SchemaTableMetadata(new SchemaTableName(TPCH_SCHEMA_NAME, TPCH_LINEITEM_NAME),  columnsBuilder()
-            .column("orderkey", FIXED_INT_64)
-            .column("partkey", FIXED_INT_64)
-            .column("suppkey", FIXED_INT_64)
-            .column("linenumber", FIXED_INT_64)
+            .column("orderkey", LONG)
+            .column("partkey", LONG)
+            .column("suppkey", LONG)
+            .column("linenumber", LONG)
             .column("quantity", DOUBLE)
             .column("extendedprice", DOUBLE)
             .column("discount", DOUBLE)
             .column("tax", DOUBLE)
-            .column("returnflag", VARIABLE_BINARY)// Single letter, low cardinality
-            .column("linestatus", VARIABLE_BINARY)// Single letter, low cardinality
-            .column("shipdate", VARIABLE_BINARY)
-            .column("commitdate", VARIABLE_BINARY)
-            .column("receiptdate", VARIABLE_BINARY)
-            .column("shipinstruct", VARIABLE_BINARY)
-            .column("shipmode", VARIABLE_BINARY)
-            .column("comment", VARIABLE_BINARY)
+            .column("returnflag", STRING)// Single letter, low cardinality
+            .column("linestatus", STRING)// Single letter, low cardinality
+            .column("shipdate", STRING)
+            .column("commitdate", STRING)
+            .column("receiptdate", STRING)
+            .column("shipinstruct", STRING)
+            .column("shipmode", STRING)
+            .column("comment", STRING)
             .build());
 
     public static Metadata createTpchMetadata()
@@ -137,12 +138,12 @@ public class TpchMetadata
     @Override
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(SchemaTablePrefix prefix)
     {
-        if (!TPCH_SCHEMA_NAME.equals(prefix.getSchemaName().or(TPCH_SCHEMA_NAME))) {
+        if (prefix.getSchemaName() != null && !TPCH_SCHEMA_NAME.equals(prefix.getSchemaName())) {
             return ImmutableMap.of();
         }
 
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> tableColumns = ImmutableMap.builder();
-        for (SchemaTableName tableName : listTables(prefix.getSchemaName())) {
+        for (SchemaTableName tableName : listTables(Optional.fromNullable(prefix.getSchemaName()))) {
             int position = 1;
             ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
             for (ColumnMetadata column : tables.get(tableName.getTableName()).getColumns()) {

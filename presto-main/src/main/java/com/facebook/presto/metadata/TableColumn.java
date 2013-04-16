@@ -20,7 +20,7 @@ public class TableColumn
     {
         this.table = checkTable(table);
         this.columnName = checkNotNull(columnName, "columnName is null");
-        checkArgument(ordinalPosition >= 1, "ordinal position must be at least one");
+        checkArgument(ordinalPosition >= 0, "ordinal position is negative");
         this.ordinalPosition = ordinalPosition;
         this.dataType = checkNotNull(dataType, "dataType is null");
         this.columnId = columnId;

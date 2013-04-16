@@ -1,5 +1,6 @@
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableMap;
 
@@ -9,7 +10,7 @@ import java.util.Map;
 
 import static com.facebook.presto.metadata.MetadataUtil.ColumnMetadataListBuilder.columnsBuilder;
 import static com.facebook.presto.metadata.MetadataUtil.checkTable;
-import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
+import static com.facebook.presto.spi.ColumnType.STRING;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
@@ -24,9 +25,9 @@ public class SystemTables
 
     private static final Map<String, List<ColumnMetadata>> METADATA = ImmutableMap.<String, List<ColumnMetadata>>builder()
             .put(TABLE_NODES, columnsBuilder()
-                    .column("node_identifier", VARIABLE_BINARY)
-                    .column("http_uri", VARIABLE_BINARY)
-                    .column("is_active", VARIABLE_BINARY)
+                    .column("node_identifier", STRING)
+                    .column("http_uri", STRING)
+                    .column("is_active", STRING)
                     .build())
             .build();
 

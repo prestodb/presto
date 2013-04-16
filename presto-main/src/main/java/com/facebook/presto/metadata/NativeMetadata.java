@@ -1,6 +1,12 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.metadata.MetadataDao.Utils;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.SchemaTableMetadata;
+import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.TableHandle;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -16,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 
+import static com.facebook.presto.tuple.TupleInfo.Type.fromColumnType;
 import static com.facebook.presto.util.SqlUtils.runIgnoringConstraintViolation;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -135,8 +142,9 @@ public class NativeMetadata
         checkNotNull(prefix, "prefix is null");
 
         ImmutableListMultimap.Builder<SchemaTableName, ColumnMetadata> columns = ImmutableListMultimap.builder();
-        for (TableColumn tableColumn : dao.listTableColumns(catalogName, prefix.getSchemaName().orNull(), prefix.getTableName().orNull())) {
-            columns.put(tableColumn.getTable().asSchemaTableName(), new ColumnMetadata(tableColumn.getColumnName(), tableColumn.getDataType(), tableColumn.getOrdinalPosition()));
+        for (TableColumn tableColumn : dao.listTableColumns(catalogName, prefix.getSchemaName(), prefix.getTableName())) {
+            ColumnMetadata columnMetadata = new ColumnMetadata(tableColumn.getColumnName(), tableColumn.getDataType().toColumnType(), tableColumn.getOrdinalPosition());
+            columns.put(tableColumn.getTable().asSchemaTableName(), columnMetadata);
         }
         // This is safe for a list multimap
         return (Map<SchemaTableName, List<ColumnMetadata>>) (Object) columns.build().asMap();
@@ -179,10 +187,10 @@ public class NativeMetadata
                     {
                         MetadataDao dao = handle.attach(MetadataDao.class);
                         long tableId = dao.insertTable(catalogName, tableMetadata.getTable().getSchemaName(), tableMetadata.getTable().getTableName());
-                        int position = 1;
+                        int ordinalPosition = 0;
                         for (ColumnMetadata column : tableMetadata.getColumns()) {
-                            dao.insertColumn(tableId, column.getName(), position, column.getType().getName());
-                            position++;
+                            dao.insertColumn(tableId, column.getName(), ordinalPosition, fromColumnType(column.getType()).getName());
+                            ordinalPosition++;
                         }
                         return tableId;
                     }

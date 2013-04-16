@@ -1,5 +1,6 @@
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.SchemaTablePrefix;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 
@@ -72,7 +73,17 @@ public class QualifiedTablePrefix
 
     public SchemaTablePrefix asSchemaTablePrefix()
     {
-        return new SchemaTablePrefix(schemaName, tableName);
+        return new SchemaTablePrefix(schemaName.orNull(), tableName.orNull());
+    }
+
+    public SchemaTablePrefix toSchemaTablePrefix() {
+        if (!schemaName.isPresent()) {
+            return new SchemaTablePrefix();
+        } else if (!tableName.isPresent()) {
+            return new SchemaTablePrefix(schemaName.get());
+        } else {
+            return new SchemaTablePrefix(schemaName.get(), tableName.get());
+        }
     }
 
     @Override

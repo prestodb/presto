@@ -1,6 +1,8 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.metadata.Table.TableMapper;
+import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.SchemaTableName;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.skife.jdbi.v2.exceptions.UnableToObtainConnectionException;
@@ -53,7 +55,7 @@ public interface MetadataDao
     @Mapper(QualifiedTableNameMapper.class)
     QualifiedTableName getTableName(@Bind("tableId") long tableId);
 
-    @SqlQuery("SELECT c.column_id, c.column_name, c.data_type\n" +
+    @SqlQuery("SELECT c.column_id, c.column_name, c.data_type, c.ordinal_position\n" +
             "FROM tables t\n" +
             "JOIN columns c ON (t.table_id = c.table_id)\n" +
             "WHERE (c.column_id = :columnId)")

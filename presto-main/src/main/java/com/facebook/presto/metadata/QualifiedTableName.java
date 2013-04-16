@@ -1,6 +1,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import com.google.common.base.Function;

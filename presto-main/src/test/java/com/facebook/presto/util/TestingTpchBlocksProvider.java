@@ -12,6 +12,7 @@ import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.facebook.presto.tpch.TpchColumnHandle;
 import com.facebook.presto.tpch.TpchTableHandle;
 import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.base.Optional;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
@@ -49,7 +50,8 @@ public class TestingTpchBlocksProvider
             int totalParts,
             BlocksFileEncoding encoding)
     {
-        return new TpchBlockIterable(columnHandle.getType(),
+
+        return new TpchBlockIterable(Type.fromColumnType(columnHandle.getType()),
                 partNumber,
                 totalParts,
                 tableHandle.getTableName(),

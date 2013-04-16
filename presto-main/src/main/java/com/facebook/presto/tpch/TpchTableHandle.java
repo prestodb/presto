@@ -1,7 +1,6 @@
 package com.facebook.presto.tpch;
 
-import com.facebook.presto.metadata.DataSourceType;
-import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.spi.TableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
@@ -17,12 +16,6 @@ public class TpchTableHandle
     public TpchTableHandle(@JsonProperty("tableName") String tableName)
     {
         this.tableName = checkTableName(tableName);
-    }
-
-    @Override
-    public DataSourceType getDataSourceType()
-    {
-        return DataSourceType.TPCH;
     }
 
     @JsonProperty

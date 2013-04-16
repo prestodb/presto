@@ -1,7 +1,7 @@
 package com.facebook.presto.split;
 
 import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.metadata.DualTable;
 import com.facebook.presto.metadata.InformationSchemaData;
 import com.facebook.presto.metadata.InternalColumnHandle;

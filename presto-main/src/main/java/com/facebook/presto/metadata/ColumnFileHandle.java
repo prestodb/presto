@@ -4,6 +4,7 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.serde.BlocksFileWriter;
+import com.facebook.presto.spi.ColumnHandle;
 import com.google.common.base.Throwables;
 import com.google.common.io.OutputSupplier;
 import com.google.common.primitives.Ints;
@@ -34,7 +35,7 @@ public class ColumnFileHandle
 
     private final AtomicBoolean committed = new AtomicBoolean();
 
-    public static final Builder builder(long shardId)
+    public static Builder builder(long shardId)
     {
         return new Builder(shardId);
     }

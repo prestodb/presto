@@ -1,5 +1,6 @@
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.TableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
@@ -25,12 +26,6 @@ public class NativeTableHandle
 
         checkArgument(tableId > 0, "tableId must be greater than zero");
         this.tableId = tableId;
-    }
-
-    @Override
-    public DataSourceType getDataSourceType()
-    {
-        return DataSourceType.NATIVE;
     }
 
     @JsonProperty

@@ -1,12 +1,16 @@
 package com.facebook.presto.split;
 
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.ImportClientFactory;
-import com.facebook.presto.spi.ObjectNotFoundException;
 import com.facebook.presto.spi.PartitionChunk;
 import com.facebook.presto.spi.PartitionInfo;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.SchemaField;
+import com.facebook.presto.spi.SchemaTableMetadata;
+import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.TableHandle;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
@@ -60,63 +64,85 @@ public class TestImportClientFactory
             return new ImportClient()
             {
                 @Override
-                public List<String> getDatabaseNames()
+                public List<String> listSchemaNames()
                 {
                     throw new UnsupportedOperationException();
                 }
 
                 @Override
-                public List<String> getTableNames(String databaseName)
-                        throws ObjectNotFoundException
+                public TableHandle getTableHandle(SchemaTableName tableName)
                 {
                     throw new UnsupportedOperationException();
                 }
 
                 @Override
-                public List<SchemaField> getTableSchema(String databaseName, String tableName)
-                        throws ObjectNotFoundException
+                public SchemaTableName getTableName(TableHandle tableHandle)
                 {
                     throw new UnsupportedOperationException();
                 }
 
                 @Override
-                public List<SchemaField> getPartitionKeys(String databaseName, String tableName)
-                        throws ObjectNotFoundException
+                public SchemaTableMetadata getTableMetadata(TableHandle table)
                 {
                     throw new UnsupportedOperationException();
                 }
 
                 @Override
-                public List<PartitionInfo> getPartitions(String databaseName, String tableName)
-                        throws ObjectNotFoundException
+                public List<SchemaTableName> listTables(String schemaNameOrNull)
                 {
                     throw new UnsupportedOperationException();
                 }
 
                 @Override
-                public List<PartitionInfo> getPartitions(String databaseName, String tableName, Map<String, Object> filters)
-                        throws ObjectNotFoundException
+                public ColumnHandle getColumnHandle(TableHandle tableHandle, String columnName)
                 {
                     throw new UnsupportedOperationException();
                 }
 
                 @Override
-                public List<String> getPartitionNames(String databaseName, String tableName)
-                        throws ObjectNotFoundException
+                public Map<String, ColumnHandle> getColumnHandles(TableHandle tableHandle)
                 {
                     throw new UnsupportedOperationException();
                 }
 
                 @Override
-                public List<PartitionChunk> getPartitionChunks(String databaseName, String tableName, String partitionName, List<String> columns)
-                        throws ObjectNotFoundException
+                public ColumnMetadata getColumnMetadata(TableHandle tableHandle, ColumnHandle columnHandle)
                 {
                     throw new UnsupportedOperationException();
                 }
 
                 @Override
-                public Iterable<PartitionChunk> getPartitionChunks(String databaseName, String tableName, List<String> partitionNames, List<String> columns)
-                        throws ObjectNotFoundException
+                public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(SchemaTablePrefix prefix)
+                {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public List<Map<String, String>> listTablePartitionValues(SchemaTablePrefix prefix)
+                {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public List<PartitionInfo> getPartitions(SchemaTableName table, Map<String, Object> filters)
+                {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public List<String> getPartitionNames(SchemaTableName tableName)
+                {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public Iterable<PartitionChunk> getPartitionChunks(SchemaTableName tableName, String partitionName, List<String> columns)
+                {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public Iterable<PartitionChunk> getPartitionChunks(SchemaTableName tableName, List<String> partitionNames, List<String> columns)
                 {
                     throw new UnsupportedOperationException();
                 }

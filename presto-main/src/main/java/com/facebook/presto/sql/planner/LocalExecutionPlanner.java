@@ -1,6 +1,6 @@
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.metadata.Metadata;

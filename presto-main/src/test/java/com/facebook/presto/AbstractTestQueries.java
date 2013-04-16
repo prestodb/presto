@@ -2,9 +2,9 @@ package com.facebook.presto;
 
 import com.facebook.presto.ingest.RecordCursor;
 import com.facebook.presto.ingest.RecordSet;
-import com.facebook.presto.metadata.ColumnMetadata;
-import com.facebook.presto.metadata.SchemaTableMetadata;
+import com.facebook.presto.spi.SchemaTableMetadata;
 import com.facebook.presto.operator.OperatorStats;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
@@ -1301,13 +1301,13 @@ public abstract class AbstractTestQueries
                 for (int column = 0; column < tableMetadata.getColumns().size(); column++) {
                     ColumnMetadata columnMetadata = tableMetadata.getColumns().get(column);
                     switch (columnMetadata.getType()) {
-                        case FIXED_INT_64:
+                        case LONG:
                             part.bind(column, cursor.getLong(column));
                             break;
                         case DOUBLE:
                             part.bind(column, cursor.getDouble(column));
                             break;
-                        case VARIABLE_BINARY:
+                        case STRING:
                             part.bind(column, new String(cursor.getString(column), UTF_8));
                             break;
                     }

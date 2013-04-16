@@ -1,5 +1,8 @@
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Optional;

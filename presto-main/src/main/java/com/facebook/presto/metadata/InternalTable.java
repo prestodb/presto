@@ -4,6 +4,7 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageBuilder;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
@@ -40,7 +41,7 @@ public class InternalTable
     {
         ImmutableList.Builder<Type> types = ImmutableList.builder();
         for (ColumnMetadata column : columns) {
-            types.add(column.getType());
+            types.add(Type.fromColumnType(column.getType()));
         }
         return new Builder(new TupleInfo(types.build()));
     }

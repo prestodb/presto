@@ -5,31 +5,33 @@ import java.util.Map;
 
 public interface ImportClient
 {
-    List<String> getDatabaseNames();
+    List<String> listSchemaNames();
 
-    List<String> getTableNames(String databaseName)
-            throws ObjectNotFoundException;
+    TableHandle getTableHandle(SchemaTableName tableName);
 
-    List<SchemaField> getTableSchema(String databaseName, String tableName)
-            throws ObjectNotFoundException;
+    SchemaTableName getTableName(TableHandle tableHandle);
 
-    List<SchemaField> getPartitionKeys(String databaseName, String tableName)
-            throws ObjectNotFoundException;
+    SchemaTableMetadata getTableMetadata(TableHandle table);
 
-    List<PartitionInfo> getPartitions(String databaseName, String tableName)
-            throws ObjectNotFoundException;
+    List<SchemaTableName> listTables(String schemaNameOrNull);
 
-    List<PartitionInfo> getPartitions(String databaseName, String tableName, Map<String, Object> filters)
-            throws ObjectNotFoundException;
+    ColumnHandle getColumnHandle(TableHandle tableHandle, String columnName);
 
-    List<String> getPartitionNames(String databaseName, String tableName)
-            throws ObjectNotFoundException;
+    Map<String, ColumnHandle> getColumnHandles(TableHandle tableHandle);
 
-    Iterable<PartitionChunk> getPartitionChunks(String databaseName, String tableName, String partitionName, List<String> columns)
-            throws ObjectNotFoundException;
+    ColumnMetadata getColumnMetadata(TableHandle tableHandle, ColumnHandle columnHandle);
 
-    Iterable<PartitionChunk> getPartitionChunks(String databaseName, String tableName, List<String> partitionNames, List<String> columns)
-            throws ObjectNotFoundException;
+    Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(SchemaTablePrefix prefix);
+
+    List<Map<String, String>> listTablePartitionValues(SchemaTablePrefix prefix);
+
+    List<PartitionInfo> getPartitions(SchemaTableName table, Map<String, Object> filters);
+
+    List<String> getPartitionNames(SchemaTableName tableName);
+
+    Iterable<PartitionChunk> getPartitionChunks(SchemaTableName tableName, String partitionName, List<String> columns);
+
+    Iterable<PartitionChunk> getPartitionChunks(SchemaTableName tableName, List<String> partitionNames, List<String> columns);
 
     RecordCursor getRecords(PartitionChunk partitionChunk);
 

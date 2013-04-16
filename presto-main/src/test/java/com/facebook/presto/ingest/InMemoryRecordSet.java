@@ -4,6 +4,7 @@
 package com.facebook.presto.ingest;
 
 import com.facebook.presto.metadata.ImportColumnHandle;
+import com.facebook.presto.metadata.InternalColumnHandle;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Charsets;
@@ -27,7 +28,7 @@ public class InMemoryRecordSet
 
         ImmutableList.Builder<ImportColumnHandle> builder = ImmutableList.builder();
         for (int i = 0; i < types.size(); i++) {
-            builder.add(new ImportColumnHandle("column" + i, i, types.get(i)));
+            builder.add(new ImportColumnHandle("column" + i, i, types.get(i).toColumnType(), new InternalColumnHandle(i)));
         }
 
         columns = builder.build();

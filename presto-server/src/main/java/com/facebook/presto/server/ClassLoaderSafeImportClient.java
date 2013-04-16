@@ -3,12 +3,16 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ImportClient;
-import com.facebook.presto.spi.ObjectNotFoundException;
 import com.facebook.presto.spi.PartitionChunk;
 import com.facebook.presto.spi.PartitionInfo;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.SchemaField;
+import com.facebook.presto.spi.SchemaTableMetadata;
+import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.TableHandle;
 import com.google.common.base.Preconditions;
 
 import java.util.List;
@@ -30,82 +34,114 @@ public class ClassLoaderSafeImportClient
     }
 
     @Override
-    public List<String> getDatabaseNames()
+    public List<String> listSchemaNames()
     {
         try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getDatabaseNames();
+            return delegate.listSchemaNames();
         }
     }
 
     @Override
-    public List<String> getTableNames(String databaseName)
-            throws ObjectNotFoundException
+    public List<SchemaTableName> listTables(String schemaNameOrNull)
     {
         try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getTableNames(databaseName);
+            return delegate.listTables(schemaNameOrNull);
         }
     }
 
     @Override
-    public List<SchemaField> getTableSchema(String databaseName, String tableName)
-            throws ObjectNotFoundException
+    public TableHandle getTableHandle(SchemaTableName tableName)
     {
         try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getTableSchema(databaseName, tableName);
+            return delegate.getTableHandle(tableName);
         }
     }
 
     @Override
-    public List<SchemaField> getPartitionKeys(String databaseName, String tableName)
-            throws ObjectNotFoundException
+    public SchemaTableMetadata getTableMetadata(TableHandle table)
     {
         try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getPartitionKeys(databaseName, tableName);
+            return delegate.getTableMetadata(table);
         }
     }
 
     @Override
-    public List<PartitionInfo> getPartitions(String databaseName, String tableName)
-            throws ObjectNotFoundException
+    public SchemaTableName getTableName(TableHandle tableHandle)
     {
         try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getPartitions(databaseName, tableName);
+            return delegate.getTableName(tableHandle);
         }
     }
 
     @Override
-    public List<PartitionInfo> getPartitions(String databaseName, String tableName, Map<String, Object> filters)
-            throws ObjectNotFoundException
+    public ColumnHandle getColumnHandle(TableHandle tableHandle, String columnName)
     {
         try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getPartitions(databaseName, tableName, filters);
+            return delegate.getColumnHandle(tableHandle, columnName);
         }
     }
 
     @Override
-    public List<String> getPartitionNames(String databaseName, String tableName)
-            throws ObjectNotFoundException
+    public Map<String, ColumnHandle> getColumnHandles(TableHandle tableHandle)
     {
         try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getPartitionNames(databaseName, tableName);
+            return delegate.getColumnHandles(tableHandle);
         }
     }
 
     @Override
-    public Iterable<PartitionChunk> getPartitionChunks(String databaseName, String tableName, String partitionName, List<String> columns)
-            throws ObjectNotFoundException
+    public ColumnMetadata getColumnMetadata(TableHandle tableHandle, ColumnHandle columnHandle)
     {
         try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getPartitionChunks(databaseName, tableName, partitionName, columns);
+            return delegate.getColumnMetadata(tableHandle, columnHandle);
         }
     }
 
     @Override
-    public Iterable<PartitionChunk> getPartitionChunks(String databaseName, String tableName, List<String> partitionNames, List<String> columns)
-            throws ObjectNotFoundException
+    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(SchemaTablePrefix prefix)
     {
         try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getPartitionChunks(databaseName, tableName, partitionNames, columns);
+            return delegate.listTableColumns(prefix);
+        }
+    }
+
+    @Override
+    public List<Map<String, String>> listTablePartitionValues(SchemaTablePrefix prefix)
+    {
+        try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
+            return delegate.listTablePartitionValues(prefix);
+        }
+    }
+
+    @Override
+    public List<PartitionInfo> getPartitions(SchemaTableName tableName, Map<String, Object> filters)
+    {
+        try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getPartitions(tableName, filters);
+        }
+    }
+
+    @Override
+    public List<String> getPartitionNames(SchemaTableName tableName)
+    {
+        try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getPartitionNames(tableName);
+        }
+    }
+
+    @Override
+    public Iterable<PartitionChunk> getPartitionChunks(SchemaTableName tableName, String partitionName, List<String> columns)
+    {
+        try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getPartitionChunks(tableName, partitionName, columns);
+        }
+    }
+
+    @Override
+    public Iterable<PartitionChunk> getPartitionChunks(SchemaTableName tableName, List<String> partitionNames, List<String> columns)
+    {
+        try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getPartitionChunks(tableName, partitionNames, columns);
         }
     }
 

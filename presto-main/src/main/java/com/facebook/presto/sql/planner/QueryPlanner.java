@@ -1,13 +1,13 @@
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.metadata.ColumnHandle;
-import com.facebook.presto.metadata.ColumnMetadata;
 import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.metadata.QualifiedTableName;
-import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableMetadata;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.FieldOrExpression;

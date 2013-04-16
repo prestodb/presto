@@ -5,7 +5,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.metadata.NativeTableHandle;
 import com.facebook.presto.metadata.QualifiedTableName;
-import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.ExpressionFormatter;
 import com.facebook.presto.sql.tree.AliasedExpression;
 import com.facebook.presto.sql.tree.AllColumns;

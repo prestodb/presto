@@ -3,6 +3,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.ingest.InMemoryRecordSet;
 import com.facebook.presto.ingest.RecordProjectOperator;
 import com.facebook.presto.operator.AlignmentOperator;
+import com.facebook.presto.spi.ColumnHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.io.Files;

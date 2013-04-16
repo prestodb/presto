@@ -1,7 +1,6 @@
 package com.facebook.presto.split;
 
 import com.facebook.presto.ingest.SerializedPartitionChunk;
-import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.ImportColumnHandle;
 import com.facebook.presto.metadata.ImportTableHandle;
 import com.facebook.presto.metadata.InternalColumnHandle;
@@ -12,12 +11,12 @@ import com.facebook.presto.metadata.Node;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.ShardManager;
-import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ImportClient;
-import com.facebook.presto.spi.ObjectNotFoundException;
+import com.facebook.presto.spi.NotFoundException;
 import com.facebook.presto.spi.PartitionChunk;
 import com.facebook.presto.spi.PartitionInfo;
-import com.facebook.presto.spi.SchemaField;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
@@ -47,6 +46,7 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -141,17 +141,20 @@ public class SplitManager
         checkNotNull(partitionPredicate, "partitionPredicate is null");
         checkNotNull(mappings, "mappings is null");
 
-        switch (handle.getDataSourceType()) {
-            case NATIVE:
-                return getNativeSplitAssignments(planNodeId, (NativeTableHandle) handle);
-            case INTERNAL:
-                return getInternalSplitAssignments(planNodeId, (InternalTableHandle) handle, predicate, mappings);
-            case IMPORT:
-                return getImportSplitAssignments(planNodeId, session, (ImportTableHandle) handle, predicate, partitionPredicate, mappings);
-            case TPCH: // testing code only. This should really be pluggable...
-                return getTpchSplitAssignments(planNodeId, session, (TpchTableHandle) handle, mappings);
-            default:
-                throw new IllegalArgumentException("unsupported handle type: " + handle);
+        if (handle instanceof NativeTableHandle) {
+            return getNativeSplitAssignments(planNodeId, (NativeTableHandle) handle);
+        }
+        else if (handle instanceof InternalTableHandle) {
+            return getInternalSplitAssignments(planNodeId, (InternalTableHandle) handle, predicate, mappings);
+        }
+        else if (handle instanceof ImportTableHandle) {
+            return getImportSplitAssignments(planNodeId, session, (ImportTableHandle) handle, predicate, mappings);
+        }
+        else if (handle instanceof TpchTableHandle) {
+            return getTpchSplitAssignments(planNodeId, (TpchTableHandle) handle);
+        }
+        else {
+            throw new IllegalArgumentException("unsupported handle type: " + handle);
         }
     }
 
@@ -200,21 +203,19 @@ public class SplitManager
             Session session,
             ImportTableHandle handle,
             Expression predicate,
-            Predicate<PartitionInfo> partitionPredicate,
             Map<Symbol, ColumnHandle> mappings)
     {
-        final String catalogName = handle.getTableName().getCatalogName();
-        final String schemaName = handle.getTableName().getSchemaName();
-        final String tableName = handle.getTableName().getTableName();
+        final String clientId = handle.getClientId();
+        final QualifiedTableName qualifiedTableName = handle.getTableName();
 
-        final List<String> partitions = getPartitions(session, handle.getTableName(), predicate, mappings);
+        final List<String> partitions = getPartitions(session, qualifiedTableName, predicate, mappings);
         final List<String> columns = IterableTransformer.on(mappings.values())
                 .transform(MoreFunctions.<ColumnHandle, ImportColumnHandle>cast(ImportColumnHandle.class))
                 .transform(columnNameGetter())
                 .list();
 
         Iterable<PartitionChunk> chunks = retry()
-                .stopOn(ObjectNotFoundException.class)
+                .stopOn(NotFoundException.class)
                 .stopOnIllegalExceptions()
                 .runUnchecked(new Callable<Iterable<PartitionChunk>>()
                 {
@@ -222,12 +223,12 @@ public class SplitManager
                     public Iterable<PartitionChunk> call()
                             throws Exception
                     {
-                        ImportClient importClient = importClientManager.getClient(catalogName);
-                        return importClient.getPartitionChunks(schemaName, tableName, partitions, columns);
+                        ImportClient importClient = importClientManager.getClient(clientId);
+                        return importClient.getPartitionChunks(qualifiedTableName.asSchemaTableName(), partitions, columns);
                     }
                 });
 
-        return Iterables.transform(chunks, createImportSplitFunction(planNodeId, catalogName));
+        return Iterables.transform(chunks, createImportSplitFunction(planNodeId, qualifiedTableName.getCatalogName()));
     }
 
     private List<String> getPartitions(Session session, QualifiedTableName tableName, Expression predicate, Map<Symbol, ColumnHandle> mappings)
@@ -265,7 +266,7 @@ public class SplitManager
                         matchesPattern(ComparisonExpression.Type.EQUAL, DoubleLiteral.class, QualifiedNameReference.class)))
                 .set();
 
-        Map<String, SchemaField> partitionKeys = uniqueIndex(getPartitionKeys(tableName), fieldNameGetter());
+        Set<String> partitionKeys = ImmutableSet.copyOf(getPartitionKeys(tableName));
 
         final Map<String, Object> bindings = new HashMap<>(); // map of columnName -> value
         for (ComparisonExpression comparison : comparisons) {
@@ -274,32 +275,21 @@ public class SplitManager
             Symbol symbol = Symbol.fromQualifiedName(reference.getName());
 
             String columnName = symbolToColumnName.get(symbol);
-            SchemaField field = partitionKeys.get(columnName);
-            if (columnName != null && field != null) {
+            if (columnName != null && partitionKeys.contains(columnName)) {
                 Literal literal = extractLiteral(comparison);
 
-                SchemaField.Type expectedType;
                 Object value;
                 if (literal instanceof DoubleLiteral) {
                     value = ((DoubleLiteral) literal).getValue();
-                    expectedType = SchemaField.Type.DOUBLE;
                 }
                 else if (literal instanceof LongLiteral) {
                     value = ((LongLiteral) literal).getValue();
-                    expectedType = SchemaField.Type.LONG;
                 }
                 else if (literal instanceof StringLiteral) {
                     value = ((StringLiteral) literal).getValue();
-                    expectedType = SchemaField.Type.STRING;
                 }
                 else {
                     throw new AssertionError(String.format("Literal type (%s) not currently handled", literal.getClass().getName()));
-                }
-
-                if (field.getPrimitiveType() != expectedType) {
-                    // TODO: this should really be an analyzer error -- types don't match
-                    // TODO: add basic coercions for numeric types (long to double, etc)
-                    return ImmutableList.of();
                 }
 
                 Object previous = bindings.get(columnName);
@@ -313,7 +303,7 @@ public class SplitManager
         }
 
         return retry()
-                .stopOn(ObjectNotFoundException.class)
+                .stopOn(NotFoundException.class)
                 .stopOnIllegalExceptions()
                 .runUnchecked(new Callable<Iterable<PartitionInfo>>()
                 {
@@ -322,7 +312,7 @@ public class SplitManager
                             throws Exception
                     {
                         ImportClient importClient = importClientManager.getClient(tableName.getCatalogName());
-                        return importClient.getPartitions(tableName.getSchemaName(), tableName.getTableName(), bindings);
+                        return importClient.getPartitions(tableName.asSchemaTableName(), bindings);
                     }
                 });
     }
@@ -351,19 +341,20 @@ public class SplitManager
         throw new IllegalArgumentException("Comparison does not have a child of type Literal");
     }
 
-    private List<SchemaField> getPartitionKeys(final QualifiedTableName tableName)
+    private List<String> getPartitionKeys(final QualifiedTableName tableName)
     {
         return retry()
-                .stopOn(ObjectNotFoundException.class)
+                .stopOn(NotFoundException.class)
                 .stopOnIllegalExceptions()
-                .runUnchecked(new Callable<List<SchemaField>>()
+                .runUnchecked(new Callable<List<String>>()
                 {
                     @Override
-                    public List<SchemaField> call()
+                    public List<String> call()
                             throws Exception
                     {
                         ImportClient client = importClientManager.getClient(tableName.getCatalogName());
-                        return client.getPartitionKeys(tableName.getSchemaName(), tableName.getTableName());
+                        TableHandle tableHandle = client.getTableHandle(tableName.asSchemaTableName());
+                        return client.getTableMetadata(tableHandle).getPartitionKeys();
                     }
                 });
     }
@@ -507,18 +498,6 @@ public class SplitManager
         return ImmutableList.copyOf(chosen);
     }
 
-    private static Function<SchemaField, String> fieldNameGetter()
-    {
-        return new Function<SchemaField, String>()
-        {
-            @Override
-            public String apply(SchemaField input)
-            {
-                return input.getFieldName();
-            }
-        };
-    }
-
     private static Function<PartitionInfo, String> partitionNameGetter()
     {
         return new Function<PartitionInfo, String>()
@@ -563,10 +542,7 @@ public class SplitManager
         };
     }
 
-    private Iterable<SplitAssignments> getTpchSplitAssignments(PlanNodeId planNodeId,
-            Session session,
-            TpchTableHandle handle,
-            Map<Symbol, ColumnHandle> mappings)
+    private Iterable<SplitAssignments> getTpchSplitAssignments(PlanNodeId planNodeId, TpchTableHandle handle)
     {
         Map<String, Node> nodeMap = getNodeMap(nodeManager.getActiveNodes());
         ImmutableList.Builder<SplitAssignments> splitAssignments = ImmutableList.builder();

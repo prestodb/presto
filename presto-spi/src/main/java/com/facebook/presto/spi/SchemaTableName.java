@@ -1,12 +1,9 @@
-package com.facebook.presto.metadata;
+package com.facebook.presto.spi;
 
-import com.google.common.base.Objects;
+import java.util.Objects;
 
-import javax.annotation.concurrent.Immutable;
+import static com.facebook.presto.spi.SchemaUtil.checkLowerCase;
 
-import static com.facebook.presto.metadata.MetadataUtil.checkLowerCase;
-
-@Immutable
 public class SchemaTableName
 {
     private final String schemaName;
@@ -29,23 +26,23 @@ public class SchemaTableName
     }
 
     @Override
-    public boolean equals(Object obj)
+    public int hashCode()
     {
-        if (obj == this) {
-            return true;
-        }
-        if ((obj == null) || (getClass() != obj.getClass())) {
-            return false;
-        }
-        SchemaTableName o = (SchemaTableName) obj;
-        return Objects.equal(schemaName, o.schemaName) &&
-                Objects.equal(tableName, o.tableName);
+        return Objects.hash(schemaName, tableName);
     }
 
     @Override
-    public int hashCode()
+    public boolean equals(Object obj)
     {
-        return Objects.hashCode(schemaName, tableName);
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        final SchemaTableName other = (SchemaTableName) obj;
+        return Objects.equals(this.schemaName, other.schemaName) &&
+                Objects.equals(this.tableName, other.tableName);
     }
 
     @Override

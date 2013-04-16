@@ -1,5 +1,6 @@
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.ColumnHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -15,12 +16,6 @@ public class NativeColumnHandle
     {
         checkArgument(columnId > 0, "columnId must be greater than zero");
         this.columnId = columnId;
-    }
-
-    @Override
-    public DataSourceType getDataSourceType()
-    {
-        return DataSourceType.NATIVE;
     }
 
     @JsonProperty

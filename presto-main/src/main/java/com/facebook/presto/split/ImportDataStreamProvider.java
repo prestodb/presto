@@ -2,7 +2,7 @@ package com.facebook.presto.split;
 
 import com.facebook.presto.ingest.ImportPartition;
 import com.facebook.presto.ingest.RecordProjectOperator;
-import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.metadata.ImportColumnHandle;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.spi.ImportClient;

@@ -3,12 +3,15 @@ package com.facebook.presto.metadata;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.TableHandle;
 
 import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
-import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
+import static com.facebook.presto.spi.ColumnType.STRING;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -21,7 +24,7 @@ public class DualTable
 
     private static final int ORDINAL_POSITION = 0;
 
-    private static final ColumnMetadata COLUMN_METADATA = new ColumnMetadata(COLUMN_NAME, VARIABLE_BINARY, ORDINAL_POSITION);
+    private static final ColumnMetadata COLUMN_METADATA = new ColumnMetadata(COLUMN_NAME, STRING, ORDINAL_POSITION);
 
     private static final InternalTable DATA;
 

@@ -1,26 +1,31 @@
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.TableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
 
-import static com.facebook.presto.metadata.MetadataUtil.checkTable;
-
 public class ImportTableHandle
         implements TableHandle
 {
+    private final String clientId;
     private final QualifiedTableName tableName;
+    private final TableHandle tableHandle;
 
     @JsonCreator
-    public ImportTableHandle(@JsonProperty("tableName") QualifiedTableName tableName)
+    public ImportTableHandle(@JsonProperty("clientId") String clientId,
+            @JsonProperty("tableName") QualifiedTableName tableName,
+            @JsonProperty("tableHandle") TableHandle tableHandle)
     {
-        this.tableName = checkTable(tableName);
+        this.clientId = clientId;
+        this.tableName = tableName;
+        this.tableHandle = tableHandle;
     }
 
-    @Override
-    public DataSourceType getDataSourceType()
+    @JsonProperty
+    public String getClientId()
     {
-        return DataSourceType.IMPORT;
+        return clientId;
     }
 
     @JsonProperty
@@ -29,16 +34,22 @@ public class ImportTableHandle
         return tableName;
     }
 
+    @JsonProperty
+    public TableHandle getTableHandle()
+    {
+        return tableHandle;
+    }
+
     @Override
     public String toString()
     {
-        return "import:" + tableName;
+        return "import:" + clientId + ":" + tableHandle;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(tableName);
+        return Objects.hashCode(clientId, tableHandle);
     }
 
     @Override
@@ -51,6 +62,7 @@ public class ImportTableHandle
             return false;
         }
         final ImportTableHandle other = (ImportTableHandle) obj;
-        return Objects.equal(this.tableName, other.tableName);
+        return Objects.equal(this.clientId, other.clientId) &&
+                Objects.equal(this.tableHandle, other.tableHandle);
     }
 }

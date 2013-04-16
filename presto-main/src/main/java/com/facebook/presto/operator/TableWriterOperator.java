@@ -1,21 +1,17 @@
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.BlockBuilder;
-
 import com.facebook.presto.block.Block;
-import com.facebook.presto.block.uncompressed.UncompressedBlock;
+import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.metadata.ColumnFileHandle;
-import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.DataSourceType;
 import com.facebook.presto.metadata.LocalStorageManager;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.split.NativeSplit;
 import com.facebook.presto.split.Split;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 
 import java.io.IOException;
 import java.util.List;

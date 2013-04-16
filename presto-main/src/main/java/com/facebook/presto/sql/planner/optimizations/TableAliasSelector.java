@@ -2,9 +2,8 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.execution.Sitevars;
 import com.facebook.presto.metadata.AliasDao;
-import com.facebook.presto.metadata.ColumnHandle;
-import com.facebook.presto.metadata.ColumnMetadata;
-import com.facebook.presto.metadata.DataSourceType;
+import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.metadata.ImportTableHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NativeTableHandle;
 import com.facebook.presto.metadata.Node;
@@ -12,7 +11,8 @@ import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.metadata.TableAlias;
-import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.analyzer.Type;
@@ -102,7 +102,7 @@ public class TableAliasSelector
         {
             TableHandle tableHandle = node.getTable();
 
-            if (!(tableHandle.getDataSourceType() == DataSourceType.IMPORT)) {
+            if (!(tableHandle instanceof ImportTableHandle)) {
                 // This is pure lazyness. It should be possible to alias any
                 // table type but this reduces the amount of code required.
                 return node;

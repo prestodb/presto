@@ -1,5 +1,8 @@
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.TableHandle;
 import com.google.common.base.Optional;
 
 import java.util.List;
@@ -14,6 +17,7 @@ public interface InternalSchemaMetadata
 
     /**
      * Return the metadata for the specified table handle, or absent value if table is not part of this schema.
+     *
      * @throws RuntimeException if table handle is no longer valid
      */
     Optional<TableMetadata> getTableMetadata(TableHandle tableHandle);
@@ -25,12 +29,14 @@ public interface InternalSchemaMetadata
 
     /**
      * Gets all of the columns on the specified table, or absent value if table is not part of this schema.
+     *
      * @throws RuntimeException if table handle is no longer valid
      */
-    Optional<Map<String,ColumnHandle>> getColumnHandles(TableHandle tableHandle);
+    Optional<Map<String, ColumnHandle>> getColumnHandles(TableHandle tableHandle);
 
     /**
      * Gets the metadata for the specified table column, or absent value if table is not part of this schema.
+     *
      * @throws RuntimeException if table or column handles are no longer valid
      */
     Optional<ColumnMetadata> getColumnMetadata(TableHandle tableHandle, ColumnHandle columnHandle);
@@ -38,5 +44,5 @@ public interface InternalSchemaMetadata
     /**
      * Gets the metadata for all columns that match the specified table prefix.
      */
-   Map<QualifiedTableName, List<ColumnMetadata>> listTableColumns(QualifiedTablePrefix prefix);
+    Map<QualifiedTableName, List<ColumnMetadata>> listTableColumns(QualifiedTablePrefix prefix);
 }

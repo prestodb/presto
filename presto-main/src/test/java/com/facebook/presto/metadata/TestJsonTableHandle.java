@@ -1,5 +1,6 @@
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.tpch.TpchTableHandle;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -32,7 +33,9 @@ public class TestJsonTableHandle
             "tableName", "thecatalog.theschema.thetable");
 
     private static final Map<String, Object> IMPORT_AS_MAP = ImmutableMap.<String, Object>of("type", "import",
-            "tableName", "thesource.thedatabase.thetable");
+            "clientId", "import",
+            "tableName", "thesource.thedatabase.thetable",
+            "tableHandle", TPCH_AS_MAP);
 
     private ObjectMapper objectMapper;
 
@@ -72,7 +75,7 @@ public class TestJsonTableHandle
     public void testImportSerialize()
             throws Exception
     {
-        ImportTableHandle importHandle = new ImportTableHandle(new QualifiedTableName("thesource", "thedatabase", "thetable"));
+        ImportTableHandle importHandle = new ImportTableHandle("import", new QualifiedTableName("thesource", "thedatabase", "thetable"), new TpchTableHandle("tpchtable"));
 
         assertTrue(objectMapper.canSerialize(ImportTableHandle.class));
         String json = objectMapper.writeValueAsString(importHandle);
@@ -101,7 +104,6 @@ public class TestJsonTableHandle
         NativeTableHandle nativeHandle = (NativeTableHandle) tableHandle;
 
         assertEquals(nativeHandle.getTableId(), 1);
-        assertEquals(nativeHandle.getDataSourceType(), DataSourceType.NATIVE);
     }
 
     @Test
@@ -114,7 +116,6 @@ public class TestJsonTableHandle
         assertEquals(tableHandle.getClass(), InternalTableHandle.class);
         InternalTableHandle internalHandle = (InternalTableHandle) tableHandle;
 
-        assertEquals(internalHandle.getDataSourceType(), DataSourceType.INTERNAL);
         assertEquals(internalHandle.getTableName(), new QualifiedTableName("thecatalog", "theschema", "thetable"));
     }
 
@@ -128,7 +129,6 @@ public class TestJsonTableHandle
         assertEquals(tableHandle.getClass(), ImportTableHandle.class);
         ImportTableHandle importHandle = (ImportTableHandle) tableHandle;
 
-        assertEquals(importHandle.getDataSourceType(), DataSourceType.IMPORT);
         assertEquals(importHandle.getTableName(), new QualifiedTableName("thesource", "thedatabase", "thetable"));
     }
 

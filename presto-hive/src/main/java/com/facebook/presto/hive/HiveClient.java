@@ -1,18 +1,23 @@
 package com.facebook.presto.hive;
 
-import javax.annotation.concurrent.ThreadSafe;
-
 import com.facebook.presto.hive.util.AsyncRecursiveWalker;
 import com.facebook.presto.hive.util.BoundedExecutor;
 import com.facebook.presto.hive.util.FileStatusCallback;
 import com.facebook.presto.hive.util.SuspendingExecutor;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ColumnNotFoundException;
+import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.ImportClient;
-import com.facebook.presto.spi.ObjectNotFoundException;
 import com.facebook.presto.spi.PartitionChunk;
 import com.facebook.presto.spi.PartitionInfo;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.SchemaField;
-import com.facebook.presto.spi.SchemaField.Type;
+import com.facebook.presto.spi.SchemaNotFoundException;
+import com.facebook.presto.spi.SchemaTableMetadata;
+import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -51,6 +56,7 @@ import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.JobConf;
 
+import javax.annotation.concurrent.ThreadSafe;
 import java.io.Closeable;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -58,6 +64,7 @@ import java.lang.reflect.Method;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -74,7 +81,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.hive.HivePartitionChunk.makeLastChunk;
-
 import static com.facebook.presto.hive.HiveUtil.convertHiveType;
 import static com.facebook.presto.hive.HiveUtil.convertNativeHiveType;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
@@ -84,7 +90,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.partition;
 import static com.google.common.collect.Iterables.transform;
-
 
 @SuppressWarnings("deprecation")
 public class HiveClient
@@ -127,35 +132,58 @@ public class HiveClient
     }
 
     @Override
-    public List<String> getDatabaseNames()
+    public List<String> listSchemaNames()
     {
         return metastore.getAllDatabases();
     }
 
     @Override
-    public List<String> getTableNames(String databaseName)
-            throws ObjectNotFoundException
+    public TableHandle getTableHandle(SchemaTableName tableName)
     {
         try {
-            return metastore.getAllTables(databaseName);
+            metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
+            return new HiveTableHandle(tableName);
         }
         catch (NoSuchObjectException e) {
-            throw new ObjectNotFoundException(e.getMessage());
+            // table was not found
+            return null;
         }
     }
 
     @Override
-    public List<SchemaField> getTableSchema(String databaseName, String tableName)
-            throws ObjectNotFoundException
+    public SchemaTableName getTableName(TableHandle tableHandle)
+    {
+        if (!(tableHandle instanceof HiveTableHandle)) {
+            throw new IllegalArgumentException("Expected tableHandle to be a HiveTableHandle");
+        }
+        return ((HiveTableHandle) tableHandle).getTableName();
+    }
+
+    @Override
+    public SchemaTableMetadata getTableMetadata(TableHandle tableHandle)
+    {
+        SchemaTableName tableName = getTableName(tableHandle);
+        return getTableMetadata(tableName);
+    }
+
+    private SchemaTableMetadata getTableMetadata(SchemaTableName tableName)
     {
         try {
-            Table table = metastore.getTable(databaseName, tableName);
+            Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
             List<FieldSchema> partitionKeys = table.getPartitionKeys();
             Properties schema = MetaStoreUtils.getSchema(table);
-            return getSchemaFields(schema, partitionKeys);
+
+            List<ColumnMetadata> columns = getColumnMetadata(schema, partitionKeys);
+
+            ImmutableList.Builder<String> keys = ImmutableList.builder();
+            for (FieldSchema field : partitionKeys) {
+                keys.add(field.getName());
+            }
+
+            return new SchemaTableMetadata(tableName, columns, keys.build());
         }
         catch (NoSuchObjectException e) {
-            throw new ObjectNotFoundException(e.getMessage());
+            throw new TableNotFoundException(tableName);
         }
         catch (MetaException | SerDeException e) {
             throw Throwables.propagate(e);
@@ -163,50 +191,113 @@ public class HiveClient
     }
 
     @Override
-    public List<SchemaField> getPartitionKeys(String databaseName, String tableName)
-            throws ObjectNotFoundException
+    public List<SchemaTableName> listTables(String schemaNameOrNull)
     {
-        try {
-            Table table = metastore.getTable(databaseName, tableName);
-            List<FieldSchema> partitionKeys = table.getPartitionKeys();
+        List<String> schemaNames;
+        if (schemaNameOrNull == null) {
+            schemaNames = listSchemaNames();
+        }
+        else {
+            schemaNames = Collections.singletonList(schemaNameOrNull);
+        }
 
-            ImmutableList.Builder<SchemaField> schemaFields = ImmutableList.builder();
-            for (int i = 0; i < partitionKeys.size(); i++) {
-                FieldSchema field = partitionKeys.get(i);
-                Type type = convertHiveType(field.getType());
-
-                // partition keys are always the first fields in the table
-                schemaFields.add(SchemaField.createPrimitive(field.getName(), i, type));
+        ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
+        for (String schemaName : schemaNames) {
+            try {
+                for (String tableName : metastore.getAllTables(schemaName)) {
+                    tableNames.add(new SchemaTableName(schemaName, tableName));
+                }
             }
+            catch (NoSuchObjectException e) {
+                throw new SchemaNotFoundException(schemaName);
+            }
+        }
+        return tableNames.build();
+    }
 
-            return schemaFields.build();
+    private List<SchemaTableName> listTables(SchemaTablePrefix prefix)
+    {
+        List<SchemaTableName> tableNames;
+        if (prefix.getSchemaName() == null) {
+            tableNames = listTables(prefix.getSchemaName());
+        } else {
+            tableNames = Collections.singletonList(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
         }
-        catch (NoSuchObjectException e) {
-            throw new ObjectNotFoundException(e.getMessage());
-        }
+        return tableNames;
     }
 
     @Override
-    public List<String> getPartitionNames(String databaseName, String tableName)
-            throws ObjectNotFoundException
+    public ColumnHandle getColumnHandle(TableHandle tableHandle, String columnName)
+    {
+        return getColumnHandles(tableHandle).get(columnName);
+    }
+
+    @Override
+    public Map<String, ColumnHandle> getColumnHandles(TableHandle tableHandle)
+    {
+        ImmutableMap.Builder<String, ColumnHandle> handles = ImmutableMap.builder();
+        for (ColumnMetadata columnMetadata : getTableMetadata(tableHandle).getColumns()) {
+            handles.put(columnMetadata.getName(), new HiveColumnHandle(columnMetadata.getName()));
+        }
+        return handles.build();
+    }
+
+    @Override
+    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(SchemaTablePrefix prefix)
+    {
+        ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
+        for (SchemaTableName tableName : listTables(prefix)) {
+            columns.put(tableName, getTableMetadata(tableName).getColumns());
+        }
+        return columns.build();
+    }
+
+    @Override
+    public ColumnMetadata getColumnMetadata(TableHandle tableHandle, ColumnHandle columnHandle)
+    {
+        SchemaTableMetadata tableMetadata = getTableMetadata(tableHandle);
+        String columnName = ((HiveColumnHandle) columnHandle).getColumnName();
+
+        for (ColumnMetadata column : tableMetadata.getColumns()) {
+            if (column.getName().equals(columnName)) {
+                return column;
+            }
+        }
+        throw new ColumnNotFoundException(getTableName(tableHandle), columnName);
+    }
+
+    @Override
+    public List<Map<String, String>> listTablePartitionValues(SchemaTablePrefix prefix)
+    {
+        ImmutableList.Builder<Map<String, String>> partitionValues = ImmutableList.builder();
+        for (SchemaTableName table : listTables(prefix)) {
+            for (PartitionInfo partition : getPartitions(table, Collections.<String, Object>emptyMap())) {
+                partitionValues.add(partition.getKeyFields());
+            }
+        }
+        return partitionValues.build();
+    }
+
+    @Override
+    public List<String> getPartitionNames(SchemaTableName tableName)
     {
         try {
-            return metastore.getPartitionNames(databaseName, tableName);
+            return metastore.getPartitionNames(tableName.getSchemaName(), tableName.getTableName());
         }
         catch (NoSuchObjectException e) {
-            throw new ObjectNotFoundException(e.getMessage());
+            throw new TableNotFoundException(tableName);
         }
     }
 
     @Override
-    public List<PartitionInfo> getPartitions(String databaseName, String tableName, final Map<String, Object> filters)
-            throws ObjectNotFoundException
+    public List<PartitionInfo> getPartitions(SchemaTableName tableName, final Map<String, Object> filters)
     {
+        List<String> partitionKeys = getTableMetadata(tableName).getPartitionKeys();
+
         // build the filtering prefix
         List<String> parts = new ArrayList<>();
-        List<SchemaField> partitionKeys = getPartitionKeys(databaseName, tableName);
-        for (SchemaField key : partitionKeys) {
-            Object value = filters.get(key.getFieldName());
+        for (String key : partitionKeys) {
+            Object value = filters.get(key);
 
             if (value == null) {
                 // we're building a partition prefix, so stop at the first missing binding
@@ -222,15 +313,15 @@ public class HiveClient
         // fetch the partition names
         List<PartitionInfo> partitions;
         if (parts.isEmpty()) {
-            partitions = getPartitions(databaseName, tableName);
+            partitions = getPartitions(tableName, filters);
         }
         else {
             try {
-                List<String> names = metastore.getPartitionNamesByParts(databaseName, tableName, parts);
+                List<String> names = metastore.getPartitionNamesByParts(tableName.getSchemaName(), tableName.getTableName(), parts);
                 partitions = Lists.transform(names, toPartitionInfo(partitionKeys));
             }
             catch (NoSuchObjectException e) {
-                throw new ObjectNotFoundException(e.getMessage());
+                throw new TableNotFoundException(tableName);
             }
         }
 
@@ -239,32 +330,22 @@ public class HiveClient
     }
 
     @Override
-    public List<PartitionInfo> getPartitions(String databaseName, String tableName)
-            throws ObjectNotFoundException
+    public Iterable<PartitionChunk> getPartitionChunks(SchemaTableName tableName, String partitionName, List<String> columns)
     {
-        List<SchemaField> partitionKeys = getPartitionKeys(databaseName, tableName);
-        return Lists.transform(getPartitionNames(databaseName, tableName), toPartitionInfo(partitionKeys));
+        return getPartitionChunks(tableName, ImmutableList.of(partitionName), columns);
     }
 
     @Override
-    public Iterable<PartitionChunk> getPartitionChunks(String databaseName, String tableName, String partitionName, List<String> columns)
-            throws ObjectNotFoundException
-    {
-        return getPartitionChunks(databaseName, tableName, ImmutableList.of(partitionName), columns);
-    }
-
-    @Override
-    public Iterable<PartitionChunk> getPartitionChunks(String databaseName, String tableName, List<String> partitionNames, List<String> columns)
-            throws ObjectNotFoundException
+    public Iterable<PartitionChunk> getPartitionChunks(SchemaTableName tableName, List<String> partitionNames, List<String> columns)
     {
         Table table;
         Iterable<Partition> partitions;
         try {
-            table = metastore.getTable(databaseName, tableName);
-            partitions = getPartitions(databaseName, tableName, partitionNames);
+            table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
+            partitions = getPartitions(tableName.getSchemaName(), tableName.getTableName(), partitionNames);
         }
         catch (NoSuchObjectException e) {
-            throw new ObjectNotFoundException(e.getMessage());
+            throw new TableNotFoundException(tableName);
         }
 
         return getPartitionChunks(table, ImmutableList.copyOf(partitionNames), partitions, getHiveColumns(table, columns));
@@ -747,8 +828,9 @@ public class HiveClient
         }
     }
 
-    private static Function<String, PartitionInfo> toPartitionInfo(final List<SchemaField> keys)
+    private static Function<String, PartitionInfo> toPartitionInfo(final List<String> partitionKeys)
     {
+
         return new Function<String, PartitionInfo>()
         {
             @Override
@@ -762,7 +844,7 @@ public class HiveClient
                     ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
                     List<String> parts = Warehouse.getPartValuesFromPartName(partitionName);
                     for (int i = 0; i < parts.size(); i++) {
-                        builder.put(keys.get(i).getFieldName(), parts.get(i));
+                        builder.put(partitionKeys.get(i), parts.get(i));
                     }
 
                     return new PartitionInfo(partitionName, builder.build());
@@ -793,7 +875,7 @@ public class HiveClient
         };
     }
 
-    private static List<SchemaField> getSchemaFields(Properties schema, List<FieldSchema> partitionKeys)
+    private static List<ColumnMetadata> getColumnMetadata(Properties schema, List<FieldSchema> partitionKeys)
             throws MetaException, SerDeException
     {
         Deserializer deserializer = MetaStoreUtils.getDeserializer(null, schema);
@@ -801,13 +883,13 @@ public class HiveClient
         checkArgument(inspector.getCategory() == ObjectInspector.Category.STRUCT, "expected STRUCT: %s", inspector.getCategory());
         StructObjectInspector structObjectInspector = (StructObjectInspector) inspector;
 
-        ImmutableList.Builder<SchemaField> schemaFields = ImmutableList.builder();
+        ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
 
         // add the partition keys
         for (int i = 0; i < partitionKeys.size(); i++) {
             FieldSchema field = partitionKeys.get(i);
-            SchemaField.Type type = convertHiveType(field.getType());
-            schemaFields.add(SchemaField.createPrimitive(field.getName(), i, type));
+            ColumnType type = convertHiveType(field.getType());
+            columns.add(new ColumnMetadata(field.getName(), type, i));
         }
 
         // add the data fields
@@ -819,13 +901,11 @@ public class HiveClient
             // ignore unsupported types rather than failing
             HiveType hiveType = HiveType.getHiveType(fieldInspector);
             if (hiveType != null) {
-                schemaFields.add(SchemaField.createPrimitive(field.getFieldName(), columnIndex, hiveType.getNativeType()));
+                columns.add(new ColumnMetadata(field.getFieldName(), hiveType.getNativeType(), columnIndex));
             }
-
             columnIndex++;
         }
-
-        return schemaFields.build();
+        return columns.build();
     }
 
     private static List<HivePartitionKey> getPartitionKeys(Table table, Partition partition)

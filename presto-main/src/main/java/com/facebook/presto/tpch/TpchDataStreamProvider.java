@@ -1,7 +1,7 @@
 package com.facebook.presto.tpch;
 
 import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.serde.BlocksFileEncoding;
