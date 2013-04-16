@@ -18,6 +18,8 @@ public class BlockEncodings
                 return new RunLengthBlockEncoding(input);
             case 2:
                 return new DictionaryBlockEncoding(input);
+            case 3:
+                return new SnappyBlockEncoding(input);
             default:
                 throw new IllegalArgumentException("unknown encoding " + encoding);
         }
@@ -37,6 +39,10 @@ public class BlockEncodings
         else if (encoding instanceof DictionaryBlockEncoding) {
             output.writeByte(2);
             DictionaryBlockEncoding.serialize(output, (DictionaryBlockEncoding) encoding);
+        }
+        else if (encoding instanceof SnappyBlockEncoding) {
+            output.writeByte(3);
+            SnappyBlockEncoding.serialize(output, (SnappyBlockEncoding) encoding);
         }
         else {
             throw new IllegalArgumentException("unknown encoding " + encoding);
