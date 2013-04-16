@@ -7,8 +7,6 @@ import io.airlift.units.MinDuration;
 
 import javax.validation.constraints.DecimalMax;
 import javax.validation.constraints.DecimalMin;
-import javax.validation.constraints.Max;
-import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 import java.util.concurrent.TimeUnit;
 
@@ -18,6 +16,21 @@ public class FailureDetectorConfiguration
     private double failureRatioThreshold = 0.01; // 1% failure rate
     private Duration hearbeatInterval = new Duration(500, TimeUnit.MILLISECONDS);
     private Duration warmupInterval = new Duration(5, TimeUnit.SECONDS);
+    private Duration gcGraceInterval = new Duration(10, TimeUnit.MINUTES);
+
+    @NotNull
+    public Duration getGcGraceInterval()
+    {
+        return gcGraceInterval;
+    }
+
+    @Config("failure-detector.gc-grace-interval")
+    @ConfigDescription("How long to wait before 'forgetting' a service after it disappears from discovery")
+    public FailureDetectorConfiguration setGcGraceInterval(Duration gcGraceInterval)
+    {
+        this.gcGraceInterval = gcGraceInterval;
+        return this;
+    }
 
     public boolean isEnabled()
     {
@@ -38,7 +51,7 @@ public class FailureDetectorConfiguration
     }
 
     @Config("failure-detector.warmup-interval")
-    @ConfigDescription("How long to wait before considering a new node alive")
+    @ConfigDescription("How long to wait after transitioning to success before considering a service alive")
     public FailureDetectorConfiguration setWarmupInterval(Duration warmupInterval)
     {
         this.warmupInterval = warmupInterval;

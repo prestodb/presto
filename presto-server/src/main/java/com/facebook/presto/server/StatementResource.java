@@ -257,7 +257,6 @@ public class StatementResource
         public synchronized QueryResults getNextResults(UriInfo uriInfo, Duration maxWaitTime)
                 throws InterruptedException
         {
-            // this call blocks so don't call while holding a lock
             Iterable<List<Object>> data = getData(maxWaitTime);
 
             // get the query info before returning

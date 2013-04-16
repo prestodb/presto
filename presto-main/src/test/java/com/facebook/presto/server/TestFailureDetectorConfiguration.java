@@ -14,6 +14,7 @@ public class TestFailureDetectorConfiguration
     public void testDefaults()
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(FailureDetectorConfiguration.class)
+                .setGcGraceInterval(new Duration(10, TimeUnit.MINUTES))
                 .setFailureRatioThreshold(0.01)
                 .setHearbeatInterval(new Duration(500, TimeUnit.MILLISECONDS))
                 .setWarmupInterval(new Duration(5, TimeUnit.SECONDS))
@@ -24,6 +25,7 @@ public class TestFailureDetectorConfiguration
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+                .put("failure-detector.gc-grace-interval", "5m")
                 .put("failure-detector.warmup-interval", "60s")
                 .put("failure-detector.heartbeat-interval", "10s")
                 .put("failure-detector.threshold", "0.5")
@@ -31,6 +33,7 @@ public class TestFailureDetectorConfiguration
                 .build();
 
         FailureDetectorConfiguration expected = new FailureDetectorConfiguration()
+                .setGcGraceInterval(new Duration(5, TimeUnit.MINUTES))
                 .setWarmupInterval(new Duration(60, TimeUnit.SECONDS))
                 .setHearbeatInterval(new Duration(10, TimeUnit.SECONDS))
                 .setFailureRatioThreshold(0.5)
