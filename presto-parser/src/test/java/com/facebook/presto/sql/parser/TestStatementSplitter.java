@@ -109,6 +109,15 @@ public class TestStatementSplitter
     }
 
     @Test
+    public void testSplitterWithBackquote()
+    {
+        String sql = "select  ` f``o o ` from dual";
+        StatementSplitter splitter = new StatementSplitter(sql);
+        assertEquals(splitter.getCompleteStatements(), ImmutableList.of());
+        assertEquals(splitter.getPartialStatement(), sql);
+    }
+
+    @Test
     public void testSqueezeStatement()
     {
         String sql = "select   *  from\n foo\n  order by x ; ";
@@ -120,6 +129,13 @@ public class TestStatementSplitter
     {
         String sql = "select   *  from\n foo\n  where x = 'oops";
         assertEquals(squeezeStatement(sql), "select * from foo where x = 'oops");
+    }
+
+    @Test
+    public void testSqueezeStatementWithBackquote()
+    {
+        String sql = "select  `  f``o  o`` `   from dual";
+        assertEquals(squeezeStatement(sql), "select `  f``o  o`` ` from dual");
     }
 
     @Test
