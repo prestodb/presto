@@ -1,5 +1,8 @@
 package com.facebook.presto.event.query;
 
+import com.facebook.presto.execution.QueryId;
+import com.facebook.presto.execution.StageId;
+import com.facebook.presto.execution.TaskId;
 import com.google.common.base.Preconditions;
 import io.airlift.event.client.EventField;
 import io.airlift.event.client.EventType;
@@ -15,9 +18,9 @@ import static com.facebook.presto.operator.OperatorStats.SmallCounterStat.SmallC
 @EventType("SplitCompletion")
 public class SplitCompletionEvent
 {
-    private final String queryId;
-    private final String stageId;
-    private final String taskId;
+    private final QueryId queryId;
+    private final StageId stageId;
+    private final TaskId taskId;
 
     private final DateTime executionStartTime;
 
@@ -34,9 +37,9 @@ public class SplitCompletionEvent
     private final String splitInfoJson;
 
     public SplitCompletionEvent(
-            String queryId,
-            String stageId,
-            String taskId,
+            QueryId queryId,
+            StageId stageId,
+            TaskId taskId,
             @Nullable DateTime executionStartTime,
             @Nullable Duration timeToFirstByte,
             @Nullable Duration timeToLastByte,
@@ -80,19 +83,19 @@ public class SplitCompletionEvent
     @EventField
     public String getQueryId()
     {
-        return queryId;
+        return queryId.toString();
     }
 
     @EventField
     public String getStageId()
     {
-        return stageId;
+        return stageId.toString();
     }
 
     @EventField
     public String getTaskId()
     {
-        return taskId;
+        return taskId.toString();
     }
 
     @EventField
