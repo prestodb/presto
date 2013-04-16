@@ -153,6 +153,11 @@
             <artifactId>jdbi</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>org.iq80.snappy</groupId>
+            <artifactId>snappy</artifactId>
+        </dependency>
+
         <!-- for testing -->
         <dependency>
             <groupId>io.airlift</groupId>

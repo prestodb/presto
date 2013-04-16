@@ -40,7 +40,16 @@ public enum BlocksFileEncoding
                 {
                     return new DictionaryEncoder(new RunLengthEncoder(sliceOutput));
                 }
+            },
+    SNAPPY("snappy")
+            {
+                @Override
+                public Encoder createBlocksWriter(SliceOutput sliceOutput)
+                {
+                    return new SnappyEncoder(sliceOutput);
+                }
             };
+
 
     private final String name;
 
