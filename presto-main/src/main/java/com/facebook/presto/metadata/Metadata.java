@@ -61,9 +61,6 @@ public interface Metadata
      */
     Map<QualifiedTableName, List<ColumnMetadata>> listTableColumns(QualifiedTablePrefix prefix);
 
-
-    List<Map<String, String>> listTablePartitionValues(QualifiedTablePrefix prefix);
-
     /**
      * Creates a table using the specified table metadata.
      */

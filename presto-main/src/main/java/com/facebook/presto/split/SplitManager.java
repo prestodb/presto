@@ -88,6 +88,12 @@ public class SplitManager
             return ImmutableList.of();
         }
 
+        return getPartitions(table, bindings);
+    }
+
+    public List<Partition> getPartitions(TableHandle table, Optional<Map<ColumnHandle, Object>> bindings)
+    {
+        checkNotNull(table, "table is null");
         return getConnectorSplitManager(table).getPartitions(table, bindings.get());
     }
 

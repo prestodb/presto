@@ -1,9 +1,14 @@
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.Partition;
+import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableBiMap;
 
 import javax.inject.Inject;
 import java.util.List;
@@ -26,11 +31,13 @@ import static java.lang.String.format;
 public class InformationSchemaData
 {
     private final Metadata metadata;
+    private final SplitManager splitManager;
 
     @Inject
-    public InformationSchemaData(Metadata metadata)
+    public InformationSchemaData(Metadata metadata, SplitManager splitManager)
     {
         this.metadata = checkNotNull(metadata, "metadata is null");
+        this.splitManager = checkNotNull(splitManager, "splitManager is null");
     }
 
     public InternalTable getInternalTable(QualifiedTableName table, Map<InternalColumnHandle, Object> filters)
@@ -113,28 +120,41 @@ public class InformationSchemaData
 
     private InternalTable buildPartitions(String catalogName, Map<InternalColumnHandle, Object> filters)
     {
-        QualifiedTablePrefix qualifiedTablePrefix = extractQualifiedTablePrefix(catalogName, filters);
-        checkArgument(qualifiedTablePrefix.getSchemaName().isPresent(), "filter is required for column: %s.%s", TABLE_INTERNAL_PARTITIONS, "table_schema");
-        checkArgument(qualifiedTablePrefix.getTableName().isPresent(), "filter is required for column: %s.%s", TABLE_INTERNAL_PARTITIONS, "table_name");
+        QualifiedTableName tableName = extractQualifiedTableName(catalogName, filters);
 
         InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_INTERNAL_PARTITIONS));
         int partitionNumber = 1;
-        List<Map<String, String>> partitions = metadata.listTablePartitionValues(qualifiedTablePrefix);
 
-        for (Map<String, String> partition : partitions) {
-            for (Map.Entry<String, String> entry : partition.entrySet()) {
+        Optional<TableHandle> tableHandle = metadata.getTableHandle(tableName);
+        checkArgument(tableHandle.isPresent(), "Table %s does not exist", tableName);
+        Map<ColumnHandle, String> columnHandles = ImmutableBiMap.copyOf(metadata.getColumnHandles(tableHandle.get())).inverse();
+        List<Partition> partitions = splitManager.getPartitions(tableHandle.get(), Optional.<Map<ColumnHandle, Object>>absent());
+
+        for (Partition partition : partitions) {
+            for (Map.Entry<ColumnHandle, String> entry : partition.getKeys().entrySet()) {
+                ColumnHandle columnHandle = entry.getKey();
+                String columnName = columnHandles.get(columnHandle);
                 table.add(table.getTupleInfo().builder()
                         .append(catalogName)
-                        .append(qualifiedTablePrefix.getSchemaName().get())
-                        .append(qualifiedTablePrefix.getTableName().get())
+                        .append(tableName.getSchemaName())
+                        .append(tableName.getTableName())
                         .append(partitionNumber)
-                        .append(entry.getKey())
+                        .append(columnName)
                         .append(entry.getValue())
                         .build());
             }
             partitionNumber++;
         }
         return table.build();
+    }
+
+    private QualifiedTableName extractQualifiedTableName(String catalogName, Map<InternalColumnHandle, Object> filters)
+    {
+        Optional<String> schemaName = getFilterColumn(filters, "table_schema");
+        checkArgument(schemaName.isPresent(), "filter is required for column: %s.%s", TABLE_INTERNAL_PARTITIONS, "table_schema");
+        Optional<String> tableName = getFilterColumn(filters, "table_name");
+        checkArgument(schemaName.isPresent(), "filter is required for column: %s.%s", TABLE_INTERNAL_PARTITIONS, "table_name");
+        return new QualifiedTableName(catalogName, schemaName.get(), tableName.get());
     }
 
     private QualifiedTablePrefix extractQualifiedTablePrefix(String catalogName, Map<InternalColumnHandle, Object> filters)

@@ -23,8 +23,6 @@ public interface ImportClient
 
     Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(SchemaTablePrefix prefix);
 
-    List<Map<String, String>> listTablePartitionValues(SchemaTablePrefix prefix);
-
     List<Partition> getPartitions(TableHandle table, Map<ColumnHandle, Object> bindings);
 
     Iterable<PartitionChunk> getPartitionChunks(List<Partition> partitions, List<ColumnHandle> columns);

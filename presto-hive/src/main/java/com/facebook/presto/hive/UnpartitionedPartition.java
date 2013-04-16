@@ -5,6 +5,9 @@ import org.apache.hadoop.hive.metastore.api.Partition;
 class UnpartitionedPartition
         extends Partition
 {
-    static final String UNPARTITIONED_NAME = "<UNPARTITIONED>";
-    static final UnpartitionedPartition INSTANCE = new UnpartitionedPartition();
+    static final Partition UNPARTITIONED_PARTITION = new UnpartitionedPartition();
+
+    private UnpartitionedPartition()
+    {
+    }
 }

@@ -1,6 +1,8 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.shaded.org.apache.thrift.TException;
+import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.base.Objects;
 import com.google.common.base.Throwables;
 import com.google.common.cache.Cache;
@@ -22,6 +24,7 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 
+import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -138,7 +141,7 @@ public class CachingHiveMetastore
                 try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
                     Table table = client.get_table(databaseName, tableName);
                     if (table.getTableType().equals(TableType.VIRTUAL_VIEW.toString())) {
-                        throw new NoSuchObjectException(HiveClient.HIVE_VIEWS_NOT_SUPPORTED);
+                        throw new TableNotFoundException(new SchemaTableName(databaseName, tableName), HiveClient.HIVE_VIEWS_NOT_SUPPORTED);
                     }
                     return table;
                 }
@@ -160,7 +163,7 @@ public class CachingHiveMetastore
                     if (partitionNames.isEmpty()) {
                         // Check if the table exists
                         getTable(databaseName, tableName);
-                        return ImmutableList.of(UnpartitionedPartition.UNPARTITIONED_NAME);
+                        return ImmutableList.of(UNPARTITIONED_ID);
                     }
                     return partitionNames;
                 }

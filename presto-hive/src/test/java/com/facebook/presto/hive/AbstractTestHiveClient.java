@@ -26,9 +26,9 @@ import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static com.google.common.collect.Maps.uniqueIndex;
 import static org.testng.Assert.assertEquals;
@@ -47,13 +47,14 @@ public abstract class AbstractTestHiveClient
     public static final TableHandle INVALID_TABLE_HANDLE = new HiveTableHandle(INVALID_TABLE);
     public static final String INVALID_COLUMN = "totally_invalid_column_name";
     public static final ColumnHandle INVALID_COLUMN_HANDLE = new HiveColumnHandle(INVALID_COLUMN);
-    public static final List<String> PARTITIONS = ImmutableList.of(
-            "ds=2012-12-29/file_format=rcfile/dummy=1",
-            "ds=2012-12-29/file_format=sequencefile/dummy=2",
-            "ds=2012-12-29/file_format=textfile/dummy=3");
+    public static final Set<Partition> PARTITIONS = ImmutableSet.<Partition>of(
+            new HivePartition(TABLE, "ds=2012-12-29/file_format=rcfile/dummy=1"),
+            new HivePartition(TABLE, "ds=2012-12-29/file_format=sequencefile/dummy=2"),
+            new HivePartition(TABLE, "ds=2012-12-29/file_format=textfile/dummy=3"));
+    public static final Set<Partition> UNPARTITIONED_PARTITIONS = ImmutableSet.<Partition>of(new HivePartition(TABLE_UNPARTITIONED));
 
     protected ImportClient client;
-    private static final Partition INVALID_PARTITION = new HivePartition(INVALID_TABLE, "unknown", ImmutableMap.<ColumnHandle, String>of());
+    private static final Partition INVALID_PARTITION = new HivePartition(INVALID_TABLE, "unknown");
 
     @Test
     public void testGetDatabaseNames()
@@ -96,11 +97,7 @@ public abstract class AbstractTestHiveClient
     {
         TableHandle tableHandle = client.getTableHandle(TABLE);
         List<Partition> partitions = client.getPartitions(tableHandle, ImmutableMap.<ColumnHandle, Object>of());
-        ImmutableSet.Builder<String> names = ImmutableSet.builder();
-        for (Partition partition : partitions) {
-            names.add(partition.getPartitionId());
-        }
-        assertEquals(names.build(), new HashSet<>(PARTITIONS));
+        assertEquals(partitions, PARTITIONS);
     }
 
     @Test(expectedExceptions = TableNotFoundException.class)
@@ -117,7 +114,7 @@ public abstract class AbstractTestHiveClient
         TableHandle tableHandle = client.getTableHandle(TABLE);
         List<Partition> partitions = client.getPartitions(tableHandle, ImmutableMap.<ColumnHandle, Object>of());
         assertEquals(partitions.size(), 3);
-        assertEquals(new HashSet<>(partitions), new HashSet<>(PARTITIONS));
+        assertEquals(partitions, PARTITIONS);
     }
 
     @Test
@@ -127,7 +124,7 @@ public abstract class AbstractTestHiveClient
         TableHandle tableHandle = client.getTableHandle(TABLE_UNPARTITIONED);
         List<Partition> partitions = client.getPartitions(tableHandle, ImmutableMap.<ColumnHandle, Object>of());
         assertEquals(partitions.size(), 1);
-        assertEquals(partitions, ImmutableList.of(UnpartitionedPartition.UNPARTITIONED_NAME));
+        assertEquals(partitions, UNPARTITIONED_PARTITIONS);
     }
 
     @Test(expectedExceptions = TableNotFoundException.class)

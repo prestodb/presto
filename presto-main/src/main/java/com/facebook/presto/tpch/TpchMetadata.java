@@ -172,14 +172,6 @@ public class TpchMetadata
     }
 
     @Override
-    public List<Map<String, String>> listTablePartitionValues(SchemaTablePrefix prefix)
-    {
-        checkNotNull(prefix, "prefix is null");
-
-        return ImmutableList.of();
-    }
-
-    @Override
     public List<SchemaTableName> listTables(Optional<String> schemaName)
     {
         checkNotNull(schemaName, "schemaName is null");
