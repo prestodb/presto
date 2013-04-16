@@ -23,7 +23,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.io.Files;
 import com.google.common.io.OutputSupplier;
-import com.google.common.primitives.Ints;
 import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -43,7 +42,6 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static java.lang.String.format;
 import static java.nio.file.Files.createDirectories;
@@ -52,6 +50,8 @@ public class DatabaseStorageManager
         implements StorageManager
 {
     private static final boolean ENABLE_OPTIMIZATION = Boolean.valueOf("false");
+
+    private static final BlocksFileEncoding DEFAULT_ENCODING = BlocksFileEncoding.RAW;
 
     private static final int RUN_LENGTH_AVERAGE_CUTOFF = 3;
     private static final int DICTIONARY_CARDINALITY_CUTOFF = 1000;
@@ -69,7 +69,12 @@ public class DatabaseStorageManager
                 throws Exception
         {
             checkArgument(file.isAbsolute(), "file is not absolute");
-            return Slices.mapFileReadOnly(file);
+            if (file.exists() && file.length() > 0) {
+                return Slices.mapFileReadOnly(file);
+            }
+            else {
+                return Slices.EMPTY_SLICE;
+            }
         }
     });
 
@@ -124,7 +129,7 @@ public class DatabaseStorageManager
     {
         ImmutableList.Builder<File> files = ImmutableList.builder();
         for (long columnId : columnIds) {
-            File file = getColumnFile(shardPath, columnId, BlocksFileEncoding.RAW);
+            File file = getColumnFile(shardPath, columnId, DEFAULT_ENCODING);
             Files.createParentDirs(file);
             files.add(file);
         }
@@ -135,7 +140,7 @@ public class DatabaseStorageManager
     {
         ImmutableList.Builder<BlocksFileWriter> writers = ImmutableList.builder();
         for (File file : files) {
-            writers.add(new BlocksFileWriter(BlocksFileEncoding.RAW, createOutputSupplier(file)));
+            writers.add(new BlocksFileWriter(DEFAULT_ENCODING, createOutputSupplier(file)));
         }
         return writers.build();
     }
@@ -171,7 +176,7 @@ public class DatabaseStorageManager
             boolean rleEncode = stats.getAvgRunLength() > RUN_LENGTH_AVERAGE_CUTOFF;
             boolean dicEncode = stats.getUniqueCount() < DICTIONARY_CARDINALITY_CUTOFF;
 
-            BlocksFileEncoding encoding = BlocksFileEncoding.RAW;
+            BlocksFileEncoding encoding = DEFAULT_ENCODING;
             if (dicEncode && rleEncode) {
                 encoding = BlocksFileEncoding.DIC_RLE;
             }
@@ -182,14 +187,14 @@ public class DatabaseStorageManager
                 encoding = BlocksFileEncoding.RLE;
             }
             if (!ENABLE_OPTIMIZATION) {
-                encoding = BlocksFileEncoding.RAW;
+                encoding = DEFAULT_ENCODING;
             }
 
             File outputFile = getColumnFile(shardPath, columnId, encoding);
             Files.createParentDirs(outputFile);
             optimizedFilesBuilder.add(outputFile);
 
-            if (encoding == BlocksFileEncoding.RAW) {
+            if (encoding == DEFAULT_ENCODING) {
                 // Should already be raw, so just move
                 Files.move(stagedFile, outputFile);
             }
@@ -297,11 +302,11 @@ public class DatabaseStorageManager
         return convertFilesToBlocks(ImmutableList.of(file));
     }
 
-    private BlockIterable convertFilesToBlocks(List<File> files)
+    private BlockIterable convertFilesToBlocks(Iterable<File> files)
     {
-        Preconditions.checkArgument(!files.isEmpty(), "no files in stream");
+        checkArgument(files.iterator().hasNext(), "no files in stream");
 
-        List<Block> blocks = ImmutableList.copyOf(Iterables.concat(Iterables.transform(files, new Function<File, Iterable<? extends Block>>()
+        Iterable<Block> blocks = Iterables.concat(Iterables.transform(files, new Function<File, Iterable<? extends Block>>()
         {
             @Override
             public Iterable<? extends Block> apply(File file)
@@ -309,15 +314,9 @@ public class DatabaseStorageManager
                 Slice slice = mappedFileCache.getUnchecked(file.getAbsoluteFile());
                 return BlocksFileReader.readBlocks(slice);
             }
-        })));
+        }));
 
-        long dataSize = 0;
-        long positionCount = 0;
-        for (Block block : blocks) {
-            dataSize += block.getDataSize().toBytes();
-            positionCount += block.getPositionCount();
-        }
-        return BlockUtils.toBlocks(new DataSize(dataSize, BYTE), Ints.checkedCast(positionCount), blocks);
+        return BlockUtils.toBlocks(blocks);
     }
 
     @Override
