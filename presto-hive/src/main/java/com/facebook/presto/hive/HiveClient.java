@@ -99,8 +99,9 @@ public class HiveClient
     private final int maxChunkIteratorThreads;
     private final int partitionBatchSize;
     private final HiveChunkEncoder hiveChunkEncoder;
+    private final HiveChunkReader hiveChunkReader;
     private final CachingHiveMetastore metastore;
-    private final FileSystemCache fileSystemCache;
+    private final HdfsEnvironment hdfsEnvironment;
     private final ExecutorService executor;
 
     public HiveClient(
@@ -109,8 +110,9 @@ public class HiveClient
             int maxChunkIteratorThreads,
             int partitionBatchSize,
             HiveChunkEncoder hiveChunkEncoder,
+            HiveChunkReader hiveChunkReader,
             CachingHiveMetastore metastore,
-            FileSystemCache fileSystemCache,
+            HdfsEnvironment hdfsEnvironment,
             ExecutorService executor)
     {
         this.maxChunkBytes = maxChunkBytes;
@@ -118,8 +120,9 @@ public class HiveClient
         this.maxChunkIteratorThreads = maxChunkIteratorThreads;
         this.partitionBatchSize = partitionBatchSize;
         this.hiveChunkEncoder = hiveChunkEncoder;
+        this.hiveChunkReader = hiveChunkReader;
         this.metastore = metastore;
-        this.fileSystemCache = fileSystemCache;
+        this.hdfsEnvironment = hdfsEnvironment;
         this.executor = executor;
     }
 
@@ -315,7 +318,7 @@ public class HiveClient
         checkArgument(partitionChunk instanceof HivePartitionChunk,
                 "expected instance of %s: %s", HivePartitionChunk.class, partitionChunk.getClass());
         assert partitionChunk instanceof HivePartitionChunk; // IDEA-60343
-        return HiveChunkReader.getRecords(fileSystemCache.getConfiguration(), (HivePartitionChunk) partitionChunk);
+        return hiveChunkReader.getRecords((HivePartitionChunk) partitionChunk);
     }
 
     @Override
@@ -371,7 +374,7 @@ public class HiveClient
 
     private Iterable<PartitionChunk> getPartitionChunks(Table table, Iterable<String> partitionNames, Iterable<Partition> partitions, List<HiveColumn> columns)
     {
-        return new PartitionChunkIterable(table, partitionNames, partitions, columns, maxChunkBytes, maxOutstandingChunks, maxChunkIteratorThreads, fileSystemCache, executor, partitionBatchSize);
+        return new PartitionChunkIterable(table, partitionNames, partitions, columns, maxChunkBytes, maxOutstandingChunks, maxChunkIteratorThreads, hdfsEnvironment, executor, partitionBatchSize);
     }
 
     private static class PartitionChunkIterable
@@ -417,7 +420,7 @@ public class HiveClient
         private final long maxChunkBytes;
         private final int maxOutstandingChunks;
         private final int maxThreads;
-        private final FileSystemCache fileSystemCache;
+        private final HdfsEnvironment hdfsEnvironment;
         private final ExecutorService executor;
         private final ClassLoader classLoader;
         private final int partitionBatchSize;
@@ -429,7 +432,7 @@ public class HiveClient
                 long maxChunkBytes,
                 int maxOutstandingChunks,
                 int maxThreads,
-                FileSystemCache fileSystemCache,
+                HdfsEnvironment hdfsEnvironment,
                 ExecutorService executor,
                 int partitionBatchSize)
         {
@@ -441,7 +444,7 @@ public class HiveClient
             this.maxChunkBytes = maxChunkBytes;
             this.maxOutstandingChunks = maxOutstandingChunks;
             this.maxThreads = maxThreads;
-            this.fileSystemCache = fileSystemCache;
+            this.hdfsEnvironment = hdfsEnvironment;
             this.executor = executor;
             this.classLoader = Thread.currentThread().getContextClassLoader();
         }
@@ -479,14 +482,14 @@ public class HiveClient
                     final String partitionName = nameIterator.next();
                     final Properties schema = getPartitionSchema(table, partition);
                     final List<HivePartitionKey> partitionKeys = getPartitionKeys(table, partition);
-                    final InputFormat<?, ?> inputFormat = getInputFormat(fileSystemCache.getConfiguration(), schema, false);
-                    Path partitionPath = new CachingPath(getPartitionLocation(table, partition), fileSystemCache);
+                    final InputFormat<?, ?> inputFormat = getInputFormat(hdfsEnvironment.getConfiguration(), schema, false);
+                    Path partitionPath = hdfsEnvironment.getFileSystemWrapper().wrap(new Path(getPartitionLocation(table, partition)));
 
-                    final FileSystem fs = partitionPath.getFileSystem(fileSystemCache.getConfiguration());
+                    final FileSystem fs = partitionPath.getFileSystem(hdfsEnvironment.getConfiguration());
                     final PartitionChunkPoisoner chunkPoisoner = new PartitionChunkPoisoner(partitionChunkQueue);
 
                     if (inputFormat instanceof SymlinkTextInputFormat) {
-                        JobConf jobConf = new JobConf(fileSystemCache.getConfiguration());
+                        JobConf jobConf = new JobConf(hdfsEnvironment.getConfiguration());
                         FileInputFormat.setInputPaths(jobConf, partitionPath);
                         InputSplit[] splits = inputFormat.getSplits(jobConf, 0);
                         for (InputSplit rawSplit : splits) {
@@ -510,7 +513,7 @@ public class HiveClient
                         {
                             try {
                                 boolean splittable = isSplittable(inputFormat,
-                                        file.getPath().getFileSystem(fileSystemCache.getConfiguration()),
+                                        file.getPath().getFileSystem(hdfsEnvironment.getConfiguration()),
                                         file.getPath());
 
                                 chunkPoisoner.writeChunks(createHivePartitionChunks(partitionName, file, 0, file.getLen(), schema, partitionKeys, fs, splittable));

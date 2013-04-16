@@ -1,29 +1,19 @@
 package com.facebook.presto.hive;
 
-import com.google.common.base.Throwables;
+import com.google.common.base.Function;
+import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
-import com.google.common.collect.ImmutableList;
-import com.google.common.net.HostAndPort;
-import com.google.common.primitives.Ints;
-import io.airlift.units.Duration;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.metrics.ContextFactory;
-import org.apache.hadoop.net.DNSToSwitchMapping;
-import org.apache.hadoop.net.SocksSocketFactory;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
-import javax.net.SocketFactory;
 import java.io.IOException;
-import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * Provide our own local caching of Hadoop FileSystems because the Hadoop default
@@ -31,18 +21,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
  */
 public class FileSystemCache
 {
-    private final HostAndPort socksProxy;
-    private final Duration dfsTimeout;
-    private final LoadingCache<PathAndKey, FileSystem> cache;
-
-    private final ThreadLocal<Configuration> hadoopConfiguration = new ThreadLocal<Configuration>()
-    {
-        @Override
-        protected Configuration initialValue()
-        {
-            return createConfiguration();
-        }
-    };
+    private final Cache<FileSystemKey, FileSystem> cache;
 
     public FileSystemCache()
     {
@@ -52,103 +31,49 @@ public class FileSystemCache
     @Inject
     public FileSystemCache(HiveClientConfig hiveClientConfig)
     {
-        checkNotNull(hiveClientConfig, "hiveClientConfig is null");
-        checkArgument(hiveClientConfig.getDfsTimeout().toMillis() >= 1, "dfsTimeout must be at least 1 ms");
-
-        this.socksProxy = hiveClientConfig.getMetastoreSocksProxy();
-        this.dfsTimeout = hiveClientConfig.getDfsTimeout();
         cache = CacheBuilder.newBuilder()
                 .expireAfterAccess((long) hiveClientConfig.getFileSystemCacheTtl().toMillis(), TimeUnit.MILLISECONDS)
-                .build(new CacheLoader<PathAndKey, FileSystem>() {
+                .build();
+    }
+
+    public Function<Path, Path> createPathWrapper()
+    {
+        return new Function<Path, Path>()
+        {
+            @Override
+            public Path apply(final Path path)
+            {
+                return new ForwardingPath(path)
+                {
                     @Override
-                    public FileSystem load(PathAndKey pathAndKey)
-                            throws Exception
+                    public FileSystem getFileSystem(Configuration conf)
+                            throws IOException
                     {
-                        return FileSystem.get(pathAndKey.getPath().toUri(), hadoopConfiguration.get());
+                        // This method assumes the supplied conf arg will be the same as the static Configuration
+                        // provided by the HdfsEnvironment
+                        try {
+                            return cache.get(new FileSystemKey(path), createFileSystemFromPath(path, conf));
+                        }
+                        catch (ExecutionException | UncheckedExecutionException e) {
+                            throw new IOException(e.getCause());
+                        }
                     }
-                });
-    }
-
-    public Configuration getConfiguration()
-    {
-        return hadoopConfiguration.get();
-    }
-
-    private Configuration createConfiguration()
-    {
-        Configuration config = new Configuration();
-
-        // this is to prevent dfs client from doing reverse DNS lookups to determine whether nodes are rack local
-        config.setClass("topology.node.switch.mapping.impl", NoOpDNSwitchMapping.class, DNSToSwitchMapping.class);
-
-        if (socksProxy != null) {
-            config.setClass("hadoop.rpc.socket.factory.class.default", SocksSocketFactory.class, SocketFactory.class);
-            config.set("hadoop.socks.server", socksProxy.toString());
-        }
-        config.setBoolean("dfs.read.shortcircuit", true);
-        config.setBoolean("dfs.read.shortcircuit.fallbackwhenfail", true);
-        config.setInt("dfs.socket.timeout", Ints.saturatedCast((long) dfsTimeout.toMillis()));
-        config.setInt("ipc.ping.interval", Ints.saturatedCast((long) dfsTimeout.toMillis()));
-
-        // Enable JMX export of stats for DFSClient
-        try {
-            ContextFactory factory = ContextFactory.getFactory();
-            factory.setAttribute("hdfsclient.class", "org.apache.hadoop.metrics.jmx.JMXContext");
-            factory.setAttribute("hdfsclient.period", "5"); // Counter value publish interval (seconds)
-        }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
-        }
-
-        return config;
-    }
-
-    public FileSystem getFileSystem(Path path)
-    {
-        return cache.getUnchecked(new PathAndKey(path));
-    }
-
-    // Carries the Path, but uses the FileSystemKey for identity
-    private static class PathAndKey
-    {
-        private final Path path;
-        private final FileSystemKey key;
-
-        private PathAndKey(Path path)
-        {
-            this.path = path;
-            key = new FileSystemKey(path);
-        }
-
-        public Path getPath()
-        {
-            return path;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
+                };
             }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
+        };
+    }
 
-            PathAndKey that = (PathAndKey) o;
-
-            if (!key.equals(that.key)) {
-                return false;
-            }
-
-            return true;
-        }
-
-        @Override
-        public int hashCode()
+    private Callable<FileSystem> createFileSystemFromPath(final Path path, final Configuration conf)
+    {
+        return new Callable<FileSystem>()
         {
-            return key.hashCode();
-        }
+            @Override
+            public FileSystem call()
+                    throws Exception
+            {
+                return path.getFileSystem(conf);
+            }
+        };
     }
 
     private static class FileSystemKey
@@ -199,17 +124,6 @@ public class FileSystemCache
             int result = scheme != null ? scheme.hashCode() : 0;
             result = 31 * result + (authority != null ? authority.hashCode() : 0);
             return result;
-        }
-    }
-
-    public static class NoOpDNSwitchMapping
-            implements DNSToSwitchMapping
-    {
-        @Override
-        public List<String> resolve(List<String> names)
-        {
-            // dfs client expects an empty list as an indication that the host->switch mapping for the given names are not known
-            return ImmutableList.of();
         }
     }
 }

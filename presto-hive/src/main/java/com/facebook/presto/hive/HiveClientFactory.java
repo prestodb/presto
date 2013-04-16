@@ -23,7 +23,8 @@ public class HiveClientFactory
     private final int maxChunkIteratorThreads;
     private final int partitionBatchSize;
     private final HiveChunkEncoder hiveChunkEncoder;
-    private final FileSystemCache fileSystemCache;
+    private final HiveChunkReader hiveChunkReader;
+    private final HdfsEnvironment hdfsEnvironment;
     private final LoadingCache<HiveCluster, CachingHiveMetastore> metastores;
     private final ExecutorService executorService = Executors.newCachedThreadPool(
             new ThreadFactoryBuilder()
@@ -34,11 +35,13 @@ public class HiveClientFactory
     public HiveClientFactory(
             HiveClientConfig hiveClientConfig,
             HiveChunkEncoder hiveChunkEncoder,
-            FileSystemCache fileSystemCache)
+            HiveChunkReader hiveChunkReader,
+            HdfsEnvironment hdfsEnvironment)
     {
         checkNotNull(hiveClientConfig, "hiveClientConfig is null");
         checkNotNull(hiveChunkEncoder, "hiveChunkEncoder is null");
-        checkNotNull(fileSystemCache, "fileSystemCache is null");
+        checkNotNull(hiveChunkReader, "hiveChunkReader is null");
+        checkNotNull(hdfsEnvironment, "hdfsEnvironment is null");
 
         maxChunkSize = hiveClientConfig.getMaxChunkSize();
         maxOutstandingChunks = hiveClientConfig.getMaxOutstandingChunks();
@@ -46,7 +49,8 @@ public class HiveClientFactory
         partitionBatchSize = hiveClientConfig.getPartitionBatchSize();
 
         this.hiveChunkEncoder = hiveChunkEncoder;
-        this.fileSystemCache = fileSystemCache;
+        this.hiveChunkReader = hiveChunkReader;
+        this.hdfsEnvironment = hdfsEnvironment;
 
         final Duration metastoreCacheTtl = hiveClientConfig.getMetastoreCacheTtl();
         metastores = CacheBuilder.newBuilder()
@@ -71,6 +75,6 @@ public class HiveClientFactory
     public HiveClient get(HiveCluster hiveCluster)
     {
         CachingHiveMetastore metastore = metastores.getUnchecked(hiveCluster);
-        return new HiveClient(maxChunkSize.toBytes(), maxOutstandingChunks, maxChunkIteratorThreads, partitionBatchSize, hiveChunkEncoder, metastore, fileSystemCache, executorService);
+        return new HiveClient(maxChunkSize.toBytes(), maxOutstandingChunks, maxChunkIteratorThreads, partitionBatchSize, hiveChunkEncoder, hiveChunkReader, metastore, hdfsEnvironment, executorService);
     }
 }

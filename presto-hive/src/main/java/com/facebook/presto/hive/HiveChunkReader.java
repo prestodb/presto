@@ -4,7 +4,8 @@ import com.facebook.presto.spi.RecordCursor;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import org.apache.hadoop.conf.Configuration;
+import com.google.inject.Inject;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.MetaStoreUtils;
 import org.apache.hadoop.hive.serde.Constants;
 import org.apache.hadoop.hive.serde2.ColumnProjectionUtils;
@@ -34,11 +35,15 @@ import static com.google.common.collect.Lists.transform;
 
 class HiveChunkReader
 {
-    private HiveChunkReader()
+    private final HdfsEnvironment hdfsEnvironment;
+
+    @Inject
+    HiveChunkReader(HdfsEnvironment hdfsEnvironment)
     {
+        this.hdfsEnvironment = Preconditions.checkNotNull(hdfsEnvironment, "hdfsEnvironment is null");
     }
 
-    static RecordCursor getRecords(Configuration configuration, HivePartitionChunk chunk)
+    RecordCursor getRecords(HivePartitionChunk chunk)
     {
         HadoopNative.requireHadoopNative();
 
@@ -61,9 +66,9 @@ class HiveChunkReader
                 // support no columns (it will read all columns instead), we must choose a single column
                 columns = ImmutableList.of(getFirstPrimitiveColumn(chunk.getSchema()));
             }
-            ColumnProjectionUtils.setReadColumnIDs(configuration, new ArrayList<>(transform(columns, indexGetter())));
+            ColumnProjectionUtils.setReadColumnIDs(hdfsEnvironment.getConfiguration(), new ArrayList<>(transform(columns, indexGetter())));
 
-            RecordReader<?, ?> recordReader = createRecordReader(configuration, chunk);
+            RecordReader<?, ?> recordReader = createRecordReader(chunk);
             if (recordReader.createValue() instanceof BytesRefArrayWritable) {
                 return new BytesHiveRecordCursor<>((RecordReader<?, BytesRefArrayWritable>) recordReader, chunk.getLength(), chunk.getSchema(), chunk.getPartitionKeys(), columns);
             }
@@ -99,11 +104,20 @@ class HiveChunkReader
         throw new IllegalStateException("Table doesn't have any PRIMITIVE columns");
     }
 
-    private static RecordReader<?, ?> createRecordReader(Configuration configuration, HivePartitionChunk chunk)
+    private RecordReader<?, ?> createRecordReader(HivePartitionChunk chunk)
     {
-        InputFormat inputFormat = getInputFormat(configuration, chunk.getSchema(), true);
-        FileSplit split = new FileSplit(chunk.getPath(), chunk.getStart(), chunk.getLength(), (String[]) null);
-        JobConf jobConf = new JobConf(configuration);
+        InputFormat inputFormat = getInputFormat(hdfsEnvironment.getConfiguration(), chunk.getSchema(), true);
+        // Make sure Path object used and returned by split is properly wrapped
+        final Path wrappedPath = hdfsEnvironment.getFileSystemWrapper().wrap(chunk.getPath());
+        FileSplit split = new FileSplit(wrappedPath, chunk.getStart(), chunk.getLength(), (String[]) null) {
+            @Override
+            public Path getPath()
+            {
+                // Override FileSplit getPath to bypass their memory optimizing step
+                return wrappedPath;
+            }
+        };
+        JobConf jobConf = new JobConf(hdfsEnvironment.getConfiguration());
 
         try {
             return inputFormat.getRecordReader(split, jobConf, Reporter.NULL);
