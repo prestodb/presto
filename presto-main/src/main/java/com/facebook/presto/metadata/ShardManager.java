@@ -65,7 +65,12 @@ public interface ShardManager
     /**
      * Drop all record of the specified partition
      */
-    void dropPartition(long tableId, String partitionName);
+    void dropPartition(TableHandle tableHandle, String partitionName);
+
+    /**
+     * remove all partitions that are no longer referred from any shard.
+     */
+    void dropOrphanedPartitions();
 
     /**
      * Return a list of all shard ids for a given node that are no referenced by a table.

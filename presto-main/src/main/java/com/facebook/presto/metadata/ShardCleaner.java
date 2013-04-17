@@ -1,7 +1,5 @@
 package com.facebook.presto.metadata;
 
-import io.airlift.http.client.HttpStatus;
-
 import com.facebook.presto.execution.Sitevars;
 import com.facebook.presto.util.KeyBoundedExecutor;
 import com.google.common.base.Optional;
@@ -12,6 +10,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListenableFutureTask;
 import com.google.inject.Inject;
 import io.airlift.http.client.HttpClient;
+import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.Request.Builder;
@@ -151,6 +150,8 @@ public class ShardCleaner
                 for (Long shardId : allOrphanedShards) {
                     shardManager.dropShard(shardId);
                 }
+
+                shardManager.dropOrphanedPartitions();
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();

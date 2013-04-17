@@ -10,6 +10,7 @@ import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.serde.BlocksFileReader;
 import com.facebook.presto.serde.BlocksFileStats;
+import com.facebook.presto.util.KeyBoundedExecutor;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
@@ -24,6 +25,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.io.Files;
 import com.google.inject.Inject;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
@@ -32,26 +34,40 @@ import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.TransactionStatus;
 import org.skife.jdbi.v2.VoidTransactionCallback;
 
+import javax.annotation.PreDestroy;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
 
+import static com.facebook.presto.util.RetryDriver.retry;
+import static com.facebook.presto.util.Threads.threadsNamed;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.nio.file.Files.createDirectories;
+import static java.util.concurrent.Executors.newFixedThreadPool;
 
 public class DatabaseLocalStorageManager
         implements LocalStorageManager
 {
+    private static final Logger log = Logger.get(DatabaseLocalStorageManager.class);
+
     private static final boolean ENABLE_OPTIMIZATION = Boolean.valueOf("false");
 
     private static final BlocksFileEncoding DEFAULT_ENCODING = BlocksFileEncoding.SNAPPY;
 
     private static final int RUN_LENGTH_AVERAGE_CUTOFF = 3;
     private static final int DICTIONARY_CARDINALITY_CUTOFF = 1000;
+
+    private static final int TASKS_PER_NODE = 32;
+
+    private final ExecutorService executor = newFixedThreadPool(TASKS_PER_NODE, threadsNamed("local-storage-manager-%s"));
+    private final KeyBoundedExecutor<Long> shardBoundedExecutor = new KeyBoundedExecutor<>(executor);
 
     private final IDBI dbi;
     private final File baseStorageDir;
@@ -86,6 +102,12 @@ public class DatabaseLocalStorageManager
         this.dao = dbi.onDemand(StorageManagerDao.class);
 
         dao.createTableColumns();
+    }
+
+    @PreDestroy
+    public void stop()
+    {
+        executor.shutdown();
     }
 
     @Override
@@ -338,15 +360,14 @@ public class DatabaseLocalStorageManager
 
     @Override
     public void dropShard(long shardId)
-            throws IOException
     {
-        // TODO: dropping needs to be globally coordinated with read queries
-        List<String> shardFiles = dao.getShardFiles(shardId);
-        for (String shardFile : shardFiles) {
-            File file = new File(getShardPath(baseStorageDir, shardId), shardFile);
-            java.nio.file.Files.deleteIfExists(file.toPath());
-        }
-        dao.dropShard(shardId);
+        shardBoundedExecutor.execute(shardId, new DropJob(shardId));
+    }
+
+    @Override
+    public boolean isShardActive(long shardId)
+    {
+        return shardBoundedExecutor.isActive(shardId);
     }
 
     private static File createDirectory(File dir)
@@ -355,4 +376,41 @@ public class DatabaseLocalStorageManager
         createDirectories(dir.toPath());
         return dir;
     }
+
+    private class DropJob
+            implements Runnable
+    {
+        private final long shardId;
+
+        private DropJob(long shardId)
+        {
+            this.shardId = shardId;
+        }
+
+        @Override
+        public void run()
+        {
+            try {
+                retry().stopOnIllegalExceptions().runUnchecked(new Callable<Void>()
+                {
+                    @Override
+                    public Void call()
+                            throws Exception
+                    {
+                        // TODO: dropping needs to be globally coordinated with read queries
+                        List<String> shardFiles = dao.getShardFiles(shardId);
+                        for (String shardFile : shardFiles) {
+                            File file = new File(getShardPath(baseStorageDir, shardId), shardFile);
+                            java.nio.file.Files.deleteIfExists(file.toPath());
+                        }
+                        dao.dropShard(shardId);
+                        return null;
+                    }
+                });
+            } catch (Exception e) {
+                log.error(e, "shard drop failed");
+            }
+        }
+    }
+
 }

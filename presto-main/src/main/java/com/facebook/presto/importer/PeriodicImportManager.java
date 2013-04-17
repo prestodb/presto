@@ -1,5 +1,7 @@
 package com.facebook.presto.importer;
 
+import com.google.common.base.Predicate;
+
 import java.util.List;
 
 public interface PeriodicImportManager
@@ -7,6 +9,8 @@ public interface PeriodicImportManager
     long insertJob(PeriodicImportJob job);
 
     void dropJob(long jobId);
+
+    void dropJobs(Predicate<PersistentPeriodicImportJob> jobPredicate);
 
     long getJobCount();
 

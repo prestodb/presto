@@ -44,8 +44,7 @@ public interface ShardManagerDao
             "  partition_id BIGINT PRIMARY KEY AUTO_INCREMENT,\n" +
             "  partition_name VARCHAR(255) NOT NULL,\n" +
             "  table_id BIGINT NOT NULL,\n" +
-            "  UNIQUE (table_id, partition_name),\n" +
-            "  FOREIGN KEY (table_id) REFERENCES tables (table_id)\n" +
+            "  UNIQUE (table_id, partition_name)\n" +
             ")")
     void createTablePartitions();
 
@@ -54,7 +53,6 @@ public interface ShardManagerDao
             "  table_id BIGINT NOT NULL,\n" +
             "  partition_id BIGINT NOT NULL,\n" +
             "  FOREIGN KEY (shard_id) REFERENCES shards (shard_id),\n" +
-            "  FOREIGN KEY (table_id) REFERENCES tables (table_id),\n" +
             "  FOREIGN KEY (partition_id) REFERENCES table_partitions (partition_id)\n" +
             ")")
     void createPartitionShards();
@@ -164,6 +162,11 @@ public interface ShardManagerDao
             "  AND shard_id NOT IN (SELECT DISTINCT shard_id from shard_nodes)\n" +
             "  AND committed IS TRUE\n")
     List<Long> getAllOrphanedShards();
+
+    @SqlUpdate("DELETE FROM table_partitions\n" +
+            "  WHERE table_id NOT IN (SELECT table_id FROM tables)\n" +
+               "  AND partition_id NOT IN (SELECT partition_id FROM partition_shards)\n")
+    void dropAllOrphanedPartitions();
 
     public static class Utils
     {
