@@ -1,6 +1,5 @@
 package com.facebook.presto.metadata;
 
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
@@ -93,11 +92,12 @@ public class TestNativeMetadata
 
     private static TableMetadata getOrdersTable()
     {
-        return new TableMetadata(DEFAULT_TEST_ORDERS, ImmutableList.of(
-                new ColumnMetadata("orderkey", FIXED_INT_64),
-                new ColumnMetadata("custkey", FIXED_INT_64),
-                new ColumnMetadata("totalprice", DOUBLE),
-                new ColumnMetadata("orderdate", VARIABLE_BINARY)));
+        return new TableMetadata(DEFAULT_TEST_ORDERS,
+                ImmutableList.of(
+                        new ColumnMetadata("orderkey", FIXED_INT_64),
+                        new ColumnMetadata("custkey", FIXED_INT_64),
+                        new ColumnMetadata("totalprice", DOUBLE),
+                        new ColumnMetadata("orderdate", VARIABLE_BINARY)));
     }
 
     private static void assertTableEqual(TableMetadata actual, TableMetadata expected)

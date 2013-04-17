@@ -1,7 +1,6 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.metadata.ColumnMetadata;
-import com.facebook.presto.metadata.DataSourceType;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataUtil;
