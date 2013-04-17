@@ -62,7 +62,8 @@ tokens {
     SHOW_PARTITIONS;
     SHOW_FUNCTIONS;
     CREATE_TABLE;
-    CREATE_OR_REPLACE_MATERIALIZED_VIEW;
+    CREATE_MATERIALIZED_VIEW;
+    VIEW_REFRESH;
     DROP_TABLE;
     TABLE_ELEMENT_LIST;
     COLUMN_DEF;
@@ -136,7 +137,7 @@ statement
     | showPartitionsStmt
     | showFunctionsStmt
     | createTableStmt
-    | createOrReplaceMaterializedViewStmt
+    | createMaterializedViewStmt
     | dropTableStmt
     ;
 
@@ -467,8 +468,8 @@ dropTableStmt
     : DROP TABLE qname -> ^(DROP_TABLE qname)
     ;
 
-createOrReplaceMaterializedViewStmt
-    : CREATE OR REPLACE MATERIALIZED VIEW qname AS restrictedSelectStmt -> ^(CREATE_OR_REPLACE_MATERIALIZED_VIEW qname restrictedSelectStmt)
+createMaterializedViewStmt
+    : CREATE MATERIALIZED VIEW qname refresh=viewRefresh? AS restrictedSelectStmt -> ^(CREATE_MATERIALIZED_VIEW qname $refresh? restrictedSelectStmt)
     ;
 
 createTableStmt

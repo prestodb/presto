@@ -1,24 +1,32 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Optional;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class CreateOrReplaceMaterializedView
+public class CreateMaterializedView
         extends Statement
 {
     private final QualifiedName name;
     private final Query tableDefinition;
+    private final Optional<String> refresh;
 
-    public CreateOrReplaceMaterializedView(QualifiedName name, Query tableDefinition)
+    public CreateMaterializedView(QualifiedName name, Optional<String> refresh, Query tableDefinition)
     {
         this.name = checkNotNull(name, "name is null");
+        this.refresh = checkNotNull(refresh, "refresh is null");
         this.tableDefinition = checkNotNull(tableDefinition, "tableDefinition is null");
     }
 
     public QualifiedName getName()
     {
         return name;
+    }
+
+    public Optional<String> getRefresh()
+    {
+        return refresh;
     }
 
     public Query getTableDefinition()
@@ -29,7 +37,7 @@ public class CreateOrReplaceMaterializedView
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
-        return visitor.visitCreateOrReplaceMaterializedView(this, context);
+        return visitor.visitCreateMaterializedView(this, context);
     }
 
     @Override
@@ -47,17 +55,19 @@ public class CreateOrReplaceMaterializedView
         else if ((obj == null) || (getClass() != obj.getClass())) {
             return false;
         }
-        CreateOrReplaceMaterializedView o = (CreateOrReplaceMaterializedView) obj;
+        CreateMaterializedView o = (CreateMaterializedView) obj;
         return Objects.equal(name, o.name)
-            && Objects.equal(tableDefinition, o.tableDefinition);
+                && Objects.equal(refresh, o.refresh)
+                && Objects.equal(tableDefinition, o.tableDefinition);
     }
 
     @Override
     public String toString()
     {
         return Objects.toStringHelper(this)
-            .add("name", name)
-            .add("tableDefinition", tableDefinition)
-            .toString();
+                .add("name", name)
+                .add("refresh", refresh)
+                .add("tableDefinition", tableDefinition)
+                .toString();
     }
 }

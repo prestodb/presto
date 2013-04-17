@@ -13,6 +13,7 @@ import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.metadata.HandleJsonModule;
+import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.QualifiedTableName;
@@ -238,7 +239,7 @@ public class TestDistributedQueries
 
         for (QualifiedTableName qualifiedTableName : qualifiedTableNames) {
             log.info("Running import for %s", qualifiedTableName.getTableName());
-            MaterializedResult importResult = computeActual(format("CREATE OR REPLACE MATERIALIZED VIEW default.default.%s AS SELECT * FROM %s", qualifiedTableName.getTableName(), qualifiedTableName));
+            MaterializedResult importResult = computeActual(format("CREATE MATERIALIZED VIEW default.default.%s AS SELECT * FROM %s", qualifiedTableName.getTableName(), qualifiedTableName));
             log.info("Imported %s rows for %s", importResult.getMaterializedTuples().get(0).getField(0), qualifiedTableName.getTableName());
             tableNames.add(qualifiedTableName.getTableName());
         }
