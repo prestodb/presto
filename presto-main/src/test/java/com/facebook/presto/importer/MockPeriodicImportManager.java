@@ -1,5 +1,7 @@
 package com.facebook.presto.importer;
 
+import com.google.common.base.Predicate;
+
 import java.util.List;
 
 public class MockPeriodicImportManager
@@ -14,6 +16,12 @@ public class MockPeriodicImportManager
 
     @Override
     public void dropJob(long jobId)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void dropJobs(Predicate<PersistentPeriodicImportJob> jobPredicate)
     {
         throw new UnsupportedOperationException();
     }

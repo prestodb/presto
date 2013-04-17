@@ -1,5 +1,6 @@
 package com.facebook.presto.importer;
 
+import com.google.common.base.Predicate;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
@@ -35,36 +36,53 @@ public class DatabasePeriodicImportManager
         createTablesWithRetry();
     }
 
+    @Override
     public long insertJob(PeriodicImportJob job)
     {
         return dao.insertJob(job);
     }
 
+    @Override
     public void dropJob(long jobId)
     {
         dao.dropJob(jobId);
     }
 
+    @Override
+    public void dropJobs(Predicate<PersistentPeriodicImportJob> jobPredicate)
+    {
+        for (PersistentPeriodicImportJob job : getJobs()) {
+            if (jobPredicate.apply(job)) {
+                dropJob(job.getJobId());
+            }
+        }
+    }
+
+    @Override
     public long getJobCount()
     {
         return dao.getJobCount(true);
     }
 
+    @Override
     public PersistentPeriodicImportJob getJob(long jobId)
     {
         return dao.getJob(jobId);
     }
 
+    @Override
     public List<PersistentPeriodicImportJob> getJobs()
     {
         return dao.getJobs(true);
     }
 
+    @Override
     public long beginRun(long jobId)
     {
         return dao.beginRun(jobId, nodeInfo.getNodeId());
     }
 
+    @Override
     public void endRun(long runId, boolean result)
     {
         dao.finishRun(runId, result);
