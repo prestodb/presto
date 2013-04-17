@@ -1,6 +1,5 @@
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.tuple.TupleInfo;

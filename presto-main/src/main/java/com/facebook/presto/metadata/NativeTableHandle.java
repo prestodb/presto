@@ -2,6 +2,7 @@ package com.facebook.presto.metadata;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Objects;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -32,6 +33,8 @@ public class NativeTableHandle
     @Override
     public String toString()
     {
-        return "native:" + tableId;
+        return Objects.toStringHelper(this)
+                .add("tableId", tableId)
+                .toString();
     }
 }
