@@ -1,5 +1,6 @@
 package com.facebook.presto.benchmark;
 
+import com.facebook.presto.importer.MockPeriodicImportManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MockLocalStorageManager;
 import com.facebook.presto.operator.Operator;
@@ -59,7 +60,8 @@ public abstract class AbstractSqlBenchmark
         session = new Session(null, TpchSchema.CATALOG_NAME, TpchSchema.SCHEMA_NAME);
         analysis = new Analyzer(session,
                 metadata,
-                new MockStorageManager()).analyze(statement);
+                new MockStorageManager(),
+                new MockPeriodicImportManager()).analyze(statement);
 
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
         PlanOptimizersFactory planOptimizersFactory = new PlanOptimizersFactory(metadata);
