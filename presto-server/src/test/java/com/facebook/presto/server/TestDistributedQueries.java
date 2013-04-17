@@ -23,9 +23,9 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Serialization.ExpressionDeserializer;
 import com.facebook.presto.sql.tree.Serialization.ExpressionSerializer;
 import com.facebook.presto.sql.tree.Serialization.FunctionCallDeserializer;
-import com.facebook.presto.tpch.TpchSplitManager;
 import com.facebook.presto.tpch.TpchDataStreamProvider;
 import com.facebook.presto.tpch.TpchMetadata;
+import com.facebook.presto.tpch.TpchSplitManager;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
@@ -85,7 +85,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.facebook.presto.util.TestingTpchBlocksProvider.readTpchRecords;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
@@ -397,9 +396,7 @@ public class TestDistributedQueries
                         @Override
                         public void configure(Binder binder)
                         {
-                            TestingTpchBlocksProvider tpchBlocksProvider = new TestingTpchBlocksProvider(ImmutableMap.of(
-                                    "orders", readTpchRecords("orders"),
-                                    "lineitem", readTpchRecords("lineitem")));
+                            TestingTpchBlocksProvider tpchBlocksProvider = new TestingTpchBlocksProvider();
                             binder.bind(TpchDataStreamProvider.class).toInstance(new TpchDataStreamProvider(tpchBlocksProvider));
                             newMapBinder(binder, String.class, ConnectorMetadata.class).addBinding("tpch").to(TpchMetadata.class);
                             newSetBinder(binder, ConnectorSplitManager.class).addBinding().to(TpchSplitManager.class).in(Scopes.SINGLETON);

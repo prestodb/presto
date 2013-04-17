@@ -17,8 +17,8 @@ import java.util.List;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlockIterable;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlockIterable;
 import static com.facebook.presto.operator.OperatorAssertions.assertOperatorEquals;
-import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
-import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
+import static com.facebook.presto.spi.ColumnType.LONG;
+import static com.facebook.presto.spi.ColumnType.STRING;
 import static org.testng.Assert.assertEquals;
 
 public class TestRecordProjectOperator
@@ -27,9 +27,9 @@ public class TestRecordProjectOperator
     public void testSingleColumn()
             throws Exception
     {
-        InMemoryRecordSet records = new InMemoryRecordSet(ImmutableList.of(VARIABLE_BINARY), ImmutableList.copyOf(new List<?>[]{ImmutableList.of("abc"), ImmutableList.of("def"), ImmutableList.of("g")}));
+        InMemoryRecordSet records = new InMemoryRecordSet(ImmutableList.of(STRING), ImmutableList.copyOf(new List<?>[]{ImmutableList.of("abc"), ImmutableList.of("def"), ImmutableList.of("g")}));
 
-        RecordProjectOperator recordProjectOperator = new RecordProjectOperator(records, records.getColumns());
+        RecordProjectOperator recordProjectOperator = new RecordProjectOperator(records);
         assertOperatorEquals(recordProjectOperator, new AlignmentOperator(createStringsBlockIterable("abc", "def", "g")));
     }
 
@@ -37,9 +37,9 @@ public class TestRecordProjectOperator
     public void testMultiColumn()
             throws Exception
     {
-        InMemoryRecordSet records = new InMemoryRecordSet(ImmutableList.of(VARIABLE_BINARY, FIXED_INT_64), ImmutableList.copyOf(new List<?>[]{ImmutableList.of("abc", 1L), ImmutableList.of("def", 2L), ImmutableList.of("g", 0L)}));
+        InMemoryRecordSet records = new InMemoryRecordSet(ImmutableList.of(STRING, LONG), ImmutableList.copyOf(new List<?>[]{ImmutableList.of("abc", 1L), ImmutableList.of("def", 2L), ImmutableList.of("g", 0L)}));
 
-        RecordProjectOperator recordProjectOperator = new RecordProjectOperator(records, records.getColumns());
+        RecordProjectOperator recordProjectOperator = new RecordProjectOperator(records);
         assertOperatorEquals(recordProjectOperator, new AlignmentOperator(
                 createStringsBlockIterable("abc", "def", "g"),
                 createLongsBlockIterable(1, 2, 0)
@@ -50,9 +50,9 @@ public class TestRecordProjectOperator
     public void testFinish()
             throws Exception
     {
-        InfiniteRecordSet records = new InfiniteRecordSet(ImmutableList.of(VARIABLE_BINARY, FIXED_INT_64), ImmutableList.of("abc", 1L));
+        InfiniteRecordSet records = new InfiniteRecordSet(ImmutableList.of(STRING, LONG), ImmutableList.of("abc", 1L));
 
-        RecordProjectOperator operator = new RecordProjectOperator(records, records.getColumns());
+        RecordProjectOperator operator = new RecordProjectOperator(records);
 
         TaskOutput taskOutput = new TaskOutput(new TaskId("0", "0", "0"), URI.create("unknown://unknown"), 1000);
         taskOutput.addResultQueue("unknown");

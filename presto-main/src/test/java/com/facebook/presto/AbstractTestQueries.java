@@ -1118,7 +1118,7 @@ public abstract class AbstractTestQueries
     {
         handle = DBI.open("jdbc:h2:mem:test" + System.nanoTime());
 
-        RecordSet ordersRecords = readTpchRecords(TPCH_ORDERS_NAME);
+        RecordSet ordersRecords = readTpchRecords(TPCH_ORDERS_NAME, TPCH_ORDERS_METADATA.getColumns().size());
         handle.execute("CREATE TABLE orders (\n" +
                 "  orderkey BIGINT PRIMARY KEY,\n" +
                 "  custkey BIGINT NOT NULL,\n" +
@@ -1132,7 +1132,7 @@ public abstract class AbstractTestQueries
                 ")");
         insertRows(TPCH_ORDERS_METADATA, handle, ordersRecords);
 
-        RecordSet lineItemRecords = readTpchRecords(TPCH_LINEITEM_NAME);
+        RecordSet lineItemRecords = readTpchRecords(TPCH_LINEITEM_NAME, TPCH_LINEITEM_METADATA.getColumns().size());
         handle.execute("CREATE TABLE lineitem (\n" +
                 "  orderkey BIGINT,\n" +
                 "  partkey BIGINT NOT NULL,\n" +

@@ -9,7 +9,7 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.PartitionChunk;
-import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
@@ -106,7 +106,6 @@ public class HiveClient
     private final int maxChunkIteratorThreads;
     private final int partitionBatchSize;
     private final HiveChunkEncoder hiveChunkEncoder;
-    private final HiveChunkReader hiveChunkReader;
     private final CachingHiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
     private final ExecutorService executor;
@@ -117,7 +116,6 @@ public class HiveClient
             int maxChunkIteratorThreads,
             int partitionBatchSize,
             HiveChunkEncoder hiveChunkEncoder,
-            HiveChunkReader hiveChunkReader,
             CachingHiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             ExecutorService executor)
@@ -127,7 +125,6 @@ public class HiveClient
         this.maxChunkIteratorThreads = maxChunkIteratorThreads;
         this.partitionBatchSize = partitionBatchSize;
         this.hiveChunkEncoder = hiveChunkEncoder;
-        this.hiveChunkReader = hiveChunkReader;
         this.metastore = metastore;
         this.hdfsEnvironment = hdfsEnvironment;
         this.executor = executor;
@@ -425,14 +422,14 @@ public class HiveClient
     }
 
     @Override
-    public RecordCursor getRecords(PartitionChunk partitionChunk, List<? extends ColumnHandle> columns)
+    public RecordSet getRecords(PartitionChunk partitionChunk, List<? extends ColumnHandle> columns)
     {
         checkArgument(partitionChunk instanceof HivePartitionChunk,
                 "expected instance of %s: %s", HivePartitionChunk.class, partitionChunk.getClass());
         assert partitionChunk instanceof HivePartitionChunk; // IDEA-60343
 
         List<HiveColumnHandle> hiveColumns = ImmutableList.copyOf(transform(columns, hiveColumnHandle()));
-        return hiveChunkReader.getRecords((HivePartitionChunk) partitionChunk, hiveColumns);
+        return new HiveRecordSet(hdfsEnvironment, (HivePartitionChunk) partitionChunk, hiveColumns);
     }
 
     @Override

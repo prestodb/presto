@@ -67,4 +67,16 @@ public class ImportColumnHandle
             }
         };
     }
+
+    public static Function<ColumnHandle, ColumnHandle> columnHandleGetter()
+    {
+        return new Function<ColumnHandle, ColumnHandle>()
+        {
+            @Override
+            public ColumnHandle apply(ColumnHandle input)
+            {
+                return ((ImportColumnHandle) input).getColumnHandle();
+            }
+        };
+    }
 }

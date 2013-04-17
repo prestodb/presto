@@ -21,9 +21,9 @@ import java.io.IOException;
 import java.util.List;
 
 import static com.facebook.presto.operator.OperatorAssertions.assertOperatorEquals;
-import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
-import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 import static org.testng.Assert.assertEquals;
+import static com.facebook.presto.spi.ColumnType.LONG;
+import static com.facebook.presto.spi.ColumnType.STRING;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -58,8 +58,8 @@ public class TestDatabaseLocalStorageManager
         long shardId = 123;
         List<ColumnHandle> columnHandles = ImmutableList.<ColumnHandle>of(new NativeColumnHandle("column_7", 7L), new NativeColumnHandle("column_11", 11L));
 
-        InMemoryRecordSet records = new InMemoryRecordSet(ImmutableList.of(VARIABLE_BINARY, FIXED_INT_64) ,ImmutableList.copyOf(new List<?>[]{ImmutableList.of("abc", 1L), ImmutableList.of("def", 2L), ImmutableList.of("g", 0L)}));
-        RecordProjectOperator source = new RecordProjectOperator(records, records.getColumns());
+        InMemoryRecordSet records = new InMemoryRecordSet(ImmutableList.of(STRING, LONG), ImmutableList.copyOf(new List<?>[]{ImmutableList.of("abc", 1L), ImmutableList.of("def", 2L), ImmutableList.of("g", 0L)}));
+        RecordProjectOperator source = new RecordProjectOperator(records);
 
         assertFalse(storageManager.shardExists(shardId));
 
@@ -69,7 +69,7 @@ public class TestDatabaseLocalStorageManager
 
         assertOperatorEquals(
                 new AlignmentOperator(storageManager.getBlocks(shardId, columnHandles.get(0)), storageManager.getBlocks(shardId, columnHandles.get(1))),
-                new RecordProjectOperator(records, records.getColumns()));
+                new RecordProjectOperator(records));
     }
 
     @Test
@@ -79,8 +79,8 @@ public class TestDatabaseLocalStorageManager
         long shardId = 456;
         List<ColumnHandle> columnHandles = ImmutableList.<ColumnHandle>of(new NativeColumnHandle("column_13", 13L));
 
-        InMemoryRecordSet records = new InMemoryRecordSet(ImmutableList.of(VARIABLE_BINARY), ImmutableList.copyOf(new List<?>[]{}));
-        RecordProjectOperator source = new RecordProjectOperator(records, records.getColumns());
+        InMemoryRecordSet records = new InMemoryRecordSet(ImmutableList.of(STRING), ImmutableList.copyOf(new List<?>[]{}));
+        RecordProjectOperator source = new RecordProjectOperator(records);
 
         assertFalse(storageManager.shardExists(shardId));
 

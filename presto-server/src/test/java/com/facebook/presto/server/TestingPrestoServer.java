@@ -30,8 +30,6 @@ import java.io.File;
 import java.net.URI;
 import java.util.Map;
 
-import static com.facebook.presto.util.TestingTpchBlocksProvider.readTpchRecords;
-
 public class TestingPrestoServer
         implements Closeable
 {
@@ -66,9 +64,7 @@ public class TestingPrestoServer
                     @Override
                     public void configure(Binder binder)
                     {
-                        TestingTpchBlocksProvider tpchBlocksProvider = new TestingTpchBlocksProvider(ImmutableMap.of(
-                                "orders", readTpchRecords("orders"),
-                                "lineitem", readTpchRecords("lineitem")));
+                        TestingTpchBlocksProvider tpchBlocksProvider = new TestingTpchBlocksProvider();
                         binder.bind(TpchDataStreamProvider.class).toInstance(new TpchDataStreamProvider(tpchBlocksProvider));
                     }
                 });

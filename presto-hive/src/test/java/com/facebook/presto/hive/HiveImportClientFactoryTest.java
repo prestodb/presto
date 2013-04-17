@@ -32,7 +32,7 @@ public class HiveImportClientFactoryTest
                 serviceDescriptor("hive-metastore").addProperty("thrift", "missing-port").build(),
                 serviceDescriptor("hive-metastore").build());
 
-        HiveClientFactory hiveClientFactory = new HiveClientFactory(new HiveClientConfig(), new HiveChunkEncoder(getHivePartitionChunkCodec()), new HiveChunkReader(new HdfsEnvironment()), new HdfsEnvironment());
+        HiveClientFactory hiveClientFactory = new HiveClientFactory(new HiveClientConfig(), new HiveChunkEncoder(getHivePartitionChunkCodec()), new HdfsEnvironment());
         DiscoveryLocatedHiveCluster hiveCluster = new DiscoveryLocatedHiveCluster(selector, new HiveMetastoreClientFactory(new HiveClientConfig()));
         HiveImportClientFactory factory = new HiveImportClientFactory(hiveCluster, hiveClientFactory);
         assertInstanceOf(factory.createClient("hive"), HiveClient.class);

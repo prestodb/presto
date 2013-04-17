@@ -17,7 +17,8 @@ public class TestDelimitedRecordIterable
     {
         DelimitedRecordSet recordIterable = new DelimitedRecordSet(
                 newReaderSupplier("apple,fuu,123\nbanana,bar,456"),
-                Splitter.on(','));
+                Splitter.on(','),
+                0, 1, 2);
 
         RecordCursor cursor = recordIterable.cursor();
         assertTrue(cursor.advanceNextPosition());

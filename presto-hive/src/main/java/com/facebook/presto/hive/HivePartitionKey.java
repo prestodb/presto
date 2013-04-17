@@ -2,6 +2,7 @@ package com.facebook.presto.hive;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Function;
 import com.google.common.base.Objects;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -53,5 +54,16 @@ public class HivePartitionKey
                 .add("hiveType", hiveType)
                 .add("value", value)
                 .toString();
+    }
+
+    public static Function<HivePartitionKey, String> nameGetter()
+    {
+        return new Function<HivePartitionKey, String>() {
+            @Override
+            public String apply(HivePartitionKey input)
+            {
+                return input.getName();
+            }
+        };
     }
 }

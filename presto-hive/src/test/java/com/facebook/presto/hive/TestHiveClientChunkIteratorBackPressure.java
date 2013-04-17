@@ -20,7 +20,6 @@ public class TestHiveClientChunkIteratorBackPressure
                 2,
                 500,
                 getHiveChunkEncoder(),
-                new HiveChunkReader(new HdfsEnvironment()),
                 new CachingHiveMetastore(new TestingHiveCluster(host, port), Duration.valueOf("1m")),
                 new HdfsEnvironment(),
                 MoreExecutors.sameThreadExecutor());

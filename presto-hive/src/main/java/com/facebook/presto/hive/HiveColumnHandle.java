@@ -2,6 +2,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ColumnType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Function;
@@ -74,6 +75,11 @@ public class HiveColumnHandle
         return new ColumnMetadata(name, hiveType.getNativeType(), ordinalPosition);
     }
 
+    public ColumnType getType()
+    {
+        return hiveType.getNativeType();
+    }
+
     @Override
     public String toString()
     {
@@ -119,6 +125,18 @@ public class HiveColumnHandle
             public ColumnMetadata apply(HiveColumnHandle input)
             {
                 return input.getColumnMetadata();
+            }
+        };
+    }
+
+    public static Function<HiveColumnHandle, ColumnType> nativeTypeGetter()
+    {
+        return new Function<HiveColumnHandle, ColumnType>()
+        {
+            @Override
+            public ColumnType apply(HiveColumnHandle input)
+            {
+                return input.getType();
             }
         };
     }

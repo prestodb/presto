@@ -8,10 +8,7 @@ import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.util.LocalQueryRunner;
 import com.facebook.presto.util.MaterializedResult;
 import com.facebook.presto.util.TestingTpchBlocksProvider;
-import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
-
-import static com.facebook.presto.util.TestingTpchBlocksProvider.readTpchRecords;
 
 public class TestLocalQueries
         extends AbstractTestQueries
@@ -27,9 +24,7 @@ public class TestLocalQueries
         this.catalog = catalog;
         this.schema = schema;
 
-        TestingTpchBlocksProvider tpchBlocksProvider = new TestingTpchBlocksProvider(ImmutableMap.of(
-                "orders", readTpchRecords("orders"),
-                "lineitem", readTpchRecords("lineitem")));
+        TestingTpchBlocksProvider tpchBlocksProvider = new TestingTpchBlocksProvider();
         dataStreamProvider = new TpchDataStreamProvider(tpchBlocksProvider);
     }
 
