@@ -25,11 +25,11 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-public class TestDatabaseStorageManager
+public class TestDatabaseLocalStorageManager
 {
     private Handle dummyHandle;
     private File dataDir;
-    private StorageManager storageManager;
+    private LocalStorageManager storageManager;
 
     @BeforeMethod
     public void setupDatabase()
@@ -38,8 +38,8 @@ public class TestDatabaseStorageManager
         IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dummyHandle = dbi.open();
         dataDir = Files.createTempDir();
-        StorageManagerConfig config = new StorageManagerConfig().setDataDirectory(dataDir);
-        storageManager = new DatabaseStorageManager(dbi, config);
+        DatabaseLocalStorageManagerConfig config = new DatabaseLocalStorageManagerConfig().setDataDirectory(dataDir);
+        storageManager = new DatabaseLocalStorageManager(dbi, config);
     }
 
     @AfterMethod
@@ -96,23 +96,23 @@ public class TestDatabaseStorageManager
     @Test
     public void testShardPath()
     {
-        File result = DatabaseStorageManager.getShardPath(new File("/"), 0);
+        File result = DatabaseLocalStorageManager.getShardPath(new File("/"), 0);
         assertEquals(result.getAbsolutePath(), "/00/00/00/00");
-        result = DatabaseStorageManager.getShardPath(new File("/"), 1);
+        result = DatabaseLocalStorageManager.getShardPath(new File("/"), 1);
         assertEquals(result.getAbsolutePath(), "/01/00/00/00");
-        result = DatabaseStorageManager.getShardPath(new File("/"), 100);
+        result = DatabaseLocalStorageManager.getShardPath(new File("/"), 100);
         assertEquals(result.getAbsolutePath(), "/00/01/00/00");
-        result = DatabaseStorageManager.getShardPath(new File("/"), 10_000);
+        result = DatabaseLocalStorageManager.getShardPath(new File("/"), 10_000);
         assertEquals(result.getAbsolutePath(), "/00/00/01/00");
-        result = DatabaseStorageManager.getShardPath(new File("/"), 1_000_000);
+        result = DatabaseLocalStorageManager.getShardPath(new File("/"), 1_000_000);
         assertEquals(result.getAbsolutePath(), "/00/00/00/01");
-        result = DatabaseStorageManager.getShardPath(new File("/"), 99_999_999);
+        result = DatabaseLocalStorageManager.getShardPath(new File("/"), 99_999_999);
         assertEquals(result.getAbsolutePath(), "/99/99/99/99");
-        result = DatabaseStorageManager.getShardPath(new File("/"), 100_000_000);
+        result = DatabaseLocalStorageManager.getShardPath(new File("/"), 100_000_000);
         assertEquals(result.getAbsolutePath(), "/00/00/00/100");
-        result = DatabaseStorageManager.getShardPath(new File("/"), 12345);
+        result = DatabaseLocalStorageManager.getShardPath(new File("/"), 12345);
         assertEquals(result.getAbsolutePath(), "/45/23/01/00");
-        result = DatabaseStorageManager.getShardPath(new File("/"), 4815162342L);
+        result = DatabaseLocalStorageManager.getShardPath(new File("/"), 4815162342L);
         assertEquals(result.getAbsolutePath(), "/42/23/16/4815");
     }
 }

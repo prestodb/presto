@@ -7,7 +7,7 @@ import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.metadata.ColumnFileHandle;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.DataSourceType;
-import com.facebook.presto.metadata.StorageManager;
+import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.split.NativeSplit;
 import com.facebook.presto.split.Split;
 import com.facebook.presto.tuple.TupleInfo;
@@ -30,7 +30,7 @@ import static com.google.common.base.Preconditions.checkState;
 public class TableWriterOperator
         implements SourceOperator, OutputProducingOperator<TableWriterResult>
 {
-    private final StorageManager storageManager;
+    private final LocalStorageManager storageManager;
     private final String nodeIdentifier;
     private final Operator sourceOperator;
     private final List<ColumnHandle> columnHandles;
@@ -41,7 +41,7 @@ public class TableWriterOperator
 
     private final AtomicReference<Set<TableWriterResult>> output = new AtomicReference<Set<TableWriterResult>>(ImmutableSet.<TableWriterResult>of());
 
-    public TableWriterOperator(StorageManager storageManager,
+    public TableWriterOperator(LocalStorageManager storageManager,
             String nodeIdentifier,
             List<ColumnHandle> columnHandles,
             Operator sourceOperator)

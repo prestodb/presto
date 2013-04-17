@@ -6,7 +6,7 @@ import com.facebook.presto.operator.Operator;
 import java.io.IOException;
 import java.util.List;
 
-public interface StorageManager
+public interface LocalStorageManager
 {
     void importShard(long shardId, List<? extends ColumnHandle> columnHandles, Operator source)
             throws IOException;

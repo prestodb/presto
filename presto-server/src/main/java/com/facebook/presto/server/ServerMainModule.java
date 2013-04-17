@@ -30,8 +30,9 @@ import com.facebook.presto.importer.PeriodicImportController;
 import com.facebook.presto.importer.PeriodicImportManager;
 import com.facebook.presto.importer.PeriodicImportRunnable;
 import com.facebook.presto.metadata.AliasDao;
+import com.facebook.presto.metadata.DatabaseLocalStorageManager;
+import com.facebook.presto.metadata.DatabaseLocalStorageManagerConfig;
 import com.facebook.presto.metadata.DatabaseShardManager;
-import com.facebook.presto.metadata.DatabaseStorageManager;
 import com.facebook.presto.metadata.ForAlias;
 import com.facebook.presto.metadata.ForMetadata;
 import com.facebook.presto.metadata.ForShardCleaner;
@@ -42,6 +43,7 @@ import com.facebook.presto.metadata.ImportMetadata;
 import com.facebook.presto.metadata.InformationSchemaData;
 import com.facebook.presto.metadata.InformationSchemaMetadata;
 import com.facebook.presto.metadata.InternalMetadata;
+import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.NativeMetadata;
@@ -49,8 +51,6 @@ import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.ShardCleaner;
 import com.facebook.presto.metadata.ShardCleanerConfig;
 import com.facebook.presto.metadata.ShardManager;
-import com.facebook.presto.metadata.StorageManager;
-import com.facebook.presto.metadata.StorageManagerConfig;
 import com.facebook.presto.metadata.SystemTables;
 import com.facebook.presto.operator.ForExchange;
 import com.facebook.presto.operator.ForScheduler;
@@ -140,8 +140,8 @@ public class ServerMainModule
         HttpClientBinder.httpClientBinder(binder).bindAsyncHttpClient("exchange", ForExchange.class).withTracing();
         HttpClientBinder.httpClientBinder(binder).bindAsyncHttpClient("scheduler", ForScheduler.class).withTracing();
 
-        bindConfig(binder).to(StorageManagerConfig.class);
-        binder.bind(StorageManager.class).to(DatabaseStorageManager.class).in(Scopes.SINGLETON);
+        bindConfig(binder).to(DatabaseLocalStorageManagerConfig.class);
+        binder.bind(LocalStorageManager.class).to(DatabaseLocalStorageManager.class).in(Scopes.SINGLETON);
         binder.bind(DataStreamProvider.class).to(DataStreamManager.class).in(Scopes.SINGLETON);
         binder.bind(NativeDataStreamProvider.class).in(Scopes.SINGLETON);
         binder.bind(ImportDataStreamProvider.class).in(Scopes.SINGLETON);
@@ -250,12 +250,14 @@ public class ServerMainModule
         binder.bind(new TypeLiteral<List<PlanOptimizer>>() {}).toProvider(PlanOptimizersFactory.class).in(Scopes.SINGLETON);
 
         binder.bind(NodeResource.class).in(Scopes.SINGLETON);
+
+        binder.bind(StorageManager.class).to(DatabaseStorageManager.class).in(Scopes.SINGLETON);
     }
 
     @Provides
     @Singleton
     @ForStorageManager
-    public IDBI createStorageManagerDBI(StorageManagerConfig config)
+    public IDBI createStorageManagerDBI(DatabaseLocalStorageManagerConfig config)
             throws Exception
     {
         String path = new File(config.getDataDirectory(), "db/StorageManager").getAbsolutePath();

@@ -10,7 +10,7 @@ import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.ExecutionStats.ExecutionStatsSnapshot;
 import com.facebook.presto.execution.SharedBuffer.QueueState;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.StorageManager;
+import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.operator.OperatorStats.SplitExecutionStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.server.ExchangeOperatorFactory;
@@ -63,7 +63,7 @@ public class SqlTaskManager
     private final ListeningExecutorService shardExecutor;
     private final ScheduledExecutorService taskManagementExecutor;
     private final Metadata metadata;
-    private final StorageManager storageManager;
+    private final LocalStorageManager storageManager;
     private final DataStreamProvider dataStreamProvider;
     private final ExchangeOperatorFactory exchangeOperatorFactory;
     private final NodeInfo nodeInfo;
@@ -79,7 +79,7 @@ public class SqlTaskManager
     @Inject
     public SqlTaskManager(
             Metadata metadata,
-            StorageManager storageManager,
+            LocalStorageManager storageManager,
             DataStreamProvider dataStreamProvider,
             ExchangeOperatorFactory exchangeOperatorFactory,
             NodeInfo nodeInfo,
