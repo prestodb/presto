@@ -8,10 +8,12 @@ import com.google.inject.Inject;
 import io.airlift.units.Duration;
 
 import javax.annotation.Nullable;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.net.Socket;
+import java.net.SocketAddress;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -32,6 +34,7 @@ public class HiveMetastoreClientFactory
         this(config.getMetastoreSocksProxy(), config.getMetastoreTimeout());
     }
 
+    @SuppressWarnings("SocketOpenedButNotSafelyClosed")
     public HiveMetastoreClient create(String host, int port)
             throws TTransportException
     {
@@ -41,9 +44,11 @@ public class HiveMetastoreClientFactory
             transport.open();
         }
         else {
-            Socket socks = new Socket(new Proxy(Proxy.Type.SOCKS, InetSocketAddress.createUnresolved(socksProxy.getHostText(), socksProxy.getPort())));
+            SocketAddress address = InetSocketAddress.createUnresolved(socksProxy.getHostText(), socksProxy.getPort());
+            Socket socks = new Socket(new Proxy(Proxy.Type.SOCKS, address));
             try {
                 socks.connect(InetSocketAddress.createUnresolved(host, port), (int) timeout.toMillis());
+                socks.setSoTimeout((int) timeout.toMillis());
             }
             catch (IOException e) {
                 throw new TTransportException(e);
