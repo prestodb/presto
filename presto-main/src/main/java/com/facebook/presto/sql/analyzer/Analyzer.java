@@ -16,7 +16,7 @@ import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.CreateOrReplaceMaterializedView;
+import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -235,40 +235,36 @@ public class Analyzer
         }
 
         @Override
-        protected AnalysisResult visitCreateOrReplaceMaterializedView(CreateOrReplaceMaterializedView statement, AnalysisContext context)
+        protected AnalysisResult visitCreateMaterializedView(CreateMaterializedView statement, AnalysisContext context)
         {
             // Turn this into a query that has a new table writer node on top.
 
             QualifiedTableName dstTableName = MetadataUtil.createQualifiedTableName(session, statement.getName());
 
             TableMetadata dstTableMetadata = metadata.getTable(dstTableName);
-            if (dstTableMetadata != null) {
-                checkState(dstTableMetadata.getTableHandle().isPresent(), "no table handle for %s", dstTableName);
-                DataSourceType dataSourceType = dstTableMetadata.getTableHandle().get().getDataSourceType();
-                checkState(DataSourceType.NATIVE == dataSourceType, "%s is not a native table, can only create native tables", dstTableName);
-            }
+            checkState(dstTableMetadata == null, "Destination table %s already exists!", dstTableName);
 
             // yeah, that should be somehow simpler...
             Field resultField = Field.getField("imported_rows", context.getSymbolAllocator().newSymbol("imported_rows", Type.LONG), Type.LONG);
             AnalyzedExpression resultFieldExpression = new AnalyzedExpression(resultField.getType(), QueryUtil.nameReference(resultField.getAttribute().get()));
 
             AnalyzedOutput output = new AnalyzedOutput(new TupleDescriptor(ImmutableList.<Field>of(resultField)),
-                                                       ImmutableMap.of(resultField.getSymbol(), resultFieldExpression));
+                    ImmutableMap.of(resultField.getSymbol(), resultFieldExpression));
 
             AnalysisResult analysis = new Analyzer(context.getSession(), metadata).analyze(statement.getTableDefinition(), new AnalysisContext(context.getSession(), context.getSymbolAllocator()));
 
             context.addDestination(dstTableName, analysis);
 
             return AnalysisResult.newInstance(context,
-                                              false,
-                                              output,
-                                              null,
-                                              ImmutableList.<AnalyzedExpression>of(),
-                                              ImmutableSet.<AnalyzedFunction>of(),
-                                              ImmutableSet.<AnalyzedFunction>of(),
-                                              null,
-                                              ImmutableList.<AnalyzedOrdering>of(),
-                                              null);
+                    false,
+                    output,
+                    null,
+                    ImmutableList.<AnalyzedExpression>of(),
+                    ImmutableSet.<AnalyzedFunction>of(),
+                    ImmutableSet.<AnalyzedFunction>of(),
+                    null,
+                    ImmutableList.<AnalyzedOrdering>of(),
+                    null);
         }
 
         @Override

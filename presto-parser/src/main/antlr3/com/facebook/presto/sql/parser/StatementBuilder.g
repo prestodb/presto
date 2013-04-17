@@ -49,7 +49,7 @@ statement returns [Statement value]
     | showColumns     { $value = $showColumns.value; }
     | showPartitions  { $value = $showPartitions.value; }
     | showFunctions   { $value = $showFunctions.value; }
-    | createOrReplaceMaterializedView { $value = $createOrReplaceMaterializedView.value; }
+    | createMaterializedView { $value = $createMaterializedView.value; }
     | dropTable       { $value = $dropTable.value; }
     ;
 
@@ -393,8 +393,12 @@ showFunctions returns [Statement value]
     : SHOW_FUNCTIONS { $value = new ShowFunctions(); }
     ;
 
-createOrReplaceMaterializedView returns [Statement value]
-    : ^(CREATE_OR_REPLACE_MATERIALIZED_VIEW qname restrictedSelectStmt) { $value = new CreateOrReplaceMaterializedView($qname.value, $restrictedSelectStmt.value); }
+createMaterializedView returns [Statement value]
+    : ^(CREATE_MATERIALIZED_VIEW qname refresh=viewRefresh? restrictedSelectStmt) { $value = new CreateMaterializedView($qname.value, Optional.fromNullable($refresh.value), $restrictedSelectStmt.value); }
+    ;
+
+viewRefresh returns [String value]
+    : ^(REFRESH integer) { $value = $integer.value; }
     ;
 
 dropTable returns [Statement value]
