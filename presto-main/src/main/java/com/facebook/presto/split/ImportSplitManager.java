@@ -3,7 +3,6 @@ package com.facebook.presto.split;
 import com.facebook.presto.execution.DataSource;
 import com.facebook.presto.ingest.SerializedPartitionChunk;
 import com.facebook.presto.metadata.HostAddress;
-import com.facebook.presto.metadata.ImportColumnHandle;
 import com.facebook.presto.metadata.ImportTableHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ImportClient;
@@ -13,12 +12,10 @@ import com.facebook.presto.spi.PartitionChunk;
 import com.facebook.presto.spi.TableHandle;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 
 import java.net.InetAddress;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.Callable;
 
 import static com.facebook.presto.util.RetryDriver.retry;
@@ -45,18 +42,11 @@ public class ImportSplitManager
     }
 
     @Override
-    public List<Partition> getPartitions(TableHandle table, Map<ColumnHandle, Object> bindings)
+    public List<Partition> getPartitions(TableHandle table, final Map<ColumnHandle, Object> bindings)
     {
         checkArgument(table instanceof ImportTableHandle, "Table is not an import table %s", table);
         ImportTableHandle importTableHandle = (ImportTableHandle) table;
         final TableHandle clientTableHandle = importTableHandle.getTableHandle();
-
-        ImmutableMap.Builder<ColumnHandle,Object> builder = ImmutableMap.builder();
-        for (Entry<ColumnHandle, Object> entry : bindings.entrySet()) {
-            ColumnHandle columnHandle = ((ImportColumnHandle) entry.getKey()).getColumnHandle();
-            builder.put(columnHandle, entry.getValue());
-        }
-        final ImmutableMap<ColumnHandle, Object> columnBindings = builder.build();
 
         return retry()
                 .stopOn(NotFoundException.class)
@@ -68,7 +58,7 @@ public class ImportSplitManager
                             throws Exception
                     {
                         // todo remap handles
-                        return importClient.getPartitions(clientTableHandle, columnBindings);
+                        return importClient.getPartitions(clientTableHandle, bindings);
                     }
                 });
     }
