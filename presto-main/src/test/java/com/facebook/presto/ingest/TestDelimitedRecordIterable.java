@@ -1,6 +1,6 @@
 package com.facebook.presto.ingest;
 
-import com.facebook.presto.operator.OperatorStats;
+import com.facebook.presto.spi.RecordCursor;
 import com.google.common.base.Splitter;
 import org.testng.annotations.Test;
 
@@ -19,7 +19,7 @@ public class TestDelimitedRecordIterable
                 newReaderSupplier("apple,fuu,123\nbanana,bar,456"),
                 Splitter.on(','));
 
-        RecordCursor cursor = recordIterable.cursor(new OperatorStats());
+        RecordCursor cursor = recordIterable.cursor();
         assertTrue(cursor.advanceNextPosition());
         assertEquals(cursor.getString(0), "apple".getBytes(UTF_8));
         assertEquals(cursor.getString(1), "fuu".getBytes(UTF_8));

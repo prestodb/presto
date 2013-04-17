@@ -3,7 +3,8 @@
  */
 package com.facebook.presto.ingest;
 
-import com.facebook.presto.operator.OperatorStats;
+import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.RecordSet;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
@@ -34,7 +35,7 @@ public class DelimitedRecordSet
     }
 
     @Override
-    public RecordCursor cursor(OperatorStats operatorStats)
+    public RecordCursor cursor()
     {
         return new DelimitedRecordCursor(readerSupplier, columnSplitter);
     }

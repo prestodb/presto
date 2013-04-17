@@ -4,10 +4,9 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.ingest.DelimitedRecordSet;
-import com.facebook.presto.ingest.RecordCursor;
-import com.facebook.presto.ingest.RecordSet;
-import com.facebook.presto.operator.OperatorStats;
+import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.serde.BlocksFileEncoding;
+import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.facebook.presto.tpch.TpchColumnHandle;
 import com.facebook.presto.tpch.TpchTableHandle;
@@ -120,7 +119,7 @@ public class TestingTpchBlocksProvider
 
             public TpchBlockIterator()
             {
-                this.cursor = data.get(tableName).cursor(new OperatorStats());
+                this.cursor = data.get(tableName).cursor();
 
                 // Skip the first elements for this iterator.
                 for (int i = 0; i < partNumber; i++) {
