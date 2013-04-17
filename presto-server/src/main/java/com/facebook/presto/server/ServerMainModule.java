@@ -191,6 +191,7 @@ public class ServerMainModule
         bindConfig(binder).to(ShardCleanerConfig.class);
         binder.bind(ShardCleaner.class).in(Scopes.SINGLETON);
         httpClientBinder(binder).bindHttpClient("shard-cleaner", ForShardCleaner.class);
+        binder.bind(ShardResource.class).in(Scopes.SINGLETON);
 
         ServiceAnnouncementBuilder announcementBuilder = discoveryBinder(binder).bindHttpAnnouncement("presto");
         String datasources = configurationFactory.getProperties().get("datasources");

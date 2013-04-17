@@ -15,8 +15,9 @@ public interface LocalStorageManager
 
     boolean shardExists(long shardId);
 
-    void dropShard(long shardId)
-        throws IOException;
+    void dropShard(long shardId);
+
+    boolean isShardActive(long shardId);
 
     ColumnFileHandle createStagingFileHandles(long shardId, List<? extends ColumnHandle> columnHandles)
         throws IOException;

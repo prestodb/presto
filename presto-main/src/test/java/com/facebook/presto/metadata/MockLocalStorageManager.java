@@ -49,8 +49,13 @@ public class MockLocalStorageManager
 
     @Override
     public void dropShard(long shardId)
-            throws IOException
     {
+    }
+
+    @Override
+    public boolean isShardActive(long shardId)
+    {
+        return false;
     }
 
     @Override
@@ -72,4 +77,5 @@ public class MockLocalStorageManager
     {
         columnFileHandle.commit();
     }
+
 }
