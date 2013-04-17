@@ -23,6 +23,7 @@ import com.facebook.presto.execution.SqlQueryManager;
 import com.facebook.presto.execution.SqlTaskManager;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
+import com.facebook.presto.importer.DatabasePeriodicImportManager;
 import com.facebook.presto.importer.ForPeriodicImport;
 import com.facebook.presto.importer.JobStateFactory;
 import com.facebook.presto.importer.PeriodicImportConfig;
@@ -224,7 +225,7 @@ public class ServerMainModule
         // Job Scheduler code
         bindConfig(binder).to(PeriodicImportConfig.class);
         binder.bind(PeriodicImportJobResource.class).in(Scopes.SINGLETON);
-        binder.bind(PeriodicImportManager.class).in(Scopes.SINGLETON);
+        binder.bind(PeriodicImportManager.class).to(DatabasePeriodicImportManager.class).in(Scopes.SINGLETON);
         binder.bind(PeriodicImportController.class).in(Scopes.SINGLETON);
         binder.bind(JobStateFactory.class).in(Scopes.SINGLETON);
         binder.bind(PeriodicImportRunnable.PeriodicImportRunnableFactory.class).in(Scopes.SINGLETON);
