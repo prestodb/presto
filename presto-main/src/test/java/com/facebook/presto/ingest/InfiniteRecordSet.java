@@ -5,7 +5,8 @@ package com.facebook.presto.ingest;
 
 import com.facebook.presto.metadata.ImportColumnHandle;
 import com.facebook.presto.metadata.InternalColumnHandle;
-import com.facebook.presto.operator.OperatorStats;
+import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Charsets;
 import com.google.common.base.Preconditions;
@@ -37,7 +38,7 @@ public class InfiniteRecordSet
     }
 
     @Override
-    public RecordCursor cursor(OperatorStats operatorStats)
+    public RecordCursor cursor()
     {
         return new InMemoryRecordCursor(record);
     }

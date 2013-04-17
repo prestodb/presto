@@ -1,10 +1,9 @@
 package com.facebook.presto;
 
-import com.facebook.presto.ingest.RecordCursor;
-import com.facebook.presto.ingest.RecordSet;
-import com.facebook.presto.spi.SchemaTableMetadata;
-import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.RecordSet;
+import com.facebook.presto.spi.SchemaTableMetadata;
 import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
@@ -1288,7 +1287,7 @@ public abstract class AbstractTestQueries
         String vars = Joiner.on(',').join(nCopies(tableMetadata.getColumns().size(), "?"));
         String sql = format("INSERT INTO %s VALUES (%s)", tableMetadata.getTable().getTableName(), vars);
 
-        RecordCursor cursor = data.cursor(new OperatorStats());
+        RecordCursor cursor = data.cursor();
         while (true) {
             // insert 1000 rows at a time
             PreparedBatch batch = handle.prepareBatch(sql);

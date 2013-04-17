@@ -3,10 +3,11 @@
  */
 package com.facebook.presto.ingest;
 
-import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.PartitionChunk;
+import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.RecordSet;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -30,76 +31,16 @@ public class ImportPartition
     }
 
     @Override
-    public RecordCursor cursor(OperatorStats operatorStats)
+    public RecordCursor cursor()
     {
-        com.facebook.presto.spi.RecordCursor records = retry().stopOnIllegalExceptions().runUnchecked(new Callable<com.facebook.presto.spi.RecordCursor>()
+        return retry().stopOnIllegalExceptions().runUnchecked(new Callable<RecordCursor>()
         {
             @Override
-            public com.facebook.presto.spi.RecordCursor call()
+            public RecordCursor call()
                     throws Exception
             {
                 return importClient.getRecords(chunk, columns);
             }
         });
-        return new ImportRecordCursor(records);
-    }
-
-    private static class ImportRecordCursor
-            implements RecordCursor
-    {
-        private final com.facebook.presto.spi.RecordCursor cursor;
-
-        private ImportRecordCursor(com.facebook.presto.spi.RecordCursor cursor)
-        {
-            this.cursor = cursor;
-        }
-
-        @Override
-        public long getTotalBytes()
-        {
-            return cursor.getTotalBytes();
-        }
-
-        @Override
-        public long getCompletedBytes()
-        {
-            return cursor.getCompletedBytes();
-        }
-
-        @Override
-        public boolean advanceNextPosition()
-        {
-            return cursor.advanceNextPosition();
-        }
-
-        @Override
-        public long getLong(int field)
-        {
-            return cursor.getLong(field);
-        }
-
-        @Override
-        public double getDouble(int field)
-        {
-            return cursor.getDouble(field);
-        }
-
-        @Override
-        public byte[] getString(int field)
-        {
-            return cursor.getString(field);
-        }
-
-        @Override
-        public boolean isNull(int field)
-        {
-            return cursor.isNull(field);
-        }
-
-        @Override
-        public void close()
-        {
-            cursor.close();
-        }
     }
 }
