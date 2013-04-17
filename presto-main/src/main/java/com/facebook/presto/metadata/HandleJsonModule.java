@@ -24,7 +24,6 @@ public class HandleJsonModule
 
         bindColumnHandle(binder, "native").toInstance(NativeColumnHandle.class);
         bindColumnHandle(binder, "internal").toInstance(InternalColumnHandle.class);
-        bindColumnHandle(binder, "import").toInstance(ImportColumnHandle.class);
         bindColumnHandle(binder, "tpch").toInstance(TpchColumnHandle.class);
     }
 }

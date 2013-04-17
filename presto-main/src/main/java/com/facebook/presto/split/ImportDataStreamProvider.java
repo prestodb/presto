@@ -5,15 +5,12 @@ import com.facebook.presto.operator.Operator;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.PartitionChunk;
-import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 
 import java.util.List;
 
-import static com.facebook.presto.metadata.ImportColumnHandle.columnHandleGetter;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.collect.Iterables.transform;
 
 public class ImportDataStreamProvider
         implements DataStreamProvider
@@ -38,9 +35,7 @@ public class ImportDataStreamProvider
         ImportSplit importSplit = (ImportSplit) split;
         ImportClient client = importClientManager.getClient(importSplit.getSourceName());
 
-        List<ColumnHandle> columnHandles = ImmutableList.copyOf(transform(columns, columnHandleGetter()));
-
         PartitionChunk partitionChunk = client.deserializePartitionChunk(importSplit.getSerializedChunk().getBytes());
-        return new RecordProjectOperator(client.getRecords(partitionChunk, columnHandles));
+        return new RecordProjectOperator(client.getRecords(partitionChunk, columns));
     }
 }

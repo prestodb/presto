@@ -7,11 +7,7 @@ import com.facebook.presto.spi.SchemaTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableHandle;
-import com.google.common.base.Function;
 import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Maps.EntryTransformer;
 import com.google.inject.Inject;
 
 import java.util.List;
@@ -21,7 +17,6 @@ import java.util.concurrent.Callable;
 import static com.facebook.presto.util.RetryDriver.retry;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Maps.uniqueIndex;
 
 public class ImportMetadata
         implements ConnectorMetadata
@@ -87,33 +82,19 @@ public class ImportMetadata
     @Override
     public Map<String, ColumnHandle> getColumnHandles(TableHandle tableHandle)
     {
-        Map<String, ColumnHandle> columnHandles = client.getColumnHandles(getClientTableHandle(tableHandle));
-
-        final ImmutableMap<String, ColumnMetadata> index = indexColumnMetadata(tableHandle);
-        return ImmutableMap.copyOf(Maps.transformEntries(columnHandles, new EntryTransformer<String, ColumnHandle, ColumnHandle>()
-        {
-            @Override
-            public ColumnHandle transformEntry(String columnName, ColumnHandle columnHandle)
-            {
-                return wrapClientHandle(columnName, columnHandle, index);
-            }
-        }));
+        return client.getColumnHandles(getClientTableHandle(tableHandle));
     }
 
     @Override
     public ColumnHandle getColumnHandle(TableHandle tableHandle, String columnName)
     {
-        ColumnHandle columnHandle = client.getColumnHandle(getClientTableHandle(tableHandle), columnName);
-        if (columnHandle == null) {
-            return null;
-        }
-        return wrapClientHandle(columnName, columnHandle, indexColumnMetadata(tableHandle));
+        return client.getColumnHandle(getClientTableHandle(tableHandle), columnName);
     }
 
     @Override
     public ColumnMetadata getColumnMetadata(TableHandle tableHandle, ColumnHandle columnHandle)
     {
-        return client.getColumnMetadata(getClientTableHandle(tableHandle), getClientColumnHandle(columnHandle));
+        return client.getColumnMetadata(getClientTableHandle(tableHandle), columnHandle);
     }
 
     @Override
@@ -140,37 +121,5 @@ public class ImportMetadata
         checkState(tableHandle instanceof ImportTableHandle, "not a import handle: %s", tableHandle);
         ImportTableHandle importTableHandle = (ImportTableHandle) tableHandle;
         return importTableHandle.getTableHandle();
-    }
-
-    private static ColumnHandle getClientColumnHandle(ColumnHandle columnHandle)
-    {
-        checkNotNull(columnHandle, "columnHandle is null");
-        checkState(columnHandle instanceof ImportColumnHandle, "not a import handle: %s", columnHandle);
-        ImportColumnHandle importColumnHandle = (ImportColumnHandle) columnHandle;
-        return importColumnHandle.getColumnHandle();
-    }
-
-    private ImmutableMap<String, ColumnMetadata> indexColumnMetadata(TableHandle tableHandle)
-    {
-        return uniqueIndex(getTableMetadata(tableHandle).getColumns(), columnNameGetter());
-    }
-
-    private static ColumnHandle wrapClientHandle(String columnName, ColumnHandle columnHandle, ImmutableMap<String,ColumnMetadata> metadata)
-    {
-        ColumnMetadata columnMetadata = metadata.get(columnName);
-        checkState(columnMetadata != null, "Can not find metadata for column %s", columnName);
-        return new ImportColumnHandle(columnMetadata.getName(), columnMetadata.getOrdinalPosition(), columnMetadata.getType(), columnHandle);
-    }
-
-    private static Function<ColumnMetadata, String> columnNameGetter()
-    {
-        return new Function<ColumnMetadata, String>() {
-
-            @Override
-            public String apply(ColumnMetadata input)
-            {
-                return input.getName();
-            }
-        };
     }
 }
