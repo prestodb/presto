@@ -3,21 +3,24 @@ package com.facebook.presto.hive;
 import com.facebook.presto.hive.shaded.org.apache.thrift.transport.TSocket;
 import com.facebook.presto.hive.shaded.org.apache.thrift.transport.TTransport;
 import com.facebook.presto.hive.shaded.org.apache.thrift.transport.TTransportException;
+import com.google.common.base.Objects;
 import com.google.common.base.Throwables;
 import io.airlift.units.Duration;
 
 import java.util.concurrent.TimeUnit;
 
-public class SimpleHiveCluster
+import static com.google.common.base.Preconditions.checkNotNull;
+
+public class TestingHiveCluster
         implements HiveCluster
 {
     private static final Duration TIMEOUT = new Duration(10, TimeUnit.SECONDS);
     private final String host;
     private final int port;
 
-    public SimpleHiveCluster(String host, int port)
+    public TestingHiveCluster(String host, int port)
     {
-        this.host = host;
+        this.host = checkNotNull(host, "host is null");
         this.port = port;
     }
 
@@ -35,32 +38,23 @@ public class SimpleHiveCluster
     }
 
     @Override
-    public boolean equals(Object o)
+    public boolean equals(Object obj)
     {
-        if (this == o) {
+        if (this == obj) {
             return true;
         }
-        if (o == null || getClass() != o.getClass()) {
+        if ((obj == null) || (getClass() != obj.getClass())) {
             return false;
         }
+        TestingHiveCluster o = (TestingHiveCluster) obj;
 
-        SimpleHiveCluster that = (SimpleHiveCluster) o;
-
-        if (port != that.port) {
-            return false;
-        }
-        if (!host.equals(that.host)) {
-            return false;
-        }
-
-        return true;
+        return Objects.equal(this.host, o.host) &&
+                Objects.equal(this.port, o.port);
     }
 
     @Override
     public int hashCode()
     {
-        int result = host.hashCode();
-        result = 31 * result + port;
-        return result;
+        return Objects.hashCode(host, port);
     }
 }
