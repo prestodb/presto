@@ -6,7 +6,7 @@ import io.airlift.configuration.ConfigDescription;
 import javax.validation.constraints.NotNull;
 import java.io.File;
 
-public class StorageManagerConfig
+public class DatabaseLocalStorageManagerConfig
 {
     private File dataDirectory = new File("var/data");
 
@@ -18,7 +18,7 @@ public class StorageManagerConfig
 
     @Config("storage-manager.data-directory")
     @ConfigDescription("Base directory to use for storing shard data")
-    public StorageManagerConfig setDataDirectory(File dataDirectory)
+    public DatabaseLocalStorageManagerConfig setDataDirectory(File dataDirectory)
     {
         this.dataDirectory = dataDirectory;
         return this;

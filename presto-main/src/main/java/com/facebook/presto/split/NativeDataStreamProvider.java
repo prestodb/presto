@@ -3,7 +3,7 @@ package com.facebook.presto.split;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.DataSourceType;
-import com.facebook.presto.metadata.StorageManager;
+import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.Operator;
 import com.google.common.collect.ImmutableList;
@@ -17,10 +17,10 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class NativeDataStreamProvider
         implements DataStreamProvider
 {
-    private final StorageManager storageManager;
+    private final LocalStorageManager storageManager;
 
     @Inject
-    public NativeDataStreamProvider(StorageManager storageManager)
+    public NativeDataStreamProvider(LocalStorageManager storageManager)
     {
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
     }

@@ -9,19 +9,19 @@ import java.io.File;
 import java.io.IOException;
 import java.util.List;
 
-public class MockStorageManager
-        implements StorageManager
+public class MockLocalStorageManager
+        implements LocalStorageManager
 {
 
     private final File storageFolder;
 
-    public MockStorageManager()
+    public MockLocalStorageManager()
             throws IOException
     {
         this(Files.createTempDir());
     }
 
-    public MockStorageManager(File storageFolder)
+    public MockLocalStorageManager(File storageFolder)
             throws IOException
     {
         this.storageFolder = storageFolder;

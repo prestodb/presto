@@ -19,8 +19,8 @@ import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.metadata.ShardManager;
-import com.facebook.presto.metadata.StorageManager;
 import com.facebook.presto.metadata.TestingMetadata;
+import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -360,7 +360,7 @@ public class TestDistributedQueries
         private final TestingHttpServer server;
         private final ImmutableList<ServiceSelector> serviceSelectors;
         private final ShardManager shardManager;
-        private final StorageManager storageManager;
+        private final LocalStorageManager storageManager;
         private final NodeInfo nodeInfo;
         private final NodeManager nodeManager;
         private final QueryManager queryManager;
@@ -413,7 +413,7 @@ public class TestDistributedQueries
 
             nodeInfo = injector.getInstance(NodeInfo.class);
             shardManager = injector.getInstance(ShardManager.class);
-            storageManager = injector.getInstance(StorageManager.class);
+            storageManager = injector.getInstance(LocalStorageManager.class);
             nodeManager = injector.getInstance(NodeManager.class);
             queryManager = injector.getInstance(QueryManager.class);
 
