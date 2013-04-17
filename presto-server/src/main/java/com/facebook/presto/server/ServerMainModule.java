@@ -65,7 +65,7 @@ import com.facebook.presto.split.Split;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.planner.PlanOptimizersFactory;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
-import com.facebook.presto.sql.tree.CreateOrReplaceMaterializedView;
+import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -244,7 +244,7 @@ public class ServerMainModule
         executionBinder.addBinding(ShowFunctions.class).to(Key.get(SqlQueryExecutionFactory.class)).in(Scopes.SINGLETON);
         executionBinder.addBinding(ShowTables.class).to(Key.get(SqlQueryExecutionFactory.class)).in(Scopes.SINGLETON);
 
-        executionBinder.addBinding(CreateOrReplaceMaterializedView.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
+        executionBinder.addBinding(CreateMaterializedView.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
 
 
         binder.bind(new TypeLiteral<List<PlanOptimizer>>() {}).toProvider(PlanOptimizersFactory.class).in(Scopes.SINGLETON);
