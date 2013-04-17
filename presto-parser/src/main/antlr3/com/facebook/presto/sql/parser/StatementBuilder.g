@@ -50,6 +50,7 @@ statement returns [Statement value]
     | showPartitions  { $value = $showPartitions.value; }
     | showFunctions   { $value = $showFunctions.value; }
     | createMaterializedView { $value = $createMaterializedView.value; }
+    | refreshMaterializedView { $value = $refreshMaterializedView.value; }
     | dropTable       { $value = $dropTable.value; }
     ;
 
@@ -395,6 +396,10 @@ showFunctions returns [Statement value]
 
 createMaterializedView returns [Statement value]
     : ^(CREATE_MATERIALIZED_VIEW qname restrictedSelectStmt) { $value = new CreateMaterializedView($qname.value, $restrictedSelectStmt.value); }
+    ;
+
+refreshMaterializedView returns [Statement value]
+    : ^(REFRESH_MATERIALIZED_VIEW qname) { $value = new RefreshMaterializedView($qname.value); }
     ;
 
 dropTable returns [Statement value]
