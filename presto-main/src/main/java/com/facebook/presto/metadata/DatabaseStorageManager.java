@@ -51,7 +51,7 @@ public class DatabaseStorageManager
 {
     private static final boolean ENABLE_OPTIMIZATION = Boolean.valueOf("false");
 
-    private static final BlocksFileEncoding DEFAULT_ENCODING = BlocksFileEncoding.RAW;
+    private static final BlocksFileEncoding DEFAULT_ENCODING = BlocksFileEncoding.SNAPPY;
 
     private static final int RUN_LENGTH_AVERAGE_CUTOFF = 3;
     private static final int DICTIONARY_CARDINALITY_CUTOFF = 1000;
