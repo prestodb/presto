@@ -8,9 +8,7 @@ import com.facebook.presto.metadata.DataSourceType;
 import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.MetadataUtil;
-import com.facebook.presto.metadata.NativeTableHandle;
-import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.sql.analyzer.AnalysisResult;
 import com.facebook.presto.sql.analyzer.AnalyzedExpression;
@@ -51,9 +49,9 @@ import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.Subquery;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TreeRewriter;
-import com.facebook.presto.storage.StorageManager;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
+import com.google.common.base.Optional;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
@@ -69,7 +67,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.metadata.MetadataUtil.createTable;
 import static com.facebook.presto.sql.analyzer.AnalyzedFunction.argumentGetter;
 import static com.facebook.presto.sql.analyzer.AnalyzedFunction.windowExpressionGetter;
 import static com.facebook.presto.sql.analyzer.AnalyzedOrdering.expressionGetter;
@@ -84,17 +81,14 @@ public class LogicalPlanner
     private final Metadata metadata;
     private final PlanNodeIdAllocator idAllocator;
     private final List<PlanOptimizer> planOptimizers;
-    private final StorageManager storageManager;
 
     public LogicalPlanner(Session session,
             Metadata metadata,
-            StorageManager storageManager,
             List<PlanOptimizer> planOptimizers,
             PlanNodeIdAllocator idAllocator)
     {
         this.session = checkNotNull(session, "session is null");
         this.metadata = checkNotNull(metadata, "metadata is null");
-        this.storageManager = checkNotNull(storageManager, "storageManager is null");
         this.planOptimizers = checkNotNull(planOptimizers, "planOptimizersFactory is null");
         this.idAllocator = checkNotNull(idAllocator, "idAllocator is null");
     }
@@ -543,18 +537,11 @@ public class LogicalPlanner
         AnalysisResult queryAnalysis = analysis.getAnalysis(destination);
         PlanNode queryNode = createQueryPlan(queryAnalysis);
 
-        ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
-        for (Field field : queryAnalysis.getOutputDescriptor().getFields()) {
-            ColumnMetadata columnMetadata = new ColumnMetadata(field.getAttribute().get(), field.getType().getRawType());
-            columns.add(columnMetadata);
-        }
-
-        TableMetadata dstTableMetadata = createTable(metadata, destination, columns.build());
-        checkState(dstTableMetadata.getTableHandle().isPresent(), "can not import into a table without table handle");
-        checkState(dstTableMetadata.getTableHandle().get().getDataSourceType() == DataSourceType.NATIVE, "can not import into non-native table %s", dstTableMetadata.getTable());
-        QualifiedTableName srcTableName = getTableNameFromQuery(session, queryAnalysis);
-
-        storageManager.insertSourceTable(((NativeTableHandle) dstTableMetadata.getTableHandle().get()), srcTableName);
+        TableMetadata dstTableMetadata = metadata.getTable(destination);
+        checkState(dstTableMetadata != null, "Destination table %s must exist!", destination);
+        Optional<TableHandle> dstTableHandle = dstTableMetadata.getTableHandle();
+        checkState(dstTableHandle.isPresent(), "can not import into a table without table handle");
+        checkState(dstTableHandle.get().getDataSourceType() == DataSourceType.NATIVE, "can not import into non-native table %s", dstTableMetadata.getTable());
 
         ImmutableMap.Builder<Symbol, ColumnHandle> columnHandlesBuilder = ImmutableMap.builder();
         ImmutableMap.Builder<Symbol, Type> inputTypesBuilder = ImmutableMap.builder();
@@ -576,7 +563,7 @@ public class LogicalPlanner
 
         TableWriterNode writerNode = new TableWriterNode(idAllocator.getNextId(),
                 queryNode,
-                dstTableMetadata.getTableHandle().get(),
+                dstTableHandle.get(),
                 inputSymbolsBuilder.build(),
                 inputTypesBuilder.build(),
                 columnHandlesBuilder.build(),
@@ -607,17 +594,6 @@ public class LogicalPlanner
         }
 
         return null;
-    }
-
-    private QualifiedTableName getTableNameFromQuery(Session session, AnalysisResult queryAnalysis)
-    {
-        // Yup. Total hack.
-        Query q = queryAnalysis.getRewrittenQuery();
-        List<Relation> relations = q.getFrom();
-        checkState(relations.size() == 1, "query uses more than one table");
-        Relation r = Iterables.getOnlyElement(relations);
-        checkState(r instanceof Table, "query does not select from a table");
-        return MetadataUtil.createQualifiedTableName(session, ((Table) r).getName());
     }
 
     private static NodeRewriter<Void> substitution(final Map<Expression, Symbol> substitutions)
