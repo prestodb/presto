@@ -470,11 +470,15 @@ dropTableStmt
     ;
 
 createMaterializedViewStmt
-    : CREATE MATERIALIZED VIEW qname AS restrictedSelectStmt -> ^(CREATE_MATERIALIZED_VIEW qname restrictedSelectStmt)
+    : CREATE MATERIALIZED VIEW qname refresh=viewRefresh? AS restrictedSelectStmt -> ^(CREATE_MATERIALIZED_VIEW qname $refresh? restrictedSelectStmt)
     ;
 
 refreshMaterializedViewStmt
     : REFRESH MATERIALIZED VIEW qname -> ^(REFRESH_MATERIALIZED_VIEW qname)
+    ;
+
+viewRefresh
+    : REFRESH r=integer -> ^(REFRESH $r)
     ;
 
 createTableStmt

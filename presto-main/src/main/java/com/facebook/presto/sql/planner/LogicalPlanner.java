@@ -582,7 +582,6 @@ public class LogicalPlanner
         return aggregationNode;
     }
 
-
     private ColumnHandle findColumnHandle(Field field, TableMetadata tableMetadata)
     {
         for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {

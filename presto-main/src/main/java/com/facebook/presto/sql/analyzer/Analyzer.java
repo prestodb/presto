@@ -1,5 +1,7 @@
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.presto.importer.PeriodicImportJob;
+import com.facebook.presto.importer.PeriodicImportManager;
 import com.facebook.presto.metadata.ColumnMetadata;
 import com.facebook.presto.metadata.DataSourceType;
 import com.facebook.presto.metadata.FunctionInfo;
@@ -100,21 +102,24 @@ import static com.google.common.collect.Iterables.transform;
 public class Analyzer
 {
     private final StorageManager storageManager;
+    private final PeriodicImportManager periodicImportManager;
     private final Metadata metadata;
     private final Session session;
 
     public Analyzer(Session session,
             Metadata metadata,
-            StorageManager storageManager)
+            StorageManager storageManager,
+            PeriodicImportManager periodicImportManager)
     {
         this.session = session;
         this.metadata = metadata;
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
+        this.periodicImportManager = checkNotNull(periodicImportManager, "periodicImportManager is null");
     }
 
     private Analyzer newAnalyzer()
     {
-        return new Analyzer(session, metadata, storageManager);
+        return new Analyzer(session, metadata, storageManager, periodicImportManager);
     }
 
     public AnalysisResult analyze(Node node)
@@ -280,6 +285,14 @@ public class Analyzer
 
             // create source table and optional import information
             storageManager.insertTableSource(((NativeTableHandle) dstTableHandle.get()), srcTableName);
+
+            // if a refresh is present, create a periodic import for this table
+            if (statement.getRefresh().isPresent()) {
+                int importInterval = Integer.parseInt(statement.getRefresh().get());
+                checkState(importInterval > 0, "import interval must be > 0");
+                PeriodicImportJob job = PeriodicImportJob.createJob(srcTableName, dstTableMetadata.getTable(), importInterval);
+                periodicImportManager.insertJob(job);
+            }
 
             return tableWriterResult(context, dstTableName, queryAnalysis);
         }

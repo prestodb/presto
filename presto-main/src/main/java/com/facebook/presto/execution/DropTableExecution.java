@@ -105,6 +105,7 @@ public class DropTableExecution
         TableMetadata tableMetadata = metadataManager.getTable(tableName);
         Preconditions.checkState(tableMetadata != null, "Table %s does not exist", tableName);
         Preconditions.checkState(DataSourceType.NATIVE == tableMetadata.getTableHandle().get().getDataSourceType(), "Can drop only native tables");
+
         metadataManager.dropTable(tableMetadata);
 
         stateMachine.finished();
