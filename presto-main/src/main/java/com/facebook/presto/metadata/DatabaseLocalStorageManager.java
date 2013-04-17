@@ -43,8 +43,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.nio.file.Files.createDirectories;
 
-public class DatabaseStorageManager
-        implements StorageManager
+public class DatabaseLocalStorageManager
+        implements LocalStorageManager
 {
     private static final boolean ENABLE_OPTIMIZATION = Boolean.valueOf("false");
 
@@ -75,7 +75,7 @@ public class DatabaseStorageManager
     });
 
     @Inject
-    public DatabaseStorageManager(@ForStorageManager IDBI dbi, StorageManagerConfig config)
+    public DatabaseLocalStorageManager(@ForStorageManager IDBI dbi, DatabaseLocalStorageManagerConfig config)
             throws IOException
     {
         checkNotNull(config, "config is null");

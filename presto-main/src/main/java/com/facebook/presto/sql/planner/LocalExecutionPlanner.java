@@ -3,7 +3,7 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.StorageManager;
+import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.operator.AggregationFunctionDefinition;
 import com.facebook.presto.operator.AggregationOperator;
 import com.facebook.presto.operator.FilterAndProjectOperator;
@@ -100,7 +100,7 @@ public class LocalExecutionPlanner
     private final DataSize maxOperatorMemoryUsage;
 
     private final DataStreamProvider dataStreamProvider;
-    private final StorageManager storageManager;
+    private final LocalStorageManager storageManager;
     private final ExchangeOperatorFactory exchangeOperatorFactory;
 
     public LocalExecutionPlanner(Session session,
@@ -111,7 +111,7 @@ public class LocalExecutionPlanner
             SourceHashProviderFactory joinHashFactory,
             DataSize maxOperatorMemoryUsage,
             DataStreamProvider dataStreamProvider,
-            StorageManager storageManager,
+            LocalStorageManager storageManager,
             ExchangeOperatorFactory exchangeOperatorFactory)
     {
         this.nodeInfo = checkNotNull(nodeInfo, "nodeInfo is null");

@@ -1,7 +1,7 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.MockStorageManager;
+import com.facebook.presto.metadata.MockLocalStorageManager;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.SourceHashProviderFactory;
@@ -83,7 +83,7 @@ public abstract class AbstractSqlBenchmark
                     new SourceHashProviderFactory(maxOperatorMemoryUsage),
                     maxOperatorMemoryUsage,
                     new TpchDataStreamProvider(provider),
-                    new MockStorageManager(),
+                    new MockLocalStorageManager(),
                     null);
 
             LocalExecutionPlan localExecutionPlan = executionPlanner.plan(fragment.getRoot());

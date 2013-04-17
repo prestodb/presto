@@ -1,7 +1,7 @@
 package com.facebook.presto;
 
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.MockStorageManager;
+import com.facebook.presto.metadata.MockLocalStorageManager;
 import com.facebook.presto.metadata.TestingMetadata;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.analyzer.Session;
@@ -37,7 +37,7 @@ public class TestLocalQueries
         Session session = new Session(null, catalog, schema);
 
         try {
-            LocalQueryRunner runner = new LocalQueryRunner(dataStreamProvider, metadata, new MockStorageManager(), session);
+            LocalQueryRunner runner = new LocalQueryRunner(dataStreamProvider, metadata, new MockLocalStorageManager(), session);
             return runner.execute(sql);
         }
         catch (IOException e) {
