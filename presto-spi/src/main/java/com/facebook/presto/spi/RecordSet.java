@@ -3,7 +3,10 @@
  */
 package com.facebook.presto.spi;
 
+import java.util.List;
+
 public interface RecordSet
 {
+    List<ColumnType> getColumnTypes();
     RecordCursor cursor();
 }

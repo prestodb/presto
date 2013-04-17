@@ -1,7 +1,6 @@
 package com.facebook.presto.util;
 
 import com.facebook.presto.importer.MockPeriodicImportManager;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.metadata.DualTable;
 import com.facebook.presto.metadata.HostAddress;
 import com.facebook.presto.metadata.InternalColumnHandle;
@@ -12,12 +11,13 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.MockLocalStorageManager;
 import com.facebook.presto.metadata.QualifiedTableName;
-import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.SourceHashProviderFactory;
 import com.facebook.presto.operator.SourceOperator;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.split.InternalSplit;
 import com.facebook.presto.split.Split;
@@ -58,7 +58,6 @@ import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
 import static com.facebook.presto.sql.parser.TreeAssertions.assertFormattedSql;
 import static com.facebook.presto.util.MaterializedResult.materialize;
-import static com.facebook.presto.util.TestingTpchBlocksProvider.readTpchRecords;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -133,9 +132,7 @@ public class LocalQueryRunner
 
     public static LocalQueryRunner createTpchLocalQueryRunner()
     {
-        TestingTpchBlocksProvider tpchBlocksProvider = new TestingTpchBlocksProvider(ImmutableMap.of(
-                "orders", readTpchRecords("orders"),
-                "lineitem", readTpchRecords("lineitem")));
+        TestingTpchBlocksProvider tpchBlocksProvider = new TestingTpchBlocksProvider();
 
         DataStreamProvider dataProvider = new TpchDataStreamProvider(tpchBlocksProvider);
         Session session = new Session(null, TpchMetadata.TPCH_CATALOG_NAME, TpchMetadata.TPCH_SCHEMA_NAME);

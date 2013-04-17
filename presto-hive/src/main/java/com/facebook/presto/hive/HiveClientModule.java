@@ -33,7 +33,6 @@ public class HiveClientModule
         binder.bind(HiveCluster.class).to(DiscoveryLocatedHiveCluster.class).in(Scopes.SINGLETON);
         bindConfig(binder).to(HiveClientConfig.class);
         binder.bind(HiveChunkEncoder.class).in(Scopes.SINGLETON);
-        binder.bind(HiveChunkReader.class).in(Scopes.SINGLETON);
         binder.bind(HiveMetastoreClientFactory.class).in(Scopes.SINGLETON);
         discoveryBinder(binder).bindSelector("hive-metastore");
 

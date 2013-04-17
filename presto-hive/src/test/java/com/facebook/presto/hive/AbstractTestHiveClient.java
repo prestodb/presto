@@ -251,7 +251,7 @@ public abstract class AbstractTestHiveClient
 
             long rowNumber = 0;
             long completedBytes = 0;
-            try (RecordCursor cursor = client.getRecords(chunk, columns)) {
+            try (RecordCursor cursor = client.getRecords(chunk, columns).cursor()) {
                 assertEquals(cursor.getTotalBytes(), chunk.getLength());
 
                 while (cursor.advanceNextPosition()) {
@@ -357,7 +357,7 @@ public abstract class AbstractTestHiveClient
             long baseValue = getBaseValueForFileType(fileType);
 
             long rowNumber = 0;
-            try (RecordCursor cursor = client.getRecords(chunk, columns)) {
+            try (RecordCursor cursor = client.getRecords(chunk, columns).cursor()) {
                 while (cursor.advanceNextPosition()) {
                     rowNumber++;
 
@@ -393,7 +393,7 @@ public abstract class AbstractTestHiveClient
             assertEquals(chunk.getPartitionKeys(), ImmutableList.of());
 
             long rowNumber = 0;
-            try (RecordCursor cursor = client.getRecords(chunk, columns)) {
+            try (RecordCursor cursor = client.getRecords(chunk, columns).cursor()) {
                 assertEquals(cursor.getTotalBytes(), chunk.getLength());
 
                 while (cursor.advanceNextPosition()) {

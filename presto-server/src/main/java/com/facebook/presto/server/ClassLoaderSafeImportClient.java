@@ -8,8 +8,8 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.PartitionChunk;
-import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableMetadata;
+import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableHandle;
@@ -122,7 +122,7 @@ public class ClassLoaderSafeImportClient
     }
 
     @Override
-    public RecordCursor getRecords(PartitionChunk partitionChunk, List<? extends ColumnHandle> columns)
+    public RecordSet getRecords(PartitionChunk partitionChunk, List<? extends ColumnHandle> columns)
     {
         try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
             return delegate.getRecords(partitionChunk, columns);

@@ -1,11 +1,14 @@
 package com.facebook.presto.hive;
 
+import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.RecordSet;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import com.google.inject.Inject;
 import org.apache.hadoop.fs.Path;
+import com.google.common.collect.Iterables;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.metastore.MetaStoreUtils;
 import org.apache.hadoop.hive.serde.Constants;
 import org.apache.hadoop.hive.serde2.ColumnProjectionUtils;
@@ -28,6 +31,7 @@ import java.util.List;
 import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveColumnHandle.hiveColumnIndexGetter;
+import static com.facebook.presto.hive.HiveColumnHandle.nativeTypeGetter;
 import static com.facebook.presto.hive.HiveColumnHandle.partitionColumnPredicate;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
 import static com.facebook.presto.hive.HiveUtil.getInputFormatName;
@@ -35,20 +39,42 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Lists.transform;
 
-class HiveChunkReader
+public class HiveRecordSet
+        implements RecordSet
 {
     private final HdfsEnvironment hdfsEnvironment;
+    private final HivePartitionChunk chunk;
+    private final List<HiveColumnHandle> columns;
+    private final List<ColumnType> columnTypes;
+    private final ArrayList<Integer> readHiveColumnIndexes;
 
-    @Inject
-    HiveChunkReader(HdfsEnvironment hdfsEnvironment)
+    public HiveRecordSet(HdfsEnvironment hdfsEnvironment, HivePartitionChunk chunk, List<HiveColumnHandle> columns)
     {
         this.hdfsEnvironment = Preconditions.checkNotNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.chunk = chunk;
+        this.columns = columns;
+        this.columnTypes = ImmutableList.copyOf(Iterables.transform(columns, nativeTypeGetter()));
+
+        // determine which hive columns we will read
+        List<HiveColumnHandle> readColumns = ImmutableList.copyOf(filter(columns, partitionColumnPredicate()));
+        if (readColumns.isEmpty()) {
+            // for count(*) queries we will have "no" columns we want to read, but since hive doesn't
+            // support no columns (it will read all columns instead), we must choose a single column
+            HiveColumnHandle primitiveColumn = getFirstPrimitiveColumn(chunk.getSchema());
+            readColumns = ImmutableList.of(primitiveColumn);
+        }
+        readHiveColumnIndexes = new ArrayList<>(transform(readColumns, hiveColumnIndexGetter()));
     }
 
-    RecordCursor getRecords(HivePartitionChunk chunk, List<HiveColumnHandle> columns)
+    @Override
+    public List<ColumnType> getColumnTypes()
     {
-        HadoopNative.requireHadoopNative();
+        return columnTypes;
+    }
 
+    @Override
+    public RecordCursor cursor()
+    {
         try {
             // Clone schema since we modify it below
             Properties schema = (Properties) chunk.getSchema().clone();
@@ -61,22 +87,25 @@ class HiveChunkReader
             String nullSequence = (String) schema.get(Constants.SERIALIZATION_NULL_FORMAT);
             checkState(nullSequence == null || nullSequence.equals("\\N"), "Only '\\N' supported as null specifier, was '%s'", nullSequence);
 
-            // Tell hive the columns we would like to read, this lets hive optimize reading column oriented files
-            List<HiveColumnHandle> nonPartitionColumns = ImmutableList.copyOf(filter(columns, partitionColumnPredicate()));
+            Configuration configuration = hdfsEnvironment.getConfiguration();
 
-            if (nonPartitionColumns.isEmpty()) {
-                // for count(*) queries we will have "no" columns we want to read, but since hive doesn't
-                // support no columns (it will read all columns instead), we must choose a single column
-                nonPartitionColumns = ImmutableList.of(getFirstPrimitiveColumn(chunk.getSchema()));
-            }
-            ColumnProjectionUtils.setReadColumnIDs(hdfsEnvironment.getConfiguration(), new ArrayList<>(transform(nonPartitionColumns, hiveColumnIndexGetter())));
+            // Tell hive the columns we would like to read, this lets hive optimize reading column oriented files
+            ColumnProjectionUtils.setReadColumnIDs(configuration, readHiveColumnIndexes);
 
             RecordReader<?, ?> recordReader = createRecordReader(chunk);
             if (recordReader.createValue() instanceof BytesRefArrayWritable) {
-                return new BytesHiveRecordCursor<>((RecordReader<?, BytesRefArrayWritable>) recordReader, chunk.getLength(), chunk.getSchema(), chunk.getPartitionKeys(), nonPartitionColumns);
+                return new BytesHiveRecordCursor<>((RecordReader<?, BytesRefArrayWritable>) recordReader,
+                        chunk.getLength(),
+                        chunk.getSchema(),
+                        chunk.getPartitionKeys(),
+                        columns);
             }
             else {
-                return new GenericHiveRecordCursor<>((RecordReader<?, ? extends Writable>) recordReader, chunk.getLength(), chunk.getSchema(), chunk.getPartitionKeys(), nonPartitionColumns);
+                return new GenericHiveRecordCursor<>((RecordReader<?, ? extends Writable>) recordReader,
+                        chunk.getLength(),
+                        chunk.getSchema(),
+                        chunk.getPartitionKeys(),
+                        columns);
             }
         }
         catch (Exception e) {
@@ -129,4 +158,5 @@ class HiveChunkReader
             throw new RuntimeException("Unable to create record reader for input format " + getInputFormatName(chunk.getSchema()), e);
         }
     }
+
 }

@@ -5,48 +5,37 @@ package com.facebook.presto.ingest;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.metadata.ImportColumnHandle;
 import com.facebook.presto.operator.AbstractPageIterator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageIterator;
+import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 
 import java.util.List;
-
-import static com.facebook.presto.metadata.ImportColumnHandle.idGetter;
 
 public class RecordProjectOperator
         implements Operator
 {
     private final RecordSet source;
     private final List<TupleInfo> tupleInfos;
-    private final List<Integer> columnIds;
 
-    public RecordProjectOperator(RecordSet source, ImportColumnHandle... columns)
-    {
-        this(source, ImmutableList.copyOf(columns));
-    }
-
-    public RecordProjectOperator(RecordSet source, Iterable<ImportColumnHandle> columns)
+    public RecordProjectOperator(RecordSet source)
     {
         Preconditions.checkNotNull(source, "source is null");
-        Preconditions.checkNotNull(columns, "columns is null");
 
         this.source = source;
 
-        this.columnIds = ImmutableList.copyOf(Iterables.transform(columns, idGetter()));
-
+        // project each field into a separate channel
         ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
-        for (ImportColumnHandle column : columns) {
-            tupleInfos.add(new TupleInfo(Type.fromColumnType(column.getColumnType())));
+        for (ColumnType columnType : source.getColumnTypes()) {
+            tupleInfos.add(new TupleInfo(Type.fromColumnType(columnType)));
         }
         this.tupleInfos = tupleInfos.build();
     }
@@ -66,23 +55,21 @@ public class RecordProjectOperator
     @Override
     public PageIterator iterator(OperatorStats operatorStats)
     {
-        return new RecordProjectionOperator(source.cursor(), tupleInfos, columnIds, operatorStats);
+        return new RecordProjectionOperator(source.cursor(), tupleInfos, operatorStats);
     }
 
     private static class RecordProjectionOperator
             extends AbstractPageIterator
     {
         private final RecordCursor cursor;
-        private final List<Integer> columnIds;
         private final OperatorStats operatorStats;
         private long currentCompletedSize;
 
-        public RecordProjectionOperator(RecordCursor cursor, List<TupleInfo> tupleInfos, List<Integer> columnIds, OperatorStats operatorStats)
+        public RecordProjectionOperator(RecordCursor cursor, List<TupleInfo> tupleInfos, OperatorStats operatorStats)
         {
             super(tupleInfos);
 
             this.cursor = cursor;
-            this.columnIds = columnIds;
             this.operatorStats = operatorStats;
             operatorStats.addDeclaredSize(cursor.getTotalBytes());
         }
@@ -100,21 +87,20 @@ public class RecordProjectOperator
             }
 
             while (!isFull(outputs) && cursor.advanceNextPosition()) {
-                for (int i = 0; i < columnIds.size(); i++) {
-                    int field = columnIds.get(i);
-                    BlockBuilder output = outputs[i];
-                    if (cursor.isNull(field)) {
+                for (int column = 0; column < super.getChannelCount(); column++) {
+                    BlockBuilder output = outputs[column];
+                    if (cursor.isNull(column)) {
                         output.appendNull();
                     } else {
-                        switch (getTupleInfos().get(i).getTypes().get(0)) {
+                        switch (getTupleInfos().get(column).getTypes().get(0)) {
                             case FIXED_INT_64:
-                                output.append(cursor.getLong(field));
+                                output.append(cursor.getLong(column));
                                 break;
                             case DOUBLE:
-                                output.append(cursor.getDouble(field));
+                                output.append(cursor.getDouble(column));
                                 break;
                             case VARIABLE_BINARY:
-                                output.append(cursor.getString(field));
+                                output.append(cursor.getString(column));
                                 break;
                         }
                     }

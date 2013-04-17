@@ -13,7 +13,6 @@ public class TestHiveClientFactory
         HiveClientFactory hiveClientFactory = new HiveClientFactory(
                 new HiveClientConfig(),
                 new HiveChunkEncoder(new JsonCodecFactory().jsonCodec(HivePartitionChunk.class)),
-                new HiveChunkReader(new HdfsEnvironment()),
                 new HdfsEnvironment());
 
         // Two distinct Hive clusters

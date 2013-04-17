@@ -4,9 +4,10 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.ingest.DelimitedRecordSet;
-import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.RecordSet;
+import com.facebook.presto.spi.SchemaTableMetadata;
 import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.facebook.presto.tpch.TpchColumnHandle;
 import com.facebook.presto.tpch.TpchTableHandle;
@@ -28,6 +29,8 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.zip.GZIPInputStream;
 
+import static com.facebook.presto.tpch.TpchMetadata.TPCH_LINEITEM_METADATA;
+import static com.facebook.presto.tpch.TpchMetadata.TPCH_ORDERS_METADATA;
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -36,6 +39,13 @@ public class TestingTpchBlocksProvider
         extends TpchBlocksProvider
 {
     private final Map<String, RecordSet> data;
+
+    public TestingTpchBlocksProvider()
+    {
+        this(ImmutableMap.of(
+                "orders", readTpchRecords(TPCH_ORDERS_METADATA),
+                "lineitem", readTpchRecords(TPCH_LINEITEM_METADATA)));
+    }
 
     public TestingTpchBlocksProvider(Map<String, RecordSet> data)
     {
@@ -165,23 +175,33 @@ public class TestingTpchBlocksProvider
         }
     }
 
-    public static RecordSet readTpchRecords(String name)
+    public static RecordSet readTpchRecords(SchemaTableMetadata tableMetadata)
+    {
+        return readTpchRecords(tableMetadata.getTable().getTableName(), tableMetadata.getColumns().size());
+    }
+
+    public static RecordSet readTpchRecords(String name, int expectedColumnCount)
     {
         try {
-            return readRecords("tpch/" + name + ".dat.gz");
+            return readRecords("tpch/" + name + ".dat.gz", expectedColumnCount);
         }
         catch (IOException e) {
             throw Throwables.propagate(e);
         }
     }
 
-    private static RecordSet readRecords(String name)
+    private static RecordSet readRecords(String name, int expectedColumnCount)
             throws IOException
     {
+        int[] columnIndexes = new int[expectedColumnCount];
+        for (int i = 0; i < columnIndexes.length; i++) {
+            columnIndexes[i] = i;
+        }
+
         // tpch does not contain nulls, but does have a trailing pipe character,
         // so omitting empty strings will prevent an extra column at the end being added
         Splitter splitter = Splitter.on('|').omitEmptyStrings();
-        return new DelimitedRecordSet(readResource(name), splitter);
+        return new DelimitedRecordSet(readResource(name), splitter, columnIndexes);
     }
 
     private static InputSupplier<InputStreamReader> readResource(final String name)
