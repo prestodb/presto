@@ -16,7 +16,7 @@ import static java.lang.Math.max;
 import static java.lang.String.format;
 
 public class AlignedTuplePrinter
-        extends OutputHandler
+        implements OutputHandler
 {
     private static final int MAX_BUFFERED_ROWS = 10_000;
     private static final Splitter LINE_SPLITTER = Splitter.on('\n');

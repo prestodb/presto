@@ -28,9 +28,9 @@ import static com.facebook.presto.cli.ClientOptions.OutputFormat.CSV_HEADER;
 import static com.facebook.presto.cli.ClientOptions.OutputFormat.PAGED;
 import static com.facebook.presto.cli.ClientOptions.OutputFormat.TSV_HEADER;
 import static com.facebook.presto.cli.ConsolePrinter.REAL_TERMINAL;
-import static com.facebook.presto.cli.OutputHandler.processOutput;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
+import static java.util.Collections.unmodifiableList;
 
 public class Query
         implements Closeable
@@ -156,6 +156,20 @@ public class Query
         }
         catch (IOException e) {
             throw Throwables.propagate(e);
+        }
+    }
+
+    private static void processOutput(StatementClient client, OutputHandler handler)
+            throws IOException
+    {
+        while (client.isValid()) {
+            Iterable<List<Object>> data = client.current().getData();
+            if (data != null) {
+                for (List<Object> tuple : data) {
+                    handler.processRow(unmodifiableList(tuple));
+                }
+            }
+            client.advance();
         }
     }
 
