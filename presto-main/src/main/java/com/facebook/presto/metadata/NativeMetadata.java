@@ -61,22 +61,22 @@ public class NativeMetadata
     }
 
     @Override
-    public TableMetadata getTable(QualifiedTableName table)
+    public TableMetadata getTable(QualifiedTableName tableName)
     {
-        checkTable(table);
+        checkTable(tableName);
 
-        Long tableId = dao.getTableId(table);
-        if (tableId == null) {
+        Table table = dao.getTableInformation(tableName);
+        if (table == null) {
             return null;
         }
-        TableHandle tableHandle = new NativeTableHandle(tableId);
+        TableHandle tableHandle = new NativeTableHandle(table.getTableId());
 
-        List<ColumnMetadata> columns = dao.getTableColumnMetaData(tableId);
+        List<ColumnMetadata> columns = dao.getTableColumnMetaData(table.getTableId());
         if (columns.isEmpty()) {
             return null;
         }
 
-        return new TableMetadata(table, columns, tableHandle);
+        return new TableMetadata(tableName, columns, tableHandle);
     }
 
     @Override
@@ -166,7 +166,7 @@ public class NativeMetadata
     }
 
     @Override
-    public void dropTable(final TableMetadata table)
+    public void dropTable(final TableMetadata tableMetadata)
     {
         dbi.inTransaction(new VoidTransactionCallback()
         {
@@ -175,9 +175,9 @@ public class NativeMetadata
                     throws Exception
             {
                 MetadataDao dao = handle.attach(MetadataDao.class);
-                Long tableId = dao.getTableId(table.getTable());
-                if (tableId != null) {
-                    Utils.dropTable(dao, tableId);
+                Table table = dao.getTableInformation(tableMetadata.getTable());
+                if (table != null) {
+                    Utils.dropTable(dao, table.getTableId());
                 }
             }
         });

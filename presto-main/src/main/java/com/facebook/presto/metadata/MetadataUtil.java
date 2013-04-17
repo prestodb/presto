@@ -157,17 +157,22 @@ public class MetadataUtil
         }
     }
 
-    public static TableMetadata findOrCreateTable(Metadata metadata, QualifiedTableName table, List<ColumnMetadata> columns)
+    public static TableMetadata createTable(Metadata metadata,
+                                            QualifiedTableName table,
+                                            List<ColumnMetadata> columns)
     {
+        checkNotNull(metadata, "metadata is null");
+        checkNotNull(table, "table is null");
+        checkNotNull(columns, "columns is null");
+
         TableMetadata tableMetadata = metadata.getTable(table);
-        if (tableMetadata == null || !tableMetadata.getTableHandle().isPresent()) {
+        checkState(tableMetadata == null || !tableMetadata.getTableHandle().isPresent(), "table %s already exists", table);
 
-            tableMetadata = new TableMetadata(table, columns);
-            metadata.createTable(tableMetadata);
+        tableMetadata = new TableMetadata(table, columns);
+        metadata.createTable(tableMetadata);
+        tableMetadata = metadata.getTable(table);
 
-            tableMetadata = metadata.getTable(table);
-        }
-
+        checkState(tableMetadata != null && tableMetadata.getTableHandle().isPresent(), "Could not create table %s", table);
         return tableMetadata;
     }
 }
