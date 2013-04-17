@@ -22,6 +22,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.storage.MockStorageManager;
 import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.facebook.presto.tpch.TpchDataStreamProvider;
 import com.facebook.presto.tpch.TpchSchema;
@@ -60,7 +61,12 @@ public abstract class AbstractSqlBenchmark
 
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
         PlanOptimizersFactory planOptimizersFactory = new PlanOptimizersFactory(metadata);
-        PlanNode plan = new LogicalPlanner(session, metadata, planOptimizersFactory.get(), idAllocator).plan(analysis);
+        PlanNode plan = new LogicalPlanner(session,
+                metadata,
+                new MockStorageManager(),
+                planOptimizersFactory.get(),
+                idAllocator).plan(analysis);
+
         fragment = new DistributedLogicalPlanner(metadata, idAllocator)
                 .createSubplans(plan, analysis.getSymbolAllocator(), true)
                 .getFragment();

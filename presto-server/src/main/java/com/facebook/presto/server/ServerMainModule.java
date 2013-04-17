@@ -78,6 +78,9 @@ import com.facebook.presto.sql.tree.ShowFunctions;
 import com.facebook.presto.sql.tree.ShowPartitions;
 import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.storage.DatabaseStorageManager;
+import com.facebook.presto.storage.ForStorage;
+import com.facebook.presto.storage.StorageManager;
 import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
@@ -203,7 +206,7 @@ public class ServerMainModule
             discoveryBinder(binder).bindHttpAnnouncement("presto-coordinator");
         }
 
-        bindDataSource("presto-metastore", ForMetadata.class, ForShardManager.class, ForPeriodicImport.class, ForAlias.class);
+        bindDataSource("presto-metastore", ForMetadata.class, ForShardManager.class, ForPeriodicImport.class, ForAlias.class, ForStorage.class);
 
         jsonCodecBinder(binder).bindJsonCodec(QueryInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);

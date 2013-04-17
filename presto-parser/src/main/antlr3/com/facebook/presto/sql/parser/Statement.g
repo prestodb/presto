@@ -63,7 +63,6 @@ tokens {
     SHOW_FUNCTIONS;
     CREATE_TABLE;
     CREATE_MATERIALIZED_VIEW;
-    VIEW_REFRESH;
     DROP_TABLE;
     TABLE_ELEMENT_LIST;
     COLUMN_DEF;
@@ -469,7 +468,7 @@ dropTableStmt
     ;
 
 createMaterializedViewStmt
-    : CREATE MATERIALIZED VIEW qname refresh=viewRefresh? AS restrictedSelectStmt -> ^(CREATE_MATERIALIZED_VIEW qname $refresh? restrictedSelectStmt)
+    : CREATE MATERIALIZED VIEW qname AS restrictedSelectStmt -> ^(CREATE_MATERIALIZED_VIEW qname restrictedSelectStmt)
     ;
 
 createTableStmt

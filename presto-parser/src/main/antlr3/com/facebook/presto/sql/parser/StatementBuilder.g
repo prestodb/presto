@@ -394,11 +394,7 @@ showFunctions returns [Statement value]
     ;
 
 createMaterializedView returns [Statement value]
-    : ^(CREATE_MATERIALIZED_VIEW qname refresh=viewRefresh? restrictedSelectStmt) { $value = new CreateMaterializedView($qname.value, Optional.fromNullable($refresh.value), $restrictedSelectStmt.value); }
-    ;
-
-viewRefresh returns [String value]
-    : ^(REFRESH integer) { $value = $integer.value; }
+    : ^(CREATE_MATERIALIZED_VIEW qname restrictedSelectStmt) { $value = new CreateMaterializedView($qname.value, $restrictedSelectStmt.value); }
     ;
 
 dropTable returns [Statement value]
