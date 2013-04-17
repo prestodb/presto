@@ -1,8 +1,5 @@
 package com.facebook.presto.util;
 
-import io.airlift.node.NodeConfig;
-import io.airlift.node.NodeInfo;
-
 import com.facebook.presto.metadata.AbstractMetadata;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.DualTable;
@@ -93,7 +90,9 @@ public class LocalQueryRunner
     {
         Statement statement = SqlParser.createStatement(sql);
 
-        Analyzer analyzer = new Analyzer(session, metadata);
+        Analyzer analyzer = new Analyzer(session,
+                metadata,
+                new MockStorageManager());
 
         AnalysisResult analysis = analyzer.analyze(statement);
 
@@ -101,7 +100,6 @@ public class LocalQueryRunner
         PlanOptimizersFactory planOptimizersFactory = new PlanOptimizersFactory(metadata);
         PlanNode plan = new LogicalPlanner(session,
                 metadata,
-                new MockStorageManager(),
                 planOptimizersFactory.get(),
                 idAllocator).plan(analysis);
 

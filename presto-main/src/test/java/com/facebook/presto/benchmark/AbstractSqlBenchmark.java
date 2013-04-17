@@ -57,13 +57,14 @@ public abstract class AbstractSqlBenchmark
         metadata = TpchSchema.createMetadata();
 
         session = new Session(null, TpchSchema.CATALOG_NAME, TpchSchema.SCHEMA_NAME);
-        analysis = new Analyzer(session, metadata).analyze(statement);
+        analysis = new Analyzer(session,
+                metadata,
+                new MockStorageManager()).analyze(statement);
 
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
         PlanOptimizersFactory planOptimizersFactory = new PlanOptimizersFactory(metadata);
         PlanNode plan = new LogicalPlanner(session,
                 metadata,
-                new MockStorageManager(),
                 planOptimizersFactory.get(),
                 idAllocator).plan(analysis);
 
