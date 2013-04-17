@@ -63,6 +63,7 @@ tokens {
     SHOW_FUNCTIONS;
     CREATE_TABLE;
     CREATE_MATERIALIZED_VIEW;
+    REFRESH_MATERIALIZED_VIEW;
     DROP_TABLE;
     TABLE_ELEMENT_LIST;
     COLUMN_DEF;
@@ -471,6 +472,10 @@ createMaterializedViewStmt
     : CREATE MATERIALIZED VIEW qname AS restrictedSelectStmt -> ^(CREATE_MATERIALIZED_VIEW qname restrictedSelectStmt)
     ;
 
+refreshMaterializedViewStmt
+    : REFRESH MATERIALIZED VIEW qname -> ^(REFRESH_MATERIALIZED_VIEW qname)
+    ;
+
 createTableStmt
     : CREATE TABLE qname tableElementList -> ^(CREATE_TABLE qname tableElementList)
     ;
@@ -552,7 +557,7 @@ integer
 nonReserved
     : SHOW | TABLES | COLUMNS | PARTITIONS | FUNCTIONS
     | OVER | PARTITION | RANGE | ROWS | PRECEDING | FOLLOWING | CURRENT | ROW
-    | REPLACE | MATERIALIZED | VIEW
+    | REFRESH | MATERIALIZED | VIEW
     ;
 
 SELECT: 'SELECT';
@@ -652,7 +657,7 @@ PARTITIONS: 'PARTITIONS';
 FUNCTIONS: 'FUNCTIONS';
 MATERIALIZED: 'MATERIALIZED';
 VIEW: 'VIEW';
-REPLACE: 'REPLACE';
+REFRESH: 'REFRESH';
 DROP: 'DROP';
 
 EQ  : '=';
