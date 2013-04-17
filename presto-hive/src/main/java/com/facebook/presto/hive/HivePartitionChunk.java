@@ -25,7 +25,7 @@ public class HivePartitionChunk
     private final long length;
     private final Properties schema;
     private final List<HivePartitionKey> partitionKeys;
-    private final List<HiveColumn> columns;
+    private final List<HiveColumnHandle> columns;
     private final List<InetAddress> hosts;
 
     public static final HivePartitionChunk makeLastChunk(HivePartitionChunk chunk)
@@ -55,7 +55,7 @@ public class HivePartitionChunk
             @JsonProperty("length") long length,
             @JsonProperty("schema") Properties schema,
             @JsonProperty("partitionKeys") List<HivePartitionKey> partitionKeys,
-            @JsonProperty("columns") List<HiveColumn> columns,
+            @JsonProperty("columns") List<HiveColumnHandle> columns,
             @JsonProperty("hosts") List<InetAddress> hosts)
     {
         checkArgument(start >= 0, "start must be positive");
@@ -122,7 +122,7 @@ public class HivePartitionChunk
     }
 
     @JsonProperty
-    public List<HiveColumn> getColumns()
+    public List<HiveColumnHandle> getColumns()
     {
         return columns;
     }

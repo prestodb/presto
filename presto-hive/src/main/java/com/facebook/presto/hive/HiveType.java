@@ -5,6 +5,17 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static org.apache.hadoop.hive.serde.Constants.BIGINT_TYPE_NAME;
+import static org.apache.hadoop.hive.serde.Constants.BOOLEAN_TYPE_NAME;
+import static org.apache.hadoop.hive.serde.Constants.DOUBLE_TYPE_NAME;
+import static org.apache.hadoop.hive.serde.Constants.FLOAT_TYPE_NAME;
+import static org.apache.hadoop.hive.serde.Constants.INT_TYPE_NAME;
+import static org.apache.hadoop.hive.serde.Constants.LIST_TYPE_NAME;
+import static org.apache.hadoop.hive.serde.Constants.MAP_TYPE_NAME;
+import static org.apache.hadoop.hive.serde.Constants.SMALLINT_TYPE_NAME;
+import static org.apache.hadoop.hive.serde.Constants.STRING_TYPE_NAME;
+import static org.apache.hadoop.hive.serde.Constants.STRUCT_TYPE_NAME;
+import static org.apache.hadoop.hive.serde.Constants.TINYINT_TYPE_NAME;
 import static org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector.PrimitiveCategory;
 
 public enum HiveType
@@ -59,6 +70,35 @@ public enum HiveType
                 return DOUBLE;
             case STRING:
                 return STRING;
+            default:
+                return null;
+        }
+    }
+    public static HiveType getHiveType(String hiveTypeName)
+    {
+        switch (hiveTypeName) {
+            case BOOLEAN_TYPE_NAME:
+                return BOOLEAN;
+            case TINYINT_TYPE_NAME:
+                return BYTE;
+            case SMALLINT_TYPE_NAME:
+                return SHORT;
+            case INT_TYPE_NAME:
+                return INT;
+            case BIGINT_TYPE_NAME:
+                return LONG;
+            case FLOAT_TYPE_NAME:
+                return FLOAT;
+            case DOUBLE_TYPE_NAME:
+                return DOUBLE;
+            case STRING_TYPE_NAME:
+                return STRING;
+            case LIST_TYPE_NAME:
+                return LIST;
+            case MAP_TYPE_NAME:
+                return MAP;
+            case STRUCT_TYPE_NAME:
+                return STRUCT;
             default:
                 return null;
         }

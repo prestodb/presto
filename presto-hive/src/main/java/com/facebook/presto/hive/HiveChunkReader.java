@@ -2,6 +2,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.RecordCursor;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
@@ -27,10 +28,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
-import static com.facebook.presto.hive.HiveColumn.indexGetter;
+import static com.facebook.presto.hive.HiveColumnHandle.hiveColumnIndexGetter;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
 import static com.facebook.presto.hive.HiveUtil.getInputFormatName;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Lists.transform;
 
 class HiveChunkReader
@@ -60,13 +62,21 @@ class HiveChunkReader
             checkState(nullSequence == null || nullSequence.equals("\\N"), "Only '\\N' supported as null specifier, was '%s'", nullSequence);
 
             // Tell hive the columns we would like to read, this lets hive optimize reading column oriented files
-            List<HiveColumn> columns = chunk.getColumns();
+            List<HiveColumnHandle> columns = ImmutableList.copyOf(filter(chunk.getColumns(), new Predicate<HiveColumnHandle>()
+            {
+                @Override
+                public boolean apply(HiveColumnHandle input)
+                {
+                    return !input.isPartitionKey();
+                }
+            }));
+
             if (columns.isEmpty()) {
                 // for count(*) queries we will have "no" columns we want to read, but since hive doesn't
                 // support no columns (it will read all columns instead), we must choose a single column
                 columns = ImmutableList.of(getFirstPrimitiveColumn(chunk.getSchema()));
             }
-            ColumnProjectionUtils.setReadColumnIDs(hdfsEnvironment.getConfiguration(), new ArrayList<>(transform(columns, indexGetter())));
+            ColumnProjectionUtils.setReadColumnIDs(hdfsEnvironment.getConfiguration(), new ArrayList<>(transform(columns, hiveColumnIndexGetter())));
 
             RecordReader<?, ?> recordReader = createRecordReader(chunk);
             if (recordReader.createValue() instanceof BytesRefArrayWritable) {
@@ -81,7 +91,7 @@ class HiveChunkReader
         }
     }
 
-    private static HiveColumn getFirstPrimitiveColumn(Properties schema)
+    private static HiveColumnHandle getFirstPrimitiveColumn(Properties schema)
     {
         try {
             Deserializer deserializer = MetaStoreUtils.getDeserializer(null, schema);
@@ -92,7 +102,7 @@ class HiveChunkReader
                 if (field.getFieldObjectInspector().getCategory() == ObjectInspector.Category.PRIMITIVE) {
                     PrimitiveObjectInspector inspector = (PrimitiveObjectInspector) field.getFieldObjectInspector();
                     HiveType hiveType = HiveType.getSupportedHiveType(inspector.getPrimitiveCategory());
-                    return new HiveColumn(field.getFieldName(), index, hiveType);
+                    return new HiveColumnHandle(field.getFieldName(), index, hiveType, index, false);
                 }
                 index++;
             }

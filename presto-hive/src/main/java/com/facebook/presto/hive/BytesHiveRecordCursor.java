@@ -26,7 +26,7 @@ import java.util.List;
 import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveBooleanParser.parseHiveBoolean;
-import static com.facebook.presto.hive.HiveColumn.indexGetter;
+import static com.facebook.presto.hive.HiveColumnHandle.hiveColumnIndexGetter;
 import static com.facebook.presto.hive.NumberParser.parseDouble;
 import static com.facebook.presto.hive.NumberParser.parseLong;
 import static java.lang.Math.max;
@@ -55,7 +55,7 @@ class BytesHiveRecordCursor<K>
     private final long totalBytes;
     private long completedBytes;
 
-    public BytesHiveRecordCursor(RecordReader<K, BytesRefArrayWritable> recordReader, long totalBytes, Properties chunkSchema, List<HivePartitionKey> partitionKeys, List<HiveColumn> columns)
+    public BytesHiveRecordCursor(RecordReader<K, BytesRefArrayWritable> recordReader, long totalBytes, Properties chunkSchema, List<HivePartitionKey> partitionKeys, List<HiveColumnHandle> columns)
     {
         Preconditions.checkNotNull(recordReader, "recordReader is null");
         Preconditions.checkArgument(totalBytes >= 0, "totalBytes is negative");
@@ -70,7 +70,7 @@ class BytesHiveRecordCursor<K>
         this.value = recordReader.createValue();
 
         this.partitionKeyCount = partitionKeys.size();
-        int size = partitionKeyCount + Ordering.natural().max(Iterables.transform(columns, indexGetter())) + 1;
+        int size = partitionKeyCount + Ordering.natural().max(Iterables.transform(columns, hiveColumnIndexGetter())) + 1;
 
         this.types = new ColumnType[size];
         this.hiveTypes = new HiveType[size];
@@ -96,10 +96,10 @@ class BytesHiveRecordCursor<K>
             this.hiveColumnIndexes = new int[columns.size()];
             this.fieldInspectors = new ObjectInspector[columns.size()];
             for (int i = 0; i < columns.size(); i++) {
-                HiveColumn column = columns.get(i);
-                hiveColumnIndexes[i] = column.getIndex();
-                this.types[partitionKeyCount + column.getIndex()] = column.getHiveType().getNativeType();
-                this.hiveTypes[partitionKeyCount + column.getIndex()] = column.getHiveType();
+                HiveColumnHandle column = columns.get(i);
+                hiveColumnIndexes[i] = column.getHiveColumnIndex();
+                this.types[partitionKeyCount + column.getHiveColumnIndex()] = column.getHiveType().getNativeType();
+                this.hiveTypes[partitionKeyCount + column.getHiveColumnIndex()] = column.getHiveType();
                 StructField field = rowInspector.getStructFieldRef(column.getName());
                 fieldInspectors[i] = field.getFieldObjectInspector();
             }
