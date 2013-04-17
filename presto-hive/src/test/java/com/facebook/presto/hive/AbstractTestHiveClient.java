@@ -20,6 +20,7 @@ import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import org.apache.hadoop.fs.Path;
@@ -188,9 +189,8 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         TableHandle tableHandle = client.getTableHandle(TABLE);
-        List<ColumnHandle> columns = ImmutableList.copyOf(client.getColumnHandles(tableHandle).values());
         List<Partition> partitions = client.getPartitions(tableHandle, ImmutableMap.<ColumnHandle, Object>of());
-        Iterable<PartitionChunk> iterator = client.getPartitionChunks(partitions, columns);
+        Iterable<PartitionChunk> iterator = client.getPartitionChunks(partitions);
 
         List<PartitionChunk> chunks = ImmutableList.copyOf(iterator);
         assertEquals(chunks.size(), 3);
@@ -201,9 +201,8 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         TableHandle tableHandle = client.getTableHandle(TABLE_UNPARTITIONED);
-        List<ColumnHandle> columns = ImmutableList.copyOf(client.getColumnHandles(tableHandle).values());
         List<Partition> partitions = client.getPartitions(tableHandle, ImmutableMap.<ColumnHandle, Object>of());
-        Iterable<PartitionChunk> iterator = client.getPartitionChunks(partitions, columns);
+        Iterable<PartitionChunk> iterator = client.getPartitionChunks(partitions);
 
         List<PartitionChunk> chunks = ImmutableList.copyOf(iterator);
         assertEquals(chunks.size(), 1);
@@ -213,28 +212,14 @@ public abstract class AbstractTestHiveClient
     public void testGetPartitionChunksBatchInvalidTable()
             throws Exception
     {
-        TableHandle tableHandle = client.getTableHandle(TABLE);
-        List<ColumnHandle> columns = ImmutableList.copyOf(client.getColumnHandles(tableHandle).values());
-        client.getPartitionChunks(ImmutableList.of(INVALID_PARTITION), columns);
-    }
-
-    // todo enable when data source apis are updated
-    @Test(enabled = false, expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = ".*" + INVALID_COLUMN + ".*")
-    public void testGetPartitionChunksBatchInvalidColumn()
-            throws Exception
-    {
-        TableHandle tableHandle = client.getTableHandle(TABLE_UNPARTITIONED);
-        List<Partition> partitions = client.getPartitions(tableHandle, ImmutableMap.<ColumnHandle, Object>of());
-        client.getPartitionChunks(partitions, ImmutableList.of(INVALID_COLUMN_HANDLE));
+        client.getPartitionChunks(ImmutableList.of(INVALID_PARTITION));
     }
 
     @Test
     public void testGetPartitionChunksEmpty()
             throws Exception
     {
-        TableHandle tableHandle = client.getTableHandle(TABLE);
-        List<ColumnHandle> columns = ImmutableList.copyOf(client.getColumnHandles(tableHandle).values());
-        Iterable<PartitionChunk> iterator = client.getPartitionChunks(ImmutableList.<Partition>of(), columns);
+        Iterable<PartitionChunk> iterator = client.getPartitionChunks(ImmutableList.<Partition>of());
         // fetch full list
         ImmutableList.copyOf(iterator);
     }
@@ -246,7 +231,8 @@ public abstract class AbstractTestHiveClient
         TableHandle tableHandle = client.getTableHandle(TABLE);
         SchemaTableMetadata tableMetadata = client.getTableMetadata(tableHandle);
         List<Partition> partitions = client.getPartitions(tableHandle, ImmutableMap.<ColumnHandle, Object>of());
-        List<PartitionChunk> partitionChunks = ImmutableList.copyOf(client.getPartitionChunks(partitions, ImmutableList.copyOf(client.getColumnHandles(tableHandle).values())));
+        ImmutableList<ColumnHandle> columns = ImmutableList.copyOf(client.getColumnHandles(tableHandle).values());
+        List<PartitionChunk> partitionChunks = ImmutableList.copyOf(client.getPartitionChunks(partitions));
         assertEquals(partitionChunks.size(), PARTITIONS.size());
         for (PartitionChunk partitionChunk : partitionChunks) {
             HivePartitionChunk chunk = (HivePartitionChunk) partitionChunk;
@@ -265,7 +251,7 @@ public abstract class AbstractTestHiveClient
 
             long rowNumber = 0;
             long completedBytes = 0;
-            try (RecordCursor cursor = client.getRecords(chunk)) {
+            try (RecordCursor cursor = client.getRecords(chunk, columns)) {
                 assertEquals(cursor.getTotalBytes(), chunk.getLength());
 
                 while (cursor.advanceNextPosition()) {
@@ -352,7 +338,8 @@ public abstract class AbstractTestHiveClient
         TableHandle tableHandle = client.getTableHandle(TABLE);
         SchemaTableMetadata tableMetadata = client.getTableMetadata(tableHandle);
         List<Partition> partitions = client.getPartitions(tableHandle, ImmutableMap.<ColumnHandle, Object>of());
-        List<PartitionChunk> partitionChunks = ImmutableList.copyOf(client.getPartitionChunks(partitions, ImmutableList.of(client.getColumnHandle(tableHandle, "t_double"))));
+        ImmutableList<ColumnHandle> columns = ImmutableList.copyOf(client.getColumnHandles(tableHandle).values());
+        List<PartitionChunk> partitionChunks = ImmutableList.copyOf(client.getPartitionChunks(partitions));
         assertEquals(partitionChunks.size(), PARTITIONS.size());
         for (PartitionChunk partitionChunk : partitionChunks) {
             HivePartitionChunk chunk = (HivePartitionChunk) partitionChunk;
@@ -370,7 +357,7 @@ public abstract class AbstractTestHiveClient
             long baseValue = getBaseValueForFileType(fileType);
 
             long rowNumber = 0;
-            try (RecordCursor cursor = client.getRecords(chunk)) {
+            try (RecordCursor cursor = client.getRecords(chunk, columns)) {
                 while (cursor.advanceNextPosition()) {
                     rowNumber++;
 
@@ -391,7 +378,8 @@ public abstract class AbstractTestHiveClient
         TableHandle tableHandle = client.getTableHandle(TABLE_UNPARTITIONED);
         SchemaTableMetadata tableMetadata = client.getTableMetadata(tableHandle);
         List<Partition> partitions = client.getPartitions(tableHandle, ImmutableMap.<ColumnHandle, Object>of());
-        List<PartitionChunk> partitionChunks = ImmutableList.copyOf(client.getPartitionChunks(partitions, ImmutableList.copyOf(client.getColumnHandles(tableHandle).values())));
+        ImmutableList<ColumnHandle> columns = ImmutableList.copyOf(client.getColumnHandles(tableHandle).values());
+        List<PartitionChunk> partitionChunks = ImmutableList.copyOf(client.getPartitionChunks(partitions));
         assertEquals(partitionChunks.size(), 1);
 
         for (PartitionChunk partitionChunk : partitionChunks) {
@@ -405,7 +393,7 @@ public abstract class AbstractTestHiveClient
             assertEquals(chunk.getPartitionKeys(), ImmutableList.of());
 
             long rowNumber = 0;
-            try (RecordCursor cursor = client.getRecords(chunk)) {
+            try (RecordCursor cursor = client.getRecords(chunk, columns)) {
                 assertEquals(cursor.getTotalBytes(), chunk.getLength());
 
                 while (cursor.advanceNextPosition()) {
@@ -424,6 +412,17 @@ public abstract class AbstractTestHiveClient
             assertEquals(rowNumber, 100);
         }
     }
+
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = ".*" + INVALID_COLUMN + ".*")
+    public void testGetRecordsInvalidColumn()
+            throws Exception
+    {
+        TableHandle table = client.getTableHandle(TABLE_UNPARTITIONED);
+        List<Partition> partitions = client.getPartitions(table, ImmutableMap.<ColumnHandle, Object>of());
+        PartitionChunk partitionChunk = Iterables.getFirst(client.getPartitionChunks(partitions), null);
+        client.getRecords(partitionChunk, ImmutableList.of(INVALID_COLUMN_HANDLE));
+    }
+
 
     @Test(expectedExceptions = TableNotFoundException.class, expectedExceptionsMessageRegExp = HiveClient.HIVE_VIEWS_NOT_SUPPORTED)
     public void testViewsAreNotSupported()

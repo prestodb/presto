@@ -5,6 +5,7 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Function;
+import com.google.common.base.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -84,6 +85,20 @@ public class HiveColumnHandle
                 .toString();
     }
 
+    public static Function<ColumnHandle, HiveColumnHandle> hiveColumnHandle()
+    {
+        return new Function<ColumnHandle, HiveColumnHandle>()
+        {
+            @Override
+            public HiveColumnHandle apply(ColumnHandle columnHandle)
+            {
+                checkNotNull(columnHandle, "columnHandle is null");
+                checkArgument(columnHandle instanceof HiveColumnHandle, "columnHandle is not an instance of HiveColumnHandle");
+                return (HiveColumnHandle) columnHandle;
+            }
+        };
+    }
+
     public static Function<HiveColumnHandle, Integer> hiveColumnIndexGetter()
     {
         return new Function<HiveColumnHandle, Integer>()
@@ -104,6 +119,18 @@ public class HiveColumnHandle
             public ColumnMetadata apply(HiveColumnHandle input)
             {
                 return input.getColumnMetadata();
+            }
+        };
+    }
+
+    public static Predicate<HiveColumnHandle> partitionColumnPredicate()
+    {
+        return new Predicate<HiveColumnHandle>()
+        {
+            @Override
+            public boolean apply(HiveColumnHandle input)
+            {
+                return !input.isPartitionKey();
             }
         };
     }

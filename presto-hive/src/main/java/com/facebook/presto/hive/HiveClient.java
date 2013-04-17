@@ -79,6 +79,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.hive.HiveColumnHandle.columnMetadataGetter;
+import static com.facebook.presto.hive.HiveColumnHandle.hiveColumnHandle;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.HivePartitionChunk.makeLastChunk;
 import static com.facebook.presto.hive.HiveType.getHiveType;
@@ -348,10 +349,9 @@ public class HiveClient
     }
 
     @Override
-    public Iterable<PartitionChunk> getPartitionChunks(List<Partition> partitions, List<ColumnHandle> columns)
+    public Iterable<PartitionChunk> getPartitionChunks(List<Partition> partitions)
     {
         checkNotNull(partitions, "partitions is null");
-        checkNotNull(columns, "columns is null");
 
         Partition partition = Iterables.getFirst(partitions, null);
         if (partition == null) {
@@ -379,11 +379,7 @@ public class HiveClient
             throw new TableNotFoundException(tableName);
         }
 
-        ImmutableList.Builder<HiveColumnHandle> hiveColumns = ImmutableList.builder();
-        for (ColumnHandle column : columns) {
-            hiveColumns.add((HiveColumnHandle) column);
-        }
-        return getPartitionChunks(table, ImmutableList.copyOf(partitionNames), hivePartitions, hiveColumns.build());
+        return new PartitionChunkIterable(table, partitionNames, hivePartitions, maxChunkBytes, maxOutstandingChunks, maxChunkIteratorThreads, hdfsEnvironment, executor, partitionBatchSize);
     }
 
     private Iterable<org.apache.hadoop.hive.metastore.api.Partition> getPartitions(final SchemaTableName tableName, final List<String> partitionNames)
@@ -429,12 +425,14 @@ public class HiveClient
     }
 
     @Override
-    public RecordCursor getRecords(PartitionChunk partitionChunk)
+    public RecordCursor getRecords(PartitionChunk partitionChunk, List<? extends ColumnHandle> columns)
     {
         checkArgument(partitionChunk instanceof HivePartitionChunk,
                 "expected instance of %s: %s", HivePartitionChunk.class, partitionChunk.getClass());
         assert partitionChunk instanceof HivePartitionChunk; // IDEA-60343
-        return hiveChunkReader.getRecords((HivePartitionChunk) partitionChunk);
+
+        List<HiveColumnHandle> hiveColumns = ImmutableList.copyOf(transform(columns, hiveColumnHandle()));
+        return hiveChunkReader.getRecords((HivePartitionChunk) partitionChunk, hiveColumns);
     }
 
     @Override
@@ -450,11 +448,6 @@ public class HiveClient
     public PartitionChunk deserializePartitionChunk(byte[] bytes)
     {
         return hiveChunkEncoder.deserialize(bytes);
-    }
-
-    private Iterable<PartitionChunk> getPartitionChunks(Table table, Iterable<String> partitionNames, Iterable<org.apache.hadoop.hive.metastore.api.Partition> partitions, List<HiveColumnHandle> columns)
-    {
-        return new PartitionChunkIterable(table, partitionNames, partitions, columns, maxChunkBytes, maxOutstandingChunks, maxChunkIteratorThreads, hdfsEnvironment, executor, partitionBatchSize);
     }
 
     private static class PartitionChunkIterable
@@ -496,7 +489,6 @@ public class HiveClient
         private final Table table;
         private final Iterable<String> partitionNames;
         private final Iterable<org.apache.hadoop.hive.metastore.api.Partition> partitions;
-        private final List<HiveColumnHandle> columns;
         private final long maxChunkBytes;
         private final int maxOutstandingChunks;
         private final int maxThreads;
@@ -508,7 +500,6 @@ public class HiveClient
         private PartitionChunkIterable(Table table,
                 Iterable<String> partitionNames,
                 Iterable<org.apache.hadoop.hive.metastore.api.Partition> partitions,
-                List<HiveColumnHandle> columns,
                 long maxChunkBytes,
                 int maxOutstandingChunks,
                 int maxThreads,
@@ -520,7 +511,6 @@ public class HiveClient
             this.partitionNames = partitionNames;
             this.partitions = partitions;
             this.partitionBatchSize = partitionBatchSize;
-            this.columns = ImmutableList.copyOf(columns);
             this.maxChunkBytes = maxChunkBytes;
             this.maxOutstandingChunks = maxOutstandingChunks;
             this.maxThreads = maxThreads;
@@ -672,7 +662,6 @@ public class HiveClient
                             blockLocation.getLength(),
                             schema,
                             partitionKeys,
-                            columns,
                             toInetAddress(blockLocation.getHosts())));
                 }
             } else {
@@ -685,7 +674,6 @@ public class HiveClient
                         length,
                         schema,
                         partitionKeys,
-                        columns,
                         toInetAddress(fileBlockLocations[0].getHosts())));
             }
             return builder.build();

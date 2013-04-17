@@ -54,11 +54,10 @@ public class InternalSplitManager
     }
 
     @Override
-    public DataSource getPartitionSplits(List<Partition> partitions, List<ColumnHandle> columnNames)
+    public DataSource getPartitionSplits(List<Partition> partitions)
     {
         checkNotNull(partitions, "partitions is null");
         Preconditions.checkArgument(!partitions.isEmpty(), "partitions is empty");
-        checkNotNull(columnNames, "columnNames is null");
 
         Partition partition = Iterables.getOnlyElement(partitions);
         checkArgument(partition instanceof InternalPartition, "Partition must be an internal partition");

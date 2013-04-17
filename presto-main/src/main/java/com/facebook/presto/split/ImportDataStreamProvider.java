@@ -43,7 +43,7 @@ public class ImportDataStreamProvider
                 .list();
 
         PartitionChunk partitionChunk = client.deserializePartitionChunk(importSplit.getSerializedChunk().getBytes());
-        ImportPartition importPartition = new ImportPartition(client, partitionChunk);
+        ImportPartition importPartition = new ImportPartition(client, partitionChunk, columns);
         return new RecordProjectOperator(importPartition, columnHandles);
     }
 }

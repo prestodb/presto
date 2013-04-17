@@ -114,18 +114,18 @@ public class ClassLoaderSafeImportClient
     }
 
     @Override
-    public Iterable<PartitionChunk> getPartitionChunks(List<Partition> partitions, List<ColumnHandle> columns)
+    public Iterable<PartitionChunk> getPartitionChunks(List<Partition> partitions)
     {
         try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getPartitionChunks(partitions, columns);
+            return delegate.getPartitionChunks(partitions);
         }
     }
 
     @Override
-    public RecordCursor getRecords(PartitionChunk partitionChunk)
+    public RecordCursor getRecords(PartitionChunk partitionChunk, List<? extends ColumnHandle> columns)
     {
         try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getRecords(partitionChunk);
+            return delegate.getRecords(partitionChunk, columns);
         }
     }
 

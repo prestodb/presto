@@ -127,13 +127,13 @@ public class TestImportClientFactory
                 }
 
                 @Override
-                public Iterable<PartitionChunk> getPartitionChunks(List<Partition> partitions, List<ColumnHandle> columns)
+                public Iterable<PartitionChunk> getPartitionChunks(List<Partition> partitions)
                 {
                     throw new UnsupportedOperationException();
                 }
 
                 @Override
-                public RecordCursor getRecords(PartitionChunk partitionChunk)
+                public RecordCursor getRecords(PartitionChunk partitionChunk, List<? extends ColumnHandle> columns)
                 {
                     throw new UnsupportedOperationException();
                 }
