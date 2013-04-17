@@ -2,7 +2,6 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.RecordCursor;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
@@ -29,6 +28,7 @@ import java.util.List;
 import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveColumnHandle.hiveColumnIndexGetter;
+import static com.facebook.presto.hive.HiveColumnHandle.partitionColumnPredicate;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
 import static com.facebook.presto.hive.HiveUtil.getInputFormatName;
 import static com.google.common.base.Preconditions.checkState;
@@ -45,7 +45,7 @@ class HiveChunkReader
         this.hdfsEnvironment = Preconditions.checkNotNull(hdfsEnvironment, "hdfsEnvironment is null");
     }
 
-    RecordCursor getRecords(HivePartitionChunk chunk)
+    RecordCursor getRecords(HivePartitionChunk chunk, List<HiveColumnHandle> columns)
     {
         HadoopNative.requireHadoopNative();
 
@@ -62,28 +62,21 @@ class HiveChunkReader
             checkState(nullSequence == null || nullSequence.equals("\\N"), "Only '\\N' supported as null specifier, was '%s'", nullSequence);
 
             // Tell hive the columns we would like to read, this lets hive optimize reading column oriented files
-            List<HiveColumnHandle> columns = ImmutableList.copyOf(filter(chunk.getColumns(), new Predicate<HiveColumnHandle>()
-            {
-                @Override
-                public boolean apply(HiveColumnHandle input)
-                {
-                    return !input.isPartitionKey();
-                }
-            }));
+            List<HiveColumnHandle> nonPartitionColumns = ImmutableList.copyOf(filter(columns, partitionColumnPredicate()));
 
-            if (columns.isEmpty()) {
+            if (nonPartitionColumns.isEmpty()) {
                 // for count(*) queries we will have "no" columns we want to read, but since hive doesn't
                 // support no columns (it will read all columns instead), we must choose a single column
-                columns = ImmutableList.of(getFirstPrimitiveColumn(chunk.getSchema()));
+                nonPartitionColumns = ImmutableList.of(getFirstPrimitiveColumn(chunk.getSchema()));
             }
-            ColumnProjectionUtils.setReadColumnIDs(hdfsEnvironment.getConfiguration(), new ArrayList<>(transform(columns, hiveColumnIndexGetter())));
+            ColumnProjectionUtils.setReadColumnIDs(hdfsEnvironment.getConfiguration(), new ArrayList<>(transform(nonPartitionColumns, hiveColumnIndexGetter())));
 
             RecordReader<?, ?> recordReader = createRecordReader(chunk);
             if (recordReader.createValue() instanceof BytesRefArrayWritable) {
-                return new BytesHiveRecordCursor<>((RecordReader<?, BytesRefArrayWritable>) recordReader, chunk.getLength(), chunk.getSchema(), chunk.getPartitionKeys(), columns);
+                return new BytesHiveRecordCursor<>((RecordReader<?, BytesRefArrayWritable>) recordReader, chunk.getLength(), chunk.getSchema(), chunk.getPartitionKeys(), nonPartitionColumns);
             }
             else {
-                return new GenericHiveRecordCursor<>((RecordReader<?, ? extends Writable>) recordReader, chunk.getLength(), chunk.getSchema(), chunk.getPartitionKeys(), columns);
+                return new GenericHiveRecordCursor<>((RecordReader<?, ? extends Writable>) recordReader, chunk.getLength(), chunk.getSchema(), chunk.getPartitionKeys(), nonPartitionColumns);
             }
         }
         catch (Exception e) {

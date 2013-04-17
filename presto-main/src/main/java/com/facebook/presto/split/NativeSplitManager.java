@@ -53,13 +53,12 @@ public class NativeSplitManager
     }
 
     @Override
-    public DataSource getPartitionSplits(List<Partition> partitions, List<ColumnHandle> columns)
+    public DataSource getPartitionSplits(List<Partition> partitions)
     {
         checkNotNull(partitions, "partitions is null");
         if (partitions.isEmpty()) {
             return new DataSource("native", ImmutableList.<Split>of());
         }
-        checkNotNull(columns, "columns is null");
 
         Partition partition = Iterables.getOnlyElement(partitions);
         checkArgument(partition instanceof NativePartition, "Partition must be a native partition");

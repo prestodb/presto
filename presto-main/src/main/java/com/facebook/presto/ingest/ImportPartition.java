@@ -4,27 +4,29 @@
 package com.facebook.presto.ingest;
 
 import com.facebook.presto.operator.OperatorStats;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.PartitionChunk;
-import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 
+import java.util.List;
 import java.util.concurrent.Callable;
 
 import static com.facebook.presto.util.RetryDriver.retry;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ImportPartition
         implements RecordSet
 {
     private final ImportClient importClient;
     private final PartitionChunk chunk;
+    private final List<ColumnHandle> columns;
 
-    public ImportPartition(ImportClient importClient, PartitionChunk chunk)
+    public ImportPartition(ImportClient importClient, PartitionChunk chunk, List<? extends ColumnHandle> columns)
     {
-        Preconditions.checkNotNull(importClient, "importClient is null");
-        Preconditions.checkNotNull(chunk, "chunk is null");
-
-        this.importClient = importClient;
-        this.chunk = chunk;
+        this.importClient = checkNotNull(importClient, "importClient is null");
+        this.chunk = checkNotNull(chunk, "chunk is null");
+        this.columns = ImmutableList.copyOf(checkNotNull(columns, "columns is null"));
     }
 
     @Override
@@ -36,7 +38,7 @@ public class ImportPartition
             public com.facebook.presto.spi.RecordCursor call()
                     throws Exception
             {
-                return importClient.getRecords(chunk);
+                return importClient.getRecords(chunk, columns);
             }
         });
         return new ImportRecordCursor(records);

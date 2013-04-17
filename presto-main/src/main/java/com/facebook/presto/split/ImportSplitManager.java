@@ -74,7 +74,7 @@ public class ImportSplitManager
     }
 
     @Override
-    public DataSource getPartitionSplits(final List<Partition> partitions, final List<ColumnHandle> columns)
+    public DataSource getPartitionSplits(final List<Partition> partitions)
     {
         Iterable<PartitionChunk> partitionChunks = retry()
                 .stopOn(NotFoundException.class)
@@ -86,7 +86,7 @@ public class ImportSplitManager
                             throws Exception
                     {
                         // todo remap partitions
-                        return importClient.getPartitionChunks(partitions, columns);
+                        return importClient.getPartitionChunks(partitions);
                     }
                 });
         return new DataSource(dataSourceName, transform(partitionChunks, new Function<PartitionChunk, Split>()

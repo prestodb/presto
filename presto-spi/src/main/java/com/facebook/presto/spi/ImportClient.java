@@ -25,9 +25,9 @@ public interface ImportClient
 
     List<Partition> getPartitions(TableHandle table, Map<ColumnHandle, Object> bindings);
 
-    Iterable<PartitionChunk> getPartitionChunks(List<Partition> partitions, List<ColumnHandle> columns);
+    Iterable<PartitionChunk> getPartitionChunks(List<Partition> partitions);
 
-    RecordCursor getRecords(PartitionChunk partitionChunk);
+    RecordCursor getRecords(PartitionChunk partitionChunk, List<? extends ColumnHandle> columns);
 
     byte[] serializePartitionChunk(PartitionChunk partitionChunk);
 

@@ -52,7 +52,7 @@ public class SplitManager
         List<Partition> partitions = getPartitions(session, handle, predicate, partitionPredicate, mappings);
         ConnectorSplitManager connectorSplitManager = getConnectorSplitManager(handle);
 
-        return connectorSplitManager.getPartitionSplits(partitions, ImmutableList.copyOf(mappings.values()));
+        return connectorSplitManager.getPartitionSplits(partitions);
     }
 
     private List<Partition> getPartitions(Session session,

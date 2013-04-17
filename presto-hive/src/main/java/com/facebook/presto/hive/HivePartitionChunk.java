@@ -25,10 +25,9 @@ public class HivePartitionChunk
     private final long length;
     private final Properties schema;
     private final List<HivePartitionKey> partitionKeys;
-    private final List<HiveColumnHandle> columns;
     private final List<InetAddress> hosts;
 
-    public static final HivePartitionChunk makeLastChunk(HivePartitionChunk chunk)
+    public static HivePartitionChunk makeLastChunk(HivePartitionChunk chunk)
     {
         if (chunk.isLastChunk()) {
             return chunk;
@@ -41,7 +40,6 @@ public class HivePartitionChunk
                     chunk.getLength(),
                     chunk.getSchema(),
                     chunk.getPartitionKeys(),
-                    chunk.getColumns(),
                     chunk.getHosts());
         }
     }
@@ -55,7 +53,6 @@ public class HivePartitionChunk
             @JsonProperty("length") long length,
             @JsonProperty("schema") Properties schema,
             @JsonProperty("partitionKeys") List<HivePartitionKey> partitionKeys,
-            @JsonProperty("columns") List<HiveColumnHandle> columns,
             @JsonProperty("hosts") List<InetAddress> hosts)
     {
         checkArgument(start >= 0, "start must be positive");
@@ -64,7 +61,6 @@ public class HivePartitionChunk
         checkNotNull(path, "path is null");
         checkNotNull(schema, "schema is null");
         checkNotNull(partitionKeys, "partitionKeys is null");
-        checkNotNull(columns, "columns is null");
         checkNotNull(hosts, "hosts is null");
 
         this.partitionName = partitionName;
@@ -74,7 +70,6 @@ public class HivePartitionChunk
         this.length = length;
         this.schema = schema;
         this.partitionKeys = ImmutableList.copyOf(partitionKeys);
-        this.columns = ImmutableList.copyOf(columns);
         this.hosts = ImmutableList.copyOf(hosts);
     }
 
@@ -119,12 +114,6 @@ public class HivePartitionChunk
     public List<HivePartitionKey> getPartitionKeys()
     {
         return partitionKeys;
-    }
-
-    @JsonProperty
-    public List<HiveColumnHandle> getColumns()
-    {
-        return columns;
     }
 
     @JsonProperty
