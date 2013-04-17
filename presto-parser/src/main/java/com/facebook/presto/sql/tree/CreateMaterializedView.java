@@ -10,23 +10,16 @@ public class CreateMaterializedView
 {
     private final QualifiedName name;
     private final Query tableDefinition;
-    private final Optional<String> refresh;
 
-    public CreateMaterializedView(QualifiedName name, Optional<String> refresh, Query tableDefinition)
+    public CreateMaterializedView(QualifiedName name, Query tableDefinition)
     {
         this.name = checkNotNull(name, "name is null");
-        this.refresh = checkNotNull(refresh, "refresh is null");
         this.tableDefinition = checkNotNull(tableDefinition, "tableDefinition is null");
     }
 
     public QualifiedName getName()
     {
         return name;
-    }
-
-    public Optional<String> getRefresh()
-    {
-        return refresh;
     }
 
     public Query getTableDefinition()
@@ -57,7 +50,6 @@ public class CreateMaterializedView
         }
         CreateMaterializedView o = (CreateMaterializedView) obj;
         return Objects.equal(name, o.name)
-                && Objects.equal(refresh, o.refresh)
                 && Objects.equal(tableDefinition, o.tableDefinition);
     }
 
@@ -66,7 +58,6 @@ public class CreateMaterializedView
     {
         return Objects.toStringHelper(this)
                 .add("name", name)
-                .add("refresh", refresh)
                 .add("tableDefinition", tableDefinition)
                 .toString();
     }
