@@ -13,6 +13,11 @@ public final class PeriodicImportJob
     private final QualifiedTableName dstTable;
     private final long intervalSeconds;
 
+    public static PeriodicImportJob createJob(QualifiedTableName srcTable, QualifiedTableName dstTable, long intervalSeconds)
+    {
+        return new PeriodicImportJob(srcTable, dstTable, intervalSeconds);
+    }
+
     @JsonCreator
     public PeriodicImportJob(@JsonProperty("srcCatalogName") String srcCatalogName,
             @JsonProperty("srcSchemaName") String srcSchemaName,
