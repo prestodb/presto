@@ -17,6 +17,7 @@ public class Sitevars
     private final AtomicBoolean importsEnabled;
     private final AtomicBoolean dropEnabled;
     private final AtomicBoolean shardCleaningEnabled;
+    private final AtomicBoolean aliasEnabled;
 
     @Inject
     public Sitevars(SitevarsConfig config)
@@ -24,6 +25,7 @@ public class Sitevars
         this.importsEnabled = new AtomicBoolean(config.isImportsEnabled());
         this.dropEnabled = new AtomicBoolean(config.isDropEnabled());
         this.shardCleaningEnabled = new AtomicBoolean(config.isShardCleaningEnabled());
+        this.aliasEnabled = new AtomicBoolean(config.isAliasEnabled());
     }
 
     @Managed
@@ -62,6 +64,19 @@ public class Sitevars
     public Sitevars setShardCleaningEnabled(boolean shardCleaningEnabled)
     {
         this.shardCleaningEnabled.set(shardCleaningEnabled);
+        return this;
+    }
+
+    @Managed
+    public boolean isAliasEnabled()
+    {
+        return aliasEnabled.get();
+    }
+
+    @Managed
+    public Sitevars setAliasEnabled(boolean aliasEnabled)
+    {
+        this.aliasEnabled.set(aliasEnabled);
         return this;
     }
 }
