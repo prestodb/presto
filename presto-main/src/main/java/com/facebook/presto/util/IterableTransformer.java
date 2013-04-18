@@ -7,6 +7,8 @@ import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Multimap;
+import com.google.common.collect.Multimaps;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Ordering;
 
@@ -78,6 +80,11 @@ public class IterableTransformer<E>
     public <K> MapTransformer<K, E> uniqueIndex(Function<? super E, K> keyFunction)
     {
         return new MapTransformer<>(Maps.uniqueIndex(iterable, keyFunction));
+    }
+
+    public <K> Multimap<K, E> index(Function<? super E, K> keyFunction)
+    {
+        return Multimaps.index(iterable, keyFunction);
     }
 
     public <V> MapTransformer<E, V> toMap(Function<? super E, V> valueFunction)
