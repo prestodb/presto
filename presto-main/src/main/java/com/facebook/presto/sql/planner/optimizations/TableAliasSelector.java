@@ -1,5 +1,8 @@
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.sql.planner.plan.TableWriterNode;
+
+import com.facebook.presto.execution.Sitevars;
 import com.facebook.presto.metadata.AliasDao;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.ColumnMetadata;
@@ -41,16 +44,19 @@ public class TableAliasSelector
     private final AliasDao aliasDao;
     private final NodeManager nodeManager;
     private final ShardManager shardManager;
+    private final Sitevars sitevars;
 
     public TableAliasSelector(Metadata metadata,
             AliasDao aliasDao,
             NodeManager nodeManager,
-            ShardManager shardManager)
+            ShardManager shardManager,
+            Sitevars sitevars)
     {
         this.metadata = checkNotNull(metadata, "metadata is null");
         this.aliasDao = checkNotNull(aliasDao, "aliasDao is null");
         this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
         this.shardManager = checkNotNull(shardManager, "shardManager is null");
+        this.sitevars = checkNotNull(sitevars, "sitevars is null");
     }
 
     @Override
@@ -60,7 +66,37 @@ public class TableAliasSelector
         checkNotNull(session, "session is null");
         checkNotNull(types, "types is null");
 
-        return PlanRewriter.rewriteWith(new Rewriter(), plan);
+        // don't optimize plans that actually write local tables. We always want to
+        // read the remote table in that case.
+        if (containsTableWriter(plan)) {
+            return plan;
+        }
+
+        if (sitevars.isAliasEnabled()) {
+            return PlanRewriter.rewriteWith(new Rewriter(), plan);
+        }
+        else {
+            return plan;
+        }
+    }
+
+    private boolean containsTableWriter(PlanNode plan)
+    {
+        if (plan == null) {
+            return false;
+        }
+        else if (plan instanceof TableWriterNode) {
+            return true;
+        }
+        else {
+            for (PlanNode sourceNode : plan.getSources()) {
+                if (containsTableWriter(sourceNode)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private class Rewriter

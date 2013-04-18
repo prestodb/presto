@@ -25,7 +25,8 @@ public class TestSitevarsConfig
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(SitevarsConfig.class)
                 .setImportsEnabled(true)
                 .setDropEnabled(true)
-                .setShardCleaningEnabled(true));
+                .setShardCleaningEnabled(true)
+                .setAliasEnabled(true));
     }
 
     @Test
@@ -35,12 +36,14 @@ public class TestSitevarsConfig
                 .put("sitevar.imports-enabled", "false")
                 .put("sitevar.drop-enabled", "false")
                 .put("sitevar.shard-cleaning-enabled", "false")
+                .put("sitevar.alias-enabled", "false")
                 .build();
 
         SitevarsConfig expected = new SitevarsConfig()
                 .setImportsEnabled(false)
                 .setDropEnabled(false)
-                .setShardCleaningEnabled(false);
+                .setShardCleaningEnabled(false)
+                .setAliasEnabled(false);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

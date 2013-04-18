@@ -7,6 +7,7 @@ public class SitevarsConfig
     private boolean importsEnabled = true;
     private boolean dropEnabled = true;
     private boolean shardCleaningEnabled = true;
+    private boolean aliasEnabled = true;
 
     public boolean isImportsEnabled()
     {
@@ -41,6 +42,18 @@ public class SitevarsConfig
     public SitevarsConfig setShardCleaningEnabled(boolean shardCleaningEnabled)
     {
         this.shardCleaningEnabled = shardCleaningEnabled;
+        return this;
+    }
+
+    public boolean isAliasEnabled()
+    {
+        return aliasEnabled;
+    }
+
+    @Config("sitevar.alias-enabled")
+    public SitevarsConfig setAliasEnabled(boolean aliasEnabled)
+    {
+        this.aliasEnabled = aliasEnabled;
         return this;
     }
 }

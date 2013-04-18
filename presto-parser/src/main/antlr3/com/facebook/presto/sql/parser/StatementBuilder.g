@@ -51,6 +51,8 @@ statement returns [Statement value]
     | showFunctions   { $value = $showFunctions.value; }
     | createMaterializedView { $value = $createMaterializedView.value; }
     | refreshMaterializedView { $value = $refreshMaterializedView.value; }
+    | createAlias     { $value = $createAlias.value; }
+    | dropAlias     { $value = $dropAlias.value; }
     | dropTable       { $value = $dropTable.value; }
     ;
 
@@ -395,11 +397,27 @@ showFunctions returns [Statement value]
     ;
 
 createMaterializedView returns [Statement value]
-    : ^(CREATE_MATERIALIZED_VIEW qname restrictedSelectStmt) { $value = new CreateMaterializedView($qname.value, $restrictedSelectStmt.value); }
+    : ^(CREATE_MATERIALIZED_VIEW qname refresh=viewRefresh? restrictedSelectStmt) { $value = new CreateMaterializedView($qname.value, Optional.fromNullable($refresh.value), $restrictedSelectStmt.value); }
     ;
 
 refreshMaterializedView returns [Statement value]
     : ^(REFRESH_MATERIALIZED_VIEW qname) { $value = new RefreshMaterializedView($qname.value); }
+    ;
+
+viewRefresh returns [String value]
+    : ^(REFRESH integer) { $value = $integer.value; }
+    ;
+
+createAlias returns [Statement value]
+    : ^(CREATE_ALIAS qname remote=forRemote) { $value = new CreateAlias($qname.value, $remote.value); }
+    ;
+
+dropAlias returns [Statement value]
+    : ^(DROP_ALIAS qname) { $value = new DropAlias($qname.value); }
+    ;
+
+forRemote returns [QualifiedName value]
+    : ^(FOR qname) { $value = $qname.value; }
     ;
 
 dropTable returns [Statement value]
