@@ -98,14 +98,13 @@ public class TaskOutput
         }
     }
 
-    @SuppressWarnings("unchecked")
-    public synchronized <T> void addOutput(PlanNodeId id, Set<? extends T> output)
+    public synchronized void addOutput(PlanNodeId id, Set<?> output)
     {
         checkNotNull(id, "id is null");
         checkNotNull(output, "output is null");
 
-        ImmutableSet.Builder<T> builder = ImmutableSet.builder();
-        Set<T> current = (Set<T>) this.outputs.get(id);
+        ImmutableSet.Builder<Object> builder = ImmutableSet.builder();
+        Set<?> current = this.outputs.get(id);
         if (current != null) {
             builder.addAll(current);
         }

@@ -47,17 +47,17 @@ public class StatsTpchBlocksProvider
     @Override
     public BlockIterable getBlocks(TpchTableHandle tableHandle,
             TpchColumnHandle columnHandle,
-            int tableSkew,
-            int tableSplit,
+            int partNumber,
+            int totalParts,
             BlocksFileEncoding encoding)
     {
-        checkArgument(tableSplit > 0, "tableSplit must be > 1");
-        checkArgument(tableSkew >=0, "tableSkew must be >= 0");
+        checkArgument(totalParts > 0, "totalParts must be > 1");
+        checkArgument(partNumber >=0, "partNumber must be >= 0");
 
         Slice slice = getColumnSlice(tableHandle, columnHandle, encoding);
         BlocksFileReader blocks = BlocksFileReader.readBlocks(slice);
         BlocksFileStats stats = blocks.getStats();
-        statsBuilder.add(new BlocksFileStats((stats.getRowCount() - tableSkew)/tableSplit, // fake up row length to match the skew /split count.
+        statsBuilder.add(new BlocksFileStats(stats.getRowCount() / totalParts,
                 stats.getRunsCount(),
                 stats.getAvgRunLength(),
                 stats.getUniqueCount()));
@@ -67,15 +67,15 @@ public class StatsTpchBlocksProvider
     @Override
     public DataSize getColumnDataSize(TpchTableHandle tableHandle,
             TpchColumnHandle columnHandle,
-            int tableSkew,
-            int tableSplit,
+            int partNumber,
+            int totalParts,
             BlocksFileEncoding encoding)
     {
-        checkArgument(tableSplit > 0, "tableSplit must be > 1");
-        checkArgument(tableSkew >=0, "tableSkew must be >= 0");
+        checkArgument(totalParts > 0, "totalParts must be > 1");
+        checkArgument(partNumber >=0, "partNumber must be >= 0");
 
         Slice slice = getColumnSlice(tableHandle, columnHandle, encoding);
-        return new DataSize((slice.length() - tableSkew) / tableSplit, Unit.BYTE);
+        return new DataSize((slice.length() - partNumber) / totalParts, Unit.BYTE);
     }
 
     private Slice getColumnSlice(TpchTableHandle tableHandle, TpchColumnHandle columnHandle, BlocksFileEncoding encoding)

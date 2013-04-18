@@ -311,7 +311,7 @@ public class HttpRemoteTask
             OutputReceiver outputReceiver =  outputReceivers.get(entry.getKey());
             checkState(outputReceiver != null, "Got Result for node %s which is not an output receiver!", entry.getKey());
             for (Object result : entry.getValue()) {
-                outputReceiver.receive(result);
+                outputReceiver.updateOutput(result);
             }
         }
 

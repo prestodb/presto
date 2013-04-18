@@ -8,26 +8,31 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Objects;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 // Right now, splits are just the entire TPCH table
 public class TpchSplit
         implements PartitionedSplit
 {
     private final TpchTableHandle tableHandle;
-    private final int tableSplit;
-    private final int tableSkew;
+    private final int totalParts;
+    private final int partNumber;
 
     private final String partition;
 
     @JsonCreator
     public TpchSplit(@JsonProperty("tableHandle") TpchTableHandle tableHandle,
-            @JsonProperty("tableSkew") int tableSkew,
-            @JsonProperty("tableSplit") int tableSplit)
+            @JsonProperty("partNumber") int partNumber,
+            @JsonProperty("totalParts") int totalParts)
     {
+        checkState(partNumber >= 0, "partNumber must be >= 0");
+        checkState(totalParts >= 1, "totalParts must be >= 1");
+        checkState(totalParts > partNumber, "totalParts must be > partNumber");
+
         this.tableHandle = checkNotNull(tableHandle, "tableHandle is null");
-        this.tableSkew = tableSkew;
-        this.tableSplit = tableSplit;
-        this.partition = "tpch_split_" + tableSkew;
+        this.partNumber = partNumber;
+        this.totalParts = totalParts;
+        this.partition = "tpch_part_" + partNumber;
     }
 
     @VisibleForTesting
@@ -49,15 +54,15 @@ public class TpchSplit
     }
 
     @JsonProperty
-    public int getTableSplit()
+    public int getTotalParts()
     {
-        return tableSplit;
+        return totalParts;
     }
 
     @JsonProperty
-    public int getTableSkew()
+    public int getPartNumber()
     {
-        return tableSkew;
+        return partNumber;
     }
 
     @Override
@@ -91,8 +96,8 @@ public class TpchSplit
         TpchSplit tpchSplit = (TpchSplit) o;
 
         if (tableHandle.equals(tpchSplit.tableHandle)
-                && tableSkew == tpchSplit.tableSkew
-                && tableSplit == tpchSplit.tableSplit) {
+                && partNumber == tpchSplit.partNumber
+                && totalParts == tpchSplit.totalParts) {
             return true;
         }
 
@@ -102,7 +107,7 @@ public class TpchSplit
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(tableHandle, tableSkew, tableSplit);
+        return Objects.hashCode(tableHandle, partNumber, totalParts);
     }
 
     @Override
@@ -110,8 +115,8 @@ public class TpchSplit
     {
         return Objects.toStringHelper(this)
                 .add("tableHandle", tableHandle)
-                .add("tableSkew", tableSkew)
-                .add("tableSplit", tableSplit)
+                .add("partNumber", partNumber)
+                .add("totalParts", totalParts)
                 .toString();
     }
 }

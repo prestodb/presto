@@ -22,8 +22,8 @@ public class MetricRecordingTpchBlocksProvider
     @Override
     public BlockIterable getBlocks(TpchTableHandle tableHandle,
             TpchColumnHandle columnHandle,
-            int tableSkew,
-            int tableSplit,
+            int partNumber,
+            int totalParts,
             BlocksFileEncoding encoding)
     {
         Preconditions.checkNotNull(tableHandle, "tableHandle is null");
@@ -31,8 +31,8 @@ public class MetricRecordingTpchBlocksProvider
         Preconditions.checkNotNull(encoding, "encoding is null");
         CpuTimer cpuTimer = new CpuTimer();
         try {
-            BlockIterable blocks = tpchBlocksProvider.getBlocks(tableHandle, columnHandle, tableSkew, tableSplit, encoding);
-            cumulativeDataByteSize += tpchBlocksProvider.getColumnDataSize(tableHandle, columnHandle, tableSkew, tableSplit, encoding).toBytes();
+            BlockIterable blocks = tpchBlocksProvider.getBlocks(tableHandle, columnHandle, partNumber, totalParts, encoding);
+            cumulativeDataByteSize += tpchBlocksProvider.getColumnDataSize(tableHandle, columnHandle, partNumber, totalParts, encoding).toBytes();
             return blocks;
         } finally {
             dataFetchCpuDuration = dataFetchCpuDuration.add(cpuTimer.elapsedTime());
@@ -42,11 +42,11 @@ public class MetricRecordingTpchBlocksProvider
     @Override
     public DataSize getColumnDataSize(TpchTableHandle tableHandle,
             TpchColumnHandle columnHandle,
-            int tableSkew,
-            int tableSplit,
+            int partNumber,
+            int totalParts,
             BlocksFileEncoding encoding)
     {
-        return tpchBlocksProvider.getColumnDataSize(tableHandle, columnHandle, tableSkew, tableSplit, encoding);
+        return tpchBlocksProvider.getColumnDataSize(tableHandle, columnHandle, partNumber, totalParts, encoding);
     }
 
     public CpuDuration getDataFetchCpuDuration()

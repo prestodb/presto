@@ -2,7 +2,6 @@ package com.facebook.presto.importer;
 
 import com.facebook.presto.importer.JobStateFactory.JobState;
 import com.facebook.presto.metadata.Metadata;
-import io.airlift.log.Logger;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -10,21 +9,17 @@ import javax.inject.Singleton;
 public class PeriodicImportRunnable
         extends AbstractPeriodicImportRunnable
 {
-    private static final Logger log = Logger.get(PeriodicImportRunnable.class);
-
-//     private final ImportManager importManager;
+    @SuppressWarnings("unused")
     private final Metadata metadata;
 
     @Inject
     public PeriodicImportRunnable(
-//            ImportManager importManager,
             PeriodicImportManager periodicImportManager,
             Metadata metadata,
             JobState jobState)
     {
         super(jobState, periodicImportManager);
 
-//        this.importManager = importManager;
         this.metadata = metadata;
     }
 
@@ -33,65 +28,26 @@ public class PeriodicImportRunnable
             throws Exception
     {
         throw new IllegalStateException("I NEED FIXING!");
-
-//        final PersistentPeriodicImportJob job = jobState.getJob();
-//
-//        TableMetadata sourceTable = metadata.getTable(job.getSrcTable());
-//        List<ColumnMetadata> sourceColumns = sourceTable.getColumns();
-//
-//        TableMetadata table = new TableMetadata(job.getDstTable(), sourceColumns);
-//        metadata.createTable(table);
-//
-//        table = metadata.getTable(job.getDstTable());
-//        long tableId = ((NativeTableHandle) table.getTableHandle().get()).getTableId();
-//        List<ImportField> fields = CreateOrReplaceMaterializedViewExecution.getImportFields(sourceColumns, table.getColumns());
-//
-//        ListenableFuture<?> importFuture = importManager.importTable(tableId, job.getSrcCatalogName(), job.getSrcSchemaName(), job.getSrcTableName(), fields);
-//
-//        long maxRuntime = (long) (0.7 * job.getInterval());
-//        try {
-//            importFuture.get(maxRuntime, TimeUnit.SECONDS); // may take at most 70% of the import interval
-//        }
-//        catch (TimeoutException e) {
-//            log.warn(e, "Job %d: Import did not finish within %ds", job.getJobId(), maxRuntime);
-//        }
-//        catch (InterruptedException e) {
-//            Thread.currentThread().interrupt();
-//        }
-//        catch (CancellationException e) {
-//            log.warn("Job %d was cancelled.", job.getJobId());
-//        }
-//        catch (ExecutionException e) {
-//            log.warn(e.getCause(), "Job %d:", job.getJobId());
-//        }
-//        finally {
-//            // in any case, cancel the future. This will trigger if e.g. runtime exceptions get thrown.
-//            // For a job that completed normally, cancelling it after the fact has no effect.
-//            importFuture.cancel(true);
-//        }
     }
 
     @Singleton
     public static final class PeriodicImportRunnableFactory
     {
-//        private final ImportManager importManager;
         private final PeriodicImportManager periodicImportManager;
         private final Metadata metadata;
 
         @Inject
         public PeriodicImportRunnableFactory(
-//                ImportManager importManager,
                 PeriodicImportManager periodicImportManager,
                 Metadata metadata)
         {
-//            this.importManager = importManager;
             this.periodicImportManager = periodicImportManager;
             this.metadata = metadata;
         }
 
         public Runnable create(JobState jobState)
         {
-            return null; // new PeriodicImportRunnable(importManager, periodicImportManager, metadata, jobState);
+            return new PeriodicImportRunnable(periodicImportManager, metadata, jobState);
         }
     }
 }

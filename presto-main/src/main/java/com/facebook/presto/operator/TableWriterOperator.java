@@ -6,9 +6,8 @@ import com.facebook.presto.metadata.ColumnFileHandle;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.DataSourceType;
 import com.facebook.presto.metadata.StorageManager;
+import com.facebook.presto.split.NativeSplit;
 import com.facebook.presto.split.Split;
-import com.facebook.presto.split.WritingSplit;
-import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -18,7 +17,6 @@ import io.airlift.slice.Slices;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -33,35 +31,34 @@ public class TableWriterOperator
     private final StorageManager storageManager;
     private final String nodeIdentifier;
     private final Operator sourceOperator;
-    private final List<Symbol> inputSymbols;
-    private final Map<Symbol, ColumnHandle> columnHandles;
+    private final List<ColumnHandle> columnHandles;
 
     private final AtomicBoolean used = new AtomicBoolean();
 
-    private final AtomicReference<WritingSplit> input = new AtomicReference<>();
+    private final AtomicReference<NativeSplit> input = new AtomicReference<>();
 
     private final AtomicReference<Set<TableWriterResult>> output = new AtomicReference<Set<TableWriterResult>>(ImmutableSet.<TableWriterResult>of());
 
     public TableWriterOperator(StorageManager storageManager,
             String nodeIdentifier,
-            List<Symbol> inputSymbols,
-            Map<Symbol, ColumnHandle> columnHandles,
+            List<ColumnHandle> columnHandles,
             Operator sourceOperator)
     {
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
         this.nodeIdentifier = checkNotNull(nodeIdentifier, "nodeIdentifier is null");
-        this.inputSymbols = checkNotNull(inputSymbols, "inputSymbols is null");
         this.columnHandles = checkNotNull(columnHandles, "columnHandles is null");
         this.sourceOperator = checkNotNull(sourceOperator, "sourceOperator is null");
+
+        checkState(sourceOperator.getChannelCount() == columnHandles.size(), "channel count does not match columnHandles list");
     }
 
     @Override
     public void addSplit(Split split)
     {
         checkNotNull(split, "split is null");
-        checkState(split.getDataSourceType() == DataSourceType.WRITING, "Non-writing split added!");
+        checkState(split.getDataSourceType() == DataSourceType.NATIVE, "Non-native split added!");
         checkState(input.get() == null, "Shard Id %s was already set!", input.get());
-        input.set((WritingSplit) split);
+        input.set((NativeSplit) split);
     }
 
     @Override
@@ -94,18 +91,8 @@ public class TableWriterOperator
         checkState(!used.getAndSet(true), "TableWriteOperator can be used only once");
         checkState(input.get() != null, "No shard id was set!");
 
-        ImmutableList.Builder<ColumnHandle> columnHandlesBuilder = ImmutableList.builder();
-
-        for (Symbol inputSymbol : inputSymbols) {
-            ColumnHandle columnHandle = columnHandles.get(inputSymbol);
-            checkState(columnHandle != null, "No column handle for %s found!", inputSymbol);
-            columnHandlesBuilder.add(columnHandle);
-        }
-
-        checkState(sourceOperator.getChannelCount() == columnHandles.size(), "channel count does not match columnHandles list");
-
         try {
-            ColumnFileHandle columnFileHandle = storageManager.createStagingFileHandles(input.get().getShardId(), columnHandlesBuilder.build());
+            ColumnFileHandle columnFileHandle = storageManager.createStagingFileHandles(input.get().getShardId(), columnHandles);
             return new TableWriteIterator(sourceOperator.iterator(operatorStats), columnFileHandle);
         }
         catch (IOException e) {
@@ -123,7 +110,7 @@ public class TableWriterOperator
         }
     }
 
-    public class TableWriteIterator
+    class TableWriteIterator
             extends AbstractPageIterator
     {
         private final ColumnFileHandle fileHandle;
@@ -141,6 +128,8 @@ public class TableWriterOperator
         protected void doClose()
         {
             if (!closed.getAndSet(true)) {
+                checkState(!sourceIterator.hasNext(), "writer closed with source iterator still having data!");
+
                 commitFileHandle(fileHandle);
                 sourceIterator.close();
                 output.set(ImmutableSet.of(new TableWriterResult(input.get().getShardId(), nodeIdentifier)));
