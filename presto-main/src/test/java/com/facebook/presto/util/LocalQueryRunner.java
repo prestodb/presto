@@ -205,6 +205,12 @@ public class LocalQueryRunner
         }
 
         @Override
+        public boolean isAggregationFunction(QualifiedName name)
+        {
+            return functions.isAggregationFunction(name);
+        }
+
+        @Override
         public TableMetadata getTable(QualifiedTableName table)
         {
             checkTable(table);

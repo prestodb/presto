@@ -128,6 +128,11 @@ public class FunctionRegistry
         return ImmutableList.copyOf(functionsByName.values());
     }
 
+    public boolean isAggregationFunction(QualifiedName name)
+    {
+        return Iterables.any(functionsByName.get(name), isAggregationPredicate());
+    }
+
     public FunctionInfo get(QualifiedName name, List<TupleInfo.Type> parameterTypes)
     {
         // search for exact match
