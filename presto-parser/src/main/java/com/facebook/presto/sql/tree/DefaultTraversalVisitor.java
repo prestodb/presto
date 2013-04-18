@@ -111,6 +111,28 @@ public class DefaultTraversalVisitor<R, C>
             process(argument, context);
         }
 
+        if (node.getWindow().isPresent()) {
+            process(node.getWindow().get(), context);
+        }
+
+        return null;
+    }
+
+    @Override
+    public R visitWindow(Window node, C context)
+    {
+        for (Expression expression : node.getPartitionBy()) {
+            process(expression, context);
+        }
+
+        for (SortItem sortItem : node.getOrderBy()) {
+            process(sortItem.getSortKey(), context);
+        }
+
+        if (node.getFrame().isPresent()) {
+            process(node.getFrame().get(), context);
+        }
+
         return null;
     }
 
