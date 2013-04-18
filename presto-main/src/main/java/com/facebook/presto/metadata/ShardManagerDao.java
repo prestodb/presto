@@ -103,6 +103,7 @@ public interface ShardManagerDao
             "JOIN shards s ON (sn.shard_id = s.shard_id)\n" +
             "JOIN nodes n ON (sn.node_id = n.node_id)\n" +
             "WHERE s.committed IS TRUE\n" +
+            "  AND s.shard_id IN (SELECT shard_id from partition_shards ps WHERE ps.table_id = s.table_id)\n" +
             "  AND s.table_id = :tableId\n")
     @Mapper(ShardNode.Mapper.class)
     List<ShardNode> getCommittedShardNodes(@Bind("tableId") long tableId);
@@ -149,23 +150,23 @@ public interface ShardManagerDao
             "  AND partition_name = :partitionName\n")
     void dropPartition(@Bind("tableId") long tableId, @Bind("partitionName") String partitionName);
 
-    @SqlQuery("SELECT shards.shard_id FROM shards\n" +
-            " LEFT JOIN shard_nodes ON (shards.shard_id = shard_nodes.shard_id)\n" +
-            " LEFT JOIN nodes ON (shard_nodes.node_id = nodes.node_id)\n" +
-            "  WHERE table_id NOT IN (SELECT table_id FROM tables)\n" +
-            "  AND committed IS TRUE\n" +
-            "  AND node_identifier = :nodeIdentifier")
+    @SqlQuery("SELECT s.shard_id FROM shards s\n" +
+            " LEFT JOIN shard_nodes sn ON (s.shard_id = sn.shard_id)\n" +
+            " LEFT JOIN nodes n ON (sn.node_id = n.node_id)\n" +
+            "  WHERE s.shard_id NOT IN (SELECT shard_id FROM partition_shards ps WHERE ps.table_id = s.table_id)\n" +
+            "  AND s.committed IS TRUE\n" +
+            "  AND n.node_identifier = :nodeIdentifier")
     List<Long> getOrphanedShards(@Bind("nodeIdentifier") String nodeIdentifier);
 
-    @SqlQuery("SELECT shards.shard_id FROM shards\n" +
-            "  WHERE table_id NOT IN (SELECT table_id FROM tables)\n" +
-            "  AND shard_id NOT IN (SELECT DISTINCT shard_id from shard_nodes)\n" +
-            "  AND committed IS TRUE\n")
+    @SqlQuery("SELECT s.shard_id FROM shards s\n" +
+            "  WHERE s.shard_id NOT IN (SELECT shard_id FROM partition_shards ps WHERE ps.table_id = s.table_id)\n" +
+            "  AND s.shard_id NOT IN (SELECT DISTINCT shard_id from shard_nodes sn)\n" +
+            "  AND s.committed IS TRUE\n")
     List<Long> getAllOrphanedShards();
 
     @SqlUpdate("DELETE FROM table_partitions\n" +
             "  WHERE table_id NOT IN (SELECT table_id FROM tables)\n" +
-               "  AND partition_id NOT IN (SELECT partition_id FROM partition_shards)\n")
+            "  AND partition_id NOT IN (SELECT partition_id FROM partition_shards)\n")
     void dropAllOrphanedPartitions();
 
     public static class Utils

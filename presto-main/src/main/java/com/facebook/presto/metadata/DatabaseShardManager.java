@@ -160,9 +160,7 @@ public class DatabaseShardManager
                 ShardManagerDao dao = handle.attach(ShardManagerDao.class);
                 List<Long> shardIds = dao.getAllShards(tableId, partitionName);
                 for (Long shardId : shardIds) {
-                    dao.deleteShardFromShardNodes(shardId);
                     dao.deleteShardFromPartitionShards(shardId);
-                    dao.deleteShard(shardId);
                 }
                 dao.dropPartition(tableId, partitionName);
             }

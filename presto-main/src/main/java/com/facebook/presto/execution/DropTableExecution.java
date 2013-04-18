@@ -21,6 +21,7 @@ import io.airlift.log.Logger;
 import javax.inject.Inject;
 
 import java.net.URI;
+import java.util.Set;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedTableName;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -34,6 +35,7 @@ public class DropTableExecution
     private final DropTable statement;
     private final MetadataManager metadataManager;
     private final StorageManager storageManager;
+    private final ShardManager shardManager;
     private final PeriodicImportManager periodicImportManager;
     private final Sitevars sitevars;
 
@@ -46,6 +48,7 @@ public class DropTableExecution
             DropTable statement,
             MetadataManager metadataManager,
             StorageManager storageManager,
+            ShardManager shardManager,
             PeriodicImportManager periodicImportManager,
             QueryMonitor queryMonitor,
             Sitevars sitevars)
@@ -54,6 +57,7 @@ public class DropTableExecution
         this.sitevars = sitevars;
         this.metadataManager = metadataManager;
         this.storageManager = storageManager;
+        this.shardManager = shardManager;
         this.periodicImportManager = periodicImportManager;
 
         this.stateMachine = new QueryStateMachine(queryId, query, session, self, queryMonitor);
@@ -131,6 +135,11 @@ public class DropTableExecution
             }
         });
 
+        Set<String> partitions = shardManager.getPartitions(tableHandle);
+        for (String partition : partitions) {
+            shardManager.dropPartition(tableHandle, partition);
+        }
+
         metadataManager.dropTable(tableMetadata);
 
         stateMachine.finished();
@@ -142,6 +151,7 @@ public class DropTableExecution
         private final LocationFactory locationFactory;
         private final MetadataManager metadataManager;
         private final StorageManager storageManager;
+        private final ShardManager shardManager;
         private final PeriodicImportManager periodicImportManager;
         private final QueryMonitor queryMonitor;
         private final Sitevars sitevars;
@@ -149,15 +159,16 @@ public class DropTableExecution
         @Inject
         DropTableExecutionFactory(LocationFactory locationFactory,
                 MetadataManager metadataManager,
-                ShardManager shardManager,
                 QueryMonitor queryMonitor,
                 StorageManager storageManager,
+                ShardManager shardManager,
                 PeriodicImportManager periodicImportManager,
                 Sitevars sitevars)
         {
             this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
             this.metadataManager = checkNotNull(metadataManager, "metadataManager is null");
             this.storageManager = checkNotNull(storageManager, "storageManager is null");
+            this.shardManager = checkNotNull(shardManager, "shardManager is null");
             this.periodicImportManager = checkNotNull(periodicImportManager, "periodicImportManager is null");
             this.queryMonitor = checkNotNull(queryMonitor, "queryMonitor is null");
             this.sitevars = checkNotNull(sitevars, "sitevars is null");
@@ -172,6 +183,7 @@ public class DropTableExecution
                     (DropTable) statement,
                     metadataManager,
                     storageManager,
+                    shardManager,
                     periodicImportManager,
                     queryMonitor,
                     sitevars);
