@@ -274,6 +274,10 @@ public class StatementResource
                     exchangeClient.close();
 
                     // this is a hack to suppress the warn message in the client saying that there are no columns.
+                    // The reason for this is that the current API definition assumes that everything is a query,
+                    // so statements without results produce an error in the client otherwise.
+                    //
+                    // TODO: add support to the API for non-query statements.
                     columns = ImmutableList.of(new Column("result", "varchar"));
                     data = ImmutableSet.<List<Object>>of(ImmutableList.<Object>of("true"));
                 }
