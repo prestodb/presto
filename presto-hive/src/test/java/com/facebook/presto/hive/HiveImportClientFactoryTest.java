@@ -3,16 +3,8 @@
  */
 package com.facebook.presto.hive;
 
-import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.fasterxml.jackson.databind.JsonSerializer;
-import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.discovery.client.ServiceSelector;
 import io.airlift.discovery.client.testing.StaticServiceSelector;
-import io.airlift.json.JsonCodec;
-import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
-import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
 import static io.airlift.discovery.client.ServiceDescriptor.serviceDescriptor;
@@ -31,17 +23,9 @@ public class HiveImportClientFactoryTest
                 serviceDescriptor("hive-metastore").addProperty("thrift", "missing-port").build(),
                 serviceDescriptor("hive-metastore").build());
 
-        HiveClientFactory hiveClientFactory = new HiveClientFactory(new HiveClientConfig(), new HiveChunkEncoder(getHivePartitionChunkCodec()), new HdfsEnvironment());
+        HiveClientFactory hiveClientFactory = new HiveClientFactory(new HiveClientConfig(), new HdfsEnvironment());
         DiscoveryLocatedHiveCluster hiveCluster = new DiscoveryLocatedHiveCluster(selector, new HiveMetastoreClientFactory(new HiveClientConfig()));
         HiveImportClientFactory factory = new HiveImportClientFactory(hiveCluster, hiveClientFactory);
         assertInstanceOf(factory.createClient("hive"), HiveClient.class);
-    }
-
-    protected JsonCodec<HivePartitionChunk> getHivePartitionChunkCodec()
-    {
-        ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
-        objectMapperProvider.setJsonDeserializers(ImmutableMap.<Class<?>, JsonDeserializer<?>>of(Path.class, PathJsonDeserializer.INSTANCE));
-        objectMapperProvider.setJsonSerializers(ImmutableMap.<Class<?>, JsonSerializer<?>>of(Path.class, ToStringSerializer.instance));
-        return new JsonCodecFactory(objectMapperProvider).jsonCodec(HivePartitionChunk.class);
     }
 }

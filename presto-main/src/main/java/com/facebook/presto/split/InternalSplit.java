@@ -1,9 +1,9 @@
 package com.facebook.presto.split;
 
-import com.facebook.presto.metadata.DataSourceType;
-import com.facebook.presto.metadata.HostAddress;
+import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.metadata.InternalColumnHandle;
 import com.facebook.presto.metadata.InternalTableHandle;
+import com.facebook.presto.spi.Split;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonGenerator;
@@ -49,12 +49,6 @@ public class InternalSplit
     public boolean isRemotelyAccessible()
     {
         return false;
-    }
-
-    @Override
-    public DataSourceType getDataSourceType()
-    {
-        return DataSourceType.INTERNAL;
     }
 
     @Override

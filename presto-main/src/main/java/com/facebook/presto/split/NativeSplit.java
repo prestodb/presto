@@ -1,7 +1,7 @@
 package com.facebook.presto.split;
 
-import com.facebook.presto.metadata.DataSourceType;
-import com.facebook.presto.metadata.HostAddress;
+import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.Split;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
@@ -27,12 +27,6 @@ public class NativeSplit
         checkNotNull(addresses, "hosts is null");
         checkArgument(!addresses.isEmpty(), "hosts is empty");
         this.addresses = ImmutableList.copyOf(addresses);
-    }
-
-    @Override
-    public DataSourceType getDataSourceType()
-    {
-        return DataSourceType.NATIVE;
     }
 
     @Override

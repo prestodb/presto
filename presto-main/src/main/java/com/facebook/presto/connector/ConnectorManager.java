@@ -1,14 +1,18 @@
 package com.facebook.presto.connector;
 
+import com.facebook.presto.metadata.CollocatedSplitHandleResolver;
 import com.facebook.presto.metadata.ConnectorMetadata;
-import com.facebook.presto.metadata.ImportHandleResolver;
 import com.facebook.presto.metadata.HandleResolver;
+import com.facebook.presto.metadata.ImportHandleResolver;
 import com.facebook.presto.metadata.ImportMetadata;
 import com.facebook.presto.metadata.InternalHandleResolver;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.NativeHandleResolver;
+import com.facebook.presto.metadata.RemoteSplitHandleResolver;
 import com.facebook.presto.spi.ImportClient;
+import com.facebook.presto.split.DataStreamManager;
 import com.facebook.presto.split.ImportClientManager;
+import com.facebook.presto.split.ImportDataStreamProvider;
 import com.facebook.presto.split.ImportSplitManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.tpch.TpchHandleResolver;
@@ -18,14 +22,20 @@ public class ConnectorManager
 {
     private final MetadataManager metadataManager;
     private final SplitManager splitManager;
+    private final DataStreamManager dataStreamManager;
     private final ImportClientManager importClientManager;
     private final HandleResolver handleResolver;
 
     @Inject
-    public ConnectorManager(MetadataManager metadataManager, SplitManager splitManager, ImportClientManager importClientManager, HandleResolver handleResolver)
+    public ConnectorManager(MetadataManager metadataManager,
+            SplitManager splitManager,
+            DataStreamManager dataStreamManager,
+            ImportClientManager importClientManager,
+            HandleResolver handleResolver)
     {
         this.metadataManager = metadataManager;
         this.splitManager = splitManager;
+        this.dataStreamManager = dataStreamManager;
         this.importClientManager = importClientManager;
         this.handleResolver = handleResolver;
 
@@ -33,6 +43,8 @@ public class ConnectorManager
         handleResolver.addHandleResolver("native", new NativeHandleResolver());
         handleResolver.addHandleResolver("tpch", new TpchHandleResolver());
         handleResolver.addHandleResolver("internal", new InternalHandleResolver());
+        handleResolver.addHandleResolver("remote", new RemoteSplitHandleResolver());
+        handleResolver.addHandleResolver("collocated", new CollocatedSplitHandleResolver());
     }
 
     public void initialize()
@@ -52,6 +64,7 @@ public class ConnectorManager
         ConnectorMetadata connectorMetadata = new ImportMetadata(client);
         metadataManager.addConnectorMetadata(catalogName, connectorMetadata);
         splitManager.addConnectorSplitManager(new ImportSplitManager(dataSourceName, client));
+        dataStreamManager.addConnectorDataStreamProvider(new ImportDataStreamProvider(client));
         handleResolver.addHandleResolver(clientId, new ImportHandleResolver(client));
     }
 }

@@ -25,19 +25,19 @@ public interface ImportClient
 
     List<Partition> getPartitions(TableHandle table, Map<ColumnHandle, Object> bindings);
 
-    Iterable<PartitionChunk> getPartitionChunks(List<Partition> partitions);
+    Iterable<Split> getPartitionSplits(List<Partition> partitions);
 
-    RecordSet getRecords(PartitionChunk partitionChunk, List<? extends ColumnHandle> columns);
-
-    byte[] serializePartitionChunk(PartitionChunk partitionChunk);
-
-    PartitionChunk deserializePartitionChunk(byte[] bytes);
+    RecordSet getRecords(Split split, List<? extends ColumnHandle> columns);
 
     boolean canHandle(TableHandle tableHandle);
 
     boolean canHandle(ColumnHandle tableHandle);
 
+    boolean canHandle(Split split);
+
     Class<? extends TableHandle> getTableHandleClass();
 
     Class<? extends ColumnHandle> getColumnHandleClass();
+
+    Class<? extends Split> getSplitClass();
 }

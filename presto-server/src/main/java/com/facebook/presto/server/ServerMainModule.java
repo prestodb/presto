@@ -5,10 +5,6 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.connector.ConnectorManager;
-import com.facebook.presto.metadata.HandleResolver;
-import com.facebook.presto.split.ConnectorSplitManager;
-import com.facebook.presto.split.InternalSplitManager;
-import com.facebook.presto.split.NativeSplitManager;
 import com.facebook.presto.event.query.QueryCompletionEvent;
 import com.facebook.presto.event.query.QueryCreatedEvent;
 import com.facebook.presto.event.query.QueryMonitor;
@@ -52,6 +48,7 @@ import com.facebook.presto.metadata.ForShardCleaner;
 import com.facebook.presto.metadata.ForShardManager;
 import com.facebook.presto.metadata.ForStorageManager;
 import com.facebook.presto.metadata.HandleJsonModule;
+import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.InformationSchemaData;
 import com.facebook.presto.metadata.InformationSchemaMetadata;
 import com.facebook.presto.metadata.InternalSchemaMetadata;
@@ -67,13 +64,16 @@ import com.facebook.presto.metadata.SystemTables;
 import com.facebook.presto.operator.ForExchange;
 import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.spi.ImportClientFactory;
+import com.facebook.presto.spi.Split;
+import com.facebook.presto.split.ConnectorDataStreamProvider;
+import com.facebook.presto.split.ConnectorSplitManager;
 import com.facebook.presto.split.DataStreamManager;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.split.ImportClientManager;
-import com.facebook.presto.split.ImportDataStreamProvider;
 import com.facebook.presto.split.InternalDataStreamProvider;
+import com.facebook.presto.split.InternalSplitManager;
 import com.facebook.presto.split.NativeDataStreamProvider;
-import com.facebook.presto.split.Split;
+import com.facebook.presto.split.NativeSplitManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.planner.PlanOptimizersFactory;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
@@ -159,9 +159,9 @@ public class ServerMainModule
 
         bindConfig(binder).to(DatabaseLocalStorageManagerConfig.class);
         binder.bind(LocalStorageManager.class).to(DatabaseLocalStorageManager.class).in(Scopes.SINGLETON);
+        binder.bind(DataStreamManager.class).in(Scopes.SINGLETON);
         binder.bind(DataStreamProvider.class).to(DataStreamManager.class).in(Scopes.SINGLETON);
-        binder.bind(NativeDataStreamProvider.class).in(Scopes.SINGLETON);
-        binder.bind(ImportDataStreamProvider.class).in(Scopes.SINGLETON);
+        Multibinder<ConnectorDataStreamProvider> connectorDataStreamProviderBinder = Multibinder.newSetBinder(binder, ConnectorDataStreamProvider.class);
 
         binder.bind(MetadataResource.class).in(Scopes.SINGLETON);
         binder.bind(MetadataManager.class).in(Scopes.SINGLETON);
@@ -180,10 +180,11 @@ public class ServerMainModule
         // native
         connectorMetadataBinder.addBinding("default").to(NativeMetadata.class).in(Scopes.SINGLETON);
         connectorSplitManagerMapBinder.addBinding().to(NativeSplitManager.class).in(Scopes.SINGLETON);
+        connectorDataStreamProviderBinder.addBinding().to(NativeDataStreamProvider.class).in(Scopes.SINGLETON);
 
         // system tables (e.g., Dual, information_schema, and sys)
         binder.bind(SystemTables.class).in(Scopes.SINGLETON);
-        binder.bind(InternalDataStreamProvider.class).in(Scopes.SINGLETON);
+        connectorDataStreamProviderBinder.addBinding().to(InternalDataStreamProvider.class).in(Scopes.SINGLETON);
         binder.bind(InformationSchemaData.class).in(Scopes.SINGLETON);
 
         // import

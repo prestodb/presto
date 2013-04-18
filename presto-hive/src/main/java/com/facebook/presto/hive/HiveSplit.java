@@ -1,81 +1,62 @@
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.PartitionChunk;
+import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.PartitionedSplit;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.apache.hadoop.fs.Path;
 
-import java.net.InetAddress;
 import java.util.List;
 import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class HivePartitionChunk
-    implements PartitionChunk
+public class HiveSplit
+    implements PartitionedSplit
 {
     private final String clientId;
-    private final String partitionName;
-    private final boolean lastChunk;
-    private final Path path;
+    private final String partitionId;
+    private final boolean lastSplit;
+    private final String path;
     private final long start;
     private final long length;
     private final Properties schema;
     private final List<HivePartitionKey> partitionKeys;
-    private final List<InetAddress> hosts;
-
-    public static HivePartitionChunk makeLastChunk(HivePartitionChunk chunk)
-    {
-        if (chunk.isLastChunk()) {
-            return chunk;
-        }
-        else {
-            return new HivePartitionChunk(chunk.getClientId(),
-                    chunk.getPartitionName(),
-                    true,
-                    chunk.getPath(),
-                    chunk.getStart(),
-                    chunk.getLength(),
-                    chunk.getSchema(),
-                    chunk.getPartitionKeys(),
-                    chunk.getHosts());
-        }
-    }
+    private final List<HostAddress> addresses;
 
     @JsonCreator
-    public HivePartitionChunk(
+    public HiveSplit(
             @JsonProperty("clientId") String clientId,
-            @JsonProperty("partitionName") String partitionName,
-            @JsonProperty("lastChunk") boolean lastChunk,
-            @JsonProperty("path") Path path,
+            @JsonProperty("partitionId") String partitionId,
+            @JsonProperty("lastSplit") boolean lastSplit,
+            @JsonProperty("path") String path,
             @JsonProperty("start") long start,
             @JsonProperty("length") long length,
             @JsonProperty("schema") Properties schema,
             @JsonProperty("partitionKeys") List<HivePartitionKey> partitionKeys,
-            @JsonProperty("hosts") List<InetAddress> hosts)
+            @JsonProperty("addresses") List<HostAddress> addresses)
     {
         checkNotNull(clientId, "clientId is null");
         checkArgument(start >= 0, "start must be positive");
         checkArgument(length >= 0, "length must be positive");
-        checkNotNull(partitionName, "partitionName is null");
+        checkNotNull(partitionId, "partitionName is null");
         checkNotNull(path, "path is null");
         checkNotNull(schema, "schema is null");
         checkNotNull(partitionKeys, "partitionKeys is null");
-        checkNotNull(hosts, "hosts is null");
+        checkNotNull(addresses, "addresses is null");
 
         this.clientId = clientId;
-        this.partitionName = partitionName;
-        this.lastChunk = lastChunk;
+        this.partitionId = partitionId;
+        this.lastSplit = lastSplit;
         this.path = path;
         this.start = start;
         this.length = length;
         this.schema = schema;
         this.partitionKeys = ImmutableList.copyOf(partitionKeys);
-        this.hosts = ImmutableList.copyOf(hosts);
+        this.addresses = ImmutableList.copyOf(addresses);
     }
 
     @JsonProperty
@@ -85,19 +66,21 @@ public class HivePartitionChunk
     }
 
     @JsonProperty
-    public String getPartitionName()
+    @Override
+    public String getPartitionId()
     {
-        return partitionName;
+        return partitionId;
     }
 
     @JsonProperty
-    public boolean isLastChunk()
+    @Override
+    public boolean isLastSplit()
     {
-        return lastChunk;
+        return lastSplit;
     }
 
     @JsonProperty
-    public Path getPath()
+    public String getPath()
     {
         return path;
     }
@@ -108,7 +91,6 @@ public class HivePartitionChunk
         return start;
     }
 
-    @Override
     @JsonProperty
     public long getLength()
     {
@@ -128,9 +110,16 @@ public class HivePartitionChunk
     }
 
     @JsonProperty
-    public List<InetAddress> getHosts()
+    @Override
+    public List<HostAddress> getAddresses()
     {
-        return hosts;
+        return addresses;
+    }
+
+    @Override
+    public boolean isRemotelyAccessible()
+    {
+        return true;
     }
 
     @Override
@@ -140,7 +129,7 @@ public class HivePartitionChunk
                 .put("path", path.toString())
                 .put("start", start)
                 .put("length", length)
-                .put("hosts", hosts)
+                .put("hosts", addresses)
                 .build();
     }
 
@@ -152,5 +141,22 @@ public class HivePartitionChunk
                 .addValue(start)
                 .addValue(length)
                 .toString();
+    }
+
+    public static HiveSplit markAsLastSplit(HiveSplit split)
+    {
+        if (split.isLastSplit()) {
+            return split;
+        }
+
+        return new HiveSplit(split.getClientId(),
+                split.getPartitionId(),
+                true,
+                split.getPath(),
+                split.getStart(),
+                split.getLength(),
+                split.getSchema(),
+                split.getPartitionKeys(),
+                split.getAddresses());
     }
 }

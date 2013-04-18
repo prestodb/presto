@@ -2,6 +2,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.TableHandle;
 import com.google.common.base.Optional;
+import com.facebook.presto.spi.Split;
 import com.google.common.collect.Multimap;
 
 import javax.annotation.Nullable;

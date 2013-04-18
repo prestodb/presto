@@ -5,7 +5,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.execution.NodeScheduler.NodeSelector;
 import com.facebook.presto.metadata.Node;
-import com.facebook.presto.split.Split;
+import com.facebook.presto.spi.Split;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.OutputReceiver;
 import com.facebook.presto.sql.planner.PlanFragment;

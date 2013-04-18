@@ -1,5 +1,6 @@
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.HostAddress;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 

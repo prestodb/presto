@@ -1,7 +1,7 @@
 package com.facebook.presto.split;
 
-import com.facebook.presto.metadata.DataSourceType;
-import com.facebook.presto.metadata.HostAddress;
+import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.Split;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -45,12 +45,6 @@ public class CollocatedSplit
     public List<HostAddress> getAddresses()
     {
         return addresses;
-    }
-
-    @Override
-    public DataSourceType getDataSourceType()
-    {
-        return DataSourceType.COLLOCATED;
     }
 
     @Override

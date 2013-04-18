@@ -5,11 +5,11 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.ImportClientFactory;
 import com.facebook.presto.spi.Partition;
-import com.facebook.presto.spi.PartitionChunk;
 import com.facebook.presto.spi.SchemaTableMetadata;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.TableHandle;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -108,25 +108,13 @@ public class TestImportClientFactory
                 }
 
                 @Override
-                public Iterable<PartitionChunk> getPartitionChunks(List<Partition> partitions)
+                public Iterable<Split> getPartitionSplits(List<Partition> partitions)
                 {
                     throw new UnsupportedOperationException();
                 }
 
                 @Override
-                public RecordSet getRecords(PartitionChunk partitionChunk, List<? extends ColumnHandle> columns)
-                {
-                    throw new UnsupportedOperationException();
-                }
-
-                @Override
-                public byte[] serializePartitionChunk(PartitionChunk partitionChunk)
-                {
-                    throw new UnsupportedOperationException();
-                }
-
-                @Override
-                public PartitionChunk deserializePartitionChunk(byte[] bytes)
+                public RecordSet getRecords(Split split, List<? extends ColumnHandle> columns)
                 {
                     throw new UnsupportedOperationException();
                 }
@@ -144,6 +132,12 @@ public class TestImportClientFactory
                 }
 
                 @Override
+                public boolean canHandle(Split split)
+                {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
                 public Class<? extends TableHandle> getTableHandleClass()
                 {
                     throw new UnsupportedOperationException();
@@ -151,6 +145,12 @@ public class TestImportClientFactory
 
                 @Override
                 public Class<? extends ColumnHandle> getColumnHandleClass()
+                {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public Class<? extends Split> getSplitClass()
                 {
                     throw new UnsupportedOperationException();
                 }

@@ -1,46 +1,46 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.split.NativeSplit;
 import com.facebook.presto.spi.Split;
+import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.split.CollocatedSplit;
 
-public class NativeHandleResolver
+public class CollocatedSplitHandleResolver
         implements ConnectorHandleResolver
 {
     @Override
     public boolean canHandle(TableHandle tableHandle)
     {
-        return tableHandle instanceof NativeTableHandle;
+        return false;
     }
 
     @Override
     public boolean canHandle(ColumnHandle columnHandle)
     {
-        return columnHandle instanceof NativeColumnHandle;
+        return false;
     }
 
     @Override
     public boolean canHandle(Split split)
     {
-        return split instanceof NativeSplit;
+        return split instanceof CollocatedSplit;
     }
 
     @Override
     public Class<? extends TableHandle> getTableHandleClass()
     {
-        return NativeTableHandle.class;
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public Class<? extends ColumnHandle> getColumnHandleClass()
     {
-        return NativeColumnHandle.class;
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public Class<? extends Split> getSplitClass()
     {
-        return NativeSplit.class;
+        return CollocatedSplit.class;
     }
 }

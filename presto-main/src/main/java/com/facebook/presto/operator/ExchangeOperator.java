@@ -3,9 +3,8 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.metadata.DataSourceType;
+import com.facebook.presto.spi.Split;
 import com.facebook.presto.split.RemoteSplit;
-import com.facebook.presto.split.Split;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
@@ -64,7 +63,7 @@ public class ExchangeOperator
     public synchronized void addSplit(Split split)
     {
         Preconditions.checkNotNull(split, "split is null");
-        Preconditions.checkArgument(split.getDataSourceType() == DataSourceType.REMOTE, "split is not a remote split");
+        Preconditions.checkArgument(split instanceof RemoteSplit, "split is not a remote split");
         Preconditions.checkState(!noMoreLocations.get(), "No more splits already set");
         URI location = ((RemoteSplit) split).getLocation();
         locations.add(location);

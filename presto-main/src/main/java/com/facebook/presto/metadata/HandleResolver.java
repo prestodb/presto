@@ -2,6 +2,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.Split;
 
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
@@ -39,6 +40,16 @@ public class HandleResolver
         throw new IllegalArgumentException("No connector for column handle: " + columnHandle);
     }
 
+    public String getId(Split split)
+    {
+        for (Entry<String, ConnectorHandleResolver> entry : handleIdResolvers.entrySet()) {
+            if (entry.getValue().canHandle(split)) {
+                return entry.getKey();
+            }
+        }
+        throw new IllegalArgumentException("No connector for split: " + split);
+    }
+
     public Class<? extends TableHandle> getTableHandleClass(String id)
     {
         return handleIdResolvers.get(id).getTableHandleClass();
@@ -47,5 +58,10 @@ public class HandleResolver
     public Class<? extends ColumnHandle> getColumnHandleClass(String id)
     {
         return handleIdResolvers.get(id).getColumnHandleClass();
+    }
+
+    public Class<? extends Split> getSplitClass(String id)
+    {
+        return handleIdResolvers.get(id).getSplitClass();
     }
 }

@@ -1,28 +1,36 @@
 package com.facebook.presto.tpch;
 
 import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.serde.BlocksFileEncoding;
-import com.facebook.presto.split.DataStreamProvider;
-import com.facebook.presto.split.Split;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.Split;
+import com.facebook.presto.split.ConnectorDataStreamProvider;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
+import javax.inject.Inject;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class TpchDataStreamProvider
-    implements DataStreamProvider
+    implements ConnectorDataStreamProvider
 {
     private final TpchBlocksProvider tpchBlocksProvider;
 
+    @Inject
     public TpchDataStreamProvider(TpchBlocksProvider tpchBlocksProvider)
     {
         this.tpchBlocksProvider = Preconditions.checkNotNull(tpchBlocksProvider, "tpchBlocksProvider is null");
+    }
+
+    @Override
+    public boolean canHandle(Split split)
+    {
+        return split instanceof TpchSplit;
     }
 
     @Override

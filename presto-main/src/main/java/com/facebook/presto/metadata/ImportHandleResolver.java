@@ -3,6 +3,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.Split;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -29,6 +30,12 @@ public class ImportHandleResolver
     }
 
     @Override
+    public boolean canHandle(Split split)
+    {
+        return importClient.canHandle(split);
+    }
+
+    @Override
     public Class<? extends TableHandle> getTableHandleClass()
     {
         return importClient.getTableHandleClass();
@@ -38,5 +45,11 @@ public class ImportHandleResolver
     public Class<? extends ColumnHandle> getColumnHandleClass()
     {
         return importClient.getColumnHandleClass();
+    }
+
+    @Override
+    public Class<? extends Split> getSplitClass()
+    {
+        return importClient.getSplitClass();
     }
 }

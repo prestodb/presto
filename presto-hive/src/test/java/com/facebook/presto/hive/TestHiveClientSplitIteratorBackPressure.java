@@ -5,7 +5,7 @@ import io.airlift.units.Duration;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Parameters;
 
-public class TestHiveClientChunkIteratorBackPressure
+public class TestHiveClientSplitIteratorBackPressure
     extends AbstractTestHiveClient
 {
     @Parameters({"hiveMetastoreHost", "hiveMetastorePort"})
@@ -13,14 +13,13 @@ public class TestHiveClientChunkIteratorBackPressure
     public void setup(String host, int port)
             throws Exception
     {
-        // Restrict the outstanding chunks to 1 and only use 2 threads per iterator
+        // Restrict the outstanding splits to 1 and only use 2 threads per iterator
         this.client = new HiveClient(
                 "hive",
                 1024 * 1024 * 1024 /* 1 GB */,
                 1,
                 2,
                 500,
-                getHiveChunkEncoder(),
                 new CachingHiveMetastore(new TestingHiveCluster(host, port), Duration.valueOf("1m")),
                 new HdfsEnvironment(),
                 MoreExecutors.sameThreadExecutor());

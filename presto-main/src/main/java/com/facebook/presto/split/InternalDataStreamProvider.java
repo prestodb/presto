@@ -10,6 +10,7 @@ import com.facebook.presto.metadata.SystemTables;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.Split;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
@@ -23,7 +24,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
 
 public class InternalDataStreamProvider
-        implements DataStreamProvider
+        implements ConnectorDataStreamProvider
 {
     private final InformationSchemaData informationSchemaData;
     private final SystemTables systemTables;
@@ -33,6 +34,12 @@ public class InternalDataStreamProvider
     {
         this.informationSchemaData = checkNotNull(informationSchemaData, "informationSchemaData is null");
         this.systemTables = checkNotNull(systemTables, "systemTables is null");
+    }
+
+    @Override
+    public boolean canHandle(Split split)
+    {
+        return split instanceof InternalSplit;
     }
 
     @Override

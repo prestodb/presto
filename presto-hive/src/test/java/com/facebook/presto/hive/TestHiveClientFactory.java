@@ -1,6 +1,5 @@
 package com.facebook.presto.hive;
 
-import io.airlift.json.JsonCodecFactory;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -12,7 +11,6 @@ public class TestHiveClientFactory
     {
         HiveClientFactory hiveClientFactory = new HiveClientFactory(
                 new HiveClientConfig(),
-                new HiveChunkEncoder(new JsonCodecFactory().jsonCodec(HivePartitionChunk.class)),
                 new HdfsEnvironment());
 
         // Two distinct Hive clusters

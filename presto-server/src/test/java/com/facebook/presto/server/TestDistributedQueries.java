@@ -11,6 +11,7 @@ import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
 import com.facebook.presto.failureDetector.FailureDetectorModule;
 import com.facebook.presto.guice.TestingJmxModule;
+import com.facebook.presto.metadata.CollocatedSplitHandleResolver;
 import com.facebook.presto.metadata.ConnectorMetadata;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.HandleResolver;
@@ -20,12 +21,15 @@ import com.facebook.presto.metadata.NativeHandleResolver;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
+import com.facebook.presto.split.ConnectorDataStreamProvider;
 import com.facebook.presto.split.ConnectorSplitManager;
+import com.facebook.presto.metadata.RemoteSplitHandleResolver;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Serialization.ExpressionDeserializer;
 import com.facebook.presto.sql.tree.Serialization.ExpressionSerializer;
 import com.facebook.presto.sql.tree.Serialization.FunctionCallDeserializer;
+import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.facebook.presto.tpch.TpchDataStreamProvider;
 import com.facebook.presto.tpch.TpchHandleResolver;
 import com.facebook.presto.tpch.TpchMetadata;
@@ -400,10 +404,10 @@ public class TestDistributedQueries
                         @Override
                         public void configure(Binder binder)
                         {
-                            TestingTpchBlocksProvider tpchBlocksProvider = new TestingTpchBlocksProvider();
-                            binder.bind(TpchDataStreamProvider.class).toInstance(new TpchDataStreamProvider(tpchBlocksProvider));
                             newMapBinder(binder, String.class, ConnectorMetadata.class).addBinding("tpch").to(TpchMetadata.class);
                             newSetBinder(binder, ConnectorSplitManager.class).addBinding().to(TpchSplitManager.class).in(Scopes.SINGLETON);
+                            binder.bind(TpchBlocksProvider.class).to(TestingTpchBlocksProvider.class).in(Scopes.SINGLETON);
+                            newSetBinder(binder, ConnectorDataStreamProvider.class).addBinding().to(TpchDataStreamProvider.class).in(Scopes.SINGLETON);
                         }
                     });
 
@@ -567,6 +571,8 @@ public class TestDistributedQueries
         handleResolver.addHandleResolver("native", new NativeHandleResolver());
         handleResolver.addHandleResolver("tpch", new TpchHandleResolver());
         handleResolver.addHandleResolver("internal", new InternalHandleResolver());
+        handleResolver.addHandleResolver("remote", new RemoteSplitHandleResolver());
+        handleResolver.addHandleResolver("collocated", new CollocatedSplitHandleResolver());
 
         return injector.getInstance(JsonCodecFactory.class);
     }
