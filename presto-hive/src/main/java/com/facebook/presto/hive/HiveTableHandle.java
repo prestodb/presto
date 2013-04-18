@@ -2,22 +2,33 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class HiveTableHandle
         implements TableHandle
 {
+    private final String clientId;
     private final SchemaTableName tableName;
 
-    public HiveTableHandle(SchemaTableName tableName)
+    @JsonCreator
+    public HiveTableHandle(@JsonProperty("clientId") String clientId, @JsonProperty("tableName") SchemaTableName tableName)
     {
-        if (tableName == null) {
-            throw new NullPointerException("tableName is null");
-        }
-        this.tableName = tableName;
+        this.clientId = checkNotNull(clientId, "clientId is null");
+        this.tableName = checkNotNull(tableName, "tableName is null");
     }
 
+    @JsonProperty
+    public String getClientId()
+    {
+        return clientId;
+    }
+
+    @JsonProperty
     public SchemaTableName getTableName()
     {
         return tableName;

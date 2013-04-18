@@ -15,6 +15,7 @@ public class TestHiveClientChunkIteratorBackPressure
     {
         // Restrict the outstanding chunks to 1 and only use 2 threads per iterator
         this.client = new HiveClient(
+                "hive",
                 1024 * 1024 * 1024 /* 1 GB */,
                 1,
                 2,

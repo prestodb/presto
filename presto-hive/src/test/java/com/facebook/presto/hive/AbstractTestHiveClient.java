@@ -48,13 +48,13 @@ public abstract class AbstractTestHiveClient
     public static final SchemaTableName TABLE_UNPARTITIONED = new SchemaTableName(DATABASE, "presto_test_unpartitioned");
     public static final SchemaTableName VIEW = new SchemaTableName(DATABASE, "presto_test_view");
     public static final SchemaTableName INVALID_TABLE = new SchemaTableName(DATABASE, "totally_invalid_table_name");
-    public static final TableHandle INVALID_TABLE_HANDLE = new HiveTableHandle(INVALID_TABLE);
+    public static final TableHandle INVALID_TABLE_HANDLE = new HiveTableHandle("hive", INVALID_TABLE);
     public static final String INVALID_COLUMN = "totally_invalid_column_name";
-    public static final ColumnHandle INVALID_COLUMN_HANDLE = new HiveColumnHandle(INVALID_COLUMN, 0, HiveType.STRING, 0, false);
+    public static final ColumnHandle INVALID_COLUMN_HANDLE = new HiveColumnHandle("hive", INVALID_COLUMN, 0, HiveType.STRING, 0, false);
 
-    private static final ColumnHandle DS_COLUMN = new HiveColumnHandle("ds", 0, HiveType.STRING, -1, true);
-    private static final ColumnHandle FILE_FORMAT_COLUMN = new HiveColumnHandle("file_format", 1, HiveType.STRING, 0, true);
-    private static final ColumnHandle DUMMY_COLUMN = new HiveColumnHandle("dummy", 2, HiveType.STRING, 0, true);
+    private static final ColumnHandle DS_COLUMN = new HiveColumnHandle("hive", "ds", 0, HiveType.STRING, -1, true);
+    private static final ColumnHandle FILE_FORMAT_COLUMN = new HiveColumnHandle("hive", "file_format", 1, HiveType.STRING, 0, true);
+    private static final ColumnHandle DUMMY_COLUMN = new HiveColumnHandle("hive", "dummy", 2, HiveType.STRING, 0, true);
     private static final Set<Partition> PARTITIONS = ImmutableSet.<Partition>of(
             new HivePartition(TABLE, "ds=2012-12-29/file_format=rcfile/dummy=1", ImmutableMap.of(DS_COLUMN, "2012-12-29", FILE_FORMAT_COLUMN, "rcfile", DUMMY_COLUMN, "1")),
             new HivePartition(TABLE, "ds=2012-12-29/file_format=sequencefile/dummy=2", ImmutableMap.of(DS_COLUMN, "2012-12-29", FILE_FORMAT_COLUMN, "sequencefile", DUMMY_COLUMN, "2")),

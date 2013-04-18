@@ -36,11 +36,6 @@ public class TestJsonTableHandle
     private static final Map<String, Object> INTERNAL_AS_MAP = ImmutableMap.<String, Object>of("type", "internal",
             "tableName", "thecatalog.theschema.thetable");
 
-    private static final Map<String, Object> IMPORT_AS_MAP = ImmutableMap.<String, Object>of("type", "import",
-            "clientId", "import",
-            "tableName", "thesource.thedatabase.thetable",
-            "tableHandle", TPCH_AS_MAP);
-
     private ObjectMapper objectMapper;
 
     @BeforeMethod
@@ -63,7 +58,6 @@ public class TestJsonTableHandle
         handleResolver.addHandleResolver("native", new NativeHandleResolver());
         handleResolver.addHandleResolver("tpch", new TpchHandleResolver());
         handleResolver.addHandleResolver("internal", new InternalHandleResolver());
-        handleResolver.addHandleResolver("import", new ImportHandleResolver());
     }
 
     @Test
@@ -86,17 +80,6 @@ public class TestJsonTableHandle
         assertTrue(objectMapper.canSerialize(InternalTableHandle.class));
         String json = objectMapper.writeValueAsString(internalHandle);
         testJsonEquals(json, INTERNAL_AS_MAP);
-    }
-
-    @Test
-    public void testImportSerialize()
-            throws Exception
-    {
-        ImportTableHandle importHandle = new ImportTableHandle("import", new QualifiedTableName("thesource", "thedatabase", "thetable"), new TpchTableHandle("tpchtable"));
-
-        assertTrue(objectMapper.canSerialize(ImportTableHandle.class));
-        String json = objectMapper.writeValueAsString(importHandle);
-        testJsonEquals(json, IMPORT_AS_MAP);
     }
 
     @Test
@@ -134,19 +117,6 @@ public class TestJsonTableHandle
         InternalTableHandle internalHandle = (InternalTableHandle) tableHandle;
 
         assertEquals(internalHandle.getTableName(), new QualifiedTableName("thecatalog", "theschema", "thetable"));
-    }
-
-    @Test
-    public void testImportDeserialize()
-            throws Exception
-    {
-        String json = objectMapper.writeValueAsString(IMPORT_AS_MAP);
-
-        TableHandle tableHandle = objectMapper.readValue(json, TableHandle.class);
-        assertEquals(tableHandle.getClass(), ImportTableHandle.class);
-        ImportTableHandle importHandle = (ImportTableHandle) tableHandle;
-
-        assertEquals(importHandle.getTableName(), new QualifiedTableName("thesource", "thedatabase", "thetable"));
     }
 
     @Test

@@ -64,7 +64,7 @@ public class HiveRecordSet
         if (readColumns.isEmpty()) {
             // for count(*) queries we will have "no" columns we want to read, but since hive doesn't
             // support no columns (it will read all columns instead), we must choose a single column
-            HiveColumnHandle primitiveColumn = getFirstPrimitiveColumn(chunk.getSchema());
+            HiveColumnHandle primitiveColumn = getFirstPrimitiveColumn(chunk.getClientId(), chunk.getSchema());
             readColumns = ImmutableList.of(primitiveColumn);
         }
         readHiveColumnIndexes = new ArrayList<>(transform(readColumns, hiveColumnIndexGetter()));
@@ -117,7 +117,7 @@ public class HiveRecordSet
         }
     }
 
-    private static HiveColumnHandle getFirstPrimitiveColumn(Properties schema)
+    private static HiveColumnHandle getFirstPrimitiveColumn(String clientId, Properties schema)
     {
         try {
             Deserializer deserializer = MetaStoreUtils.getDeserializer(null, schema);
@@ -128,7 +128,7 @@ public class HiveRecordSet
                 if (field.getFieldObjectInspector().getCategory() == ObjectInspector.Category.PRIMITIVE) {
                     PrimitiveObjectInspector inspector = (PrimitiveObjectInspector) field.getFieldObjectInspector();
                     HiveType hiveType = HiveType.getSupportedHiveType(inspector.getPrimitiveCategory());
-                    return new HiveColumnHandle(field.getFieldName(), index, hiveType, index, false);
+                    return new HiveColumnHandle(clientId, field.getFieldName(), index, hiveType, index, false);
                 }
                 index++;
             }

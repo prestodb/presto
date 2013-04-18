@@ -1,7 +1,6 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.metadata.AliasDao;
-import com.facebook.presto.metadata.ImportTableHandle;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.NativeTableHandle;
 import com.facebook.presto.metadata.QualifiedTableName;
@@ -115,7 +114,6 @@ public class CreateAliasExecution
 
         Optional<TableHandle> remoteTableHandle = metadataManager.getTableHandle(remoteTableName);
         checkState(!remoteTableHandle.isPresent(), "Table %s does not exists", remoteTableName);
-        Preconditions.checkState(remoteTableHandle.get() instanceof ImportTableHandle, "Can only alias an import table");
 
         TableAlias tableAlias = TableAlias.createTableAlias(remoteTableName, aliasTableName);
         aliasDao.insertAlias(tableAlias);

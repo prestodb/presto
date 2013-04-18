@@ -23,22 +23,10 @@ public class ClassLoaderSafeImportClientFactory
     }
 
     @Override
-    public boolean hasCatalog(String catalogName)
+    public ImportClient createClient(String clientId)
     {
         try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
-            return delegate.hasCatalog(catalogName);
-        }
-    }
-
-    @Override
-    public ImportClient createClient(String catalogName)
-    {
-        try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
-            ImportClient client = delegate.createClient(catalogName);
-            if (client == null) {
-                return null;
-            }
-            return new ClassLoaderSafeImportClient(client, classLoader);
+            return new ClassLoaderSafeImportClient(delegate.createClient(clientId), classLoader);
         }
     }
 }

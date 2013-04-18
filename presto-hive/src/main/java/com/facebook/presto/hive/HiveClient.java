@@ -17,6 +17,7 @@ import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.base.Function;
+import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
@@ -101,6 +102,7 @@ public class HiveClient
 
     private static final Logger log = Logger.get(HiveClient.class);
 
+    private final String clientId;
     private final long maxChunkBytes;
     private final int maxOutstandingChunks;
     private final int maxChunkIteratorThreads;
@@ -111,6 +113,7 @@ public class HiveClient
     private final ExecutorService executor;
 
     public HiveClient(
+            String clientId,
             long maxChunkBytes,
             int maxOutstandingChunks,
             int maxChunkIteratorThreads,
@@ -120,14 +123,15 @@ public class HiveClient
             HdfsEnvironment hdfsEnvironment,
             ExecutorService executor)
     {
+        this.clientId = checkNotNull(clientId, "clientId is null");
         this.maxChunkBytes = maxChunkBytes;
         this.maxOutstandingChunks = maxOutstandingChunks;
         this.maxChunkIteratorThreads = maxChunkIteratorThreads;
         this.partitionBatchSize = partitionBatchSize;
-        this.hiveChunkEncoder = hiveChunkEncoder;
-        this.metastore = metastore;
-        this.hdfsEnvironment = hdfsEnvironment;
-        this.executor = executor;
+        this.hiveChunkEncoder = checkNotNull(hiveChunkEncoder, "hiveChunkEncoder is null");
+        this.metastore = checkNotNull(metastore, "metastore is null");
+        this.hdfsEnvironment = checkNotNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.executor = checkNotNull(executor, "executor is null");
     }
 
     @Override
@@ -141,7 +145,7 @@ public class HiveClient
     {
         try {
             metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
-            return new HiveTableHandle(tableName);
+            return new HiveTableHandle(clientId, tableName);
         }
         catch (NoSuchObjectException e) {
             // table was not found
@@ -256,7 +260,7 @@ public class HiveClient
                 FieldSchema field = partitionKeys.get(i);
 
                 HiveType hiveType = getHiveType(field.getType());
-                columns.add(new HiveColumnHandle(field.getName(), i, hiveType, -1, true));
+                columns.add(new HiveColumnHandle(clientId, field.getName(), i, hiveType, -1, true));
             }
 
             // add the data fields
@@ -265,7 +269,7 @@ public class HiveClient
                 // ignore unsupported types rather than failing
                 HiveType hiveType = getHiveType(field.getFieldObjectInspector());
                 if (hiveType != null) {
-                    columns.add(new HiveColumnHandle(field.getFieldName(), partitionKeys.size() + hiveColumnIndex, hiveType, hiveColumnIndex, false));
+                    columns.add(new HiveColumnHandle(clientId, field.getFieldName(), partitionKeys.size() + hiveColumnIndex, hiveType, hiveColumnIndex, false));
                 }
                 hiveColumnIndex++;
             }
@@ -312,7 +316,7 @@ public class HiveClient
         for (int i = 0; i < partitionKeys.size(); i++) {
             FieldSchema field = partitionKeys.get(i);
 
-            HiveColumnHandle columnHandle = new HiveColumnHandle(field.getName(), i, getHiveType(field.getType()), -1, true);
+            HiveColumnHandle columnHandle = new HiveColumnHandle(clientId, field.getName(), i, getHiveType(field.getType()), -1, true);
             partitionKeysByName.put(field.getName(), columnHandle);
 
             // only add to prefix if all previous keys have a value
@@ -376,7 +380,7 @@ public class HiveClient
             throw new TableNotFoundException(tableName);
         }
 
-        return new PartitionChunkIterable(table, partitionNames, hivePartitions, maxChunkBytes, maxOutstandingChunks, maxChunkIteratorThreads, hdfsEnvironment, executor, partitionBatchSize);
+        return new PartitionChunkIterable(clientId, table, partitionNames, hivePartitions, maxChunkBytes, maxOutstandingChunks, maxChunkIteratorThreads, hdfsEnvironment, executor, partitionBatchSize);
     }
 
     private Iterable<org.apache.hadoop.hive.metastore.api.Partition> getPartitions(final SchemaTableName tableName, final List<String> partitionNames)
@@ -442,9 +446,41 @@ public class HiveClient
     }
 
     @Override
+    public boolean canHandle(TableHandle tableHandle)
+    {
+        return tableHandle instanceof HiveTableHandle && ((HiveTableHandle) tableHandle).getClientId().equals(clientId);
+    }
+
+    @Override
+    public boolean canHandle(ColumnHandle columnHandle)
+    {
+        return columnHandle instanceof HiveColumnHandle && ((HiveColumnHandle) columnHandle).getClientId().equals(clientId);
+    }
+
+    @Override
+    public Class<? extends TableHandle> getTableHandleClass()
+    {
+        return HiveTableHandle.class;
+    }
+
+    @Override
+    public Class<? extends ColumnHandle> getColumnHandleClass()
+    {
+        return HiveColumnHandle.class;
+    }
+
+    @Override
     public PartitionChunk deserializePartitionChunk(byte[] bytes)
     {
         return hiveChunkEncoder.deserialize(bytes);
+    }
+
+    @Override
+    public String toString()
+    {
+        return Objects.toStringHelper(this)
+                .add("clientId", clientId)
+                .toString();
     }
 
     private static class PartitionChunkIterable
@@ -483,6 +519,7 @@ public class HiveClient
             }
         };
 
+        private final String clientId;
         private final Table table;
         private final Iterable<String> partitionNames;
         private final Iterable<org.apache.hadoop.hive.metastore.api.Partition> partitions;
@@ -494,7 +531,8 @@ public class HiveClient
         private final ClassLoader classLoader;
         private final int partitionBatchSize;
 
-        private PartitionChunkIterable(Table table,
+        private PartitionChunkIterable(String clientId,
+                Table table,
                 Iterable<String> partitionNames,
                 Iterable<org.apache.hadoop.hive.metastore.api.Partition> partitions,
                 long maxChunkBytes,
@@ -504,6 +542,7 @@ public class HiveClient
                 ExecutorService executor,
                 int partitionBatchSize)
         {
+            this.clientId = clientId;
             this.table = table;
             this.partitionNames = partitionNames;
             this.partitions = partitions;
@@ -652,7 +691,8 @@ public class HiveClient
             ImmutableList.Builder<HivePartitionChunk> builder = ImmutableList.builder();
             if (splittable) {
                 for (BlockLocation blockLocation : fileBlockLocations) {
-                    builder.add(new HivePartitionChunk(partitionName,
+                    builder.add(new HivePartitionChunk(clientId,
+                            partitionName,
                             false,
                             file.getPath(),
                             blockLocation.getOffset(),
@@ -663,7 +703,7 @@ public class HiveClient
                 }
             } else {
                 // not splittable, use the hosts from the first block
-                builder.add(new HivePartitionChunk(
+                builder.add(new HivePartitionChunk(clientId,
                         partitionName,
                         false,
                         file.getPath(),

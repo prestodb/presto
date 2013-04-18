@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class HivePartitionChunk
     implements PartitionChunk
 {
+    private final String clientId;
     private final String partitionName;
     private final boolean lastChunk;
     private final Path path;
@@ -33,7 +34,8 @@ public class HivePartitionChunk
             return chunk;
         }
         else {
-            return new HivePartitionChunk(chunk.getPartitionName(),
+            return new HivePartitionChunk(chunk.getClientId(),
+                    chunk.getPartitionName(),
                     true,
                     chunk.getPath(),
                     chunk.getStart(),
@@ -46,6 +48,7 @@ public class HivePartitionChunk
 
     @JsonCreator
     public HivePartitionChunk(
+            @JsonProperty("clientId") String clientId,
             @JsonProperty("partitionName") String partitionName,
             @JsonProperty("lastChunk") boolean lastChunk,
             @JsonProperty("path") Path path,
@@ -55,6 +58,7 @@ public class HivePartitionChunk
             @JsonProperty("partitionKeys") List<HivePartitionKey> partitionKeys,
             @JsonProperty("hosts") List<InetAddress> hosts)
     {
+        checkNotNull(clientId, "clientId is null");
         checkArgument(start >= 0, "start must be positive");
         checkArgument(length >= 0, "length must be positive");
         checkNotNull(partitionName, "partitionName is null");
@@ -63,6 +67,7 @@ public class HivePartitionChunk
         checkNotNull(partitionKeys, "partitionKeys is null");
         checkNotNull(hosts, "hosts is null");
 
+        this.clientId = clientId;
         this.partitionName = partitionName;
         this.lastChunk = lastChunk;
         this.path = path;
@@ -71,6 +76,12 @@ public class HivePartitionChunk
         this.schema = schema;
         this.partitionKeys = ImmutableList.copyOf(partitionKeys);
         this.hosts = ImmutableList.copyOf(hosts);
+    }
+
+    @JsonProperty
+    public String getClientId()
+    {
+        return clientId;
     }
 
     @JsonProperty

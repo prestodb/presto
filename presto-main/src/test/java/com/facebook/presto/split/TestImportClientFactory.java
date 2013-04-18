@@ -11,7 +11,6 @@ import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableHandle;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
@@ -27,8 +26,8 @@ public class TestImportClientFactory
             throws Exception
     {
         ImportClientManager factory = new ImportClientManager(ImmutableMap.<String, ImportClientFactory>of(
-                "apple", new MockImportClientFactor("apple"),
-                "banana", new MockImportClientFactor("banana")
+                "apple", new MockImportClientFactor(),
+                "banana", new MockImportClientFactor()
         ));
         assertInstanceOf(factory.getClient("apple"), ImportClient.class);
         assertInstanceOf(factory.getClient("banana"), ImportClient.class);
@@ -43,27 +42,9 @@ public class TestImportClientFactory
     private class MockImportClientFactor
             implements ImportClientFactory
     {
-        private final String catalogName;
-
-        private MockImportClientFactor(String catalogName)
-        {
-            Preconditions.checkNotNull(catalogName, "catalogName is null");
-            this.catalogName = catalogName;
-        }
-
         @Override
-        public boolean hasCatalog(String catalogName)
+        public ImportClient createClient(String clientId)
         {
-            return this.catalogName.equals(catalogName);
-        }
-
-        @Override
-        public ImportClient createClient(String catalogName)
-        {
-            if (!this.catalogName.equals(catalogName)) {
-                return null;
-            }
-
             return new ImportClient()
             {
                 @Override
@@ -146,6 +127,30 @@ public class TestImportClientFactory
 
                 @Override
                 public PartitionChunk deserializePartitionChunk(byte[] bytes)
+                {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public boolean canHandle(TableHandle tableHandle)
+                {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public boolean canHandle(ColumnHandle tableHandle)
+                {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public Class<? extends TableHandle> getTableHandleClass()
+                {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public Class<? extends ColumnHandle> getColumnHandleClass()
                 {
                     throw new UnsupportedOperationException();
                 }
