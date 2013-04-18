@@ -47,15 +47,15 @@ public class HiveRecordSet
     }
 
     private final HdfsEnvironment hdfsEnvironment;
-    private final HivePartitionChunk chunk;
+    private final HiveSplit split;
     private final List<HiveColumnHandle> columns;
     private final List<ColumnType> columnTypes;
     private final ArrayList<Integer> readHiveColumnIndexes;
 
-    public HiveRecordSet(HdfsEnvironment hdfsEnvironment, HivePartitionChunk chunk, List<HiveColumnHandle> columns)
+    public HiveRecordSet(HdfsEnvironment hdfsEnvironment, HiveSplit split, List<HiveColumnHandle> columns)
     {
         this.hdfsEnvironment = Preconditions.checkNotNull(hdfsEnvironment, "hdfsEnvironment is null");
-        this.chunk = chunk;
+        this.split = split;
         this.columns = columns;
         this.columnTypes = ImmutableList.copyOf(Iterables.transform(columns, nativeTypeGetter()));
 
@@ -64,7 +64,7 @@ public class HiveRecordSet
         if (readColumns.isEmpty()) {
             // for count(*) queries we will have "no" columns we want to read, but since hive doesn't
             // support no columns (it will read all columns instead), we must choose a single column
-            HiveColumnHandle primitiveColumn = getFirstPrimitiveColumn(chunk.getClientId(), chunk.getSchema());
+            HiveColumnHandle primitiveColumn = getFirstPrimitiveColumn(split.getClientId(), split.getSchema());
             readColumns = ImmutableList.of(primitiveColumn);
         }
         readHiveColumnIndexes = new ArrayList<>(transform(readColumns, hiveColumnIndexGetter()));
@@ -81,7 +81,7 @@ public class HiveRecordSet
     {
         try {
             // Clone schema since we modify it below
-            Properties schema = (Properties) chunk.getSchema().clone();
+            Properties schema = (Properties) split.getSchema().clone();
 
             // We are handling parsing directly since the hive code is slow
             // In order to do this, remove column types entry so that hive treats all columns as type "string"
@@ -96,19 +96,19 @@ public class HiveRecordSet
             // Tell hive the columns we would like to read, this lets hive optimize reading column oriented files
             ColumnProjectionUtils.setReadColumnIDs(configuration, readHiveColumnIndexes);
 
-            RecordReader<?, ?> recordReader = createRecordReader(chunk);
+            RecordReader<?, ?> recordReader = createRecordReader(configuration, split);
             if (recordReader.createValue() instanceof BytesRefArrayWritable) {
                 return new BytesHiveRecordCursor<>((RecordReader<?, BytesRefArrayWritable>) recordReader,
-                        chunk.getLength(),
-                        chunk.getSchema(),
-                        chunk.getPartitionKeys(),
+                        split.getLength(),
+                        split.getSchema(),
+                        split.getPartitionKeys(),
                         columns);
             }
             else {
                 return new GenericHiveRecordCursor<>((RecordReader<?, ? extends Writable>) recordReader,
-                        chunk.getLength(),
-                        chunk.getSchema(),
-                        chunk.getPartitionKeys(),
+                        split.getLength(),
+                        split.getSchema(),
+                        split.getPartitionKeys(),
                         columns);
             }
         }
@@ -140,27 +140,17 @@ public class HiveRecordSet
         throw new IllegalStateException("Table doesn't have any PRIMITIVE columns");
     }
 
-    private RecordReader<?, ?> createRecordReader(HivePartitionChunk chunk)
+    private static RecordReader<?, ?> createRecordReader(Configuration configuration, HiveSplit split)
     {
-        InputFormat inputFormat = getInputFormat(hdfsEnvironment.getConfiguration(), chunk.getSchema(), true);
-        // Make sure Path object used and returned by split is properly wrapped
-        final Path wrappedPath = hdfsEnvironment.getFileSystemWrapper().wrap(chunk.getPath());
-        FileSplit split = new FileSplit(wrappedPath, chunk.getStart(), chunk.getLength(), (String[]) null) {
-            @Override
-            public Path getPath()
-            {
-                // Override FileSplit getPath to bypass their memory optimizing step
-                return wrappedPath;
-            }
-        };
-        JobConf jobConf = new JobConf(hdfsEnvironment.getConfiguration());
+        InputFormat inputFormat = getInputFormat(configuration, split.getSchema(), true);
+        FileSplit fileSplit = new FileSplit(new Path(split.getPath()), split.getStart(), split.getLength(), (String[]) null);
+        JobConf jobConf = new JobConf(configuration);
 
         try {
-            return inputFormat.getRecordReader(split, jobConf, Reporter.NULL);
+            return inputFormat.getRecordReader(fileSplit, jobConf, Reporter.NULL);
         }
         catch (IOException e) {
-            throw new RuntimeException("Unable to create record reader for input format " + getInputFormatName(chunk.getSchema()), e);
+            throw new RuntimeException("Unable to create record reader for input format " + getInputFormatName(split.getSchema()), e);
         }
     }
-
 }

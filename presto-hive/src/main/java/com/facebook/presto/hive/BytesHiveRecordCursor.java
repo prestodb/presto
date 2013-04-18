@@ -53,11 +53,11 @@ class BytesHiveRecordCursor<K>
     private final long totalBytes;
     private long completedBytes;
 
-    public BytesHiveRecordCursor(RecordReader<K, BytesRefArrayWritable> recordReader, long totalBytes, Properties chunkSchema, List<HivePartitionKey> partitionKeys, List<HiveColumnHandle> columns)
+    public BytesHiveRecordCursor(RecordReader<K, BytesRefArrayWritable> recordReader, long totalBytes, Properties splitSchema, List<HivePartitionKey> partitionKeys, List<HiveColumnHandle> columns)
     {
         Preconditions.checkNotNull(recordReader, "recordReader is null");
         Preconditions.checkArgument(totalBytes >= 0, "totalBytes is negative");
-        Preconditions.checkNotNull(chunkSchema, "chunkSchema is null");
+        Preconditions.checkNotNull(splitSchema, "splitSchema is null");
         Preconditions.checkNotNull(partitionKeys, "partitionKeys is null");
         Preconditions.checkNotNull(columns, "columns is null");
         Preconditions.checkArgument(!columns.isEmpty(), "columns is empty");
@@ -83,7 +83,7 @@ class BytesHiveRecordCursor<K>
 
         // initialize data columns
         try {
-            Deserializer deserializer = MetaStoreUtils.getDeserializer(null, chunkSchema);
+            Deserializer deserializer = MetaStoreUtils.getDeserializer(null, splitSchema);
             StructObjectInspector rowInspector = (StructObjectInspector) deserializer.getObjectInspector();
 
             for (int i = 0; i < columns.size(); i++) {

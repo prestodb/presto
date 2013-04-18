@@ -1,8 +1,7 @@
 package com.facebook.presto.tpch;
 
-import com.facebook.presto.metadata.DataSourceType;
-import com.facebook.presto.metadata.HostAddress;
-import com.facebook.presto.split.PartitionedSplit;
+import com.facebook.presto.spi.PartitionedSplit;
+import com.facebook.presto.spi.HostAddress;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
@@ -48,12 +47,6 @@ public class TpchSplit
         this(tableHandle, 0, 1, ImmutableList.<HostAddress>of());
     }
 
-    @Override
-    public DataSourceType getDataSourceType()
-    {
-        return DataSourceType.TPCH;
-    }
-
     @JsonProperty
     public TpchTableHandle getTableHandle()
     {
@@ -73,7 +66,7 @@ public class TpchSplit
     }
 
     @Override
-    public String getPartition()
+    public String getPartitionId()
     {
         return partition;
     }

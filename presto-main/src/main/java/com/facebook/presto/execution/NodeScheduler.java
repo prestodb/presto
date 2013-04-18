@@ -1,9 +1,9 @@
 package com.facebook.presto.execution;
 
-import com.facebook.presto.metadata.HostAddress;
+import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.metadata.Node;
 import com.facebook.presto.metadata.NodeManager;
-import com.facebook.presto.split.Split;
+import com.facebook.presto.spi.Split;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;

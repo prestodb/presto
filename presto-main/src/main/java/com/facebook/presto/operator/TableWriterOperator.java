@@ -3,11 +3,10 @@ package com.facebook.presto.operator;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.metadata.ColumnFileHandle;
-import com.facebook.presto.metadata.DataSourceType;
 import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.Split;
 import com.facebook.presto.split.NativeSplit;
-import com.facebook.presto.split.Split;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -54,7 +53,7 @@ public class TableWriterOperator
     public void addSplit(Split split)
     {
         checkNotNull(split, "split is null");
-        checkState(split.getDataSourceType() == DataSourceType.NATIVE, "Non-native split added!");
+        checkState(split instanceof NativeSplit, "Non-native split added!");
         checkState(input.get() == null, "Shard Id %s was already set!", input.get());
         input.set((NativeSplit) split);
     }

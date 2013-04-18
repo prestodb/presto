@@ -5,26 +5,20 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.Partition;
-import com.facebook.presto.spi.PartitionChunk;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TableNotFoundException;
-import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.fasterxml.jackson.databind.JsonSerializer;
-import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import com.google.common.base.Charsets;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
-import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
 import java.util.Collections;
@@ -187,41 +181,41 @@ public abstract class AbstractTestHiveClient
     }
 
     @Test
-    public void testGetPartitionChunksBatch()
+    public void testGetPartitionSplitsBatch()
             throws Exception
     {
         TableHandle tableHandle = client.getTableHandle(TABLE);
         List<Partition> partitions = client.getPartitions(tableHandle, ImmutableMap.<ColumnHandle, Object>of());
-        Iterable<PartitionChunk> iterator = client.getPartitionChunks(partitions);
+        Iterable<Split> iterator = client.getPartitionSplits(partitions);
 
-        List<PartitionChunk> chunks = ImmutableList.copyOf(iterator);
-        assertEquals(chunks.size(), 3);
+        List<Split> splits = ImmutableList.copyOf(iterator);
+        assertEquals(splits.size(), 3);
     }
 
     @Test
-    public void testGetPartitionChunksBatchUnpartitioned()
+    public void testGetPartitionSplitsBatchUnpartitioned()
             throws Exception
     {
         TableHandle tableHandle = client.getTableHandle(TABLE_UNPARTITIONED);
         List<Partition> partitions = client.getPartitions(tableHandle, ImmutableMap.<ColumnHandle, Object>of());
-        Iterable<PartitionChunk> iterator = client.getPartitionChunks(partitions);
+        Iterable<Split> iterator = client.getPartitionSplits(partitions);
 
-        List<PartitionChunk> chunks = ImmutableList.copyOf(iterator);
-        assertEquals(chunks.size(), 1);
+        List<Split> splits = ImmutableList.copyOf(iterator);
+        assertEquals(splits.size(), 1);
     }
 
     @Test(expectedExceptions = TableNotFoundException.class)
-    public void testGetPartitionChunksBatchInvalidTable()
+    public void testGetPartitionSplitsBatchInvalidTable()
             throws Exception
     {
-        client.getPartitionChunks(ImmutableList.of(INVALID_PARTITION));
+        client.getPartitionSplits(ImmutableList.of(INVALID_PARTITION));
     }
 
     @Test
-    public void testGetPartitionChunksEmpty()
+    public void testGetPartitionSplitsEmpty()
             throws Exception
     {
-        Iterable<PartitionChunk> iterator = client.getPartitionChunks(ImmutableList.<Partition>of());
+        Iterable<Split> iterator = client.getPartitionSplits(ImmutableList.<Partition>of());
         // fetch full list
         ImmutableList.copyOf(iterator);
     }
@@ -236,15 +230,12 @@ public abstract class AbstractTestHiveClient
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
         List<Partition> partitions = client.getPartitions(tableHandle, ImmutableMap.<ColumnHandle, Object>of());
-        List<PartitionChunk> partitionChunks = ImmutableList.copyOf(client.getPartitionChunks(partitions));
-        assertEquals(partitionChunks.size(), PARTITIONS.size());
-        for (PartitionChunk partitionChunk : partitionChunks) {
-            HivePartitionChunk chunk = (HivePartitionChunk) partitionChunk;
+        List<Split> splits = ImmutableList.copyOf(client.getPartitionSplits(partitions));
+        assertEquals(splits.size(), PARTITIONS.size());
+        for (Split split : splits) {
+            HiveSplit hiveSplit = (HiveSplit) split;
 
-            byte[] bytes = client.serializePartitionChunk(chunk);
-            chunk = (HivePartitionChunk) client.deserializePartitionChunk(bytes);
-
-            List<HivePartitionKey> partitionKeys = chunk.getPartitionKeys();
+            List<HivePartitionKey> partitionKeys = hiveSplit.getPartitionKeys();
             String ds = partitionKeys.get(0).getValue();
             String fileType = partitionKeys.get(1).getValue();
             long dummy = Long.parseLong(partitionKeys.get(2).getValue());
@@ -253,8 +244,8 @@ public abstract class AbstractTestHiveClient
 
             long rowNumber = 0;
             long completedBytes = 0;
-            try (RecordCursor cursor = client.getRecords(chunk, columnHandles).cursor()) {
-                assertEquals(cursor.getTotalBytes(), chunk.getLength());
+            try (RecordCursor cursor = client.getRecords(hiveSplit, columnHandles).cursor()) {
+                assertEquals(cursor.getTotalBytes(), hiveSplit.getLength());
 
                 while (cursor.advanceNextPosition()) {
                     try {
@@ -324,11 +315,11 @@ public abstract class AbstractTestHiveClient
 
                     long newCompletedBytes = cursor.getCompletedBytes();
                     assertTrue(newCompletedBytes >= completedBytes);
-                    assertTrue(newCompletedBytes <= chunk.getLength());
+                    assertTrue(newCompletedBytes <= hiveSplit.getLength());
                     completedBytes = newCompletedBytes;
                 }
             }
-            assertTrue(completedBytes <= chunk.getLength());
+            assertTrue(completedBytes <= hiveSplit.getLength());
             assertEquals(rowNumber, 100);
         }
     }
@@ -342,15 +333,12 @@ public abstract class AbstractTestHiveClient
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
         List<Partition> partitions = client.getPartitions(tableHandle, ImmutableMap.<ColumnHandle, Object>of());
-        List<PartitionChunk> partitionChunks = ImmutableList.copyOf(client.getPartitionChunks(partitions));
-        assertEquals(partitionChunks.size(), PARTITIONS.size());
-        for (PartitionChunk partitionChunk : partitionChunks) {
-            HivePartitionChunk chunk = (HivePartitionChunk) partitionChunk;
+        List<Split> splits = ImmutableList.copyOf(client.getPartitionSplits(partitions));
+        assertEquals(splits.size(), PARTITIONS.size());
+        for (Split split : splits) {
+            HiveSplit hiveSplit = (HiveSplit) split;
 
-            byte[] bytes = client.serializePartitionChunk(chunk);
-            chunk = (HivePartitionChunk) client.deserializePartitionChunk(bytes);
-
-            List<HivePartitionKey> partitionKeys = chunk.getPartitionKeys();
+            List<HivePartitionKey> partitionKeys = hiveSplit.getPartitionKeys();
             String ds = partitionKeys.get(0).getValue();
             String fileType = partitionKeys.get(1).getValue();
             long dummy = Long.parseLong(partitionKeys.get(2).getValue());
@@ -358,7 +346,7 @@ public abstract class AbstractTestHiveClient
             long baseValue = getBaseValueForFileType(fileType);
 
             long rowNumber = 0;
-            try (RecordCursor cursor = client.getRecords(chunk, columnHandles).cursor()) {
+            try (RecordCursor cursor = client.getRecords(hiveSplit, columnHandles).cursor()) {
                 while (cursor.advanceNextPosition()) {
                     rowNumber++;
 
@@ -381,20 +369,17 @@ public abstract class AbstractTestHiveClient
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
         List<Partition> partitions = client.getPartitions(tableHandle, ImmutableMap.<ColumnHandle, Object>of());
-        List<PartitionChunk> partitionChunks = ImmutableList.copyOf(client.getPartitionChunks(partitions));
-        assertEquals(partitionChunks.size(), 1);
+        List<Split> splits = ImmutableList.copyOf(client.getPartitionSplits(partitions));
+        assertEquals(splits.size(), 1);
 
-        for (PartitionChunk partitionChunk : partitionChunks) {
-            HivePartitionChunk chunk = (HivePartitionChunk) partitionChunk;
+        for (Split split : splits) {
+            HiveSplit hiveSplit = (HiveSplit) split;
 
-            byte[] bytes = client.serializePartitionChunk(chunk);
-            chunk = (HivePartitionChunk) client.deserializePartitionChunk(bytes);
-
-            assertEquals(chunk.getPartitionKeys(), ImmutableList.of());
+            assertEquals(hiveSplit.getPartitionKeys(), ImmutableList.of());
 
             long rowNumber = 0;
-            try (RecordCursor cursor = client.getRecords(chunk, columnHandles).cursor()) {
-                assertEquals(cursor.getTotalBytes(), chunk.getLength());
+            try (RecordCursor cursor = client.getRecords(split, columnHandles).cursor()) {
+                assertEquals(cursor.getTotalBytes(), hiveSplit.getLength());
 
                 while (cursor.advanceNextPosition()) {
                     rowNumber++;
@@ -419,8 +404,8 @@ public abstract class AbstractTestHiveClient
     {
         TableHandle table = client.getTableHandle(TABLE_UNPARTITIONED);
         List<Partition> partitions = client.getPartitions(table, ImmutableMap.<ColumnHandle, Object>of());
-        PartitionChunk partitionChunk = Iterables.getFirst(client.getPartitionChunks(partitions), null);
-        RecordSet recordSet = client.getRecords(partitionChunk, ImmutableList.of(INVALID_COLUMN_HANDLE));
+        Split split = Iterables.getFirst(client.getPartitionSplits(partitions), null);
+        RecordSet recordSet = client.getRecords(split, ImmutableList.of(INVALID_COLUMN_HANDLE));
         recordSet.cursor();
     }
 
@@ -489,14 +474,6 @@ public abstract class AbstractTestHiveClient
             index.put(hiveColumnHandle.getName(), i++);
         }
         return index.build();
-    }
-
-    protected HiveChunkEncoder getHiveChunkEncoder()
-    {
-        ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
-        objectMapperProvider.setJsonDeserializers(ImmutableMap.<Class<?>, JsonDeserializer<?>>of(Path.class, PathJsonDeserializer.INSTANCE));
-        objectMapperProvider.setJsonSerializers(ImmutableMap.<Class<?>, JsonSerializer<?>>of(Path.class, ToStringSerializer.instance));
-        return new HiveChunkEncoder(new JsonCodecFactory(objectMapperProvider).jsonCodec(HivePartitionChunk.class));
     }
 
     private static Function<ColumnMetadata, String> columnNameGetter()

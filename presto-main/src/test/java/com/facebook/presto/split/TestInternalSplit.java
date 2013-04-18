@@ -1,6 +1,6 @@
 package com.facebook.presto.split;
 
-import com.facebook.presto.metadata.HostAddress;
+import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.metadata.InternalColumnHandle;
 import com.facebook.presto.metadata.InternalTableHandle;
 import com.facebook.presto.metadata.QualifiedTableName;

@@ -18,11 +18,10 @@ import static com.google.common.base.Preconditions.checkNotNull;
 @ThreadSafe
 public class HiveClientFactory
 {
-    private final DataSize maxChunkSize;
-    private final int maxOutstandingChunks;
-    private final int maxChunkIteratorThreads;
+    private final DataSize maxSplitSize;
+    private final int maxOutstandingSplits;
+    private final int masSplitIteratorThreads;
     private final int partitionBatchSize;
-    private final HiveChunkEncoder hiveChunkEncoder;
     private final HdfsEnvironment hdfsEnvironment;
     private final LoadingCache<HiveCluster, CachingHiveMetastore> metastores;
     private final ExecutorService executorService = Executors.newCachedThreadPool(
@@ -31,21 +30,16 @@ public class HiveClientFactory
                     .build());
 
     @Inject
-    public HiveClientFactory(
-            HiveClientConfig hiveClientConfig,
-            HiveChunkEncoder hiveChunkEncoder,
-            HdfsEnvironment hdfsEnvironment)
+    public HiveClientFactory(HiveClientConfig hiveClientConfig,  HdfsEnvironment hdfsEnvironment)
     {
         checkNotNull(hiveClientConfig, "hiveClientConfig is null");
-        checkNotNull(hiveChunkEncoder, "hiveChunkEncoder is null");
         checkNotNull(hdfsEnvironment, "hdfsEnvironment is null");
 
-        maxChunkSize = hiveClientConfig.getMaxChunkSize();
-        maxOutstandingChunks = hiveClientConfig.getMaxOutstandingChunks();
-        maxChunkIteratorThreads = hiveClientConfig.getMaxChunkIteratorThreads();
+        maxSplitSize = hiveClientConfig.getMaxSplitSize();
+        maxOutstandingSplits = hiveClientConfig.getMaxOutstandingSplits();
+        masSplitIteratorThreads = hiveClientConfig.getMaxSplitIteratorThreads();
         partitionBatchSize = hiveClientConfig.getPartitionBatchSize();
 
-        this.hiveChunkEncoder = hiveChunkEncoder;
         this.hdfsEnvironment = hdfsEnvironment;
 
         final Duration metastoreCacheTtl = hiveClientConfig.getMetastoreCacheTtl();
@@ -72,11 +66,10 @@ public class HiveClientFactory
     {
         CachingHiveMetastore metastore = metastores.getUnchecked(hiveCluster);
         return new HiveClient(clientId,
-                maxChunkSize.toBytes(),
-                maxOutstandingChunks,
-                maxChunkIteratorThreads,
+                maxSplitSize.toBytes(),
+                maxOutstandingSplits,
+                masSplitIteratorThreads,
                 partitionBatchSize,
-                hiveChunkEncoder,
                 metastore,
                 hdfsEnvironment,
                 executorService);

@@ -10,7 +10,7 @@ public class TableHandleJacksonModule
         extends AbstractTypedJacksonModule<TableHandle>
 {
     @Inject
-    private TableHandleJacksonModule(HandleResolver handleResolver)
+    public TableHandleJacksonModule(HandleResolver handleResolver)
     {
         super(TableHandle.class, "type", new TableHandleJsonTypeIdResolver(handleResolver));
     }

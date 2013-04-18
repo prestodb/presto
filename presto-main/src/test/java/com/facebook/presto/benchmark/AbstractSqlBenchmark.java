@@ -8,6 +8,7 @@ import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.SourceHashProviderFactory;
 import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.sql.analyzer.Analysis;
+import com.facebook.presto.split.DataStreamManager;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
@@ -87,7 +88,7 @@ public abstract class AbstractSqlBenchmark
                 new OperatorStats(),
                 new SourceHashProviderFactory(maxOperatorMemoryUsage),
                 maxOperatorMemoryUsage,
-                new TpchDataStreamProvider(provider),
+                new DataStreamManager(new TpchDataStreamProvider(provider)),
                 MockLocalStorageManager.createMockLocalStorageManager(),
                 null);
 

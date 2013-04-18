@@ -22,6 +22,7 @@ import com.google.common.io.InputSupplier;
 import com.google.common.io.Resources;
 import io.airlift.units.DataSize;
 
+import javax.inject.Inject;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URL;
@@ -40,6 +41,7 @@ public class TestingTpchBlocksProvider
 {
     private final Map<String, RecordSet> data;
 
+    @Inject
     public TestingTpchBlocksProvider()
     {
         this(ImmutableMap.of(

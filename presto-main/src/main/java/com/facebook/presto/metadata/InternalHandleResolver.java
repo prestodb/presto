@@ -2,6 +2,8 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.split.InternalSplit;
+import com.facebook.presto.spi.Split;
 
 public class InternalHandleResolver
         implements ConnectorHandleResolver
@@ -19,6 +21,12 @@ public class InternalHandleResolver
     }
 
     @Override
+    public boolean canHandle(Split split)
+    {
+        return split instanceof InternalSplit;
+    }
+
+    @Override
     public Class<? extends TableHandle> getTableHandleClass()
     {
         return InternalTableHandle.class;
@@ -28,5 +36,11 @@ public class InternalHandleResolver
     public Class<? extends ColumnHandle> getColumnHandleClass()
     {
         return InternalColumnHandle.class;
+    }
+
+    @Override
+    public Class<? extends Split> getSplitClass()
+    {
+        return InternalSplit.class;
     }
 }

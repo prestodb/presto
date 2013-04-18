@@ -3,7 +3,7 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.execution.DataSource;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.spi.Partition;
-import com.facebook.presto.split.Split;
+import com.facebook.presto.spi.Split;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.analyzer.Session;

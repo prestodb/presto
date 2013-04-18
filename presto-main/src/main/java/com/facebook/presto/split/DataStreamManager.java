@@ -1,57 +1,38 @@
 package com.facebook.presto.split;
 
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.metadata.DataSourceType;
 import com.facebook.presto.operator.Operator;
-import com.facebook.presto.tpch.TpchDataStreamProvider;
-import com.google.common.collect.ImmutableMap;
-import com.google.inject.Inject;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.Split;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 
+import javax.inject.Inject;
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class DataStreamManager
-    implements DataStreamProvider
+        implements DataStreamProvider
 {
-    private Map<DataSourceType, DataStreamProvider> dataStreamProviderMap;
+    private final Set<ConnectorDataStreamProvider> dataStreamProviders = Sets.newSetFromMap(new ConcurrentHashMap<ConnectorDataStreamProvider, Boolean>());
+
+    public DataStreamManager(ConnectorDataStreamProvider... dataStreamProviders)
+    {
+        this(ImmutableSet.copyOf(dataStreamProviders));
+    }
 
     @Inject
-    public DataStreamManager(
-            NativeDataStreamProvider nativeProvider,
-            InternalDataStreamProvider internalProvider,
-            ImportDataStreamProvider importProvider)
+    public DataStreamManager(Set<ConnectorDataStreamProvider> dataStreamProviders)
     {
-        checkNotNull(nativeProvider, "nativeProvider is null");
-        checkNotNull(internalProvider, "internalProvider is null");
-        checkNotNull(importProvider, "importProvider is null");
-
-        dataStreamProviderMap = ImmutableMap.<DataSourceType, DataStreamProvider>builder()
-                .put(DataSourceType.NATIVE, nativeProvider)
-                .put(DataSourceType.INTERNAL, internalProvider)
-                .put(DataSourceType.IMPORT, importProvider)
-                .build();
+        this.dataStreamProviders.addAll(dataStreamProviders);
     }
 
-    // only used in TestDistributedQueries to get the Tpch stuff in.
-    @Inject(optional = true)
-    public synchronized void addTpchDataStreamProvider(TpchDataStreamProvider tpchDataStreamProvider)
+    public void addConnectorDataStreamProvider(ConnectorDataStreamProvider connectorDataStreamProvider)
     {
-        ImmutableMap.Builder<DataSourceType, DataStreamProvider> builder = ImmutableMap.builder();
-        builder.putAll(dataStreamProviderMap);
-        builder.put(DataSourceType.TPCH, tpchDataStreamProvider);
-        this.dataStreamProviderMap = builder.build();
-    }
-
-    private DataStreamProvider lookup(DataSourceType dataSourceType)
-    {
-        checkNotNull(dataSourceType, "dataSourceHandle is null");
-
-        DataStreamProvider dataStreamProvider = dataStreamProviderMap.get(dataSourceType);
-        checkArgument(dataStreamProvider != null, "dataStreamProvider does not exist: %s", dataSourceType);
-        return dataStreamProvider;
+        dataStreamProviders.add(connectorDataStreamProvider);
     }
 
     @Override
@@ -61,6 +42,17 @@ public class DataStreamManager
         checkNotNull(columns, "columns is null");
         checkArgument(!columns.isEmpty(), "no columns specified");
 
-        return lookup(split.getDataSourceType()).createDataStream(split, columns);
+        return getDataStreamProvider(split).createDataStream(split, columns);
     }
+
+    private ConnectorDataStreamProvider getDataStreamProvider(Split split)
+    {
+        for (ConnectorDataStreamProvider dataStreamProvider : dataStreamProviders) {
+            if (dataStreamProvider.canHandle(split)) {
+                return dataStreamProvider;
+            }
+        }
+        throw new IllegalArgumentException("No data stream provider for " + split);
+    }
+
 }

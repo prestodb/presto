@@ -1,6 +1,7 @@
 package com.facebook.presto;
 
 import com.facebook.presto.metadata.MockLocalStorageManager;
+import com.facebook.presto.split.DataStreamManager;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.tpch.TpchDataStreamProvider;
@@ -25,7 +26,7 @@ public class TestLocalQueries
         this.schema = schema;
 
         TestingTpchBlocksProvider tpchBlocksProvider = new TestingTpchBlocksProvider();
-        dataStreamProvider = new TpchDataStreamProvider(tpchBlocksProvider);
+        dataStreamProvider = new DataStreamManager(new TpchDataStreamProvider(tpchBlocksProvider));
     }
 
     @Override

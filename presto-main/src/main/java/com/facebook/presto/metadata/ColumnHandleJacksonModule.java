@@ -10,7 +10,7 @@ public class ColumnHandleJacksonModule
         extends AbstractTypedJacksonModule<ColumnHandle>
 {
     @Inject
-    private ColumnHandleJacksonModule(HandleResolver handleResolver)
+    public ColumnHandleJacksonModule(HandleResolver handleResolver)
     {
         super(ColumnHandle.class, "type", new ColumnHandleJsonTypeIdResolver(handleResolver));
     }

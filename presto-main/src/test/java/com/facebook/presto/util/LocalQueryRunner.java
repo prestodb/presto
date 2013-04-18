@@ -2,7 +2,6 @@ package com.facebook.presto.util;
 
 import com.facebook.presto.importer.MockPeriodicImportManager;
 import com.facebook.presto.metadata.DualTable;
-import com.facebook.presto.metadata.HostAddress;
 import com.facebook.presto.metadata.InternalColumnHandle;
 import com.facebook.presto.metadata.InternalTable;
 import com.facebook.presto.metadata.InternalTableHandle;
@@ -17,10 +16,12 @@ import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.SourceHashProviderFactory;
 import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.split.DataStreamManager;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.split.InternalSplit;
-import com.facebook.presto.split.Split;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.Session;
@@ -134,7 +135,7 @@ public class LocalQueryRunner
     {
         TestingTpchBlocksProvider tpchBlocksProvider = new TestingTpchBlocksProvider();
 
-        DataStreamProvider dataProvider = new TpchDataStreamProvider(tpchBlocksProvider);
+        DataStreamProvider dataProvider = new DataStreamManager(new TpchDataStreamProvider(tpchBlocksProvider));
         Session session = new Session(null, TpchMetadata.TPCH_CATALOG_NAME, TpchMetadata.TPCH_SCHEMA_NAME);
 
         return new LocalQueryRunner(dataProvider, TpchMetadata.createTpchMetadata(), MockLocalStorageManager.createMockLocalStorageManager(), session);

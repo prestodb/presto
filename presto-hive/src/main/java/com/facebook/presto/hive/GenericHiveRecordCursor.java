@@ -55,11 +55,11 @@ class GenericHiveRecordCursor<K, V extends Writable>
     private final long totalBytes;
     private long completedBytes;
 
-    public GenericHiveRecordCursor(RecordReader<K, V> recordReader, long totalBytes, Properties chunkSchema, List<HivePartitionKey> partitionKeys, List<HiveColumnHandle> columns)
+    public GenericHiveRecordCursor(RecordReader<K, V> recordReader, long totalBytes, Properties splitSchema, List<HivePartitionKey> partitionKeys, List<HiveColumnHandle> columns)
     {
         Preconditions.checkNotNull(recordReader, "recordReader is null");
         Preconditions.checkArgument(totalBytes >= 0, "totalBytes is negative");
-        Preconditions.checkNotNull(chunkSchema, "chunkSchema is null");
+        Preconditions.checkNotNull(splitSchema, "splitSchema is null");
         Preconditions.checkNotNull(partitionKeys, "partitionKeys is null");
         Preconditions.checkNotNull(columns, "columns is null");
         Preconditions.checkArgument(!columns.isEmpty(), "columns is empty");
@@ -70,7 +70,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
         this.value = recordReader.createValue();
 
         try {
-            this.deserializer = MetaStoreUtils.getDeserializer(null, chunkSchema);
+            this.deserializer = MetaStoreUtils.getDeserializer(null, splitSchema);
             this.rowInspector = (StructObjectInspector) deserializer.getObjectInspector();
         }
         catch (Exception e) {

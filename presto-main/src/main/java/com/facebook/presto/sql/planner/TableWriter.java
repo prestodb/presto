@@ -3,10 +3,10 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.operator.TableWriterResult;
 import com.facebook.presto.spi.Partition;
+import com.facebook.presto.spi.Split;
 import com.facebook.presto.split.CollocatedSplit;
 import com.facebook.presto.split.NativeSplit;
-import com.facebook.presto.split.PartitionedSplit;
-import com.facebook.presto.split.Split;
+import com.facebook.presto.spi.PartitionedSplit;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.google.common.base.Predicate;
@@ -210,7 +210,7 @@ public class TableWriter
                 boolean lastSplit = false;
                 if (sourceSplit instanceof PartitionedSplit) {
                     PartitionedSplit partitionedSplit = (PartitionedSplit) sourceSplit;
-                    partition = partitionedSplit.getPartition();
+                    partition = partitionedSplit.getPartitionId();
                     lastSplit = partitionedSplit.isLastSplit();
                 }
 

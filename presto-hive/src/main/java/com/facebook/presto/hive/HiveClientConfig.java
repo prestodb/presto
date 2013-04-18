@@ -5,6 +5,7 @@ package com.facebook.presto.hive;
 
 import com.google.common.net.HostAndPort;
 import io.airlift.configuration.Config;
+import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
@@ -17,9 +18,9 @@ import java.util.concurrent.TimeUnit;
 
 public class HiveClientConfig
 {
-    private DataSize maxChunkSize = new DataSize(1, Unit.GIGABYTE);
-    private int maxOutstandingChunks = 10_000;
-    private int maxChunkIteratorThreads = 50;
+    private DataSize maxSplitSize = new DataSize(1, Unit.GIGABYTE);
+    private int maxOutstandingSplits = 10_000;
+    private int maxSplitIteratorThreads = 50;
     private int partitionBatchSize = 500;
     private Duration metastoreCacheTtl = new Duration(1, TimeUnit.HOURS);
     private HostAndPort metastoreSocksProxy;
@@ -39,41 +40,44 @@ public class HiveClientConfig
     private int slowStreamPercentile = 5;
 
     @NotNull
-    public DataSize getMaxChunkSize()
+    public DataSize getMaxSplitSize()
     {
-        return maxChunkSize;
+        return maxSplitSize;
     }
 
-    @Config("hive.max-chunk-size")
-    public HiveClientConfig setMaxChunkSize(DataSize maxChunkSize)
+    @Config("hive.max-split-size")
+    @LegacyConfig("hive.max-chunk-size")
+    public HiveClientConfig setMaxSplitSize(DataSize maxSplitSize)
     {
-        this.maxChunkSize = maxChunkSize;
+        this.maxSplitSize = maxSplitSize;
         return this;
     }
 
     @Min(1)
-    public int getMaxOutstandingChunks()
+    public int getMaxOutstandingSplits()
     {
-        return maxOutstandingChunks;
+        return maxOutstandingSplits;
     }
 
-    @Config("hive.max-outstanding-chunks")
-    public HiveClientConfig setMaxOutstandingChunks(int maxOutstandingChunks)
+    @Config("hive.max-outstanding-splits")
+    @LegacyConfig("hive.max-outstanding-chunks")
+    public HiveClientConfig setMaxOutstandingSplits(int maxOutstandingSplits)
     {
-        this.maxOutstandingChunks = maxOutstandingChunks;
+        this.maxOutstandingSplits = maxOutstandingSplits;
         return this;
     }
 
     @Min(1)
-    public int getMaxChunkIteratorThreads()
+    public int getMaxSplitIteratorThreads()
     {
-        return maxChunkIteratorThreads;
+        return maxSplitIteratorThreads;
     }
 
-    @Config("hive.max-chunk-iterator-threads")
-    public HiveClientConfig setMaxChunkIteratorThreads(int maxChunkIteratorThreads)
+    @Config("hive.max-split-iterator-threads")
+    @LegacyConfig("hive.max-chunk-iterator-threads")
+    public HiveClientConfig setMaxSplitIteratorThreads(int maxSplitIteratorThreads)
     {
-        this.maxChunkIteratorThreads = maxChunkIteratorThreads;
+        this.maxSplitIteratorThreads = maxSplitIteratorThreads;
         return this;
     }
 

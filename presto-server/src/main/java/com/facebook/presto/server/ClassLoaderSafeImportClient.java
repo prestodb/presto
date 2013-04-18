@@ -7,11 +7,11 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.Partition;
-import com.facebook.presto.spi.PartitionChunk;
 import com.facebook.presto.spi.SchemaTableMetadata;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.TableHandle;
 import com.google.common.base.Preconditions;
 
@@ -114,34 +114,18 @@ public class ClassLoaderSafeImportClient
     }
 
     @Override
-    public Iterable<PartitionChunk> getPartitionChunks(List<Partition> partitions)
+    public Iterable<Split> getPartitionSplits(List<Partition> partitions)
     {
         try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getPartitionChunks(partitions);
+            return delegate.getPartitionSplits(partitions);
         }
     }
 
     @Override
-    public RecordSet getRecords(PartitionChunk partitionChunk, List<? extends ColumnHandle> columns)
+    public RecordSet getRecords(Split split, List<? extends ColumnHandle> columns)
     {
         try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getRecords(partitionChunk, columns);
-        }
-    }
-
-    @Override
-    public byte[] serializePartitionChunk(PartitionChunk partitionChunk)
-    {
-        try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
-            return delegate.serializePartitionChunk(partitionChunk);
-        }
-    }
-
-    @Override
-    public PartitionChunk deserializePartitionChunk(byte[] bytes)
-    {
-        try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
-            return delegate.deserializePartitionChunk(bytes);
+            return delegate.getRecords(split, columns);
         }
     }
 
@@ -162,6 +146,14 @@ public class ClassLoaderSafeImportClient
     }
 
     @Override
+    public boolean canHandle(Split split)
+    {
+        try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
+            return delegate.canHandle(split);
+        }
+    }
+
+    @Override
     public Class<? extends ColumnHandle> getColumnHandleClass()
     {
         try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
@@ -174,6 +166,14 @@ public class ClassLoaderSafeImportClient
     {
         try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
             return delegate.getTableHandleClass();
+        }
+    }
+
+    @Override
+    public Class<? extends Split> getSplitClass()
+    {
+        try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getSplitClass();
         }
     }
 }

@@ -3,7 +3,7 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.split.Split;
+import com.facebook.presto.spi.Split;
 
 public interface SourceOperator
         extends Operator

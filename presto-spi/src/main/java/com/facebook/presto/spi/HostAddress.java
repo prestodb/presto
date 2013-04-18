@@ -1,4 +1,4 @@
-package com.facebook.presto.metadata;
+package com.facebook.presto.spi;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;

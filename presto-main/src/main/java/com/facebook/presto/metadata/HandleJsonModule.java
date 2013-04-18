@@ -12,5 +12,6 @@ public class HandleJsonModule
     {
         jsonBinder(binder).addModuleBinding().to(TableHandleJacksonModule.class);
         jsonBinder(binder).addModuleBinding().to(ColumnHandleJacksonModule.class);
+        jsonBinder(binder).addModuleBinding().to(SplitJacksonModule.class);
     }
 }

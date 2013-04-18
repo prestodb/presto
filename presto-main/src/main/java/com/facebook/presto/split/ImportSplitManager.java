@@ -1,25 +1,19 @@
 package com.facebook.presto.split;
 
 import com.facebook.presto.execution.DataSource;
-import com.facebook.presto.ingest.SerializedPartitionChunk;
-import com.facebook.presto.metadata.HostAddress;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.NotFoundException;
 import com.facebook.presto.spi.Partition;
-import com.facebook.presto.spi.PartitionChunk;
+import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.TableHandle;
-import com.google.common.base.Function;
-import com.google.common.collect.ImmutableList;
 
-import java.net.InetAddress;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 
 import static com.facebook.presto.util.RetryDriver.retry;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.collect.Iterables.transform;
 
 public class ImportSplitManager
         implements ConnectorSplitManager
@@ -60,43 +54,19 @@ public class ImportSplitManager
     @Override
     public DataSource getPartitionSplits(final List<Partition> partitions)
     {
-        Iterable<PartitionChunk> partitionChunks = retry()
+        Iterable<Split> splits = retry()
                 .stopOn(NotFoundException.class)
                 .stopOnIllegalExceptions()
-                .runUnchecked(new Callable<Iterable<PartitionChunk>>()
+                .runUnchecked(new Callable<Iterable<Split>>()
                 {
                     @Override
-                    public Iterable<PartitionChunk> call()
+                    public Iterable<Split> call()
                             throws Exception
                     {
                         // todo remap partitions
-                        return importClient.getPartitionChunks(partitions);
+                        return importClient.getPartitionSplits(partitions);
                     }
                 });
-        return new DataSource(dataSourceName, transform(partitionChunks, new Function<PartitionChunk, Split>()
-        {
-            @Override
-            public Split apply(PartitionChunk chunk)
-            {
-                return new ImportSplit(dataSourceName,
-                        chunk.getPartitionName(),
-                        chunk.isLastChunk(),
-                        SerializedPartitionChunk.create(importClient, chunk),
-                        toAddresses(chunk.getHosts()),
-                        chunk.getInfo());
-            }
-        }));
-    }
-
-    private List<HostAddress> toAddresses(List<InetAddress> inetAddresses)
-    {
-        return ImmutableList.copyOf(transform(inetAddresses, new Function<InetAddress, HostAddress>()
-        {
-            @Override
-            public HostAddress apply(InetAddress input)
-            {
-                return HostAddress.fromString(input.getHostAddress());
-            }
-        }));
+        return new DataSource(dataSourceName, splits);
     }
 }

@@ -2,8 +2,14 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.failureDetector.FailureDetectorModule;
 import com.facebook.presto.guice.TestingJmxModule;
+import com.facebook.presto.metadata.ConnectorMetadata;
 import com.facebook.presto.metadata.NodeManager;
+import com.facebook.presto.split.ConnectorDataStreamProvider;
+import com.facebook.presto.split.ConnectorSplitManager;
+import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.facebook.presto.tpch.TpchDataStreamProvider;
+import com.facebook.presto.tpch.TpchMetadata;
+import com.facebook.presto.tpch.TpchSplitManager;
 import com.facebook.presto.util.TestingTpchBlocksProvider;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
@@ -11,6 +17,7 @@ import com.google.common.io.Files;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Module;
+import com.google.inject.Scopes;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.discovery.client.Announcer;
@@ -29,6 +36,9 @@ import java.io.Closeable;
 import java.io.File;
 import java.net.URI;
 import java.util.Map;
+
+import static com.google.inject.multibindings.MapBinder.newMapBinder;
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 
 public class TestingPrestoServer
         implements Closeable
@@ -64,8 +74,10 @@ public class TestingPrestoServer
                     @Override
                     public void configure(Binder binder)
                     {
-                        TestingTpchBlocksProvider tpchBlocksProvider = new TestingTpchBlocksProvider();
-                        binder.bind(TpchDataStreamProvider.class).toInstance(new TpchDataStreamProvider(tpchBlocksProvider));
+                        newMapBinder(binder, String.class, ConnectorMetadata.class).addBinding("tpch").to(TpchMetadata.class);
+                        newSetBinder(binder, ConnectorSplitManager.class).addBinding().to(TpchSplitManager.class).in(Scopes.SINGLETON);
+                        binder.bind(TpchBlocksProvider.class).to(TestingTpchBlocksProvider.class).in(Scopes.SINGLETON);
+                        newSetBinder(binder, ConnectorDataStreamProvider.class).addBinding().to(TpchDataStreamProvider.class).in(Scopes.SINGLETON);
                     }
                 });
 

@@ -1,6 +1,6 @@
 package com.facebook.presto.execution;
 
-import com.facebook.presto.split.Split;
+import com.facebook.presto.spi.Split;
 import com.google.common.base.Objects;
 
 import javax.annotation.Nullable;
