@@ -5,6 +5,7 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.connector.ConnectorManager;
+import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.split.ConnectorSplitManager;
 import com.facebook.presto.split.InternalSplitManager;
 import com.facebook.presto.split.NativeSplitManager;
@@ -241,6 +242,7 @@ public class ServerMainModule
         binder.install(new HandleJsonModule());
 
         binder.bind(ConnectorManager.class).in(Scopes.SINGLETON);
+        binder.bind(HandleResolver.class).in(Scopes.SINGLETON);
         binder.bind(PluginManager.class).in(Scopes.SINGLETON);
         bindConfig(binder).to(PluginManagerConfig.class);
 

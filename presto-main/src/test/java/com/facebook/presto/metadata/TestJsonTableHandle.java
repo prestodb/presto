@@ -1,12 +1,16 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.tpch.TpchHandleResolver;
 import com.facebook.presto.tpch.TpchTableHandle;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Binder;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
+import com.google.inject.Module;
+import com.google.inject.Scopes;
 import com.google.inject.Stage;
 import io.airlift.json.JsonModule;
 import io.airlift.testing.Assertions;
@@ -44,9 +48,22 @@ public class TestJsonTableHandle
     {
         Injector injector = Guice.createInjector(Stage.PRODUCTION,
                 new JsonModule(),
-                new HandleJsonModule());
+                new HandleJsonModule(),
+                new Module() {
+                    @Override
+                    public void configure(Binder binder)
+                    {
+                        binder.bind(HandleResolver.class).in(Scopes.SINGLETON);
+                    }
+                });
 
         objectMapper = injector.getInstance(ObjectMapper.class);
+
+        HandleResolver handleResolver = injector.getInstance(HandleResolver.class);
+        handleResolver.addHandleResolver("native", new NativeHandleResolver());
+        handleResolver.addHandleResolver("tpch", new TpchHandleResolver());
+        handleResolver.addHandleResolver("internal", new InternalHandleResolver());
+        handleResolver.addHandleResolver("import", new ImportHandleResolver());
     }
 
     @Test

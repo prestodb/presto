@@ -1,0 +1,63 @@
+package com.facebook.presto.metadata;
+
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.TableHandle;
+
+import javax.inject.Inject;
+import java.util.Map.Entry;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+
+public class HandleResolver
+{
+    private final ConcurrentMap<String, ConnectorHandleResolver> handleIdResolvers = new ConcurrentHashMap<>();
+
+    @Inject
+    public HandleResolver()
+    {
+    }
+
+    private HandleResolver(ConcurrentMap<String, ConnectorHandleResolver> handleIdResolvers)
+    {
+        this.handleIdResolvers.putAll(checkNotNull(handleIdResolvers, "handleIdResolvers is null"));
+    }
+
+    public void addHandleResolver(String id, ConnectorHandleResolver connectorHandleResolver)
+    {
+        ConnectorHandleResolver existingResolver = handleIdResolvers.putIfAbsent(id, connectorHandleResolver);
+        checkState(existingResolver == null, "Id %s is already assigned to resolver %s", id, existingResolver);
+    }
+
+    public String getId(TableHandle tableHandle)
+    {
+        for (Entry<String, ConnectorHandleResolver> entry : handleIdResolvers.entrySet()) {
+            if (entry.getValue().canHandle(tableHandle)) {
+                return entry.getKey();
+            }
+        }
+        throw new IllegalArgumentException("No connector for table handle: " + tableHandle);
+    }
+
+    public String getId(ColumnHandle columnHandle)
+    {
+        for (Entry<String, ConnectorHandleResolver> entry : handleIdResolvers.entrySet()) {
+            if (entry.getValue().canHandle(columnHandle)) {
+                return entry.getKey();
+            }
+        }
+        throw new IllegalArgumentException("No connector for column handle: " + columnHandle);
+    }
+
+    public Class<? extends TableHandle> getTableHandleClass(String id)
+    {
+        return handleIdResolvers.get(id).getTableHandleClass();
+    }
+
+    public Class<? extends ColumnHandle> getColumnHandleClass(String id)
+    {
+        return handleIdResolvers.get(id).getColumnHandleClass();
+    }
+}

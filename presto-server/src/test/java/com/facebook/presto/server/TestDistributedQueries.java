@@ -11,6 +11,10 @@ import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
 import com.facebook.presto.failureDetector.FailureDetectorModule;
 import com.facebook.presto.guice.TestingJmxModule;
+import com.facebook.presto.metadata.HandleResolver;
+import com.facebook.presto.metadata.ImportHandleResolver;
+import com.facebook.presto.metadata.InternalHandleResolver;
+import com.facebook.presto.metadata.NativeHandleResolver;
 import com.facebook.presto.metadata.ConnectorMetadata;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.Metadata;
@@ -24,6 +28,7 @@ import com.facebook.presto.sql.tree.Serialization.ExpressionDeserializer;
 import com.facebook.presto.sql.tree.Serialization.ExpressionSerializer;
 import com.facebook.presto.sql.tree.Serialization.FunctionCallDeserializer;
 import com.facebook.presto.tpch.TpchDataStreamProvider;
+import com.facebook.presto.tpch.TpchHandleResolver;
 import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tpch.TpchSplitManager;
 import com.facebook.presto.tuple.Tuple;
@@ -553,8 +558,17 @@ public class TestDistributedQueries
                         JsonBinder.jsonBinder(binder).addSerializerBinding(Expression.class).to(ExpressionSerializer.class);
                         JsonBinder.jsonBinder(binder).addDeserializerBinding(Expression.class).to(ExpressionDeserializer.class);
                         JsonBinder.jsonBinder(binder).addDeserializerBinding(FunctionCall.class).to(FunctionCallDeserializer.class);
+                        binder.bind(HandleResolver.class).in(Scopes.SINGLETON);
                     }
                 });
+
+        HandleResolver handleResolver = injector.getInstance(HandleResolver.class);
+
+        // for not just hard code the handle resolvers
+        handleResolver.addHandleResolver("native", new NativeHandleResolver());
+        handleResolver.addHandleResolver("tpch", new TpchHandleResolver());
+        handleResolver.addHandleResolver("internal", new InternalHandleResolver());
+        handleResolver.addHandleResolver("import", new ImportHandleResolver());
 
         return injector.getInstance(JsonCodecFactory.class);
     }

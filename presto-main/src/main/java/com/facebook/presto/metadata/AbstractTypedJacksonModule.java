@@ -4,7 +4,6 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo.Id;
 import com.fasterxml.jackson.core.JsonGenerationException;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.Version;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JavaType;
@@ -23,29 +22,27 @@ import com.fasterxml.jackson.databind.type.SimpleType;
 import com.google.common.base.Throwables;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import com.google.common.collect.BiMap;
-import com.google.common.collect.ImmutableBiMap;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 
 import java.io.IOException;
-import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 
 public abstract class AbstractTypedJacksonModule<T>
         extends SimpleModule
 {
     private final String typeProperty;
 
-    protected AbstractTypedJacksonModule(Class<T> baseClass, String typeProperty, Map<String, Class<? extends T>> types)
+    protected AbstractTypedJacksonModule(Class<T> baseClass, String typeProperty, JsonTypeIdResolver<T> typeIdResolver)
     {
         super(baseClass.getSimpleName() + "Module", Version.unknownVersion());
         this.typeProperty = typeProperty;
 
-        TypeIdResolver typeResolver = new InternalTypeResolver(types);
+        TypeIdResolver typeResolver = new InternalTypeResolver((JsonTypeIdResolver<Object>) typeIdResolver);
 
         addSerializer(baseClass, new InternalTypeSerializer(baseClass, typeResolver));
         addDeserializer(baseClass, new InternalTypeDeserializer(baseClass, typeResolver));
@@ -65,7 +62,7 @@ public abstract class AbstractTypedJacksonModule<T>
         @SuppressWarnings("unchecked")
         @Override
         public T deserialize(JsonParser jsonParser, DeserializationContext deserializationContext)
-                throws IOException, JsonProcessingException
+                throws IOException
         {
             return (T) typeDeserializer.deserializeTypedFromAny(jsonParser, deserializationContext);
         }
@@ -85,7 +82,7 @@ public abstract class AbstractTypedJacksonModule<T>
 
         @Override
         public void serialize(final T value, JsonGenerator jsonGenerator, final SerializerProvider serializerProvider)
-                throws IOException, JsonGenerationException
+                throws IOException
         {
             if (value == null) {
                 serializerProvider.defaultSerializeNull(jsonGenerator);
@@ -117,18 +114,20 @@ public abstract class AbstractTypedJacksonModule<T>
     class InternalTypeResolver
             implements TypeIdResolver
     {
-        private final BiMap<String, Class<? extends T>> types;
-        private final Map<Class<? extends T>, SimpleType> simpleTypes;
+        private final JsonTypeIdResolver<Object> typeIdResolver;
+        private final LoadingCache<Class<?>,SimpleType> simpleTypes;
 
-        InternalTypeResolver(Map<String, Class<? extends T>> types)
+        InternalTypeResolver(JsonTypeIdResolver<Object> typeIdResolver)
         {
-            this.types = ImmutableBiMap.copyOf(types);
-
-            ImmutableMap.Builder<Class<? extends T>, SimpleType> builder = ImmutableMap.builder();
-            for (Class<? extends T> handleClass : this.types.values()) {
-                builder.put(handleClass, SimpleType.construct(handleClass));
-            }
-            this.simpleTypes = builder.build();
+            this.typeIdResolver = checkNotNull(typeIdResolver, "typeIdResolver is null");
+            simpleTypes = CacheBuilder.newBuilder().weakKeys().weakValues().build(new CacheLoader<Class<?>, SimpleType>() {
+                @Override
+                public SimpleType load(Class<?> typeClass)
+                        throws Exception
+                {
+                    return SimpleType.construct(typeClass);
+                }
+            });
         }
 
         @Override
@@ -139,15 +138,16 @@ public abstract class AbstractTypedJacksonModule<T>
         @Override
         public String idFromValue(Object value)
         {
-            checkNotNull(value, "value was null!");
+            checkNotNull(value, "value is null");
             return idFromValueAndType(value, value.getClass());
         }
 
         @Override
         public String idFromValueAndType(Object value, Class<?> suggestedType)
         {
-            String type = types.inverse().get(suggestedType);
-            checkState(type != null, "Class %s is unknown!", suggestedType.getSimpleName());
+            checkNotNull(value, "value is null");
+            String type = typeIdResolver.getId(value);
+            checkArgument(type != null, "Unknown class %s", suggestedType.getSimpleName());
             return type;
         }
 
@@ -160,9 +160,10 @@ public abstract class AbstractTypedJacksonModule<T>
         @Override
         public JavaType typeFromId(String id)
         {
-            Class<?> typeClass = types.get(id);
-            checkState(typeClass != null, "Type %s is unknown!", id);
-            return simpleTypes.get(typeClass);
+            checkNotNull(id, "id is null");
+            Class<?> typeClass = typeIdResolver.getType(id);
+            checkArgument(typeClass != null, "Unknown type id %s", id);
+            return simpleTypes.getUnchecked(typeClass);
         }
 
         @Override
