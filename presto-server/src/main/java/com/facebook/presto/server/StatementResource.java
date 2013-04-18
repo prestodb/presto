@@ -53,6 +53,7 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
+
 import java.io.Closeable;
 import java.net.URI;
 import java.util.ArrayList;
@@ -265,6 +266,16 @@ public class StatementResource
             // close exchange client if the query has failed
             if (queryInfo.getState().isDone() && (queryInfo.getState() != QueryState.FINISHED)) {
                 exchangeClient.close();
+            }
+
+            // For simple executions (e.g. drop table), there will never be an output stage,
+            // so close the exchange as soon as the query is done.
+            if (queryInfo.getOutputStage() == null && queryInfo.getState().isDone()) {
+                exchangeClient.close();
+
+                // this is a hack to suppress the warn message in the client saying that there are no columns.
+                columns = ImmutableList.of(new Column("result", "varchar"));
+                data = ImmutableSet.<List<Object>>of(ImmutableList.<Object>of("true"));
             }
 
             // only return a next if the query is not done or there is more data to send (due to buffering)
