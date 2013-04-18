@@ -1,8 +1,8 @@
 package com.facebook.presto.connector;
 
 import com.facebook.presto.metadata.ConnectorMetadata;
-import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.ImportHandleResolver;
+import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.ImportMetadata;
 import com.facebook.presto.metadata.InternalHandleResolver;
 import com.facebook.presto.metadata.MetadataManager;
@@ -33,7 +33,6 @@ public class ConnectorManager
         handleResolver.addHandleResolver("native", new NativeHandleResolver());
         handleResolver.addHandleResolver("tpch", new TpchHandleResolver());
         handleResolver.addHandleResolver("internal", new InternalHandleResolver());
-        handleResolver.addHandleResolver("import", new ImportHandleResolver());
     }
 
     public void initialize()
@@ -46,9 +45,13 @@ public class ConnectorManager
 
     public void createConnection(String catalogName, String connectorName)
     {
-        ImportClient client = importClientManager.getClient(catalogName);
-        ConnectorMetadata connectorMetadata = new ImportMetadata(catalogName, client);
+        String clientId = catalogName;
+        String dataSourceName = clientId;
+
+        ImportClient client = importClientManager.getClient(connectorName);
+        ConnectorMetadata connectorMetadata = new ImportMetadata(client);
         metadataManager.addConnectorMetadata(catalogName, connectorMetadata);
-        splitManager.addConnectorSplitManager(new ImportSplitManager(catalogName, client));
+        splitManager.addConnectorSplitManager(new ImportSplitManager(dataSourceName, client));
+        handleResolver.addHandleResolver(clientId, new ImportHandleResolver(client));
     }
 }

@@ -11,5 +11,11 @@
     <artifactId>presto-spi</artifactId>
     <name>presto-spi</name>
 
-    <!-- the SPI must not have any dependencies -->
+    <!-- the SPI should have only minimal dependencies -->
+    <dependencies>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
+        </dependency>
+    </dependencies>
 </project>

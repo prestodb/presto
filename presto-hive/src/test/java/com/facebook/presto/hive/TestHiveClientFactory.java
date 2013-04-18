@@ -37,16 +37,16 @@ public class TestHiveClientFactory
 
         // Creating multiple clients for the same cluster should hit the same cache
         Assert.assertEquals(mockClient1.getAccessCount(), 0);
-        hiveClientFactory.get(hiveCluster1).listSchemaNames();
+        hiveClientFactory.get("1", hiveCluster1).listSchemaNames();
         Assert.assertEquals(mockClient1.getAccessCount(), 1);
-        hiveClientFactory.get(hiveCluster1).listSchemaNames();
+        hiveClientFactory.get("1", hiveCluster1).listSchemaNames();
         Assert.assertEquals(mockClient1.getAccessCount(), 1);
 
         // Another hive cluster should have its own cache
         Assert.assertEquals(mockClient2.getAccessCount(), 0);
-        hiveClientFactory.get(hiveCluster2).listSchemaNames();
+        hiveClientFactory.get("2", hiveCluster2).listSchemaNames();
         Assert.assertEquals(mockClient2.getAccessCount(), 1);
-        hiveClientFactory.get(hiveCluster2).listSchemaNames();
+        hiveClientFactory.get("2", hiveCluster2).listSchemaNames();
         Assert.assertEquals(mockClient2.getAccessCount(), 1);
     }
 }

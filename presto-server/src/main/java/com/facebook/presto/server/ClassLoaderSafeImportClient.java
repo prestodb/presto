@@ -144,4 +144,36 @@ public class ClassLoaderSafeImportClient
             return delegate.deserializePartitionChunk(bytes);
         }
     }
+
+    @Override
+    public boolean canHandle(TableHandle tableHandle)
+    {
+        try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
+            return delegate.canHandle(tableHandle);
+        }
+    }
+
+    @Override
+    public boolean canHandle(ColumnHandle columnHandle)
+    {
+        try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
+            return delegate.canHandle(columnHandle);
+        }
+    }
+
+    @Override
+    public Class<? extends ColumnHandle> getColumnHandleClass()
+    {
+        try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getColumnHandleClass();
+        }
+    }
+
+    @Override
+    public Class<? extends TableHandle> getTableHandleClass()
+    {
+        try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getTableHandleClass();
+        }
+    }
 }

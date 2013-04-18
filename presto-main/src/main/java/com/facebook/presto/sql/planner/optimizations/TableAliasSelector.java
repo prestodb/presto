@@ -2,7 +2,6 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.execution.Sitevars;
 import com.facebook.presto.metadata.AliasDao;
-import com.facebook.presto.metadata.ImportTableHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NativeTableHandle;
 import com.facebook.presto.metadata.Node;
@@ -101,12 +100,6 @@ public class TableAliasSelector
         public PlanNode rewriteTableScan(TableScanNode node, Void context, PlanRewriter<Void> planRewriter)
         {
             TableHandle tableHandle = node.getTable();
-
-            if (!(tableHandle instanceof ImportTableHandle)) {
-                // This is pure lazyness. It should be possible to alias any
-                // table type but this reduces the amount of code required.
-                return node;
-            }
 
             QualifiedTableName tableName = metadata.getTableMetadata(tableHandle).getTable();
 

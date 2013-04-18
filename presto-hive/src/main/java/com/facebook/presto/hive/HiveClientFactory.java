@@ -68,9 +68,17 @@ public class HiveClientFactory
         executorService.shutdownNow();
     }
 
-    public HiveClient get(HiveCluster hiveCluster)
+    public HiveClient get(String clientId, HiveCluster hiveCluster)
     {
         CachingHiveMetastore metastore = metastores.getUnchecked(hiveCluster);
-        return new HiveClient(maxChunkSize.toBytes(), maxOutstandingChunks, maxChunkIteratorThreads, partitionBatchSize, hiveChunkEncoder, metastore, hdfsEnvironment, executorService);
+        return new HiveClient(clientId,
+                maxChunkSize.toBytes(),
+                maxOutstandingChunks,
+                maxChunkIteratorThreads,
+                partitionBatchSize,
+                hiveChunkEncoder,
+                metastore,
+                hdfsEnvironment,
+                executorService);
     }
 }

@@ -3,27 +3,15 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.TableHandle;
 
-import javax.inject.Inject;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 public class HandleResolver
 {
     private final ConcurrentMap<String, ConnectorHandleResolver> handleIdResolvers = new ConcurrentHashMap<>();
-
-    @Inject
-    public HandleResolver()
-    {
-    }
-
-    private HandleResolver(ConcurrentMap<String, ConnectorHandleResolver> handleIdResolvers)
-    {
-        this.handleIdResolvers.putAll(checkNotNull(handleIdResolvers, "handleIdResolvers is null"));
-    }
 
     public void addHandleResolver(String id, ConnectorHandleResolver connectorHandleResolver)
     {

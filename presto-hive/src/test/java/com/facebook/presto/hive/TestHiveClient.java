@@ -25,6 +25,7 @@ public class TestHiveClient
                 hiveClientConfig).get();
 
         this.client = new HiveClient(
+                "hive",
                 1024 * 1024 * 1024 /* 1 GB */,
                 100,
                 50,

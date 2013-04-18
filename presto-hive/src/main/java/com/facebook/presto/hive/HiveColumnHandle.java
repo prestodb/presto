@@ -6,6 +6,7 @@ import com.facebook.presto.spi.ColumnType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Function;
+import com.google.common.base.Objects;
 import com.google.common.base.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -14,6 +15,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class HiveColumnHandle
         implements ColumnHandle
 {
+    private final String clientId;
     private final String name;
     private final int ordinalPosition;
     private final HiveType hiveType;
@@ -22,22 +24,27 @@ public class HiveColumnHandle
 
     @JsonCreator
     public HiveColumnHandle(
+            @JsonProperty("clientId") String clientId,
             @JsonProperty("name") String name,
             @JsonProperty("ordinalPosition") int ordinalPosition,
             @JsonProperty("hiveType") HiveType hiveType,
             @JsonProperty("hiveColumnIndex") int hiveColumnIndex,
             @JsonProperty("partitionKey") boolean partitionKey)
     {
-        checkNotNull(name, "name is null");
+        this.clientId = checkNotNull(clientId, "clientId is null");
+        this.name = checkNotNull(name, "name is null");
         checkArgument(ordinalPosition >= 0, "ordinalPosition is negative");
-        checkArgument(hiveColumnIndex >= 0 || partitionKey, "hiveColumnIndex is negative");
-        checkNotNull(hiveType, "hiveType is null");
-
-        this.name = name;
         this.ordinalPosition = ordinalPosition;
+        checkArgument(hiveColumnIndex >= 0 || partitionKey, "hiveColumnIndex is negative");
         this.hiveColumnIndex = hiveColumnIndex;
-        this.hiveType = hiveType;
+        this.hiveType = checkNotNull(hiveType, "hiveType is null");
         this.partitionKey = partitionKey;
+    }
+
+    @JsonProperty
+    public String getClientId()
+    {
+        return clientId;
     }
 
     @JsonProperty
@@ -81,13 +88,38 @@ public class HiveColumnHandle
     }
 
     @Override
+    public int hashCode()
+    {
+        return Objects.hashCode(clientId, name, hiveColumnIndex, hiveType, partitionKey);
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        final HiveColumnHandle other = (HiveColumnHandle) obj;
+        return Objects.equal(this.clientId, other.clientId) &&
+                Objects.equal(this.name, other.name) &&
+                Objects.equal(this.hiveColumnIndex, other.hiveColumnIndex) &&
+                Objects.equal(this.hiveType, other.hiveType) &&
+                Objects.equal(this.partitionKey, other.partitionKey);
+    }
+
+    @Override
     public String toString()
     {
-        return com.google.common.base.Objects.toStringHelper(this)
+        return Objects.toStringHelper(this)
+                .add("clientId", clientId)
                 .add("name", name)
                 .add("ordinalPosition", ordinalPosition)
                 .add("hiveType", hiveType)
                 .add("hiveColumnIndex", hiveColumnIndex)
+                .add("partitionKey", partitionKey)
                 .toString();
     }
 

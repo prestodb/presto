@@ -32,4 +32,12 @@ public interface ImportClient
     byte[] serializePartitionChunk(PartitionChunk partitionChunk);
 
     PartitionChunk deserializePartitionChunk(byte[] bytes);
+
+    boolean canHandle(TableHandle tableHandle);
+
+    boolean canHandle(ColumnHandle tableHandle);
+
+    Class<? extends TableHandle> getTableHandleClass();
+
+    Class<? extends ColumnHandle> getColumnHandleClass();
 }

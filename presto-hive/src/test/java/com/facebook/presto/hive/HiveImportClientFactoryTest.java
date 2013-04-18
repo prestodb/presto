@@ -17,7 +17,6 @@ import org.testng.annotations.Test;
 
 import static io.airlift.discovery.client.ServiceDescriptor.serviceDescriptor;
 import static io.airlift.testing.Assertions.assertInstanceOf;
-import static org.testng.Assert.assertNull;
 
 public class HiveImportClientFactoryTest
 {
@@ -36,8 +35,6 @@ public class HiveImportClientFactoryTest
         DiscoveryLocatedHiveCluster hiveCluster = new DiscoveryLocatedHiveCluster(selector, new HiveMetastoreClientFactory(new HiveClientConfig()));
         HiveImportClientFactory factory = new HiveImportClientFactory(hiveCluster, hiveClientFactory);
         assertInstanceOf(factory.createClient("hive"), HiveClient.class);
-        assertNull(factory.createClient("hive_test"));
-        assertNull(factory.createClient("unknown"));
     }
 
     protected JsonCodec<HivePartitionChunk> getHivePartitionChunkCodec()

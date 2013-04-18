@@ -1,5 +1,8 @@
 package com.facebook.presto.spi;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonValue;
+
 import java.util.Objects;
 
 import static com.facebook.presto.spi.SchemaUtil.checkLowerCase;
@@ -8,6 +11,17 @@ public class SchemaTableName
 {
     private final String schemaName;
     private final String tableName;
+
+    @JsonCreator
+    public static SchemaTableName valueOf(String schemaTableName)
+    {
+        checkLowerCase(schemaTableName, "schemaTableName");
+        String[] parts = schemaTableName.split("\\.");
+        if (parts.length != 2) {
+            throw new IllegalArgumentException("Invalid schemaTableName " + schemaTableName);
+        }
+        return new SchemaTableName(parts[0], parts[1]);
+    }
 
     public SchemaTableName(String schemaName, String tableName)
     {
@@ -45,6 +59,7 @@ public class SchemaTableName
                 Objects.equals(this.tableName, other.tableName);
     }
 
+    @JsonValue
     @Override
     public String toString()
     {

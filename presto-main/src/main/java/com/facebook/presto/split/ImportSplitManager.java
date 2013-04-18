@@ -3,7 +3,6 @@ package com.facebook.presto.split;
 import com.facebook.presto.execution.DataSource;
 import com.facebook.presto.ingest.SerializedPartitionChunk;
 import com.facebook.presto.metadata.HostAddress;
-import com.facebook.presto.metadata.ImportTableHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.NotFoundException;
@@ -19,7 +18,6 @@ import java.util.Map;
 import java.util.concurrent.Callable;
 
 import static com.facebook.presto.util.RetryDriver.retry;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
 
@@ -36,18 +34,14 @@ public class ImportSplitManager
     }
 
     @Override
-    public boolean canHandle(TableHandle handle)
+    public boolean canHandle(TableHandle tableHandle)
     {
-        return handle instanceof ImportTableHandle;
+        return importClient.canHandle(tableHandle);
     }
 
     @Override
-    public List<Partition> getPartitions(TableHandle table, final Map<ColumnHandle, Object> bindings)
+    public List<Partition> getPartitions(final TableHandle tableHandle, final Map<ColumnHandle, Object> bindings)
     {
-        checkArgument(table instanceof ImportTableHandle, "Table is not an import table %s", table);
-        ImportTableHandle importTableHandle = (ImportTableHandle) table;
-        final TableHandle clientTableHandle = importTableHandle.getTableHandle();
-
         return retry()
                 .stopOn(NotFoundException.class)
                 .stopOnIllegalExceptions()
@@ -58,7 +52,7 @@ public class ImportSplitManager
                             throws Exception
                     {
                         // todo remap handles
-                        return importClient.getPartitions(clientTableHandle, bindings);
+                        return importClient.getPartitions(tableHandle, bindings);
                     }
                 });
     }

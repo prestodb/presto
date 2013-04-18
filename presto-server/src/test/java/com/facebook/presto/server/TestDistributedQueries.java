@@ -11,13 +11,12 @@ import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
 import com.facebook.presto.failureDetector.FailureDetectorModule;
 import com.facebook.presto.guice.TestingJmxModule;
-import com.facebook.presto.metadata.HandleResolver;
-import com.facebook.presto.metadata.ImportHandleResolver;
-import com.facebook.presto.metadata.InternalHandleResolver;
-import com.facebook.presto.metadata.NativeHandleResolver;
 import com.facebook.presto.metadata.ConnectorMetadata;
 import com.facebook.presto.metadata.HandleJsonModule;
+import com.facebook.presto.metadata.HandleResolver;
+import com.facebook.presto.metadata.InternalHandleResolver;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.NativeHandleResolver;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
@@ -568,7 +567,6 @@ public class TestDistributedQueries
         handleResolver.addHandleResolver("native", new NativeHandleResolver());
         handleResolver.addHandleResolver("tpch", new TpchHandleResolver());
         handleResolver.addHandleResolver("internal", new InternalHandleResolver());
-        handleResolver.addHandleResolver("import", new ImportHandleResolver());
 
         return injector.getInstance(JsonCodecFactory.class);
     }
