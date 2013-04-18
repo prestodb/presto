@@ -138,6 +138,7 @@ statement
     | showFunctionsStmt
     | createTableStmt
     | createMaterializedViewStmt
+    | refreshMaterializedViewStmt
     | dropTableStmt
     ;
 

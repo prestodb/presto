@@ -34,6 +34,7 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QueryUtil;
+import com.facebook.presto.sql.tree.RefreshMaterializedView;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.ShowColumns;
@@ -257,7 +258,7 @@ public class Analyzer
             QualifiedTableName dstTableName = MetadataUtil.createQualifiedTableName(session, statement.getName());
 
             TableMetadata dstTableMetadata = metadata.getTable(dstTableName);
-            checkState(dstTableMetadata == null, "Destination table %s already exists!", dstTableName);
+            checkState(dstTableMetadata == null, "Destination table %s already exists", dstTableName);
 
             // Analyze the query that creates the table...
             AnalysisResult queryAnalysis = newAnalyzer().analyze(statement.getTableDefinition(), new AnalysisContext(context.getSession(), context.getSymbolAllocator()));
@@ -280,6 +281,11 @@ public class Analyzer
             // create source table and optional import information
             storageManager.insertSourceTable(((NativeTableHandle) dstTableHandle.get()), srcTableName);
 
+            return tableWriterResult(context, dstTableName, queryAnalysis);
+        }
+
+        private AnalysisResult tableWriterResult(AnalysisContext context, QualifiedTableName dstTableName, AnalysisResult queryAnalysis)
+        {
             // yeah, that should be somehow simpler...
             Field resultField = Field.getField("imported_rows", context.getSymbolAllocator().newSymbol("imported_rows", Type.LONG), Type.LONG);
             AnalyzedExpression resultFieldExpression = new AnalyzedExpression(resultField.getType(), QueryUtil.nameReference(resultField.getAttribute().get()));
@@ -302,6 +308,33 @@ public class Analyzer
                     ImmutableList.<AnalyzedOrdering>of(),
                     null);
         }
+
+        @Override
+        protected AnalysisResult visitRefreshMaterializedView(RefreshMaterializedView statement, AnalysisContext context)
+        {
+            QualifiedTableName dstTableName = MetadataUtil.createQualifiedTableName(session, statement.getName());
+
+            TableMetadata dstTableMetadata = metadata.getTable(dstTableName);
+            checkState(dstTableMetadata != null, "Table %s does not exist", dstTableName);
+
+            Optional<TableHandle> dstTableHandle = dstTableMetadata.getTableHandle();
+            checkState(dstTableHandle.isPresent(), "can not import into a table without table handle");
+            checkState(dstTableHandle.get().getDataSourceType() == DataSourceType.NATIVE, "can not import into non-native table %s", dstTableMetadata.getTable());
+
+            QualifiedTableName srcTableName = storageManager.getSourceTable((NativeTableHandle) dstTableHandle.get());
+
+            Query query = new Query(new Select(false, ImmutableList.<Expression>of(new AllColumns())),
+                    ImmutableList.<Relation>of(new Table(srcTableName.asQualifiedName())),
+                    Optional.<Expression>absent(),
+                    ImmutableList.<Expression>of(),
+                    Optional.<Expression>absent(),
+                    ImmutableList.<SortItem>of(),
+                    Optional.<String>absent());
+
+            return tableWriterResult(context, dstTableName, visitQuery(query, context));
+        }
+
+
 
         @Override
         protected AnalysisResult visitShowPartitions(ShowPartitions showPartitions, AnalysisContext context)

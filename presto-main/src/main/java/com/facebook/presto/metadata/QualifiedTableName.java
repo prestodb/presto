@@ -1,6 +1,8 @@
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -34,6 +36,11 @@ public class QualifiedTableName
     public String getTableName()
     {
         return tableName;
+    }
+
+    public QualifiedName asQualifiedName()
+    {
+        return new QualifiedName(ImmutableList.of(catalogName, schemaName, tableName));
     }
 
     @Override
