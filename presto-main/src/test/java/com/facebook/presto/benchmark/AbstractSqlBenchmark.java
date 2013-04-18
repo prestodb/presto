@@ -7,14 +7,14 @@ import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.SourceHashProviderFactory;
 import com.facebook.presto.operator.SourceOperator;
-import com.facebook.presto.sql.analyzer.AnalysisResult;
+import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DistributedLogicalPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
-import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.PlanOptimizersFactory;
@@ -22,6 +22,9 @@ import com.facebook.presto.sql.planner.PlanPrinter;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.LogicalPlanner;
+import com.facebook.presto.sql.planner.Plan;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.storage.MockStorageManager;
 import com.facebook.presto.tpch.TpchBlocksProvider;
@@ -46,8 +49,9 @@ public abstract class AbstractSqlBenchmark
 {
     private final PlanFragment fragment;
     private final Metadata metadata;
-    private final AnalysisResult analysis;
+    private final Analysis analysis;
     private final Session session;
+    private final Map<Symbol,Type> symbols;
 
     protected AbstractSqlBenchmark(String benchmarkName, int warmupIterations, int measuredIterations, @Language("SQL") String query)
     {
@@ -58,26 +62,18 @@ public abstract class AbstractSqlBenchmark
         metadata = TpchSchema.createMetadata();
 
         session = new Session(null, TpchSchema.CATALOG_NAME, TpchSchema.SCHEMA_NAME);
-        analysis = new Analyzer(session,
-                metadata,
-                new MockStorageManager(),
-                new MockPeriodicImportManager()).analyze(statement);
+        analysis = new Analyzer(session, metadata).analyze(statement);
 
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
         PlanOptimizersFactory planOptimizersFactory = new PlanOptimizersFactory(metadata);
 
-        LogicalPlanner planner = new LogicalPlanner(session,
-                metadata,
-                planOptimizersFactory.get(),
-                idAllocator);
-
-        PlanNode plan = planner.plan(analysis);
-
+        Plan plan = new LogicalPlanner(session, planOptimizersFactory.get(), idAllocator, metadata, new MockPeriodicImportManager(), new MockStorageManager()).plan(analysis);
         fragment = new DistributedLogicalPlanner(metadata, idAllocator)
-                .createSubplans(plan, analysis.getSymbolAllocator(), true)
+                .createSubplans(plan, true)
                 .getFragment();
 
-        new PlanPrinter().print(fragment.getRoot(), analysis.getTypes());
+        symbols = plan.getSymbolAllocator().getTypes();
+        new PlanPrinter().print(fragment.getRoot(), symbols);
     }
 
     @Override
@@ -90,7 +86,7 @@ public abstract class AbstractSqlBenchmark
                             .setEnvironment("test")
                             .setNodeId("test-node")),
                     metadata,
-                    analysis.getTypes(),
+                    symbols,
                     new OperatorStats(),
                     new SourceHashProviderFactory(maxOperatorMemoryUsage),
                     maxOperatorMemoryUsage,

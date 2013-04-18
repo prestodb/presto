@@ -15,6 +15,7 @@ import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
@@ -69,6 +70,20 @@ public class UnaliasSymbolReferences
         public Rewriter(Map<Symbol, Symbol> mapping)
         {
             this.mapping = mapping;
+        }
+
+        @Override
+        public PlanNode rewriteTableWriter(TableWriterNode node, Void context, PlanRewriter<Void> planRewriter)
+        {
+            PlanNode source = planRewriter.rewrite(node.getSource(), context);
+
+            ImmutableMap.Builder<Symbol, ColumnHandle> columns = ImmutableMap.builder();
+
+            for (Map.Entry<Symbol, ColumnHandle> entry : node.getColumns().entrySet()) {
+                columns.put(canonicalize(entry.getKey()), entry.getValue());
+            }
+
+            return new TableWriterNode(node.getId(), source, node.getTable(), columns.build(), canonicalize(node.getOutput()));
         }
 
         @Override
