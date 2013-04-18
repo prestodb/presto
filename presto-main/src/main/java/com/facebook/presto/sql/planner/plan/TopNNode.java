@@ -1,6 +1,6 @@
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.sql.analyzer.Symbol;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.SortItem;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;

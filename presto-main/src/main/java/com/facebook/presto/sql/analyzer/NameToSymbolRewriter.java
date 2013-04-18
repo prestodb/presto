@@ -1,5 +1,6 @@
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NodeRewriter;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
