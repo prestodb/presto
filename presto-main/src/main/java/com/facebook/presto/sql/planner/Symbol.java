@@ -1,4 +1,4 @@
-package com.facebook.presto.sql.analyzer;
+package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.fasterxml.jackson.annotation.JsonCreator;

@@ -5,7 +5,6 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.scalar.UnixTimeFunctions;
 import com.facebook.presto.sql.Casts;
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
 import com.facebook.presto.sql.tree.AstVisitor;

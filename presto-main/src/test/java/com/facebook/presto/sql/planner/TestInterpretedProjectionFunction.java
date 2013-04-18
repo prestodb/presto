@@ -10,7 +10,6 @@ import com.facebook.presto.metadata.TestingMetadata;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.NameToSymbolRewriter;
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.analyzer.TupleDescriptor;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.tree.ArithmeticExpression;

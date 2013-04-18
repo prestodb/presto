@@ -1,6 +1,7 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
