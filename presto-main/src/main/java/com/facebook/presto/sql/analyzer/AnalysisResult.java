@@ -3,6 +3,7 @@ package com.facebook.presto.sql.analyzer;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Relation;
