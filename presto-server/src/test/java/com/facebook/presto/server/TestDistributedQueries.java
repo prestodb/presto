@@ -12,7 +12,6 @@ import com.facebook.presto.client.StatementClient;
 import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
-import com.facebook.presto.metadata.DataSourceType;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NodeManager;
@@ -20,13 +19,14 @@ import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.metadata.StorageManager;
-import com.facebook.presto.split.DataStreamProvider;
+import com.facebook.presto.metadata.TestingMetadata;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Serialization.ExpressionDeserializer;
 import com.facebook.presto.sql.tree.Serialization.ExpressionSerializer;
 import com.facebook.presto.sql.tree.Serialization.FunctionCallDeserializer;
+import com.facebook.presto.tpch.TpchDataStreamProvider;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
@@ -46,7 +46,6 @@ import com.google.inject.Injector;
 import com.google.inject.Module;
 import com.google.inject.Stage;
 import com.google.inject.TypeLiteral;
-import com.google.inject.multibindings.MapBinder;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.discovery.DiscoveryServerModule;
@@ -180,7 +179,7 @@ public class TestDistributedQueries
     }
 
     @Override
-    protected void setUpQueryFramework(String catalog, String schema, DataStreamProvider dataStreamProvider, Metadata metadata)
+    protected void setUpQueryFramework(String catalog, String schema, TpchDataStreamProvider dataStreamProvider, TestingMetadata metadata)
             throws Exception
     {
         Logging.initialize();
@@ -236,7 +235,6 @@ public class TestDistributedQueries
     {
         ImmutableList.Builder<String> tableNames = ImmutableList.builder();
         List<QualifiedTableName> qualifiedTableNames = metadata.listTables(QualifiedTablePrefix.builder(catalog).build());
-        ImmutableList.Builder<QueryId> builder = ImmutableList.builder();
 
         for (QualifiedTableName qualifiedTableName : qualifiedTableNames) {
             log.info("Running import for %s", qualifiedTableName.getTableName());
@@ -497,11 +495,11 @@ public class TestDistributedQueries
     private static class PrestoTestingServerModule
             implements Module
     {
-        private final Metadata tpchMetadata;
-        private final DataStreamProvider dataStreamProvider;
+        private final TestingMetadata tpchMetadata;
+        private final TpchDataStreamProvider dataStreamProvider;
 
-        private PrestoTestingServerModule(Metadata tpchMetadata,
-                DataStreamProvider dataStreamProvider)
+        private PrestoTestingServerModule(TestingMetadata tpchMetadata,
+                TpchDataStreamProvider dataStreamProvider)
         {
             this.tpchMetadata = checkNotNull(tpchMetadata, "tpchMetadata is null");
             this.dataStreamProvider = checkNotNull(dataStreamProvider, "dataStreamProvider is null");
@@ -510,17 +508,8 @@ public class TestDistributedQueries
         @Override
         public void configure(Binder binder)
         {
-            MapBinder<DataSourceType, Metadata> metadataBinder = MapBinder.newMapBinder(binder,
-                    DataSourceType.class,
-                    Metadata.class);
-
-            metadataBinder.addBinding(DataSourceType.TPCH).toInstance(tpchMetadata);
-
-            MapBinder<DataSourceType, DataStreamProvider> dataStreamProviderBinder = MapBinder.newMapBinder(binder,
-                    DataSourceType.class,
-                    DataStreamProvider.class);
-
-            dataStreamProviderBinder.addBinding(DataSourceType.TPCH).toInstance(dataStreamProvider);
+            binder.bind(TpchDataStreamProvider.class).toInstance(dataStreamProvider);
+            binder.bind(TestingMetadata.class).toInstance(tpchMetadata);
         }
     }
 

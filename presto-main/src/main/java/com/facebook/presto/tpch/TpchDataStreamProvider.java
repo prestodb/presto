@@ -42,8 +42,8 @@ public class TpchDataStreamProvider
             checkArgument(column.getDataSourceType() == DataSourceType.TPCH, "column must be of type TpchColumnHandle, not %s", column.getClass().getName());
             builder.add(tpchBlocksProvider.getBlocks(tpchSplit.getTableHandle(),
                     (TpchColumnHandle) column,
-                    tpchSplit.getTableSkew(),
-                    tpchSplit.getTableSplit(),
+                    tpchSplit.getPartNumber(),
+                    tpchSplit.getTotalParts(),
                     BlocksFileEncoding.RAW));
         }
         return new AlignmentOperator(builder.build());

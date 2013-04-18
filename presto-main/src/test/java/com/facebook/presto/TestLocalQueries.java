@@ -2,8 +2,10 @@ package com.facebook.presto;
 
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MockStorageManager;
+import com.facebook.presto.metadata.TestingMetadata;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.tpch.TpchDataStreamProvider;
 import com.facebook.presto.util.LocalQueryRunner;
 import com.facebook.presto.util.MaterializedResult;
 import com.google.common.base.Throwables;
@@ -20,7 +22,7 @@ public class TestLocalQueries
     private Metadata metadata;
 
     @Override
-    protected void setUpQueryFramework(String catalog, String schema, DataStreamProvider dataStreamProvider, Metadata metadata)
+    protected void setUpQueryFramework(String catalog, String schema, TpchDataStreamProvider dataStreamProvider, TestingMetadata metadata)
             throws Exception
     {
         this.catalog = catalog;

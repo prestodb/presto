@@ -27,7 +27,7 @@ import static com.google.common.collect.Iterables.concat;
 public class MetadataManager
         implements Metadata
 {
-    private final Map<DataSourceType, Metadata> metadataSourceMap;
+    private Map<DataSourceType, Metadata> metadataSourceMap = null;
     private final ImportMetadata importMetadata;
 
     @Inject
@@ -43,6 +43,17 @@ public class MetadataManager
                 .put(DataSourceType.IMPORT, checkNotNull(importMetadata, "importMetadata is null"))
                 .build();
     }
+
+    // only used in TestDistributedQueries to get the Tpch stuff in.
+    @Inject(optional = true)
+    public synchronized void addTpchMetadata(TestingMetadata tpchMetadata)
+    {
+        ImmutableMap.Builder<DataSourceType, Metadata> builder = ImmutableMap.builder();
+        builder.putAll(metadataSourceMap);
+        builder.put(DataSourceType.TPCH, tpchMetadata);
+        this.metadataSourceMap = builder.build();
+    }
+
 
     @Override
     public FunctionInfo getFunction(QualifiedName name, List<TupleInfo.Type> parameterTypes)

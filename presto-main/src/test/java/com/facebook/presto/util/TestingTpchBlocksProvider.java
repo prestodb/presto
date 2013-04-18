@@ -45,21 +45,21 @@ public class TestingTpchBlocksProvider
     @Override
     public BlockIterable getBlocks(TpchTableHandle tableHandle,
             TpchColumnHandle columnHandle,
-            int tableSkew,
-            int tableSplit,
+            int partNumber,
+            int totalParts,
             BlocksFileEncoding encoding)
     {
         String tableName = tableHandle.getTableName();
         int fieldIndex = columnHandle.getFieldIndex();
         TupleInfo.Type fieldType = columnHandle.getType();
-        return new TpchBlockIterable(fieldType, tableSkew, tableSplit, tableName, fieldIndex);
+        return new TpchBlockIterable(fieldType, partNumber, totalParts, tableName, fieldIndex);
     }
 
     @Override
     public DataSize getColumnDataSize(TpchTableHandle tableHandle,
             TpchColumnHandle columnHandle,
-            int tableSkew,
-            int tableSplit,
+            int partNumber,
+            int totalParts,
             BlocksFileEncoding encoding)
     {
         throw new UnsupportedOperationException();
@@ -71,17 +71,17 @@ public class TestingTpchBlocksProvider
         private final TupleInfo.Type fieldType;
         private final String tableName;
         private final int fieldIndex;
-        private final int tableSkew;
-        private final int tableSplit;
+        private final int partNumber;
+        private final int totalParts;
 
-        public TpchBlockIterable(TupleInfo.Type fieldType, int tableSkew, int tableSplit, String tableName, int fieldIndex)
+        public TpchBlockIterable(TupleInfo.Type fieldType, int partNumber, int totalParts, String tableName, int fieldIndex)
         {
-            checkState(tableSplit > 0, "can not split by 0");
-            checkState(tableSkew >= 0, "skew must be positive");
+            checkState(totalParts > 0, "can not split by 0");
+            checkState(partNumber >= 0, "skew must be positive");
 
             this.fieldType = fieldType;
-            this.tableSkew = tableSkew;
-            this.tableSplit = tableSplit;
+            this.partNumber = partNumber;
+            this.totalParts = totalParts;
             this.tableName = tableName;
             this.fieldIndex = fieldIndex;
         }
@@ -120,7 +120,7 @@ public class TestingTpchBlocksProvider
                 this.cursor = data.get(tableName).cursor(new OperatorStats());
 
                 // Skip the first elements for this iterator.
-                for (int i = 0; i < tableSkew; i++) {
+                for (int i = 0; i < partNumber; i++) {
                     if (!cursor.advanceNextPosition()) {
                         break;
                     }
@@ -147,7 +147,7 @@ public class TestingTpchBlocksProvider
 
                     // Split table into multiple pieces. Starts at 1, so
                     // a split of 1 means all the data.
-                    for (int i = 1; i < tableSplit; i++) {
+                    for (int i = 1; i < totalParts; i++) {
                         if (!cursor.advanceNextPosition()) {
                             break;
                         }
