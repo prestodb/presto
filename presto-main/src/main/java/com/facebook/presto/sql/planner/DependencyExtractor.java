@@ -7,6 +7,7 @@ import com.google.common.collect.ImmutableSet;
 
 import java.util.Set;
 
+// TODO: a similar class exists in (TupleAnalyzer.DependencyExtractor)
 public class DependencyExtractor
 {
     public static Set<Symbol> extract(Expression expression)

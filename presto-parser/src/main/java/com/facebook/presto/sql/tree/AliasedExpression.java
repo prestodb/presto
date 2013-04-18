@@ -70,14 +70,14 @@ public class AliasedExpression
         return result;
     }
 
-    public static Function<AliasedExpression, QualifiedName> aliasGetter()
+    public static Function<AliasedExpression, String> aliasGetter()
     {
-        return new Function<AliasedExpression, QualifiedName>()
+        return new Function<AliasedExpression, String>()
         {
             @Override
-            public QualifiedName apply(AliasedExpression input)
+            public String apply(AliasedExpression input)
             {
-                return QualifiedName.of(input.getAlias());
+                return input.getAlias();
             }
         };
     }

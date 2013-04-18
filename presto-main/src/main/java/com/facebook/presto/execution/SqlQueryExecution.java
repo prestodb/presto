@@ -9,17 +9,17 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.split.SplitManager;
-import com.facebook.presto.sql.analyzer.AnalysisResult;
+import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.DistributedExecutionPlanner;
 import com.facebook.presto.sql.planner.DistributedLogicalPlanner;
-import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.StageExecutionPlan;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
-import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.LogicalPlanner;
+import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.storage.StorageManager;
 import com.google.common.base.Preconditions;
@@ -152,25 +152,16 @@ public class SqlQueryExecution
         long analysisStart = System.nanoTime();
 
         // analyze query
-        Analyzer analyzer = new Analyzer(stateMachine.getSession(),
-                metadata,
-                storageManager,
-                periodicImportManager);
+        Analyzer analyzer = new Analyzer(stateMachine.getSession(), metadata);
 
-        AnalysisResult analysis = analyzer.analyze(statement);
-
+        Analysis analysis = analyzer.analyze(statement);
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
         // plan query
-
-        LogicalPlanner logicalPlanner = new LogicalPlanner(stateMachine.getSession(),
-                metadata,
-                planOptimizers,
-                idAllocator);
-
-        PlanNode plan = logicalPlanner.plan(analysis);
+        LogicalPlanner logicalPlanner = new LogicalPlanner(stateMachine.getSession(), planOptimizers, idAllocator, metadata, periodicImportManager, storageManager);
+        Plan plan = logicalPlanner.plan(analysis);
 
         // fragment the plan
-        SubPlan subplan = new DistributedLogicalPlanner(metadata, idAllocator).createSubplans(plan, analysis.getSymbolAllocator(), false);
+        SubPlan subplan = new DistributedLogicalPlanner(metadata, idAllocator).createSubplans(plan, false);
 
         stateMachine.getStats().recordAnalysisTime(analysisStart);
         return subplan;

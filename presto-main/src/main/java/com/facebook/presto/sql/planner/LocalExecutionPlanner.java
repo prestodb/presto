@@ -517,6 +517,7 @@ public class LocalExecutionPlanner
                 columns.add(entry.getValue());
             }
 
+
             // introduce a projection to match the expected output
             IdentityProjectionInfo mappings = computeIdentityMapping(symbols.build(), query.getLayout(), types);
             Operator sourceOperator = new FilterAndProjectOperator(query.getOperator(), FilterFunctions.TRUE_FUNCTION, mappings.getProjections());

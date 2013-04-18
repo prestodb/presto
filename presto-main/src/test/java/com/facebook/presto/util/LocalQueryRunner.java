@@ -23,14 +23,14 @@ import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.split.InternalSplit;
 import com.facebook.presto.split.Split;
-import com.facebook.presto.sql.analyzer.AnalysisResult;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.sql.planner.LogicalPlanner;
+import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DistributedLogicalPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
-import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.PlanOptimizersFactory;
 import com.facebook.presto.sql.planner.PlanPrinter;
@@ -38,6 +38,7 @@ import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.storage.MockStorageManager;
@@ -91,32 +92,25 @@ public class LocalQueryRunner
     {
         Statement statement = SqlParser.createStatement(sql);
 
-        Analyzer analyzer = new Analyzer(session,
-                metadata,
-                new MockStorageManager(),
-                new MockPeriodicImportManager());
+        Analyzer analyzer = new Analyzer(session, metadata);
 
-        AnalysisResult analysis = analyzer.analyze(statement);
+        Analysis analysis = analyzer.analyze(statement);
 
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
         PlanOptimizersFactory planOptimizersFactory = new PlanOptimizersFactory(metadata);
-        PlanNode plan = new LogicalPlanner(session,
-                metadata,
-                planOptimizersFactory.get(),
-                idAllocator).plan(analysis);
+        Plan plan = new LogicalPlanner(session, planOptimizersFactory.get(), idAllocator, metadata, new MockPeriodicImportManager(), new MockStorageManager()).plan(analysis);
+        new PlanPrinter().print(plan.getRoot(), plan.getTypes());
 
-        new PlanPrinter().print(plan, analysis.getTypes());
-
-        SubPlan subplan = new DistributedLogicalPlanner(metadata, idAllocator).createSubplans(plan, analysis.getSymbolAllocator(), true);
+        SubPlan subplan = new DistributedLogicalPlanner(metadata, idAllocator).createSubplans(plan, true);
         assertTrue(subplan.getChildren().isEmpty(), "Expected subplan to have no children");
 
-        DataSize maxOperatorMemoryUsage = new DataSize(50, MEGABYTE);
+        DataSize maxOperatorMemoryUsage = new DataSize(256, MEGABYTE);
         LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(session,
                 new NodeInfo(new NodeConfig()
                         .setEnvironment("test")
                         .setNodeId("test-node")),
                 metadata,
-                analysis.getTypes(),
+                plan.getTypes(),
                 new OperatorStats(),
                 new SourceHashProviderFactory(maxOperatorMemoryUsage),
                 maxOperatorMemoryUsage,
