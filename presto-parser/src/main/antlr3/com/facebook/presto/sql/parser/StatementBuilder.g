@@ -64,7 +64,8 @@ selectStmt returns [Query value]
     : selectClause
       fromClause?
       whereClause?
-      (groupClause havingClause?)?
+      groupClause?
+      havingClause?
       orderClause?
       limitClause?
         { $value = new Query(
