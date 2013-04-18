@@ -10,12 +10,12 @@ import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 
 import javax.inject.Provider;
-
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 
@@ -222,6 +222,18 @@ public class FunctionInfo implements Comparable<FunctionInfo>
             public FunctionHandle apply(FunctionInfo input)
             {
                 return input.getHandle();
+            }
+        };
+    }
+
+    public static Predicate<FunctionInfo> isAggregationPredicate()
+    {
+        return new Predicate<FunctionInfo>()
+        {
+            @Override
+            public boolean apply(FunctionInfo functionInfo)
+            {
+                return functionInfo.isAggregate();
             }
         };
     }
