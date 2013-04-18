@@ -130,9 +130,16 @@ public class SplitManager
             Session session,
             TableHandle handle,
             Expression predicate,
-            Optional<Predicate<PartitionInfo>> partitionPredicate,
+            Predicate<PartitionInfo> partitionPredicate,
             Map<Symbol, ColumnHandle> mappings)
     {
+        checkNotNull(planNodeId, "planNodeId is null");
+        checkNotNull(session, "session is null");
+        checkNotNull(handle, "handle is null");
+        checkNotNull(predicate, "predicate is null");
+        checkNotNull(partitionPredicate, "partitionPredicate is null");
+        checkNotNull(mappings, "mappings is null");
+
         switch (handle.getDataSourceType()) {
             case NATIVE:
                 return getNativeSplitAssignments(planNodeId, (NativeTableHandle) handle);
@@ -192,7 +199,7 @@ public class SplitManager
             Session session,
             ImportTableHandle handle,
             Expression predicate,
-            Optional<Predicate<PartitionInfo>> partitionPredicate,
+            Predicate<PartitionInfo> partitionPredicate,
             Map<Symbol, ColumnHandle> mappings)
     {
         final String sourceName = handle.getSourceName();
@@ -227,7 +234,7 @@ public class SplitManager
             String databaseName,
             String tableName,
             Expression predicate,
-            Optional<Predicate<PartitionInfo>> partitionPredicate,
+            Predicate<PartitionInfo> partitionPredicate,
             Map<Symbol, ColumnHandle> mappings)
     {
         BiMap<Symbol, String> symbolToColumn = MapTransformer.of(mappings)
@@ -252,7 +259,7 @@ public class SplitManager
             final String databaseName,
             final String tableName,
             Expression predicate,
-            final Optional<Predicate<PartitionInfo>> partitionPredicate,
+            final Predicate<PartitionInfo> partitionPredicate,
             Map<Symbol, String> symbolToColumnName)
     {
         // Look for any sub-expression in an AND expression of the form <partition key> = 'value'
@@ -325,13 +332,7 @@ public class SplitManager
                             throws Exception
                     {
                         ImportClient importClient = importClientManager.getClient(sourceName);
-                        if (partitionPredicate.isPresent()) {
-                            // TODO: there needs to be a better import client API here that allows pushing the predicate further down.
-                            return Iterables.filter(importClient.getPartitions(databaseName, tableName, bindings), partitionPredicate.get());
-                        }
-                        else {
-                            return importClient.getPartitions(databaseName, tableName, bindings);
-                        }
+                        return Iterables.filter(importClient.getPartitions(databaseName, tableName, bindings), partitionPredicate);
                     }
                 });
     }
@@ -580,12 +581,12 @@ public class SplitManager
         Map<String, Node> nodeMap = getNodeMap(nodeManager.getActiveNodes());
         ImmutableList.Builder<SplitAssignments> splitAssignments = ImmutableList.builder();
 
-        int tableSplit = nodeMap.size();
-        int tableSkew = 0;
+        int totalParts = nodeMap.size();
+        int partNumber = 0;
 
         // Split the data using split and skew by the number of nodes available.
         for (Map.Entry<String, Node> entry : nodeMap.entrySet()) {
-            TpchSplit tpchSplit = new TpchSplit(handle, tableSkew++, tableSplit);
+            TpchSplit tpchSplit = new TpchSplit(handle, partNumber++, totalParts);
             splitAssignments.add(new SplitAssignments(ImmutableMap.of(planNodeId, tpchSplit), ImmutableList.of(entry.getValue())));
         }
 

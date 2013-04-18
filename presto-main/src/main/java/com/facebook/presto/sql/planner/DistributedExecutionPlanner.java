@@ -30,9 +30,9 @@ import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.log.Logger;
 
 import javax.inject.Inject;
 
@@ -47,8 +47,6 @@ import static com.google.common.base.Preconditions.checkState;
 
 public class DistributedExecutionPlanner
 {
-    private static final Logger log = Logger.get(DistributedExecutionPlanner.class);
-
     private final SplitManager splitManager;
     private final Session session;
     private final ShardManager shardManager;
@@ -94,12 +92,12 @@ public class DistributedExecutionPlanner
 
     public static final class VisitorContext
     {
-        private static final VisitorContext INITIAL_VISITOR_CONTEXT = new VisitorContext(BooleanLiteral.TRUE_LITERAL, Optional.<Predicate<PartitionInfo>>absent());
+        private static final VisitorContext INITIAL_VISITOR_CONTEXT = new VisitorContext(BooleanLiteral.TRUE_LITERAL, Predicates.<PartitionInfo>alwaysTrue());
 
         private final Expression inheritedPredicate;
-        private final Optional<Predicate<PartitionInfo>> partitionPredicate;
+        private final Predicate<PartitionInfo> partitionPredicate;
 
-        private VisitorContext(Expression inheritedPredicate, Optional<Predicate<PartitionInfo>> partitionPredicate)
+        private VisitorContext(Expression inheritedPredicate, Predicate<PartitionInfo> partitionPredicate)
         {
             this.inheritedPredicate = inheritedPredicate;
             this.partitionPredicate = partitionPredicate;
@@ -110,7 +108,7 @@ public class DistributedExecutionPlanner
             return inheritedPredicate;
         }
 
-        public Optional<Predicate<PartitionInfo>> getPartitionPredicate()
+        public Predicate<PartitionInfo> getPartitionPredicate()
         {
             return partitionPredicate;
         }
@@ -260,8 +258,7 @@ public class DistributedExecutionPlanner
             TableWriter tableWriter = new TableWriter(node, shardManager);
 
             Optional<Iterable<SplitAssignments>> splits = node.getSource().accept(this,
-                    new VisitorContext(context.getInheritedPredicate(),
-                            Optional.of(tableWriter.getPartitionPredicate())));
+                    new VisitorContext(context.getInheritedPredicate(), tableWriter.getPartitionPredicate()));
             checkState(splits.isPresent(), "No splits present for import");
 
             outputReceivers.put(node.getId(), tableWriter.getOutputReceiver());

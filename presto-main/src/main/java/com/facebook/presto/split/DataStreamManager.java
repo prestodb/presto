@@ -3,6 +3,7 @@ package com.facebook.presto.split;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.DataSourceType;
 import com.facebook.presto.operator.Operator;
+import com.facebook.presto.tpch.TpchDataStreamProvider;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 
@@ -15,7 +16,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class DataStreamManager
     implements DataStreamProvider
 {
-    private final Map<DataSourceType, DataStreamProvider> dataStreamProviderMap;
+    private Map<DataSourceType, DataStreamProvider> dataStreamProviderMap = null;
 
     @Inject
     public DataStreamManager(
@@ -32,6 +33,16 @@ public class DataStreamManager
                 .put(DataSourceType.INTERNAL, internalProvider)
                 .put(DataSourceType.IMPORT, importProvider)
                 .build();
+    }
+
+    // only used in TestDistributedQueries to get the Tpch stuff in.
+    @Inject(optional = true)
+    public synchronized void addTpchDatastreamProvider(TpchDataStreamProvider tpchDataStreamProvider)
+    {
+        ImmutableMap.Builder<DataSourceType, DataStreamProvider> builder = ImmutableMap.builder();
+        builder.putAll(dataStreamProviderMap);
+        builder.put(DataSourceType.TPCH, tpchDataStreamProvider);
+        this.dataStreamProviderMap = builder.build();
     }
 
     private DataStreamProvider lookup(DataSourceType dataSourceType)

@@ -3,10 +3,9 @@ package com.facebook.presto;
 import com.facebook.presto.ingest.RecordCursor;
 import com.facebook.presto.ingest.RecordSet;
 import com.facebook.presto.metadata.ColumnMetadata;
-import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableMetadata;
+import com.facebook.presto.metadata.TestingMetadata;
 import com.facebook.presto.operator.OperatorStats;
-import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.tpch.TpchDataStreamProvider;
 import com.facebook.presto.tpch.TpchSchema;
 import com.facebook.presto.tuple.Tuple;
@@ -50,7 +49,7 @@ import static org.testng.Assert.fail;
 public abstract class AbstractTestQueries
 {
     private Handle handle;
-    private Metadata metadata;
+    private TestingMetadata metadata;
     private TpchDataStreamProvider dataProvider;
 
     @Test
@@ -853,7 +852,7 @@ public abstract class AbstractTestQueries
         handle.close();
     }
 
-    protected void setUpQueryFramework(String catalog, String schema, DataStreamProvider dataStreamProvider, Metadata metadata)
+    protected void setUpQueryFramework(String catalog, String schema, TpchDataStreamProvider dataStreamProvider, TestingMetadata metadata)
             throws Exception
     {
     }

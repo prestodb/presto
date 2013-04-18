@@ -1,5 +1,7 @@
 package com.facebook.presto.hive;
 
+import javax.annotation.concurrent.ThreadSafe;
+
 import com.facebook.presto.hive.util.AsyncRecursiveWalker;
 import com.facebook.presto.hive.util.BoundedExecutor;
 import com.facebook.presto.hive.util.FileStatusCallback;
@@ -489,8 +491,7 @@ public class HiveClient
                         InputSplit[] splits = inputFormat.getSplits(jobConf, 0);
                         for (InputSplit rawSplit : splits) {
                             FileSplit split = ((SymlinkTextInputSplit) rawSplit).getTargetSplit();
-                            chunkPoisoner.writeChunks(createHivePartitionChunks(partitionName,
-                                    fs.getFileStatus(split.getPath()),
+                            chunkPoisoner.writeChunks(createHivePartitionChunks(partitionName, fs.getFileStatus(split.getPath()),
                                     split.getStart(),
                                     split.getLength(),
                                     schema,
@@ -620,12 +621,13 @@ public class HiveClient
          * Holds onto the last seen partition chunk for a given partition and
          * will "poison" it with an end marker when a partition is finished.
          */
+        @ThreadSafe
         private static class PartitionChunkPoisoner
         {
             private final PartitionChunkQueue partitionChunkQueue;
 
-            private AtomicReference<HivePartitionChunk> chunkHolder = new AtomicReference<>();
-            private AtomicBoolean done = new AtomicBoolean();
+            private final AtomicReference<HivePartitionChunk> chunkHolder = new AtomicReference<>();
+            private final AtomicBoolean done = new AtomicBoolean();
 
             private PartitionChunkPoisoner(PartitionChunkQueue partitionChunkQueue)
             {
@@ -637,8 +639,8 @@ public class HiveClient
                 checkNotNull(chunks, "chunks is null");
                 checkState(!done.get(), "already done");
 
-                for(Iterator<HivePartitionChunk> it = chunks.iterator(); it.hasNext(); ) {
-                    HivePartitionChunk previousChunk = chunkHolder.getAndSet(it.next());
+                for (HivePartitionChunk chunk : chunks) {
+                    HivePartitionChunk previousChunk = chunkHolder.getAndSet(chunk);
                     if (previousChunk != null) {
                         partitionChunkQueue.addToQueue(previousChunk);
                     }

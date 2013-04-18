@@ -3,10 +3,10 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.operator.TableWriterResult;
 import com.facebook.presto.spi.PartitionInfo;
+import com.facebook.presto.split.NativeSplit;
 import com.facebook.presto.split.PartitionedSplit;
 import com.facebook.presto.split.Split;
 import com.facebook.presto.split.SplitAssignments;
-import com.facebook.presto.split.WritingSplit;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.google.common.base.Predicate;
@@ -54,7 +54,7 @@ public class TableWriter
     {
         return new OutputReceiver() {
             @Override
-            public void receive(Object result)
+            public void updateOutput(Object result)
             {
                 @SuppressWarnings("unchecked")
                 TableWriterResult tableWriterResult = TableWriterResult.forMap((Map<String, Object>) result);
@@ -104,7 +104,14 @@ public class TableWriter
         if (shardId != null) {
             builder.add(shardId);
         }
+        else {
+            checkState(lastSplit, "shardId == null and lastSplit unset!");
+        }
         Set<Long> shardIds = builder.build();
+
+        // This can only happen if the method gets called with a partition name, and no shard id and the last split
+        // is set. As this only happens to close out the partitions that we saw before (a loop over openPartitions),
+        // so any partition showing up here must have at least one split.
         checkState(shardIds.size() > 0, "Never saw a split for partition %s", partition);
 
         if (lastSplit) {
@@ -167,7 +174,7 @@ public class TableWriter
                 checkState(sourceSplits.size() == 1, "Can only augment single table splits");
                 Map.Entry<PlanNodeId, ? extends Split> split = Iterables.getOnlyElement(sourceSplits.entrySet());
 
-                WritingSplit writingSplit = new WritingSplit(shardManager.allocateShard(node.getTableHandle()));
+                NativeSplit writingSplit = new NativeSplit(shardManager.allocateShard(node.getTableHandle()));
 
                 String partition = "unpartitioned";
                 boolean lastSplit = false;

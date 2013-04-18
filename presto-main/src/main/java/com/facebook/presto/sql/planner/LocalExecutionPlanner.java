@@ -528,10 +528,18 @@ public class LocalExecutionPlanner
 
             Symbol outputSymbol = Iterables.getOnlyElement(node.getOutputTypes().keySet());
 
+
+            ImmutableList.Builder<ColumnHandle> columnHandlesBuilder = ImmutableList.builder();
+
+            for (Symbol inputSymbol : node.getInputSymbols()) {
+                ColumnHandle columnHandle = node.getColumnHandles().get(inputSymbol);
+                checkState(columnHandle != null, "No column handle for %s found!", inputSymbol);
+                columnHandlesBuilder.add(columnHandle);
+            }
+
             TableWriterOperator operator = new TableWriterOperator(storageManager,
                     nodeInfo.getNodeId(),
-                    node.getInputSymbols(),
-                    node.getColumnHandles(),
+                    columnHandlesBuilder.build(),
                     sourceOperator);
 
             context.addSourceOperator(node, operator);

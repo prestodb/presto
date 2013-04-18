@@ -10,8 +10,8 @@ public abstract class TpchBlocksProvider
 {
     public abstract BlockIterable getBlocks(TpchTableHandle tableHandle,
             TpchColumnHandle columnHandle,
-            int tableSkew,
-            int tableSplit,
+            int partNumber,
+            int totalParts,
             BlocksFileEncoding encoding);
 
     @VisibleForTesting
@@ -24,7 +24,7 @@ public abstract class TpchBlocksProvider
 
     public abstract DataSize getColumnDataSize(TpchTableHandle tableHandle,
             TpchColumnHandle columnHandle,
-            int tableSkew,
-            int tableSplit,
+            int partNumber,
+            int totalParts,
             BlocksFileEncoding encoding);
 }
