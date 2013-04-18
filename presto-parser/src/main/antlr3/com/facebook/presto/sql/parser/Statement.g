@@ -151,7 +151,8 @@ selectStmt
     : selectClause
       fromClause?
       whereClause?
-      (groupClause havingClause?)?
+      groupClause?
+      havingClause?
       orderClause?
       limitClause?
     ;
