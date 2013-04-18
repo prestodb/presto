@@ -1,5 +1,6 @@
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.presto.sql.planner.Symbol;
 import com.google.common.base.Preconditions;
 
 import java.util.Map;

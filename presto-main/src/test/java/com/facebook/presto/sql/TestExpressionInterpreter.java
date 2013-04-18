@@ -2,7 +2,7 @@ package com.facebook.presto.sql;
 
 import com.facebook.presto.metadata.TestingMetadata;
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.analyzer.Symbol;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.InputResolver;
 import com.facebook.presto.sql.planner.SymbolResolver;
