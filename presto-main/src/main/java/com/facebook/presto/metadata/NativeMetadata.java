@@ -49,6 +49,12 @@ public class NativeMetadata
     }
 
     @Override
+    public boolean isAggregationFunction(QualifiedName name)
+    {
+        return functions.isAggregationFunction(name);
+    }
+
+    @Override
     public List<FunctionInfo> listFunctions()
     {
         return functions.list();

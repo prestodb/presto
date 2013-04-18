@@ -68,6 +68,12 @@ public class MetadataManager
     }
 
     @Override
+    public boolean isAggregationFunction(QualifiedName name)
+    {
+        return lookup(DataSourceType.NATIVE).isAggregationFunction(name);
+    }
+
+    @Override
     public List<FunctionInfo> listFunctions()
     {
         return lookup(DataSourceType.NATIVE).listFunctions();
