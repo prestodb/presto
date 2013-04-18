@@ -3,13 +3,11 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.event.query.QueryCompletionEvent;
 import com.facebook.presto.event.query.QueryCreatedEvent;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.event.query.SplitCompletionEvent;
-import com.facebook.presto.execution.CreateOrReplaceMaterializedViewExecution.CreateOrReplaceMaterializedViewExecutionFactory;
 import com.facebook.presto.execution.DropTableExecution.DropTableExecutionFactory;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
@@ -23,7 +21,6 @@ import com.facebook.presto.execution.SitevarsConfig;
 import com.facebook.presto.execution.SqlQueryExecution.SqlQueryExecutionFactory;
 import com.facebook.presto.execution.SqlQueryManager;
 import com.facebook.presto.execution.SqlTaskManager;
-import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.importer.ForPeriodicImport;
