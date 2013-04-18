@@ -1,6 +1,6 @@
-package com.facebook.presto.sql.analyzer;
+package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
