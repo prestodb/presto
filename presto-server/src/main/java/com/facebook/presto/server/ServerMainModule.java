@@ -230,6 +230,7 @@ public class ServerMainModule
         binder.bind(JobStateFactory.class).in(Scopes.SINGLETON);
         binder.bind(PeriodicImportRunnable.PeriodicImportRunnableFactory.class).in(Scopes.SINGLETON);
         ExportBinder.newExporter(binder).export(PeriodicImportController.class).as("com.facebook.presto:name=periodic-import");
+        HttpClientBinder.httpClientBinder(binder).bindAsyncHttpClient("periodic-importer", ForPeriodicImport.class).withTracing();
 
         bindConfig(binder).to(SitevarsConfig.class);
         binder.bind(Sitevars.class).in(Scopes.SINGLETON);
