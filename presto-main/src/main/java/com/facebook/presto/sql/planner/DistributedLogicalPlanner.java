@@ -51,10 +51,10 @@ public class DistributedLogicalPlanner
         this.idAllocator = idAllocator;
     }
 
-    public SubPlan createSubplans(PlanNode plan, SymbolAllocator allocator, boolean createSingleNodePlan)
+    public SubPlan createSubplans(Plan plan, boolean createSingleNodePlan)
     {
-        Visitor visitor = new Visitor(allocator, createSingleNodePlan);
-        SubPlanBuilder builder = plan.accept(visitor, null);
+        Visitor visitor = new Visitor(plan.getSymbolAllocator(), createSingleNodePlan);
+        SubPlanBuilder builder = plan.getRoot().accept(visitor, null);
 
         SubPlan subplan = builder.build();
         subplan.sanityCheck();

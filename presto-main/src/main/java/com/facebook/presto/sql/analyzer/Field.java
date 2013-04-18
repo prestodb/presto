@@ -1,58 +1,46 @@
 package com.facebook.presto.sql.analyzer;
 
-import com.facebook.presto.metadata.ColumnHandle;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.google.common.base.Function;
 import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class Field
 {
-    private final Optional<QualifiedName> prefix;
-    private final Optional<String> attribute;
-    private final Optional<ColumnHandle> column;
-    private final Symbol symbol;
+    private final Optional<QualifiedName> relationAlias;
+    private final Optional<String> name;
     private final Type type;
+    private final int index;
 
-    public static final Field createField(String attribute, Symbol symbol, Type type)
+
+    public Field(QualifiedName relationAlias, Optional<String> name, Type type, int index)
     {
-        return new Field(Optional.<QualifiedName>absent(), Optional.of(attribute), Optional.<ColumnHandle>absent(), symbol, type);
-    }
+        checkNotNull(relationAlias, "relationAlias is null");
+        checkNotNull(name, "name is null");
+        checkNotNull(type, "type is null");
 
-    public Field(Optional<QualifiedName> prefix, Optional<String> attribute, Optional<ColumnHandle> column, Symbol symbol, Type type)
-    {
-        Preconditions.checkNotNull(prefix, "prefix is null");
-        Preconditions.checkNotNull(attribute, "attribute is null");
-        Preconditions.checkNotNull(column, "column is null");
-        Preconditions.checkNotNull(symbol, "symbol is null");
-        Preconditions.checkNotNull(type, "type is null");
-
-        this.prefix = prefix;
-        this.attribute = attribute;
-        this.column = column;
-        this.symbol = symbol;
+        this.index = index;
+        this.relationAlias = Optional.of(relationAlias);
+        this.name = name;
         this.type = type;
     }
 
-    public Optional<QualifiedName> getPrefix()
+    public Field(Optional<String> name, Type type, int index)
     {
-        return prefix;
+        this.index = index;
+        this.relationAlias = Optional.absent();
+        this.name = name;
+        this.type = type;
     }
 
-    public Optional<String> getAttribute()
+    public Optional<QualifiedName> getRelationAlias()
     {
-        return attribute;
+        return relationAlias;
     }
 
-    public Optional<ColumnHandle> getColumn()
+    public Optional<String> getName()
     {
-        return column;
-    }
-
-    public Symbol getSymbol()
-    {
-        return symbol;
+        return name;
     }
 
     public Type getType()
@@ -60,52 +48,63 @@ public class Field
         return type;
     }
 
-    /**
-     * This method can only be called if this field's prefix and attribute are present
-     */
-    public QualifiedName getName()
+    public int getIndex()
     {
-        return QualifiedName.of(prefix.get(), attribute.get());
+        return index;
     }
 
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        Field field = (Field) o;
+
+        if (index != field.index) {
+            return false;
+        }
+        if (!name.equals(field.name)) {
+            return false;
+        }
+        if (!relationAlias.equals(field.relationAlias)) {
+            return false;
+        }
+        if (type != field.type) {
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        int result = relationAlias.hashCode();
+        result = 31 * result + name.hashCode();
+        result = 31 * result + type.hashCode();
+        result = 31 * result + index;
+        return result;
+    }
+
+    @Override
     public String toString()
     {
-        return String.format("%s.%s:%s:%s", prefix.or(QualifiedName.of("<anonymous>")), attribute.or("<anonymous>"), symbol, type);
+        StringBuilder result = new StringBuilder();
+        if (relationAlias.isPresent()) {
+            result.append(relationAlias.get())
+                    .append(".");
+        }
+
+        result.append(name.or("@" + index))
+                .append(":")
+                .append(type);
+
+        return result.toString();
     }
 
-    public static Function<Field, QualifiedName> nameGetter()
-    {
-        return new Function<Field, QualifiedName>()
-        {
-            @Override
-            public QualifiedName apply(Field input)
-            {
-                return input.getName();
-            }
-        };
-    }
-
-    public static Function<Field, Symbol> symbolGetter()
-    {
-        return new Function<Field, Symbol>()
-        {
-            @Override
-            public Symbol apply(Field input)
-            {
-                return input.getSymbol();
-            }
-        };
-    }
-
-    public static Function<Field, Optional<String>> attributeGetter()
-    {
-        return new Function<Field, Optional<String>>()
-        {
-            @Override
-            public Optional<String> apply(Field input)
-            {
-               return input.getAttribute();
-            }
-        };
-    }
 }

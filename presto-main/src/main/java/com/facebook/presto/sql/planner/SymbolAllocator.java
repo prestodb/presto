@@ -1,62 +1,75 @@
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.sql.analyzer.Analysis;
+import com.facebook.presto.sql.analyzer.Field;
+import com.facebook.presto.sql.analyzer.FieldOrExpression;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableMap;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 
 public class SymbolAllocator
 {
-    private final Set<String> blacklist = new HashSet<>();
     private final Map<Symbol, Type> symbols = new HashMap<>();
 
-    public void blacklist(String name)
+    public Symbol newSymbol(String nameHint, Type type)
     {
-        blacklist.add(name);
-    }
+        Preconditions.checkNotNull(nameHint, "name is null");
 
-    public Symbol newSymbol(final String name, Type type)
-    {
-        Preconditions.checkNotNull(name, "name is null");
+        if (nameHint.contains("_")) {
+            nameHint = nameHint.substring(0, nameHint.indexOf("_"));
+        }
 
-        String unique = name;
+        String unique = nameHint;
 
         int id = 1;
-        while (symbols.containsKey(new Symbol(unique)) || blacklist.contains(unique)) {
-            unique = name + "_"+ id;
+        while (symbols.containsKey(new Symbol(unique))) {
+            unique = nameHint + "_"+ id;
             id++;
         }
 
         Symbol symbol = new Symbol(unique);
         symbols.put(symbol, type);
-
         return symbol;
     }
 
     public Symbol newSymbol(Expression expression, Type type)
     {
+        String nameHint = "expr";
         if (expression instanceof QualifiedNameReference) {
-            QualifiedName name = ((QualifiedNameReference) expression).getName();
-            return new Symbol(name.getSuffix());
+            nameHint = ((QualifiedNameReference) expression).getName().getSuffix();
+        }
+        else if (expression instanceof FunctionCall) {
+            nameHint = ((FunctionCall) expression).getName().getSuffix();
         }
 
-        return newSymbol("expr", type);
+        return newSymbol(nameHint, type);
     }
 
-    public Type getType(Symbol symbol)
+    public Symbol newSymbol(Field field)
     {
-        return symbols.get(symbol);
+        String nameHint = field.getName().or("col" + field.getIndex());
+        return newSymbol(nameHint, field.getType());
+    }
+
+    public Symbol newSymbol(FieldOrExpression fieldOrExpression, Analysis analysis)
+    {
+        if (fieldOrExpression.getField().isPresent()) {
+            Field field = fieldOrExpression.getField().get();
+            return newSymbol(field);
+        }
+        else {
+            Expression expression = fieldOrExpression.getExpression().get();
+            return newSymbol(expression, analysis.getType(expression));
+        }
     }
 
     public Map<Symbol, Type> getTypes()
     {
-        return ImmutableMap.copyOf(symbols);
+        return symbols;
     }
 }

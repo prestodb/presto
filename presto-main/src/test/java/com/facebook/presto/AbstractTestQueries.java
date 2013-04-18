@@ -151,7 +151,7 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT DISTINCT custkey FROM orders ORDER BY custkey LIMIT 10");
     }
 
-    @Test(expectedExceptions = Exception.class, expectedExceptionsMessageRegExp = "Expressions must appear in select list for SELECT DISTINCT, ORDER BY.*")
+    @Test(expectedExceptions = Exception.class, expectedExceptionsMessageRegExp = "For SELECT DISTINCT, ORDER BY expressions must appear in select list")
     public void testDistinctWithOrderByNotInSelect()
             throws Exception
     {
@@ -686,18 +686,41 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT orderkey, orderstatus FROM orders ORDER BY custkey DESC, orderstatus");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testOrderByAlias()
             throws Exception
     {
         assertQueryOrdered("SELECT orderstatus x FROM orders ORDER BY x ASC");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testOrderByAliasWithSameNameAsUnselectedColumn()
             throws Exception
     {
         assertQueryOrdered("SELECT orderstatus orderdate FROM orders ORDER BY orderdate ASC");
+    }
+
+    @Test
+    public void testOrderByOrdinal()
+            throws Exception
+    {
+        assertQueryOrdered("SELECT orderstatus, orderdate FROM orders ORDER BY 2, 1");
+    }
+
+    @Test
+    public void testOrderByOrdinalWithWildcard()
+            throws Exception
+    {
+        assertQueryOrdered("SELECT * FROM orders ORDER BY 1");
+    }
+
+    @Test
+    public void testGroupByOrdinal()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT orderstatus, sum(totalprice) FROM orders GROUP BY 1",
+                "SELECT orderstatus, sum(totalprice) FROM orders GROUP BY orderstatus");
     }
 
     @SuppressWarnings("PointlessArithmeticExpression")

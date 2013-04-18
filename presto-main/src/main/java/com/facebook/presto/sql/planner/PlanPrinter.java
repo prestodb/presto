@@ -15,6 +15,7 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.ComparisonExpression;
@@ -215,6 +216,17 @@ public class PlanPrinter
             });
 
             print(indent, "- Sort[%s] => [%s]", Joiner.on(", ").join(keys), formatOutputs(node.getOutputSymbols()));
+            return processChildren(node, indent + 1);
+        }
+
+        @Override
+        public Void visitTableWriter(TableWriterNode node, Integer indent)
+        {
+            print(indent, "- TableWrite[%s] => [%s]", node.getTable(), formatOutputs(node.getOutputSymbols()));
+            for (Map.Entry<Symbol, ColumnHandle> entry : node.getColumns().entrySet()) {
+                print(indent + 2, "%s := %s", entry.getValue(), entry.getKey());
+            }
+
             return processChildren(node, indent + 1);
         }
 
