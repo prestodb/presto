@@ -264,18 +264,19 @@ public class StatementResource
             QueryInfo queryInfo = queryManager.getQueryInfo(queryId, false);
 
             // close exchange client if the query has failed
-            if (queryInfo.getState().isDone() && (queryInfo.getState() != QueryState.FINISHED)) {
-                exchangeClient.close();
-            }
+            if (queryInfo.getState().isDone()) {
+                if (queryInfo.getState() != QueryState.FINISHED) {
+                    exchangeClient.close();
+                }
+                else if (queryInfo.getOutputStage() == null) {
+                    // For simple executions (e.g. drop table), there will never be an output stage,
+                    // so close the exchange as soon as the query is done.
+                    exchangeClient.close();
 
-            // For simple executions (e.g. drop table), there will never be an output stage,
-            // so close the exchange as soon as the query is done.
-            if (queryInfo.getOutputStage() == null && queryInfo.getState().isDone()) {
-                exchangeClient.close();
-
-                // this is a hack to suppress the warn message in the client saying that there are no columns.
-                columns = ImmutableList.of(new Column("result", "varchar"));
-                data = ImmutableSet.<List<Object>>of(ImmutableList.<Object>of("true"));
+                    // this is a hack to suppress the warn message in the client saying that there are no columns.
+                    columns = ImmutableList.of(new Column("result", "varchar"));
+                    data = ImmutableSet.<List<Object>>of(ImmutableList.<Object>of("true"));
+                }
             }
 
             // only return a next if the query is not done or there is more data to send (due to buffering)
