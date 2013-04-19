@@ -99,8 +99,12 @@ public class PeriodicImportRunnable
 
     private URI serverUri()
     {
-        checkState(serverInfo.getHttpUri() != null, "No HTTP URI for this server (HTTP disabled?)");
-        return serverInfo.getHttpUri();
+        URI serverUri = serverInfo.getHttpUri();
+        if (serverUri == null) {
+            serverUri = serverInfo.getHttpsUri();
+        }
+        checkState(serverUri != null, "no uri for the server present!");
+        return serverUri;
     }
 
     private static <T> Iterator<T> flatten(Iterator<Iterable<T>> iterator)
