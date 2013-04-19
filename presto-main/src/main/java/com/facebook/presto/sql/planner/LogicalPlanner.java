@@ -30,7 +30,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
-import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
@@ -202,20 +201,17 @@ public class LogicalPlanner
 
     private PlanNode createOutputPlan(RelationPlan plan, Analysis analysis)
     {
-        int i = 0;
-        List<String> names = new ArrayList<>();
-        ImmutableMap.Builder<String, Symbol> assignments = ImmutableMap.builder();
+        ImmutableList.Builder<String> names = ImmutableList.builder();
+        ImmutableList.Builder<Symbol> outputs = ImmutableList.builder();
+
         for (Field field : analysis.getOutputDescriptor().getFields()) {
-            String name = field.getName().orNull();
-            while (name == null || names.contains(name)) {
-                // TODO: this shouldn't be necessary once OutputNode uses Multimaps (requires updating to Jackson 2 for serialization support)
-                i++;
-                name = "_col" + i;
-            }
+            String name = field.getName()
+                    .or("_col" + (field.getIndex() + 1));
+
             names.add(name);
-            assignments.put(name, plan.getSymbol(field));
+            outputs.add(plan.getSymbol(field));
         }
 
-        return new OutputNode(idAllocator.getNextId(), plan.getRoot(), names, assignments.build());
+        return new OutputNode(idAllocator.getNextId(), plan.getRoot(), names.build(), outputs.build());
     }
 }

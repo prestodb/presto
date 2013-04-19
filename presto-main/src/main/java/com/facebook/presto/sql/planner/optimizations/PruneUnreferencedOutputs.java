@@ -201,9 +201,9 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode rewriteOutput(OutputNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
         {
-            Set<Symbol> expectedInputs = ImmutableSet.copyOf(node.getAssignments().values());
+            Set<Symbol> expectedInputs = ImmutableSet.copyOf(node.getOutputSymbols());
             PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs);
-            return new OutputNode(node.getId(), source, node.getColumnNames(), node.getAssignments());
+            return new OutputNode(node.getId(), source, node.getColumnNames(), node.getOutputSymbols());
         }
 
         @Override
