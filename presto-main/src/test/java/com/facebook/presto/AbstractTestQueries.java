@@ -775,6 +775,13 @@ public abstract class AbstractTestQueries
                 "SELECT custkey, orderstatus, totalprice + 1 FROM orders");
     }
 
+    @Test
+    public void testSameInputToAggregates()
+            throws Exception
+    {
+        assertQuery("SELECT max(a), max(b) FROM (SELECT custkey a, custkey b FROM orders) x");
+    }
+
     @SuppressWarnings("PointlessArithmeticExpression")
     @Test
     public void testWindowFunctionsExpressions()
