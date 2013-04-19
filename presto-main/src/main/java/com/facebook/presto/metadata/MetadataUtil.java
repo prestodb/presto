@@ -158,8 +158,8 @@ public class MetadataUtil
     }
 
     public static TableMetadata createTable(Metadata metadata,
-                                            QualifiedTableName table,
-                                            List<ColumnMetadata> columns)
+            QualifiedTableName table,
+            List<ColumnMetadata> columns)
     {
         checkNotNull(metadata, "metadata is null");
         checkNotNull(table, "table is null");
