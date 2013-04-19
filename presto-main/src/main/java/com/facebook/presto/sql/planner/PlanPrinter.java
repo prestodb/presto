@@ -179,8 +179,9 @@ public class PlanPrinter
             print(indent, "- Output[%s]", Joiner.on(", ").join(node.getColumnNames()));
             for (int i = 0; i < node.getColumnNames().size(); i++) {
                 String name = node.getColumnNames().get(i);
-                if (!name.equals(node.getAssignments().get(name).toString())) {
-                    print(indent + 2, "%s := %s", name, node.getAssignments().get(name));
+                Symbol symbol = node.getOutputSymbols().get(i);
+                if (!name.equals(symbol.toString())) {
+                    print(indent + 2, "%s := %s", name, symbol);
                 }
             }
 
