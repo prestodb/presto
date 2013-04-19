@@ -90,7 +90,7 @@ public class Query
             waitForData();
         }
 
-        if ((!client.isFailed()) && (!client.isGone())) {
+        if ((!client.isFailed()) && (!client.isGone()) && (!client.isClosed())) {
             QueryResults results = client.isValid() ? client.current() : client.finalResults();
             if (results.getColumns() == null) {
                 errorChannel.printf("Query %s has no columns\n", results.getId());
