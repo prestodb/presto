@@ -63,10 +63,13 @@ public abstract class AbstractSqlBenchmark
 
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
         PlanOptimizersFactory planOptimizersFactory = new PlanOptimizersFactory(metadata);
-        PlanNode plan = new LogicalPlanner(session,
+
+        LogicalPlanner planner = new LogicalPlanner(session,
                 metadata,
                 planOptimizersFactory.get(),
-                idAllocator).plan(analysis);
+                idAllocator);
+
+        PlanNode plan = planner.plan(analysis);
 
         fragment = new DistributedLogicalPlanner(metadata, idAllocator)
                 .createSubplans(plan, analysis.getSymbolAllocator(), true)

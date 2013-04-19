@@ -14,7 +14,7 @@ public class MockStorageManager
     private final ConcurrentMap<NativeTableHandle, QualifiedTableName> tables = new ConcurrentHashMap<>();
 
     @Override
-    public void insertSourceTable(NativeTableHandle tableHandle, QualifiedTableName sourceTableName)
+    public void insertTableSource(NativeTableHandle tableHandle, QualifiedTableName sourceTableName)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         checkNotNull(sourceTableName, "sourceTableName is null");
@@ -23,14 +23,14 @@ public class MockStorageManager
     }
 
     @Override
-    public QualifiedTableName getSourceTable(NativeTableHandle tableHandle)
+    public QualifiedTableName getTableSource(NativeTableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         return tables.get(tableHandle);
     }
 
     @Override
-    public void dropSourceTable(NativeTableHandle tableHandle)
+    public void dropTableSource(NativeTableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         tables.remove(tableHandle);

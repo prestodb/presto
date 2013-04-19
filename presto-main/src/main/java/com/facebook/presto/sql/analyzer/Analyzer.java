@@ -279,7 +279,7 @@ public class Analyzer
             QualifiedTableName srcTableName = getTableNameFromQuery(session, queryAnalysis);
 
             // create source table and optional import information
-            storageManager.insertSourceTable(((NativeTableHandle) dstTableHandle.get()), srcTableName);
+            storageManager.insertTableSource(((NativeTableHandle) dstTableHandle.get()), srcTableName);
 
             return tableWriterResult(context, dstTableName, queryAnalysis);
         }
@@ -292,8 +292,6 @@ public class Analyzer
 
             AnalyzedOutput output = new AnalyzedOutput(new TupleDescriptor(ImmutableList.<Field>of(resultField)),
                     ImmutableMap.of(resultField.getSymbol(), resultFieldExpression));
-
-            AnalyzedDestination destination = new AnalyzedDestination(dstTableName);
 
             context.addDestination(dstTableName, queryAnalysis);
 
@@ -321,7 +319,7 @@ public class Analyzer
             checkState(dstTableHandle.isPresent(), "can not import into a table without table handle");
             checkState(dstTableHandle.get().getDataSourceType() == DataSourceType.NATIVE, "can not import into non-native table %s", dstTableMetadata.getTable());
 
-            QualifiedTableName srcTableName = storageManager.getSourceTable((NativeTableHandle) dstTableHandle.get());
+            QualifiedTableName srcTableName = storageManager.getTableSource((NativeTableHandle) dstTableHandle.get());
 
             Query query = new Query(new Select(false, ImmutableList.<Expression>of(new AllColumns())),
                     ImmutableList.<Relation>of(new Table(srcTableName.asQualifiedName())),
