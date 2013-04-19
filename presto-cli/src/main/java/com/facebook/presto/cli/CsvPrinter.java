@@ -9,7 +9,7 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class CsvPrinter
-        extends OutputHandler
+        implements OutputPrinter
 {
     private final CSVWriter writer;
 
@@ -20,15 +20,17 @@ public class CsvPrinter
     }
 
     @Override
-    public void processRow(List<?> values)
+    public void printRows(List<List<?>> rows)
             throws IOException
     {
-        writer.writeNext(toStrings(values));
-        checkError();
+        for (List<?> row : rows) {
+            writer.writeNext(toStrings(row));
+            checkError();
+        }
     }
 
     @Override
-    public void close()
+    public void finish()
             throws IOException
     {
         writer.flush();
