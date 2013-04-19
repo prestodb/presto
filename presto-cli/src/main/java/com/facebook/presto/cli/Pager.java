@@ -80,7 +80,7 @@ public class Pager
     private static RuntimeException propagateIOException(IOException e)
     {
         // TODO: check if the pager exited and verify the exit status?
-        if ("Broken pipe".equals(e.getMessage())) {
+        if ("Broken pipe".equals(e.getMessage()) || "Stream closed".equals(e.getMessage())) {
             throw new QueryAbortedException(e);
         }
         throw Throwables.propagate(e);
