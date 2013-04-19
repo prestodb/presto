@@ -49,6 +49,7 @@ public class Analysis
     private Optional<Integer> refreshInterval;
     private boolean refresh;
 
+    private int nextRelationId;
 
     public Query getQuery()
     {
@@ -244,6 +245,11 @@ public class Analysis
     public void setRefreshInterval(Optional<Integer> refreshInterval)
     {
         this.refreshInterval = refreshInterval;
+    }
+
+    public int getNextRelationId()
+    {
+        return nextRelationId++;
     }
 }
 

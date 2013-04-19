@@ -224,7 +224,7 @@ class StatementAnalyzer
         // Analyze the query that creates the table...
         process(node.getTableDefinition(), context);
 
-        return new TupleDescriptor(ImmutableList.of(new Field(Optional.of("imported_rows"), Type.LONG, 0)));
+        return new TupleDescriptor(ImmutableList.of(new Field(analysis.getNextRelationId(), Optional.of("imported_rows"), Type.LONG, 0)));
     }
 
     @Override
@@ -241,7 +241,7 @@ class StatementAnalyzer
         analysis.setDestination(targetTable);
         analysis.setDoRefresh(true);
 
-        return new TupleDescriptor(ImmutableList.of(new Field(Optional.of("imported_rows"), Type.LONG, 0)));
+        return new TupleDescriptor(ImmutableList.of(new Field(analysis.getNextRelationId(), Optional.of("imported_rows"), Type.LONG, 0)));
     }
 
     @Override
@@ -471,6 +471,8 @@ class StatementAnalyzer
     {
         ImmutableList.Builder<Field> outputFields = ImmutableList.builder();
 
+        int relationId = analysis.getNextRelationId();
+
         int index = 0;
         for (Expression expression : node.getSelect().getSelectItems()) {
             if (expression instanceof AllColumns) {
@@ -480,7 +482,7 @@ class StatementAnalyzer
 
                 for (TupleDescriptor descriptor : descriptors) {
                     for (Field field : descriptor.getFields()) {
-                        outputFields.add(new Field(field.getName(), field.getType(), index++));
+                        outputFields.add(new Field(relationId, field.getName(), field.getType(), index++));
                     }
                 }
             }
@@ -494,7 +496,7 @@ class StatementAnalyzer
                     alias = Optional.of(((QualifiedNameReference) expression).getName().getSuffix());
                 }
 
-                outputFields.add(new Field(alias, analysis.getType(expression), index++)); // TODO don't use analysis as a side-channel. Use outputExpressions to look up the type
+                outputFields.add(new Field(relationId, alias, analysis.getType(expression), index++)); // TODO don't use analysis as a side-channel. Use outputExpressions to look up the type
             }
         }
 
@@ -555,7 +557,7 @@ class StatementAnalyzer
 
     private Scope analyzeFrom(Query node)
     {
-        ImmutableMultimap.Builder<QualifiedName, TupleDescriptor> fromDescriptorBuilder = ImmutableMultimap.builder();
+        ImmutableMultimap.Builder<Optional<QualifiedName>, TupleDescriptor> fromDescriptorBuilder = ImmutableMultimap.builder();
 
         TupleAnalyzer analyzer = new TupleAnalyzer(analysis, session, metadata);
         for (Relation relation : node.getFrom()) {
@@ -563,11 +565,11 @@ class StatementAnalyzer
         }
 
         // ensure each relation alias appears only once
-        Multimap<QualifiedName, TupleDescriptor> fromDescriptors = fromDescriptorBuilder.build();
+        Multimap<Optional<QualifiedName>, TupleDescriptor> fromDescriptors = fromDescriptorBuilder.build();
 
-        for (QualifiedName alias : fromDescriptors.keys()) {
-            if (fromDescriptors.keys().count(alias) > 1) {
-                throw new SemanticException(node, "Relation '%s' appears more than once", alias);
+        for (Optional<QualifiedName> alias : fromDescriptors.keys()) {
+            if (alias.isPresent() && fromDescriptors.keys().count(alias) > 1) {
+                throw new SemanticException(node, "Relation '%s' appears more than once", alias.get());
             }
         }
 

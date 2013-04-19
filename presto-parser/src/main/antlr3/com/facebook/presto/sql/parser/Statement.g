@@ -219,7 +219,7 @@ tableRef
 
 tablePrimary
     : qname tableAlias?            -> ^(TABLE qname tableAlias?)
-    | subquery tableAlias          -> ^(SUBQUERY subquery tableAlias)
+    | subquery tableAlias?         -> ^(SUBQUERY subquery tableAlias?)
     | '(' tableRef ')' tableAlias? -> ^(JOINED_TABLE tableRef tableAlias?)
     ;
 

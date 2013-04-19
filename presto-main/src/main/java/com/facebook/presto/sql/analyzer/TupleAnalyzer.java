@@ -36,7 +36,7 @@ import java.util.List;
 import java.util.Set;
 
 class TupleAnalyzer
-        extends DefaultTraversalVisitor<Multimap<QualifiedName, TupleDescriptor>, Void>
+        extends DefaultTraversalVisitor<Multimap<Optional<QualifiedName>, TupleDescriptor>, Void>
 {
     private final Analysis analysis;
     private final Session session;
@@ -54,7 +54,7 @@ class TupleAnalyzer
     }
 
     @Override
-    protected Multimap<QualifiedName, TupleDescriptor> visitTable(Table table, Void context)
+    protected Multimap<Optional<QualifiedName>, TupleDescriptor> visitTable(Table table, Void context)
     {
         QualifiedTableName name = MetadataUtil.createQualifiedTableName(session, table.getName());
 
@@ -77,15 +77,15 @@ class TupleAnalyzer
         analysis.registerTable(table, tableHandle);
         analysis.setOutputDescriptor(table, new TupleDescriptor(fields.build()));
 
-        return ImmutableMultimap.<QualifiedName, TupleDescriptor>builder()
-                .put(table.getName(), new TupleDescriptor(fields.build()))
+        return ImmutableMultimap.<Optional<QualifiedName>, TupleDescriptor>builder()
+                .put(Optional.of(table.getName()), new TupleDescriptor(fields.build()))
                 .build();
     }
 
     @Override
-    protected Multimap<QualifiedName, TupleDescriptor> visitAliasedRelation(AliasedRelation relation, Void context)
+    protected Multimap<Optional<QualifiedName>, TupleDescriptor> visitAliasedRelation(AliasedRelation relation, Void context)
     {
-        Multimap<QualifiedName, TupleDescriptor> children = process(relation.getRelation(), context);
+        Multimap<Optional<QualifiedName>, TupleDescriptor> children = process(relation.getRelation(), context);
 
         ImmutableList.Builder<Field> builder = ImmutableList.builder();
 
@@ -116,26 +116,26 @@ class TupleAnalyzer
 
         analysis.setOutputDescriptor(relation, descriptor);
 
-        return ImmutableMultimap.<QualifiedName, TupleDescriptor>builder()
-                .put(QualifiedName.of(relation.getAlias()), descriptor)
+        return ImmutableMultimap.<Optional<QualifiedName>, TupleDescriptor>builder()
+                .put(Optional.of(QualifiedName.of(relation.getAlias())), descriptor)
                 .build();
     }
 
     @Override
-    protected Multimap<QualifiedName, TupleDescriptor> visitSubquery(Subquery node, Void context)
+    protected Multimap<Optional<QualifiedName>, TupleDescriptor> visitSubquery(Subquery node, Void context)
     {
         StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, session);
         TupleDescriptor descriptor = analyzer.process(node.getQuery(), null);
 
         analysis.setOutputDescriptor(node, descriptor);
 
-        return ImmutableMultimap.<QualifiedName, TupleDescriptor>builder()
-                .put(QualifiedName.of(""), descriptor) // TODO: use Optional
+        return ImmutableMultimap.<Optional<QualifiedName>, TupleDescriptor>builder()
+                .put(Optional.<QualifiedName>absent(), descriptor)
                 .build();
     }
 
     @Override
-    protected Multimap<QualifiedName, TupleDescriptor> visitJoin(Join node, Void context)
+    protected Multimap<Optional<QualifiedName>, TupleDescriptor> visitJoin(Join node, Void context)
     {
         if (node.getType() != Join.Type.INNER) {
             throw new SemanticException(node, "Only inner joins are supported");
@@ -146,10 +146,10 @@ class TupleAnalyzer
             throw new SemanticException(node, "Natural join not supported");
         }
 
-        Multimap<QualifiedName, TupleDescriptor> left = process(node.getLeft(), context);
-        Multimap<QualifiedName, TupleDescriptor> right = process(node.getRight(), context);
+        Multimap<Optional<QualifiedName>, TupleDescriptor> left = process(node.getLeft(), context);
+        Multimap<Optional<QualifiedName>, TupleDescriptor> right = process(node.getRight(), context);
 
-        Multimap<QualifiedName, TupleDescriptor> descriptors = ImmutableMultimap.<QualifiedName, TupleDescriptor>builder()
+        Multimap<Optional<QualifiedName>, TupleDescriptor> descriptors = ImmutableMultimap.<Optional<QualifiedName>, TupleDescriptor>builder()
                 .putAll(left)
                 .putAll(right)
                 .build();

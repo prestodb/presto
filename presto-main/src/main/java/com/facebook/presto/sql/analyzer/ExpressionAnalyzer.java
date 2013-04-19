@@ -123,7 +123,12 @@ public class ExpressionAnalyzer
                     @Override
                     public String apply(Field input)
                     {
-                        return input.getRelationAlias().get() + "." + input.getName().get();
+                        if (input.getRelationAlias().isPresent()) {
+                            return input.getRelationAlias().get() + "." + input.getName().get();
+                        }
+                        else {
+                            return input.getName().get();
+                        }
                     }
                 });
 

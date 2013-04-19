@@ -863,6 +863,30 @@ public abstract class AbstractTestQueries
         computeActual("select * from lineitem l join (select orderkey_1, custkey from orders) o on l.orderkey = o.orderkey_1");
     }
 
+    @Test
+    public void testUnaliasedSubqueries()
+            throws Exception
+    {
+        assertQuery("SELECT orderkey FROM (SELECT orderkey FROM orders)");
+    }
+
+    @Test
+    public void testUnaliasedSubqueries1()
+            throws Exception
+    {
+        assertQuery("SELECT a FROM (SELECT orderkey a FROM orders)");
+    }
+
+    @Test
+    public void testJoinUnaliasedSubqueries()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT COUNT(*) FROM (SELECT * FROM lineitem) join (SELECT * FROM orders) using (orderkey)",
+                "SELECT COUNT(*) FROM lineitem join orders on lineitem.orderkey = orders.orderkey"
+        );
+    }
+
     @BeforeClass(alwaysRun = true)
     public void setupDatabase()
             throws Exception
