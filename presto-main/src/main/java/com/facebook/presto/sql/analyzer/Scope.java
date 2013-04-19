@@ -3,7 +3,6 @@ package com.facebook.presto.sql.analyzer;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
@@ -14,9 +13,9 @@ import java.util.Map;
 
 public class Scope
 {
-    private final Multimap<QualifiedName, TupleDescriptor> descriptors;
+    private final Multimap<Optional<QualifiedName>, TupleDescriptor> descriptors;
 
-    public Scope(Multimap<QualifiedName, TupleDescriptor> descriptors)
+    public Scope(Multimap<Optional<QualifiedName>, TupleDescriptor> descriptors)
     {
         this.descriptors = ImmutableMultimap.copyOf(descriptors);
     }
@@ -25,9 +24,9 @@ public class Scope
     {
         ImmutableList.Builder<TupleDescriptor> builder = ImmutableList.builder();
 
-        for (Map.Entry<QualifiedName, TupleDescriptor> entry : descriptors.entries()) {
-            QualifiedName relationAlias = entry.getKey();
-            if (!alias.isPresent() || relationAlias.hasSuffix(alias.get())) {
+        for (Map.Entry<Optional<QualifiedName>, TupleDescriptor> entry : descriptors.entries()) {
+            Optional<QualifiedName> relationAlias = entry.getKey();
+            if (!alias.isPresent() || relationAlias.isPresent() && relationAlias.get().hasSuffix(alias.get())) {
                 builder.add(entry.getValue());
             }
         }
