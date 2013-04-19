@@ -5,7 +5,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.concurrent.Immutable;
@@ -21,23 +20,23 @@ public class OutputNode
 {
     private final PlanNode source;
     private final List<String> columnNames;
-    private final Map<String, Symbol> assignments; // column name = symbol
+    private final List<Symbol> outputs; // column name = symbol
 
     @JsonCreator
     public OutputNode(@JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("columns") List<String> columnNames,
-            @JsonProperty("assignments") Map<String, Symbol> assignments)
+            @JsonProperty("outputs") List<Symbol> outputs)
     {
         super(id);
 
         Preconditions.checkNotNull(source, "source is null");
         Preconditions.checkNotNull(columnNames, "columnNames is null");
-        Preconditions.checkArgument(columnNames.size() == assignments.size(), "columnNames and assignments sizes don't match");
+        Preconditions.checkArgument(columnNames.size() == outputs.size(), "columnNames and assignments sizes don't match");
 
         this.source = source;
         this.columnNames = columnNames;
-        this.assignments = ImmutableMap.copyOf(assignments);
+        this.outputs = ImmutableList.copyOf(outputs);
     }
 
     @Override
@@ -47,21 +46,16 @@ public class OutputNode
     }
 
     @Override
+    @JsonProperty("outputs")
     public List<Symbol> getOutputSymbols()
     {
-        return ImmutableList.copyOf(Iterables.transform(columnNames, forMap(assignments)));
+        return outputs;
     }
 
     @JsonProperty("columns")
     public List<String> getColumnNames()
     {
         return columnNames;
-    }
-
-    @JsonProperty
-    public Map<String, Symbol> getAssignments()
-    {
-        return assignments;
     }
 
     @JsonProperty

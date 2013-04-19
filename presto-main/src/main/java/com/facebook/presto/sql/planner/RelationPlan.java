@@ -10,7 +10,6 @@ class RelationPlan
 {
     private final PlanNode root;
     private final Map<Field, Symbol> outputMappings;
-    // TODO: private final Map<Field, String> derivedNames;
 
     public RelationPlan(Map<Field, Symbol> outputMappings, PlanNode root)
     {

@@ -175,7 +175,7 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = planRewriter.rewrite(node.getSource(), context);
 
-            Map<String, Symbol> canonical = Maps.transformValues(node.getAssignments(), canonicalizeFunction());
+            List<Symbol> canonical = Lists.transform(node.getOutputSymbols(), canonicalizeFunction());
             return new OutputNode(node.getId(), source, node.getColumnNames(), canonical);
         }
 

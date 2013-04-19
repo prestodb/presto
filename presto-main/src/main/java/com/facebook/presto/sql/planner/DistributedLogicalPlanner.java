@@ -209,7 +209,7 @@ public class DistributedLogicalPlanner
                         .addChild(current.build());
             }
 
-            current.setRoot(new OutputNode(node.getId(), current.getRoot(), node.getColumnNames(), node.getAssignments()));
+            current.setRoot(new OutputNode(node.getId(), current.getRoot(), node.getColumnNames(), node.getOutputSymbols()));
 
             return current;
         }

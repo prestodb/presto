@@ -215,8 +215,6 @@ public class LocalExecutionPlanner
         {
             PhysicalOperation source = node.getSource().accept(this, context);
 
-            List<Symbol> resultSymbols = Lists.transform(node.getColumnNames(), forMap(node.getAssignments()));
-
             // see if we need to introduce a projection
             //   1. verify that there's one symbol per channel
             //   2. verify that symbols from "source" match the expected order of columns according to OutputNode
@@ -227,6 +225,7 @@ public class LocalExecutionPlanner
                     .transform(MoreFunctions.<Symbol, Input>keyGetter())
                     .list();
 
+            List<Symbol> resultSymbols = node.getOutputSymbols();
             if (resultSymbols.equals(sourceSymbols) && resultSymbols.size() == source.getOperator().getChannelCount()) {
                 // no projection needed
                 return source;
