@@ -1,6 +1,5 @@
 package com.facebook.presto.cli;
 
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nullable;
@@ -25,11 +24,13 @@ public class Pager
 
     @Override
     public void close()
+            throws IOException
     {
         try {
             super.close();
         }
-        catch (IOException ignored) {
+        catch (IOException e) {
+            throw propagateIOException(e);
         }
         finally {
             if (process != null) {
@@ -38,6 +39,7 @@ public class Pager
                 }
                 catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
+                    process.destroy();
                 }
             }
         }
@@ -45,6 +47,7 @@ public class Pager
 
     @Override
     public void write(int b)
+            throws IOException
     {
         try {
             super.write(b);
@@ -56,6 +59,7 @@ public class Pager
 
     @Override
     public void write(byte[] b, int off, int len)
+            throws IOException
     {
         try {
             super.write(b, off, len);
@@ -78,12 +82,13 @@ public class Pager
     }
 
     private static RuntimeException propagateIOException(IOException e)
+            throws IOException
     {
         // TODO: check if the pager exited and verify the exit status?
         if ("Broken pipe".equals(e.getMessage()) || "Stream closed".equals(e.getMessage())) {
             throw new QueryAbortedException(e);
         }
-        throw Throwables.propagate(e);
+        throw e;
     }
 
     public static Pager create(List<String> command)
