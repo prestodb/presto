@@ -3,63 +3,46 @@ package com.facebook.presto.cli;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 
+import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.concurrent.ThreadSafe;
+
 import java.io.IOException;
 import java.io.Writer;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.repeat;
 import static java.lang.Math.max;
 import static java.lang.String.format;
 
-public class AlignedTuplePrinter
-        extends OutputHandler
+@ThreadSafe
+class AlignedTuplePrinter
+        extends BufferedOutputHandler
 {
-    private static final int MAX_BUFFERED_ROWS = 10_000;
     private static final Splitter LINE_SPLITTER = Splitter.on('\n');
 
-    private final AtomicBoolean closed = new AtomicBoolean();
-    private final List<List<?>> rowBuffer = new ArrayList<>(MAX_BUFFERED_ROWS);
-    private final List<String> fieldNames;
-    private final Writer writer;
-    private boolean headerOutput;
-    private long rowCount;
+    @GuardedBy("this") private boolean headerOutput;
+    @GuardedBy("this") private long rowCount;
 
     public AlignedTuplePrinter(List<String> fieldNames, Writer writer)
     {
-        this.fieldNames = ImmutableList.copyOf(checkNotNull(fieldNames, "fieldNames is null"));
-        this.writer = checkNotNull(writer, "writer is null");
+        super(fieldNames, writer);
     }
 
     @Override
-    public void processRow(List<?> values)
+    protected synchronized void finish()
             throws IOException
     {
-        checkState(fieldNames.size() == values.size(), "field names size does not match row size");
-        rowBuffer.add(values);
-        rowCount++;
-        if (rowBuffer.size() == MAX_BUFFERED_ROWS) {
-            flush();
-        }
+        writer.append(format("(%s row%s)%n", rowCount, (rowCount != 1) ? "s" : ""));
+        writer.flush();
     }
 
     @Override
-    public void close()
+    protected synchronized void flush(List<List<?>> rowBuffer)
             throws IOException
     {
-        if (!closed.getAndSet(true)) {
-            flush();
-            writer.append(format("(%s row%s)%n", rowCount, (rowCount != 1) ? "s" : ""));
-            writer.flush();
-        }
-    }
-
-    private void flush()
-            throws IOException
-    {
+        rowCount += rowBuffer.size();
         int columns = fieldNames.size();
 
         int[] maxWidth = new int[columns];
@@ -125,7 +108,6 @@ public class AlignedTuplePrinter
         }
 
         writer.flush();
-        rowBuffer.clear();
     }
 
     private static String formatValue(Object o)

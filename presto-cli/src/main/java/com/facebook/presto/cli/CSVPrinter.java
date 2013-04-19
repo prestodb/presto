@@ -9,7 +9,7 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class CSVPrinter
-        extends OutputHandler
+        implements OutputHandler
 {
     private final CSVWriter writer;
 
