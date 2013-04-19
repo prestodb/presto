@@ -1,22 +1,30 @@
 package com.facebook.presto.connector;
 
 import com.facebook.presto.metadata.CollocatedSplitHandleResolver;
+import com.facebook.presto.metadata.ConnectorHandleResolver;
 import com.facebook.presto.metadata.ConnectorMetadata;
 import com.facebook.presto.metadata.HandleResolver;
-import com.facebook.presto.metadata.ImportHandleResolver;
-import com.facebook.presto.metadata.ImportMetadata;
 import com.facebook.presto.metadata.InternalHandleResolver;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.NativeHandleResolver;
 import com.facebook.presto.metadata.RemoteSplitHandleResolver;
-import com.facebook.presto.spi.ImportClient;
+import com.facebook.presto.spi.Connector;
+import com.facebook.presto.spi.ConnectorFactory;
+import com.facebook.presto.split.ConnectorDataStreamProvider;
+import com.facebook.presto.split.ConnectorSplitManager;
 import com.facebook.presto.split.DataStreamManager;
 import com.facebook.presto.split.ImportClientManager;
-import com.facebook.presto.split.ImportDataStreamProvider;
-import com.facebook.presto.split.ImportSplitManager;
 import com.facebook.presto.split.SplitManager;
-import com.facebook.presto.tpch.TpchHandleResolver;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
+
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 public class ConnectorManager
 {
@@ -26,22 +34,26 @@ public class ConnectorManager
     private final ImportClientManager importClientManager;
     private final HandleResolver handleResolver;
 
+    private final ConcurrentMap<String, ConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
+
+    private final ConcurrentMap<String, Connector> connectors = new ConcurrentHashMap<>();
+
     @Inject
     public ConnectorManager(MetadataManager metadataManager,
             SplitManager splitManager,
             DataStreamManager dataStreamManager,
             ImportClientManager importClientManager,
-            HandleResolver handleResolver)
+            HandleResolver handleResolver,
+            Map<String, ConnectorFactory> connectorFactories)
     {
         this.metadataManager = metadataManager;
         this.splitManager = splitManager;
         this.dataStreamManager = dataStreamManager;
         this.importClientManager = importClientManager;
         this.handleResolver = handleResolver;
+        this.connectorFactories.putAll(connectorFactories);
 
         // for not just hard code the handle resolvers
-        handleResolver.addHandleResolver("native", new NativeHandleResolver());
-        handleResolver.addHandleResolver("tpch", new TpchHandleResolver());
         handleResolver.addHandleResolver("internal", new InternalHandleResolver());
         handleResolver.addHandleResolver("remote", new RemoteSplitHandleResolver());
         handleResolver.addHandleResolver("collocated", new CollocatedSplitHandleResolver());
@@ -51,20 +63,48 @@ public class ConnectorManager
     {
         // list is lame, but just register all plugins into a catalog for now
         for (String connectorName : importClientManager.getImportClientFactories().keySet()) {
-            createConnection(connectorName, connectorName);
+            createConnection(connectorName, connectorName, ImmutableMap.<String, String>of());
         }
+        createConnection("default", "native", ImmutableMap.<String, String>of());
     }
 
-    public void createConnection(String catalogName, String connectorName)
+    public void addConnectorFactory(String connectorName, ConnectorFactory connectorFactory)
     {
-        String clientId = catalogName;
-        String dataSourceName = clientId;
+        ConnectorFactory existingConnectorFactory = connectorFactories.putIfAbsent(connectorName, connectorFactory);
+        checkArgument(existingConnectorFactory != null, "Connector %s is already registered", connectorName);
+    }
 
-        ImportClient client = importClientManager.getClient(connectorName);
-        ConnectorMetadata connectorMetadata = new ImportMetadata(client);
+    public synchronized void createConnection(String catalogName, String connectorName, Map<String, String> properties)
+    {
+        checkNotNull(catalogName, "catalogName is null");
+        checkNotNull(connectorName, "connectorName is null");
+        checkNotNull(properties, "properties is null");
+
+        // for now connectorId == catalogName
+        String connectorId = catalogName;
+        checkState(!connectors.containsKey(connectorId), "A connector %s already exists", connectorId);
+
+        ConnectorFactory connectorFactory = connectorFactories.get(connectorName);
+        Preconditions.checkArgument(connectorFactory != null, "No factory for connector %s", connectorName);
+
+        Connector connector = connectorFactory.create(connectorId, properties);
+        connectors.put(connectorName, connector);
+
+        ConnectorMetadata connectorMetadata = connector.getService(ConnectorMetadata.class);
+        checkState(connectorMetadata != null, "Connector %s can not provide metadata", connectorId);
+
+        ConnectorSplitManager connectorSplitManager = connector.getService(ConnectorSplitManager.class);
+        checkState(connectorSplitManager != null, "Connector %s does not have a split manager", connectorId);
+
+        ConnectorDataStreamProvider connectorDataStreamProvider = connector.getService(ConnectorDataStreamProvider.class);
+        checkState(connectorDataStreamProvider != null, "Connector %s does not have a data stream provider", connectorId);
+
+        ConnectorHandleResolver connectorHandleResolver = connector.getService(ConnectorHandleResolver.class);
+        checkState(connectorDataStreamProvider != null, "Connector %s does not have a handle resolver", connectorId);
+
         metadataManager.addConnectorMetadata(catalogName, connectorMetadata);
-        splitManager.addConnectorSplitManager(new ImportSplitManager(dataSourceName, client));
-        dataStreamManager.addConnectorDataStreamProvider(new ImportDataStreamProvider(client));
-        handleResolver.addHandleResolver(clientId, new ImportHandleResolver(client));
+        handleResolver.addHandleResolver(connectorId, connectorHandleResolver);
+        splitManager.addConnectorSplitManager(connectorSplitManager);
+        dataStreamManager.addConnectorDataStreamProvider(connectorDataStreamProvider);
     }
 }

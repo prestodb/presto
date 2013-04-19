@@ -9,10 +9,10 @@ import com.facebook.presto.client.Column;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
+import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.failureDetector.FailureDetectorModule;
 import com.facebook.presto.guice.TestingJmxModule;
 import com.facebook.presto.metadata.CollocatedSplitHandleResolver;
-import com.facebook.presto.metadata.ConnectorMetadata;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.InternalHandleResolver;
@@ -21,8 +21,6 @@ import com.facebook.presto.metadata.NativeHandleResolver;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
-import com.facebook.presto.split.ConnectorDataStreamProvider;
-import com.facebook.presto.split.ConnectorSplitManager;
 import com.facebook.presto.metadata.RemoteSplitHandleResolver;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -30,10 +28,8 @@ import com.facebook.presto.sql.tree.Serialization.ExpressionDeserializer;
 import com.facebook.presto.sql.tree.Serialization.ExpressionSerializer;
 import com.facebook.presto.sql.tree.Serialization.FunctionCallDeserializer;
 import com.facebook.presto.tpch.TpchBlocksProvider;
-import com.facebook.presto.tpch.TpchDataStreamProvider;
 import com.facebook.presto.tpch.TpchHandleResolver;
-import com.facebook.presto.tpch.TpchMetadata;
-import com.facebook.presto.tpch.TpchSplitManager;
+import com.facebook.presto.tpch.TpchModule;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
@@ -96,8 +92,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
-import static com.google.inject.multibindings.MapBinder.newMapBinder;
-import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -400,14 +394,12 @@ public class TestDistributedQueries
                     new TraceTokenModule(),
                     new FailureDetectorModule(),
                     new ServerMainModule(),
+                    new TpchModule(),
                     new Module() {
                         @Override
                         public void configure(Binder binder)
                         {
-                            newMapBinder(binder, String.class, ConnectorMetadata.class).addBinding("tpch").to(TpchMetadata.class);
-                            newSetBinder(binder, ConnectorSplitManager.class).addBinding().to(TpchSplitManager.class).in(Scopes.SINGLETON);
                             binder.bind(TpchBlocksProvider.class).to(TestingTpchBlocksProvider.class).in(Scopes.SINGLETON);
-                            newSetBinder(binder, ConnectorDataStreamProvider.class).addBinding().to(TpchDataStreamProvider.class).in(Scopes.SINGLETON);
                         }
                     });
 
@@ -426,6 +418,10 @@ public class TestDistributedQueries
             metadata = injector.getInstance(Metadata.class);
 
             server = injector.getInstance(TestingHttpServer.class);
+
+            ConnectorManager connectorManager = injector.getInstance(ConnectorManager.class);
+            connectorManager.initialize();
+            connectorManager.createConnection("tpch", "tpch", ImmutableMap.<String, String>of());
 
             ImmutableList.Builder<ServiceSelector> serviceSelectors = ImmutableList.builder();
             for (Binding<ServiceSelector> binding : injector.findBindingsByType(TypeLiteral.get(ServiceSelector.class))) {
