@@ -549,7 +549,7 @@ class StatementAnalyzer
                 throw new SemanticException(predicate, "WHERE clause must evaluate to a boolean: actual type %s", type);
             }
 
-            analysis.setPredicate(node, predicate);
+            analysis.setWhere(node, predicate);
         }
     }
 

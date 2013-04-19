@@ -68,16 +68,16 @@ class QueryPlanner
 
         PlanBuilder builder = new PlanBuilder(translations, relationPlan.getRoot());
 
-        builder = filter(builder, query);
+        builder = filter(builder, analysis.getWhere(query));
         builder = aggregate(builder, query);
+        builder = filter(builder, analysis.getHaving(query));
+
         builder = window(builder, query);
 
         List<FieldOrExpression> orderBy = analysis.getOrderByExpressions(query);
         List<FieldOrExpression> outputs = analysis.getOutputExpressions(query);
         builder = project(builder, Iterables.concat(orderBy, outputs));
 
-        // TODO: add HAVING
-        Preconditions.checkArgument(analysis.getHaving(query) == null, "HAVING not yet supported");
 
         builder = distinct(builder, query, outputs, orderBy);
         builder = sort(builder, query);
@@ -87,9 +87,8 @@ class QueryPlanner
         return builder;
     }
 
-    private PlanBuilder filter(PlanBuilder subPlan, Query query)
+    private PlanBuilder filter(PlanBuilder subPlan, Expression predicate)
     {
-        Expression predicate = analysis.getPredicate(query);
         if (predicate == null) {
             return subPlan;
         }
