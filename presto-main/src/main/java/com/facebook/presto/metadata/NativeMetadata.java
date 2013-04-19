@@ -16,7 +16,6 @@ import org.skife.jdbi.v2.TransactionCallback;
 import org.skife.jdbi.v2.TransactionStatus;
 import org.skife.jdbi.v2.VoidTransactionCallback;
 
-import javax.inject.Inject;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -32,12 +31,12 @@ public class NativeMetadata
 {
     private final IDBI dbi;
     private final MetadataDao dao;
-    private final String catalogName = "default";
+    private final String catalogName;
 
-    @Inject
-    public NativeMetadata(@ForMetadata IDBI dbi)
+    public NativeMetadata(String catalogName, IDBI dbi)
             throws InterruptedException
     {
+        this.catalogName = catalogName;
         this.dbi = checkNotNull(dbi, "dbi is null");
         this.dao = dbi.onDemand(MetadataDao.class);
 

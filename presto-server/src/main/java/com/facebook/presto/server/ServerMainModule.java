@@ -4,7 +4,9 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.client.QueryResults;
+import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.connector.ConnectorManager;
+import com.facebook.presto.connector.NativeConnectorFactory;
 import com.facebook.presto.event.query.QueryCompletionEvent;
 import com.facebook.presto.event.query.QueryCreatedEvent;
 import com.facebook.presto.event.query.QueryMonitor;
@@ -55,7 +57,6 @@ import com.facebook.presto.metadata.InternalSchemaMetadata;
 import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.NativeMetadata;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.ShardCleaner;
 import com.facebook.presto.metadata.ShardCleanerConfig;
@@ -159,35 +160,43 @@ public class ServerMainModule
 
         bindConfig(binder).to(DatabaseLocalStorageManagerConfig.class);
         binder.bind(LocalStorageManager.class).to(DatabaseLocalStorageManager.class).in(Scopes.SINGLETON);
+
+        // data stream provider
         binder.bind(DataStreamManager.class).in(Scopes.SINGLETON);
         binder.bind(DataStreamProvider.class).to(DataStreamManager.class).in(Scopes.SINGLETON);
         Multibinder<ConnectorDataStreamProvider> connectorDataStreamProviderBinder = Multibinder.newSetBinder(binder, ConnectorDataStreamProvider.class);
 
+        // metadata
         binder.bind(MetadataResource.class).in(Scopes.SINGLETON);
         binder.bind(MetadataManager.class).in(Scopes.SINGLETON);
         binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
-        MapBinder<String, ConnectorMetadata> connectorMetadataBinder = MapBinder.newMapBinder(binder, String.class, ConnectorMetadata.class);
+        MapBinder.newMapBinder(binder, String.class, ConnectorMetadata.class);
         Multibinder<InternalSchemaMetadata> internalSchemaMetadataBinder = Multibinder.newSetBinder(binder, InternalSchemaMetadata.class);
 
+        // split manager
         binder.bind(SplitManager.class).in(Scopes.SINGLETON);
         Multibinder<ConnectorSplitManager> connectorSplitManagerMapBinder = Multibinder.newSetBinder(binder, ConnectorSplitManager.class);
+
+        // connector
+        binder.bind(ConnectorManager.class).in(Scopes.SINGLETON);
+        MapBinder<String, ConnectorFactory> connectorFactoryBinder = MapBinder.newMapBinder(binder, String.class, ConnectorFactory.class);
+
+        // native
+        connectorFactoryBinder.addBinding("native").to(NativeConnectorFactory.class);
+        binder.bind(NativeSplitManager.class).in(Scopes.SINGLETON);
+        binder.bind(NativeDataStreamProvider.class).in(Scopes.SINGLETON);
 
         // internal schemas like information_schema and sys
         internalSchemaMetadataBinder.addBinding().to(InformationSchemaMetadata.class);
         internalSchemaMetadataBinder.addBinding().to(SystemTables.class);
         connectorSplitManagerMapBinder.addBinding().to(InternalSplitManager.class).in(Scopes.SINGLETON);
-
-        // native
-        connectorMetadataBinder.addBinding("default").to(NativeMetadata.class).in(Scopes.SINGLETON);
-        connectorSplitManagerMapBinder.addBinding().to(NativeSplitManager.class).in(Scopes.SINGLETON);
-        connectorDataStreamProviderBinder.addBinding().to(NativeDataStreamProvider.class).in(Scopes.SINGLETON);
+        connectorDataStreamProviderBinder.addBinding().to(InternalDataStreamProvider.class).in(Scopes.SINGLETON);
 
         // system tables (e.g., Dual, information_schema, and sys)
         binder.bind(SystemTables.class).in(Scopes.SINGLETON);
-        connectorDataStreamProviderBinder.addBinding().to(InternalDataStreamProvider.class).in(Scopes.SINGLETON);
         binder.bind(InformationSchemaData.class).in(Scopes.SINGLETON);
 
-        // import
+        // import clients
         binder.bind(ImportClientManager.class).in(Scopes.SINGLETON);
         // kick off binding of import client factories
         MapBinder.newMapBinder(binder, String.class, ImportClientFactory.class);
@@ -242,7 +251,6 @@ public class ServerMainModule
 
         binder.install(new HandleJsonModule());
 
-        binder.bind(ConnectorManager.class).in(Scopes.SINGLETON);
         binder.bind(HandleResolver.class).in(Scopes.SINGLETON);
         binder.bind(PluginManager.class).in(Scopes.SINGLETON);
         bindConfig(binder).to(PluginManagerConfig.class);
