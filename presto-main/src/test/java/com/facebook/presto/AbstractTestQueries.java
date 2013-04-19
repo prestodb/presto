@@ -53,6 +53,27 @@ public abstract class AbstractTestQueries
     private TpchDataStreamProvider dataProvider;
 
     @Test
+    public void testComplexQuery()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("SELECT sum(orderkey), row_number() OVER (ORDER BY orderkey)\n" +
+                "FROM orders\n" +
+                "WHERE orderkey <= 10\n" +
+                "GROUP BY orderkey\n" +
+                "HAVING sum(orderkey) >= 3\n" +
+                "ORDER BY orderkey DESC\n" +
+                "LIMIT 3");
+
+        MaterializedResult expected = resultBuilder(FIXED_INT_64, FIXED_INT_64)
+                .row(7, 5)
+                .row(6, 4)
+                .row(5, 3)
+                .build();
+
+        assertEquals(actual, expected);
+    }
+
+    @Test
     public void testSumOfNulls()
             throws Exception
     {
@@ -722,6 +743,29 @@ public abstract class AbstractTestQueries
                 "SELECT orderstatus, sum(totalprice) FROM orders GROUP BY 1",
                 "SELECT orderstatus, sum(totalprice) FROM orders GROUP BY orderstatus");
     }
+
+
+    @Test
+    public void testHaving()
+            throws Exception
+    {
+        assertQuery("SELECT orderstatus, sum(totalprice) FROM orders GROUP BY orderstatus HAVING orderstatus = 'O'");
+    }
+
+    @Test
+    public void testHaving2()
+            throws Exception
+    {
+        assertQuery("SELECT custkey, sum(orderkey) FROM orders GROUP BY custkey HAVING sum(orderkey) > 400000");
+    }
+
+    @Test
+    public void testHaving3()
+            throws Exception
+    {
+        assertQuery("SELECT custkey, sum(totalprice) * 2 FROM orders GROUP BY custkey HAVING avg(totalprice + 5) > 10");
+    }
+
 
     @SuppressWarnings("PointlessArithmeticExpression")
     @Test
