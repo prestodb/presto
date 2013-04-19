@@ -28,7 +28,6 @@ import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.airlift.units.DataSize;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.TransactionStatus;
@@ -64,10 +63,8 @@ public class DatabaseLocalStorageManager
     private static final int RUN_LENGTH_AVERAGE_CUTOFF = 3;
     private static final int DICTIONARY_CARDINALITY_CUTOFF = 1000;
 
-    private static final int TASKS_PER_NODE = 32;
-
-    private final ExecutorService executor = newFixedThreadPool(TASKS_PER_NODE, threadsNamed("local-storage-manager-%s"));
-    private final KeyBoundedExecutor<Long> shardBoundedExecutor = new KeyBoundedExecutor<>(executor);
+    private final ExecutorService executor;
+    private final KeyBoundedExecutor<Long> shardBoundedExecutor;
 
     private final IDBI dbi;
     private final File baseStorageDir;
@@ -100,6 +97,9 @@ public class DatabaseLocalStorageManager
         this.baseStagingDir = createDirectory(new File(baseDataDir, "staging"));
         this.dbi = checkNotNull(dbi, "dbi is null");
         this.dao = dbi.onDemand(StorageManagerDao.class);
+
+        this.executor = newFixedThreadPool(config.getTasksPerNode(), threadsNamed("local-storage-manager-%s"));
+        this.shardBoundedExecutor = new KeyBoundedExecutor<>(executor);
 
         dao.createTableColumns();
     }
