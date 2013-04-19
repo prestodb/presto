@@ -1,5 +1,7 @@
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.metadata.QualifiedTableName;
+
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.ColumnMetadata;
 import com.facebook.presto.metadata.FunctionHandle;
@@ -8,7 +10,6 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.sql.analyzer.AnalysisResult;
-import com.facebook.presto.sql.analyzer.AnalyzedDestination;
 import com.facebook.presto.sql.analyzer.AnalyzedExpression;
 import com.facebook.presto.sql.analyzer.AnalyzedFunction;
 import com.facebook.presto.sql.analyzer.AnalyzedJoinClause;
@@ -530,7 +531,7 @@ public class LogicalPlanner
     private PlanNode createTableWriterPlan(AnalysisResult analysis)
     {
         checkState(analysis.getDestinations().size() == 1, "only a single table destination is currently supported");
-        AnalyzedDestination destination = Iterables.getOnlyElement(analysis.getDestinations());
+        QualifiedTableName destination = Iterables.getOnlyElement(analysis.getDestinations());
 
         // Build the plan for the attached query node
         AnalysisResult queryAnalysis = analysis.getAnalysis(destination);
@@ -542,7 +543,7 @@ public class LogicalPlanner
             columns.add(columnMetadata);
         }
 
-        TableMetadata tableMetadata = findOrCreateTable(metadata, destination.getTableName(), columns.build());
+        TableMetadata tableMetadata = findOrCreateTable(metadata, destination, columns.build());
 
         checkState(tableMetadata.getTableHandle().isPresent(), "can not import into a table without table handle");
 
