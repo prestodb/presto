@@ -14,6 +14,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestTupleInfo
@@ -287,5 +288,35 @@ public class TestTupleInfo
         assertEquals(tuple.getSlice(3), binary2);
         assertEquals(tuple.getLong(4), 90L);
         assertEquals(tuple.getSlice(5), binary3);
+    }
+
+    @Test
+    public void testSetNullAtNonZeroOffset()
+            throws Exception
+    {
+        TupleInfo info = new TupleInfo(FIXED_INT_64);
+        Slice slice = Slices.allocate(info.getFixedSize() * 2);
+
+        info.setNull(slice, FIXED_INT_64.getSize(), 0);
+        assertTrue(info.isNull(slice, FIXED_INT_64.getSize(), 0));
+    }
+
+    @Test
+    public void testSetNonNullAtNonZeroOffset()
+            throws Exception
+    {
+        TupleInfo info = new TupleInfo(FIXED_INT_64);
+        Slice slice = Slices.allocate(info.getFixedSize() * 2);
+
+        // initialize to nulls
+        info.setNull(slice, 0, 0);
+        assertTrue(info.isNull(slice, 0, 0));
+
+        info.setNull(slice, info.getFixedSize(), 0);
+        assertTrue(info.isNull(slice, info.getFixedSize(), 0));
+
+        // now test setNotNull
+        info.setNotNull(slice, info.getFixedSize(), 0);
+        assertFalse(info.isNull(slice, info.getFixedSize(), 0));
     }
 }

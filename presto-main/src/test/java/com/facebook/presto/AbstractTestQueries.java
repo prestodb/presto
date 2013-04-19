@@ -54,6 +54,13 @@ public abstract class AbstractTestQueries
     private TpchDataStreamProvider dataProvider;
 
     @Test
+    public void testSumOfNulls()
+            throws Exception
+    {
+        assertQuery("SELECT orderstatus, sum(CAST(NULL AS BIGINT)) FROM orders GROUP BY orderstatus");
+    }
+
+    @Test
     public void testApproximateCountDistinct()
             throws Exception
     {

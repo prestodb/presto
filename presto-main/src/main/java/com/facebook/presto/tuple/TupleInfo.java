@@ -384,7 +384,7 @@ public class TupleInfo
         int index = field >> 3;
         int bit = field & 0b111;
         int bitMask = 1 << bit;
-        slice.setByte(index, slice.getByte(index) | bitMask);
+        slice.setByte(index + offset, slice.getByte(index + offset) | bitMask);
     }
 
     public void setNotNull(Slice slice, int field)
@@ -392,7 +392,7 @@ public class TupleInfo
         setNotNull(slice, 0, field);
     }
 
-        /**
+    /**
      * Marks the specified field as not null.
      * <p/>
      * Note this DOES NOT clear the current value of the field.
@@ -402,7 +402,7 @@ public class TupleInfo
         int index = field >> 3;
         int bit = field & 0b111;
         int bitMask = ~(1 << bit);
-        slice.setByte(index, slice.getByte(index) & bitMask);
+        slice.setByte(index + offset, slice.getByte(index + offset) & bitMask);
     }
 
     /**
