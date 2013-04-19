@@ -25,7 +25,7 @@ public class DatabaseStorageManager
     }
 
     @Override
-    public void insertSourceTable(NativeTableHandle tableHandle,
+    public void insertTableSource(NativeTableHandle tableHandle,
             QualifiedTableName sourceTableName)
     {
         checkNotNull(tableHandle, "tableHandle is null");
@@ -35,7 +35,7 @@ public class DatabaseStorageManager
     }
 
     @Override
-    public QualifiedTableName getSourceTable(NativeTableHandle tableHandle)
+    public QualifiedTableName getTableSource(NativeTableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
 
@@ -43,7 +43,7 @@ public class DatabaseStorageManager
     }
 
     @Override
-    public void dropSourceTable(NativeTableHandle tableHandle)
+    public void dropTableSource(NativeTableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
 
