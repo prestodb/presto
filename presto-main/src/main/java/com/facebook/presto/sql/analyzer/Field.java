@@ -12,6 +12,8 @@ public class Field
     private final Type type;
     private final int index;
 
+    private final int relationId; // used for equality checks when relationAlias is missing
+
 
     public Field(QualifiedName relationAlias, Optional<String> name, Type type, int index)
     {
@@ -23,14 +25,16 @@ public class Field
         this.relationAlias = Optional.of(relationAlias);
         this.name = name;
         this.type = type;
+        this.relationId = 0;
     }
 
-    public Field(Optional<String> name, Type type, int index)
+    public Field(int relationId, Optional<String> name, Type type, int index)
     {
         this.index = index;
         this.relationAlias = Optional.absent();
         this.name = name;
         this.type = type;
+        this.relationId = relationId;
     }
 
     public Optional<QualifiedName> getRelationAlias()
@@ -68,6 +72,9 @@ public class Field
         if (index != field.index) {
             return false;
         }
+        if (relationId != field.relationId) {
+            return false;
+        }
         if (!name.equals(field.name)) {
             return false;
         }
@@ -88,6 +95,7 @@ public class Field
         result = 31 * result + name.hashCode();
         result = 31 * result + type.hashCode();
         result = 31 * result + index;
+        result = 31 * result + relationId;
         return result;
     }
 
