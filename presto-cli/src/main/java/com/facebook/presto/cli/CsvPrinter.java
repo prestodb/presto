@@ -8,12 +8,12 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class CSVPrinter
+public class CsvPrinter
         extends OutputHandler
 {
     private final CSVWriter writer;
 
-    public CSVPrinter(Writer writer, char separator)
+    public CsvPrinter(Writer writer, char separator)
     {
         checkNotNull(writer, "writer is null");
         this.writer = new CSVWriter(writer, separator);

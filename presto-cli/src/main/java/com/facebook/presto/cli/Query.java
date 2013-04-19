@@ -164,10 +164,10 @@ public class Query
         switch (outputFormat) {
             case CSV:
             case CSV_HEADER:
-                return new CSVPrinter(writer, ',');
+                return new CsvPrinter(writer, ',');
             case TSV:
             case TSV_HEADER:
-                return new CSVPrinter(writer, '\t');
+                return new CsvPrinter(writer, '\t');
         }
         throw new RuntimeException(outputFormat + " not supported");
     }

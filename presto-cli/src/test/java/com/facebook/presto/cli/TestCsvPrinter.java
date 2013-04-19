@@ -8,14 +8,14 @@ import java.util.List;
 
 import static org.testng.Assert.assertEquals;
 
-public class TestCSVPrinter
+public class TestCsvPrinter
 {
     @Test
     public void testAlignedPrinting()
             throws Exception
     {
         StringWriter writer = new StringWriter();
-        OutputHandler printer = new CSVPrinter(writer, ',');
+        OutputHandler printer = new CsvPrinter(writer, ',');
 
         printer.processRow(row("hello", "world", 123));
         printer.processRow(row("a", null, 4.5));
