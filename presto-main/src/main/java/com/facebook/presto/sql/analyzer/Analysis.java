@@ -29,7 +29,7 @@ public class Analysis
 
     private final IdentityHashMap<Query, List<FunctionCall>> aggregates = new IdentityHashMap<>();
     private final IdentityHashMap<Query, List<FieldOrExpression>> groupByExpressions = new IdentityHashMap<>();
-    private final IdentityHashMap<Query, Expression> predicates = new IdentityHashMap<>();
+    private final IdentityHashMap<Query, Expression> where = new IdentityHashMap<>();
     private final IdentityHashMap<Query, Expression> having = new IdentityHashMap<>();
     private final IdentityHashMap<Query, List<FieldOrExpression>> orderByExpressions = new IdentityHashMap<>();
     private final IdentityHashMap<Query, List<FieldOrExpression>> outputExpressions = new IdentityHashMap<>();
@@ -96,14 +96,14 @@ public class Analysis
         return groupByExpressions.get(node);
     }
 
-    public void setPredicate(Query node, Expression expression)
+    public void setWhere(Query node, Expression expression)
     {
-        predicates.put(node, expression);
+        where.put(node, expression);
     }
 
-    public Expression getPredicate(Query node)
+    public Expression getWhere(Query node)
     {
-        return predicates.get(node);
+        return where.get(node);
     }
 
     public void setOrderByExpressions(Query query, List<FieldOrExpression> items)
