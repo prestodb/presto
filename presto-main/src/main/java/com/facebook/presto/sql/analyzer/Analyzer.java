@@ -255,11 +255,9 @@ public class Analyzer
             AnalyzedOutput output = new AnalyzedOutput(new TupleDescriptor(ImmutableList.<Field>of(resultField)),
                                                        ImmutableMap.of(resultField.getSymbol(), resultFieldExpression));
 
-            AnalyzedDestination destination = new AnalyzedDestination(dstTableName);
-
             AnalysisResult analysis = new Analyzer(context.getSession(), metadata).analyze(statement.getTableDefinition(), new AnalysisContext(context.getSession(), context.getSymbolAllocator()));
 
-            context.addDestination(destination, analysis);
+            context.addDestination(dstTableName, analysis);
 
             return AnalysisResult.newInstance(context,
                                               false,

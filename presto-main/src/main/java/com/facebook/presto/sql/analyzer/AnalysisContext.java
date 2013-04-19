@@ -1,11 +1,11 @@
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.Subquery;
 import com.facebook.presto.sql.tree.Table;
-import com.google.common.base.Optional;
 
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -22,7 +22,7 @@ class AnalysisContext
     private final IdentityHashMap<Relation, TupleDescriptor> tableDescriptors = new IdentityHashMap<>();
     private final IdentityHashMap<Relation, TableMetadata> tableMetadata = new IdentityHashMap<>();
     private final IdentityHashMap<Join, List<AnalyzedJoinClause>> joinCriteria = new IdentityHashMap<>();
-    private final IdentityHashMap<AnalyzedDestination, AnalysisResult> destinations = new IdentityHashMap<>();
+    private final IdentityHashMap<QualifiedTableName, AnalysisResult> destinations = new IdentityHashMap<>();
 
     public AnalysisContext(Session session)
     {
@@ -97,14 +97,14 @@ class AnalysisContext
         joinCriteria.put(node, criteria);
     }
 
-    public void addDestination(AnalyzedDestination destination, AnalysisResult result)
+    public void addDestination(QualifiedTableName destination, AnalysisResult result)
     {
         checkNotNull(destination, "destination is null");
         checkNotNull(result, "result is null");
         this.destinations.put(destination, result);
     }
 
-    IdentityHashMap<AnalyzedDestination, AnalysisResult> getDestinations()
+    IdentityHashMap<QualifiedTableName, AnalysisResult> getDestinations()
     {
         return destinations;
     }

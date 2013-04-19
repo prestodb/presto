@@ -1,5 +1,6 @@
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.Query;
@@ -34,7 +35,7 @@ public class AnalysisResult
     private final IdentityHashMap<Join, List<AnalyzedJoinClause>> joinCriteria;
     private final boolean distinct;
     private final Query rewrittenQuery;
-    private final IdentityHashMap<AnalyzedDestination, AnalysisResult> destinations;
+    private final IdentityHashMap<QualifiedTableName, AnalysisResult> destinations;
 
     public static AnalysisResult newInstance(AnalysisContext context,
             boolean distinct,
@@ -70,7 +71,7 @@ public class AnalysisResult
             IdentityHashMap<Relation, TableMetadata> tableMetadata,
             IdentityHashMap<Subquery, AnalysisResult> inlineViews,
             IdentityHashMap<Join, List<AnalyzedJoinClause>> joinCriteria,
-            IdentityHashMap<AnalyzedDestination, AnalysisResult> destinations,
+            IdentityHashMap<QualifiedTableName, AnalysisResult> destinations,
             boolean distinct,
             Set<AnalyzedFunction> aggregations,
             Set<AnalyzedFunction> windowsFunctions,
@@ -199,13 +200,13 @@ public class AnalysisResult
         return rewrittenQuery;
     }
 
-    public AnalysisResult getAnalysis(AnalyzedDestination destination)
+    public AnalysisResult getAnalysis(QualifiedTableName destination)
     {
         Preconditions.checkArgument(destinations.containsKey(destination), "Analysis for destination is missing. Broken analysis?");
         return destinations.get(destination);
     }
 
-    public Set<AnalyzedDestination> getDestinations()
+    public Set<QualifiedTableName> getDestinations()
     {
         return destinations.keySet();
     }

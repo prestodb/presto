@@ -1,5 +1,7 @@
 package com.facebook.presto.operator;
 
+import com.facebook.presto.block.BlockBuilder;
+
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.metadata.ColumnFileHandle;
@@ -145,12 +147,8 @@ public class TableWriterOperator
 
             int rowCount = fileHandle.append(sourceIterator.next());
 
-            // that should be simpler, right?
-            Slice s = Slices.allocate(SINGLE_LONG.getFixedSize());
-            SINGLE_LONG.setLong(s, 0, rowCount);
-            SINGLE_LONG.setNotNull(s, 0);
-            Block b = new UncompressedBlock(1, SINGLE_LONG, s);
-            return new Page(b);
+            Block block = new BlockBuilder(SINGLE_LONG).append(rowCount).build();
+            return new Page(block);
         }
     }
 }
