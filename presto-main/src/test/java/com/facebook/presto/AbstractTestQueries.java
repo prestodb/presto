@@ -766,6 +766,14 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT custkey, sum(totalprice) * 2 FROM orders GROUP BY custkey HAVING avg(totalprice + 5) > 10");
     }
 
+    @Test
+    public void testColumnAliases()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT x, T.y, z + 1 FROM (SELECT custkey, orderstatus, totalprice FROM orders) T (x, y, z)",
+                "SELECT custkey, orderstatus, totalprice + 1 FROM orders");
+    }
 
     @SuppressWarnings("PointlessArithmeticExpression")
     @Test
