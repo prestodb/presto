@@ -3,10 +3,10 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.SchemaTableMetadata;
+import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableHandle;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.skife.jdbi.v2.DBI;
@@ -70,7 +70,7 @@ public class TestNativeMetadata
     public void testListTables()
     {
         metadata.createTable(getOrdersTable());
-        List<SchemaTableName> tables = metadata.listTables(Optional.<String>absent());
+        List<SchemaTableName> tables = metadata.listTables(null);
         assertEquals(tables, ImmutableList.of(DEFAULT_TEST_ORDERS));
     }
 

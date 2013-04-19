@@ -1,13 +1,12 @@
 package com.facebook.presto.tpch;
 
-import com.facebook.presto.execution.DataSource;
 import com.facebook.presto.metadata.Node;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.split.ConnectorSplitManager;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -24,12 +23,20 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class TpchSplitManager
         implements ConnectorSplitManager
 {
+    private final String connectorId;
     private final NodeManager nodeManager;
 
     @Inject
-    public TpchSplitManager(NodeManager nodeManager)
+    public TpchSplitManager(String connectorId, NodeManager nodeManager)
     {
+        this.connectorId = connectorId;
         this.nodeManager = nodeManager;
+    }
+
+    @Override
+    public String getConnectorId()
+    {
+        return connectorId;
     }
 
     @Override
@@ -45,11 +52,11 @@ public class TpchSplitManager
     }
 
     @Override
-    public DataSource getPartitionSplits(List<Partition> partitions)
+    public Iterable<Split> getPartitionSplits(List<Partition> partitions)
     {
         checkNotNull(partitions, "partitions is null");
         if (partitions.isEmpty()) {
-            return new DataSource("native", ImmutableList.<Split>of());
+            return ImmutableList.of();
         }
 
         Partition partition = Iterables.getOnlyElement(partitions);
@@ -67,7 +74,7 @@ public class TpchSplitManager
             TpchSplit tpchSplit = new TpchSplit(tableHandle, partNumber++, totalParts, ImmutableList.of(node.getHostAndPort()));
             splits.add(tpchSplit);
         }
-        return new DataSource("tpch", splits.build());
+        return splits.build();
     }
 
     public static class TpchPartition

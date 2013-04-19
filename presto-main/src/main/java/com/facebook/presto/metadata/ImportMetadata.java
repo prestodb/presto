@@ -2,14 +2,15 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.SchemaTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableHandle;
-import com.google.common.base.Optional;
 import com.google.inject.Inject;
 
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 
@@ -51,10 +52,9 @@ public class ImportMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(Optional<String> schemaName)
+    public List<SchemaTableName> listTables(@Nullable String schemaNameOrNull)
     {
-        checkNotNull(schemaName, "schemaName is null");
-        return client.listTables(schemaName.orNull());
+        return client.listTables(schemaNameOrNull);
     }
 
     @Override

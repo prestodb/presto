@@ -1,6 +1,5 @@
 package com.facebook.presto.sql.analyzer;
 
-import com.facebook.presto.metadata.ConnectorMetadata;
 import com.facebook.presto.metadata.InMemoryMetadata;
 import com.facebook.presto.metadata.InternalSchemaMetadata;
 import com.facebook.presto.metadata.Metadata;
@@ -9,6 +8,7 @@ import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnType;
+import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableList;

@@ -1,12 +1,4 @@
-package com.facebook.presto.metadata;
-
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.SchemaTableMetadata;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.SchemaTablePrefix;
-import com.facebook.presto.spi.TableHandle;
-import com.google.common.base.Optional;
+package com.facebook.presto.spi;
 
 import java.util.List;
 import java.util.Map;
@@ -31,7 +23,7 @@ public interface ConnectorMetadata
     /**
      * Get the names that match the specified table prefix (never null).
      */
-    List<SchemaTableName> listTables(Optional<String> schemaName);
+    List<SchemaTableName> listTables(String schemaNameOrNull);
 
     /**
      * Returns a handle for the specified table column, or null if the table does not contain the specified column.

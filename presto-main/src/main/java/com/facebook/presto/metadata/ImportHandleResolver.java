@@ -1,6 +1,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.Split;

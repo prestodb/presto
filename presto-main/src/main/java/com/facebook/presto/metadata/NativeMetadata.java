@@ -7,8 +7,8 @@ import com.facebook.presto.spi.SchemaTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableHandle;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableListMultimap;
+import com.facebook.presto.spi.ConnectorMetadata;
 import com.google.common.collect.ImmutableMap;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
@@ -16,6 +16,7 @@ import org.skife.jdbi.v2.TransactionCallback;
 import org.skife.jdbi.v2.TransactionStatus;
 import org.skife.jdbi.v2.VoidTransactionCallback;
 
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -85,10 +86,9 @@ public class NativeMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(Optional<String> schemaName)
+    public List<SchemaTableName> listTables(@Nullable String schemaNameOrNull)
     {
-        checkNotNull(schemaName, "schemaName is null");
-        return dao.listTables(catalogName, schemaName.orNull());
+        return dao.listTables(catalogName, schemaNameOrNull);
     }
 
     @Override

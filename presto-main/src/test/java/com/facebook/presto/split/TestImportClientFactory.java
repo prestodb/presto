@@ -48,6 +48,12 @@ public class TestImportClientFactory
             return new ImportClient()
             {
                 @Override
+                public String getConnectorId()
+                {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
                 public List<String> listSchemaNames()
                 {
                     throw new UnsupportedOperationException();
@@ -55,12 +61,6 @@ public class TestImportClientFactory
 
                 @Override
                 public TableHandle getTableHandle(SchemaTableName tableName)
-                {
-                    throw new UnsupportedOperationException();
-                }
-
-                @Override
-                public SchemaTableName getTableName(TableHandle tableHandle)
                 {
                     throw new UnsupportedOperationException();
                 }
@@ -102,6 +102,18 @@ public class TestImportClientFactory
                 }
 
                 @Override
+                public TableHandle createTable(SchemaTableMetadata tableMetadata)
+                {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public void dropTable(TableHandle tableHandle)
+                {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
                 public List<Partition> getPartitions(TableHandle table, Map<ColumnHandle, Object> bindings)
                 {
                     throw new UnsupportedOperationException();
@@ -114,7 +126,7 @@ public class TestImportClientFactory
                 }
 
                 @Override
-                public RecordSet getRecords(Split split, List<? extends ColumnHandle> columns)
+                public RecordSet getRecordSet(Split split, List<? extends ColumnHandle> columns)
                 {
                     throw new UnsupportedOperationException();
                 }

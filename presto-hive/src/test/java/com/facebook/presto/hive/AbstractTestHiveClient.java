@@ -244,7 +244,7 @@ public abstract class AbstractTestHiveClient
 
             long rowNumber = 0;
             long completedBytes = 0;
-            try (RecordCursor cursor = client.getRecords(hiveSplit, columnHandles).cursor()) {
+            try (RecordCursor cursor = client.getRecordSet(hiveSplit, columnHandles).cursor()) {
                 assertEquals(cursor.getTotalBytes(), hiveSplit.getLength());
 
                 while (cursor.advanceNextPosition()) {
@@ -346,7 +346,7 @@ public abstract class AbstractTestHiveClient
             long baseValue = getBaseValueForFileType(fileType);
 
             long rowNumber = 0;
-            try (RecordCursor cursor = client.getRecords(hiveSplit, columnHandles).cursor()) {
+            try (RecordCursor cursor = client.getRecordSet(hiveSplit, columnHandles).cursor()) {
                 while (cursor.advanceNextPosition()) {
                     rowNumber++;
 
@@ -378,7 +378,7 @@ public abstract class AbstractTestHiveClient
             assertEquals(hiveSplit.getPartitionKeys(), ImmutableList.of());
 
             long rowNumber = 0;
-            try (RecordCursor cursor = client.getRecords(split, columnHandles).cursor()) {
+            try (RecordCursor cursor = client.getRecordSet(split, columnHandles).cursor()) {
                 assertEquals(cursor.getTotalBytes(), hiveSplit.getLength());
 
                 while (cursor.advanceNextPosition()) {
@@ -405,7 +405,7 @@ public abstract class AbstractTestHiveClient
         TableHandle table = client.getTableHandle(TABLE_UNPARTITIONED);
         List<Partition> partitions = client.getPartitions(table, ImmutableMap.<ColumnHandle, Object>of());
         Split split = Iterables.getFirst(client.getPartitionSplits(partitions), null);
-        RecordSet recordSet = client.getRecords(split, ImmutableList.of(INVALID_COLUMN_HANDLE));
+        RecordSet recordSet = client.getRecordSet(split, ImmutableList.of(INVALID_COLUMN_HANDLE));
         recordSet.cursor();
     }
 

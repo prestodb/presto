@@ -6,6 +6,11 @@ import com.facebook.presto.hive.util.FileStatusCallback;
 import com.facebook.presto.hive.util.SuspendingExecutor;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ColumnNotFoundException;
+import com.facebook.presto.spi.ColumnType;
+import com.facebook.presto.spi.ConnectorHandleResolver;
+import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.Partition;
@@ -94,7 +99,7 @@ import static com.google.common.collect.Iterables.transform;
 
 @SuppressWarnings("deprecation")
 public class HiveClient
-        implements ImportClient
+        implements ImportClient, ConnectorMetadata, ConnectorRecordSetProvider, ConnectorHandleResolver
 {
     public static final String HIVE_VIEWS_NOT_SUPPORTED = "Hive views are not supported";
 
@@ -130,6 +135,12 @@ public class HiveClient
     }
 
     @Override
+    public String getConnectorId()
+    {
+        return clientId;
+    }
+
+    @Override
     public List<String> listSchemaNames()
     {
         return metastore.getAllDatabases();
@@ -148,8 +159,7 @@ public class HiveClient
         }
     }
 
-    @Override
-    public SchemaTableName getTableName(TableHandle tableHandle)
+    private SchemaTableName getTableName(TableHandle tableHandle)
     {
         checkArgument(tableHandle instanceof HiveTableHandle, "tableHandle is not an instance of HiveTableHandle");
         return ((HiveTableHandle) tableHandle).getTableName();
@@ -294,6 +304,18 @@ public class HiveClient
     }
 
     @Override
+    public TableHandle createTable(SchemaTableMetadata tableMetadata)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void dropTable(TableHandle tableHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public List<Partition> getPartitions(TableHandle tableHandle, Map<ColumnHandle, Object> bindings)
     {
         SchemaTableName tableName = getTableName(tableHandle);
@@ -421,7 +443,7 @@ public class HiveClient
     }
 
     @Override
-    public RecordSet getRecords(Split split, List<? extends ColumnHandle> columns)
+    public RecordSet getRecordSet(Split split, List<? extends ColumnHandle> columns)
     {
         checkArgument(split instanceof HiveSplit,
                 "expected instance of %s: %s", HiveSplit.class, split.getClass());

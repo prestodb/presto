@@ -1,12 +1,12 @@
 package com.facebook.presto.split;
 
-import com.facebook.presto.execution.DataSource;
-import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.metadata.InternalColumnHandle;
 import com.facebook.presto.metadata.InternalTableHandle;
 import com.facebook.presto.metadata.Node;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorSplitManager;
+import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.TableHandle;
@@ -37,6 +37,13 @@ public class InternalSplitManager
     }
 
     @Override
+    public String getConnectorId()
+    {
+        // internal is not a connector
+        return null;
+    }
+
+    @Override
     public boolean canHandle(TableHandle handle)
     {
         return handle instanceof InternalTableHandle;
@@ -55,7 +62,7 @@ public class InternalSplitManager
     }
 
     @Override
-    public DataSource getPartitionSplits(List<Partition> partitions)
+    public Iterable<Split> getPartitionSplits(List<Partition> partitions)
     {
         checkNotNull(partitions, "partitions is null");
         Preconditions.checkArgument(!partitions.isEmpty(), "partitions is empty");
@@ -75,7 +82,7 @@ public class InternalSplitManager
 
         Split split = new InternalSplit(internalPartition.table, filters.build(), localAddress);
 
-        return new DataSource(null, ImmutableList.of(split));
+        return ImmutableList.of(split);
     }
 
     public static class InternalPartition

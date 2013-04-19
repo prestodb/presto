@@ -1,7 +1,7 @@
 package com.facebook.presto.split;
 
-import com.facebook.presto.execution.DataSource;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.NotFoundException;
 import com.facebook.presto.spi.Partition;
@@ -18,13 +18,17 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class ImportSplitManager
         implements ConnectorSplitManager
 {
-    private final String dataSourceName;
     private final ImportClient importClient;
 
-    public ImportSplitManager(String dataSourceName, ImportClient importClient)
+    public ImportSplitManager(ImportClient importClient)
     {
-        this.dataSourceName = checkNotNull(dataSourceName, "dataSourceName is null");
         this.importClient = checkNotNull(importClient, "importClient is null");
+    }
+
+    @Override
+    public String getConnectorId()
+    {
+        return importClient.getConnectorId();
     }
 
     @Override
@@ -52,7 +56,7 @@ public class ImportSplitManager
     }
 
     @Override
-    public DataSource getPartitionSplits(final List<Partition> partitions)
+    public Iterable<Split> getPartitionSplits(final List<Partition> partitions)
     {
         Iterable<Split> splits = retry()
                 .stopOn(NotFoundException.class)
@@ -67,6 +71,6 @@ public class ImportSplitManager
                         return importClient.getPartitionSplits(partitions);
                     }
                 });
-        return new DataSource(dataSourceName, splits);
+        return splits;
     }
 }
