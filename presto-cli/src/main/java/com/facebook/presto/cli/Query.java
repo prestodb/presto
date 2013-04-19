@@ -97,19 +97,16 @@ public class Query
                 return;
             }
 
-            List<String> fieldNames = Lists.transform(results.getColumns(), Column.nameGetter());
-            switch (outputFormat) {
-                case PAGED:
-                    pageOutput(Pager.LESS, fieldNames);
-                    break;
-                default:
-                    sendOutput(out, outputFormat, fieldNames);
-                    break;
+            try {
+                renderResults(out, outputFormat, results);
+            }
+            catch (QueryAbortedException e) {
+                System.out.println("(query aborted by user)");
+                client.close();
             }
         }
 
         if (statusPrinter != null) {
-            // print final info after the user exits from the pager
             statusPrinter.printFinalInfo();
         }
 
@@ -128,6 +125,19 @@ public class Query
     {
         while (client.isValid() && (client.current().getData() == null)) {
             client.advance();
+        }
+    }
+
+    private void renderResults(PrintStream out, OutputFormat outputFormat, QueryResults results)
+    {
+        List<String> fieldNames = Lists.transform(results.getColumns(), Column.nameGetter());
+        switch (outputFormat) {
+            case PAGED:
+                pageOutput(Pager.LESS, fieldNames);
+                break;
+            default:
+                sendOutput(out, outputFormat, fieldNames);
+                break;
         }
     }
 

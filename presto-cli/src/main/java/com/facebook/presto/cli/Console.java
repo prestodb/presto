@@ -136,10 +136,6 @@ public class Console
         try (Query query = queryRunner.startQuery(sql)) {
             query.renderOutput(System.out, outputFormat);
         }
-        catch (QueryAbortedException e) {
-            System.out.println("(query aborted by user)");
-            System.out.println();
-        }
         catch (Exception e) {
             System.out.println("Error running command: " + e.getMessage());
             if (queryRunner.getSession().isDebug()) {
