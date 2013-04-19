@@ -1,5 +1,6 @@
 package com.facebook.presto.split;
 
+import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.execution.DataSource;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
@@ -52,7 +53,8 @@ public class SplitManager
         List<Partition> partitions = getPartitions(session, handle, predicate, partitionPredicate, mappings);
         ConnectorSplitManager connectorSplitManager = getConnectorSplitManager(handle);
 
-        return connectorSplitManager.getPartitionSplits(partitions);
+        String connectorId = connectorSplitManager.getConnectorId();
+        return new DataSource(connectorId, connectorSplitManager.getPartitionSplits(partitions));
     }
 
     private List<Partition> getPartitions(Session session,

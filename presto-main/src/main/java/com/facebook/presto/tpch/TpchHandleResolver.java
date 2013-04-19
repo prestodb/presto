@@ -1,6 +1,6 @@
 package com.facebook.presto.tpch;
 
-import com.facebook.presto.metadata.ConnectorHandleResolver;
+import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.Split;

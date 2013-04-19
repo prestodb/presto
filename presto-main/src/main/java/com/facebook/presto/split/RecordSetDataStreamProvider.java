@@ -3,37 +3,32 @@ package com.facebook.presto.split;
 import com.facebook.presto.ingest.RecordProjectOperator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ImportClient;
+import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.Split;
 
-import javax.inject.Inject;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class ImportDataStreamProvider
+public class RecordSetDataStreamProvider
         implements ConnectorDataStreamProvider
 {
-    private final ImportClient importClient;
+    private ConnectorRecordSetProvider recordSetProvider;
 
-    @Inject
-    public ImportDataStreamProvider(ImportClient importClient)
+    public RecordSetDataStreamProvider(ConnectorRecordSetProvider recordSetProvider)
     {
-        this.importClient = checkNotNull(importClient, "importClient is null");
+        this.recordSetProvider = checkNotNull(recordSetProvider, "recordSetProvider is null");
     }
 
     @Override
     public boolean canHandle(Split split)
     {
-        return importClient.canHandle(split);
+        return recordSetProvider.canHandle(split);
     }
 
     @Override
     public Operator createDataStream(Split split, List<ColumnHandle> columns)
     {
-        checkNotNull(split, "split is null");
-        checkNotNull(columns, "columns is null");
-
-        return new RecordProjectOperator(importClient.getRecordSet(split, columns));
+        return new RecordProjectOperator(recordSetProvider.getRecordSet(split, columns));
     }
 }

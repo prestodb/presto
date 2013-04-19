@@ -1,14 +1,14 @@
 package com.facebook.presto.connector;
 
-import com.facebook.presto.metadata.ConnectorHandleResolver;
-import com.facebook.presto.metadata.ConnectorMetadata;
 import com.facebook.presto.metadata.ForMetadata;
 import com.facebook.presto.metadata.NativeHandleResolver;
 import com.facebook.presto.metadata.NativeMetadata;
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
+import com.facebook.presto.spi.ConnectorHandleResolver;
+import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.split.ConnectorDataStreamProvider;
-import com.facebook.presto.split.ConnectorSplitManager;
 import com.facebook.presto.split.NativeDataStreamProvider;
 import com.facebook.presto.split.NativeSplitManager;
 import com.google.common.base.Throwables;

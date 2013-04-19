@@ -1,12 +1,12 @@
 package com.facebook.presto.split;
 
-import com.facebook.presto.execution.DataSource;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.metadata.NativeTableHandle;
 import com.facebook.presto.metadata.Node;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.ShardManager;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorSplitManager;
+import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.TableHandle;
@@ -42,6 +42,12 @@ public class NativeSplitManager
     }
 
     @Override
+    public String getConnectorId()
+    {
+        return "native";
+    }
+
+    @Override
     public boolean canHandle(TableHandle handle)
     {
         return handle instanceof NativeTableHandle;
@@ -54,11 +60,11 @@ public class NativeSplitManager
     }
 
     @Override
-    public DataSource getPartitionSplits(List<Partition> partitions)
+    public Iterable<Split> getPartitionSplits(List<Partition> partitions)
     {
         checkNotNull(partitions, "partitions is null");
         if (partitions.isEmpty()) {
-            return new DataSource("native", ImmutableList.<Split>of());
+            return ImmutableList.of();
         }
 
         Partition partition = Iterables.getOnlyElement(partitions);
@@ -75,7 +81,7 @@ public class NativeSplitManager
             Split split = new NativeSplit(entry.getKey(), addresses);
             splits.add(split);
         }
-        return new DataSource("native", splits.build());
+        return splits.build();
     }
 
     private static List<HostAddress> getAddressesForNodes(Map<String, Node> nodeMap, Iterable<String> nodeIdentifiers)

@@ -3,6 +3,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.SchemaTableMetadata;
+import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -177,7 +178,7 @@ public class MetadataManager
         ImmutableList.Builder<QualifiedTableName> tables = ImmutableList.builder();
         ConnectorMetadata connectorMetadata = connectors.get(prefix.getCatalogName());
         if (connectorMetadata != null) {
-            tables.addAll(transform(connectorMetadata.listTables(prefix.getSchemaName()), convertFromSchemaTableName(prefix.getCatalogName())));
+            tables.addAll(transform(connectorMetadata.listTables(prefix.getSchemaName().orNull()), convertFromSchemaTableName(prefix.getCatalogName())));
         }
 
         // internal schemas like information_schema and sys are in every catalog

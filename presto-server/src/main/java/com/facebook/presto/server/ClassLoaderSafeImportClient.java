@@ -34,6 +34,14 @@ public class ClassLoaderSafeImportClient
     }
 
     @Override
+    public String getConnectorId()
+    {
+        try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getConnectorId();
+        }
+    }
+
+    @Override
     public List<String> listSchemaNames()
     {
         try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
@@ -62,14 +70,6 @@ public class ClassLoaderSafeImportClient
     {
         try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
             return delegate.getTableMetadata(table);
-        }
-    }
-
-    @Override
-    public SchemaTableName getTableName(TableHandle tableHandle)
-    {
-        try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getTableName(tableHandle);
         }
     }
 
@@ -106,6 +106,22 @@ public class ClassLoaderSafeImportClient
     }
 
     @Override
+    public TableHandle createTable(SchemaTableMetadata tableMetadata)
+    {
+        try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
+            return delegate.createTable(tableMetadata);
+        }
+    }
+
+    @Override
+    public void dropTable(TableHandle tableHandle)
+    {
+        try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
+            delegate.dropTable(tableHandle);
+        }
+    }
+
+    @Override
     public List<Partition> getPartitions(TableHandle table, Map<ColumnHandle, Object> bindings)
     {
         try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
@@ -122,10 +138,10 @@ public class ClassLoaderSafeImportClient
     }
 
     @Override
-    public RecordSet getRecords(Split split, List<? extends ColumnHandle> columns)
+    public RecordSet getRecordSet(Split split, List<? extends ColumnHandle> columns)
     {
         try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getRecords(split, columns);
+            return delegate.getRecordSet(split, columns);
         }
     }
 

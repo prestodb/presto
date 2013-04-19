@@ -2,20 +2,20 @@ package com.facebook.presto.tpch;
 
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.metadata.ConnectorMetadata;
 import com.facebook.presto.metadata.InternalColumnHandle;
 import com.facebook.presto.metadata.InternalSchemaMetadata;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.SchemaTableMetadata;
+import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableHandle;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
+import javax.annotation.Nullable;
 import javax.inject.Inject;
 import java.util.List;
 import java.util.Map;
@@ -143,7 +143,7 @@ public class TpchMetadata
         }
 
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> tableColumns = ImmutableMap.builder();
-        for (SchemaTableName tableName : listTables(Optional.fromNullable(prefix.getSchemaName()))) {
+        for (SchemaTableName tableName : listTables(prefix.getSchemaName())) {
             int position = 1;
             ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
             for (ColumnMetadata column : tables.get(tableName.getTableName()).getColumns()) {
@@ -172,11 +172,9 @@ public class TpchMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(Optional<String> schemaName)
+    public List<SchemaTableName> listTables(@Nullable String schemaNameOrNull)
     {
-        checkNotNull(schemaName, "schemaName is null");
-
-        if (!TPCH_SCHEMA_NAME.equals(schemaName.or(TPCH_SCHEMA_NAME))) {
+        if (schemaNameOrNull != null && !TPCH_SCHEMA_NAME.equals(schemaNameOrNull)) {
             return ImmutableList.of();
         }
 

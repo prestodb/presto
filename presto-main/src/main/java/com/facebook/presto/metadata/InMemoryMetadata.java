@@ -2,12 +2,12 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.SchemaTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.tpch.TpchColumnHandle;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -91,7 +91,7 @@ public class InMemoryMetadata
         checkNotNull(prefix, "prefix is null");
 
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> tableColumns = ImmutableMap.builder();
-        for (SchemaTableName tableName : listTables(Optional.fromNullable(prefix.getSchemaName()))) {
+        for (SchemaTableName tableName : listTables(prefix.getSchemaName())) {
             int position = 1;
             ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
             for (ColumnMetadata column : tables.get(tableName).getColumns()) {
@@ -114,13 +114,11 @@ public class InMemoryMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(Optional<String> schemaName)
+    public List<SchemaTableName> listTables(String schemaNameOrNull)
     {
-        checkNotNull(schemaName, "schemaName is null");
-
         ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();
         for (SchemaTableName tableName : tables.keySet()) {
-            if (schemaName.isPresent() || schemaName.get().equals(tableName.getSchemaName())) {
+            if (schemaNameOrNull == null || schemaNameOrNull.equals(tableName.getSchemaName())) {
                 builder.add(tableName);
             }
         }

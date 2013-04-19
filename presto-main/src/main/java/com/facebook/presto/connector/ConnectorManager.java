@@ -1,16 +1,16 @@
 package com.facebook.presto.connector;
 
 import com.facebook.presto.metadata.CollocatedSplitHandleResolver;
-import com.facebook.presto.metadata.ConnectorHandleResolver;
-import com.facebook.presto.metadata.ConnectorMetadata;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.InternalHandleResolver;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.RemoteSplitHandleResolver;
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
+import com.facebook.presto.spi.ConnectorHandleResolver;
+import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.split.ConnectorDataStreamProvider;
-import com.facebook.presto.split.ConnectorSplitManager;
 import com.facebook.presto.split.DataStreamManager;
 import com.facebook.presto.split.ImportClientManager;
 import com.facebook.presto.split.SplitManager;
