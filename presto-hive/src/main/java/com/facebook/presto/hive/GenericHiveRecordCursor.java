@@ -37,6 +37,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
     private final V value;
     private final Deserializer deserializer;
 
+    private final String[] names;
     private final ColumnType[] types;
     private final HiveType[] hiveTypes;
 
@@ -78,6 +79,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
 
         int size = columns.size();
 
+        this.names = new String[size];
         this.types = new ColumnType[size];
         this.hiveTypes = new HiveType[size];
 
@@ -95,12 +97,15 @@ class GenericHiveRecordCursor<K, V extends Writable>
         for (int i = 0; i < columns.size(); i++) {
             HiveColumnHandle column = columns.get(i);
 
+            names[i] = column.getName();
             types[i] = column.getType();
             hiveTypes[i] = column.getHiveType();
 
-            StructField field = rowInspector.getStructFieldRef(column.getName());
-            structFields[i] = field;
-            fieldInspectors[i] = field.getFieldObjectInspector();
+            if (!column.isPartitionKey()) {
+                StructField field = rowInspector.getStructFieldRef(column.getName());
+                structFields[i] = field;
+                fieldInspectors[i] = field.getFieldObjectInspector();
+            }
 
             isPartitionColumn[i] = column.isPartitionKey();
         }

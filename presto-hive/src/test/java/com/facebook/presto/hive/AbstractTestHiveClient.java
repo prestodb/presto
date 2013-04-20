@@ -7,6 +7,7 @@ import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.PartitionChunk;
 import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
@@ -31,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
@@ -230,8 +232,10 @@ public abstract class AbstractTestHiveClient
     {
         TableHandle tableHandle = client.getTableHandle(TABLE);
         SchemaTableMetadata tableMetadata = client.getTableMetadata(tableHandle);
+        List<ColumnHandle>  columnHandles = ImmutableList.copyOf(client.getColumnHandles(tableHandle).values());
+        Map<String, Integer> columnIndex = indexColumns(columnHandles);
+
         List<Partition> partitions = client.getPartitions(tableHandle, ImmutableMap.<ColumnHandle, Object>of());
-        ImmutableList<ColumnHandle> columns = ImmutableList.copyOf(client.getColumnHandles(tableHandle).values());
         List<PartitionChunk> partitionChunks = ImmutableList.copyOf(client.getPartitionChunks(partitions));
         assertEquals(partitionChunks.size(), PARTITIONS.size());
         for (PartitionChunk partitionChunk : partitionChunks) {
@@ -239,8 +243,6 @@ public abstract class AbstractTestHiveClient
 
             byte[] bytes = client.serializePartitionChunk(chunk);
             chunk = (HivePartitionChunk) client.deserializePartitionChunk(bytes);
-
-            Map<String, ColumnMetadata> map = uniqueIndex(tableMetadata.getColumns(), columnNameGetter());
 
             List<HivePartitionKey> partitionKeys = chunk.getPartitionKeys();
             String ds = partitionKeys.get(0).getValue();
@@ -251,7 +253,7 @@ public abstract class AbstractTestHiveClient
 
             long rowNumber = 0;
             long completedBytes = 0;
-            try (RecordCursor cursor = client.getRecords(chunk, columns).cursor()) {
+            try (RecordCursor cursor = client.getRecords(chunk, columnHandles).cursor()) {
                 assertEquals(cursor.getTotalBytes(), chunk.getLength());
 
                 while (cursor.advanceNextPosition()) {
@@ -265,60 +267,60 @@ public abstract class AbstractTestHiveClient
                     rowNumber++;
 
                     if (rowNumber % 19 == 0) {
-                        assertTrue(cursor.isNull(map.get("t_string").getOrdinalPosition()));
+                        assertTrue(cursor.isNull(columnIndex.get("t_string")));
                     }
                     else {
-                        assertEquals(cursor.getString(map.get("t_string").getOrdinalPosition()), (fileType + " test").getBytes(Charsets.UTF_8));
+                        assertEquals(cursor.getString(columnIndex.get("t_string")), (fileType + " test").getBytes(Charsets.UTF_8));
                     }
 
-                    assertEquals(cursor.getLong(map.get("t_tinyint").getOrdinalPosition()), (long) ((byte) (baseValue + 1 + rowNumber)));
-                    assertEquals(cursor.getLong(map.get("t_smallint").getOrdinalPosition()), baseValue + 2 + rowNumber);
-                    assertEquals(cursor.getLong(map.get("t_int").getOrdinalPosition()), baseValue + 3 + rowNumber);
+                    assertEquals(cursor.getLong(columnIndex.get("t_tinyint")), (long) ((byte) (baseValue + 1 + rowNumber)));
+                    assertEquals(cursor.getLong(columnIndex.get("t_smallint")), baseValue + 2 + rowNumber);
+                    assertEquals(cursor.getLong(columnIndex.get("t_int")), baseValue + 3 + rowNumber);
 
                     if (rowNumber % 13 == 0) {
-                        assertTrue(cursor.isNull(map.get("t_bigint").getOrdinalPosition()));
+                        assertTrue(cursor.isNull(columnIndex.get("t_bigint")));
                     }
                     else {
-                        assertEquals(cursor.getLong(map.get("t_bigint").getOrdinalPosition()), baseValue + 4 + rowNumber);
+                        assertEquals(cursor.getLong(columnIndex.get("t_bigint")), baseValue + 4 + rowNumber);
                     }
 
-                    assertEquals(cursor.getDouble(map.get("t_float").getOrdinalPosition()), baseValue + 5.1 + rowNumber, 0.001);
-                    assertEquals(cursor.getDouble(map.get("t_double").getOrdinalPosition()), baseValue + 6.2 + rowNumber);
+                    assertEquals(cursor.getDouble(columnIndex.get("t_float")), baseValue + 5.1 + rowNumber, 0.001);
+                    assertEquals(cursor.getDouble(columnIndex.get("t_double")), baseValue + 6.2 + rowNumber);
 
                     if (rowNumber % 3 == 2) {
-                        assertTrue(cursor.isNull(map.get("t_boolean").getOrdinalPosition()));
+                        assertTrue(cursor.isNull(columnIndex.get("t_boolean")));
                     }
                     else {
-                        assertEquals(cursor.getLong(map.get("t_boolean").getOrdinalPosition()), rowNumber % 3, String.format("row = %s", rowNumber));
+                        assertEquals(cursor.getLong(columnIndex.get("t_boolean")), rowNumber % 3, String.format("row = %s", rowNumber));
                     }
 
                     if (rowNumber % 29 == 0) {
-                        assertTrue(cursor.isNull(map.get("t_map").getOrdinalPosition()));
+                        assertTrue(cursor.isNull(columnIndex.get("t_map")));
                     }
                     else {
                         String expectedJson = "{\"format\":\"" + fileType + "\"}";
-                        assertEquals(cursor.getString(map.get("t_map").getOrdinalPosition()), expectedJson.getBytes(Charsets.UTF_8));
+                        assertEquals(cursor.getString(columnIndex.get("t_map")), expectedJson.getBytes(Charsets.UTF_8));
                     }
 
                     if (rowNumber % 27 == 0) {
-                        assertTrue(cursor.isNull(map.get("t_array_string").getOrdinalPosition()));
+                        assertTrue(cursor.isNull(columnIndex.get("t_array_string")));
                     }
                     else {
                         String expectedJson = "[\"" + fileType + "\",\"test\",\"data\"]";
-                        assertEquals(cursor.getString(map.get("t_array_string").getOrdinalPosition()), expectedJson.getBytes(Charsets.UTF_8));
+                        assertEquals(cursor.getString(columnIndex.get("t_array_string")), expectedJson.getBytes(Charsets.UTF_8));
                     }
 
                     if (rowNumber % 31 == 0) {
-                        assertTrue(cursor.isNull(map.get("t_complex").getOrdinalPosition()));
+                        assertTrue(cursor.isNull(columnIndex.get("t_complex")));
                     }
                     else {
                         String expectedJson = "{1:[{\"s_string\":\"" + fileType + "-a\",\"s_double\":0.1},{\"s_string\":\"" + fileType + "-b\",\"s_double\":0.2}]}";
-                        assertEquals(cursor.getString(map.get("t_complex").getOrdinalPosition()), expectedJson.getBytes(Charsets.UTF_8));
+                        assertEquals(cursor.getString(columnIndex.get("t_complex")), expectedJson.getBytes(Charsets.UTF_8));
                     }
 
-                    assertEquals(cursor.getString(map.get("ds").getOrdinalPosition()), ds.getBytes(Charsets.UTF_8));
-                    assertEquals(cursor.getString(map.get("file_format").getOrdinalPosition()), fileType.getBytes(Charsets.UTF_8));
-                    assertEquals(cursor.getLong(map.get("dummy").getOrdinalPosition()), dummy);
+                    assertEquals(cursor.getString(columnIndex.get("ds")), ds.getBytes(Charsets.UTF_8));
+                    assertEquals(cursor.getString(columnIndex.get("file_format")), fileType.getBytes(Charsets.UTF_8));
+                    assertEquals(cursor.getLong(columnIndex.get("dummy")), dummy);
 
                     long newCompletedBytes = cursor.getCompletedBytes();
                     assertTrue(newCompletedBytes >= completedBytes);
@@ -336,9 +338,10 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         TableHandle tableHandle = client.getTableHandle(TABLE);
-        SchemaTableMetadata tableMetadata = client.getTableMetadata(tableHandle);
+        List<ColumnHandle>  columnHandles = ImmutableList.copyOf(client.getColumnHandles(tableHandle).values());
+        Map<String, Integer> columnIndex = indexColumns(columnHandles);
+
         List<Partition> partitions = client.getPartitions(tableHandle, ImmutableMap.<ColumnHandle, Object>of());
-        ImmutableList<ColumnHandle> columns = ImmutableList.copyOf(client.getColumnHandles(tableHandle).values());
         List<PartitionChunk> partitionChunks = ImmutableList.copyOf(client.getPartitionChunks(partitions));
         assertEquals(partitionChunks.size(), PARTITIONS.size());
         for (PartitionChunk partitionChunk : partitionChunks) {
@@ -346,8 +349,6 @@ public abstract class AbstractTestHiveClient
 
             byte[] bytes = client.serializePartitionChunk(chunk);
             chunk = (HivePartitionChunk) client.deserializePartitionChunk(bytes);
-
-            Map<String, ColumnMetadata> map = uniqueIndex(tableMetadata.getColumns(), columnNameGetter());
 
             List<HivePartitionKey> partitionKeys = chunk.getPartitionKeys();
             String ds = partitionKeys.get(0).getValue();
@@ -357,14 +358,14 @@ public abstract class AbstractTestHiveClient
             long baseValue = getBaseValueForFileType(fileType);
 
             long rowNumber = 0;
-            try (RecordCursor cursor = client.getRecords(chunk, columns).cursor()) {
+            try (RecordCursor cursor = client.getRecords(chunk, columnHandles).cursor()) {
                 while (cursor.advanceNextPosition()) {
                     rowNumber++;
 
-                    assertEquals(cursor.getDouble(map.get("t_double").getOrdinalPosition()), baseValue + 6.2 + rowNumber);
-                    assertEquals(cursor.getString(map.get("ds").getOrdinalPosition()), ds.getBytes(Charsets.UTF_8));
-                    assertEquals(cursor.getString(map.get("file_format").getOrdinalPosition()), fileType.getBytes(Charsets.UTF_8));
-                    assertEquals(cursor.getLong(map.get("dummy").getOrdinalPosition()), dummy);
+                    assertEquals(cursor.getDouble(columnIndex.get("t_double")), baseValue + 6.2 + rowNumber);
+                    assertEquals(cursor.getString(columnIndex.get("ds")), ds.getBytes(Charsets.UTF_8));
+                    assertEquals(cursor.getString(columnIndex.get("file_format")), fileType.getBytes(Charsets.UTF_8));
+                    assertEquals(cursor.getLong(columnIndex.get("dummy")), dummy);
                 }
             }
             assertEquals(rowNumber, 100);
@@ -376,9 +377,10 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         TableHandle tableHandle = client.getTableHandle(TABLE_UNPARTITIONED);
-        SchemaTableMetadata tableMetadata = client.getTableMetadata(tableHandle);
+        List<ColumnHandle>  columnHandles = ImmutableList.copyOf(client.getColumnHandles(tableHandle).values());
+        Map<String, Integer> columnIndex = indexColumns(columnHandles);
+
         List<Partition> partitions = client.getPartitions(tableHandle, ImmutableMap.<ColumnHandle, Object>of());
-        ImmutableList<ColumnHandle> columns = ImmutableList.copyOf(client.getColumnHandles(tableHandle).values());
         List<PartitionChunk> partitionChunks = ImmutableList.copyOf(client.getPartitionChunks(partitions));
         assertEquals(partitionChunks.size(), 1);
 
@@ -388,25 +390,23 @@ public abstract class AbstractTestHiveClient
             byte[] bytes = client.serializePartitionChunk(chunk);
             chunk = (HivePartitionChunk) client.deserializePartitionChunk(bytes);
 
-            Map<String, ColumnMetadata> map = uniqueIndex(tableMetadata.getColumns(), columnNameGetter());
-
             assertEquals(chunk.getPartitionKeys(), ImmutableList.of());
 
             long rowNumber = 0;
-            try (RecordCursor cursor = client.getRecords(chunk, columns).cursor()) {
+            try (RecordCursor cursor = client.getRecords(chunk, columnHandles).cursor()) {
                 assertEquals(cursor.getTotalBytes(), chunk.getLength());
 
                 while (cursor.advanceNextPosition()) {
                     rowNumber++;
 
                     if (rowNumber % 19 == 0) {
-                        assertTrue(cursor.isNull(map.get("t_string").getOrdinalPosition()));
+                        assertTrue(cursor.isNull(columnIndex.get("t_string")));
                     }
                     else {
-                        assertEquals(cursor.getString(map.get("t_string").getOrdinalPosition()), "unpartitioned".getBytes(Charsets.UTF_8));
+                        assertEquals(cursor.getString(columnIndex.get("t_string")), "unpartitioned".getBytes(Charsets.UTF_8));
                     }
 
-                    assertEquals(cursor.getLong(map.get("t_tinyint").getOrdinalPosition()), 1 + rowNumber);
+                    assertEquals(cursor.getLong(columnIndex.get("t_tinyint")), 1 + rowNumber);
                 }
             }
             assertEquals(rowNumber, 100);
@@ -420,9 +420,9 @@ public abstract class AbstractTestHiveClient
         TableHandle table = client.getTableHandle(TABLE_UNPARTITIONED);
         List<Partition> partitions = client.getPartitions(table, ImmutableMap.<ColumnHandle, Object>of());
         PartitionChunk partitionChunk = Iterables.getFirst(client.getPartitionChunks(partitions), null);
-        client.getRecords(partitionChunk, ImmutableList.of(INVALID_COLUMN_HANDLE));
+        RecordSet recordSet = client.getRecords(partitionChunk, ImmutableList.of(INVALID_COLUMN_HANDLE));
+        recordSet.cursor();
     }
-
 
     @Test(expectedExceptions = TableNotFoundException.class, expectedExceptionsMessageRegExp = HiveClient.HIVE_VIEWS_NOT_SUPPORTED)
     public void testViewsAreNotSupported()
@@ -447,25 +447,26 @@ public abstract class AbstractTestHiveClient
 
     private void assertReadFields(RecordCursor cursor, List<ColumnMetadata> schema)
     {
-        for (ColumnMetadata column : schema) {
-            if (!cursor.isNull(column.getOrdinalPosition())) {
+        for (int columnIndex = 0; columnIndex < schema.size(); columnIndex++) {
+            ColumnMetadata column = schema.get(columnIndex);
+            if (!cursor.isNull(columnIndex)) {
                 switch (column.getType()) {
                     case LONG:
-                        cursor.getLong(column.getOrdinalPosition());
+                        cursor.getLong(columnIndex);
                         break;
                     case DOUBLE:
-                        cursor.getDouble(column.getOrdinalPosition());
+                        cursor.getDouble(columnIndex);
                         break;
                     case STRING:
                         try {
-                            cursor.getString(column.getOrdinalPosition());
+                            cursor.getString(columnIndex);
                         }
                         catch (Exception e) {
                             throw new RuntimeException("column " + column, e);
                         }
                         break;
                     default:
-                        fail("Unknown primitive type " + column.getOrdinalPosition());
+                        fail("Unknown primitive type " + columnIndex);
                 }
             }
         }
@@ -476,6 +477,18 @@ public abstract class AbstractTestHiveClient
         assertTrue(map.containsKey(name));
         ColumnMetadata column = map.get(name);
         assertEquals(column.getType(), type);
+    }
+
+    private static ImmutableMap<String, Integer> indexColumns(List<ColumnHandle> columnHandles)
+    {
+        ImmutableMap.Builder<String, Integer> index = ImmutableMap.builder();
+        int i = 0;
+        for (ColumnHandle columnHandle : columnHandles) {
+            checkArgument(columnHandle instanceof HiveColumnHandle, "columnHandle is not an instance of HiveColumnHandle");
+            HiveColumnHandle hiveColumnHandle = (HiveColumnHandle) columnHandle;
+            index.put(hiveColumnHandle.getName(), i++);
+        }
+        return index.build();
     }
 
     protected HiveChunkEncoder getHiveChunkEncoder()
