@@ -509,7 +509,18 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitTableWriter(TableWriterNode node, LocalExecutionPlanContext context)
         {
-            PhysicalOperation query = node.getSource().accept(this, context);
+            LocalExecutionPlanner queryPlanner = new LocalExecutionPlanner(session,
+                    nodeInfo,
+                    metadata,
+                    node.getInputTypes(),
+                    operatorStats,
+                    joinHashFactory,
+                    maxOperatorMemoryUsage,
+                    dataStreamProvider,
+                    storageManager,
+                    exchangeOperatorFactory);
+
+            PhysicalOperation query = node.getSource().accept(queryPlanner.new Visitor(), context);
 
             // introduce a projection to match the expected output
             IdentityProjectionInfo mappings = computeIdentityMapping(node.getInputSymbols(), query.getLayout(), node.getInputTypes());
