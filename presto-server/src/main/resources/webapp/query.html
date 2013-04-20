@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<head xmlns="http://www.w3.org/1999/html" xmlns="http://www.w3.org/1999/html">
+    <meta charset="utf-8">
+
+    <script src="d3/d3.v3.js"></script>
+
+    <link href="bootstrap/css/bootstrap.css" rel="stylesheet" type="text/css">
+
+    <link rel="stylesheet" href="highlightjs/7.3/styles/idea.min.css">
+    <script src="highlightjs/7.3/highlight.min.js"></script>
+
+    <style type="text/css">
+        pre code {
+            white-space: pre;
+            white-space: pre-wrap;
+        }
+
+        .node circle {
+            cursor: pointer;
+            fill: #fff;
+            stroke: steelblue;
+            stroke-width: 1.5px;
+        }
+
+        .node text {
+            font-size: 12px;
+        }
+
+        path.link {
+            fill: none;
+            stroke: #ccc;
+            stroke-width: 1.5px;
+        }
+
+        #tasks td:nth-child(4),
+        #tasks td:nth-child(5),
+        #tasks td:nth-child(6),
+        #tasks td:nth-child(7),
+        #tasks td:nth-child(8),
+        #tasks td:nth-child(9),
+        #tasks td:nth-child(10),
+        #tasks td:nth-child(11),
+        #tasks td:nth-child(12) {
+            text-align: right;
+        }
+    </style>
+</head>
+
+<body>
+
+
+<div class="container">
+    <div class="page-header">
+        <h1>Presto :: Query <span id="queryId"></span></h1>
+    </div>
+
+    <h2>Summary</h2>
+
+    <div class="sql"><pre><code id="query"></code></pre></div>
+
+    <dl class="dl-horizontal">
+        <dt>Query State</dt>
+        <dd id="queryState"></dd>
+
+        <dt>User</dt>
+        <dd id="sessionUser"></dd>
+
+        <dt>Catalog</dt>
+        <dd id="sessionCatalog"></dd>
+
+        <dt>Schema</dt>
+        <dd id="sessionSchema"></dd>
+    </dl>
+
+    <h2>Stages</h2>
+
+    <div id="stages"></div>
+
+    <h2>Tasks</h2>
+
+    <table id="tasks" class="table table-striped">
+        <thead>
+        <tr>
+            <th>Id</th>
+            <th>Host</th>
+            <th>State</th>
+            <th>Rows</th>
+            <th>Rows/s</th>
+            <th>Bytes</th>
+            <th>Bytes/s</th>
+            <th>Splits Pending</th>
+            <th>Splits Running</th>
+            <th>Splits Done</th>
+            <th>Output Buffers</th>
+            <th>Buffered Pages</th>
+        </tr>
+        </thead>
+    </table>
+</div>
+
+</body>
+
+<script>
+
+
+d3.json('/v1/query/' + window.location.search.substring(1), function (query) {
+    d3.select('#query').text(query.query);
+    d3.select('#queryId').text(query.queryId);
+    d3.select('#queryState').text(query.state);
+    d3.select('#sessionUser').text(query.session.user);
+    d3.select('#sessionCatalog').text(query.session.catalog);
+    d3.select('#sessionSchema').text(query.session.schema);
+
+    hljs.initHighlighting();
+
+    renderStagesTree(query.outputStage);
+
+    renderTable('tasks', getTasks(query.outputStage).sort(taskIdComparator));
+});
+
+function removeQueryId(id)
+{
+    var pos = id.indexOf('.');
+    if (pos != -1) {
+        return id.substring(pos + 1);
+    }
+
+    return id
+}
+
+function taskIdComparator(a, b) {
+    a = a[0].split('.').map(parseFloat);
+    b = b[0].split('.').map(parseFloat);
+    return numericArrayComparator(a, b);
+}
+
+function numericArrayComparator(a, b) {
+    for (var i = 0; (i < a.length) && (i < b.length); i++) {
+        if (a[i] < b[i]) return -1;
+        if (a[i] > b[i]) return 1;
+    }
+    if (a.length < b.length) return -1;
+    if (a.length > b.length) return 1;
+    return 0;
+}
+
+function getTasks(stage) {
+    return [].concat.apply(
+            stage.tasks.map(taskData),
+            stage.subStages.map(getTasks));
+}
+
+function taskData(d) {
+    var elapsed = parseFloat(d.stats.splitWallTime.replace('ms'));
+    var rows = d.stats.completedPositionCount;
+    var bytes = parseInt(d.stats.completedDataSize.replace('B'));
+
+    var allBuffers = d.outputBuffers.buffers.length;
+    var finishedBuffers = d3.sum(d.outputBuffers.buffers, function (i) {
+        return i.finished;
+    });
+    var bufferedPages = d3.sum(d.outputBuffers.buffers, function (i) {
+        return i.bufferedPages;
+    });
+
+    return [
+        d.taskId,
+        d.self.replace(/http:\/\/([a-z0-9-.]+)[\/:].*/, '$1'),
+        d.state,
+        formatCount(rows),
+        formatCount(computeRate(rows, elapsed)),
+        formatDataSize(bytes),
+        formatDataSize(computeRate(bytes, elapsed)),
+        Math.max(d.stats.splits - d.stats.startedSplits, 0),
+        Math.max(d.stats.startedSplits - d.stats.completedSplits, 0),
+        d.stats.completedSplits,
+        finishedBuffers + ' / ' + allBuffers,
+        bufferedPages
+    ];
+}
+
+function computeRate(count, ms) {
+    if (ms == 0) {
+        return 0;
+    }
+    return Math.round(count / ms) / 1000;
+}
+
+function formatCount(count) {
+    var unit = "";
+    if (count > 1000) {
+        count /= 1000;
+        unit = "K";
+    }
+    if (count > 1000) {
+        count /= 1000;
+        unit = "M";
+    }
+    if (count > 1000) {
+        count /= 1000;
+        unit = "B";
+    }
+    if (count > 1000) {
+        count /= 1000;
+        unit = "T";
+    }
+    if (count > 1000) {
+        count /= 1000;
+        unit = "Q";
+    }
+    return precisionRound(count) + unit;
+}
+
+function formatDataSize(size) {
+    var unit = "B";
+    if (size >= 1024) {
+        size /= 1024;
+        unit = "K";
+    }
+    if (size >= 1024) {
+        size /= 1024;
+        unit = "M";
+    }
+    if (size >= 1024) {
+        size /= 1024;
+        unit = "G";
+    }
+    if (size >= 1024) {
+        size /= 1024;
+        unit = "T";
+    }
+    if (size >= 1024) {
+        size /= 1024;
+        unit = "P";
+    }
+    return precisionRound(size) + unit;
+}
+
+function precisionRound(n) {
+    if (n < 10) {
+        return d3.round(n, 2);
+    }
+    if (n < 100) {
+        return d3.round(n, 1);
+    }
+    return Math.round(n);
+}
+
+function renderTable(id, data) {
+    var body = d3.select('#' + id).append("tbody");
+
+    var rows = body.selectAll("tr")
+            .data(data)
+            .enter()
+            .append("tr");
+
+    var cells = rows.selectAll("td")
+            .data(function (d) {
+                return d;
+            })
+            .enter()
+            .append("td")
+            .text(function (d) {
+                return d;
+            });
+}
+
+function renderStagesTree(source) {
+    var m = [20, 120, 20, 120];
+    var w = 940 - (m[1] - m[3]);
+    var h = 150 - (m[0] - m[2]);
+    var i = 0;
+    var root;
+
+    var tree = d3.layout.tree()
+            .size([h, w]);
+
+    var diagonal = d3.svg.diagonal()
+            .projection(function (d) {
+                return [d.y, d.x];
+            });
+
+    var vis = d3.select("#stages").append("svg:svg")
+            .attr("width", w + m[1] + m[3])
+            .attr("height", h + m[0] + m[2])
+            .append("svg:g")
+            .attr("transform", "translate(" + m[3] + "," + m[0] + ")");
+
+    copyChildren(source);
+
+    root = source;
+    root.x0 = h / 2;
+    root.y0 = 0;
+
+    update(root);
+
+    function copyChildren(d) {
+        d.children = d.subStages;
+        if (d.children) {
+            d.children.forEach(copyChildren);
+        }
+    }
+
+    function update(source) {
+        var duration = d3.event && d3.event.altKey ? 5000 : 500;
+
+        // Compute the new tree layout.
+        var nodes = tree.nodes(root).reverse();
+
+        // Normalize for fixed-depth.
+        nodes.forEach(function (d) {
+            d.y = d.depth * 200;
+        });
+
+        // Update the nodes…
+        var node = vis.selectAll("g.node")
+                .data(nodes, function (d) {
+                    return d.id || (d.id = ++i);
+                });
+
+        // Enter any new nodes at the parent's previous position.
+        var nodeEnter = node.enter().append("svg:g")
+                .attr("class", "node")
+                .attr("transform", function (d) {
+                    return "translate(" + source.y0 + "," + source.x0 + ")";
+                })
+                .on("click", function (d) {
+                    toggle(d);
+                    update(d);
+                });
+
+        nodeEnter.append("svg:circle")
+                .attr("r", 1e-6)
+                .style("fill", function (d) {
+                    return d._children ? "lightsteelblue" : "#fff";
+                });
+
+        nodeEnter.append("svg:text")
+                .attr("x", function (d) {
+                    return d.children || d._children ? -10 : 10;
+                })
+                .attr("dy", ".35em")
+                .attr("text-anchor", function (d) {
+                    return d.children || d._children ? "end" : "start";
+                })
+                .text(function (d) {
+                    return removeQueryId(d.stageId) + ' ' + d.state;
+                })
+                .style("fill-opacity", 1e-6);
+
+        // Transition nodes to their new position.
+        var nodeUpdate = node
+//                .transition()
+//                .duration(duration)
+                .attr("transform", function (d) {
+                    return "translate(" + d.y + "," + d.x + ")";
+                });
+
+        nodeUpdate.select("circle")
+                .attr("r", 4.5)
+                .style("fill", function (d) {
+                    return d._children ? "lightsteelblue" : "#fff";
+                });
+
+        nodeUpdate.select("text")
+                .style("fill-opacity", 1);
+
+        // Transition exiting nodes to the parent's new position.
+        var nodeExit = node.exit()
+//                .transition()
+//                .duration(duration)
+                .attr("transform", function (d) {
+                    return "translate(" + source.y + "," + source.x + ")";
+                })
+                .remove();
+
+        nodeExit.select("circle")
+                .attr("r", 1e-6);
+
+        nodeExit.select("text")
+                .style("fill-opacity", 1e-6);
+
+        // Update the links…
+        var link = vis.selectAll("path.link")
+                .data(tree.links(nodes), function (d) {
+                    return d.target.id;
+                });
+
+        // Enter any new links at the parent's previous position.
+        link.enter().insert("svg:path", "g")
+                .attr("class", "link")
+                .attr("d", function (d) {
+                    var o = {x: source.x0, y: source.y0};
+                    return diagonal({source: o, target: o});
+                })
+//                .transition()
+//                .duration(duration)
+                .attr("d", diagonal);
+
+        // Transition links to their new position.
+        link
+//                .transition()
+//                .duration(duration)
+                .attr("d", diagonal);
+
+        // Transition exiting nodes to the parent's new position.
+        link.exit()
+//                .transition()
+//                .duration(duration)
+                .attr("d", function (d) {
+                    var o = {x: source.x, y: source.y};
+                    return diagonal({source: o, target: o});
+                })
+                .remove();
+
+        // Stash the old positions for transition.
+        nodes.forEach(function (d) {
+            d.x0 = d.x;
+            d.y0 = d.y;
+        });
+    }
+
+    // Toggle children.
+    function toggle(d) {
+        if (d.children) {
+            d._children = d.children;
+            d.children = null;
+        } else {
+            d.children = d._children;
+            d._children = null;
+        }
+    }
+}
+</script>
