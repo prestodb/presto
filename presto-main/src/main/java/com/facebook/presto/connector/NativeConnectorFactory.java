@@ -39,6 +39,12 @@ public class NativeConnectorFactory
     }
 
     @Override
+    public String getName()
+    {
+        return "native";
+    }
+
+    @Override
     public Connector create(String connectorId, Map<String, String> properties)
     {
         NativeMetadata nativeMetadata;

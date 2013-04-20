@@ -24,14 +24,17 @@ public class TestHiveClient
                 new SlowDatanodeSwitcher(hiveClientConfig),
                 hiveClientConfig).get();
 
-        this.client = new HiveClient(
-                "hive",
-                1024 * 1024 * 1024 /* 1 GB */,
-                100,
-                50,
-                500,
+        HiveClient client = new HiveClient(
+                new HiveConnectorId("hive"),
                 new CachingHiveMetastore(new TestingHiveCluster(host, port), Duration.valueOf("1m")),
                 new HdfsEnvironment(new HdfsConfiguration(), fileSystemWrapper),
-                MoreExecutors.sameThreadExecutor());
+                MoreExecutors.sameThreadExecutor(),
+                100,
+                50,
+                500);
+
+        metadata = client;
+        splitManager = client;
+        recordSetProvider = client;
     }
 }

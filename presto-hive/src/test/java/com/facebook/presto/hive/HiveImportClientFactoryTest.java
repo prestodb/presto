@@ -3,11 +3,18 @@
  */
 package com.facebook.presto.hive;
 
-import io.airlift.discovery.client.ServiceSelector;
-import io.airlift.discovery.client.testing.StaticServiceSelector;
+import com.facebook.presto.spi.Connector;
+import com.facebook.presto.spi.ConnectorHandleResolver;
+import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.ConnectorSplitManager;
+import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorHandleResolver;
+import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorMetadata;
+import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorRecordSetProvider;
+import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorSplitManager;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import static io.airlift.discovery.client.ServiceDescriptor.serviceDescriptor;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 
 public class HiveImportClientFactoryTest
@@ -16,16 +23,11 @@ public class HiveImportClientFactoryTest
     public void testGetClient()
             throws Exception
     {
-        ServiceSelector selector = new StaticServiceSelector(
-                serviceDescriptor("hive-metastore").addProperty("thrift", "meta1.test:9083").addProperty("name", "fuu").build(),
-                serviceDescriptor("hive-metastore").addProperty("thrift", "meta2.text:9083").addProperty("name", "fuu").build(),
-                serviceDescriptor("hive-metastore").addProperty("thrift", "meta3.text:9083").addProperty("name", "bar").build(),
-                serviceDescriptor("hive-metastore").addProperty("thrift", "missing-port").build(),
-                serviceDescriptor("hive-metastore").build());
-
-        HiveClientFactory hiveClientFactory = new HiveClientFactory(new HiveClientConfig(), new HdfsEnvironment());
-        DiscoveryLocatedHiveCluster hiveCluster = new DiscoveryLocatedHiveCluster(selector, new HiveMetastoreClientFactory(new HiveClientConfig()));
-        HiveImportClientFactory factory = new HiveImportClientFactory(hiveCluster, hiveClientFactory);
-        assertInstanceOf(factory.createClient("hive"), HiveClient.class);
+        HiveConnectorFactory connectorFactory = new HiveConnectorFactory(ImmutableMap.<String, String>of("node.environment", "test"));
+        Connector connector = connectorFactory.create("hive", ImmutableMap.<String, String>of());
+        assertInstanceOf(connector.getService(ConnectorMetadata.class), ClassLoaderSafeConnectorMetadata.class);
+        assertInstanceOf(connector.getService(ConnectorSplitManager.class), ClassLoaderSafeConnectorSplitManager.class);
+        assertInstanceOf(connector.getService(ConnectorRecordSetProvider.class), ClassLoaderSafeConnectorRecordSetProvider.class);
+        assertInstanceOf(connector.getService(ConnectorHandleResolver.class), ClassLoaderSafeConnectorHandleResolver.class);
     }
 }
