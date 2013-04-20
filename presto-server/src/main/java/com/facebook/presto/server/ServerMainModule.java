@@ -117,6 +117,7 @@ import static io.airlift.configuration.ConfigurationModule.bindConfig;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.event.client.EventBinder.eventBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
+import static io.airlift.http.server.HttpServerBinder.httpServerBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -127,6 +128,8 @@ public class ServerMainModule
     @Override
     protected void configure()
     {
+        httpServerBinder(binder).bindResource("/", "webapp").withWelcomeFile("index.html");
+
         binder.bind(QueryResource.class).in(Scopes.SINGLETON);
         binder.bind(StageResource.class).in(Scopes.SINGLETON);
         binder.bind(QueryManager.class).to(SqlQueryManager.class).in(Scopes.SINGLETON);
