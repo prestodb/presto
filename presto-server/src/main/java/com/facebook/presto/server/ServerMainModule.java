@@ -23,6 +23,7 @@ import com.facebook.presto.execution.SqlQueryManager;
 import com.facebook.presto.execution.SqlTaskManager;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
+import com.facebook.presto.importer.DatabasePeriodicImportManager;
 import com.facebook.presto.importer.ForPeriodicImport;
 import com.facebook.presto.importer.JobStateFactory;
 import com.facebook.presto.importer.PeriodicImportConfig;
@@ -190,6 +191,7 @@ public class ServerMainModule
         bindConfig(binder).to(ShardCleanerConfig.class);
         binder.bind(ShardCleaner.class).in(Scopes.SINGLETON);
         httpClientBinder(binder).bindHttpClient("shard-cleaner", ForShardCleaner.class);
+        binder.bind(ShardResource.class).in(Scopes.SINGLETON);
 
         ServiceAnnouncementBuilder announcementBuilder = discoveryBinder(binder).bindHttpAnnouncement("presto");
         String datasources = configurationFactory.getProperties().get("datasources");
@@ -224,11 +226,12 @@ public class ServerMainModule
         // Job Scheduler code
         bindConfig(binder).to(PeriodicImportConfig.class);
         binder.bind(PeriodicImportJobResource.class).in(Scopes.SINGLETON);
-        binder.bind(PeriodicImportManager.class).in(Scopes.SINGLETON);
+        binder.bind(PeriodicImportManager.class).to(DatabasePeriodicImportManager.class).in(Scopes.SINGLETON);
         binder.bind(PeriodicImportController.class).in(Scopes.SINGLETON);
         binder.bind(JobStateFactory.class).in(Scopes.SINGLETON);
         binder.bind(PeriodicImportRunnable.PeriodicImportRunnableFactory.class).in(Scopes.SINGLETON);
         ExportBinder.newExporter(binder).export(PeriodicImportController.class).as("com.facebook.presto:name=periodic-import");
+        HttpClientBinder.httpClientBinder(binder).bindAsyncHttpClient("periodic-importer", ForPeriodicImport.class).withTracing();
 
         bindConfig(binder).to(SitevarsConfig.class);
         binder.bind(Sitevars.class).in(Scopes.SINGLETON);

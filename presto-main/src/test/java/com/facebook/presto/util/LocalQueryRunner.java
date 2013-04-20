@@ -1,5 +1,6 @@
 package com.facebook.presto.util;
 
+import com.facebook.presto.importer.MockPeriodicImportManager;
 import com.facebook.presto.metadata.AbstractMetadata;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.DualTable;
@@ -92,7 +93,8 @@ public class LocalQueryRunner
 
         Analyzer analyzer = new Analyzer(session,
                 metadata,
-                new MockStorageManager());
+                new MockStorageManager(),
+                new MockPeriodicImportManager());
 
         AnalysisResult analysis = analyzer.analyze(statement);
 
