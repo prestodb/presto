@@ -8,27 +8,29 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class CSVPrinter
-        extends OutputHandler
+public class CsvPrinter
+        implements OutputPrinter
 {
     private final CSVWriter writer;
 
-    public CSVPrinter(Writer writer, char separator)
+    public CsvPrinter(Writer writer, char separator)
     {
         checkNotNull(writer, "writer is null");
         this.writer = new CSVWriter(writer, separator);
     }
 
     @Override
-    public void processRow(List<?> values)
+    public void printRows(List<List<?>> rows)
             throws IOException
     {
-        writer.writeNext(toStrings(values));
-        checkError();
+        for (List<?> row : rows) {
+            writer.writeNext(toStrings(row));
+            checkError();
+        }
     }
 
     @Override
-    public void close()
+    public void finish()
             throws IOException
     {
         writer.flush();

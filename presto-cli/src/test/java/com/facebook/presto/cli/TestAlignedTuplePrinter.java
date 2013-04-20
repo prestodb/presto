@@ -4,9 +4,9 @@ import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.io.StringWriter;
-import java.util.Arrays;
 import java.util.List;
 
+import static java.util.Arrays.asList;
 import static org.testng.Assert.assertEquals;
 
 public class TestAlignedTuplePrinter
@@ -17,13 +17,14 @@ public class TestAlignedTuplePrinter
     {
         StringWriter writer = new StringWriter();
         List<String> fieldNames = ImmutableList.of("first", "last", "quantity");
-        OutputHandler printer = new AlignedTuplePrinter(fieldNames, writer);
+        OutputPrinter printer = new AlignedTuplePrinter(fieldNames, writer);
 
-        printer.processRow(row("hello", "world", 123));
-        printer.processRow(row("a", null, 4.5));
-        printer.processRow(row("some long\ntext that\ndoes not\nfit on\none line", "more\ntext", 4567));
-        printer.processRow(row("bye", "done", -15));
-        printer.close();
+        printer.printRows(asList(
+                row("hello", "world", 123),
+                row("a", null, 4.5),
+                row("some long\ntext that\ndoes not\nfit on\none line", "more\ntext", 4567),
+                row("bye", "done", -15)));
+        printer.finish();
 
         String expected = "" +
                 "   first   | last  | quantity \n" +
@@ -41,8 +42,26 @@ public class TestAlignedTuplePrinter
         assertEquals(writer.getBuffer().toString(), expected);
     }
 
-    private static List<Object> row(Object... values)
+    @Test
+    public void testAlignedPrintingNoRows()
+            throws Exception
     {
-        return Arrays.asList(values);
+        StringWriter writer = new StringWriter();
+        List<String> fieldNames = ImmutableList.of("first", "last");
+        OutputPrinter printer = new AlignedTuplePrinter(fieldNames, writer);
+
+        printer.finish();
+
+        String expected = "" +
+                " first | last \n" +
+                "-------+------\n" +
+                "(0 rows)\n";
+
+        assertEquals(writer.getBuffer().toString(), expected);
+    }
+
+    private static List<?> row(Object... values)
+    {
+        return asList(values);
     }
 }

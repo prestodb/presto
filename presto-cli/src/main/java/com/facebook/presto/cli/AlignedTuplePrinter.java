@@ -7,7 +7,6 @@ import java.io.IOException;
 import java.io.Writer;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -16,15 +15,13 @@ import static java.lang.Math.max;
 import static java.lang.String.format;
 
 public class AlignedTuplePrinter
-        extends OutputHandler
+        implements OutputPrinter
 {
-    private static final int MAX_BUFFERED_ROWS = 10_000;
     private static final Splitter LINE_SPLITTER = Splitter.on('\n');
 
-    private final AtomicBoolean closed = new AtomicBoolean();
-    private final List<List<?>> rowBuffer = new ArrayList<>(MAX_BUFFERED_ROWS);
     private final List<String> fieldNames;
     private final Writer writer;
+
     private boolean headerOutput;
     private long rowCount;
 
@@ -35,38 +32,26 @@ public class AlignedTuplePrinter
     }
 
     @Override
-    public void processRow(List<?> values)
+    public void finish()
             throws IOException
     {
-        checkState(fieldNames.size() == values.size(), "field names size does not match row size");
-        rowBuffer.add(values);
-        rowCount++;
-        if (rowBuffer.size() == MAX_BUFFERED_ROWS) {
-            flush();
-        }
+        printRows(ImmutableList.<List<?>>of());
+        writer.append(format("(%s row%s)%n", rowCount, (rowCount != 1) ? "s" : ""));
+        writer.flush();
     }
 
     @Override
-    public void close()
+    public void printRows(List<List<?>> rows)
             throws IOException
     {
-        if (!closed.getAndSet(true)) {
-            flush();
-            writer.append(format("(%s row%s)%n", rowCount, (rowCount != 1) ? "s" : ""));
-            writer.flush();
-        }
-    }
-
-    private void flush()
-            throws IOException
-    {
+        rowCount += rows.size();
         int columns = fieldNames.size();
 
         int[] maxWidth = new int[columns];
         for (int i = 0; i < columns; i++) {
             maxWidth[i] = max(1, fieldNames.get(i).length());
         }
-        for (List<?> row : rowBuffer) {
+        for (List<?> row : rows) {
             for (int i = 0; i < row.size(); i++) {
                 String s = formatValue(row.get(i));
                 maxWidth[i] = max(maxWidth[i], maxLineLength(s));
@@ -94,7 +79,7 @@ public class AlignedTuplePrinter
             writer.append('\n');
         }
 
-        for (List<?> row : rowBuffer) {
+        for (List<?> row : rows) {
             List<List<String>> columnLines = new ArrayList<>(columns);
             int maxLines = 1;
             for (int i = 0; i < columns; i++) {
@@ -125,7 +110,6 @@ public class AlignedTuplePrinter
         }
 
         writer.flush();
-        rowBuffer.clear();
     }
 
     private static String formatValue(Object o)

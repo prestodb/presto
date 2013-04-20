@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintStream;
+import java.io.Writer;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -28,7 +29,6 @@ import static com.facebook.presto.cli.ClientOptions.OutputFormat.CSV_HEADER;
 import static com.facebook.presto.cli.ClientOptions.OutputFormat.PAGED;
 import static com.facebook.presto.cli.ClientOptions.OutputFormat.TSV_HEADER;
 import static com.facebook.presto.cli.ConsolePrinter.REAL_TERMINAL;
-import static com.facebook.presto.cli.OutputHandler.processOutput;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
 
@@ -90,26 +90,23 @@ public class Query
             waitForData();
         }
 
-        if ((!client.isFailed()) && (!client.isGone())) {
+        if ((!client.isFailed()) && (!client.isGone()) && (!client.isClosed())) {
             QueryResults results = client.isValid() ? client.current() : client.finalResults();
             if (results.getColumns() == null) {
                 errorChannel.printf("Query %s has no columns\n", results.getId());
                 return;
             }
 
-            List<String> fieldNames = Lists.transform(results.getColumns(), Column.nameGetter());
-            switch (outputFormat) {
-                case PAGED:
-                    pageOutput(Pager.LESS, fieldNames);
-                    break;
-                default:
-                    sendOutput(out, outputFormat, fieldNames);
-                    break;
+            try {
+                renderResults(out, outputFormat, results);
+            }
+            catch (QueryAbortedException e) {
+                System.out.println("(query aborted by user)");
+                client.close();
             }
         }
 
         if (statusPrinter != null) {
-            // print final info after the user exits from the pager
             statusPrinter.printFinalInfo();
         }
 
@@ -131,14 +128,27 @@ public class Query
         }
     }
 
+    private void renderResults(PrintStream out, OutputFormat outputFormat, QueryResults results)
+    {
+        List<String> fieldNames = Lists.transform(results.getColumns(), Column.nameGetter());
+        switch (outputFormat) {
+            case PAGED:
+                pageOutput(Pager.LESS, fieldNames);
+                break;
+            default:
+                sendOutput(out, outputFormat, fieldNames);
+                break;
+        }
+    }
+
     private void pageOutput(List<String> pagerCommand, List<String> fieldNames)
     {
         // ignore the user pressing ctrl-C while in the pager
         ignoreUserInterrupt.set(true);
 
-        try (Pager pager = Pager.create(pagerCommand);
-                OutputHandler handler = new AlignedTuplePrinter(fieldNames, createWriter(pager))) {
-            processOutput(client, handler);
+        try (Writer writer = createWriter(Pager.create(pagerCommand));
+                OutputHandler handler = new OutputHandler(new AlignedTuplePrinter(fieldNames, writer))) {
+            handler.processRows(client);
         }
         catch (IOException e) {
             throw Throwables.propagate(e);
@@ -147,27 +157,29 @@ public class Query
 
     private void sendOutput(PrintStream out, OutputFormat outputFormat, List<String> fieldNames)
     {
-        try (OutputHandler handler = createOutputHandler(outputFormat, createWriter(out))) {
+        OutputPrinter printer = createOutputPrinter(outputFormat, createWriter(out));
+        try (OutputHandler handler = new OutputHandler(printer)) {
             if ((outputFormat == CSV_HEADER) || (outputFormat == TSV_HEADER)) {
                 // add a header line with the field names
                 handler.processRow(fieldNames);
             }
-            processOutput(client, handler);
+            handler.processRows(client);
         }
         catch (IOException e) {
             throw Throwables.propagate(e);
         }
     }
 
-    private static OutputHandler createOutputHandler(OutputFormat outputFormat, OutputStreamWriter writer)
+    @SuppressWarnings("fallthrough")
+    private static OutputPrinter createOutputPrinter(OutputFormat outputFormat, OutputStreamWriter writer)
     {
         switch (outputFormat) {
             case CSV:
             case CSV_HEADER:
-                return new CSVPrinter(writer, ',');
+                return new CsvPrinter(writer, ',');
             case TSV:
             case TSV_HEADER:
-                return new CSVPrinter(writer, '\t');
+                return new CsvPrinter(writer, '\t');
         }
         throw new RuntimeException(outputFormat + " not supported");
     }
