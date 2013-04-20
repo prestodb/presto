@@ -31,6 +31,12 @@ public class TpchConnectorFactory
     }
 
     @Override
+    public String getName()
+    {
+        return "tpch";
+    }
+
+    @Override
     public Connector create(String connectorId, Map<String, String> properties)
     {
         ImmutableClassToInstanceMap.Builder<Object> builder = ImmutableClassToInstanceMap.builder();

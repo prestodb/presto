@@ -17,6 +17,7 @@ import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.Table;
 
 import javax.annotation.concurrent.ThreadSafe;
+import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -42,6 +43,13 @@ public class CachingHiveMetastore
     private final Cache<HiveTableName, Table> tableCache;
     private final Cache<HivePartitionName, Partition> partitionCache;
     private final Cache<PartitionFilter, List<String>> partitionFilterCache;
+
+    @Inject
+    public CachingHiveMetastore(HiveCluster hiveCluster, HiveClientConfig hiveClientConfig)
+    {
+        this(checkNotNull(hiveCluster, "hiveCluster is null"),
+                checkNotNull(hiveClientConfig, "hiveClientConfig is null").getMetastoreCacheTtl());
+    }
 
     public CachingHiveMetastore(HiveCluster hiveCluster, Duration cacheTtl)
     {

@@ -4,5 +4,7 @@ import java.util.Map;
 
 public interface ConnectorFactory
 {
-    Connector create(String connectorId, Map<String, String> properties);
+    String getName();
+
+    Connector create(String connectorId, Map<String, String> config);
 }

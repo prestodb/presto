@@ -6,7 +6,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Parameters;
 
 public class TestHiveClientSplitIteratorBackPressure
-    extends AbstractTestHiveClient
+        extends AbstractTestHiveClient
 {
     @Parameters({"hiveMetastoreHost", "hiveMetastorePort"})
     @BeforeMethod
@@ -14,14 +14,17 @@ public class TestHiveClientSplitIteratorBackPressure
             throws Exception
     {
         // Restrict the outstanding splits to 1 and only use 2 threads per iterator
-        this.client = new HiveClient(
-                "hive",
-                1024 * 1024 * 1024 /* 1 GB */,
-                1,
-                2,
-                500,
+        HiveClient client = new HiveClient(
+                new HiveConnectorId("hive"),
                 new CachingHiveMetastore(new TestingHiveCluster(host, port), Duration.valueOf("1m")),
                 new HdfsEnvironment(),
-                MoreExecutors.sameThreadExecutor());
+                MoreExecutors.sameThreadExecutor(),
+                1,
+                2,
+                500);
+
+        metadata = client;
+        splitManager = client;
+        recordSetProvider = client;
     }
 }

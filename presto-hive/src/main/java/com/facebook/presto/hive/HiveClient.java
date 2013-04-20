@@ -6,13 +6,11 @@ import com.facebook.presto.hive.util.FileStatusCallback;
 import com.facebook.presto.hive.util.SuspendingExecutor;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ColumnNotFoundException;
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.SchemaNotFoundException;
@@ -35,6 +33,7 @@ import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.FileStatus;
@@ -99,14 +98,13 @@ import static com.google.common.collect.Iterables.transform;
 
 @SuppressWarnings("deprecation")
 public class HiveClient
-        implements ImportClient, ConnectorMetadata, ConnectorRecordSetProvider, ConnectorHandleResolver
+        implements ConnectorMetadata, ConnectorSplitManager, ConnectorRecordSetProvider, ConnectorHandleResolver
 {
     public static final String HIVE_VIEWS_NOT_SUPPORTED = "Hive views are not supported";
 
     private static final Logger log = Logger.get(HiveClient.class);
 
-    private final String clientId;
-    private final long maxSplitBytes;
+    private final String connectorId;
     private final int maxOutstandingSplits;
     private final int maxSplitIteratorThreads;
     private final int partitionBatchSize;
@@ -114,30 +112,46 @@ public class HiveClient
     private final HdfsEnvironment hdfsEnvironment;
     private final ExecutorService executor;
 
-    public HiveClient(
-            String clientId,
-            long maxSplitBytes,
-            int maxOutstandingSplits,
-            int maxSplitIteratorThreads,
-            int partitionBatchSize,
+    @Inject
+    public HiveClient(HiveConnectorId connectorId,
+            HiveClientConfig hiveClientConfig,
             CachingHiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
-            ExecutorService executor)
+            @ForHiveClient ExecutorService executor)
     {
-        this.clientId = checkNotNull(clientId, "clientId is null");
-        this.maxSplitBytes = maxSplitBytes;
+        this(connectorId,
+                metastore,
+                hdfsEnvironment,
+                executor,
+                hiveClientConfig.getMaxOutstandingSplits(),
+                hiveClientConfig.getMaxSplitIteratorThreads(),
+                hiveClientConfig.getPartitionBatchSize());
+    }
+
+    public HiveClient(HiveConnectorId connectorId,
+            CachingHiveMetastore metastore,
+            HdfsEnvironment hdfsEnvironment,
+            ExecutorService executor,
+            int maxOutstandingSplits,
+            int maxSplitIteratorThreads,
+            int partitionBatchSize)
+    {
+        this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
+
         this.maxOutstandingSplits = maxOutstandingSplits;
         this.maxSplitIteratorThreads = maxSplitIteratorThreads;
         this.partitionBatchSize = partitionBatchSize;
+
         this.metastore = checkNotNull(metastore, "metastore is null");
         this.hdfsEnvironment = checkNotNull(hdfsEnvironment, "hdfsEnvironment is null");
+
         this.executor = checkNotNull(executor, "executor is null");
     }
 
     @Override
     public String getConnectorId()
     {
-        return clientId;
+        return connectorId;
     }
 
     @Override
@@ -151,7 +165,7 @@ public class HiveClient
     {
         try {
             metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
-            return new HiveTableHandle(clientId, tableName);
+            return new HiveTableHandle(connectorId, tableName);
         }
         catch (NoSuchObjectException e) {
             // table was not found
@@ -265,7 +279,7 @@ public class HiveClient
                 FieldSchema field = partitionKeys.get(i);
 
                 HiveType hiveType = getHiveType(field.getType());
-                columns.add(new HiveColumnHandle(clientId, field.getName(), i, hiveType, -1, true));
+                columns.add(new HiveColumnHandle(connectorId, field.getName(), i, hiveType, -1, true));
             }
 
             // add the data fields
@@ -274,7 +288,7 @@ public class HiveClient
                 // ignore unsupported types rather than failing
                 HiveType hiveType = getHiveType(field.getFieldObjectInspector());
                 if (hiveType != null) {
-                    columns.add(new HiveColumnHandle(clientId, field.getFieldName(), partitionKeys.size() + hiveColumnIndex, hiveType, hiveColumnIndex, false));
+                    columns.add(new HiveColumnHandle(connectorId, field.getFieldName(), partitionKeys.size() + hiveColumnIndex, hiveType, hiveColumnIndex, false));
                 }
                 hiveColumnIndex++;
             }
@@ -333,7 +347,7 @@ public class HiveClient
         for (int i = 0; i < partitionKeys.size(); i++) {
             FieldSchema field = partitionKeys.get(i);
 
-            HiveColumnHandle columnHandle = new HiveColumnHandle(clientId, field.getName(), i, getHiveType(field.getType()), -1, true);
+            HiveColumnHandle columnHandle = new HiveColumnHandle(connectorId, field.getName(), i, getHiveType(field.getType()), -1, true);
             partitionKeysByName.put(field.getName(), columnHandle);
 
             // only add to prefix if all previous keys have a value
@@ -397,7 +411,7 @@ public class HiveClient
             throw new TableNotFoundException(tableName);
         }
 
-        return new HiveSplitIterable(clientId, table, partitionNames, hivePartitions, maxSplitBytes, maxOutstandingSplits, maxSplitIteratorThreads, hdfsEnvironment, executor, partitionBatchSize);
+        return new HiveSplitIterable(connectorId, table, partitionNames, hivePartitions, maxOutstandingSplits, maxSplitIteratorThreads, hdfsEnvironment, executor, partitionBatchSize);
     }
 
     private Iterable<org.apache.hadoop.hive.metastore.api.Partition> getPartitions(final SchemaTableName tableName, final List<String> partitionNames)
@@ -456,19 +470,19 @@ public class HiveClient
     @Override
     public boolean canHandle(TableHandle tableHandle)
     {
-        return tableHandle instanceof HiveTableHandle && ((HiveTableHandle) tableHandle).getClientId().equals(clientId);
+        return tableHandle instanceof HiveTableHandle && ((HiveTableHandle) tableHandle).getClientId().equals(connectorId);
     }
 
     @Override
     public boolean canHandle(ColumnHandle columnHandle)
     {
-        return columnHandle instanceof HiveColumnHandle && ((HiveColumnHandle) columnHandle).getClientId().equals(clientId);
+        return columnHandle instanceof HiveColumnHandle && ((HiveColumnHandle) columnHandle).getClientId().equals(connectorId);
     }
 
     @Override
     public boolean canHandle(Split split)
     {
-        return split instanceof HiveSplit && ((HiveSplit) split).getClientId().equals(clientId);
+        return split instanceof HiveSplit && ((HiveSplit) split).getClientId().equals(connectorId);
     }
 
     @Override
@@ -493,7 +507,7 @@ public class HiveClient
     public String toString()
     {
         return Objects.toStringHelper(this)
-                .add("clientId", clientId)
+                .add("clientId", connectorId)
                 .toString();
     }
 
@@ -525,7 +539,6 @@ public class HiveClient
         private final Table table;
         private final Iterable<String> partitionNames;
         private final Iterable<org.apache.hadoop.hive.metastore.api.Partition> partitions;
-        private final long maxSplitBytes;
         private final int maxOutstandingSplits;
         private final int maxThreads;
         private final HdfsEnvironment hdfsEnvironment;
@@ -537,7 +550,6 @@ public class HiveClient
                 Table table,
                 Iterable<String> partitionNames,
                 Iterable<org.apache.hadoop.hive.metastore.api.Partition> partitions,
-                long maxSplitBytes,
                 int maxOutstandingSplits,
                 int maxThreads,
                 HdfsEnvironment hdfsEnvironment,
@@ -549,7 +561,6 @@ public class HiveClient
             this.partitionNames = partitionNames;
             this.partitions = partitions;
             this.partitionBatchSize = partitionBatchSize;
-            this.maxSplitBytes = maxSplitBytes;
             this.maxOutstandingSplits = maxOutstandingSplits;
             this.maxThreads = maxThreads;
             this.hdfsEnvironment = hdfsEnvironment;

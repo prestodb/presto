@@ -3,10 +3,10 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.metadata.Node;
 import com.facebook.presto.metadata.NodeManager;
 import com.google.common.base.Optional;
