@@ -1,27 +1,19 @@
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.ingest.SerializedPartitionChunk;
 import com.google.common.base.Optional;
 import com.google.common.collect.Multimap;
 
 import javax.annotation.Nullable;
 
-import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public interface ShardManager
 {
     /**
-     * Register table to be imported
+     * Allocate a new shard id for a table.
      */
-    void createImportTable(long tableId, String sourceName, String databaseName, String tableName);
-
-    /**
-     * Register partition (and all of it's chunks) to be imported
-     *
-     * @return list of shard IDs corresponding to partition chunks
-     */
-    List<Long> createImportPartition(long tableId, String partitionName, Iterable<SerializedPartitionChunk> partitionChunks);
+    long allocateShard(TableHandle tableHandle);
 
     /**
      * Mark shard as complete with data residing on given node
@@ -40,18 +32,16 @@ public interface ShardManager
     void dropShard(long shardId);
 
     /**
-     * Get the names of all current partitions that have started importing for table (and possibly finished or errored out).
-     *
-     * @return list of partition names
+     * Commit a partition for a table.
      */
-    Set<String> getAllPartitions(long tableId);
+    void commitPartition(TableHandle tableHandle, String partition, Map<Long, String> shards);
 
     /**
-     * Get all complete partitions in table
+     * Get the names of all partitions that have been successfully imported.
      *
      * @return list of partition names
      */
-    Set<String> getCommittedPartitions(long tableId);
+    Set<String> getPartitions(TableHandle tableHandle);
 
     /**
      * Get all complete shards in table

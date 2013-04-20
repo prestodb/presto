@@ -5,8 +5,9 @@ import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import org.jetbrains.annotations.Nullable;
 import org.testng.Assert;
+
+import javax.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -126,7 +127,7 @@ public class BlockAssertions
 
     public static BlockIterable createStringsBlockIterable(@Nullable String... values)
     {
-        return BlockIterables.createBlockIterable(createStringsBlock(values));
+        return BlockIterables.createBlockIterable(TupleInfo.SINGLE_VARBINARY, createStringsBlock(values));
     }
 
     public static Block createStringSequenceBlock(int start, int end)
@@ -169,12 +170,12 @@ public class BlockAssertions
 
     public static BlockIterable createLongsBlockIterable(int... values)
     {
-        return BlockIterables.createBlockIterable(createLongsBlock(values));
+        return BlockIterables.createBlockIterable(TupleInfo.SINGLE_LONG, createLongsBlock(values));
     }
 
     public static BlockIterable createLongsBlockIterable(@Nullable Long... values)
     {
-        return BlockIterables.createBlockIterable(createLongsBlock(values));
+        return BlockIterables.createBlockIterable(TupleInfo.SINGLE_LONG, createLongsBlock(values));
     }
 
     public static Block createLongSequenceBlock(int start, int end)
@@ -217,9 +218,9 @@ public class BlockAssertions
         return builder.build();
     }
 
-    public static BlockIterable createDoublesBlockIterable(@Nullable Double... values)
+    public static BlockIterable createDoublesBlockIterable(TupleInfo tupleInfo, @Nullable Double... values)
     {
-        return BlockIterables.createBlockIterable(createDoublesBlock(values));
+        return createBlockIterable(tupleInfo, createDoublesBlock(values));
     }
 
     public static Block createDoubleSequenceBlock(int start, int end)
@@ -247,10 +248,12 @@ public class BlockAssertions
     {
         private final List<Block> blocks = new ArrayList<>();
         private BlockBuilder blockBuilder;
+        private TupleInfo tupleInfo;
 
         private BlockIterableBuilder(TupleInfo tupleInfo)
         {
             blockBuilder = new BlockBuilder(tupleInfo);
+            this.tupleInfo = tupleInfo;
         }
 
         public BlockIterableBuilder append(Tuple tuple)
@@ -308,7 +311,7 @@ public class BlockAssertions
         public BlockIterable build()
         {
             newBlock();
-            return createBlockIterable(blocks);
+            return createBlockIterable(tupleInfo, blocks);
         }
     }
 }

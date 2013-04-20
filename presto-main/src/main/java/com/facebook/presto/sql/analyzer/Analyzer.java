@@ -16,6 +16,7 @@ import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.CreateOrReplaceMaterializedView;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -29,6 +30,7 @@ import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
+import com.facebook.presto.sql.tree.QueryUtil;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.ShowColumns;
@@ -50,6 +52,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -79,6 +82,7 @@ import static com.facebook.presto.sql.tree.QueryUtil.selectAll;
 import static com.facebook.presto.sql.tree.QueryUtil.selectList;
 import static com.facebook.presto.sql.tree.QueryUtil.table;
 import static com.facebook.presto.sql.tree.SortItem.sortKeyGetter;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.compose;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.instanceOf;
@@ -228,6 +232,43 @@ public class Analyzer
                     Optional.<String>absent());
 
             return visitQuery(query, context);
+        }
+
+        @Override
+        protected AnalysisResult visitCreateOrReplaceMaterializedView(CreateOrReplaceMaterializedView statement, AnalysisContext context)
+        {
+            // Turn this into a query that has a new table writer node on top.
+
+            QualifiedTableName dstTableName = MetadataUtil.createQualifiedTableName(session, statement.getName());
+
+            TableMetadata dstTableMetadata = metadata.getTable(dstTableName);
+            if (dstTableMetadata != null) {
+                checkState(dstTableMetadata.getTableHandle().isPresent(), "no table handle for %s", dstTableName);
+                DataSourceType dataSourceType = dstTableMetadata.getTableHandle().get().getDataSourceType();
+                checkState(DataSourceType.NATIVE == dataSourceType, "%s is not a native table, can only create native tables", dstTableName);
+            }
+
+            // yeah, that should be somehow simpler...
+            Field resultField = Field.getField("imported_rows", context.getSymbolAllocator().newSymbol("imported_rows", Type.LONG), Type.LONG);
+            AnalyzedExpression resultFieldExpression = new AnalyzedExpression(resultField.getType(), QueryUtil.nameReference(resultField.getAttribute().get()));
+
+            AnalyzedOutput output = new AnalyzedOutput(new TupleDescriptor(ImmutableList.<Field>of(resultField)),
+                                                       ImmutableMap.of(resultField.getSymbol(), resultFieldExpression));
+
+            AnalysisResult analysis = new Analyzer(context.getSession(), metadata).analyze(statement.getTableDefinition(), new AnalysisContext(context.getSession(), context.getSymbolAllocator()));
+
+            context.addDestination(dstTableName, analysis);
+
+            return AnalysisResult.newInstance(context,
+                                              false,
+                                              output,
+                                              null,
+                                              ImmutableList.<AnalyzedExpression>of(),
+                                              ImmutableSet.<AnalyzedFunction>of(),
+                                              ImmutableSet.<AnalyzedFunction>of(),
+                                              null,
+                                              ImmutableList.<AnalyzedOrdering>of(),
+                                              null);
         }
 
         @Override

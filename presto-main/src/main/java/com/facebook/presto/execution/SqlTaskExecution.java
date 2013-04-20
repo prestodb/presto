@@ -8,8 +8,10 @@ import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.StorageManager;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
+import com.facebook.presto.operator.OutputProducingOperator;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.operator.SourceHashProviderFactory;
@@ -25,22 +27,27 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.SetMultimap;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFutureTask;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import io.airlift.node.NodeInfo;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
+
 import java.lang.ref.WeakReference;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
@@ -50,6 +57,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 
 public class SqlTaskExecution
@@ -62,9 +72,11 @@ public class SqlTaskExecution
     private final ListeningExecutorService shardExecutor;
     private final PlanFragment fragment;
     private final Metadata metadata;
+    private final StorageManager storageManager;
     private final DataSize maxOperatorMemoryUsage;
     private final Session session;
     private final QueryMonitor queryMonitor;
+    private final NodeInfo nodeInfo;
 
     private final AtomicInteger pendingWorkerCount = new AtomicInteger();
 
@@ -80,6 +92,7 @@ public class SqlTaskExecution
     private final BlockingDeque<FutureTask<?>> unfinishedWorkerTasks = new LinkedBlockingDeque<>();
 
     public static SqlTaskExecution createSqlTaskExecution(Session session,
+            NodeInfo nodeInfo,
             TaskId taskId,
             URI location,
             PlanFragment fragment,
@@ -87,12 +100,14 @@ public class SqlTaskExecution
             DataStreamProvider dataStreamProvider,
             ExchangeOperatorFactory exchangeOperatorFactory,
             Metadata metadata,
+            StorageManager storageManager,
             ExecutorService taskMasterExecutor,
             ListeningExecutorService shardExecutor,
             DataSize maxOperatorMemoryUsage,
             QueryMonitor queryMonitor)
     {
         SqlTaskExecution task = new SqlTaskExecution(session,
+                nodeInfo,
                 taskId,
                 location,
                 fragment,
@@ -100,6 +115,7 @@ public class SqlTaskExecution
                 dataStreamProvider,
                 exchangeOperatorFactory,
                 metadata,
+                storageManager,
                 shardExecutor,
                 maxOperatorMemoryUsage,
                 queryMonitor);
@@ -110,6 +126,7 @@ public class SqlTaskExecution
     }
 
     private SqlTaskExecution(Session session,
+            NodeInfo nodeInfo,
             TaskId taskId,
             URI location,
             PlanFragment fragment,
@@ -117,26 +134,31 @@ public class SqlTaskExecution
             DataStreamProvider dataStreamProvider,
             ExchangeOperatorFactory exchangeOperatorFactory,
             Metadata metadata,
+            StorageManager storageManager,
             ListeningExecutorService shardExecutor,
             DataSize maxOperatorMemoryUsage,
             QueryMonitor queryMonitor)
     {
         Preconditions.checkNotNull(session, "session is null");
+        Preconditions.checkNotNull(nodeInfo, "nodeInfo is null");
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(fragment, "fragment is null");
         Preconditions.checkArgument(pageBufferMax > 0, "pageBufferMax must be at least 1");
         Preconditions.checkNotNull(metadata, "metadata is null");
+        Preconditions.checkNotNull(storageManager, "storageManager is null");
         Preconditions.checkNotNull(shardExecutor, "shardExecutor is null");
         Preconditions.checkNotNull(maxOperatorMemoryUsage, "maxOperatorMemoryUsage is null");
         Preconditions.checkNotNull(queryMonitor, "queryMonitor is null");
 
         this.session = session;
+        this.nodeInfo = nodeInfo;
         this.taskId = taskId;
         this.fragment = fragment;
         this.dataStreamProvider = dataStreamProvider;
         this.exchangeOperatorFactory = exchangeOperatorFactory;
         this.shardExecutor = shardExecutor;
         this.metadata = metadata;
+        this.storageManager = storageManager;
         this.maxOperatorMemoryUsage = maxOperatorMemoryUsage;
         this.queryMonitor = queryMonitor;
 
@@ -151,7 +173,7 @@ public class SqlTaskExecution
     {
         // if plan is unpartitioned, add a worker
         if (!fragment.isPartitioned()) {
-            scheduleSplitWorker(null, null);
+            scheduleSplitWorker(null);
         }
 
         // NOTE: this must be started after the unpartitioned task or the task can be ended early
@@ -178,18 +200,20 @@ public class SqlTaskExecution
 
         long newMaxAcknowledgedSplit = maxAcknowledgedSplit;
         for (TaskSource source : sources) {
-            PlanNodeId sourceId = source.getPlanNodeId();
             for (ScheduledSplit scheduledSplit : source.getSplits()) {
                 // only add a split if we have not already scheduled it
                 if (scheduledSplit.getSequenceId() > maxAcknowledgedSplit) {
-                    addSplit(sourceId, scheduledSplit.getSplit());
+                    addSplits(scheduledSplit.getSplits());
                     newMaxAcknowledgedSplit = max(scheduledSplit.getSequenceId(), newMaxAcknowledgedSplit);
                 }
             }
+
+            // All nodes that were visible in that split are now done.
             if (source.isNoMoreSplits()) {
-                noMoreSplits(sourceId);
+                noMoreSplits(source.getPlanNodeIds());
             }
         }
+
         maxAcknowledgedSplit = newMaxAcknowledgedSplit;
     }
 
@@ -206,47 +230,51 @@ public class SqlTaskExecution
         }
     }
 
-    private synchronized void addSplit(PlanNodeId sourceId, Split split)
+    private synchronized void addSplits(Map<PlanNodeId, ? extends Split> splits)
     {
         // is this a partitioned source
-        if (fragment.isPartitioned() && fragment.getPartitionedSource().equals(sourceId)) {
-            scheduleSplitWorker(sourceId, split);
+        if (fragment.isPartitioned() && fragment.getPartitionedSources().equals(splits.keySet())) {
+            scheduleSplitWorker(splits);
         }
         else {
-            // add this to all of the existing workers
-            if (!unpartitionedSources.put(sourceId, split)) {
+            checkState(splits.size() == 1, "Unpartitioned splits can have only a single source");
+            Map.Entry<PlanNodeId, ? extends Split> entry = Iterables.getOnlyElement(splits.entrySet());
+            if (!unpartitionedSources.put(entry.getKey(), entry.getValue())) {
                 return;
             }
             for (WeakReference<SplitWorker> workerReference : splitWorkers) {
                 SplitWorker worker = workerReference.get();
                 // this should not happen until the all sources have been closed
                 Preconditions.checkState(worker != null, "SplitWorker has been GCed");
-                worker.addSplit(sourceId, split);
+                worker.addSplits(splits);
             }
         }
     }
 
-    private synchronized void scheduleSplitWorker(@Nullable PlanNodeId partitionedSourceId, @Nullable Split partitionedSplit)
+    private synchronized void scheduleSplitWorker(@Nullable Map<PlanNodeId, ? extends Split> splits)
     {
         // create a new split worker
         SplitWorker worker = new SplitWorker(session,
+                nodeInfo,
                 taskOutput,
                 fragment,
                 getSourceHashProviderFactory(),
                 metadata,
                 maxOperatorMemoryUsage,
+                storageManager,
                 dataStreamProvider,
                 exchangeOperatorFactory,
                 queryMonitor);
 
         // TableScanOperator requires partitioned split to be added before task is started
-        if (partitionedSourceId != null) {
-            worker.addSplit(partitionedSourceId, partitionedSplit);
+        if (splits != null) {
+            worker.addSplits(splits);
         }
 
         // add unpartitioned sources
-        for (Entry<PlanNodeId, Split> entry : unpartitionedSources.entries()) {
-            worker.addSplit(entry.getKey(), entry.getValue());
+        for (Map.Entry<PlanNodeId, ? extends Split> entry : unpartitionedSources.entries()) {
+            Map<PlanNodeId, ? extends Split> unpartitionedSplit = ImmutableMap.of(entry.getKey(), entry.getValue());
+            worker.addSplits(unpartitionedSplit);
         }
 
         // record new worker
@@ -256,8 +284,6 @@ public class SqlTaskExecution
 
         // execute worker
         final ListenableFutureTask<?> workerFutureTask = ListenableFutureTask.create(worker);
-        unfinishedWorkerTasks.addFirst(workerFutureTask);
-        shardExecutor.submit(workerFutureTask);
         // The callback must be added to the workerFutureTask and NOT the future returned
         // by the submit.  This is because the future task catches the exception internally
         // to the executor only sees a successful return, and the errors will be ignored.
@@ -281,16 +307,21 @@ public class SqlTaskExecution
                 unfinishedWorkerTasks.removeFirstOccurrence(workerFutureTask);
             }
         });
+
+        unfinishedWorkerTasks.addFirst(workerFutureTask);
+        shardExecutor.submit(workerFutureTask);
     }
 
-    private synchronized void noMoreSplits(PlanNodeId sourceId)
+    private synchronized void noMoreSplits(Set<PlanNodeId> sourceIds)
     {
+        sourceIds = ImmutableSet.copyOf(sourceIds);
+
         // don't bother updating is this source has already been closed
-        if (!taskOutput.noMoreSplits(sourceId)) {
+        if (!taskOutput.noMoreSplits(sourceIds)) {
             return;
         }
 
-        if (sourceId.equals(fragment.getPartitionedSource())) {
+        if (fragment.getPartitionedSources().equals(sourceIds)) {
             // all workers have been created
             // clear hash provider since it has a hard reference to every hash table
             sourceHashProviderFactory = null;
@@ -301,7 +332,7 @@ public class SqlTaskExecution
                 SplitWorker worker = workerReference.get();
                 // this should not happen until the all sources have been closed
                 Preconditions.checkState(worker != null, "SplitWorker has been GCed");
-                worker.noMoreSplits(sourceId);
+                worker.noMoreSplits(sourceIds);
             }
         }
     }
@@ -309,9 +340,10 @@ public class SqlTaskExecution
     private synchronized void checkTaskCompletion()
     {
         // are there more partition splits expected?
-        if (fragment.isPartitioned() && !taskOutput.getNoMoreSplits().contains(fragment.getPartitionedSource())) {
+        if (fragment.isPartitioned() && !taskOutput.getNoMoreSplits().containsAll(fragment.getPartitionedSources())) {
             return;
         }
+
         // do we still have running tasks?
         if (pendingWorkerCount.get() != 0) {
             return;
@@ -407,56 +439,72 @@ public class SqlTaskExecution
     {
         private final AtomicBoolean started = new AtomicBoolean();
         private final TaskOutput taskOutput;
-        private final PlanNodeId partitionedSource;
+        private final Set<PlanNodeId> partitionedSources;
         private final Operator operator;
         private final OperatorStats operatorStats;
         private final QueryMonitor queryMonitor;
         private final Map<PlanNodeId, SourceOperator> sourceOperators;
+        private final Map<PlanNodeId, OutputProducingOperator<?>> outputOperators;
 
         private SplitWorker(Session session,
+                NodeInfo nodeInfo,
                 TaskOutput taskOutput,
                 PlanFragment fragment,
                 SourceHashProviderFactory sourceHashProviderFactory,
                 Metadata metadata,
                 DataSize maxOperatorMemoryUsage,
+                StorageManager storageManager,
                 DataStreamProvider dataStreamProvider,
                 ExchangeOperatorFactory exchangeOperatorFactory,
                 QueryMonitor queryMonitor)
         {
             this.taskOutput = taskOutput;
-            partitionedSource = fragment.getPartitionedSource();
+            this.partitionedSources = fragment.getPartitionedSources();
             operatorStats = new OperatorStats(taskOutput);
             this.queryMonitor = queryMonitor;
 
             LocalExecutionPlanner planner = new LocalExecutionPlanner(session,
+                    nodeInfo,
                     metadata,
                     fragment.getSymbols(),
                     operatorStats,
                     sourceHashProviderFactory,
                     maxOperatorMemoryUsage,
                     dataStreamProvider,
+                    storageManager,
                     exchangeOperatorFactory);
 
             LocalExecutionPlan localExecutionPlan = planner.plan(fragment.getRoot());
             operator = localExecutionPlan.getRootOperator();
             sourceOperators = localExecutionPlan.getSourceOperators();
+            outputOperators = localExecutionPlan.getOutputOperators();
         }
 
-        public void addSplit(PlanNodeId sourceId, Split split)
+        public void addSplits(Map<PlanNodeId, ? extends Split> splits)
         {
-            SourceOperator sourceOperator = sourceOperators.get(sourceId);
-            Preconditions.checkArgument(sourceOperator != null, "Unknown plan source %s; known sources are %s", sourceId, sourceOperators.keySet());
-            sourceOperator.addSplit(split);
-            if (sourceId.equals(partitionedSource)) {
-                operatorStats.addSplitInfo(split.getInfo());
+            checkNotNull(splits, "splits is null");
+            checkState(splits.size() > 0, "no splits given");
+
+            for (Map.Entry<PlanNodeId, ? extends Split> entry : splits.entrySet()) {
+                SourceOperator sourceOperator = sourceOperators.get(entry.getKey());
+                checkArgument(sourceOperator != null, "Unknown plan source %s; known sources are %s", entry.getKey(), sourceOperators.keySet());
+                Split operatorSplit = entry.getValue();
+                sourceOperator.addSplit(operatorSplit);
+                if (partitionedSources.contains(entry.getKey())) {
+                    operatorStats.addSplitInfo(operatorSplit.getInfo());
+                }
             }
         }
 
-        public void noMoreSplits(PlanNodeId sourceId)
+        public void noMoreSplits(Set<PlanNodeId> planNodeIds)
         {
-            SourceOperator sourceOperator = sourceOperators.get(sourceId);
-            Preconditions.checkArgument(sourceOperator != null, "Unknown plan source %s; known sources are %s", sourceId, sourceOperators.keySet());
-            sourceOperator.noMoreSplits();
+            checkNotNull(planNodeIds, "planNodeIds is null");
+
+            for (PlanNodeId planNodeId : planNodeIds) {
+                SourceOperator sourceOperator = sourceOperators.get(planNodeId);
+                Preconditions.checkArgument(sourceOperator != null, "Unknown plan source %s; known sources are %s", planNodeId, sourceOperators.keySet());
+                sourceOperator.noMoreSplits();
+            }
         }
 
         @Override
@@ -485,6 +533,10 @@ public class SqlTaskExecution
             finally {
                 operatorStats.finish();
                 queryMonitor.splitCompletionEvent(taskOutput.getTaskInfo(false), operatorStats.snapshot());
+
+                for (Map.Entry<PlanNodeId, OutputProducingOperator<?>> entry : outputOperators.entrySet()) {
+                    taskOutput.addOutput(entry.getKey(), entry.getValue().getOutput());
+                }
             }
             return null;
         }

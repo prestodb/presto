@@ -156,4 +156,18 @@ public class MetadataUtil
             return new ColumnMetadataListBuilder();
         }
     }
+
+    public static TableMetadata findOrCreateTable(Metadata metadata, QualifiedTableName table, List<ColumnMetadata> columns)
+    {
+        TableMetadata tableMetadata = metadata.getTable(table);
+        if (tableMetadata == null || !tableMetadata.getTableHandle().isPresent()) {
+
+            tableMetadata = new TableMetadata(table, columns);
+            metadata.createTable(tableMetadata);
+
+            tableMetadata = metadata.getTable(table);
+        }
+
+        return tableMetadata;
+    }
 }

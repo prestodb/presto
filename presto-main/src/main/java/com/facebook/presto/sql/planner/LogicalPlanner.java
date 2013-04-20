@@ -1,7 +1,13 @@
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.metadata.QualifiedTableName;
+
 import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.metadata.ColumnMetadata;
 import com.facebook.presto.metadata.FunctionHandle;
+import com.facebook.presto.metadata.FunctionInfo;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.sql.analyzer.AnalysisResult;
 import com.facebook.presto.sql.analyzer.AnalyzedExpression;
@@ -25,6 +31,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.AliasedRelation;
@@ -33,6 +40,7 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NodeRewriter;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Relation;
@@ -57,23 +65,30 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.facebook.presto.metadata.MetadataUtil.findOrCreateTable;
+
 import static com.facebook.presto.sql.analyzer.AnalyzedFunction.argumentGetter;
 import static com.facebook.presto.sql.analyzer.AnalyzedFunction.windowExpressionGetter;
 import static com.facebook.presto.sql.analyzer.AnalyzedOrdering.expressionGetter;
+import static com.facebook.presto.sql.tree.QueryUtil.nameReference;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.concat;
 
 public class LogicalPlanner
 {
     private final Session session;
+    private final Metadata metadata;
     private final PlanNodeIdAllocator idAllocator;
     private final List<PlanOptimizer> planOptimizers;
 
     public LogicalPlanner(Session session,
+            Metadata metadata,
             List<PlanOptimizer> planOptimizers,
             PlanNodeIdAllocator idAllocator)
     {
         this.session = checkNotNull(session, "session is null");
+        this.metadata = checkNotNull(metadata, "metadata is null");
         this.planOptimizers = checkNotNull(planOptimizers, "planOptimizersFactory is null");
         this.idAllocator = checkNotNull(idAllocator, "idAllocator is null");
     }
@@ -96,11 +111,20 @@ public class LogicalPlanner
 
     private PlanNode createOutputPlan(AnalysisResult analysis)
     {
-        PlanNode result = createQueryPlan(analysis);
+        // TODO: This might just move into createQueryPlan to allow
+        // multi stage destinations. Is that useful anyhow?
+        PlanNode result;
+        if (!analysis.getDestinations().isEmpty()) {
+            result = createTableWriterPlan(analysis);
+        }
+        else {
+            result = createQueryPlan(analysis);
+        }
 
-        int i = 0;
         List<String> names = new ArrayList<>();
         ImmutableMap.Builder<String, Symbol> assignments = ImmutableMap.builder();
+
+        int i = 0;
         for (Field field : analysis.getOutputDescriptor().getFields()) {
             String name = field.getAttribute().orNull();
             while (name == null || names.contains(name)) {
@@ -118,6 +142,7 @@ public class LogicalPlanner
     private PlanNode createQueryPlan(AnalysisResult analysis)
     {
         Query query = analysis.getRewrittenQuery();
+        checkState(query != null, "query is null, can not create query plan!");
         PlanNode root = createRelationPlan(query.getFrom(), analysis);
 
         if (analysis.getPredicate() != null) {
@@ -502,6 +527,79 @@ public class LogicalPlanner
 
         return new TableScanNode(idAllocator.getNextId(), metadata.getTableHandle().get(), columns.build());
     }
+
+    private PlanNode createTableWriterPlan(AnalysisResult analysis)
+    {
+        checkState(analysis.getDestinations().size() == 1, "only a single table destination is currently supported");
+        QualifiedTableName destination = Iterables.getOnlyElement(analysis.getDestinations());
+
+        // Build the plan for the attached query node
+        AnalysisResult queryAnalysis = analysis.getAnalysis(destination);
+        PlanNode queryNode = createQueryPlan(queryAnalysis);
+
+        ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
+        for (Field field : queryAnalysis.getOutputDescriptor().getFields()) {
+            ColumnMetadata columnMetadata = new ColumnMetadata(field.getAttribute().get(), field.getType().getRawType());
+            columns.add(columnMetadata);
+        }
+
+        TableMetadata tableMetadata = findOrCreateTable(metadata, destination, columns.build());
+
+        checkState(tableMetadata.getTableHandle().isPresent(), "can not import into a table without table handle");
+
+        ImmutableMap.Builder<Symbol, ColumnHandle> columnHandlesBuilder = ImmutableMap.builder();
+        ImmutableMap.Builder<Symbol, Type> inputTypesBuilder = ImmutableMap.builder();
+        ImmutableList.Builder<Symbol> inputSymbolsBuilder = ImmutableList.builder();
+
+        for (Field field : queryAnalysis.getOutputDescriptor().getFields()) {
+            inputTypesBuilder.put(field.getSymbol(), field.getType());
+            inputSymbolsBuilder.add(field.getSymbol());
+
+            ColumnHandle columnHandle = findColumnHandle(field, tableMetadata);
+            checkState(columnHandle != null, "Could not match symbol %s to any table column!", field.getSymbol());
+            columnHandlesBuilder.put(field.getSymbol(), columnHandle);
+        }
+
+        ImmutableMap.Builder<Symbol, Type> outputTypesBuilder = ImmutableMap.builder();
+        for (Field field : analysis.getOutputDescriptor().getFields()) {
+            outputTypesBuilder.put(field.getSymbol(), field.getType());
+        }
+
+        TableWriterNode writerNode = new TableWriterNode(idAllocator.getNextId(),
+                queryNode,
+                tableMetadata.getTableHandle().get(),
+                inputSymbolsBuilder.build(),
+                inputTypesBuilder.build(),
+                columnHandlesBuilder.build(),
+                outputTypesBuilder.build());
+
+        Map<Symbol, AnalyzedExpression> outputExpressions = analysis.getOutputExpressions();
+        checkState(outputExpressions.size() == 1, "only a single output symbol is supported");
+        Symbol outputSymbol = Iterables.getOnlyElement(outputExpressions.keySet());
+
+        // Put a simple SUM(<output symbol>) on top of the table writer node
+        // Build the sum function info here, we need it later in the planner
+        FunctionInfo sum = metadata.getFunction(QualifiedName.of("sum"), Lists.transform(ImmutableList.of(Type.LONG), Type.toRaw()));
+        FunctionCall sumCall = new FunctionCall(QualifiedName.of(outputSymbol.getName()), ImmutableList.of(nameReference(outputSymbol.getName())));
+        PlanNode aggregationNode = new AggregationNode(idAllocator.getNextId(), writerNode, ImmutableList.<Symbol>of(), ImmutableMap.of(outputSymbol, sumCall), ImmutableMap.of(outputSymbol, sum.getHandle()));
+
+        return aggregationNode;
+    }
+
+
+    private ColumnHandle findColumnHandle(Field field, TableMetadata tableMetadata)
+    {
+        for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
+            checkState(columnMetadata.getColumnHandle().isPresent(), "can not import into a column without column handle");
+
+            if (columnMetadata.getName().equals(field.getSymbol().getName())) {
+                return columnMetadata.getColumnHandle().get();
+            }
+        }
+
+        return null;
+    }
+
 
     private static NodeRewriter<Void> substitution(final Map<Expression, Symbol> substitutions)
     {

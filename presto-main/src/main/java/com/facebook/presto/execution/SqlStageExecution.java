@@ -8,6 +8,7 @@ import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.split.Split;
 import com.facebook.presto.split.SplitAssignments;
 import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.sql.planner.OutputReceiver;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.StageExecutionPlan;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
@@ -82,6 +83,7 @@ public class SqlStageExecution
     private final PlanFragment fragment;
     private final List<TupleInfo> tupleInfos;
     private final Map<PlanFragmentId, StageExecutionNode> subStages;
+    private final Map<PlanNodeId, OutputReceiver> outputReceivers;
 
     private final ConcurrentMap<Node, RemoteTask> tasks = new ConcurrentHashMap<>();
 
@@ -163,6 +165,7 @@ public class SqlStageExecution
         this.stageId = new StageId(queryId, String.valueOf(nextStageId.getAndIncrement()));
         this.location = locationFactory.createStageLocation(stageId);
         this.fragment = plan.getFragment();
+        this.outputReceivers = plan.getOutputReceivers();
         this.splits = plan.getSplits();
         this.nodeManager = nodeManager;
         this.remoteTaskFactory = remoteTaskFactory;
@@ -336,11 +339,11 @@ public class SqlStageExecution
 
                     RemoteTask task = tasks.get(chosen);
                     if (task == null) {
-                        scheduleTask(nextTaskId, chosen, assignment.getSplit());
+                        scheduleTask(nextTaskId, chosen, assignment.getSplits());
                         stageStats.addScheduleTaskDuration(Duration.nanosSince(scheduleSplitStart));
                     }
                     else {
-                        task.addSplit(assignment.getSplit());
+                        task.addSplits(assignment.getSplits());
                         stageStats.addAddSplitDuration(Duration.nanosSince(scheduleSplitStart));
                     }
 
@@ -409,7 +412,7 @@ public class SqlStageExecution
         }
     }
 
-    private RemoteTask scheduleTask(AtomicInteger nextTaskId, Node node, @Nullable Split initialSplit)
+    private RemoteTask scheduleTask(AtomicInteger nextTaskId, Node node, @Nullable Map<PlanNodeId, ? extends Split> initialSplits)
     {
         String nodeIdentifier = node.getNodeIdentifier();
         TaskId taskId = new TaskId(stageId, String.valueOf(nextTaskId.getAndIncrement()));
@@ -418,7 +421,8 @@ public class SqlStageExecution
                 taskId,
                 node,
                 fragment,
-                initialSplit,
+                initialSplits,
+                outputReceivers,
                 getExchangeLocations(),
                 getOutputBuffers());
 
@@ -539,6 +543,8 @@ public class SqlStageExecution
                 case PLANNED:
                 case SCHEDULING:
                     return false;
+                default:
+                    break;
             }
         }
         return true;

@@ -16,6 +16,11 @@ public class QueryUtil
         return new AliasedExpression(nameReference(name), alias);
     }
 
+    public static Expression aliasedExpression(Expression expression, String alias)
+    {
+        return new AliasedExpression(expression, alias);
+    }
+
     public static Select selectList(Expression... expressions)
     {
         return new Select(false, ImmutableList.copyOf(expressions));
