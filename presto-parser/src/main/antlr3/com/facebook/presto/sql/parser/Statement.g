@@ -64,6 +64,9 @@ tokens {
     CREATE_TABLE;
     CREATE_MATERIALIZED_VIEW;
     REFRESH_MATERIALIZED_VIEW;
+    VIEW_REFRESH;
+    CREATE_ALIAS;
+    DROP_ALIAS;
     DROP_TABLE;
     TABLE_ELEMENT_LIST;
     COLUMN_DEF;
@@ -137,9 +140,11 @@ statement
     | showPartitionsStmt
     | showFunctionsStmt
     | createTableStmt
+    | dropTableStmt
     | createMaterializedViewStmt
     | refreshMaterializedViewStmt
-    | dropTableStmt
+    | createAliasStmt
+    | dropAliasStmt
     ;
 
 selectStmt
@@ -470,11 +475,27 @@ dropTableStmt
     ;
 
 createMaterializedViewStmt
-    : CREATE MATERIALIZED VIEW qname AS restrictedSelectStmt -> ^(CREATE_MATERIALIZED_VIEW qname restrictedSelectStmt)
+    : CREATE MATERIALIZED VIEW qname refresh=viewRefresh? AS restrictedSelectStmt -> ^(CREATE_MATERIALIZED_VIEW qname $refresh? restrictedSelectStmt)
     ;
 
 refreshMaterializedViewStmt
     : REFRESH MATERIALIZED VIEW qname -> ^(REFRESH_MATERIALIZED_VIEW qname)
+    ;
+
+viewRefresh
+    : REFRESH r=integer -> ^(REFRESH $r)
+    ;
+
+createAliasStmt
+    : CREATE ALIAS qname forRemote -> ^(CREATE_ALIAS qname forRemote)
+    ;
+
+dropAliasStmt
+    : DROP ALIAS qname -> ^(DROP_ALIAS qname)
+    ;
+
+forRemote
+    : FOR qname -> ^(FOR qname)
     ;
 
 createTableStmt
@@ -558,7 +579,7 @@ integer
 nonReserved
     : SHOW | TABLES | COLUMNS | PARTITIONS | FUNCTIONS
     | OVER | PARTITION | RANGE | ROWS | PRECEDING | FOLLOWING | CURRENT | ROW
-    | REFRESH | MATERIALIZED | VIEW
+    | REFRESH | MATERIALIZED | VIEW | ALIAS
     ;
 
 SELECT: 'SELECT';
@@ -660,6 +681,7 @@ MATERIALIZED: 'MATERIALIZED';
 VIEW: 'VIEW';
 REFRESH: 'REFRESH';
 DROP: 'DROP';
+ALIAS: 'ALIAS';
 
 EQ  : '=';
 NEQ : '<>' | '!=';

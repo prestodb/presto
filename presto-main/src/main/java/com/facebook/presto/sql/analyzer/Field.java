@@ -14,7 +14,7 @@ public class Field
     private final Symbol symbol;
     private final Type type;
 
-    public static final Field getField(String attribute, Symbol symbol, Type type)
+    public static final Field createField(String attribute, Symbol symbol, Type type)
     {
         return new Field(Optional.<QualifiedName>absent(), Optional.of(attribute), Optional.<ColumnHandle>absent(), symbol, type);
     }

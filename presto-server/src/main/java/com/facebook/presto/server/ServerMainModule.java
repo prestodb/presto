@@ -8,6 +8,8 @@ import com.facebook.presto.event.query.QueryCompletionEvent;
 import com.facebook.presto.event.query.QueryCreatedEvent;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.event.query.SplitCompletionEvent;
+import com.facebook.presto.execution.CreateAliasExecution.CreateAliasExecutionFactory;
+import com.facebook.presto.execution.DropAliasExecution.DropAliasExecutionFactory;
 import com.facebook.presto.execution.DropTableExecution.DropTableExecutionFactory;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
@@ -23,6 +25,7 @@ import com.facebook.presto.execution.SqlQueryManager;
 import com.facebook.presto.execution.SqlTaskManager;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
+import com.facebook.presto.importer.DatabasePeriodicImportManager;
 import com.facebook.presto.importer.ForPeriodicImport;
 import com.facebook.presto.importer.JobStateFactory;
 import com.facebook.presto.importer.PeriodicImportConfig;
@@ -65,7 +68,9 @@ import com.facebook.presto.split.Split;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.planner.PlanOptimizersFactory;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
+import com.facebook.presto.sql.tree.CreateAlias;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
+import com.facebook.presto.sql.tree.DropAlias;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -190,6 +195,7 @@ public class ServerMainModule
         bindConfig(binder).to(ShardCleanerConfig.class);
         binder.bind(ShardCleaner.class).in(Scopes.SINGLETON);
         httpClientBinder(binder).bindHttpClient("shard-cleaner", ForShardCleaner.class);
+        binder.bind(ShardResource.class).in(Scopes.SINGLETON);
 
         ServiceAnnouncementBuilder announcementBuilder = discoveryBinder(binder).bindHttpAnnouncement("presto");
         String datasources = configurationFactory.getProperties().get("datasources");
@@ -224,11 +230,12 @@ public class ServerMainModule
         // Job Scheduler code
         bindConfig(binder).to(PeriodicImportConfig.class);
         binder.bind(PeriodicImportJobResource.class).in(Scopes.SINGLETON);
-        binder.bind(PeriodicImportManager.class).in(Scopes.SINGLETON);
+        binder.bind(PeriodicImportManager.class).to(DatabasePeriodicImportManager.class).in(Scopes.SINGLETON);
         binder.bind(PeriodicImportController.class).in(Scopes.SINGLETON);
         binder.bind(JobStateFactory.class).in(Scopes.SINGLETON);
         binder.bind(PeriodicImportRunnable.PeriodicImportRunnableFactory.class).in(Scopes.SINGLETON);
         ExportBinder.newExporter(binder).export(PeriodicImportController.class).as("com.facebook.presto:name=periodic-import");
+        HttpClientBinder.httpClientBinder(binder).bindAsyncHttpClient("periodic-importer", ForPeriodicImport.class).withTracing();
 
         bindConfig(binder).to(SitevarsConfig.class);
         binder.bind(Sitevars.class).in(Scopes.SINGLETON);
@@ -240,6 +247,8 @@ public class ServerMainModule
                 new TypeLiteral<Class<? extends Statement>>() {},
                 new TypeLiteral<QueryExecutionFactory<?>>() {});
         executionBinder.addBinding(DropTable.class).to(DropTableExecutionFactory.class).in(Scopes.SINGLETON);
+        executionBinder.addBinding(CreateAlias.class).to(CreateAliasExecutionFactory.class).in(Scopes.SINGLETON);
+        executionBinder.addBinding(DropAlias.class).to(DropAliasExecutionFactory.class).in(Scopes.SINGLETON);
 
         binder.bind(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         executionBinder.addBinding(Query.class).to(Key.get(SqlQueryExecutionFactory.class)).in(Scopes.SINGLETON);

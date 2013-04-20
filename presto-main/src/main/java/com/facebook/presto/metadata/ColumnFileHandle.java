@@ -16,7 +16,6 @@ import java.io.OutputStream;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.block.BlockUtils.toTupleIterable;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -84,7 +83,7 @@ public class ColumnFileHandle
     public void commit()
             throws IOException
     {
-        AtomicReference<Throwable> firstThrowable = new AtomicReference<>();
+        Throwable firstThrowable = null;
 
         checkState(!committed.getAndSet(true), "already committed!");
 
@@ -93,11 +92,13 @@ public class ColumnFileHandle
                 writer.close();
             }
             catch (Throwable t) {
-                firstThrowable.compareAndSet(null, t);
+                if (firstThrowable == null) {
+                    firstThrowable = t;
+                }
             }
         }
 
-        Throwables.propagateIfInstanceOf(firstThrowable.get(), IOException.class);
+        Throwables.propagateIfInstanceOf(firstThrowable, IOException.class);
     }
 
     public static class Builder

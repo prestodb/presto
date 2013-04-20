@@ -73,7 +73,7 @@ public class ImportMetadata
 
         return new TableColumn(importTableHandle.getTable(),
                 importColumnHandle.getColumnName(),
-                importColumnHandle.getColumnId(),
+                importColumnHandle.getColumnId() + 1,
                 importColumnHandle.getColumnType());
     }
 

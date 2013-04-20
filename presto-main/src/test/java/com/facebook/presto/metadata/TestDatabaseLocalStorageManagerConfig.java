@@ -5,6 +5,7 @@ import io.airlift.configuration.testing.ConfigAssertions;
 import org.testng.annotations.Test;
 
 import javax.validation.constraints.NotNull;
+
 import java.io.File;
 import java.util.Map;
 
@@ -16,7 +17,8 @@ public class TestDatabaseLocalStorageManagerConfig
     public void testDefaults()
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(DatabaseLocalStorageManagerConfig.class)
-                .setDataDirectory(new File("var/data")));
+                .setDataDirectory(new File("var/data"))
+                .setTasksPerNode(32));
     }
 
     @Test
@@ -24,10 +26,12 @@ public class TestDatabaseLocalStorageManagerConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("storage-manager.data-directory", "/data")
+                .put("storage-manager.tasks-per-node", "16")
                 .build();
 
         DatabaseLocalStorageManagerConfig expected = new DatabaseLocalStorageManagerConfig()
-                .setDataDirectory(new File("/data"));
+                .setDataDirectory(new File("/data"))
+                .setTasksPerNode(16);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

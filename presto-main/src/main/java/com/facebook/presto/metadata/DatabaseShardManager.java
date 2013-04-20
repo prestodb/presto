@@ -104,7 +104,6 @@ public class DatabaseShardManager
             {
                 ShardManagerDao dao = handle.attach(ShardManagerDao.class);
                 dao.deleteShardFromPartitionShards(shardId);
-                dao.dropShardNode(shardId, null);
                 dao.deleteShard(shardId);
             }
         });
@@ -146,8 +145,12 @@ public class DatabaseShardManager
     }
 
     @Override
-    public void dropPartition(final long tableId, final String partitionName)
+    public void dropPartition(final TableHandle tableHandle, final String partitionName)
     {
+        checkNotNull(tableHandle, "tableHandle is null");
+        checkState(tableHandle.getDataSourceType() == DataSourceType.NATIVE, "can only commit partitions for native tables");
+        final long tableId = ((NativeTableHandle) tableHandle).getTableId();
+
         dbi.inTransaction(new VoidTransactionCallback()
         {
             @Override
@@ -157,9 +160,7 @@ public class DatabaseShardManager
                 ShardManagerDao dao = handle.attach(ShardManagerDao.class);
                 List<Long> shardIds = dao.getAllShards(tableId, partitionName);
                 for (Long shardId : shardIds) {
-                    dao.deleteShardFromShardNodes(shardId);
                     dao.deleteShardFromPartitionShards(shardId);
-                    dao.deleteShard(shardId);
                 }
                 dao.dropPartition(tableId, partitionName);
             }
@@ -175,6 +176,12 @@ public class DatabaseShardManager
         else {
             return dao.getAllOrphanedShards();
         }
+    }
+
+    @Override
+    public void dropOrphanedPartitions()
+    {
+        dao.dropAllOrphanedPartitions();
     }
 
     private long getOrCreateNodeId(final String nodeIdentifier)

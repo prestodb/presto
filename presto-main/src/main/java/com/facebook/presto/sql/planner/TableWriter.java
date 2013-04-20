@@ -1,6 +1,5 @@
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.metadata.NativeTableHandle;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.operator.TableWriterResult;
 import com.facebook.presto.spi.PartitionInfo;
@@ -147,7 +146,7 @@ public class TableWriter
         // drop all the partitions that were not found when scanning through the partitions
         // from the source.
         for (String partition : remainingPartitions) {
-            shardManager.dropPartition(((NativeTableHandle) tableWriterNode.getTableHandle()).getTableId(), partition);
+            shardManager.dropPartition(tableWriterNode.getTableHandle(), partition);
         }
     }
 

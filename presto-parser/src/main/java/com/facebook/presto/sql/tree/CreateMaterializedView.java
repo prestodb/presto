@@ -9,17 +9,24 @@ public class CreateMaterializedView
         extends Statement
 {
     private final QualifiedName name;
+    private final Optional<String> refresh;
     private final Query tableDefinition;
 
-    public CreateMaterializedView(QualifiedName name, Query tableDefinition)
+    public CreateMaterializedView(QualifiedName name, Optional<String> refresh, Query tableDefinition)
     {
         this.name = checkNotNull(name, "name is null");
+        this.refresh = checkNotNull(refresh, "refresh is null");
         this.tableDefinition = checkNotNull(tableDefinition, "tableDefinition is null");
     }
 
     public QualifiedName getName()
     {
         return name;
+    }
+
+    public Optional<String> getRefresh()
+    {
+        return refresh;
     }
 
     public Query getTableDefinition()
@@ -36,7 +43,7 @@ public class CreateMaterializedView
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(name, tableDefinition);
+        return Objects.hashCode(name, refresh, tableDefinition);
     }
 
     @Override
@@ -50,6 +57,7 @@ public class CreateMaterializedView
         }
         CreateMaterializedView o = (CreateMaterializedView) obj;
         return Objects.equal(name, o.name)
+                && Objects.equal(refresh, o.refresh)
                 && Objects.equal(tableDefinition, o.tableDefinition);
     }
 
@@ -58,6 +66,7 @@ public class CreateMaterializedView
     {
         return Objects.toStringHelper(this)
                 .add("name", name)
+                .add("refresh", refresh)
                 .add("tableDefinition", tableDefinition)
                 .toString();
     }
