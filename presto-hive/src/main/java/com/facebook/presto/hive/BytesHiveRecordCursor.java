@@ -37,6 +37,7 @@ class BytesHiveRecordCursor<K>
     private final K key;
     private final BytesRefArrayWritable value;
 
+    private final String[] names;
     private final ColumnType[] types;
     private final HiveType[] hiveTypes;
 
@@ -68,6 +69,7 @@ class BytesHiveRecordCursor<K>
 
         int size = columns.size();
 
+        this.names = new String[size];
         this.types = new ColumnType[size];
         this.hiveTypes = new HiveType[size];
         this.fieldInspectors = new ObjectInspector[size];
@@ -87,10 +89,13 @@ class BytesHiveRecordCursor<K>
             for (int i = 0; i < columns.size(); i++) {
                 HiveColumnHandle column = columns.get(i);
 
+                names[i] = column.getName();
                 types[i] = column.getType();
                 hiveTypes[i] = column.getHiveType();
 
-                fieldInspectors[i] = rowInspector.getStructFieldRef(column.getName()).getFieldObjectInspector();
+                if (!column.isPartitionKey()) {
+                    fieldInspectors[i] = rowInspector.getStructFieldRef(column.getName()).getFieldObjectInspector();
+                }
 
                 hiveColumnIndexes[i] = column.getHiveColumnIndex();
             }

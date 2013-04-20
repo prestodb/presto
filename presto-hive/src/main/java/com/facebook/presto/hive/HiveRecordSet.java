@@ -42,6 +42,10 @@ import static com.google.common.collect.Lists.transform;
 public class HiveRecordSet
         implements RecordSet
 {
+    static{
+        HadoopNative.requireHadoopNative();
+    }
+
     private final HdfsEnvironment hdfsEnvironment;
     private final HivePartitionChunk chunk;
     private final List<HiveColumnHandle> columns;
