@@ -2,8 +2,8 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.FunctionHandle;
-import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.LocalStorageManager;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.AggregationFunctionDefinition;
 import com.facebook.presto.operator.AggregationOperator;
 import com.facebook.presto.operator.FilterAndProjectOperator;
@@ -509,18 +509,7 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitTableWriter(TableWriterNode node, LocalExecutionPlanContext context)
         {
-            LocalExecutionPlanner queryPlanner = new LocalExecutionPlanner(session,
-                    nodeInfo,
-                    metadata,
-                    node.getInputTypes(),
-                    operatorStats,
-                    joinHashFactory,
-                    maxOperatorMemoryUsage,
-                    dataStreamProvider,
-                    storageManager,
-                    exchangeOperatorFactory);
-
-            PhysicalOperation query = node.getSource().accept(queryPlanner.new Visitor(), context);
+            PhysicalOperation query = node.getSource().accept(this, context);
 
             // introduce a projection to match the expected output
             IdentityProjectionInfo mappings = computeIdentityMapping(node.getInputSymbols(), query.getLayout(), node.getInputTypes());

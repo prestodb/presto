@@ -266,7 +266,7 @@ public class Analyzer
             checkState(dstTableMetadata == null, "Destination table %s already exists", dstTableName);
 
             // Analyze the query that creates the table...
-            AnalysisResult queryAnalysis = newAnalyzer().analyze(statement.getTableDefinition(), new AnalysisContext(context.getSession(), context.getSymbolAllocator()));
+            AnalysisResult queryAnalysis = process(statement.getTableDefinition(), new AnalysisContext(context.getSession(), context.getSymbolAllocator()));
 
             // Create the destination table
             ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
@@ -300,7 +300,7 @@ public class Analyzer
         private AnalysisResult tableWriterResult(AnalysisContext context, QualifiedTableName dstTableName, AnalysisResult queryAnalysis)
         {
             // yeah, that should be somehow simpler...
-            Field resultField = Field.getField("imported_rows", context.getSymbolAllocator().newSymbol("imported_rows", Type.LONG), Type.LONG);
+            Field resultField = Field.createField("imported_rows", context.getSymbolAllocator().newSymbol("imported_rows", Type.LONG), Type.LONG);
             AnalyzedExpression resultFieldExpression = new AnalyzedExpression(resultField.getType(), QueryUtil.nameReference(resultField.getAttribute().get()));
 
             AnalyzedOutput output = new AnalyzedOutput(new TupleDescriptor(ImmutableList.<Field>of(resultField)),
