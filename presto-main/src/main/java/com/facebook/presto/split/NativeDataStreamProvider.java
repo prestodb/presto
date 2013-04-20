@@ -2,8 +2,8 @@ package com.facebook.presto.split;
 
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.metadata.ColumnHandle;
-import com.facebook.presto.metadata.NativeColumnHandle;
-import com.facebook.presto.metadata.StorageManager;
+import com.facebook.presto.metadata.DataSourceType;
+import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.Operator;
 import com.google.common.collect.ImmutableList;
@@ -17,10 +17,10 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class NativeDataStreamProvider
         implements DataStreamProvider
 {
-    private final StorageManager storageManager;
+    private final LocalStorageManager storageManager;
 
     @Inject
-    public NativeDataStreamProvider(StorageManager storageManager)
+    public NativeDataStreamProvider(LocalStorageManager storageManager)
     {
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
     }
@@ -38,10 +38,8 @@ public class NativeDataStreamProvider
 
         ImmutableList.Builder<BlockIterable> builder = ImmutableList.builder();
         for (ColumnHandle column : columns) {
-            checkArgument(column instanceof NativeColumnHandle, "column must be of type NativeColumnHandle, not %s", column.getClass().getName());
-            assert column instanceof NativeColumnHandle; // // IDEA-60343
-            NativeColumnHandle nativeColumn = (NativeColumnHandle) column;
-            builder.add(storageManager.getBlocks(nativeSplit.getShardId(), nativeColumn.getColumnId()));
+            checkArgument(column.getDataSourceType() == DataSourceType.NATIVE, "column must be native, not %s", column.getDataSourceType());
+            builder.add(storageManager.getBlocks(nativeSplit.getShardId(), column));
         }
         return new AlignmentOperator(builder.build());
     }

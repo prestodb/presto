@@ -13,10 +13,13 @@ import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.concurrent.Immutable;
+
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @Immutable
@@ -48,6 +51,7 @@ public class TaskInfo
     private final ExecutionStatsSnapshot stats;
     private final List<SplitExecutionStats> splitStats;
     private final List<FailureInfo> failures;
+    private final Map<PlanNodeId, Set<?>> outputs;
 
     @JsonCreator
     public TaskInfo(@JsonProperty("taskId") TaskId taskId,
@@ -58,7 +62,8 @@ public class TaskInfo
             @JsonProperty("noMoreSplits") Set<PlanNodeId> noMoreSplits,
             @JsonProperty("stats") ExecutionStatsSnapshot stats,
             @JsonProperty("splitStats") List<SplitExecutionStats> splitStats,
-            @JsonProperty("failures") List<FailureInfo> failures)
+            @JsonProperty("failures") List<FailureInfo> failures,
+            @JsonProperty("outputs") Map<PlanNodeId, Set<?>> outputs)
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(state, "state is null");
@@ -67,6 +72,7 @@ public class TaskInfo
         Preconditions.checkNotNull(noMoreSplits, "noMoreSplits is null");
         Preconditions.checkNotNull(stats, "stats is null");
         Preconditions.checkNotNull(failures, "failures is null");
+        Preconditions.checkNotNull(outputs, "outputs is null");
 
         this.taskId = taskId;
         this.version = version;
@@ -75,18 +81,22 @@ public class TaskInfo
         this.outputBuffers = outputBuffers;
         this.noMoreSplits = noMoreSplits;
         this.stats = stats;
+
         if (splitStats != null) {
             this.splitStats = ImmutableList.copyOf(splitStats);
         }
         else {
             this.splitStats = ImmutableList.of();
         }
+
         if (failures != null) {
             this.failures = ImmutableList.copyOf(failures);
         }
         else {
             this.failures = ImmutableList.of();
         }
+
+        this.outputs = ImmutableMap.copyOf(outputs);
     }
 
     @JsonProperty
@@ -141,6 +151,12 @@ public class TaskInfo
     public List<FailureInfo> getFailures()
     {
         return failures;
+    }
+
+    @JsonProperty
+    public Map<PlanNodeId, Set<?>> getOutputs()
+    {
+        return outputs;
     }
 
     @Override

@@ -10,6 +10,7 @@ import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.ExecutionStats.ExecutionStatsSnapshot;
 import com.facebook.presto.execution.SharedBuffer.QueueState;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.operator.OperatorStats.SplitExecutionStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.server.ExchangeOperatorFactory;
@@ -19,21 +20,25 @@ import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import io.airlift.http.server.HttpServerInfo;
 import io.airlift.log.Logger;
+import io.airlift.node.NodeInfo;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
+
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -58,8 +63,10 @@ public class SqlTaskManager
     private final ListeningExecutorService shardExecutor;
     private final ScheduledExecutorService taskManagementExecutor;
     private final Metadata metadata;
+    private final LocalStorageManager storageManager;
     private final DataStreamProvider dataStreamProvider;
     private final ExchangeOperatorFactory exchangeOperatorFactory;
+    private final NodeInfo nodeInfo;
     private final HttpServerInfo httpServerInfo;
     private final QueryMonitor queryMonitor;
     private final DataSize maxOperatorMemoryUsage;
@@ -72,22 +79,28 @@ public class SqlTaskManager
     @Inject
     public SqlTaskManager(
             Metadata metadata,
+            LocalStorageManager storageManager,
             DataStreamProvider dataStreamProvider,
             ExchangeOperatorFactory exchangeOperatorFactory,
+            NodeInfo nodeInfo,
             HttpServerInfo httpServerInfo,
             QueryMonitor queryMonitor,
             QueryManagerConfig config)
     {
         Preconditions.checkNotNull(metadata, "metadata is null");
+        Preconditions.checkNotNull(storageManager, "storageManager is null");
         Preconditions.checkNotNull(dataStreamProvider, "dataStreamProvider is null");
         Preconditions.checkNotNull(exchangeOperatorFactory, "exchangeOperatorFactory is null");
+        Preconditions.checkNotNull(nodeInfo, "nodeInfo is null");
         Preconditions.checkNotNull(httpServerInfo, "httpServerInfo is null");
         Preconditions.checkNotNull(queryMonitor, "queryMonitor is null");
         Preconditions.checkNotNull(config, "config is null");
 
         this.metadata = metadata;
+        this.storageManager = storageManager;
         this.dataStreamProvider = dataStreamProvider;
         this.exchangeOperatorFactory = exchangeOperatorFactory;
+        this.nodeInfo = nodeInfo;
         this.httpServerInfo = httpServerInfo;
         this.queryMonitor = queryMonitor;
         this.pageBufferMax = config.getSinkMaxBufferedPages() == null ? config.getMaxShardProcessorThreads() * 5 : config.getSinkMaxBufferedPages();
@@ -176,6 +189,7 @@ public class SqlTaskManager
                 }
 
                 taskExecution = SqlTaskExecution.createSqlTaskExecution(session,
+                        nodeInfo,
                         taskId,
                         location,
                         fragment,
@@ -183,6 +197,7 @@ public class SqlTaskManager
                         dataStreamProvider,
                         exchangeOperatorFactory,
                         metadata,
+                        storageManager,
                         taskMasterExecutor,
                         shardExecutor,
                         maxOperatorMemoryUsage,
@@ -256,7 +271,8 @@ public class SqlTaskManager
                         ImmutableSet.<PlanNodeId>of(),
                         new ExecutionStatsSnapshot(),
                         ImmutableList.<SplitExecutionStats>of(),
-                        ImmutableList.<FailureInfo>of());
+                        ImmutableList.<FailureInfo>of(),
+                        ImmutableMap.<PlanNodeId, Set<?>>of());
                 TaskInfo existingTaskInfo = taskInfos.putIfAbsent(taskId, taskInfo);
                 if (existingTaskInfo != null) {
                     taskInfo = existingTaskInfo;

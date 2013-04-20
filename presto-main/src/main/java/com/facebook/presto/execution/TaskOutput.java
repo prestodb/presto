@@ -9,6 +9,7 @@ import com.facebook.presto.operator.Page;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.airlift.log.Logger;
@@ -16,9 +17,12 @@ import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
+
 import java.net.URI;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -26,6 +30,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.util.Failures.toFailures;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 @ThreadSafe
 public class TaskOutput
@@ -44,6 +49,9 @@ public class TaskOutput
 
     @GuardedBy("this")
     private final Set<PlanNodeId> noMoreSplits = new HashSet<>();
+
+    @GuardedBy("this")
+    private final Map<PlanNodeId, Set<?>> outputs = new HashMap<>();
 
     private final Set<OperatorStats> activeSplits = Sets.newSetFromMap(new ConcurrentHashMap<OperatorStats, Boolean>());
 
@@ -90,14 +98,33 @@ public class TaskOutput
         }
     }
 
+    public synchronized void addOutput(PlanNodeId id, Set<?> output)
+    {
+        checkNotNull(id, "id is null");
+        checkNotNull(output, "output is null");
+
+        ImmutableSet.Builder<Object> builder = ImmutableSet.builder();
+        Set<?> current = this.outputs.get(id);
+        if (current != null) {
+            builder.addAll(current);
+        }
+        builder.addAll(output);
+        this.outputs.put(id,  builder.build());
+    }
+
+    public synchronized Map<PlanNodeId, Set<?>> getOutputs()
+    {
+        return ImmutableMap.copyOf(outputs);
+    }
+
     public void noMoreResultQueues()
     {
         sharedBuffer.noMoreQueues();
     }
 
-    public synchronized boolean noMoreSplits(PlanNodeId sourceId)
+    public synchronized boolean noMoreSplits(Set<PlanNodeId> sourceIds)
     {
-        return this.noMoreSplits.add(sourceId);
+        return this.noMoreSplits.addAll(sourceIds);
     }
 
     public synchronized Set<PlanNodeId> getNoMoreSplits()
@@ -208,7 +235,8 @@ public class TaskOutput
                     getNoMoreSplits(),
                     stats.snapshot(full),
                     splitStats,
-                    toFailures(failureCauses));
+                    toFailures(failureCauses),
+                    getOutputs());
         }
     }
 }

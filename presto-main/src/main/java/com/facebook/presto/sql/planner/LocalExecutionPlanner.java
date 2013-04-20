@@ -3,6 +3,7 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.operator.AggregationFunctionDefinition;
 import com.facebook.presto.operator.AggregationOperator;
 import com.facebook.presto.operator.FilterAndProjectOperator;
@@ -15,12 +16,14 @@ import com.facebook.presto.operator.InMemoryWindowOperator;
 import com.facebook.presto.operator.LimitOperator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
+import com.facebook.presto.operator.OutputProducingOperator;
 import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.operator.ProjectionFunctions;
 import com.facebook.presto.operator.SourceHashProvider;
 import com.facebook.presto.operator.SourceHashProviderFactory;
 import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.operator.TableScanOperator;
+import com.facebook.presto.operator.TableWriterOperator;
 import com.facebook.presto.operator.TopNOperator;
 import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.server.ExchangeOperatorFactory;
@@ -41,6 +44,7 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
@@ -64,6 +68,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
+import io.airlift.node.NodeInfo;
 import io.airlift.units.DataSize;
 
 import java.util.ArrayList;
@@ -78,12 +83,14 @@ import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.right
 import static com.facebook.presto.sql.tree.Input.fieldGetter;
 import static com.google.common.base.Functions.forMap;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.not;
 
 public class LocalExecutionPlanner
 {
     private final Session session;
+    private final NodeInfo nodeInfo;
     private final Metadata metadata;
     private final Map<Symbol, Type> types;
 
@@ -93,17 +100,21 @@ public class LocalExecutionPlanner
     private final DataSize maxOperatorMemoryUsage;
 
     private final DataStreamProvider dataStreamProvider;
+    private final LocalStorageManager storageManager;
     private final ExchangeOperatorFactory exchangeOperatorFactory;
 
     public LocalExecutionPlanner(Session session,
+            NodeInfo nodeInfo,
             Metadata metadata,
             Map<Symbol, Type> types,
             OperatorStats operatorStats,
             SourceHashProviderFactory joinHashFactory,
             DataSize maxOperatorMemoryUsage,
             DataStreamProvider dataStreamProvider,
+            LocalStorageManager storageManager,
             ExchangeOperatorFactory exchangeOperatorFactory)
     {
+        this.nodeInfo = checkNotNull(nodeInfo, "nodeInfo is null");
         this.dataStreamProvider = dataStreamProvider;
         this.exchangeOperatorFactory = exchangeOperatorFactory;
         this.session = checkNotNull(session, "session is null");
@@ -112,24 +123,54 @@ public class LocalExecutionPlanner
         this.types = checkNotNull(types, "types is null");
         this.joinHashFactory = checkNotNull(joinHashFactory, "joinHashFactory is null");
         this.maxOperatorMemoryUsage = Preconditions.checkNotNull(maxOperatorMemoryUsage, "maxOperatorMemoryUsage is null");
+        this.storageManager = checkNotNull(storageManager, "storageManager is null");
     }
 
     public LocalExecutionPlan plan(PlanNode plan)
     {
-        Map<PlanNodeId, SourceOperator> sourceOperators = new HashMap<>();
-        Operator rootOperator = plan.accept(new Visitor(), sourceOperators).getOperator();
-        return new LocalExecutionPlan(rootOperator, sourceOperators);
+        LocalExecutionPlanContext context = new LocalExecutionPlanContext();
+        Operator rootOperator = plan.accept(new Visitor(), context).getOperator();
+        return new LocalExecutionPlan(rootOperator, context.getSourceOperators(), context.getOutputOperators());
+    }
+
+    private static class LocalExecutionPlanContext
+    {
+        private final Map<PlanNodeId, SourceOperator> sourceOperators = new HashMap<>();
+        private final Map<PlanNodeId, OutputProducingOperator<?>> outputOperators = new HashMap<>();
+
+        private void addSourceOperator(PlanNode node, SourceOperator sourceOperator)
+        {
+            checkState(this.sourceOperators.put(node.getId(), sourceOperator) == null, "Node %s already had a source operator assigned!", node);
+        }
+
+        private void addOutputOperator(PlanNode node, OutputProducingOperator<?> outputOperator)
+        {
+            checkState(this.outputOperators.put(node.getId(), outputOperator) == null, "Node %s already had an output operator assigned!", node);
+        }
+
+        private Map<PlanNodeId, SourceOperator> getSourceOperators()
+        {
+            return ImmutableMap.copyOf(sourceOperators);
+        }
+        private Map<PlanNodeId, OutputProducingOperator<?>> getOutputOperators()
+        {
+            return ImmutableMap.copyOf(outputOperators);
+        }
     }
 
     public static class LocalExecutionPlan
     {
         private final Operator rootOperator;
         private final Map<PlanNodeId, SourceOperator> sourceOperators;
+        private final Map<PlanNodeId, OutputProducingOperator<?>> outputOperators;
 
-        public LocalExecutionPlan(Operator rootOperator, Map<PlanNodeId, SourceOperator> sourceOperators)
+        public LocalExecutionPlan(Operator rootOperator,
+                Map<PlanNodeId, SourceOperator> sourceOperators,
+                Map<PlanNodeId, OutputProducingOperator<?>> outputOperators)
         {
-            this.rootOperator = rootOperator;
-            this.sourceOperators = ImmutableMap.copyOf(sourceOperators);
+            this.rootOperator = checkNotNull(rootOperator, "rootOperator is null");
+            this.sourceOperators = ImmutableMap.copyOf(checkNotNull(sourceOperators, "sourceOperators is null"));
+            this.outputOperators = ImmutableMap.copyOf(checkNotNull(outputOperators, "outputOperators is null"));
         }
 
         public Operator getRootOperator()
@@ -141,18 +182,23 @@ public class LocalExecutionPlanner
         {
             return sourceOperators;
         }
-    }
+
+        public Map<PlanNodeId, OutputProducingOperator<?>> getOutputOperators()
+        {
+            return outputOperators;
+        }
+}
 
     private class Visitor
-            extends PlanVisitor<Map<PlanNodeId, SourceOperator>, PhysicalOperation>
+            extends PlanVisitor<LocalExecutionPlanContext, PhysicalOperation>
     {
         @Override
-        public PhysicalOperation visitExchange(ExchangeNode node, Map<PlanNodeId, SourceOperator> sourceOperators)
+        public PhysicalOperation visitExchange(ExchangeNode node, LocalExecutionPlanContext context)
         {
             List<TupleInfo> tupleInfo = getSourceOperatorTupleInfos(node);
 
             SourceOperator operator = exchangeOperatorFactory.createExchangeOperator(tupleInfo);
-            sourceOperators.put(node.getId(), operator);
+            context.addSourceOperator(node, operator);
 
             // Fow now, we assume that remote plans always produce one symbol per channel. TODO: remove this assumption
             Map<Symbol, Input> outputMappings = new HashMap<>();
@@ -165,29 +211,17 @@ public class LocalExecutionPlanner
             return new PhysicalOperation(operator, outputMappings);
         }
 
-
         @Override
-        public PhysicalOperation visitOutput(OutputNode node, Map<PlanNodeId, SourceOperator> sourceOperators)
+        public PhysicalOperation visitOutput(OutputNode node, LocalExecutionPlanContext context)
         {
-            PhysicalOperation source = node.getSource().accept(this, sourceOperators);
+            PhysicalOperation source = node.getSource().accept(this, context);
 
             List<Symbol> resultSymbols = Lists.transform(node.getColumnNames(), forMap(node.getAssignments()));
-
 
             // see if we need to introduce a projection
             //   1. verify that there's one symbol per channel
             //   2. verify that symbols from "source" match the expected order of columns according to OutputNode
-            Ordering<Input> comparator = Ordering.from(new Comparator<Input>()
-            {
-                @Override
-                public int compare(Input o1, Input o2)
-                {
-                    return ComparisonChain.start()
-                            .compare(o1.getChannel(), o2.getChannel())
-                            .compare(o1.getField(), o2.getField())
-                            .result();
-                }
-            });
+            Ordering<Input> comparator = inputOrdering();
 
             List<Symbol> sourceSymbols = IterableTransformer.on(source.getLayout().entrySet())
                     .orderBy(comparator.onResultOf(MoreFunctions.<Symbol, Input>valueGetter()))
@@ -207,9 +241,9 @@ public class LocalExecutionPlanner
         }
 
         @Override
-        public PhysicalOperation visitWindow(WindowNode node, Map<PlanNodeId, SourceOperator> sourceOperators)
+        public PhysicalOperation visitWindow(WindowNode node, LocalExecutionPlanContext context)
         {
-            PhysicalOperation source = node.getSource().accept(this, sourceOperators);
+            PhysicalOperation source = node.getSource().accept(this, context);
 
             List<Symbol> partitionBySymbols = node.getPartitionBy();
             List<Symbol> orderBySymbols = node.getOrderBy();
@@ -284,9 +318,9 @@ public class LocalExecutionPlanner
         }
 
         @Override
-        public PhysicalOperation visitTopN(TopNNode node, Map<PlanNodeId, SourceOperator> sourceOperators)
+        public PhysicalOperation visitTopN(TopNNode node, LocalExecutionPlanContext context)
         {
-            PhysicalOperation source = node.getSource().accept(this, sourceOperators);
+            PhysicalOperation source = node.getSource().accept(this, context);
 
             List<Symbol> orderBySymbols = node.getOrderBy();
 
@@ -307,9 +341,9 @@ public class LocalExecutionPlanner
         }
 
         @Override
-        public PhysicalOperation visitSort(SortNode node, Map<PlanNodeId, SourceOperator> sourceOperators)
+        public PhysicalOperation visitSort(SortNode node, LocalExecutionPlanContext context)
         {
-            PhysicalOperation source = node.getSource().accept(this, sourceOperators);
+            PhysicalOperation source = node.getSource().accept(this, context);
 
             List<Symbol> orderBySymbols = node.getOrderBy();
 
@@ -327,7 +361,6 @@ public class LocalExecutionPlanner
                 sortOrder[i] = (node.getOrderings().get(symbol) == SortItem.Ordering.ASCENDING);
             }
 
-
             int[] outputChannels = new int[source.getOperator().getChannelCount()];
             for (int i = 0; i < outputChannels.length; i++) {
                 outputChannels[i] = i;
@@ -338,17 +371,17 @@ public class LocalExecutionPlanner
         }
 
         @Override
-        public PhysicalOperation visitLimit(LimitNode node, Map<PlanNodeId, SourceOperator> sourceOperators)
+        public PhysicalOperation visitLimit(LimitNode node, LocalExecutionPlanContext context)
         {
-            PhysicalOperation source = node.getSource().accept(this, sourceOperators);
+            PhysicalOperation source = node.getSource().accept(this, context);
 
             return new PhysicalOperation(new LimitOperator(source.getOperator(), node.getCount()), source.getLayout());
         }
 
         @Override
-        public PhysicalOperation visitAggregation(AggregationNode node, Map<PlanNodeId, SourceOperator> sourceOperators)
+        public PhysicalOperation visitAggregation(AggregationNode node, LocalExecutionPlanContext context)
         {
-            PhysicalOperation source = node.getSource().accept(this, sourceOperators);
+            PhysicalOperation source = node.getSource().accept(this, context);
 
             if (node.getGroupBy().isEmpty()) {
                 return planGlobalAggregation(node, source);
@@ -358,9 +391,9 @@ public class LocalExecutionPlanner
         }
 
         @Override
-        public PhysicalOperation visitFilter(FilterNode node, Map<PlanNodeId, SourceOperator> sourceOperators)
+        public PhysicalOperation visitFilter(FilterNode node, LocalExecutionPlanContext context)
         {
-            PhysicalOperation source = node.getSource().accept(this, sourceOperators);
+            PhysicalOperation source = node.getSource().accept(this, context);
 
             FilterFunction filter = new InterpretedFilterFunction(node.getPredicate(), source.getLayout(), metadata, session);
 
@@ -371,9 +404,9 @@ public class LocalExecutionPlanner
         }
 
         @Override
-        public PhysicalOperation visitProject(ProjectNode node, Map<PlanNodeId, SourceOperator> sourceOperators)
+        public PhysicalOperation visitProject(ProjectNode node, LocalExecutionPlanContext context)
         {
-            PhysicalOperation source = node.getSource().accept(this, sourceOperators);
+            PhysicalOperation source = node.getSource().accept(this, context);
 
             Map<Symbol, Input> outputMappings = new HashMap<>();
             List<ProjectionFunction> projections = new ArrayList<>();
@@ -400,7 +433,7 @@ public class LocalExecutionPlanner
         }
 
         @Override
-        public PhysicalOperation visitTableScan(TableScanNode node, Map<PlanNodeId, SourceOperator> sourceOperators)
+        public PhysicalOperation visitTableScan(TableScanNode node, LocalExecutionPlanContext context)
         {
             Map<Symbol, Input> mappings = new HashMap<>();
             List<ColumnHandle> columns = new ArrayList<>();
@@ -415,22 +448,22 @@ public class LocalExecutionPlanner
 
             List<TupleInfo> tupleInfos = getSourceOperatorTupleInfos(node);
             TableScanOperator operator = new TableScanOperator(dataStreamProvider, tupleInfos, columns);
-            sourceOperators.put(node.getId(), operator);
+            context.addSourceOperator(node, operator);
             return new PhysicalOperation(operator, mappings);
         }
 
         @Override
-        public PhysicalOperation visitJoin(JoinNode node, Map<PlanNodeId, SourceOperator> sourceOperators)
+        public PhysicalOperation visitJoin(JoinNode node, LocalExecutionPlanContext context)
         {
             List<JoinNode.EquiJoinClause> clauses = node.getCriteria();
 
             // introduce a projection to put all fields from the left side into a single channel if necessary
-            PhysicalOperation leftSource = node.getLeft().accept(this, sourceOperators);
+            PhysicalOperation leftSource = node.getLeft().accept(this, context);
             List<Symbol> leftSymbols = Lists.transform(clauses, leftGetter());
             leftSource = packIfNecessary(leftSymbols, leftSource);
 
             // do the same on the right side
-            PhysicalOperation rightSource = node.getRight().accept(this, sourceOperators);
+            PhysicalOperation rightSource = node.getRight().accept(this, context);
             List<Symbol> rightSymbols = Lists.transform(clauses, rightGetter());
             rightSource = packIfNecessary(rightSymbols, rightSource);
 
@@ -455,9 +488,9 @@ public class LocalExecutionPlanner
         }
 
         @Override
-        public PhysicalOperation visitSink(SinkNode node, Map<PlanNodeId, SourceOperator> sourceOperators)
+        public PhysicalOperation visitSink(SinkNode node, LocalExecutionPlanContext context)
         {
-            PhysicalOperation source = node.getSource().accept(this, sourceOperators);
+            PhysicalOperation source = node.getSource().accept(this, context);
 
             // if any symbols are mapped to a non-zero field, re-map to one field per channel
             // TODO: this is currently what the exchange operator expects -- figure out how to remove this assumption
@@ -474,7 +507,50 @@ public class LocalExecutionPlanner
         }
 
         @Override
-        protected PhysicalOperation visitPlan(PlanNode node, Map<PlanNodeId, SourceOperator> sourceOperators)
+        public PhysicalOperation visitTableWriter(TableWriterNode node, LocalExecutionPlanContext context)
+        {
+            LocalExecutionPlanner queryPlanner = new LocalExecutionPlanner(session,
+                    nodeInfo,
+                    metadata,
+                    node.getInputTypes(),
+                    operatorStats,
+                    joinHashFactory,
+                    maxOperatorMemoryUsage,
+                    dataStreamProvider,
+                    storageManager,
+                    exchangeOperatorFactory);
+
+            PhysicalOperation query = node.getSource().accept(queryPlanner.new Visitor(), context);
+
+            // introduce a projection to match the expected output
+            IdentityProjectionInfo mappings = computeIdentityMapping(node.getInputSymbols(), query.getLayout(), node.getInputTypes());
+            Operator sourceOperator = new FilterAndProjectOperator(query.getOperator(), FilterFunctions.TRUE_FUNCTION, mappings.getProjections());
+
+            Symbol outputSymbol = Iterables.getOnlyElement(node.getOutputTypes().keySet());
+
+
+            ImmutableList.Builder<ColumnHandle> columnHandlesBuilder = ImmutableList.builder();
+
+            for (Symbol inputSymbol : node.getInputSymbols()) {
+                ColumnHandle columnHandle = node.getColumnHandles().get(inputSymbol);
+                checkState(columnHandle != null, "No column handle for %s found!", inputSymbol);
+                columnHandlesBuilder.add(columnHandle);
+            }
+
+            TableWriterOperator operator = new TableWriterOperator(storageManager,
+                    nodeInfo.getNodeId(),
+                    columnHandlesBuilder.build(),
+                    sourceOperator);
+
+            context.addSourceOperator(node, operator);
+            context.addOutputOperator(node, operator);
+
+            return new PhysicalOperation(operator,
+                    ImmutableMap.of(outputSymbol, new Input(0, 0)));
+        }
+
+        @Override
+        protected PhysicalOperation visitPlan(PlanNode node, LocalExecutionPlanContext context)
         {
             throw new UnsupportedOperationException("not yet implemented");
         }
@@ -691,5 +767,19 @@ public class LocalExecutionPlanner
         {
             return layout;
         }
+    }
+
+    private static Ordering<Input> inputOrdering()
+    {
+        return Ordering.from(new Comparator<Input>() {
+            @Override
+            public int compare(Input o1, Input o2)
+            {
+                return ComparisonChain.start()
+                        .compare(o1.getChannel(), o2.getChannel())
+                        .compare(o1.getField(), o2.getField())
+                        .result();
+            }
+        });
     }
 }

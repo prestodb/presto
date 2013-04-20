@@ -42,7 +42,7 @@ public class TpchSchema
         return (TpchColumnHandle) table.getColumns().get(fieldIndex).getColumnHandle().get();
     }
 
-    public static Metadata createMetadata()
+    public static TestingMetadata createMetadata()
     {
         TestingMetadata testingMetadata = new TestingMetadata();
         testingMetadata.createTable(createOrders());

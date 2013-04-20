@@ -62,7 +62,8 @@ tokens {
     SHOW_PARTITIONS;
     SHOW_FUNCTIONS;
     CREATE_TABLE;
-    CREATE_OR_REPLACE_MATERIALIZED_VIEW;
+    CREATE_MATERIALIZED_VIEW;
+    REFRESH_MATERIALIZED_VIEW;
     DROP_TABLE;
     TABLE_ELEMENT_LIST;
     COLUMN_DEF;
@@ -136,7 +137,8 @@ statement
     | showPartitionsStmt
     | showFunctionsStmt
     | createTableStmt
-    | createOrReplaceMaterializedViewStmt
+    | createMaterializedViewStmt
+    | refreshMaterializedViewStmt
     | dropTableStmt
     ;
 
@@ -467,8 +469,12 @@ dropTableStmt
     : DROP TABLE qname -> ^(DROP_TABLE qname)
     ;
 
-createOrReplaceMaterializedViewStmt
-    : CREATE OR REPLACE MATERIALIZED VIEW qname AS restrictedSelectStmt -> ^(CREATE_OR_REPLACE_MATERIALIZED_VIEW qname restrictedSelectStmt)
+createMaterializedViewStmt
+    : CREATE MATERIALIZED VIEW qname AS restrictedSelectStmt -> ^(CREATE_MATERIALIZED_VIEW qname restrictedSelectStmt)
+    ;
+
+refreshMaterializedViewStmt
+    : REFRESH MATERIALIZED VIEW qname -> ^(REFRESH_MATERIALIZED_VIEW qname)
     ;
 
 createTableStmt
@@ -552,7 +558,7 @@ integer
 nonReserved
     : SHOW | TABLES | COLUMNS | PARTITIONS | FUNCTIONS
     | OVER | PARTITION | RANGE | ROWS | PRECEDING | FOLLOWING | CURRENT | ROW
-    | REPLACE | MATERIALIZED | VIEW
+    | REFRESH | MATERIALIZED | VIEW
     ;
 
 SELECT: 'SELECT';
@@ -652,7 +658,7 @@ PARTITIONS: 'PARTITIONS';
 FUNCTIONS: 'FUNCTIONS';
 MATERIALIZED: 'MATERIALIZED';
 VIEW: 'VIEW';
-REPLACE: 'REPLACE';
+REFRESH: 'REFRESH';
 DROP: 'DROP';
 
 EQ  : '=';

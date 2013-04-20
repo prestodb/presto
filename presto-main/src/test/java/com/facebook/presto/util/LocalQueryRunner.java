@@ -8,7 +8,9 @@ import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.InternalTable;
 import com.facebook.presto.metadata.InternalTableHandle;
+import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.MockLocalStorageManager;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableMetadata;
@@ -37,17 +39,22 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.storage.MockStorageManager;
 import com.facebook.presto.tpch.TpchDataStreamProvider;
 import com.facebook.presto.tpch.TpchSchema;
 import com.facebook.presto.tpch.TpchSplit;
 import com.facebook.presto.tpch.TpchTableHandle;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.node.NodeConfig;
+import io.airlift.node.NodeInfo;
 import io.airlift.units.DataSize;
 import org.intellij.lang.annotations.Language;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -65,12 +72,17 @@ public class LocalQueryRunner
 {
     private final DataStreamProvider dataStreamProvider;
     private final Metadata metadata;
+    private final LocalStorageManager storageManager;
     private final Session session;
 
-    public LocalQueryRunner(DataStreamProvider dataStreamProvider, Metadata metadata, Session session)
+    public LocalQueryRunner(DataStreamProvider dataStreamProvider,
+            Metadata metadata,
+            LocalStorageManager storageManager,
+            Session session)
     {
         this.dataStreamProvider = checkNotNull(dataStreamProvider, "dataStreamProvider is null");
         this.metadata = checkNotNull(metadata, "metadata is null");
+        this.storageManager = checkNotNull(storageManager, "storageManager is null");
         this.session = checkNotNull(session, "session is null");
     }
 
@@ -78,13 +90,19 @@ public class LocalQueryRunner
     {
         Statement statement = SqlParser.createStatement(sql);
 
-        Analyzer analyzer = new Analyzer(session, metadata);
+        Analyzer analyzer = new Analyzer(session,
+                metadata,
+                new MockStorageManager());
 
         AnalysisResult analysis = analyzer.analyze(statement);
 
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
         PlanOptimizersFactory planOptimizersFactory = new PlanOptimizersFactory(metadata);
-        PlanNode plan = new LogicalPlanner(session, planOptimizersFactory.get(), idAllocator).plan(analysis);
+        PlanNode plan = new LogicalPlanner(session,
+                metadata,
+                planOptimizersFactory.get(),
+                idAllocator).plan(analysis);
+
         new PlanPrinter().print(plan, analysis.getTypes());
 
         SubPlan subplan = new DistributedLogicalPlanner(metadata, idAllocator).createSubplans(plan, analysis.getSymbolAllocator(), true);
@@ -92,12 +110,16 @@ public class LocalQueryRunner
 
         DataSize maxOperatorMemoryUsage = new DataSize(50, MEGABYTE);
         LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(session,
+                new NodeInfo(new NodeConfig()
+                        .setEnvironment("test")
+                        .setNodeId("test-node")),
                 metadata,
                 analysis.getTypes(),
                 new OperatorStats(),
                 new SourceHashProviderFactory(maxOperatorMemoryUsage),
                 maxOperatorMemoryUsage,
                 dataStreamProvider,
+                storageManager,
                 null);
 
         LocalExecutionPlan localExecutionPlan = executionPlanner.plan(subplan.getFragment().getRoot());
@@ -127,7 +149,12 @@ public class LocalQueryRunner
         Metadata metadata = TpchSchema.createMetadata();
         Session session = new Session(null, TpchSchema.CATALOG_NAME, TpchSchema.SCHEMA_NAME);
 
-        return new LocalQueryRunner(dataProvider, metadata, session);
+        try {
+            return new LocalQueryRunner(dataProvider, metadata, new MockLocalStorageManager(), session);
+        }
+        catch (IOException e) {
+            throw Throwables.propagate(e);
+        }
     }
 
     public static LocalQueryRunner createDualLocalQueryRunner()
@@ -139,7 +166,12 @@ public class LocalQueryRunner
     {
         DataStreamProvider dataProvider = new DualTableDataStreamProvider();
         Metadata metadata = new DualTableMetadata();
-        return new LocalQueryRunner(dataProvider, metadata, session);
+        try {
+            return new LocalQueryRunner(dataProvider, metadata, new MockLocalStorageManager(), session);
+        }
+        catch (IOException e) {
+            throw Throwables.propagate(e);
+        }
     }
 
     private static Split createSplit(TableHandle handle)

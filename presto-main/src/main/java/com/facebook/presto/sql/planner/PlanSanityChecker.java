@@ -14,6 +14,7 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
@@ -201,6 +202,17 @@ public class PlanSanityChecker
 
         @Override
         public Void visitSink(SinkNode node, Void context)
+        {
+            PlanNode source = node.getSource();
+            source.accept(this, context); // visit child
+
+            verifyUniqueId(node);
+
+            return null;
+        }
+
+        @Override
+        public Void visitTableWriter(TableWriterNode node, Void context)
         {
             PlanNode source = node.getSource();
             source.accept(this, context); // visit child

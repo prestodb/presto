@@ -1,4 +1,4 @@
-package com.facebook.presto.importer;
+package com.facebook.presto.storage;
 
 import javax.inject.Qualifier;
 import java.lang.annotation.Retention;
@@ -12,6 +12,6 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 @Retention(RUNTIME)
 @Target({FIELD, PARAMETER, METHOD})
 @Qualifier
-public @interface ForImportManager
+public @interface ForStorage
 {
 }

@@ -10,12 +10,12 @@ import java.util.Map;
 
 import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
 
-public class TestStorageManagerConfig
+public class TestDatabaseLocalStorageManagerConfig
 {
     @Test
     public void testDefaults()
     {
-        ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(StorageManagerConfig.class)
+        ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(DatabaseLocalStorageManagerConfig.class)
                 .setDataDirectory(new File("var/data")));
     }
 
@@ -26,7 +26,7 @@ public class TestStorageManagerConfig
                 .put("storage-manager.data-directory", "/data")
                 .build();
 
-        StorageManagerConfig expected = new StorageManagerConfig()
+        DatabaseLocalStorageManagerConfig expected = new DatabaseLocalStorageManagerConfig()
                 .setDataDirectory(new File("/data"));
 
         ConfigAssertions.assertFullMapping(properties, expected);
@@ -35,6 +35,6 @@ public class TestStorageManagerConfig
     @Test
     public void testValidations()
     {
-        assertFailsValidation(new StorageManagerConfig().setDataDirectory(null), "dataDirectory", "may not be null", NotNull.class);
+        assertFailsValidation(new DatabaseLocalStorageManagerConfig().setDataDirectory(null), "dataDirectory", "may not be null", NotNull.class);
     }
 }

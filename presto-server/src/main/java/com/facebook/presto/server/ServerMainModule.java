@@ -3,13 +3,11 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.event.query.QueryCompletionEvent;
 import com.facebook.presto.event.query.QueryCreatedEvent;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.event.query.SplitCompletionEvent;
-import com.facebook.presto.execution.CreateOrReplaceMaterializedViewExecution.CreateOrReplaceMaterializedViewExecutionFactory;
 import com.facebook.presto.execution.DropTableExecution.DropTableExecutionFactory;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
@@ -23,24 +21,18 @@ import com.facebook.presto.execution.SitevarsConfig;
 import com.facebook.presto.execution.SqlQueryExecution.SqlQueryExecutionFactory;
 import com.facebook.presto.execution.SqlQueryManager;
 import com.facebook.presto.execution.SqlTaskManager;
-import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
-import com.facebook.presto.importer.ForImportManager;
 import com.facebook.presto.importer.ForPeriodicImport;
-import com.facebook.presto.importer.ImportManager;
-import com.facebook.presto.importer.ImportManagerConfig;
 import com.facebook.presto.importer.JobStateFactory;
-import com.facebook.presto.importer.LocalShardManager;
-import com.facebook.presto.importer.NodeWorkerQueue;
 import com.facebook.presto.importer.PeriodicImportConfig;
 import com.facebook.presto.importer.PeriodicImportController;
 import com.facebook.presto.importer.PeriodicImportManager;
 import com.facebook.presto.importer.PeriodicImportRunnable;
-import com.facebook.presto.importer.ShardImport;
 import com.facebook.presto.metadata.AliasDao;
+import com.facebook.presto.metadata.DatabaseLocalStorageManager;
+import com.facebook.presto.metadata.DatabaseLocalStorageManagerConfig;
 import com.facebook.presto.metadata.DatabaseShardManager;
-import com.facebook.presto.metadata.DatabaseStorageManager;
 import com.facebook.presto.metadata.ForAlias;
 import com.facebook.presto.metadata.ForMetadata;
 import com.facebook.presto.metadata.ForShardCleaner;
@@ -51,6 +43,7 @@ import com.facebook.presto.metadata.ImportMetadata;
 import com.facebook.presto.metadata.InformationSchemaData;
 import com.facebook.presto.metadata.InformationSchemaMetadata;
 import com.facebook.presto.metadata.InternalMetadata;
+import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.NativeMetadata;
@@ -58,8 +51,6 @@ import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.ShardCleaner;
 import com.facebook.presto.metadata.ShardCleanerConfig;
 import com.facebook.presto.metadata.ShardManager;
-import com.facebook.presto.metadata.StorageManager;
-import com.facebook.presto.metadata.StorageManagerConfig;
 import com.facebook.presto.metadata.SystemTables;
 import com.facebook.presto.operator.ForExchange;
 import com.facebook.presto.operator.ForScheduler;
@@ -74,11 +65,12 @@ import com.facebook.presto.split.Split;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.planner.PlanOptimizersFactory;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
-import com.facebook.presto.sql.tree.CreateOrReplaceMaterializedView;
+import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Query;
+import com.facebook.presto.sql.tree.RefreshMaterializedView;
 import com.facebook.presto.sql.tree.Serialization.ExpressionDeserializer;
 import com.facebook.presto.sql.tree.Serialization.ExpressionSerializer;
 import com.facebook.presto.sql.tree.Serialization.FunctionCallDeserializer;
@@ -87,6 +79,9 @@ import com.facebook.presto.sql.tree.ShowFunctions;
 import com.facebook.presto.sql.tree.ShowPartitions;
 import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.storage.DatabaseStorageManager;
+import com.facebook.presto.storage.ForStorage;
+import com.facebook.presto.storage.StorageManager;
 import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
@@ -149,8 +144,8 @@ public class ServerMainModule
         HttpClientBinder.httpClientBinder(binder).bindAsyncHttpClient("exchange", ForExchange.class).withTracing();
         HttpClientBinder.httpClientBinder(binder).bindAsyncHttpClient("scheduler", ForScheduler.class).withTracing();
 
-        bindConfig(binder).to(StorageManagerConfig.class);
-        binder.bind(StorageManager.class).to(DatabaseStorageManager.class).in(Scopes.SINGLETON);
+        bindConfig(binder).to(DatabaseLocalStorageManagerConfig.class);
+        binder.bind(LocalStorageManager.class).to(DatabaseLocalStorageManager.class).in(Scopes.SINGLETON);
         binder.bind(DataStreamProvider.class).to(DataStreamManager.class).in(Scopes.SINGLETON);
         binder.bind(NativeDataStreamProvider.class).in(Scopes.SINGLETON);
         binder.bind(ImportDataStreamProvider.class).in(Scopes.SINGLETON);
@@ -190,16 +185,7 @@ public class ServerMainModule
         discoveryBinder(binder).bindSelector("presto");
 
         binder.bind(NodeManager.class).in(Scopes.SINGLETON);
-        binder.bind(NodeWorkerQueue.class).in(Scopes.SINGLETON);
         binder.bind(ShardManager.class).to(DatabaseShardManager.class).in(Scopes.SINGLETON);
-
-        binder.bind(ImportManager.class).in(Scopes.SINGLETON);
-        bindConfig(binder).to(ImportManagerConfig.class);
-        httpClientBinder(binder).bindHttpClient("importer", ForImportManager.class).withFilter(NodeIdUserAgentRequestFilter.class);
-
-        binder.bind(LocalShardManager.class).in(Scopes.SINGLETON);
-        binder.bind(ShardResource.class).in(Scopes.SINGLETON);
-        jsonCodecBinder(binder).bindJsonCodec(ShardImport.class);
 
         bindConfig(binder).to(ShardCleanerConfig.class);
         binder.bind(ShardCleaner.class).in(Scopes.SINGLETON);
@@ -221,7 +207,7 @@ public class ServerMainModule
             discoveryBinder(binder).bindHttpAnnouncement("presto-coordinator");
         }
 
-        bindDataSource("presto-metastore", ForMetadata.class, ForShardManager.class, ForPeriodicImport.class, ForAlias.class);
+        bindDataSource("presto-metastore", ForMetadata.class, ForShardManager.class, ForPeriodicImport.class, ForAlias.class, ForStorage.class);
 
         jsonCodecBinder(binder).bindJsonCodec(QueryInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
@@ -253,7 +239,6 @@ public class ServerMainModule
         MapBinder<Class<? extends Statement>, QueryExecutionFactory<?>> executionBinder = MapBinder.newMapBinder(binder,
                 new TypeLiteral<Class<? extends Statement>>() {},
                 new TypeLiteral<QueryExecutionFactory<?>>() {});
-        executionBinder.addBinding(CreateOrReplaceMaterializedView.class).to(CreateOrReplaceMaterializedViewExecutionFactory.class).in(Scopes.SINGLETON);
         executionBinder.addBinding(DropTable.class).to(DropTableExecutionFactory.class).in(Scopes.SINGLETON);
 
         binder.bind(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
@@ -262,16 +247,20 @@ public class ServerMainModule
         executionBinder.addBinding(ShowPartitions.class).to(Key.get(SqlQueryExecutionFactory.class)).in(Scopes.SINGLETON);
         executionBinder.addBinding(ShowFunctions.class).to(Key.get(SqlQueryExecutionFactory.class)).in(Scopes.SINGLETON);
         executionBinder.addBinding(ShowTables.class).to(Key.get(SqlQueryExecutionFactory.class)).in(Scopes.SINGLETON);
+        executionBinder.addBinding(CreateMaterializedView.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
+        executionBinder.addBinding(RefreshMaterializedView.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
 
         binder.bind(new TypeLiteral<List<PlanOptimizer>>() {}).toProvider(PlanOptimizersFactory.class).in(Scopes.SINGLETON);
 
         binder.bind(NodeResource.class).in(Scopes.SINGLETON);
+
+        binder.bind(StorageManager.class).to(DatabaseStorageManager.class).in(Scopes.SINGLETON);
     }
 
     @Provides
     @Singleton
     @ForStorageManager
-    public IDBI createStorageManagerDBI(StorageManagerConfig config)
+    public IDBI createStorageManagerDBI(DatabaseLocalStorageManagerConfig config)
             throws Exception
     {
         String path = new File(config.getDataDirectory(), "db/StorageManager").getAbsolutePath();

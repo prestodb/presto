@@ -22,6 +22,7 @@ import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.LookupSymbolResolver;
 import com.facebook.presto.sql.planner.SymbolResolver;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
@@ -29,6 +30,8 @@ import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.StringLiteral;
+import com.facebook.presto.tpch.TpchSplit;
+import com.facebook.presto.tpch.TpchTableHandle;
 import com.facebook.presto.util.IterableTransformer;
 import com.facebook.presto.util.MapTransformer;
 import com.facebook.presto.util.MoreFunctions;
@@ -36,6 +39,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.AbstractIterator;
@@ -54,9 +58,7 @@ import org.weakref.jmx.Managed;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
@@ -124,21 +126,35 @@ public class SplitManager
         scheduleRandom.set(0);
     }
 
-    public Iterable<SplitAssignments> getSplitAssignments(Session session, TableHandle handle, Expression predicate, Map<Symbol, ColumnHandle> mappings)
+    public Iterable<SplitAssignments> getSplitAssignments(PlanNodeId planNodeId,
+            Session session,
+            TableHandle handle,
+            Expression predicate,
+            Predicate<PartitionInfo> partitionPredicate,
+            Map<Symbol, ColumnHandle> mappings)
     {
+        checkNotNull(planNodeId, "planNodeId is null");
+        checkNotNull(session, "session is null");
+        checkNotNull(handle, "handle is null");
+        checkNotNull(predicate, "predicate is null");
+        checkNotNull(partitionPredicate, "partitionPredicate is null");
+        checkNotNull(mappings, "mappings is null");
+
         switch (handle.getDataSourceType()) {
             case NATIVE:
-                return getNativeSplitAssignments((NativeTableHandle) handle);
+                return getNativeSplitAssignments(planNodeId, (NativeTableHandle) handle);
             case INTERNAL:
-                return getInternalSplitAssignments((InternalTableHandle) handle, predicate, mappings);
+                return getInternalSplitAssignments(planNodeId, (InternalTableHandle) handle, predicate, mappings);
             case IMPORT:
-                return getImportSplitAssignments(session, (ImportTableHandle) handle, predicate, mappings);
+                return getImportSplitAssignments(planNodeId, session, (ImportTableHandle) handle, predicate, partitionPredicate, mappings);
+            case TPCH: // testing code only. This should really be pluggable...
+                return getTpchSplitAssignments(planNodeId, session, (TpchTableHandle) handle, mappings);
             default:
                 throw new IllegalArgumentException("unsupported handle type: " + handle);
         }
     }
 
-    private Iterable<SplitAssignments> getNativeSplitAssignments(NativeTableHandle handle)
+    private Iterable<SplitAssignments> getNativeSplitAssignments(PlanNodeId planNodeId, NativeTableHandle handle)
     {
         Map<String, Node> nodeMap = getNodeMap(nodeManager.getActiveNodes());
         Multimap<Long, String> shardNodes = shardManager.getCommittedShardNodes(handle.getTableId());
@@ -147,12 +163,12 @@ public class SplitManager
         for (Map.Entry<Long, Collection<String>> entry : shardNodes.asMap().entrySet()) {
             Split split = new NativeSplit(entry.getKey());
             List<Node> nodes = getNodes(nodeMap, entry.getValue());
-            splitAssignments.add(new SplitAssignments(split, nodes));
+            splitAssignments.add(new SplitAssignments(ImmutableMap.of(planNodeId, split), nodes));
         }
         return splitAssignments.build();
     }
 
-    private Iterable<SplitAssignments> getInternalSplitAssignments(InternalTableHandle handle, Expression predicate, Map<Symbol, ColumnHandle> mappings)
+    private Iterable<SplitAssignments> getInternalSplitAssignments(PlanNodeId planNodeId, InternalTableHandle handle, Expression predicate, Map<Symbol, ColumnHandle> mappings)
     {
         Map<Symbol, InternalColumnHandle> symbols = filterValueInstances(mappings, InternalColumnHandle.class);
         Split split = new InternalSplit(handle, extractFilters(predicate, symbols));
@@ -161,7 +177,7 @@ public class SplitManager
         Preconditions.checkState(currentNode.isPresent(), "current node is not in the active set");
 
         List<Node> nodes = ImmutableList.of(currentNode.get());
-        return ImmutableList.of(new SplitAssignments(split, nodes));
+        return ImmutableList.of(new SplitAssignments(ImmutableMap.of(planNodeId, split), nodes));
     }
 
     private static <K, V, V1 extends V> Map<K, V1> filterValueInstances(Map<K, V> map, Class<V1> clazz)
@@ -179,13 +195,18 @@ public class SplitManager
         return uniqueIndex(nodes, Node.getIdentifierFunction());
     }
 
-    private Iterable<SplitAssignments> getImportSplitAssignments(Session session, ImportTableHandle handle, Expression predicate, Map<Symbol, ColumnHandle> mappings)
+    private Iterable<SplitAssignments> getImportSplitAssignments(PlanNodeId planNodeId,
+            Session session,
+            ImportTableHandle handle,
+            Expression predicate,
+            Predicate<PartitionInfo> partitionPredicate,
+            Map<Symbol, ColumnHandle> mappings)
     {
         final String sourceName = handle.getSourceName();
         final String databaseName = handle.getDatabaseName();
         final String tableName = handle.getTableName();
 
-        final List<String> partitions = getPartitions(session, sourceName, databaseName, tableName, predicate, mappings);
+        final List<String> partitions = getPartitions(session, sourceName, databaseName, tableName, predicate, partitionPredicate, mappings);
         final List<String> columns = IterableTransformer.on(mappings.values())
                 .transform(MoreFunctions.<ColumnHandle, ImportColumnHandle>cast(ImportColumnHandle.class))
                 .transform(columnNameGetter())
@@ -205,10 +226,16 @@ public class SplitManager
                     }
                 });
 
-        return Iterables.transform(chunks, createImportSplitFunction(sourceName));
+        return Iterables.transform(chunks, createImportSplitFunction(planNodeId, sourceName));
     }
 
-    private List<String> getPartitions(Session session, String sourceName, String databaseName, String tableName, Expression predicate, Map<Symbol, ColumnHandle> mappings)
+    private List<String> getPartitions(Session session,
+            String sourceName,
+            String databaseName,
+            String tableName,
+            Expression predicate,
+            Predicate<PartitionInfo> partitionPredicate,
+            Map<Symbol, ColumnHandle> mappings)
     {
         BiMap<Symbol, String> symbolToColumn = MapTransformer.of(mappings)
                 .transformValues(MoreFunctions.<ColumnHandle, ImportColumnHandle>cast(ImportColumnHandle.class))
@@ -216,19 +243,24 @@ public class SplitManager
                 .biMap();
 
         // First find candidate partitions -- try to push down the predicate to the underlying API
-        List<PartitionInfo> partitions = getCandidatePartitions(sourceName, databaseName, tableName, predicate, symbolToColumn);
+        Iterable<PartitionInfo> partitions = getCandidatePartitions(sourceName, databaseName, tableName, predicate, partitionPredicate, symbolToColumn);
 
         // Next, prune the list in case we got more partitions that necessary because parts of the predicate
         // could not be pushed down
-        partitions = prunePartitions(session, partitions, predicate, symbolToColumn.inverse());
+        List<PartitionInfo> prunedPartitions = prunePartitions(session, partitions, predicate, symbolToColumn.inverse());
 
-        return Lists.transform(partitions, partitionNameGetter());
+        return Lists.transform(prunedPartitions, partitionNameGetter());
     }
 
     /**
      * Get candidate partitions from underlying API and make a best effort to push down any relevant parts of the provided predicate
      */
-    private List<PartitionInfo> getCandidatePartitions(final String sourceName, final String databaseName, final String tableName, Expression predicate, Map<Symbol, String> symbolToColumnName)
+    private Iterable<PartitionInfo> getCandidatePartitions(final String sourceName,
+            final String databaseName,
+            final String tableName,
+            Expression predicate,
+            final Predicate<PartitionInfo> partitionPredicate,
+            Map<Symbol, String> symbolToColumnName)
     {
         // Look for any sub-expression in an AND expression of the form <partition key> = 'value'
         Set<ComparisonExpression> comparisons = IterableTransformer.on(extractConjuncts(predicate))
@@ -293,14 +325,14 @@ public class SplitManager
         return retry()
                 .stopOn(ObjectNotFoundException.class)
                 .stopOnIllegalExceptions()
-                .runUnchecked(new Callable<List<PartitionInfo>>()
+                .runUnchecked(new Callable<Iterable<PartitionInfo>>()
                 {
                     @Override
-                    public List<PartitionInfo> call()
+                    public Iterable<PartitionInfo> call()
                             throws Exception
                     {
                         ImportClient importClient = importClientManager.getClient(sourceName);
-                        return importClient.getPartitions(databaseName, tableName, bindings);
+                        return Iterables.filter(importClient.getPartitions(databaseName, tableName, bindings), partitionPredicate);
                     }
                 });
     }
@@ -346,7 +378,7 @@ public class SplitManager
                 });
     }
 
-    private List<PartitionInfo> prunePartitions(Session session, List<PartitionInfo> partitions, Expression predicate, Map<String, Symbol> columnNameToSymbol)
+    private List<PartitionInfo> prunePartitions(Session session, Iterable<PartitionInfo> partitions, Expression predicate, Map<String, Symbol> columnNameToSymbol)
     {
         ImmutableList.Builder<PartitionInfo> builder = ImmutableList.builder();
         for (PartitionInfo partition : partitions) {
@@ -405,7 +437,7 @@ public class SplitManager
         return filters.build();
     }
 
-    private Function<PartitionChunk, SplitAssignments> createImportSplitFunction(final String sourceName)
+    private Function<PartitionChunk, SplitAssignments> createImportSplitFunction(final PlanNodeId planNodeId, final String sourceName)
     {
         // this supplier is thread-safe. TODO: this logic should probably move to the scheduler since the choice of which node to run in should be
         // done as close to when the the split is about to be scheduled
@@ -439,11 +471,14 @@ public class SplitManager
             public SplitAssignments apply(PartitionChunk chunk)
             {
                 ImportClient importClient = importClientManager.getClient(sourceName);
-                Split split = new ImportSplit(sourceName, SerializedPartitionChunk.create(importClient, chunk), chunk.getInfo());
+                Split split = new ImportSplit(sourceName,
+                        chunk.getPartitionName(),
+                        chunk.isLastChunk(),
+                        SerializedPartitionChunk.create(importClient, chunk), chunk.getInfo());
 
                 List<Node> nodes = chooseNodes(nodeMap.get(), chunk.getHosts(), 10);
                 Preconditions.checkState(!nodes.isEmpty(), "No active %s data nodes", sourceName);
-                return new SplitAssignments(split, nodes);
+                return new SplitAssignments(ImmutableMap.of(planNodeId, split), nodes);
             }
         };
     }
@@ -469,7 +504,7 @@ public class SplitManager
         // add some random nodes if below the minimum count
         if (chosen.size() < minCount) {
             for (Node node : lazyShuffle(nodeMap.getNodesByHost().values())) {
-                if (chosen.add(node)) {;
+                if (chosen.add(node)) {
                     scheduleRandom.incrementAndGet();
                 }
 
@@ -536,6 +571,26 @@ public class SplitManager
                 };
             }
         };
+    }
+
+    private Iterable<SplitAssignments> getTpchSplitAssignments(PlanNodeId planNodeId,
+            Session session,
+            TpchTableHandle handle,
+            Map<Symbol, ColumnHandle> mappings)
+    {
+        Map<String, Node> nodeMap = getNodeMap(nodeManager.getActiveNodes());
+        ImmutableList.Builder<SplitAssignments> splitAssignments = ImmutableList.builder();
+
+        int totalParts = nodeMap.size();
+        int partNumber = 0;
+
+        // Split the data using split and skew by the number of nodes available.
+        for (Map.Entry<String, Node> entry : nodeMap.entrySet()) {
+            TpchSplit tpchSplit = new TpchSplit(handle, partNumber++, totalParts);
+            splitAssignments.add(new SplitAssignments(ImmutableMap.of(planNodeId, tpchSplit), ImmutableList.of(entry.getValue())));
+        }
+
+        return splitAssignments.build();
     }
 
     private static class NodeMap

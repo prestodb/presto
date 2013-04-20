@@ -1,5 +1,6 @@
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.metadata.Table.TableMapper;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.skife.jdbi.v2.exceptions.UnableToObtainConnectionException;
@@ -40,7 +41,8 @@ public interface MetadataDao
             "WHERE catalog_name = :catalogName\n" +
             "  AND schema_name = :schemaName\n" +
             "  AND table_name = :tableName")
-    Long getTableId(@BindBean QualifiedTableName table);
+    @Mapper(TableMapper.class)
+    Table getTableInformation(@BindBean QualifiedTableName table);
 
     @SqlQuery("SELECT catalog_name, schema_name, table_name\n" +
             "FROM tables\n" +
