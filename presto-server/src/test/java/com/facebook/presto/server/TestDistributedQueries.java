@@ -420,7 +420,7 @@ public class TestDistributedQueries
             server = injector.getInstance(TestingHttpServer.class);
 
             ConnectorManager connectorManager = injector.getInstance(ConnectorManager.class);
-            connectorManager.initialize();
+            connectorManager.createConnection("default", "native", ImmutableMap.<String, String>of());
             connectorManager.createConnection("tpch", "tpch", ImmutableMap.<String, String>of());
 
             ImmutableList.Builder<ServiceSelector> serviceSelectors = ImmutableList.builder();

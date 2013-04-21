@@ -4,7 +4,6 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.client.QueryResults;
-import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.NativeConnectorFactory;
 import com.facebook.presto.event.query.QueryCompletionEvent;
@@ -42,6 +41,8 @@ import com.facebook.presto.metadata.AliasDao;
 import com.facebook.presto.metadata.DatabaseLocalStorageManager;
 import com.facebook.presto.metadata.DatabaseLocalStorageManagerConfig;
 import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.metadata.CatalogManager;
+import com.facebook.presto.metadata.CatalogManagerConfig;
 import com.facebook.presto.metadata.DatabaseShardManager;
 import com.facebook.presto.metadata.DiscoveryNodeManager;
 import com.facebook.presto.metadata.ForAlias;
@@ -64,13 +65,12 @@ import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.metadata.SystemTables;
 import com.facebook.presto.operator.ForExchange;
 import com.facebook.presto.operator.ForScheduler;
-import com.facebook.presto.spi.ImportClientFactory;
+import com.facebook.presto.spi.ConnectorFactory;
+import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.split.ConnectorDataStreamProvider;
-import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.split.DataStreamManager;
 import com.facebook.presto.split.DataStreamProvider;
-import com.facebook.presto.split.ImportClientManager;
 import com.facebook.presto.split.InternalDataStreamProvider;
 import com.facebook.presto.split.InternalSplitManager;
 import com.facebook.presto.split.NativeDataStreamProvider;
@@ -167,6 +167,8 @@ public class ServerMainModule
         Multibinder<ConnectorDataStreamProvider> connectorDataStreamProviderBinder = Multibinder.newSetBinder(binder, ConnectorDataStreamProvider.class);
 
         // metadata
+        binder.bind(CatalogManager.class).in(Scopes.SINGLETON);
+        bindConfig(binder).to(CatalogManagerConfig.class);
         binder.bind(MetadataResource.class).in(Scopes.SINGLETON);
         binder.bind(MetadataManager.class).in(Scopes.SINGLETON);
         binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
@@ -195,11 +197,6 @@ public class ServerMainModule
         // system tables (e.g., Dual, information_schema, and sys)
         binder.bind(SystemTables.class).in(Scopes.SINGLETON);
         binder.bind(InformationSchemaData.class).in(Scopes.SINGLETON);
-
-        // import clients
-        binder.bind(ImportClientManager.class).in(Scopes.SINGLETON);
-        // kick off binding of import client factories
-        MapBinder.newMapBinder(binder, String.class, ImportClientFactory.class);
 
         jsonCodecBinder(binder).bindJsonCodec(TaskUpdateRequest.class);
         jsonCodecBinder(binder).bindJsonCodec(Split.class);
