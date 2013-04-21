@@ -85,7 +85,7 @@ public class TestingPrestoServer
         lifeCycleManager = injector.getInstance(LifeCycleManager.class);
 
         ConnectorManager connectorManager = injector.getInstance(ConnectorManager.class);
-        connectorManager.initialize();
+        connectorManager.createConnection("default", "native", ImmutableMap.<String, String>of());
         connectorManager.createConnection("tpch", "tpch", ImmutableMap.<String, String>of());
 
         server = injector.getInstance(TestingHttpServer.class);

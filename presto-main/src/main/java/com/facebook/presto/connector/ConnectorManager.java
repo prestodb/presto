@@ -9,13 +9,13 @@ import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.split.ConnectorDataStreamProvider;
 import com.facebook.presto.split.DataStreamManager;
-import com.facebook.presto.split.ImportClientManager;
+import com.facebook.presto.split.RecordSetDataStreamProvider;
 import com.facebook.presto.split.SplitManager;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 
 import java.util.Map;
@@ -31,7 +31,6 @@ public class ConnectorManager
     private final MetadataManager metadataManager;
     private final SplitManager splitManager;
     private final DataStreamManager dataStreamManager;
-    private final ImportClientManager importClientManager;
     private final HandleResolver handleResolver;
 
     private final ConcurrentMap<String, ConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
@@ -42,14 +41,12 @@ public class ConnectorManager
     public ConnectorManager(MetadataManager metadataManager,
             SplitManager splitManager,
             DataStreamManager dataStreamManager,
-            ImportClientManager importClientManager,
             HandleResolver handleResolver,
             Map<String, ConnectorFactory> connectorFactories)
     {
         this.metadataManager = metadataManager;
         this.splitManager = splitManager;
         this.dataStreamManager = dataStreamManager;
-        this.importClientManager = importClientManager;
         this.handleResolver = handleResolver;
         this.connectorFactories.putAll(connectorFactories);
 
@@ -59,19 +56,10 @@ public class ConnectorManager
         handleResolver.addHandleResolver("collocated", new CollocatedSplitHandleResolver());
     }
 
-    public void initialize()
+    public void addConnectorFactory(ConnectorFactory connectorFactory)
     {
-        // list is lame, but just register all plugins into a catalog for now
-        for (String connectorName : importClientManager.getImportClientFactories().keySet()) {
-            createConnection(connectorName, connectorName, ImmutableMap.<String, String>of());
-        }
-        createConnection("default", "native", ImmutableMap.<String, String>of());
-    }
-
-    public void addConnectorFactory(String connectorName, ConnectorFactory connectorFactory)
-    {
-        ConnectorFactory existingConnectorFactory = connectorFactories.putIfAbsent(connectorName, connectorFactory);
-        checkArgument(existingConnectorFactory != null, "Connector %s is already registered", connectorName);
+        ConnectorFactory existingConnectorFactory = connectorFactories.putIfAbsent(connectorFactory.getName(), connectorFactory);
+        checkArgument(existingConnectorFactory == null, "Connector %s is already registered", connectorFactory.getName());
     }
 
     public synchronized void createConnection(String catalogName, String connectorName, Map<String, String> properties)
@@ -97,7 +85,11 @@ public class ConnectorManager
         checkState(connectorSplitManager != null, "Connector %s does not have a split manager", connectorId);
 
         ConnectorDataStreamProvider connectorDataStreamProvider = connector.getService(ConnectorDataStreamProvider.class);
-        checkState(connectorDataStreamProvider != null, "Connector %s does not have a data stream provider", connectorId);
+        if (connectorDataStreamProvider == null) {
+            ConnectorRecordSetProvider connectorRecordSetProvider = connector.getService(ConnectorRecordSetProvider.class);
+            checkState(connectorRecordSetProvider != null, "Connector %s does not have a data stream provider", connectorId);
+            connectorDataStreamProvider = new RecordSetDataStreamProvider(connectorRecordSetProvider);
+        }
 
         ConnectorHandleResolver connectorHandleResolver = connector.getService(ConnectorHandleResolver.class);
         checkState(connectorDataStreamProvider != null, "Connector %s does not have a handle resolver", connectorId);

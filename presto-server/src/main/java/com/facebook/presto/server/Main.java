@@ -1,7 +1,7 @@
 package com.facebook.presto.server;
 
-import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.failureDetector.FailureDetectorModule;
+import com.facebook.presto.metadata.CatalogManager;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
 import com.google.inject.Module;
@@ -56,8 +56,11 @@ public class Main implements Runnable
 
         try {
             Injector injector = app.strictConfig().initialize();
+
             injector.getInstance(PluginManager.class).loadPlugins();
-            injector.getInstance(ConnectorManager.class).initialize();
+
+            injector.getInstance(CatalogManager.class).loadCatalogs();
+
             injector.getInstance(Announcer.class).start();
 
             log.info("======== SERVER STARTED ========");

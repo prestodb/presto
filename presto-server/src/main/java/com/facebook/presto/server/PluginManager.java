@@ -3,9 +3,9 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.spi.ImportClientFactory;
-import com.facebook.presto.spi.ImportClientFactoryFactory;
-import com.facebook.presto.split.ImportClientManager;
+import com.facebook.presto.connector.ConnectorManager;
+import com.facebook.presto.spi.ConnectorFactory;
+import com.facebook.presto.spi.Plugin;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -23,7 +23,6 @@ import org.sonatype.aether.artifact.Artifact;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -33,13 +32,11 @@ import java.util.Enumeration;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 import java.util.ServiceLoader;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.collect.Maps.fromProperties;
 
 @ThreadSafe
 public class PluginManager
@@ -47,31 +44,29 @@ public class PluginManager
     private static final Logger log = Logger.get(PluginManager.class);
 
     private final Injector injector;
-    private final ImportClientManager importClientManager;
+    private final ConnectorManager connectorManager;
     private final ArtifactResolver resolver;
     private final File installedPluginsDir;
     private final List<String> plugins;
-    private final File pluginConfigurationDir;
     private final Map<String, String> optionalConfig;
     private final AtomicBoolean pluginsLoaded = new AtomicBoolean();
 
     @Inject
-    public PluginManager(Injector injector, 
+    public PluginManager(Injector injector,
             NodeInfo nodeInfo,
             HttpServerInfo httpServerInfo,
             PluginManagerConfig config,
-            ImportClientManager importClientManager,
+            ConnectorManager connectorManager,
             ConfigurationFactory configurationFactory)
     {
+        this.connectorManager = connectorManager;
         checkNotNull(injector, "injector is null");
         checkNotNull(nodeInfo, "nodeInfo is null");
         checkNotNull(httpServerInfo, "httpServerInfo is null");
         checkNotNull(config, "config is null");
-        checkNotNull(importClientManager, "importClientManager is null");
         checkNotNull(configurationFactory, "configurationFactory is null");
 
         this.injector = injector;
-        this.importClientManager = importClientManager;
         installedPluginsDir = config.getInstalledPluginsDir();
         if (config.getPlugins() == null) {
             this.plugins = ImmutableList.of();
@@ -79,7 +74,6 @@ public class PluginManager
         else {
             this.plugins = ImmutableList.copyOf(config.getPlugins());
         }
-        this.pluginConfigurationDir = config.getPluginConfigurationDir();
         this.resolver = new ArtifactResolver(config.getMavenLocalRepository(), config.getMavenRemoteRepository());
 
         Map<String, String> optionalConfig = new TreeMap<>(configurationFactory.getProperties());
@@ -119,37 +113,28 @@ public class PluginManager
         log.info("-- Loading plugin %s --", plugin);
         URLClassLoader pluginClassLoader = buildClassLoader(plugin);
         try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(pluginClassLoader)) {
-            ServiceLoader<ImportClientFactoryFactory> serviceLoader = ServiceLoader.load(ImportClientFactoryFactory.class, pluginClassLoader);
-            List<ImportClientFactoryFactory> importClientFactoryFactories = ImmutableList.copyOf(serviceLoader);
-
-            for (ImportClientFactoryFactory importClientFactoryFactory : importClientFactoryFactories) {
-                if (importClientFactoryFactory.getClass().isAnnotationPresent(PrestoInternalPlugin.class)) {
-                    injector.injectMembers(importClientFactoryFactory);
-                }
-                Map<String, String> requiredConfig = loadPluginConfig(importClientFactoryFactory.getConfigName());
-                ImportClientFactory importClientFactory = importClientFactoryFactory.createImportClientFactory(requiredConfig, optionalConfig);
-                importClientFactory = new ClassLoaderSafeImportClientFactory(importClientFactory, pluginClassLoader);
-                importClientManager.addImportClientFactory(plugin, importClientFactory);
-            }
+            loadPlugin(pluginClassLoader);
         }
         log.info("-- Finished loading plugin %s --", plugin);
     }
 
-    private Map<String, String> loadPluginConfig(String name)
+    private void loadPlugin(URLClassLoader pluginClassLoader)
             throws Exception
     {
-        checkNotNull(name, "name is null");
+        ServiceLoader<Plugin> serviceLoader = ServiceLoader.load(Plugin.class, pluginClassLoader);
+        List<Plugin> plugins = ImmutableList.copyOf(serviceLoader);
 
-        Properties properties = new Properties();
-        if (pluginConfigurationDir != null) {
-            File configFile = new File(pluginConfigurationDir, name + ".properties");
-            if (configFile.canRead()) {
-                try (FileInputStream in = new FileInputStream(configFile)) {
-                    properties.load(in);
-                }
+        for (Plugin plugin : plugins) {
+            if (plugin.getClass().isAnnotationPresent(PrestoInternalPlugin.class)) {
+                injector.injectMembers(plugin);
+            }
+
+            plugin.setOptionalConfig(optionalConfig);
+
+            for (ConnectorFactory connectorFactory : plugin.getServices(ConnectorFactory.class)) {
+                connectorManager.addConnectorFactory(connectorFactory);
             }
         }
-        return fromProperties(properties);
     }
 
     private URLClassLoader buildClassLoader(String plugin)
