@@ -29,7 +29,7 @@ import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.storage.MockStorageManager;
 import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.facebook.presto.tpch.TpchDataStreamProvider;
-import com.facebook.presto.tpch.TpchSchema;
+import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tpch.TpchSplit;
 import com.facebook.presto.tpch.TpchTableHandle;
 import com.google.common.base.Preconditions;
@@ -57,9 +57,9 @@ public abstract class AbstractSqlBenchmark
 
         Statement statement = SqlParser.createStatement(query);
 
-        metadata = TpchSchema.createMetadata();
+        metadata = TpchMetadata.createTpchMetadata();
 
-        session = new Session(null, TpchSchema.CATALOG_NAME, TpchSchema.SCHEMA_NAME);
+        session = new Session(null, TpchMetadata.TPCH_CATALOG_NAME, TpchMetadata.TPCH_SCHEMA_NAME);
         analysis = new Analyzer(session, metadata).analyze(statement);
 
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();

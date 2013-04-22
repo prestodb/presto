@@ -1,26 +1,21 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 
+import javax.inject.Inject;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.metadata.MetadataUtil.checkTable;
-
-import static com.facebook.presto.metadata.MetadataUtil.getTableColumns;
-import static com.facebook.presto.metadata.MetadataUtil.getTableNames;
-import static com.facebook.presto.metadata.MetadataUtil.getType;
 import static com.facebook.presto.metadata.MetadataUtil.ColumnMetadataListBuilder.columnsBuilder;
+import static com.facebook.presto.metadata.MetadataUtil.getType;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.transform;
 
 public class InformationSchemaMetadata
-        implements InternalSchemaMetadata
+        extends AbstractInformationSchemaMetadata
 {
     public static final String INFORMATION_SCHEMA = "information_schema";
 
@@ -61,25 +56,10 @@ public class InformationSchemaMetadata
                     .build())
             .build();
 
-    @Override
-    public TableMetadata getTable(QualifiedTableName table)
+    @Inject
+    public InformationSchemaMetadata()
     {
-        checkTable(table);
-        checkArgument(table.getSchemaName().equals(INFORMATION_SCHEMA), "schema is not %s", INFORMATION_SCHEMA);
-
-        List<ColumnMetadata> metadata = METADATA.get(table.getTableName());
-        if (metadata != null) {
-            InternalTableHandle handle = new InternalTableHandle(table);
-            return new TableMetadata(table, metadata, handle);
-        }
-
-        return null;
-    }
-
-    @Override
-    public List<QualifiedTableName> listTables(String catalogName)
-    {
-        return listInformationSchemaTables(catalogName);
+        super(INFORMATION_SCHEMA, METADATA);
     }
 
     static TupleInfo informationSchemaTupleInfo(String tableName)
@@ -98,27 +78,5 @@ public class InformationSchemaMetadata
             }
         }
         throw new IllegalArgumentException("column does not exist: " + columnName);
-    }
-
-    public static List<QualifiedTableName> listInformationSchemaTables(String catalogName)
-    {
-        return getTableNames(catalogName, INFORMATION_SCHEMA, filteredTables());
-    }
-
-    public static List<TableColumn> listInformationSchemaTableColumns(String catalogName)
-    {
-        return getTableColumns(catalogName, INFORMATION_SCHEMA, filteredTables());
-    }
-
-    private static Map<String, List<ColumnMetadata>> filteredTables()
-    {
-        return Maps.filterKeys(METADATA, new Predicate<String>()
-        {
-            @Override
-            public boolean apply(String name)
-            {
-                return !name.startsWith("__");
-            }
-        });
     }
 }

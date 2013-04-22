@@ -3,6 +3,10 @@ package com.facebook.presto.benchmark;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockIterable;
+import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.metadata.ConnectorMetadata;
+import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
@@ -15,6 +19,7 @@ import com.facebook.presto.tpch.StatsTpchBlocksProvider;
 import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.facebook.presto.tpch.TpchColumnHandle;
 import com.facebook.presto.tpch.TpchDataProvider;
+import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tpch.TpchTableHandle;
 import com.facebook.presto.util.CpuTimer;
 import com.facebook.presto.util.CpuTimer.CpuDuration;
@@ -23,8 +28,8 @@ import io.airlift.units.DataSize;
 
 import java.util.Map;
 
-import static com.facebook.presto.tpch.TpchSchema.columnHandle;
-import static com.facebook.presto.tpch.TpchSchema.tableHandle;
+import static com.facebook.presto.tpch.TpchMetadata.TPCH_CATALOG_NAME;
+import static com.facebook.presto.tpch.TpchMetadata.TPCH_SCHEMA_NAME;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -38,9 +43,10 @@ public abstract class AbstractOperatorBenchmark
 {
     public static BlockIterable getBlockIterable(TpchBlocksProvider blocksProvider, String tableName, String columnName, BlocksFileEncoding columnEncoding)
     {
-        TpchTableHandle tableHandle = tableHandle(tableName);
-        TpchColumnHandle columnHandle = columnHandle(tableHandle, columnName);
-        return blocksProvider.getBlocks(tableHandle, columnHandle, columnEncoding);
+        ConnectorMetadata metadata = new TpchMetadata();
+        TableHandle tableHandle = metadata.getTableHandle(new QualifiedTableName(TPCH_CATALOG_NAME, TPCH_SCHEMA_NAME, tableName));
+        ColumnHandle columnHandle = metadata.getColumnHandle(tableHandle, columnName);
+        return blocksProvider.getBlocks((TpchTableHandle) tableHandle, (TpchColumnHandle) columnHandle, columnEncoding);
     }
 
     private static final TpchDataProvider TPCH_DATA_PROVIDER = new CachingTpchDataProvider(new GeneratingTpchDataProvider());

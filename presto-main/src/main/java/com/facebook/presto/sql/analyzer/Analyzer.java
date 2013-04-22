@@ -1,6 +1,5 @@
 package com.facebook.presto.sql.analyzer;
 
-
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.ExpressionFormatter;
 import com.facebook.presto.sql.tree.Expression;

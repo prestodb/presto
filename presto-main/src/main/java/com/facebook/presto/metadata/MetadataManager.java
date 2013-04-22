@@ -3,6 +3,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
@@ -16,34 +17,34 @@ import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
 
-import static com.facebook.presto.metadata.InformationSchemaMetadata.listInformationSchemaTableColumns;
-import static com.facebook.presto.metadata.InformationSchemaMetadata.listInformationSchemaTables;
 import static com.facebook.presto.metadata.MetadataUtil.checkCatalogName;
+import static com.facebook.presto.metadata.MetadataUtil.checkColumnName;
 import static com.facebook.presto.metadata.MetadataUtil.checkTable;
-import static com.facebook.presto.metadata.SystemTables.listSystemTableColumns;
-import static com.facebook.presto.metadata.SystemTables.listSystemTables;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.collect.Iterables.concat;
 
 @Singleton
 public class MetadataManager
         implements Metadata
 {
-    private final Map<String, InternalSchemaMetadata> internalSchemas;
+    // Note this myst be a list to assure dual is always checked first
+    private final List<InternalSchemaMetadata> internalSchemas;
     private final SortedSet<ConnectorMetadata> connectors;
     private final FunctionRegistry functions = new FunctionRegistry();
 
     @VisibleForTesting
     public MetadataManager()
     {
-        this.internalSchemas = ImmutableMap.of();
+        this.internalSchemas = ImmutableList.<InternalSchemaMetadata>of(new DualTable());
         this.connectors = ImmutableSortedSet.of();
     }
 
     @Inject
-    public MetadataManager(Map<String, InternalSchemaMetadata> internalSchemas, Set<ConnectorMetadata> connectors)
+    public MetadataManager(Set<InternalSchemaMetadata> internalSchemas, Set<ConnectorMetadata> connectors)
     {
-        this.internalSchemas = ImmutableMap.copyOf(checkNotNull(internalSchemas, "internalSchemas is null"));
+        this.internalSchemas = ImmutableList.<InternalSchemaMetadata>builder()
+                .add(new DualTable())
+                .addAll(checkNotNull(internalSchemas, "internalSchemas is null"))
+                .build();
         this.connectors = ImmutableSortedSet.copyOf(new PriorityComparator(), checkNotNull(connectors, "metadataProviders is null"));
     }
 
@@ -80,37 +81,64 @@ public class MetadataManager
     }
 
     @Override
-    public TableMetadata getTable(QualifiedTableName table)
+    public Optional<TableHandle> getTableHandle(QualifiedTableName table)
     {
         checkTable(table);
 
-        // "DUAL" is a table is in every schema
-        if (table.getTableName().equals(DualTable.NAME)) {
-            return DualTable.getTable(table);
-        }
-
         // internal schemas like information_schema and sys are in every catalog
-        InternalSchemaMetadata internalSchemaMetadata = internalSchemas.get(table.getSchemaName());
-        if (internalSchemaMetadata != null) {
-            return internalSchemaMetadata.getTable(table);
+        for (InternalSchemaMetadata internalSchemaMetadata : internalSchemas) {
+            Optional<TableHandle> tableHandle = internalSchemaMetadata.getTableHandle(table);
+            if (tableHandle.isPresent()) {
+                return tableHandle;
+            }
         }
 
-        return lookupDataSource(table).getTable(table);
+        return Optional.fromNullable(lookupDataSource(table).getTableHandle(table));
     }
 
     @Override
-    public QualifiedTableName getTableName(TableHandle tableHandle)
+    public TableMetadata getTableMetadata(TableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
-        return lookupDataSource(tableHandle).getTableName(tableHandle);
+
+        for (InternalSchemaMetadata internalSchemaMetadata : internalSchemas) {
+            Optional<TableMetadata> tableMetadata = internalSchemaMetadata.getTableMetadata(tableHandle);
+            if (tableMetadata.isPresent()) {
+                return tableMetadata.get();
+            }
+        }
+
+        return lookupDataSource(tableHandle).getTableMetadata(tableHandle);
     }
 
     @Override
-    public TableColumn getTableColumn(TableHandle tableHandle, ColumnHandle columnHandle)
+    public Map<String, ColumnHandle> getColumnHandles(TableHandle tableHandle)
+    {
+        checkNotNull(tableHandle, "tableHandle is null");
+
+        for (InternalSchemaMetadata internalSchemaMetadata : internalSchemas) {
+            Optional<Map<String, ColumnHandle>> columnHandles = internalSchemaMetadata.getColumnHandles(tableHandle);
+            if (columnHandles.isPresent()) {
+                return columnHandles.get();
+            }
+        }
+        return lookupDataSource(tableHandle).getColumnHandles(tableHandle);
+    }
+
+    @Override
+    public ColumnMetadata getColumnMetadata(TableHandle tableHandle, ColumnHandle columnHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         checkNotNull(columnHandle, "columnHandle is null");
-        return lookupDataSource(tableHandle).getTableColumn(tableHandle, columnHandle);
+
+        for (InternalSchemaMetadata internalSchemaMetadata : internalSchemas) {
+            Optional<ColumnMetadata> column = internalSchemaMetadata.getColumnMetadata(tableHandle, columnHandle);
+            if (column.isPresent()) {
+                return column.get();
+            }
+        }
+
+        return lookupDataSource(tableHandle).getColumnMetadata(tableHandle, columnHandle);
     }
 
     @Override
@@ -118,35 +146,47 @@ public class MetadataManager
     {
         checkNotNull(prefix, "prefix is null");
 
-        if (!prefix.hasSchemaName()) {
-            // blank catalog must also return the system and information schema tables.
-            List<QualifiedTableName> catalogTables = lookupDataSource(prefix).listTables(prefix);
-            List<QualifiedTableName> informationSchemaTables = listInformationSchemaTables(prefix.getCatalogName());
-            List<QualifiedTableName> systemTables = listSystemTables(prefix.getCatalogName());
-            return ImmutableList.copyOf(concat(catalogTables, informationSchemaTables, systemTables));
-        }
+        ImmutableList.Builder<QualifiedTableName> tables = ImmutableList.builder();
+        tables.addAll(lookupDataSource(prefix).listTables(prefix));
 
         // internal schemas like information_schema and sys are in every catalog
-        InternalSchemaMetadata internalSchemaMetadata = internalSchemas.get(prefix.getSchemaName().get());
-        if (internalSchemaMetadata != null) {
-            return internalSchemaMetadata.listTables(prefix.getCatalogName());
+        for (InternalSchemaMetadata internalSchemaMetadata : internalSchemas) {
+            tables.addAll(internalSchemaMetadata.listTables(prefix));
         }
 
-        return lookupDataSource(prefix).listTables(prefix);
+        return tables.build();
     }
 
     @Override
-    public List<TableColumn> listTableColumns(QualifiedTablePrefix prefix)
+    public Optional<ColumnHandle> getColumnHandle(TableHandle tableHandle, String columnName)
+    {
+        checkNotNull(tableHandle, "tableHandle is null");
+        checkColumnName(columnName);
+
+
+        for (InternalSchemaMetadata internalSchemaMetadata : internalSchemas) {
+            Optional<Map<String, ColumnHandle>> columnHandles = internalSchemaMetadata.getColumnHandles(tableHandle);
+            if (columnHandles.isPresent()) {
+                return Optional.fromNullable(columnHandles.get().get(columnName));
+            }
+        }
+
+        return Optional.fromNullable(lookupDataSource(tableHandle).getColumnHandle(tableHandle, columnName));
+    }
+
+    @Override
+    public Map<QualifiedTableName, List<ColumnMetadata>> listTableColumns(QualifiedTablePrefix prefix)
     {
         checkNotNull(prefix, "prefix is null");
-        return getTableColumns(prefix.getCatalogName(), lookupDataSource(prefix).listTableColumns(prefix));
-    }
 
-    @Override
-    public List<String> listTablePartitionKeys(QualifiedTableName table)
-    {
-        checkTable(table);
-        return lookupDataSource(table).listTablePartitionKeys(table);
+        ImmutableMap.Builder<QualifiedTableName, List<ColumnMetadata>> builder = ImmutableMap.builder();
+        for (InternalSchemaMetadata internalSchemaMetadata : internalSchemas) {
+            builder.putAll(internalSchemaMetadata.listTableColumns(prefix));
+        }
+        for (ConnectorMetadata connector : connectors) {
+            builder.putAll(connector.listTableColumns(prefix));
+        }
+        return builder.build();
     }
 
     @Override
@@ -157,24 +197,15 @@ public class MetadataManager
     }
 
     @Override
-    public void createTable(TableMetadata table)
+    public TableHandle createTable(TableMetadata tableMetadata)
     {
-        checkTable(table.getTable());
-        lookupDataSource(table.getTable()).createTable(table);
+        return lookupDataSource(tableMetadata.getTable()).createTable(tableMetadata);
     }
 
     @Override
-    public void dropTable(TableMetadata table)
+    public void dropTable(TableHandle tableHandle)
     {
-        checkTable(table.getTable());
-        lookupDataSource(table.getTable()).dropTable(table);
-    }
-
-    private List<TableColumn> getTableColumns(String catalogName, List<TableColumn> catalogColumns)
-    {
-        List<TableColumn> informationSchemaColumns = listInformationSchemaTableColumns(catalogName);
-        List<TableColumn> systemColumns = listSystemTableColumns(catalogName);
-        return ImmutableList.copyOf(concat(catalogColumns, informationSchemaColumns, systemColumns));
+        lookupDataSource(tableHandle).dropTable(tableHandle);
     }
 
     private ConnectorMetadata lookupDataSource(QualifiedTableName table)

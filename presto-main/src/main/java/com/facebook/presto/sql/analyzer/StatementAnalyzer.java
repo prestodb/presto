@@ -1,11 +1,11 @@
 package com.facebook.presto.sql.analyzer;
 
-import com.facebook.presto.metadata.DataSourceType;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataUtil;
+import com.facebook.presto.metadata.NativeTableHandle;
 import com.facebook.presto.metadata.QualifiedTableName;
-import com.facebook.presto.metadata.TableMetadata;
+import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.sql.ExpressionFormatter;
 import com.facebook.presto.sql.tree.AliasedExpression;
 import com.facebook.presto.sql.tree.AllColumns;
@@ -159,6 +159,10 @@ class StatementAnalyzer
     protected TupleDescriptor visitShowPartitions(ShowPartitions showPartitions, AnalysisContext context)
     {
         QualifiedTableName table = MetadataUtil.createQualifiedTableName(session, showPartitions.getTable());
+        Optional<TableHandle> tableHandle = metadata.getTableHandle(table);
+        if (!tableHandle.isPresent()) {
+            throw new SemanticException(MISSING_TABLE, showPartitions, "Table '%s' does not exist", table);
+        }
 
             /*
                 Generate a dynamic pivot to output one column per partition key.
@@ -174,7 +178,7 @@ class StatementAnalyzer
             */
 
         ImmutableList.Builder<Expression> selectList = ImmutableList.builder();
-        for (String partition : metadata.listTablePartitionKeys(table)) {
+        for (String partition : metadata.getTableMetadata(tableHandle.get()).getPartitionKeys()) {
             Expression key = equal(nameReference("partition_key"), new StringLiteral(partition));
             Expression function = functionCall("max", caseWhen(key, nameReference("partition_value")));
             selectList.add(new AliasedExpression(function, partition));
@@ -223,9 +227,8 @@ class StatementAnalyzer
         QualifiedTableName targetTable = MetadataUtil.createQualifiedTableName(session, node.getName());
         analysis.setDestination(targetTable);
 
-        TableMetadata tableMetadata = metadata.getTable(targetTable);
-
-        if (tableMetadata != null) {
+        Optional<TableHandle> targetTableHandle = metadata.getTableHandle(targetTable);
+        if (targetTableHandle.isPresent()) {
             throw new SemanticException(TABLE_ALREADY_EXISTS, node, "Destination table '%s' already exists", targetTable);
         }
 
@@ -251,13 +254,12 @@ class StatementAnalyzer
     protected TupleDescriptor visitRefreshMaterializedView(RefreshMaterializedView node, AnalysisContext context)
     {
         QualifiedTableName targetTable = MetadataUtil.createQualifiedTableName(session, node.getName());
-
-        TableMetadata tableMetadata = metadata.getTable(targetTable);
-        if (tableMetadata == null) {
+        Optional<TableHandle> tableHandle = metadata.getTableHandle(targetTable);
+        if (!tableHandle.isPresent()) {
             throw new SemanticException(MISSING_TABLE, node, "Destination table '%s' does not exist", targetTable);
         }
 
-        checkState(tableMetadata.getTableHandle().get().getDataSourceType() == DataSourceType.NATIVE, "Cannot import into non-native table %s", tableMetadata.getTable());
+        checkState(tableHandle.get() instanceof NativeTableHandle, "Cannot import into non-native table %s", targetTable);
         analysis.setDestination(targetTable);
         analysis.setDoRefresh(true);
 

@@ -51,19 +51,24 @@ public interface MetadataDao
     QualifiedTableName getTableName(@Bind("tableId") long tableId);
 
     @SqlQuery("SELECT t.catalog_name, t.schema_name, t.table_name,\n" +
-            "  c.column_name, c.ordinal_position, c.data_type\n" +
+            "  c.column_id, c.column_name, c.ordinal_position, c.data_type\n" +
             "FROM tables t\n" +
             "JOIN columns c ON (t.table_id = c.table_id)\n" +
             "WHERE (c.column_id = :columnId)")
     @Mapper(TableColumnMapper.class)
     TableColumn getTableColumn(@Bind("columnId") long columnId);
 
-    @SqlQuery("SELECT column_id, column_name, data_type\n" +
+    @SqlQuery("SELECT column_name, data_type, ordinal_position\n" +
             "FROM columns\n" +
             "WHERE table_id = :tableId\n" +
             "ORDER BY ordinal_position")
     @Mapper(ColumnMetadataMapper.class)
     List<ColumnMetadata> getTableColumnMetaData(@Bind("tableId") long tableId);
+
+    @SqlQuery("SELECT column_id\n" +
+            "FROM columns\n" +
+            "WHERE table_id = :tableId AND column_name = :columnName")
+    Long getColumnId(@Bind("tableId") long tableId, @Bind("columnName") String columnName);
 
     @SqlQuery("SELECT catalog_name, schema_name, table_name\n" +
             "FROM tables\n" +
@@ -79,7 +84,7 @@ public interface MetadataDao
     List<String> listSchemaNames(@Bind("catalogName") String catalogName);
 
     @SqlQuery("SELECT t.catalog_name, t.schema_name, t.table_name,\n" +
-            "  c.column_name, c.ordinal_position, c.data_type\n" +
+            "  c.column_id, c.column_name, c.ordinal_position, c.data_type\n" +
             "FROM tables t\n" +
             "JOIN columns c ON (t.table_id = c.table_id)\n" +
             "WHERE (catalog_name = :catalogName OR :catalogName IS NULL)\n" +
@@ -91,6 +96,14 @@ public interface MetadataDao
             @Bind("catalogName") String catalogName,
             @Bind("schemaName") String schemaName,
             @Bind("tableName") String tableName);
+
+    @SqlQuery("SELECT t.catalog_name, t.schema_name, t.table_name,\n" +
+            "  c.column_id, c.column_name, c.ordinal_position, c.data_type\n" +
+            "FROM tables t\n" +
+            "JOIN columns c ON (t.table_id = c.table_id)\n" +
+            "WHERE t.table_id = :tableId")
+    @Mapper(TableColumnMapper.class)
+    List<TableColumn> listTableColumns(@Bind("tableId") long tableId);
 
     @SqlQuery("SELECT COUNT(*) > 0 FROM tables\n" +
             "WHERE catalog_name = :catalogName\n" +
@@ -110,7 +123,6 @@ public interface MetadataDao
             @Bind("columnName") String columnName,
             @Bind("ordinalPosition") int ordinalPosition,
             @Bind("dataType") String dataType);
-
 
     @SqlUpdate("DELETE FROM tables WHERE table_id = :tableId")
     int dropTable(@Bind("tableId") long tableId);

@@ -1,6 +1,7 @@
 package com.facebook.presto.metadata;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
@@ -9,7 +10,9 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Map;
 
+import static com.facebook.presto.metadata.MetadataUtil.ColumnMetadataListBuilder.columnsBuilder;
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
@@ -42,18 +45,16 @@ public class TestNativeMetadata
     @Test
     public void testCreateTable()
     {
-        assertNull(metadata.getTable(DEFAULT_TEST_ORDERS));
+        assertNull(metadata.getTableHandle(DEFAULT_TEST_ORDERS));
 
-        metadata.createTable(getOrdersTable());
-
-        TableMetadata table = metadata.getTable(DEFAULT_TEST_ORDERS);
-        assertTableEqual(table, getOrdersTable());
-
-        TableHandle tableHandle = table.getTableHandle().get();
+        TableHandle tableHandle = metadata.createTable(getOrdersTable());
         assertInstanceOf(tableHandle, NativeTableHandle.class);
         assertEquals(((NativeTableHandle) tableHandle).getTableId(), 1);
 
-        ColumnHandle columnHandle = table.getColumns().get(0).getColumnHandle().get();
+        TableMetadata table = metadata.getTableMetadata(tableHandle);
+        assertTableEqual(table, getOrdersTable());
+
+        ColumnHandle columnHandle = metadata.getColumnHandle(tableHandle, "orderkey");
         assertInstanceOf(columnHandle, NativeColumnHandle.class);
         assertEquals(((NativeColumnHandle) columnHandle).getColumnId(), 1);
     }
@@ -70,34 +71,34 @@ public class TestNativeMetadata
     public void testListTableColumns()
     {
         metadata.createTable(getOrdersTable());
-        List<TableColumn> columns = metadata.listTableColumns(QualifiedTablePrefix.builder("default").build());
-        assertEquals(columns, ImmutableList.<TableColumn>builder()
-                .add(new TableColumn(DEFAULT_TEST_ORDERS, "orderkey", 1, FIXED_INT_64))
-                .add(new TableColumn(DEFAULT_TEST_ORDERS, "custkey", 2, FIXED_INT_64))
-                .add(new TableColumn(DEFAULT_TEST_ORDERS, "totalprice", 3, DOUBLE))
-                .add(new TableColumn(DEFAULT_TEST_ORDERS, "orderdate", 4, VARIABLE_BINARY))
-                .build());
+        Map<QualifiedTableName, List<ColumnMetadata>> columns = metadata.listTableColumns(QualifiedTablePrefix.builder("default").build());
+        assertEquals(columns, ImmutableMap.of(DEFAULT_TEST_ORDERS, columnsBuilder()
+                .column("orderkey", FIXED_INT_64)
+                .column("custkey", FIXED_INT_64)
+                .column("totalprice", DOUBLE)
+                .column("orderdate", VARIABLE_BINARY)
+                .build()));
     }
 
     @Test
     public void testListTableColumnsFiltering()
     {
         metadata.createTable(getOrdersTable());
-        List<TableColumn> filterCatalog = metadata.listTableColumns(QualifiedTablePrefix.builder("default").build());
-        List<TableColumn> filterSchema = metadata.listTableColumns(QualifiedTablePrefix.builder("default").schemaName("test").build());
-        List<TableColumn> filterTable = metadata.listTableColumns(QualifiedTablePrefix.builder("default").schemaName("test").tableName("orders").build());
+        Map<QualifiedTableName, List<ColumnMetadata>> filterCatalog = metadata.listTableColumns(QualifiedTablePrefix.builder("default").build());
+        Map<QualifiedTableName, List<ColumnMetadata>> filterSchema = metadata.listTableColumns(QualifiedTablePrefix.builder("default").schemaName("test").build());
+        Map<QualifiedTableName, List<ColumnMetadata>> filterTable = metadata.listTableColumns(QualifiedTablePrefix.builder("default").schemaName("test").tableName("orders").build());
         assertEquals(filterCatalog, filterSchema);
         assertEquals(filterCatalog, filterTable);
     }
 
     private static TableMetadata getOrdersTable()
     {
-        return new TableMetadata(DEFAULT_TEST_ORDERS,
-                ImmutableList.of(
-                        new ColumnMetadata("orderkey", FIXED_INT_64),
-                        new ColumnMetadata("custkey", FIXED_INT_64),
-                        new ColumnMetadata("totalprice", DOUBLE),
-                        new ColumnMetadata("orderdate", VARIABLE_BINARY)));
+        return new TableMetadata(DEFAULT_TEST_ORDERS, columnsBuilder()
+                .column("orderkey", FIXED_INT_64)
+                .column("custkey", FIXED_INT_64)
+                .column("totalprice", DOUBLE)
+                .column("orderdate", VARIABLE_BINARY)
+                .build());
     }
 
     private static void assertTableEqual(TableMetadata actual, TableMetadata expected)

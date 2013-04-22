@@ -21,6 +21,7 @@ public class TableColumnMapper
         return new TableColumn(table,
                 r.getString("column_name"),
                 r.getInt("ordinal_position"),
-                TupleInfo.Type.fromName(r.getString("data_type")));
+                TupleInfo.Type.fromName(r.getString("data_type")),
+                r.getLong("column_id"));
     }
 }

@@ -2,23 +2,21 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.importer.PeriodicImportManager;
 import com.facebook.presto.importer.PersistentPeriodicImportJob;
-import com.facebook.presto.metadata.DataSourceType;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.NativeTableHandle;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.storage.StorageManager;
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import io.airlift.log.Logger;
 
 import javax.inject.Inject;
-
 import java.net.URI;
 import java.util.Set;
 
@@ -123,28 +121,26 @@ public class DropTableExecution
 
         log.debug("Dropping %s", tableName);
 
-        final TableMetadata tableMetadata = metadataManager.getTable(tableName);
-        Preconditions.checkState(tableMetadata != null, "Table %s does not exist", tableName);
+        final Optional<TableHandle> tableHandle = metadataManager.getTableHandle(tableName);
+        checkState(!tableHandle.isPresent(), "Table %s does not exists", tableName);
+        Preconditions.checkState(tableHandle.get() instanceof NativeTableHandle, "Can drop only native tables");
 
-        TableHandle tableHandle = tableMetadata.getTableHandle().get();
-        Preconditions.checkState(DataSourceType.NATIVE == tableHandle.getDataSourceType(), "Can drop only native tables");
-
-        storageManager.dropTableSource((NativeTableHandle) tableHandle);
+        storageManager.dropTableSource((NativeTableHandle) tableHandle.get());
 
         periodicImportManager.dropJobs(new Predicate<PersistentPeriodicImportJob>() {
             @Override
             public boolean apply(PersistentPeriodicImportJob job)
             {
-                return job.getDstTable().equals(tableMetadata.getTable());
+                return job.getDstTable().equals(tableHandle.get());
             }
         });
 
-        Set<String> partitions = shardManager.getPartitions(tableHandle);
+        Set<String> partitions = shardManager.getPartitions(tableHandle.get());
         for (String partition : partitions) {
-            shardManager.dropPartition(tableHandle, partition);
+            shardManager.dropPartition(tableHandle.get(), partition);
         }
 
-        metadataManager.dropTable(tableMetadata);
+        metadataManager.dropTable(tableHandle.get());
 
         stateMachine.finished();
     }

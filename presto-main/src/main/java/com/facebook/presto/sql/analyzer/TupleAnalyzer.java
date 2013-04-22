@@ -1,5 +1,6 @@
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.ColumnMetadata;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataUtil;
@@ -33,6 +34,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
@@ -84,22 +86,22 @@ class TupleAnalyzer
 
         QualifiedTableName name = MetadataUtil.createQualifiedTableName(session, table.getName());
 
-        TableMetadata tableMetadata = metadata.getTable(name);
-        if (tableMetadata == null) {
+        Optional<TableHandle> tableHandle = metadata.getTableHandle(name);
+        if (!tableHandle.isPresent()) {
             throw new SemanticException(MISSING_TABLE, table, "Table %s does not exist", name);
         }
-
-        TableHandle tableHandle = tableMetadata.getTableHandle().get();
+        TableMetadata tableMetadata = metadata.getTableMetadata(tableHandle.get());
+        Map<String,ColumnHandle> columns = metadata.getColumnHandles(tableHandle.get());
 
         // TODO: discover columns lazily based on where they are needed (to support datasources that can't enumerate all tables)
         ImmutableList.Builder<Field> fields = ImmutableList.builder();
         for (ColumnMetadata column : tableMetadata.getColumns()) {
             Field field = Field.newQualified(table.getName(), Optional.of(column.getName()), Type.fromRaw(column.getType()));
             fields.add(field);
-            analysis.setColumn(field, column.getColumnHandle().get());
+            analysis.setColumn(field, columns.get(column.getName()));
         }
 
-        analysis.registerTable(table, tableHandle);
+        analysis.registerTable(table, tableHandle.get());
 
         TupleDescriptor descriptor = new TupleDescriptor(fields.build());
         analysis.setOutputDescriptor(table, descriptor);

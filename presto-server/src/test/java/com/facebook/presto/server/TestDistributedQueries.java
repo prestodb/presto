@@ -17,18 +17,19 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
-import com.facebook.presto.metadata.TestingMetadata;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Serialization.ExpressionDeserializer;
 import com.facebook.presto.sql.tree.Serialization.ExpressionSerializer;
 import com.facebook.presto.sql.tree.Serialization.FunctionCallDeserializer;
 import com.facebook.presto.tpch.TpchDataStreamProvider;
+import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.util.MaterializedResult;
 import com.facebook.presto.util.MaterializedTuple;
+import com.facebook.presto.util.TestingTpchBlocksProvider;
 import com.google.common.base.Function;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -41,6 +42,7 @@ import com.google.inject.Binding;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
 import com.google.inject.Module;
+import com.google.inject.Scopes;
 import com.google.inject.Stage;
 import com.google.inject.TypeLiteral;
 import io.airlift.bootstrap.Bootstrap;
@@ -81,8 +83,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.facebook.presto.tpch.TpchSchema.createLineItem;
-import static com.facebook.presto.tpch.TpchSchema.createOrders;
+import static com.facebook.presto.util.TestingTpchBlocksProvider.readTpchRecords;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
@@ -181,18 +182,18 @@ public class TestDistributedQueries
     }
 
     @Override
-    protected void setUpQueryFramework(String catalog, String schema, TpchDataStreamProvider dataStreamProvider)
+    protected void setUpQueryFramework(String catalog, String schema)
             throws Exception
     {
         Logging.initialize();
 
         try {
             discoveryServer = new DiscoveryTestingServer();
-            coordinator = new PrestoTestingServer(discoveryServer.getBaseUrl(), dataStreamProvider);
+            coordinator = new PrestoTestingServer(discoveryServer.getBaseUrl());
             servers = ImmutableList.<PrestoTestingServer>builder()
                     .add(coordinator)
-                    .add(new PrestoTestingServer(discoveryServer.getBaseUrl(), dataStreamProvider))
-                    .add(new PrestoTestingServer(discoveryServer.getBaseUrl(), dataStreamProvider))
+                    .add(new PrestoTestingServer(discoveryServer.getBaseUrl()))
+                    .add(new PrestoTestingServer(discoveryServer.getBaseUrl()))
                     .build();
         }
         catch (Exception e) {
@@ -357,7 +358,7 @@ public class TestDistributedQueries
         private final NodeManager nodeManager;
         private final Metadata metadata;
 
-        public PrestoTestingServer(URI discoveryUri, final TpchDataStreamProvider dataStreamProvider)
+        public PrestoTestingServer(URI discoveryUri)
                 throws Exception
         {
             checkNotNull(discoveryUri, "discoveryUri is null");
@@ -374,6 +375,7 @@ public class TestDistributedQueries
                     .put("presto-metastore.db.filename", new File(baseDataDir, "db/MetaStore").getPath())
                     .put("discovery.uri", discoveryUri.toASCIIString())
                     .put("failure-detector.warmup-interval", "0ms")
+                    .put("failure-detector.enabled", "false") // todo enable failure detector
                     .build();
 
             Bootstrap app = new Bootstrap(
@@ -391,8 +393,11 @@ public class TestDistributedQueries
                         @Override
                         public void configure(Binder binder)
                         {
-                            binder.bind(TpchDataStreamProvider.class).toInstance(dataStreamProvider);
-                            newSetBinder(binder, ConnectorMetadata.class).addBinding().to(TestingMetadata.class);
+                            TestingTpchBlocksProvider tpchBlocksProvider = new TestingTpchBlocksProvider(ImmutableMap.of(
+                                    "orders", readTpchRecords("orders"),
+                                    "lineitem", readTpchRecords("lineitem")));
+                            binder.bind(TpchDataStreamProvider.class).toInstance(new TpchDataStreamProvider(tpchBlocksProvider));
+                            newSetBinder(binder, ConnectorMetadata.class).addBinding().to(TpchMetadata.class).in(Scopes.SINGLETON);
                         }
                     });
 
@@ -409,8 +414,6 @@ public class TestDistributedQueries
             nodeManager = injector.getInstance(NodeManager.class);
 
             metadata = injector.getInstance(Metadata.class);
-            metadata.createTable(createOrders());
-            metadata.createTable(createLineItem());
 
             server = injector.getInstance(TestingHttpServer.class);
 
