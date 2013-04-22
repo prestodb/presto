@@ -28,6 +28,7 @@ import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.With;
+import com.facebook.presto.sql.tree.WithQuery;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
@@ -62,7 +63,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.instanceOf;
 
 class StatementAnalyzer
-        extends DefaultTraversalVisitor<TupleDescriptor, Void>
+        extends DefaultTraversalVisitor<TupleDescriptor, AnalysisContext>
 {
     private final Analysis analysis;
     private final Metadata metadata;
@@ -76,7 +77,7 @@ class StatementAnalyzer
     }
 
     @Override
-    protected TupleDescriptor visitShowTables(ShowTables showTables, Void context)
+    protected TupleDescriptor visitShowTables(ShowTables showTables, AnalysisContext context)
     {
         String catalogName = session.getCatalog();
         String schemaName = session.getSchema();
@@ -117,7 +118,7 @@ class StatementAnalyzer
     }
 
     @Override
-    protected TupleDescriptor visitShowColumns(ShowColumns showColumns, Void context)
+    protected TupleDescriptor visitShowColumns(ShowColumns showColumns, AnalysisContext context)
     {
         QualifiedTableName tableName = MetadataUtil.createQualifiedTableName(session, showColumns.getTable());
 
@@ -141,7 +142,7 @@ class StatementAnalyzer
     }
 
     @Override
-    protected TupleDescriptor visitShowPartitions(ShowPartitions showPartitions, Void context)
+    protected TupleDescriptor visitShowPartitions(ShowPartitions showPartitions, AnalysisContext context)
     {
         QualifiedTableName table = MetadataUtil.createQualifiedTableName(session, showPartitions.getTable());
 
@@ -182,7 +183,7 @@ class StatementAnalyzer
     }
 
     @Override
-    protected TupleDescriptor visitShowFunctions(ShowFunctions node, Void context)
+    protected TupleDescriptor visitShowFunctions(ShowFunctions node, AnalysisContext context)
     {
         Query query = new Query(
                 Optional.<With>absent(),
@@ -202,7 +203,7 @@ class StatementAnalyzer
 
 
     @Override
-    protected TupleDescriptor visitCreateMaterializedView(CreateMaterializedView node, Void context)
+    protected TupleDescriptor visitCreateMaterializedView(CreateMaterializedView node, AnalysisContext context)
     {
         // Turn this into a query that has a new table writer node on top.
         QualifiedTableName targetTable = MetadataUtil.createQualifiedTableName(session, node.getName());
@@ -233,7 +234,7 @@ class StatementAnalyzer
     }
 
     @Override
-    protected TupleDescriptor visitRefreshMaterializedView(RefreshMaterializedView node, Void context)
+    protected TupleDescriptor visitRefreshMaterializedView(RefreshMaterializedView node, AnalysisContext context)
     {
         QualifiedTableName targetTable = MetadataUtil.createQualifiedTableName(session, node.getName());
 
@@ -250,13 +251,15 @@ class StatementAnalyzer
     }
 
     @Override
-    protected TupleDescriptor visitQuery(Query node, Void context)
+    protected TupleDescriptor visitQuery(Query node, AnalysisContext parentContext)
     {
         // TODO: extract candidate names from SELECT, WHERE, HAVING, GROUP BY and ORDER BY expressions
         // to pass down to analyzeFrom
 
-        analyzeWith(node);
-        Scope queryScope = analyzeFrom(node);
+        AnalysisContext context = new AnalysisContext(parentContext);
+        analyzeWith(node, context);
+
+        Scope queryScope = analyzeFrom(node, context);
 
         analyzeWhere(node, queryScope);
 
@@ -272,15 +275,32 @@ class StatementAnalyzer
         return computeOutputDescriptor(node, queryScope);
     }
 
-    private void analyzeWith(Query query)
+    private void analyzeWith(Query node, AnalysisContext context)
     {
         // analyze WITH clause
-        if (query.getWith().isPresent()) {
-            With with = query.getWith().get();
-            if (with.isRecursive()) {
-                throw new SemanticException(with, "Recursive queries are not supported");
+        if (!node.getWith().isPresent()) {
+            return;
+        }
+
+        With with = node.getWith().get();
+        if (with.isRecursive()) {
+            throw new SemanticException(with, "Recursive WITH queries are not supported");
+        }
+
+        for (WithQuery withQuery : with.getQueries()) {
+            if (withQuery.getColumnNames() != null && !withQuery.getColumnNames().isEmpty()) {
+                throw new SemanticException(withQuery, "Column alias not supported in WITH queries");
             }
-            throw new SemanticException(with, "WITH queries are not yet supported");
+
+            Query query = withQuery.getQuery();
+            process(query, context);
+
+            String name = withQuery.getName();
+            if (context.isNamedQueryDeclared(name)) {
+                throw new SemanticException(withQuery, "WITH query name '%s' specified more than once", name);
+            }
+
+            context.addNamedQuery(name, query);
         }
     }
 
@@ -573,13 +593,13 @@ class StatementAnalyzer
         }
     }
 
-    private Scope analyzeFrom(Query node)
+    private Scope analyzeFrom(Query node, AnalysisContext context)
     {
         ImmutableMultimap.Builder<Optional<QualifiedName>, TupleDescriptor> fromDescriptorBuilder = ImmutableMultimap.builder();
 
         TupleAnalyzer analyzer = new TupleAnalyzer(analysis, session, metadata);
         for (Relation relation : node.getFrom()) {
-            fromDescriptorBuilder.putAll(analyzer.process(relation, null));
+            fromDescriptorBuilder.putAll(analyzer.process(relation, context));
         }
 
         // ensure each relation alias appears only once

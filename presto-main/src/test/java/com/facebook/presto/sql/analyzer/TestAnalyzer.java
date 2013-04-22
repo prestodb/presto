@@ -438,4 +438,22 @@ public class TestAnalyzer
         // TODO: verify output
         analyze("SELECT sum(a) FROM t1 HAVING avg(a) - avg(b) > 10");
     }
+
+    @Test(expectedExceptions = SemanticException.class)
+    public void testDuplicateWithQuery()
+            throws Exception
+    {
+        analyze("WITH a AS (SELECT * FROM t1)," +
+                "     a AS (SELECT * FROM t1)" +
+                "SELECT * FROM a");
+    }
+
+    @Test(expectedExceptions = SemanticException.class)
+    public void testWithForwardReference()
+            throws Exception
+    {
+        analyze("WITH a AS (SELECT * FROM b)," +
+                "     b AS (SELECT * FROM t1)" +
+                "SELECT * FROM a");
+    }
 }

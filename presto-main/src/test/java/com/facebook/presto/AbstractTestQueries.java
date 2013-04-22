@@ -894,7 +894,39 @@ public abstract class AbstractTestQueries
         );
     }
 
-    @Test(enabled = false)
+    @Test
+    public void testWith()
+            throws Exception
+    {
+        assertQuery("" +
+                "WITH a AS (SELECT * FROM orders) " +
+                "SELECT * FROM a",
+                "SELECT * FROM orders");
+    }
+
+    @Test
+    public void testWithAliased()
+            throws Exception
+    {
+        assertQuery("" +
+                "WITH a AS (SELECT * FROM orders) " +
+                "SELECT * FROM a x",
+                "SELECT * FROM orders");
+    }
+
+    @Test
+    public void testReferenceToWithQueryInFromClause()
+            throws Exception
+    {
+        assertQuery(
+                "WITH a AS (SELECT * FROM orders)" +
+                        "SELECT * FROM (" +
+                        "   SELECT * FROM a" +
+                        ")",
+                "SELECT * FROM orders");
+    }
+
+    @Test
     public void testWithChaining()
             throws Exception
     {
@@ -906,7 +938,7 @@ public abstract class AbstractTestQueries
                 "SELECT orderkey + 3 FROM orders");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testWithSelfJoin()
             throws Exception
     {
@@ -914,11 +946,11 @@ public abstract class AbstractTestQueries
                 "WITH x AS (SELECT DISTINCT orderkey FROM orders ORDER BY orderkey LIMIT 10)\n" +
                 "SELECT count(*) FROM x a JOIN x b USING (orderkey)", "" +
                 "SELECT count(*)\n" +
-                "FROM (SELECT DISTINCT orderkey FROM orders LIMIT 10) a\n" +
-                "JOIN (SELECT DISTINCT orderkey FROM orders LIMIT 10) b USING (orderkey)");
+                "FROM (SELECT DISTINCT orderkey FROM orders ORDER BY orderkey LIMIT 10) a\n" +
+                "JOIN (SELECT DISTINCT orderkey FROM orders ORDER BY orderkey LIMIT 10) b ON a.orderkey = b.orderkey");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testWithNestedSubqueries()
             throws Exception
     {
@@ -952,18 +984,26 @@ public abstract class AbstractTestQueries
                 "SELECT 123 FROM orders LIMIT 1");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Recursive queries are not supported")
+    @Test
+    public void testWithHiding()
+            throws Exception
+    {
+        assertQuery(
+                "WITH a AS (SELECT custkey FROM orders), " +
+                "     b AS (" +
+                "         WITH a AS (SELECT orderkey FROM orders)" +
+                "         SELECT * FROM a" + // should refer to inner 'a'
+                "    )" +
+                "SELECT * FROM b",
+                "SELECT orderkey FROM orders"
+        );
+    }
+
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Recursive WITH queries are not supported")
     public void testWithRecursive()
             throws Exception
     {
         computeActual("WITH RECURSIVE a AS (SELECT 123 FROM dual) SELECT * FROM a");
-    }
-
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "WITH queries are not yet supported")
-    public void testWithNotSupported()
-            throws Exception
-    {
-        computeActual("WITH a AS (SELECT 123 FROM dual) SELECT * FROM a");
     }
 
     @BeforeClass(alwaysRun = true)

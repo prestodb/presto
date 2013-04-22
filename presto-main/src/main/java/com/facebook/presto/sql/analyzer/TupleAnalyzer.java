@@ -22,6 +22,7 @@ import com.facebook.presto.sql.tree.JoinUsing;
 import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Subquery;
 import com.facebook.presto.sql.tree.Table;
 import com.google.common.base.Optional;
@@ -36,7 +37,7 @@ import java.util.List;
 import java.util.Set;
 
 class TupleAnalyzer
-        extends DefaultTraversalVisitor<Multimap<Optional<QualifiedName>, TupleDescriptor>, Void>
+        extends DefaultTraversalVisitor<Multimap<Optional<QualifiedName>, TupleDescriptor>, AnalysisContext>
 {
     private final Analysis analysis;
     private final Session session;
@@ -54,8 +55,18 @@ class TupleAnalyzer
     }
 
     @Override
-    protected Multimap<Optional<QualifiedName>, TupleDescriptor> visitTable(Table table, Void context)
+    protected Multimap<Optional<QualifiedName>, TupleDescriptor> visitTable(Table table, AnalysisContext context)
     {
+        if (!table.getName().getPrefix().isPresent()) {
+            String name = table.getName().getSuffix();
+
+            Query query = context.getNamedQuery(name);
+            if (query != null) {
+                analysis.registerNamedQuery(table, query);
+                return ImmutableMultimap.of(Optional.of(QualifiedName.of(name)), analysis.getOutputDescriptor(query));
+            }
+        }
+
         QualifiedTableName name = MetadataUtil.createQualifiedTableName(session, table.getName());
 
         TableMetadata tableMetadata = metadata.getTable(name);
@@ -83,7 +94,7 @@ class TupleAnalyzer
     }
 
     @Override
-    protected Multimap<Optional<QualifiedName>, TupleDescriptor> visitAliasedRelation(AliasedRelation relation, Void context)
+    protected Multimap<Optional<QualifiedName>, TupleDescriptor> visitAliasedRelation(AliasedRelation relation, AnalysisContext context)
     {
         Multimap<Optional<QualifiedName>, TupleDescriptor> children = process(relation.getRelation(), context);
 
@@ -122,10 +133,10 @@ class TupleAnalyzer
     }
 
     @Override
-    protected Multimap<Optional<QualifiedName>, TupleDescriptor> visitSubquery(Subquery node, Void context)
+    protected Multimap<Optional<QualifiedName>, TupleDescriptor> visitSubquery(Subquery node, AnalysisContext context)
     {
         StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, session);
-        TupleDescriptor descriptor = analyzer.process(node.getQuery(), null);
+        TupleDescriptor descriptor = analyzer.process(node.getQuery(), context);
 
         analysis.setOutputDescriptor(node, descriptor);
 
@@ -135,7 +146,7 @@ class TupleAnalyzer
     }
 
     @Override
-    protected Multimap<Optional<QualifiedName>, TupleDescriptor> visitJoin(Join node, Void context)
+    protected Multimap<Optional<QualifiedName>, TupleDescriptor> visitJoin(Join node, AnalysisContext context)
     {
         if (node.getType() != Join.Type.INNER) {
             throw new SemanticException(node, "Only inner joins are supported");
