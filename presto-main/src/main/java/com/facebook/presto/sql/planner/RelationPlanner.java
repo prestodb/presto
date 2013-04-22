@@ -53,6 +53,13 @@ class RelationPlanner
     @Override
     protected RelationPlan visitTable(Table node, Void context)
     {
+        if (!node.getName().getPrefix().isPresent()) {
+            Query namedQuery = analysis.getNamedQuery(node);
+            if (namedQuery != null) {
+                return process(namedQuery, null);
+            }
+        }
+
         TupleDescriptor descriptor = analysis.getOutputDescriptor(node);
         TableHandle handle = analysis.getTableHandle(node);
 
@@ -64,7 +71,7 @@ class RelationPlanner
             columns.put(symbol, analysis.getColumn(field));
         }
 
-        return new RelationPlan(mappings.build(), new TableScanNode(idAllocator.getNextId(), handle, columns.build()));
+        return new RelationPlan(mappings.build(), new TableScanNode(idAllocator.getNextId(), handle, columns.build()), descriptor);
     }
 
     @Override
@@ -72,13 +79,12 @@ class RelationPlanner
     {
         RelationPlan subPlan = process(node.getRelation(), context);
 
-        TupleDescriptor input = analysis.getOutputDescriptor(node.getRelation());
-        TupleDescriptor output = analysis.getOutputDescriptor(node);
+        TupleDescriptor outputDescriptor = analysis.getOutputDescriptor(node);
 
         ImmutableMap.Builder<Field, Symbol> mappings = ImmutableMap.builder();
 
-        Iterator<Field> inputs = input.getFields().iterator();
-        Iterator<Field> outputs = output.getFields().iterator();
+        Iterator<Field> inputs = subPlan.getDescriptor().getFields().iterator();
+        Iterator<Field> outputs = outputDescriptor.getFields().iterator();
         while (inputs.hasNext() && outputs.hasNext()) {
             Field inputField = inputs.next();
             Field outputField = outputs.next();
@@ -86,7 +92,7 @@ class RelationPlanner
             mappings.put(outputField, subPlan.getSymbol(inputField));
         }
 
-        return new RelationPlan(mappings.build(), subPlan.getRoot());
+        return new RelationPlan(mappings.build(), subPlan.getRoot(), outputDescriptor);
     }
 
     @Override
@@ -114,7 +120,7 @@ class RelationPlanner
                 .putAll(rightPlan.getOutputMappings())
                 .build();
 
-        return new RelationPlan(mappings, new JoinNode(idAllocator.getNextId(), leftPlanBuilder.getRoot(), rightPlanBuilder.getRoot(), clauses.build()));
+        return new RelationPlan(mappings, new JoinNode(idAllocator.getNextId(), leftPlanBuilder.getRoot(), rightPlanBuilder.getRoot(), clauses.build()), analysis.getOutputDescriptor(node));
     }
 
     @Override
@@ -128,7 +134,8 @@ class RelationPlanner
     {
         PlanBuilder subPlan = new QueryPlanner(analysis, symbolAllocator, idAllocator).process(node, null);
 
-        Iterator<Field> outputFields = analysis.getOutputDescriptor(node).getFields().iterator();
+        TupleDescriptor outputDescriptor = analysis.getOutputDescriptor(node);
+        Iterator<Field> outputFields = outputDescriptor.getFields().iterator();
         Iterator<FieldOrExpression> outputExpressions = analysis.getOutputExpressions(node).iterator();
 
         ImmutableMap.Builder<Field, Symbol> mappings = ImmutableMap.builder();
@@ -140,7 +147,7 @@ class RelationPlanner
             mappings.put(outputField, symbol);
         }
 
-        return new RelationPlan(mappings.build(), subPlan.getRoot());
+        return new RelationPlan(mappings.build(), subPlan.getRoot(), outputDescriptor);
     }
 
     private PlanBuilder appendProjections(RelationPlan subPlan, Iterable<Expression> expressions)

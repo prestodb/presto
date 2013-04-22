@@ -23,6 +23,8 @@ public class Analysis
 {
     private Query query;
 
+    private final IdentityHashMap<Table, Query> namedQueries = new IdentityHashMap<>();
+
     private TupleDescriptor outputDescriptor;
     private final IdentityHashMap<Node, TupleDescriptor> outputDescriptors = new IdentityHashMap<>();
     private final IdentityHashMap<Expression, Map<QualifiedName, Field>> resolvedNames = new IdentityHashMap<>();
@@ -250,6 +252,19 @@ public class Analysis
     public int getNextRelationId()
     {
         return nextRelationId++;
+    }
+
+    public Query getNamedQuery(Table table)
+    {
+        return namedQueries.get(table);
+    }
+
+    public void registerNamedQuery(Table tableReference, Query query)
+    {
+        Preconditions.checkNotNull(tableReference, "tableReference is null");
+        Preconditions.checkNotNull(query, "query is null");
+
+        namedQueries.put(tableReference, query);
     }
 }
 

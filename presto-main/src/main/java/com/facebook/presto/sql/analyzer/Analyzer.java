@@ -31,7 +31,7 @@ public class Analyzer
     {
         Analysis analysis = new Analysis();
         StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, session);
-        TupleDescriptor outputDescriptor = analyzer.process(statement, null);
+        TupleDescriptor outputDescriptor = analyzer.process(statement, new AnalysisContext());
         analysis.setOutputDescriptor(outputDescriptor);
         return analysis;
     }
