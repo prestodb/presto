@@ -1,6 +1,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.base.Objects;
 
 import static com.facebook.presto.metadata.MetadataUtil.checkTable;
@@ -13,14 +14,16 @@ public class TableColumn
     private final String columnName;
     private final int ordinalPosition;
     private final TupleInfo.Type dataType;
+    private final long columnId;
 
-    public TableColumn(QualifiedTableName table, String columnName, int ordinalPosition, TupleInfo.Type dataType)
+    public TableColumn(QualifiedTableName table, String columnName, int ordinalPosition, Type dataType, long columnId)
     {
         this.table = checkTable(table);
-        this.columnName = checkNotNull(columnName, "columName is null");
+        this.columnName = checkNotNull(columnName, "columnName is null");
         checkArgument(ordinalPosition >= 1, "ordinal position must be at least one");
         this.ordinalPosition = ordinalPosition;
         this.dataType = checkNotNull(dataType, "dataType is null");
+        this.columnId = columnId;
     }
 
     public QualifiedTableName getTable()
@@ -41,6 +44,11 @@ public class TableColumn
     public TupleInfo.Type getDataType()
     {
         return dataType;
+    }
+
+    public long getColumnId()
+    {
+        return columnId;
     }
 
     @Override

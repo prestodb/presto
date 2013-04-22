@@ -6,6 +6,7 @@ import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
@@ -35,6 +36,15 @@ public class InternalTable
         return new Builder(tupleInfo);
     }
 
+    public static Builder builder(List<ColumnMetadata> columns)
+    {
+        ImmutableList.Builder<Type> types = ImmutableList.builder();
+        for (ColumnMetadata column : columns) {
+            types.add(column.getType());
+        }
+        return new Builder(new TupleInfo(types.build()));
+    }
+
     public static class Builder
     {
         private final TupleInfo tupleInfo;
@@ -55,7 +65,12 @@ public class InternalTable
             pageBuilder = new PageBuilder(tupleInfos);
         }
 
-        public void add(Tuple tuple)
+        public TupleInfo getTupleInfo()
+        {
+            return tupleInfo;
+        }
+
+        public Builder add(Tuple tuple)
         {
             checkArgument(tuple.getTupleInfo().equals(tupleInfo), "tuple schema does not match builder");
 
@@ -67,6 +82,7 @@ public class InternalTable
                 flushPage();
                 pageBuilder = new PageBuilder(tupleInfos);
             }
+            return this;
         }
 
         public InternalTable build()

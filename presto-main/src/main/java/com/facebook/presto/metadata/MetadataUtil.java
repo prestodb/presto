@@ -11,46 +11,61 @@ import com.google.common.collect.Lists;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Iterables.concat;
-import static com.google.common.collect.Iterables.transform;
 
 public class MetadataUtil
 {
     public static QualifiedTableName checkTable(QualifiedTableName table)
     {
         checkNotNull(table, "table is null");
-        checkLowerCase(table.getCatalogName(), "catalogName");
-        checkLowerCase(table.getSchemaName(), "schemaName");
-        checkLowerCase(table.getTableName(), "tableName");
+        checkCatalogName(table.getCatalogName());
+        checkSchemaName(table.getSchemaName());
+        checkTableName(table.getTableName());
         return table;
     }
 
     public static void checkTableName(String catalogName, Optional<String> schemaName, Optional<String> tableName)
     {
-        checkLowerCase(catalogName, "catalogName");
-        checkNotNull(schemaName, "schemaName is null");
-        checkNotNull(tableName, "tableName is null");
+        checkCatalogName(catalogName);
+        checkSchemaName(schemaName);
+        checkTableName(tableName);
 
-        if (schemaName.isPresent()) {
-            checkLowerCase(schemaName.get(), "schemaName");
-
-            if (tableName.isPresent()) {
-                checkLowerCase(tableName.get(), "tableName");
-            }
-        }
-        else {
+        if (!schemaName.isPresent()) {
             checkState(!tableName.isPresent(), "schemaName is absent!");
         }
     }
 
-    public static void checkCatalogName(String catalogName)
+    public static String checkCatalogName(String catalogName)
     {
-        checkLowerCase(catalogName, "catalogName");
+        return checkLowerCase(catalogName, "catalogName");
+    }
+
+    public static String checkSchemaName(String schemaName)
+    {
+        return checkLowerCase(schemaName, "schemaName");
+    }
+
+    public static Optional<String> checkSchemaName(Optional<String> schemaName)
+    {
+        return checkLowerCase(schemaName, "schemaName");
+    }
+
+    public static String checkTableName(String tableName)
+    {
+        return checkLowerCase(tableName, "tableName");
+    }
+
+    public static Optional<String> checkTableName(Optional<String> tableName)
+    {
+        return checkLowerCase(tableName, "tableName");
+    }
+
+    public static String checkColumnName(String catalogName)
+    {
+        return checkLowerCase(catalogName, "catalogName");
     }
 
     public static void checkTableName(String catalogName, String schemaName, String tableName)
@@ -60,10 +75,19 @@ public class MetadataUtil
         checkLowerCase(tableName, "tableName");
     }
 
-    private static void checkLowerCase(String s, String name)
+    public static Optional<String> checkLowerCase(Optional<String> value, String name)
     {
-        checkNotNull(s, "%s is null", name);
-        checkArgument(s.equals(s.toLowerCase()), "%s is not lowercase", name);
+        if (value.isPresent()) {
+            checkLowerCase(value.get(), name);
+        }
+        return value;
+    }
+
+    public static String checkLowerCase(String value, String name)
+    {
+        checkNotNull(value, "%s is null", name);
+        checkArgument(value.equals(value.toLowerCase()), "%s is not lowercase", name);
+        return value;
     }
 
     public static Function<ColumnMetadata, TupleInfo.Type> getType()
@@ -78,38 +102,7 @@ public class MetadataUtil
         };
     }
 
-    public static List<TableColumn> getTableColumns(String catalogName, String schemaName, Map<String, List<ColumnMetadata>> tables)
-    {
-        return ImmutableList.copyOf(concat(transform(tables.entrySet(), getColumns(catalogName, schemaName))));
-    }
-
-    public static List<QualifiedTableName> getTableNames(String catalogName, String schemaName, Map<String, List<ColumnMetadata>> tables)
-    {
-        return ImmutableList.copyOf(transform(tables.keySet(), getTable(catalogName, schemaName)));
-    }
-
-    private static Function<Map.Entry<String, List<ColumnMetadata>>, List<TableColumn>> getColumns(
-            final String catalogName, final String schemaName)
-    {
-        return new Function<Map.Entry<String, List<ColumnMetadata>>, List<TableColumn>>()
-        {
-            @Override
-            public List<TableColumn> apply(Map.Entry<String, List<ColumnMetadata>> entry)
-            {
-                String tableName = entry.getKey();
-                ImmutableList.Builder<TableColumn> list = ImmutableList.builder();
-                int position = 1;
-                for (ColumnMetadata column : entry.getValue()) {
-                    list.add(new TableColumn(new QualifiedTableName(catalogName, schemaName, tableName),
-                            column.getName(), position, column.getType()));
-                    position++;
-                }
-                return list.build();
-            }
-        };
-    }
-
-    private static Function<String, QualifiedTableName> getTable(final String catalogName, final String schemaName)
+    public static Function<String, QualifiedTableName> toQualifiedTableName(final String catalogName, final String schemaName)
     {
         return new Function<String, QualifiedTableName>()
         {
@@ -138,11 +131,11 @@ public class MetadataUtil
     public static class ColumnMetadataListBuilder
     {
         private final List<ColumnMetadata> columns = new ArrayList<>();
+        private int ordinalPosition;
 
         public ColumnMetadataListBuilder column(String columnName, TupleInfo.Type type)
         {
-            ColumnHandle handle = new InternalColumnHandle(columns.size());
-            columns.add(new ColumnMetadata(columnName, type, handle));
+            columns.add(new ColumnMetadata(columnName, type, ordinalPosition++));
             return this;
         }
 
@@ -156,5 +149,4 @@ public class MetadataUtil
             return new ColumnMetadataListBuilder();
         }
     }
-
 }

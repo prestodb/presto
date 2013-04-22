@@ -1,15 +1,15 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.metadata.AliasDao;
-import com.facebook.presto.metadata.DataSourceType;
+import com.facebook.presto.metadata.ImportTableHandle;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableAlias;
 import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.tree.DropAlias;
 import com.facebook.presto.sql.tree.Statement;
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 
 import javax.inject.Inject;
@@ -106,15 +106,14 @@ public class DropAliasExecution
     {
         QualifiedTableName remoteTableName = createQualifiedTableName(stateMachine.getSession(), statement.getRemote());
 
-        TableMetadata remoteTableMetadata = metadataManager.getTable(remoteTableName);
-        Preconditions.checkState(remoteTableMetadata != null, "Table %s does not exist", remoteTableName);
-        Preconditions.checkState(remoteTableMetadata.getTableHandle().isPresent(), "No table handle for %s", remoteTableName);
-        TableHandle remoteTableHandle = remoteTableMetadata.getTableHandle().get();
-        Preconditions.checkState(DataSourceType.IMPORT == remoteTableHandle.getDataSourceType(), "Can only alias an import table");
+        Optional<TableHandle> remoteTableHandle = metadataManager.getTableHandle(remoteTableName);
+        checkState(!remoteTableHandle.isPresent(), "Table %s does not exists", remoteTableName);
+
+        Preconditions.checkState(remoteTableHandle.get() instanceof ImportTableHandle, "Only import tables can be aliased");
 
         TableAlias tableAlias = aliasDao.getAlias(remoteTableName);
 
-        checkState(tableAlias != null, "No alias for table %s exists!", remoteTableName);
+        checkState(tableAlias != null, "Table %s is not aliased", remoteTableName);
 
         aliasDao.dropAlias(tableAlias);
 

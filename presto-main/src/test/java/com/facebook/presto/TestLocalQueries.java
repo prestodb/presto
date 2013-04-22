@@ -4,10 +4,14 @@ import com.facebook.presto.metadata.MockLocalStorageManager;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.tpch.TpchDataStreamProvider;
-import com.facebook.presto.tpch.TpchSchema;
+import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.util.LocalQueryRunner;
 import com.facebook.presto.util.MaterializedResult;
+import com.facebook.presto.util.TestingTpchBlocksProvider;
+import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
+
+import static com.facebook.presto.util.TestingTpchBlocksProvider.readTpchRecords;
 
 public class TestLocalQueries
         extends AbstractTestQueries
@@ -17,12 +21,16 @@ public class TestLocalQueries
     private DataStreamProvider dataStreamProvider;
 
     @Override
-    protected void setUpQueryFramework(String catalog, String schema, TpchDataStreamProvider dataStreamProvider)
+    protected void setUpQueryFramework(String catalog, String schema)
             throws Exception
     {
         this.catalog = catalog;
         this.schema = schema;
-        this.dataStreamProvider = dataStreamProvider;
+
+        TestingTpchBlocksProvider tpchBlocksProvider = new TestingTpchBlocksProvider(ImmutableMap.of(
+                "orders", readTpchRecords("orders"),
+                "lineitem", readTpchRecords("lineitem")));
+        dataStreamProvider = new TpchDataStreamProvider(tpchBlocksProvider);
     }
 
     @Override
@@ -30,7 +38,7 @@ public class TestLocalQueries
     {
         Session session = new Session(null, catalog, schema);
 
-        LocalQueryRunner runner = new LocalQueryRunner(dataStreamProvider, TpchSchema.createMetadata(), MockLocalStorageManager.createMockLocalStorageManager(), session);
+        LocalQueryRunner runner = new LocalQueryRunner(dataStreamProvider, TpchMetadata.createTpchMetadata(), MockLocalStorageManager.createMockLocalStorageManager(), session);
         return runner.execute(sql);
     }
 }

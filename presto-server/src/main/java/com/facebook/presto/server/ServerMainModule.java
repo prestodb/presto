@@ -162,11 +162,11 @@ public class ServerMainModule
         binder.bind(MetadataManager.class).in(Scopes.SINGLETON);
         binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
         Multibinder<ConnectorMetadata> connectorMetadataBinder = Multibinder.newSetBinder(binder, ConnectorMetadata.class);
-        MapBinder<String, InternalSchemaMetadata> internalSchemaMetadataMultibinder = MapBinder.newMapBinder(binder, String.class, InternalSchemaMetadata.class);
+        Multibinder<InternalSchemaMetadata> internalSchemaMetadataBinder = Multibinder.newSetBinder(binder, InternalSchemaMetadata.class);
 
         // internal schemas like information_schema and sys
-        internalSchemaMetadataMultibinder.addBinding(InformationSchemaMetadata.INFORMATION_SCHEMA).to(InformationSchemaMetadata.class);
-        internalSchemaMetadataMultibinder.addBinding(SystemTables.SYSTEM_SCHEMA).to(SystemTables.class);
+        internalSchemaMetadataBinder.addBinding().to(InformationSchemaMetadata.class);
+        internalSchemaMetadataBinder.addBinding().to(SystemTables.class);
 
         // native
         connectorMetadataBinder.addBinding().to(NativeMetadata.class).in(Scopes.SINGLETON);

@@ -13,14 +13,10 @@ import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.tpch.TpchBlocksProvider;
-import com.facebook.presto.tpch.TpchColumnHandle;
-import com.facebook.presto.tpch.TpchTableHandle;
 import com.google.common.collect.ImmutableList;
 
 import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
 import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
-import static com.facebook.presto.tpch.TpchSchema.columnHandle;
-import static com.facebook.presto.tpch.TpchSchema.tableHandle;
 
 public class CountAggregationBenchmark
         extends AbstractOperatorBenchmark
@@ -33,9 +29,7 @@ public class CountAggregationBenchmark
     @Override
     protected Operator createBenchmarkedOperator(TpchBlocksProvider blocksProvider)
     {
-        TpchTableHandle orders = tableHandle("orders");
-        TpchColumnHandle orderkey = columnHandle(orders, "orderkey");
-        BlockIterable blockIterable = blocksProvider.getBlocks(orders, orderkey, BlocksFileEncoding.RAW);
+        BlockIterable blockIterable = getBlockIterable(blocksProvider, "orders", "orderkey", BlocksFileEncoding.RAW);
         AlignmentOperator alignmentOperator = new AlignmentOperator(blockIterable);
         return new AggregationOperator(alignmentOperator, Step.SINGLE, ImmutableList.of(aggregation(COUNT, new Input(0, 0))));
     }

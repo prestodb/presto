@@ -2,6 +2,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.base.Optional;
 
 import java.util.List;
 import java.util.Map;
@@ -12,27 +13,62 @@ public interface Metadata
 
     FunctionInfo getFunction(FunctionHandle handle);
 
+    boolean isAggregationFunction(QualifiedName name);
+
     List<FunctionInfo> listFunctions();
 
     List<String> listSchemaNames(String catalogName);
 
-    TableMetadata getTable(QualifiedTableName tableName);
+    /**
+     * Returns a table handle for the specified table name.
+     */
+    Optional<TableHandle> getTableHandle(QualifiedTableName tableName);
 
+    /**
+     * Return the metadata for the specified table handle.
+     * @throws RuntimeException if table handle is no longer valid
+     */
+    TableMetadata getTableMetadata(TableHandle tableHandle);
+
+    /**
+     * Get the names that match the specified table prefix (never null).
+     */
     List<QualifiedTableName> listTables(QualifiedTablePrefix prefix);
 
-    List<TableColumn> listTableColumns(QualifiedTablePrefix prefix);
+    /**
+     * Returns a handle for the specified table column.
+     * @throws RuntimeException if table handle is no longer valid
+     */
+    Optional<ColumnHandle> getColumnHandle(TableHandle tableHandle, String columnName);
 
-    List<String> listTablePartitionKeys(QualifiedTableName tableName);
+    /**
+     * Gets all of the columns on the specified table, or an empty map if the columns can not be enumerated.
+     * @throws RuntimeException if table handle is no longer valid
+     */
+    Map<String, ColumnHandle> getColumnHandles(TableHandle tableHandle);
+
+    /**
+     * Gets the metadata for the specified table column.
+     * @throws RuntimeException if table or column handles are no longer valid
+     */
+    ColumnMetadata getColumnMetadata(TableHandle tableHandle, ColumnHandle columnHandle);
+
+    /**
+     * Gets the metadata for all columns that match the specified table prefix.
+     */
+    Map<QualifiedTableName, List<ColumnMetadata>> listTableColumns(QualifiedTablePrefix prefix);
+
 
     List<Map<String, String>> listTablePartitionValues(QualifiedTablePrefix prefix);
 
-    void createTable(TableMetadata table);
+    /**
+     * Creates a table using the specified table metadata.
+     */
+    TableHandle createTable(TableMetadata tableMetadata);
 
-    void dropTable(TableMetadata table);
-
-    QualifiedTableName getTableName(TableHandle tableHandle);
-
-    TableColumn getTableColumn(TableHandle tableHandle, ColumnHandle columnHandle);
-
-    boolean isAggregationFunction(QualifiedName name);
+    /**
+     * Drops the specified table
+     * @throws RuntimeException if the table can not be dropped or table handle is no longer valid
+     */
+    void dropTable(TableHandle tableHandle);
 }

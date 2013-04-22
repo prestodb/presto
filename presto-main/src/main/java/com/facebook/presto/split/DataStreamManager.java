@@ -16,7 +16,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class DataStreamManager
     implements DataStreamProvider
 {
-    private Map<DataSourceType, DataStreamProvider> dataStreamProviderMap = null;
+    private Map<DataSourceType, DataStreamProvider> dataStreamProviderMap;
 
     @Inject
     public DataStreamManager(
@@ -37,7 +37,7 @@ public class DataStreamManager
 
     // only used in TestDistributedQueries to get the Tpch stuff in.
     @Inject(optional = true)
-    public synchronized void addTpchDatastreamProvider(TpchDataStreamProvider tpchDataStreamProvider)
+    public synchronized void addTpchDataStreamProvider(TpchDataStreamProvider tpchDataStreamProvider)
     {
         ImmutableMap.Builder<DataSourceType, DataStreamProvider> builder = ImmutableMap.builder();
         builder.putAll(dataStreamProviderMap);

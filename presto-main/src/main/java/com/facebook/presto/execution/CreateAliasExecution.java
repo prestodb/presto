@@ -1,15 +1,16 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.metadata.AliasDao;
-import com.facebook.presto.metadata.DataSourceType;
+import com.facebook.presto.metadata.ImportTableHandle;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.NativeTableHandle;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableAlias;
 import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.tree.CreateAlias;
 import com.facebook.presto.sql.tree.Statement;
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 
 import javax.inject.Inject;
@@ -106,19 +107,15 @@ public class CreateAliasExecution
     {
         QualifiedTableName aliasTableName = createQualifiedTableName(stateMachine.getSession(), statement.getAlias());
 
-        TableMetadata aliasTableMetadata = metadataManager.getTable(aliasTableName);
-        Preconditions.checkState(aliasTableMetadata != null, "Table %s does not exist", aliasTableName);
-        Preconditions.checkState(aliasTableMetadata.getTableHandle().isPresent(), "No table handle for %s", aliasTableName);
-        TableHandle aliasTableHandle = aliasTableMetadata.getTableHandle().get();
-        Preconditions.checkState(DataSourceType.NATIVE == aliasTableHandle.getDataSourceType(), "Can only use a native table as alias");
+        Optional<TableHandle> aliasTableHandle = metadataManager.getTableHandle(aliasTableName);
+        checkState(!aliasTableHandle.isPresent(), "Table %s does not exists", aliasTableHandle);
+        Preconditions.checkState(aliasTableHandle.get() instanceof NativeTableHandle, "Can only use a native table as alias");
 
         QualifiedTableName remoteTableName = createQualifiedTableName(stateMachine.getSession(), statement.getRemote());
 
-        TableMetadata remoteTableMetadata = metadataManager.getTable(remoteTableName);
-        Preconditions.checkState(remoteTableMetadata != null, "Table %s does not exist", remoteTableName);
-        Preconditions.checkState(remoteTableMetadata.getTableHandle().isPresent(), "No table handle for %s", remoteTableName);
-        TableHandle remoteTableHandle = remoteTableMetadata.getTableHandle().get();
-        Preconditions.checkState(DataSourceType.IMPORT == remoteTableHandle.getDataSourceType(), "Can only alias an import table");
+        Optional<TableHandle> remoteTableHandle = metadataManager.getTableHandle(remoteTableName);
+        checkState(!remoteTableHandle.isPresent(), "Table %s does not exists", remoteTableName);
+        Preconditions.checkState(remoteTableHandle.get() instanceof ImportTableHandle, "Can only alias an import table");
 
         TableAlias tableAlias = TableAlias.createTableAlias(remoteTableName, aliasTableName);
         aliasDao.insertAlias(tableAlias);

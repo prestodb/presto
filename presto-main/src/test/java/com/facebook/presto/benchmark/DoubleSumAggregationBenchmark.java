@@ -13,14 +13,10 @@ import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.tpch.TpchBlocksProvider;
-import com.facebook.presto.tpch.TpchColumnHandle;
-import com.facebook.presto.tpch.TpchTableHandle;
 import com.google.common.collect.ImmutableList;
 
 import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
 import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUBLE_SUM;
-import static com.facebook.presto.tpch.TpchSchema.columnHandle;
-import static com.facebook.presto.tpch.TpchSchema.tableHandle;
 
 public class DoubleSumAggregationBenchmark
         extends AbstractOperatorBenchmark
@@ -33,9 +29,7 @@ public class DoubleSumAggregationBenchmark
     @Override
     protected Operator createBenchmarkedOperator(TpchBlocksProvider blocksProvider)
     {
-        TpchTableHandle orders = tableHandle("orders");
-        TpchColumnHandle totalprice = columnHandle(orders, "totalprice");
-        BlockIterable blockIterable = blocksProvider.getBlocks(orders, totalprice, BlocksFileEncoding.RAW);
+        BlockIterable blockIterable = getBlockIterable(blocksProvider, "orders", "totalprice", BlocksFileEncoding.RAW);
         AlignmentOperator alignmentOperator = new AlignmentOperator(blockIterable);
         return new AggregationOperator(alignmentOperator, Step.SINGLE, ImmutableList.of(aggregation(DOUBLE_SUM, new Input(0,0))));
     }

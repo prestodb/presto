@@ -13,16 +13,12 @@ import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.tpch.TpchBlocksProvider;
-import com.facebook.presto.tpch.TpchColumnHandle;
-import com.facebook.presto.tpch.TpchTableHandle;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 
 import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
 import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUBLE_SUM;
-import static com.facebook.presto.tpch.TpchSchema.columnHandle;
-import static com.facebook.presto.tpch.TpchSchema.tableHandle;
 
 public class HashAggregationBenchmark
         extends AbstractOperatorBenchmark
@@ -35,11 +31,8 @@ public class HashAggregationBenchmark
     @Override
     protected Operator createBenchmarkedOperator(TpchBlocksProvider blocksProvider)
     {
-        TpchTableHandle orders = tableHandle("orders");
-        TpchColumnHandle orderStatus = columnHandle(orders, "orderstatus");
-        TpchColumnHandle totalPrice = columnHandle(orders, "totalprice");
-        BlockIterable orderStatusBlockIterable = blocksProvider.getBlocks(orders, orderStatus, BlocksFileEncoding.RAW);
-        BlockIterable totalPriceBlockIterable = blocksProvider.getBlocks(orders, totalPrice, BlocksFileEncoding.RAW);
+        BlockIterable orderStatusBlockIterable =getBlockIterable(blocksProvider, "orders", "orderStatus", BlocksFileEncoding.RAW);
+        BlockIterable totalPriceBlockIterable = getBlockIterable(blocksProvider, "orders", "totalPrice", BlocksFileEncoding.RAW);
 
         AlignmentOperator alignmentOperator = new AlignmentOperator(orderStatusBlockIterable, totalPriceBlockIterable);
         return new HashAggregationOperator(alignmentOperator,

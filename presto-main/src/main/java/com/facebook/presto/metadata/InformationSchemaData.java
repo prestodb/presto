@@ -4,9 +4,9 @@ import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Joiner;
 
 import javax.inject.Inject;
-
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import static com.facebook.presto.metadata.InformationSchemaMetadata.INFORMATION_SCHEMA;
 import static com.facebook.presto.metadata.InformationSchemaMetadata.TABLE_COLUMNS;
@@ -54,22 +54,25 @@ public class InformationSchemaData
     {
         TupleInfo tupleInfo = informationSchemaTupleInfo(TABLE_COLUMNS);
         InternalTable.Builder table = InternalTable.builder(tupleInfo);
-        for (TableColumn column : getColumnsList(catalogName, filters)) {
-            table.add(tupleInfo.builder()
-                    .append(column.getTable().getCatalogName())
-                    .append(column.getTable().getSchemaName())
-                    .append(column.getTable().getTableName())
-                    .append(column.getColumnName())
-                    .append(column.getOrdinalPosition())
-                    .appendNull()
-                    .append("YES")
-                    .append(column.getDataType().getName())
-                    .build());
+        for (Entry<QualifiedTableName, List<ColumnMetadata>> entry : getColumnsList(catalogName, filters).entrySet()) {
+            QualifiedTableName tableName = entry.getKey();
+            for (ColumnMetadata column : entry.getValue()) {
+                table.add(tupleInfo.builder()
+                        .append(tableName.getCatalogName())
+                        .append(tableName.getSchemaName())
+                        .append(tableName.getTableName())
+                        .append(column.getName())
+                        .append(column.getOrdinalPosition())
+                        .appendNull()
+                        .append("YES")
+                        .append(column.getType().getName())
+                        .build());
+            }
         }
         return table.build();
     }
 
-    private List<TableColumn> getColumnsList(String catalogName, Map<InternalColumnHandle, String> filters)
+    private Map<QualifiedTableName, List<ColumnMetadata>> getColumnsList(String catalogName, Map<InternalColumnHandle, String> filters)
     {
         return metadata.listTableColumns(QualifiedTablePrefix.builder(catalogName)
                 .schemaName(getFilterColumn(filters, TABLE_COLUMNS, "table_schema"))

@@ -1,7 +1,5 @@
 package com.facebook.presto.sql.planner.optimizations;
 
-import com.facebook.presto.sql.planner.plan.TableWriterNode;
-
 import com.facebook.presto.execution.Sitevars;
 import com.facebook.presto.metadata.AliasDao;
 import com.facebook.presto.metadata.ColumnHandle;
@@ -14,9 +12,7 @@ import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.metadata.TableAlias;
-import com.facebook.presto.metadata.TableColumn;
 import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.analyzer.Type;
@@ -24,16 +20,15 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
 import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.TableWriterNode;
+import com.google.common.base.Optional;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.metadata.ColumnMetadata.columnNameGetter;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -113,39 +108,37 @@ public class TableAliasSelector
                 return node;
             }
 
-            QualifiedTableName tableName = metadata.getTableName(tableHandle);
-            TableAlias tableAlias = aliasDao.getAlias(tableName);
+            QualifiedTableName tableName = metadata.getTableMetadata(tableHandle).getTable();
 
+            TableAlias tableAlias = aliasDao.getAlias(tableName);
             if (tableAlias == null) {
                 return node;
             }
 
             QualifiedTableName aliasTable = new QualifiedTableName(tableAlias.getDstCatalogName(), tableAlias.getDstSchemaName(), tableAlias.getDstTableName());
-
-            TableMetadata aliasTableMetadata = metadata.getTable(aliasTable);
-
-            checkState(aliasTableMetadata.getTableHandle().isPresent(), "no table handle for alias table %s found", aliasTable);
-            checkState(aliasTableMetadata.getTableHandle().get().getDataSourceType() == DataSourceType.NATIVE, "alias table must be a native table");
-
-            if (!allNodesPresent(((NativeTableHandle) aliasTableMetadata.getTableHandle().get()).getTableId())) {
+            Optional<TableHandle> aliasTableHandle = metadata.getTableHandle(aliasTable);
+            if (!aliasTableHandle.isPresent()) {
                 return node;
             }
 
-            List<ColumnMetadata> aliasColumns = aliasTableMetadata.getColumns();
-            Map<String, ColumnMetadata> lookupColumns = Maps.uniqueIndex(aliasColumns, columnNameGetter());
+            if (!allNodesPresent(((NativeTableHandle) aliasTableHandle.get()).getTableId())) {
+                return node;
+            }
+
+            Map<String, ColumnHandle> lookupColumns = metadata.getColumnHandles(aliasTableHandle.get());
 
             Map<Symbol, ColumnHandle> assignments =  node.getAssignments();
 
             ImmutableMap.Builder<Symbol, ColumnHandle> newAssignmentsBuilder = ImmutableMap.builder();
             for (Map.Entry<Symbol, ColumnHandle> assignmentEntry : assignments.entrySet()) {
-                TableColumn originalColumn = metadata.getTableColumn(tableHandle, assignmentEntry.getValue());
+                ColumnMetadata originalColumn = metadata.getColumnMetadata(tableHandle, assignmentEntry.getValue());
 
-                ColumnMetadata aliasedColumnMetadata = lookupColumns.get(originalColumn.getColumnName());
-                checkState(aliasedColumnMetadata != null, "no matching column for original column %s found!", originalColumn);
-                newAssignmentsBuilder.put(assignmentEntry.getKey(), aliasedColumnMetadata.getColumnHandle().get());
+                ColumnHandle aliasedColumnHandle = lookupColumns.get(originalColumn.getName());
+                checkState(aliasedColumnHandle != null, "no matching column for original column %s found!", originalColumn);
+                newAssignmentsBuilder.put(assignmentEntry.getKey(), aliasedColumnHandle);
             }
 
-            return new TableScanNode(node.getId(), aliasTableMetadata.getTableHandle().get(), newAssignmentsBuilder.build());
+            return new TableScanNode(node.getId(), aliasTableHandle.get(), newAssignmentsBuilder.build());
         }
 
         private boolean allNodesPresent(long tableId)

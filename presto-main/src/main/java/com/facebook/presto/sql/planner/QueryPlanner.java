@@ -122,13 +122,14 @@ class QueryPlanner
         // TODO: replace this with a table-generating operator that produces 1 row with no columns
 
         QualifiedTableName name = MetadataUtil.createQualifiedTableName(session, QualifiedName.of("dual"));
-        TableMetadata tableMetadata = metadata.getTable(name);
-        TableHandle table = tableMetadata.getTableHandle().get();
+        TableHandle table = metadata.getTableHandle(name).get();
+        TableMetadata tableMetadata = metadata.getTableMetadata(table);
+        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(table);
 
         ImmutableMap.Builder<Symbol, ColumnHandle> columns = ImmutableMap.builder();
         for (ColumnMetadata column : tableMetadata.getColumns()) {
             Symbol symbol = symbolAllocator.newSymbol(column.getName(), Type.fromRaw(column.getType()));
-            columns.put(symbol, column.getColumnHandle().get());
+            columns.put(symbol, columnHandles.get(column.getName()));
         }
 
         TableScanNode tableScan = new TableScanNode(idAllocator.getNextId(), table, columns.build());

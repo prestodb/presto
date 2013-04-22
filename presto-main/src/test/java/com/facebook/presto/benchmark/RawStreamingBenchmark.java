@@ -10,11 +10,6 @@ import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.tpch.TpchBlocksProvider;
-import com.facebook.presto.tpch.TpchColumnHandle;
-import com.facebook.presto.tpch.TpchTableHandle;
-
-import static com.facebook.presto.tpch.TpchSchema.columnHandle;
-import static com.facebook.presto.tpch.TpchSchema.tableHandle;
 
 public class RawStreamingBenchmark
         extends AbstractOperatorBenchmark
@@ -27,9 +22,7 @@ public class RawStreamingBenchmark
     @Override
     protected Operator createBenchmarkedOperator(TpchBlocksProvider blocksProvider)
     {
-        TpchTableHandle orders = tableHandle("orders");
-        TpchColumnHandle totalprice = columnHandle(orders, "totalprice");
-        BlockIterable blockIterable = blocksProvider.getBlocks(orders, totalprice, BlocksFileEncoding.RAW);
+        BlockIterable blockIterable = getBlockIterable(blocksProvider, "orders", "totalprice", BlocksFileEncoding.RAW);
         return new AlignmentOperator(blockIterable);
     }
 

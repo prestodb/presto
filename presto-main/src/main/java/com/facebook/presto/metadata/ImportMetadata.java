@@ -15,9 +15,8 @@ import java.util.Map;
 import java.util.concurrent.Callable;
 
 import static com.facebook.presto.ingest.ImportSchemaUtil.convertToMetadata;
-import static com.facebook.presto.metadata.MetadataUtil.checkTable;
-import static com.facebook.presto.metadata.MetadataUtil.getTableColumns;
 import static com.facebook.presto.util.RetryDriver.retry;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -47,61 +46,58 @@ public class ImportMetadata
     @Override
     public boolean canHandle(QualifiedTablePrefix prefix)
     {
-        return hasCatalog(prefix.getCatalogName());
+        return importClientManager.hasCatalog(prefix.getCatalogName());
     }
 
     @Override
-    public TableMetadata getTable(QualifiedTableName table)
+    public List<String> listSchemaNames(String catalogName)
     {
-        checkTable(table);
-        ImportClient client = importClientManager.getClient(table.getCatalogName());
-
-        List<SchemaField> tableSchema = getTableSchema(client, table.getSchemaName(), table.getTableName());
-
-        ImportTableHandle importTableHandle = new ImportTableHandle(table);
-
-        List<ColumnMetadata> columns = convertToMetadata(table.getCatalogName(), tableSchema);
-
-        return new TableMetadata(table, columns, importTableHandle);
+        ImportClient client = importClientManager.getClient(catalogName);
+        return getDatabaseNames(client);
     }
 
     @Override
-    public QualifiedTableName getTableName(TableHandle tableHandle)
+    public TableHandle getTableHandle(QualifiedTableName tableName)
     {
-        checkNotNull(tableHandle, "tableHandle is null");
-        checkState(DataSourceType.IMPORT == tableHandle.getDataSourceType(), "not a import handle: %s", tableHandle);
+        // verify table exists
+        try {
+            getTableMetadata(tableName);
+        }
+        catch (Exception e) {
+            // todo add handle method to import client
+            return null;
+        }
 
-        ImportTableHandle importTableHandle = (ImportTableHandle) tableHandle;
-
-        return importTableHandle.getTableName();
+        return new ImportTableHandle(tableName);
     }
 
     @Override
-    public TableColumn getTableColumn(TableHandle tableHandle, ColumnHandle columnHandle)
+    public TableMetadata getTableMetadata(TableHandle table)
     {
-        checkNotNull(tableHandle, "tableHandle is null");
-        checkNotNull(columnHandle, "columnHandle is null");
-        checkState(DataSourceType.IMPORT == tableHandle.getDataSourceType(), "not a import handle: %s", tableHandle);
-        checkState(DataSourceType.IMPORT == columnHandle.getDataSourceType(), "not a import handle: %s", columnHandle);
-
-        ImportTableHandle importTableHandle = (ImportTableHandle) tableHandle;
-        ImportColumnHandle importColumnHandle = (ImportColumnHandle) columnHandle;
-
-        return new TableColumn(importTableHandle.getTableName(),
-                importColumnHandle.getColumnName(),
-                importColumnHandle.getColumnId() + 1,
-                importColumnHandle.getColumnType());
+        return getTableMetadata(getTableName(table));
     }
 
-    public boolean hasCatalog(String catalogName)
+    private TableMetadata getTableMetadata(QualifiedTableName tableName)
     {
-        return importClientManager.hasCatalog(catalogName);
+        ImportClient client = importClientManager.getClient(tableName.getCatalogName());
+
+        List<ColumnMetadata> columns = getTableSchema(client, tableName.getCatalogName(), tableName.getSchemaName(), tableName.getTableName());
+
+        ImmutableList.Builder<String> partitionKeys = ImmutableList.builder();
+        for (SchemaField partition : getPartitionKeys(client, tableName.getSchemaName(), tableName.getTableName())) {
+            partitionKeys.add(partition.getFieldName());
+        }
+
+        return new TableMetadata(tableName, columns, partitionKeys.build());
     }
 
     @Override
     public List<QualifiedTableName> listTables(QualifiedTablePrefix prefix)
     {
         checkNotNull(prefix, "prefix is null");
+        if (!importClientManager.hasCatalog(prefix.getCatalogName())) {
+            return ImmutableList.of();
+        }
 
         ImportClient client = importClientManager.getClient(prefix.getCatalogName());
 
@@ -119,46 +115,58 @@ public class ImportMetadata
     }
 
     @Override
-    public List<String> listSchemaNames(String catalogName)
+    public Map<String, ColumnHandle> getColumnHandles(TableHandle tableHandle)
     {
-        ImportClient client = importClientManager.getClient(catalogName);
-        return getDatabaseNames(client);
+        QualifiedTableName tableName = getTableName(tableHandle);
+        ImmutableMap.Builder<String, ColumnHandle> builder = ImmutableMap.builder();
+        for (ColumnMetadata column : getTableMetadata(tableName).getColumns()) {
+            builder.put(column.getName(), new ImportColumnHandle(tableName.getCatalogName(),
+                    column.getName(),
+                    column.getOrdinalPosition(),
+                    column.getType()));
+        }
+        return builder.build();
     }
 
     @Override
-    public List<TableColumn> listTableColumns(QualifiedTablePrefix prefix)
+    public ColumnHandle getColumnHandle(TableHandle tableHandle, String columnName)
     {
-        checkNotNull(prefix, "prefix is null");
-        ImportClient client = importClientManager.getClient(prefix.getCatalogName());
-
-        Iterable<String> databaseNames = prefix.hasSchemaName() ? prefix.getSchemaName().asSet() : getDatabaseNames(client);
-
-        ImmutableList.Builder<TableColumn> list = ImmutableList.builder();
-
-        for (String databaseName : databaseNames) {
-            Iterable<String> tableNames = prefix.hasTableName() ? prefix.getTableName().asSet() : getTableNames(client, databaseName);
-            for (String tblName : tableNames) {
-                List<SchemaField> tableSchema = getTableSchema(client, databaseName, tblName);
-                Map<String, List<ColumnMetadata>> map = ImmutableMap.of(tblName, convertToMetadata(prefix.getCatalogName(), tableSchema));
-                list.addAll(getTableColumns(prefix.getCatalogName(), databaseName, map));
+        QualifiedTableName tableName = getTableName(tableHandle);
+        for (ColumnMetadata column : getTableMetadata(tableName).getColumns()) {
+            if (column.getName().equals(columnName)) {
+                return new ImportColumnHandle(tableName.getCatalogName(),
+                        column.getName(),
+                        column.getOrdinalPosition(),
+                        column.getType());
             }
         }
-
-        return list.build();
+        return null;
     }
 
     @Override
-    public List<String> listTablePartitionKeys(QualifiedTableName table)
+    public ColumnMetadata getColumnMetadata(TableHandle tableHandle, ColumnHandle columnHandle)
     {
-        checkTable(table);
-        ImportClient client = importClientManager.getClient(table.getCatalogName());
+        QualifiedTableName tableName = getTableName(tableHandle);
 
-        ImmutableList.Builder<String> list = ImmutableList.builder();
-        for (SchemaField partition : getPartitionKeys(client, table.getSchemaName(), table.getTableName())) {
-            list.add(partition.getFieldName());
+        checkArgument(columnHandle instanceof InternalColumnHandle, "columnHandle is not an instance of InternalColumnHandle");
+        InternalColumnHandle internalColumnHandle = (InternalColumnHandle) columnHandle;
+
+        for (ColumnMetadata column : getTableMetadata(tableName).getColumns()) {
+            if (internalColumnHandle.getColumnIndex() == column.getOrdinalPosition()) {
+                return column;
+            }
         }
+        throw new IllegalArgumentException("Invalid column " + columnHandle);
+    }
 
-        return list.build();
+    @Override
+    public Map<QualifiedTableName, List<ColumnMetadata>> listTableColumns(QualifiedTablePrefix prefix)
+    {
+        ImmutableMap.Builder<QualifiedTableName, List<ColumnMetadata>> builder = ImmutableMap.builder();
+        for (QualifiedTableName tableName : listTables(prefix)) {
+            builder.put(tableName, getTableMetadata(tableName).getColumns());
+        }
+        return builder.build();
     }
 
     @Override
@@ -183,20 +191,30 @@ public class ImportMetadata
     }
 
     @Override
-    public void createTable(TableMetadata table)
+    public TableHandle createTable(TableMetadata tableMetadata)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public void dropTable(TableMetadata table)
+    public void dropTable(TableHandle tableHandle)
     {
         throw new UnsupportedOperationException();
     }
 
-    private static List<SchemaField> getTableSchema(final ImportClient client, final String database, final String table)
+    private QualifiedTableName getTableName(TableHandle tableHandle)
     {
-        return retry()
+        checkNotNull(tableHandle, "tableHandle is null");
+        checkState(DataSourceType.IMPORT == tableHandle.getDataSourceType(), "not a import handle: %s", tableHandle);
+
+        ImportTableHandle importTableHandle = (ImportTableHandle) tableHandle;
+
+        return importTableHandle.getTableName();
+    }
+
+    private static List<ColumnMetadata> getTableSchema(final ImportClient client, String catalogName, final String database, final String table)
+    {
+        return convertToMetadata(catalogName, retry()
                 .stopOn(ObjectNotFoundException.class)
                 .stopOnIllegalExceptions()
                 .runUnchecked(new Callable<List<SchemaField>>()
@@ -207,7 +225,7 @@ public class ImportMetadata
                     {
                         return client.getTableSchema(database, table);
                     }
-                });
+                }));
     }
 
     private static List<String> getTableNames(final ImportClient client, final String database)

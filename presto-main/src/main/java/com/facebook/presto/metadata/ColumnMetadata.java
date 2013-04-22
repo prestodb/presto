@@ -1,61 +1,28 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.base.Function;
+import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.base.Objects;
-import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.emptyToNull;
 
 public class ColumnMetadata
 {
-    public static Function<ColumnMetadata, String> columnNameGetter()
-    {
-        return new Function<ColumnMetadata, String>() {
-
-            @Override
-            public String apply(ColumnMetadata input)
-            {
-                return input.getName();
-            }
-        };
-    }
-
-    public static Function<ColumnMetadata, ColumnHandle> columnHandleGetter()
-    {
-        return new Function<ColumnMetadata, ColumnHandle>() {
-
-            @Override
-            public ColumnHandle apply(ColumnMetadata input)
-            {
-                return input.getColumnHandle().get();
-            }
-        };
-    }
-
     private final String name;
     private final TupleInfo.Type type;
-    private final Optional<ColumnHandle> columnHandle;
+    private final int ordinalPosition;
 
-    public ColumnMetadata(String name, TupleInfo.Type type)
-    {
-        this(name, type, Optional.<ColumnHandle>absent());
-    }
-
-    public ColumnMetadata(String name, TupleInfo.Type type, ColumnHandle columnHandle)
-    {
-        this(name, type, Optional.of(checkNotNull(columnHandle, "columnHandle is null")));
-    }
-
-    private ColumnMetadata(String name, TupleInfo.Type type, Optional<ColumnHandle> columnHandle)
+    public ColumnMetadata(String name, Type type, int ordinalPosition)
     {
         checkNotNull(emptyToNull(name), "name is null or empty");
         checkNotNull(type, "type is null");
+        Preconditions.checkArgument(ordinalPosition >= 0, "ordinalPosition is negative");
 
         this.name = name.toLowerCase();
         this.type = type;
-        this.columnHandle = columnHandle;
+        this.ordinalPosition = ordinalPosition;
     }
 
     public String getName()
@@ -68,9 +35,9 @@ public class ColumnMetadata
         return type;
     }
 
-    public Optional<ColumnHandle> getColumnHandle()
+    public int getOrdinalPosition()
     {
-        return columnHandle;
+        return ordinalPosition;
     }
 
     @Override
@@ -79,6 +46,27 @@ public class ColumnMetadata
         return Objects.toStringHelper(this)
                 .add("name", name)
                 .add("type", type)
+                .add("ordinalPosition", ordinalPosition)
                 .toString();
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hashCode(name, type);
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        final ColumnMetadata other = (ColumnMetadata) obj;
+        return Objects.equal(this.name, other.name) &&
+                Objects.equal(this.type, other.type);
     }
 }

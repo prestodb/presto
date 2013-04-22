@@ -51,7 +51,7 @@ public class InternalDataStreamProvider
 
         InternalTable table;
         if (handle.getTableName().getTableName().equals(DualTable.NAME)) {
-            table = DualTable.getInternalTable(handle.getTableName());
+            table = new DualTable().getInternalTable(handle.getTableName());
         }
         else if (handle.getTableName().getSchemaName().equals(INFORMATION_SCHEMA)) {
             table = informationSchemaData.getInternalTable(handle.getTableName(), filters);

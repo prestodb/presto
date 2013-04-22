@@ -5,6 +5,8 @@ import com.google.common.base.Optional;
 
 import javax.annotation.concurrent.Immutable;
 
+import static com.facebook.presto.metadata.MetadataUtil.checkCatalogName;
+import static com.facebook.presto.metadata.MetadataUtil.checkSchemaName;
 import static com.facebook.presto.metadata.MetadataUtil.checkTableName;
 
 @Immutable
@@ -19,7 +21,28 @@ public class QualifiedTablePrefix
         return new Builder(catalogName);
     }
 
-    private QualifiedTablePrefix(String catalogName, Optional<String> schemaName, Optional<String> tableName)
+    public QualifiedTablePrefix(String catalogName)
+    {
+        this.catalogName = checkCatalogName(catalogName);
+        this.schemaName = Optional.absent();
+        this.tableName = Optional.absent();
+    }
+
+    public QualifiedTablePrefix(String catalogName, String schemaName)
+    {
+        this.catalogName = checkCatalogName(catalogName);
+        this.schemaName = Optional.of(checkSchemaName(schemaName));
+        this.tableName = Optional.absent();
+    }
+
+    public QualifiedTablePrefix(String catalogName, String schemaName, String tableName)
+    {
+        this.catalogName = checkCatalogName(catalogName);
+        this.schemaName = Optional.of(checkSchemaName(schemaName));
+        this.tableName = Optional.of(checkTableName(tableName));
+    }
+
+    public QualifiedTablePrefix(String catalogName, Optional<String> schemaName, Optional<String> tableName)
     {
         checkTableName(catalogName, schemaName, tableName);
         this.catalogName = catalogName;
@@ -50,13 +73,6 @@ public class QualifiedTablePrefix
     public boolean hasTableName()
     {
         return tableName.isPresent();
-    }
-
-    public boolean matches(QualifiedTableName name)
-    {
-        return catalogName.equals(name.getCatalogName()) &&
-                schemaName.or(name.getSchemaName()).equals(name.getSchemaName()) &&
-                tableName.or(name.getTableName()).equals(name.getTableName());
     }
 
     @Override

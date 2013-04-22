@@ -3,10 +3,14 @@ package com.facebook.presto.server;
 import com.facebook.presto.failureDetector.FailureDetectorModule;
 import com.facebook.presto.guice.TestingJmxModule;
 import com.facebook.presto.metadata.NodeManager;
+import com.facebook.presto.tpch.TpchDataStreamProvider;
+import com.facebook.presto.util.TestingTpchBlocksProvider;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
+import com.google.inject.Binder;
 import com.google.inject.Injector;
+import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.discovery.client.Announcer;
@@ -25,6 +29,8 @@ import java.io.Closeable;
 import java.io.File;
 import java.net.URI;
 import java.util.Map;
+
+import static com.facebook.presto.util.TestingTpchBlocksProvider.readTpchRecords;
 
 public class TestingPrestoServer
         implements Closeable
@@ -55,7 +61,17 @@ public class TestingPrestoServer
                 new InMemoryEventModule(),
                 new TraceTokenModule(),
                 new FailureDetectorModule(),
-                new ServerMainModule());
+                new ServerMainModule(),
+                new Module() {
+                    @Override
+                    public void configure(Binder binder)
+                    {
+                        TestingTpchBlocksProvider tpchBlocksProvider = new TestingTpchBlocksProvider(ImmutableMap.of(
+                                "orders", readTpchRecords("orders"),
+                                "lineitem", readTpchRecords("lineitem")));
+                        binder.bind(TpchDataStreamProvider.class).toInstance(new TpchDataStreamProvider(tpchBlocksProvider));
+                    }
+                });
 
         Injector injector = app
                 .strictConfig()

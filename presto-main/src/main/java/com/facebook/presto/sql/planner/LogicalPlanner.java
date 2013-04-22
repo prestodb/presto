@@ -28,11 +28,10 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 
 import java.util.List;
+import java.util.Map;
 
-import static com.facebook.presto.metadata.ColumnMetadata.columnHandleGetter;
 import static com.google.common.base.Preconditions.checkState;
 
 public class LogicalPlanner
@@ -106,10 +105,11 @@ public class LogicalPlanner
         RelationPlan plan;
         if (analysis.isDoRefresh()) {
             // TODO: some of this should probably move to the analyzer, which should be able to compute the tuple descriptor for the source table from metadata
-            targetTable = metadata.getTable(destination).getTableHandle().get();
+            targetTable = metadata.getTableHandle(destination).get();
             QualifiedTableName sourceTable = storageManager.getTableSource((NativeTableHandle) targetTable);
-            TableMetadata sourceTableMetadata = metadata.getTable(sourceTable);
-            TableHandle sourceTableHandle = sourceTableMetadata.getTableHandle().get();
+            TableHandle sourceTableHandle = metadata.getTableHandle(sourceTable).get();
+            TableMetadata sourceTableMetadata = metadata.getTableMetadata(sourceTableHandle);
+            Map<String,ColumnHandle> sourceTableColumns = metadata.getColumnHandles(sourceTableHandle);
 
             ImmutableList.Builder<Symbol> outputSymbols = ImmutableList.builder();
             ImmutableMap.Builder<Symbol, ColumnHandle> columns = ImmutableMap.builder();
@@ -119,7 +119,7 @@ public class LogicalPlanner
             for (ColumnMetadata column : sourceTableMetadata.getColumns()) {
                 Field field = Field.newQualified(sourceTable.asQualifiedName(), Optional.of(column.getName()), Type.fromRaw(column.getType()));
                 Symbol symbol = symbolAllocator.newSymbol(field);
-                ColumnHandle columnHandle = column.getColumnHandle().get();
+                ColumnHandle columnHandle = sourceTableColumns.get(column.getName());
 
                 columns.put(symbol, columnHandle);
                 fields.add(field);
@@ -142,15 +142,19 @@ public class LogicalPlanner
             for (int i = 0; i < plan.getDescriptor().getFields().size(); i++) {
                 Field field = plan.getDescriptor().getFields().get(i);
                 String name = field.getName().or("_field" + i);
-                ColumnMetadata columnMetadata = new ColumnMetadata(name, field.getType().getRawType());
+                ColumnMetadata columnMetadata = new ColumnMetadata(name, field.getType().getRawType(), i);
                 columns.add(columnMetadata);
             }
+            TableMetadata tableMetadata = new TableMetadata(destination, columns.build());
+            targetTable = metadata.createTable(tableMetadata);
 
-            metadata.createTable(new TableMetadata(destination, columns.build()));
-            TableMetadata tableMetadata = metadata.getTable(destination);
-            targetTable = tableMetadata.getTableHandle().get();
-
-            columnHandles = Lists.transform(tableMetadata.getColumns(), columnHandleGetter());
+            // get the column handles for the destination table
+            Map<String, ColumnHandle> columnHandleIndex = metadata.getColumnHandles(targetTable);
+            ImmutableList.Builder<ColumnHandle> columnHandleBuilder = ImmutableList.builder();
+            for (ColumnMetadata column : tableMetadata.getColumns()) {
+                columnHandleBuilder.add(columnHandleIndex.get(column.getName()));
+            }
+            columnHandles = columnHandleBuilder.build();
 
             // find source table (TODO: do this in analyzer)
             List<Relation> relations = analysis.getQuery().getFrom();
@@ -161,7 +165,7 @@ public class LogicalPlanner
 
 
             // create source table and optional import information
-            storageManager.insertTableSource(((NativeTableHandle) tableMetadata.getTableHandle().get()), sourceTable);
+            storageManager.insertTableSource(((NativeTableHandle) targetTable), sourceTable);
 
             // if a refresh is present, create a periodic import for this table
             if (analysis.getRefreshInterval().isPresent()) {
@@ -190,7 +194,6 @@ public class LogicalPlanner
 
         return new RelationPlan(writerNode, analysis.getOutputDescriptor(), ImmutableList.of(output));
     }
-
 
     private PlanNode createOutputPlan(RelationPlan plan, Analysis analysis)
     {
