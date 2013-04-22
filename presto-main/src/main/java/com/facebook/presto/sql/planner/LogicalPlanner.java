@@ -103,7 +103,6 @@ public class LogicalPlanner
 
         TableHandle targetTable;
         List<ColumnHandle> columnHandles;
-        TupleDescriptor inputDescriptor;
 
         RelationPlan plan;
         if (analysis.isDoRefresh()) {
@@ -129,21 +128,21 @@ public class LogicalPlanner
                 columnHandleBuilder.add(columnHandle);
             }
 
-            plan = new RelationPlan(mappings.build(), new TableScanNode(idAllocator.getNextId(), sourceTableHandle, columns.build()));
+            plan = new RelationPlan(mappings.build(),
+                    new TableScanNode(idAllocator.getNextId(), sourceTableHandle, columns.build()),
+                    new TupleDescriptor(fields.build()));
+
             columnHandles = columnHandleBuilder.build();
-            inputDescriptor = new TupleDescriptor(fields.build());
         }
         else {
             RelationPlanner planner = new RelationPlanner(analysis, symbolAllocator, idAllocator);
             plan = planner.process(analysis.getQuery(), null);
 
-            inputDescriptor = analysis.getOutputDescriptor(analysis.getQuery());
-
             // TODO: create table and periodic import in pre-execution step, not here
 
             // Create the destination table
             ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
-            for (Field field : inputDescriptor.getFields()) {
+            for (Field field : plan.getDescriptor().getFields()) {
                 String name = field.getName().or("_col" + field.getIndex());
                 ColumnMetadata columnMetadata = new ColumnMetadata(name, field.getType().getRawType());
                 columns.add(columnMetadata);
@@ -177,7 +176,7 @@ public class LogicalPlanner
         ImmutableMap.Builder<Symbol, ColumnHandle> mappings = ImmutableMap.builder();
 
         Iterator<ColumnHandle> columnIterator = columnHandles.iterator();
-        Iterator<Field> fields = inputDescriptor.getFields().iterator();
+        Iterator<Field> fields = plan.getDescriptor().getFields().iterator();
         while (columnIterator.hasNext() && fields.hasNext()) {
             Symbol symbol = plan.getSymbol(fields.next());
             ColumnHandle column = columnIterator.next();
@@ -195,7 +194,7 @@ public class LogicalPlanner
 
         ImmutableMap<Field, Symbol> outputMappings = ImmutableMap.of(Iterables.getOnlyElement(analysis.getOutputDescriptor().getFields()), output);
 
-        return new RelationPlan(outputMappings, writerNode);
+        return new RelationPlan(outputMappings, writerNode, analysis.getOutputDescriptor());
     }
 
 
