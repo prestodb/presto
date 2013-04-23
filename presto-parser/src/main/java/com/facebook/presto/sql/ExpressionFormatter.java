@@ -15,6 +15,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
@@ -211,6 +212,22 @@ public final class ExpressionFormatter
         protected String visitNullIfExpression(NullIfExpression node, Void context)
         {
             return "NULLIF(" + process(node.getFirst(), null) + ", " + process(node.getSecond(), null) + ')';
+        }
+
+        @Override
+        protected String visitIfExpression(IfExpression node, Void context)
+        {
+            StringBuilder builder = new StringBuilder();
+            builder.append("IF(")
+                    .append(process(node.getCondition(), context))
+                    .append(", ")
+                    .append(process(node.getTrueValue(), context));
+            if (node.getFalseValue().isPresent()) {
+                builder.append(", ")
+                        .append(process(node.getFalseValue().get(), context));
+            }
+            builder.append(")");
+            return builder.toString();
         }
 
         @Override
