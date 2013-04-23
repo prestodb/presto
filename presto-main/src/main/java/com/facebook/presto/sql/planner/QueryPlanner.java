@@ -1,19 +1,32 @@
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.metadata.ColumnMetadata;
 import com.facebook.presto.metadata.FunctionHandle;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.MetadataUtil;
+import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.sql.analyzer.Analysis;
+import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.FieldOrExpression;
+import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.sql.analyzer.TupleDescriptor;
+import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
+import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.SortItem;
@@ -41,8 +54,10 @@ class QueryPlanner
     private final Analysis analysis;
     private final SymbolAllocator symbolAllocator;
     private final PlanNodeIdAllocator idAllocator;
+    private final Metadata metadata;
+    private final Session session;
 
-    QueryPlanner(Analysis analysis, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
+    QueryPlanner(Analysis analysis, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Metadata metadata, Session session)
     {
         Preconditions.checkNotNull(analysis, "analysis is null");
         Preconditions.checkNotNull(symbolAllocator, "symbolAllocator is null");
@@ -53,20 +68,14 @@ class QueryPlanner
         this.analysis = analysis;
         this.symbolAllocator = symbolAllocator;
         this.idAllocator = idAllocator;
+        this.metadata = metadata;
+        this.session = session;
     }
 
     @Override
     protected PlanBuilder visitQuery(Query query, Void context)
     {
-        RelationPlan relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator).process(Iterables.getOnlyElement(query.getFrom()), null);
-
-        TranslationMap translations = new TranslationMap(relationPlan, analysis);
-
-        // Make field->symbol mapping from underlying relation plan available for translations
-        // This makes it possible to rewrite FieldOrExpressions that reference fields from the FROM clause directly
-        translations.addMappings(relationPlan.getOutputMappings());
-
-        PlanBuilder builder = new PlanBuilder(translations, relationPlan.getRoot());
+        PlanBuilder builder = planFrom(query);
 
         builder = filter(builder, analysis.getWhere(query));
         builder = aggregate(builder, query);
@@ -85,6 +94,47 @@ class QueryPlanner
         builder = limit(builder, query);
 
         return builder;
+    }
+
+    private PlanBuilder planFrom(Query query)
+    {
+        RelationPlan relationPlan;
+
+        if (query.getFrom() == null || query.getFrom().isEmpty()) {
+            relationPlan = planImplicitTable();
+        }
+        else {
+            relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, metadata, session)
+                    .process(Iterables.getOnlyElement(query.getFrom()), null);
+        }
+
+        TranslationMap translations = new TranslationMap(relationPlan, analysis);
+
+        // Make field->symbol mapping from underlying relation plan available for translations
+        // This makes it possible to rewrite FieldOrExpressions that reference fields from the FROM clause directly
+        translations.addMappings(relationPlan.getOutputMappings());
+
+        return new PlanBuilder(translations, relationPlan.getRoot());
+    }
+
+    private RelationPlan planImplicitTable()
+    {
+        // TODO: replace this with a table-generating operator that produces 1 row with no columns
+
+        RelationPlan relationPlan;QualifiedTableName name = MetadataUtil.createQualifiedTableName(session, QualifiedName.of("dual"));
+        TableMetadata tableMetadata = metadata.getTable(name);
+        TableHandle table = tableMetadata.getTableHandle().get();
+
+        ImmutableMap.Builder<Symbol, ColumnHandle> columns = ImmutableMap.builder();
+        for (ColumnMetadata column : tableMetadata.getColumns()) {
+            Symbol symbol = symbolAllocator.newSymbol(column.getName(), Type.fromRaw(column.getType()));
+            columns.put(symbol, column.getColumnHandle().get());
+        }
+
+        TableScanNode tableScan = new TableScanNode(idAllocator.getNextId(), table, columns.build());
+
+        relationPlan = new RelationPlan(ImmutableMap.<Field, Symbol>of(), tableScan, new TupleDescriptor(ImmutableList.<Field>of()));
+        return relationPlan;
     }
 
     private PlanBuilder filter(PlanBuilder subPlan, Expression predicate)
@@ -205,7 +255,8 @@ class QueryPlanner
             functionHandles.put(newSymbol, analysis.getFunctionInfo(windowFunction).getHandle());
 
             // create window node
-            subPlan = new PlanBuilder(outputTranslations, new WindowNode(idAllocator.getNextId(), subPlan.getRoot(), partitionBySymbols.build(), orderBySymbols.build(), orderings, assignments.build(), functionHandles));
+            subPlan = new PlanBuilder(outputTranslations,
+                    new WindowNode(idAllocator.getNextId(), subPlan.getRoot(), partitionBySymbols.build(), orderBySymbols.build(), orderings, assignments.build(), functionHandles));
         }
 
         return subPlan;

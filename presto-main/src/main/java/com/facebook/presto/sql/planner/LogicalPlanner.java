@@ -78,7 +78,7 @@ public class LogicalPlanner
             plan = createTableWriterPlan(analysis);
         }
         else {
-            RelationPlanner planner = new RelationPlanner(analysis, symbolAllocator, idAllocator);
+            RelationPlanner planner = new RelationPlanner(analysis, symbolAllocator, idAllocator, metadata, session);
             plan = planner.process(analysis.getQuery(), null);
         }
 
@@ -135,7 +135,7 @@ public class LogicalPlanner
             columnHandles = columnHandleBuilder.build();
         }
         else {
-            RelationPlanner planner = new RelationPlanner(analysis, symbolAllocator, idAllocator);
+            RelationPlanner planner = new RelationPlanner(analysis, symbolAllocator, idAllocator, metadata, session);
             plan = planner.process(analysis.getQuery(), null);
 
             // TODO: create table and periodic import in pre-execution step, not here

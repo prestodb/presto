@@ -32,8 +32,6 @@ public class Query
     {
         checkNotNull(with, "with is null");
         checkNotNull(select, "select is null");
-        checkNotNull(from, "from is null");
-        checkArgument(!from.isEmpty(), "from is empty");
         checkNotNull(groupBy, "groupBy is null");
         checkNotNull(orderBy, "orderBy is null");
         checkNotNull(where, "where is null");
