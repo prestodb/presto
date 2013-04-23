@@ -385,6 +385,7 @@ caseExpression returns [Expression value]
     | ^(COALESCE exprList)                   { $value = new CoalesceExpression($exprList.value); }
     | ^(SIMPLE_CASE v=expr whenList e=expr?) { $value = new SimpleCaseExpression($v.value, $whenList.value, $e.value); }
     | ^(SEARCHED_CASE whenList e=expr?)      { $value = new SearchedCaseExpression($whenList.value, $e.value); }
+    | ^(IF c=expr t=expr f=expr?)            { $value = new IfExpression($c.value, $t.value, $f.value); }
     ;
 
 whenList returns [List<WhenClause> value = new ArrayList<>()]

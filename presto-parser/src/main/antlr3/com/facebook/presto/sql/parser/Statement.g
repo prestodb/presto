@@ -416,6 +416,7 @@ caseExpression
     | COALESCE '(' expr (',' expr)* ')'     -> ^(COALESCE expr+)
     | CASE expr whenClause+ elseClause? END -> ^(SIMPLE_CASE expr whenClause+ elseClause?)
     | CASE whenClause+ elseClause? END      -> ^(SEARCHED_CASE whenClause+ elseClause?)
+    | IF '(' expr ',' expr (',' expr)? ')'  -> ^(IF expr expr expr?)
     ;
 
 whenClause
@@ -651,6 +652,7 @@ WHEN: 'WHEN';
 THEN: 'THEN';
 ELSE: 'ELSE';
 END: 'END';
+IF: 'IF';
 JOIN: 'JOIN';
 CROSS: 'CROSS';
 OUTER: 'OUTER';

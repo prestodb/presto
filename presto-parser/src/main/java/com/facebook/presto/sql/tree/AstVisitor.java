@@ -180,6 +180,11 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
+    protected R visitIfExpression(IfExpression node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
     protected R visitNullLiteral(NullLiteral node, C context)
     {
         return visitLiteral(node, context);

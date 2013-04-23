@@ -107,6 +107,11 @@ public class NodeRewriter<C>
         return rewriteExpression(node, context, treeRewriter);
     }
 
+    public Node rewriteIfExpression(IfExpression node, C context, TreeRewriter<C> treeRewriter)
+    {
+        return rewriteExpression(node, context, treeRewriter);
+    }
+
     public Node rewriteSearchedCaseExpression(SearchedCaseExpression node, C context, TreeRewriter<C> treeRewriter)
     {
         return rewriteExpression(node, context, treeRewriter);

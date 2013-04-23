@@ -18,6 +18,7 @@ import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.InputReference;
@@ -485,6 +486,31 @@ public class ExpressionInterpreter
         }
 
         return node;
+    }
+
+    @Override
+    protected Object visitIfExpression(IfExpression node, Void context)
+    {
+        Object condition = process(node.getCondition(), context);
+
+        if (Boolean.TRUE.equals(condition)) {
+            return process(node.getTrueValue(), context);
+        }
+
+        if ((condition == null) || (Boolean.FALSE.equals(condition))) {
+            if (node.getFalseValue().isPresent()) {
+                return process(node.getFalseValue().get(), context);
+            }
+            return null;
+        }
+
+        Object trueValue = process(node.getTrueValue(), context);
+        Object falseValue = null;
+        if (node.getFalseValue().isPresent()) {
+            falseValue = process(node.getFalseValue().get(), context);
+        }
+
+        return new IfExpression(toExpression(condition), toExpression(trueValue), toExpression(falseValue));
     }
 
     @Override

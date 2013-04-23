@@ -10,6 +10,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import io.airlift.slice.Slices;
+import org.intellij.lang.annotations.Language;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.Assert;
@@ -456,12 +457,39 @@ public class TestExpressionInterpreter
                         "end");
     }
 
-    private static void assertOptimizedEquals(String actual, String expected)
+    @Test
+    public void testIf()
+            throws Exception
+    {
+        assertOptimizedEquals("IF(2 = 2, 3, 4)", "3");
+        assertOptimizedEquals("IF(1 = 2, 3, 4)", "4");
+
+        assertOptimizedEquals("IF(true, 3, 4)", "3");
+        assertOptimizedEquals("IF(false, 3, 4)", "4");
+        assertOptimizedEquals("IF(null, 3, 4)", "4");
+
+        assertOptimizedEquals("IF(true, 3, null)", "3");
+        assertOptimizedEquals("IF(false, 3, null)", "null");
+        assertOptimizedEquals("IF(true, null, 4)", "null");
+        assertOptimizedEquals("IF(false, null, 4)", "4");
+        assertOptimizedEquals("IF(true, null, null)", "null");
+        assertOptimizedEquals("IF(false, null, null)", "null");
+
+        assertOptimizedEquals("IF(true, 3.5, 4.2)", "3.5");
+        assertOptimizedEquals("IF(false, 3.5, 4.2)", "4.2");
+
+        assertOptimizedEquals("IF(true, 'foo', 'bar')", "'foo'");
+        assertOptimizedEquals("IF(false, 'foo', 'bar')", "'bar'");
+
+        assertOptimizedEquals("IF(a, 1 + 2, 3 + 4)", "IF(a, 3, 7)");
+    }
+
+    private static void assertOptimizedEquals(@Language("SQL") String actual, @Language("SQL") String expected)
     {
         assertEquals(optimize(actual), optimize(expected));
     }
 
-    private static void assertInvalidCast(String expression)
+    private static void assertInvalidCast(@Language("SQL") String expression)
     {
         try {
             Object value = optimize(expression);

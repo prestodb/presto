@@ -176,6 +176,18 @@ public class DefaultTraversalVisitor<R, C>
     }
 
     @Override
+    protected R visitIfExpression(IfExpression node, C context)
+    {
+        process(node.getCondition(), context);
+        process(node.getTrueValue(), context);
+        if (node.getFalseValue().isPresent()) {
+            process(node.getFalseValue().get(), context);
+        }
+
+        return null;
+    }
+
+    @Override
     protected R visitNegativeExpression(NegativeExpression node, C context)
     {
         return process(node.getValue(), context);
