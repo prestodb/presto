@@ -1023,6 +1023,27 @@ public abstract class AbstractTestQueries
         computeActual("WITH RECURSIVE a AS (SELECT 123 FROM dual) SELECT * FROM a");
     }
 
+    @Test
+    public void testIfExpression()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT sum(IF(orderstatus = 'F', totalprice, 0.0)) FROM orders",
+                "SELECT sum(CASE WHEN orderstatus = 'F' THEN totalprice ELSE 0.0 END) FROM orders");
+        assertQuery(
+                "SELECT sum(IF(orderstatus = 'Z', totalprice)) FROM orders",
+                "SELECT sum(CASE WHEN orderstatus = 'Z' THEN totalprice END) FROM orders");
+        assertQuery(
+                "SELECT sum(IF(orderstatus = 'F', NULL, totalprice)) FROM orders",
+                "SELECT sum(CASE WHEN orderstatus = 'F' THEN NULL ELSE totalprice END) FROM orders");
+        assertQuery(
+                "SELECT IF(orderstatus = 'Z', orderkey / 0, orderkey) FROM orders",
+                "SELECT CASE WHEN orderstatus = 'Z' THEN orderkey / 0 ELSE orderkey END FROM orders");
+        assertQuery(
+                "SELECT sum(IF(NULLIF(orderstatus, 'F') <> 'F', totalprice, 5.1)) FROM orders",
+                "SELECT sum(CASE WHEN NULLIF(orderstatus, 'F') <> 'F' THEN totalprice ELSE 5.1 END) FROM orders");
+    }
+
     @BeforeClass(alwaysRun = true)
     public void setupDatabase()
             throws Exception

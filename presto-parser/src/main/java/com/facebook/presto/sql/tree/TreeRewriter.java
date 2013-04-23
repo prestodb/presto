@@ -421,6 +421,30 @@ public final class TreeRewriter<C>
         }
 
         @Override
+        protected Node visitIfExpression(IfExpression node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Node result = nodeRewriter.rewriteIfExpression(node, context.get(), TreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression condition = rewrite(node.getCondition(), context.get());
+            Expression trueValue = rewrite(node.getTrueValue(), context.get());
+            Expression falseValue = null;
+            if (node.getFalseValue().isPresent()) {
+                falseValue = rewrite(node.getFalseValue().get(), context.get());
+            }
+
+            if ((condition != node.getCondition()) || (trueValue != node.getTrueValue()) || (falseValue != node.getFalseValue().orNull())) {
+                return new IfExpression(condition, trueValue, falseValue);
+            }
+
+            return node;
+        }
+
+        @Override
         protected Node visitSearchedCaseExpression(SearchedCaseExpression node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {
