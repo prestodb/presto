@@ -195,11 +195,7 @@ public class TestExchangeOperator
     private URI scheduleTask(TestingHttpServer httpServer)
             throws Exception
     {
-        PlanFragment planFragment = new PlanFragment(new PlanFragmentId("32"),
-                ImmutableSet.<PlanNodeId>of(), ImmutableMap.<Symbol, Type>of(),
-                new ExchangeNode(new PlanNodeId("1"),
-                        new PlanFragmentId("22"),
-                        ImmutableList.<Symbol>of()));
+        PlanFragment planFragment = new PlanFragment(new PlanFragmentId("32"), null, ImmutableMap.<Symbol, Type>of(), new ExchangeNode(new PlanNodeId("1"), new PlanFragmentId("22"), ImmutableList.<Symbol>of()));
 
         Session session = new Session(null, DEFAULT_CATALOG, DEFAULT_SCHEMA);
         TaskUpdateRequest updateRequest = new TaskUpdateRequest(session,

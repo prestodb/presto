@@ -1,6 +1,6 @@
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.execution.ExchangeOperatorFactory;
 import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.metadata.Metadata;
@@ -26,7 +26,7 @@ import com.facebook.presto.operator.TableScanOperator;
 import com.facebook.presto.operator.TableWriterOperator;
 import com.facebook.presto.operator.TopNOperator;
 import com.facebook.presto.operator.window.WindowFunction;
-import com.facebook.presto.execution.ExchangeOperatorFactory;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;

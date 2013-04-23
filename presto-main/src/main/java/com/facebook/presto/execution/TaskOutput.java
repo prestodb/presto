@@ -122,9 +122,9 @@ public class TaskOutput
         sharedBuffer.noMoreQueues();
     }
 
-    public synchronized boolean noMoreSplits(Set<PlanNodeId> sourceIds)
+    public synchronized boolean noMoreSplits(PlanNodeId sourceId)
     {
-        return this.noMoreSplits.addAll(sourceIds);
+        return this.noMoreSplits.add(sourceId);
     }
 
     public synchronized Set<PlanNodeId> getNoMoreSplits()
