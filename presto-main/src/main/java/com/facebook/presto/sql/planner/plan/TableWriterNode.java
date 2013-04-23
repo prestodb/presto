@@ -3,18 +3,15 @@ package com.facebook.presto.sql.planner.plan;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.sql.analyzer.Symbol;
-import com.facebook.presto.sql.analyzer.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.Immutable;
-
 import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 
 @Immutable
 public class TableWriterNode
@@ -22,31 +19,22 @@ public class TableWriterNode
 {
     private final PlanNode source;
     private final TableHandle tableHandle;
-    private final List<Symbol> inputSymbols;
-    private final Map<Symbol, Type> inputTypes;
-    private final Map<Symbol, ColumnHandle> columnHandles;
-    private final Map<Symbol, Type> outputTypes;
+    private final Symbol output;
+    private final Map<Symbol, ColumnHandle> columns;
 
     @JsonCreator
     public TableWriterNode(@JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
-            @JsonProperty("tableHandle") TableHandle tableHandle,
-            @JsonProperty("inputSymbols") List<Symbol> inputSymbols,
-            @JsonProperty("inputTypes") Map<Symbol, Type> inputTypes,
-            @JsonProperty("columnHandles") Map<Symbol, ColumnHandle> columnHandles,
-            @JsonProperty("outputTypes") Map<Symbol, Type> outputTypes)
+            @JsonProperty("table") TableHandle table,
+            @JsonProperty("columns") Map<Symbol, ColumnHandle> columns,
+            @JsonProperty("output") Symbol output)
     {
         super(id);
 
+        this.columns = columns;
+        this.output = output;
         this.source = checkNotNull(source, "source is null");
-        this.tableHandle = tableHandle;
-        this.inputSymbols = checkNotNull(inputSymbols, "inputSymbols is null");
-        this.inputTypes = checkNotNull(inputTypes, "inputTypes is null");
-        this.columnHandles = checkNotNull(columnHandles, "columnHandles is null");
-        this.outputTypes = checkNotNull(outputTypes, "outputTypes is null");
-
-        checkState(inputSymbols.size() == inputTypes.size(), "Got %s symbols and %s types", inputSymbols.size(), inputTypes.size());
-        checkState(inputSymbols.size() == columnHandles.size(), "Got %s symbols and %s column handles", inputSymbols.size(), columnHandles.size());
+        this.tableHandle = table;
     }
 
     @Override
@@ -62,38 +50,26 @@ public class TableWriterNode
     }
 
     @JsonProperty
-    public TableHandle getTableHandle()
+    public TableHandle getTable()
     {
         return tableHandle;
     }
 
     @JsonProperty
-    public List<Symbol> getInputSymbols()
+    public Map<Symbol, ColumnHandle> getColumns()
     {
-        return inputSymbols;
+        return columns;
     }
 
     @JsonProperty
-    public Map<Symbol, Type> getInputTypes()
+    public Symbol getOutput()
     {
-        return inputTypes;
-    }
-
-    @JsonProperty
-    public Map<Symbol, ColumnHandle> getColumnHandles()
-    {
-        return columnHandles;
-    }
-
-    @JsonProperty
-    public Map<Symbol, Type> getOutputTypes()
-    {
-        return outputTypes;
+        return output;
     }
 
     public List<Symbol> getOutputSymbols()
     {
-        return ImmutableList.copyOf(outputTypes.keySet());
+        return ImmutableList.of(output);
     }
 
     public <C, R> R accept(PlanVisitor<C, R> visitor, C context)

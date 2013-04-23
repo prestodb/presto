@@ -24,11 +24,15 @@ import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
@@ -85,12 +89,21 @@ public class DistributedLogicalPlanner
                 return current;
             }
 
+            Map<Symbol, FunctionCall> aggregations = node.getAggregations();
+            Map<Symbol, FunctionHandle> functions = node.getFunctions();
+            List<Symbol> groupBy = node.getGroupBy();
+
             // else, we need to "close" the current fragment and create an unpartitioned fragment for the final aggregation
+            return addDistributedAggregation(current, aggregations, functions, groupBy);
+        }
+
+        private SubPlanBuilder addDistributedAggregation(SubPlanBuilder plan, Map<Symbol, FunctionCall> aggregations, Map<Symbol, FunctionHandle> functions, List<Symbol> groupBy)
+        {
             Map<Symbol, FunctionCall> finalCalls = new HashMap<>();
             Map<Symbol, FunctionCall> intermediateCalls = new HashMap<>();
             Map<Symbol, FunctionHandle> intermediateFunctions = new HashMap<>();
-            for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
-                FunctionHandle functionHandle = node.getFunctions().get(entry.getKey());
+            for (Map.Entry<Symbol, FunctionCall> entry : aggregations.entrySet()) {
+                FunctionHandle functionHandle = functions.get(entry.getKey());
                 FunctionInfo function = metadata.getFunction(functionHandle);
 
                 Symbol intermediateSymbol = allocator.newSymbol(function.getName().getSuffix(), Type.fromRaw(function.getIntermediateType()));
@@ -101,15 +114,15 @@ public class DistributedLogicalPlanner
                 finalCalls.put(entry.getKey(), new FunctionCall(function.getName(), ImmutableList.<Expression>of(new QualifiedNameReference(intermediateSymbol.toQualifiedName()))));
             }
 
-            AggregationNode aggregation = new AggregationNode(idAllocator.getNextId(), current.getRoot(), node.getGroupBy(), intermediateCalls, intermediateFunctions, PARTIAL);
-            current.setRoot(new SinkNode(idAllocator.getNextId(), aggregation));
+            AggregationNode aggregation = new AggregationNode(idAllocator.getNextId(), plan.getRoot(), groupBy, intermediateCalls, intermediateFunctions, PARTIAL);
+            plan.setRoot(new SinkNode(idAllocator.getNextId(), aggregation));
 
             // create merge + aggregation plan
-            ExchangeNode source = new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols());
-            AggregationNode merged = new AggregationNode(idAllocator.getNextId(), source, node.getGroupBy(), finalCalls, node.getFunctions(), FINAL);
+            ExchangeNode source = new ExchangeNode(idAllocator.getNextId(), plan.getId(), plan.getRoot().getOutputSymbols());
+            AggregationNode merged = new AggregationNode(idAllocator.getNextId(), source, groupBy, finalCalls, functions, FINAL);
 
             return newSubPlan(merged)
-                    .addChild(current.build());
+                    .addChild(plan.build());
         }
 
         @Override
@@ -237,16 +250,36 @@ public class DistributedLogicalPlanner
         public SubPlanBuilder visitTableWriter(TableWriterNode node, Void context)
         {
             SubPlanBuilder subPlanBuilder = node.getSource().accept(this, context);
-            subPlanBuilder.setRoot(new TableWriterNode(node.getId(),
-                    subPlanBuilder.getRoot(),
-                    node.getTableHandle(),
-                    node.getInputSymbols(),
-                    node.getInputTypes(),
-                    node.getColumnHandles(),
-                    node.getOutputTypes()));
 
-            if (!createSingleNodePlan) {
-                subPlanBuilder.addPartitionedSource(node.getId());
+            if (createSingleNodePlan) {
+                subPlanBuilder.setRoot(new TableWriterNode(node.getId(),
+                        subPlanBuilder.getRoot(),
+                        node.getTable(),
+                        node.getColumns(),
+                        node.getOutput()));
+            }
+            else {
+                // Put a simple SUM(<output symbol>) on top of the table writer node
+                FunctionInfo sum = metadata.getFunction(QualifiedName.of("sum"), Lists.transform(ImmutableList.of(Type.LONG), Type.toRaw()));
+
+                Symbol intermediateOutput = allocator.newSymbol(node.getOutput().toString(), Type.fromRaw(sum.getReturnType()));
+
+                TableWriterNode writer = new TableWriterNode(node.getId(),
+                        subPlanBuilder.getRoot(),
+                        node.getTable(),
+                        node.getColumns(),
+                        intermediateOutput);
+
+                subPlanBuilder.setRoot(writer)
+                    .addPartitionedSource(node.getId());
+
+                FunctionCall aggregate = new FunctionCall(sum.getName(),
+                        ImmutableList.<Expression>of(new QualifiedNameReference(intermediateOutput.toQualifiedName())));
+
+                return addDistributedAggregation(subPlanBuilder,
+                        ImmutableMap.of(node.getOutput(), aggregate),
+                        ImmutableMap.of(node.getOutput(), sum.getHandle()),
+                        ImmutableList.<Symbol>of());
             }
 
             return subPlanBuilder;

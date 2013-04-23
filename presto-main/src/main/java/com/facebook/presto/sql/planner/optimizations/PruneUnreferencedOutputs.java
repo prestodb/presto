@@ -237,15 +237,13 @@ public class PruneUnreferencedOutputs
         public PlanNode rewriteTableWriter(TableWriterNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
         {
             // Rewrite Query subtree in terms of the symbols expected by the writer.
-            Set<Symbol> expectedInputs = ImmutableSet.copyOf(node.getInputSymbols());
+            Set<Symbol> expectedInputs = ImmutableSet.copyOf(node.getColumns().keySet());
             PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs);
             return new TableWriterNode(node.getId(),
                     source,
-                    node.getTableHandle(),
-                    node.getInputSymbols(),
-                    node.getInputTypes(),
-                    node.getColumnHandles(),
-                    node.getOutputTypes());
+                    node.getTable(),
+                    node.getColumns(),
+                    node.getOutput());
         }
     }
 }
