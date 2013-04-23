@@ -179,6 +179,13 @@ public class TestDistributedQueries
         assertTrue(functionNames.contains("abs"), "Expected function names " + functionNames + " to contain 'abs'");
     }
 
+    @Test
+    public void testNoFrom()
+            throws Exception
+    {
+        assertQuery("SELECT 1 + 2, 3 + 4", "SELECT 1 + 2, 3 + 4 FROM orders LIMIT 1");
+    }
+
     @Override
     protected void setUpQueryFramework(String catalog, String schema, TpchDataStreamProvider dataStreamProvider, TestingMetadata metadata)
             throws Exception

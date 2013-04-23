@@ -369,6 +369,21 @@ public class TestAnalyzer
 
     }
 
+    @Test
+    public void testWildcardWithoutFrom()
+            throws Exception
+    {
+        assertFails(WILDCARD_WITHOUT_FROM, "SELECT *");
+    }
+
+
+    @Test
+    public void testReferenceWithoutFrom()
+            throws Exception
+    {
+        assertFails(MISSING_ATTRIBUTE, "SELECT dummy");
+    }
+
     @BeforeMethod(alwaysRun = true)
     public void setup()
             throws Exception

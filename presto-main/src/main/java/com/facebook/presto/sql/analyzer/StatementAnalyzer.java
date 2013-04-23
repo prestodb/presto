@@ -558,7 +558,12 @@ class StatementAnalyzer
 
                 List<TupleDescriptor> descriptors = scope.getDescriptorsMatching(starPrefix);
                 if (descriptors.isEmpty()) {
-                    throw new SemanticException(MISSING_TABLE, expression, "Table '%s' not found", starPrefix.get());
+                    if (starPrefix.isPresent()) {
+                        throw new SemanticException(MISSING_TABLE, expression, "Table '%s' not found", starPrefix.get());
+                    }
+                    else {
+                        throw new SemanticException(WILDCARD_WITHOUT_FROM, expression, "SELECT * not allowed in queries without FROM clause");
+                    }
                 }
 
                 for (TupleDescriptor descriptor : descriptors) {
@@ -600,9 +605,11 @@ class StatementAnalyzer
     {
         ImmutableMultimap.Builder<Optional<QualifiedName>, TupleDescriptor> fromDescriptorBuilder = ImmutableMultimap.builder();
 
-        TupleAnalyzer analyzer = new TupleAnalyzer(analysis, session, metadata);
-        for (Relation relation : node.getFrom()) {
-            fromDescriptorBuilder.putAll(analyzer.process(relation, context));
+        if (node.getFrom() != null && !node.getFrom().isEmpty()) {
+            TupleAnalyzer analyzer = new TupleAnalyzer(analysis, session, metadata);
+            for (Relation relation : node.getFrom()) {
+                fromDescriptorBuilder.putAll(analyzer.process(relation, context));
+            }
         }
 
         // ensure each relation alias appears only once
