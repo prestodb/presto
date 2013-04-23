@@ -204,9 +204,27 @@ public class AggregationAnalyzer
                 }
             }
 
-            if (node.getFrame().isPresent() && !node.getFrame().get().accept(this, null)) {
-                WindowFrame frame = node.getFrame().get();
-                throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, frame, "Window frame must be an aggregate expression or appear in GROUP BY clause");
+            if (node.getFrame().isPresent()) {
+                node.getFrame().get().accept(this, null);
+            }
+
+            return true;
+        }
+
+        @Override
+        public Boolean visitWindowFrame(WindowFrame node, Void context)
+        {
+            Optional<Expression> start = node.getStart().getValue();
+            if (start.isPresent()) {
+                if (!start.get().accept(this, context)) {
+                    throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, start.get(), "Window frame start must be an aggregate expression or appear in GROUP BY clause");
+                }
+            }
+            if (node.getEnd().isPresent()) {
+                Optional<Expression> end = node.getEnd().get().getValue();
+                if (!end.get().accept(this, context)) {
+                    throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, start.get(), "Window frame end must be an aggregate expression or appear in GROUP BY clause");
+                }
             }
 
             return true;

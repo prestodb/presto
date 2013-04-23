@@ -109,6 +109,10 @@ public class TestAnalyzer
         assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT sum(b) / a FROM t1 GROUP BY c");
         assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT sum(b) FROM t1 ORDER BY a + 1");
         assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT a, sum(b) FROM t1 GROUP BY a HAVING c > 5");
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT count(*) over (PARTITION BY a) FROM t1 GROUP BY b");
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT count(*) over (ORDER BY a) FROM t1 GROUP BY b");
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT count(*) over (ORDER BY count(*) ROWS a PRECEDING) FROM t1 GROUP BY b");
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT count(*) over (ORDER BY count(*) ROWS BETWEEN b PRECEDING AND a PRECEDING) FROM t1 GROUP BY b");
     }
 
     @Test
@@ -241,6 +245,14 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testWindowFrameNotSupported()
+            throws Exception
+    {
+        assertFails(NOT_SUPPORTED, "SELECT count(*) over (ORDER BY a ROWS UNBOUNDED PRECEDING) FROM t1");
+        assertFails(NOT_SUPPORTED, "SELECT count(*) over (ORDER BY a ROWS UNBOUNDED FOLLOWING) FROM t1");
+    }
+
+    @Test
     public void testGroupByOrdinalsWithWildcard()
             throws Exception
     {
@@ -298,6 +310,63 @@ public class TestAnalyzer
                 "WITH a AS (SELECT * FROM b)," +
                         "     b AS (SELECT * FROM t1)" +
                         "SELECT * FROM a");
+    }
+
+    @Test
+    public void testExpressions()
+            throws Exception
+    {
+        assertFails(NOT_SUPPORTED, "SELECT CURRENT_TIME FROM t1");
+        assertFails(NOT_SUPPORTED, "SELECT CURRENT_TIMESTAMP (1) FROM t1");
+        assertFails(NOT_SUPPORTED, "SELECT CURRENT_DATE FROM t1");
+
+        // logical not
+        assertFails(TYPE_MISMATCH, "SELECT NOT 1 FROM t1");
+
+        // logical and/or
+        assertFails(TYPE_MISMATCH, "SELECT 1 AND TRUE FROM t1");
+        assertFails(TYPE_MISMATCH, "SELECT TRUE AND 1 FROM t1");
+        assertFails(TYPE_MISMATCH, "SELECT 1 OR TRUE FROM t1");
+        assertFails(TYPE_MISMATCH, "SELECT TRUE OR 1 FROM t1");
+
+        // comparison
+        assertFails(TYPE_MISMATCH, "SELECT 1 = 'a' FROM t1");
+
+        // nullif
+        assertFails(TYPE_MISMATCH, "SELECT NULLIF(1, 'a') FROM t1");
+
+        // case
+        assertFails(TYPE_MISMATCH, "SELECT CASE WHEN TRUE THEN 'a' ELSE 1 END FROM t1");
+        assertFails(TYPE_MISMATCH, "SELECT CASE WHEN '1' THEN 1 ELSE 2 END FROM t1");
+
+        assertFails(TYPE_MISMATCH, "SELECT CASE 1 WHEN 'a' THEN 2 END FROM t1");
+        assertFails(TYPE_MISMATCH, "SELECT CASE 1 WHEN 1 THEN 2 ELSE 'a' END FROM t1");
+
+        // coalesce
+        assertFails(TYPE_MISMATCH, "SELECT COALESCE(1, 'a') FROM t1");
+
+        // arithmetic negation
+        assertFails(TYPE_MISMATCH, "SELECT -'a' FROM t1");
+
+        // arithmetic addition/subtraction
+        assertFails(TYPE_MISMATCH, "SELECT 'a' + 1 FROM t1");
+        assertFails(TYPE_MISMATCH, "SELECT 1 + 'a'  FROM t1");
+        assertFails(TYPE_MISMATCH, "SELECT 'a' - 1 FROM t1");
+        assertFails(TYPE_MISMATCH, "SELECT 1 - 'a' FROM t1");
+
+        // like
+        assertFails(TYPE_MISMATCH, "SELECT 1 LIKE 'a' FROM t1");
+        assertFails(TYPE_MISMATCH, "SELECT 'a' LIKE 1 FROM t1");
+        assertFails(TYPE_MISMATCH, "SELECT 'a' LIKE 'b' ESCAPE 1 FROM t1");
+
+        // extract
+        assertFails(TYPE_MISMATCH, "SELECT EXTRACT(DAY FROM 'a') FROM t1");
+
+        // between
+        assertFails(TYPE_MISMATCH, "SELECT 1 BETWEEN 'a' AND 2 FROM t1");
+        assertFails(TYPE_MISMATCH, "SELECT 1 BETWEEN 0 AND 'b' FROM t1");
+        assertFails(TYPE_MISMATCH, "SELECT 1 BETWEEN 'a' AND 'b' FROM t1");
+
     }
 
     @BeforeMethod(alwaysRun = true)
