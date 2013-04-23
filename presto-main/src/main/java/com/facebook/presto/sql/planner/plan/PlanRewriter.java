@@ -238,11 +238,9 @@ public final class PlanRewriter<C>
             if (source != node.getSource()) {
                 return new TableWriterNode(node.getId(),
                         source,
-                        node.getTableHandle(),
-                        node.getInputSymbols(),
-                        node.getInputTypes(),
-                        node.getColumnHandles(),
-                        node.getOutputTypes());
+                        node.getTable(),
+                        node.getColumns(),
+                        node.getOutput());
             }
 
             return node;

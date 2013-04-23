@@ -55,7 +55,7 @@ public class TableWriter
         this.tableWriterNode = checkNotNull(tableWriterNode, "tableWriterNode is null");
         this.shardManager = checkNotNull(shardManager, "shardManager is null");
 
-        this.remainingPartitions.addAll(shardManager.getPartitions(tableWriterNode.getTableHandle()));
+        this.remainingPartitions.addAll(shardManager.getPartitions(tableWriterNode.getTable()));
     }
 
     public OutputReceiver getOutputReceiver()
@@ -91,7 +91,7 @@ public class TableWriter
             for (Long shardId : shardIds) {
                 builder.put(shardId, shardsDone.get(shardId));
             }
-            shardManager.commitPartition(tableWriterNode.getTableHandle(), partitionName, builder.build());
+            shardManager.commitPartition(tableWriterNode.getTable(), partitionName, builder.build());
             checkState(shardsInFlight.addAndGet(-shardIds.size()) >= 0, "shards in flight crashed into the ground");
             partitionsDone.add(partitionName);
         }
@@ -146,7 +146,7 @@ public class TableWriter
         // drop all the partitions that were not found when scanning through the partitions
         // from the source.
         for (String partition : remainingPartitions) {
-            shardManager.dropPartition(tableWriterNode.getTableHandle(), partition);
+            shardManager.dropPartition(tableWriterNode.getTable(), partition);
         }
     }
 
@@ -204,7 +204,7 @@ public class TableWriter
                 checkState(sourceSplits.size() == 1, "Can only augment single table splits");
                 Map.Entry<PlanNodeId, ? extends Split> split = Iterables.getOnlyElement(sourceSplits.entrySet());
 
-                NativeSplit writingSplit = new NativeSplit(shardManager.allocateShard(tableWriterNode.getTableHandle()));
+                NativeSplit writingSplit = new NativeSplit(shardManager.allocateShard(tableWriterNode.getTable()));
 
                 String partition = "unpartitioned";
                 boolean lastSplit = false;

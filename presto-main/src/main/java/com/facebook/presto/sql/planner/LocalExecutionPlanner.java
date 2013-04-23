@@ -509,37 +509,23 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitTableWriter(TableWriterNode node, LocalExecutionPlanContext context)
         {
-            LocalExecutionPlanner queryPlanner = new LocalExecutionPlanner(session,
-                    nodeInfo,
-                    metadata,
-                    node.getInputTypes(),
-                    operatorStats,
-                    joinHashFactory,
-                    maxOperatorMemoryUsage,
-                    dataStreamProvider,
-                    storageManager,
-                    exchangeOperatorFactory);
+            PhysicalOperation query = node.getSource().accept(this, context);
 
-            PhysicalOperation query = node.getSource().accept(queryPlanner.new Visitor(), context);
-
-            // introduce a projection to match the expected output
-            IdentityProjectionInfo mappings = computeIdentityMapping(node.getInputSymbols(), query.getLayout(), node.getInputTypes());
-            Operator sourceOperator = new FilterAndProjectOperator(query.getOperator(), FilterFunctions.TRUE_FUNCTION, mappings.getProjections());
-
-            Symbol outputSymbol = Iterables.getOnlyElement(node.getOutputTypes().keySet());
-
-
-            ImmutableList.Builder<ColumnHandle> columnHandlesBuilder = ImmutableList.builder();
-
-            for (Symbol inputSymbol : node.getInputSymbols()) {
-                ColumnHandle columnHandle = node.getColumnHandles().get(inputSymbol);
-                checkState(columnHandle != null, "No column handle for %s found!", inputSymbol);
-                columnHandlesBuilder.add(columnHandle);
+            ImmutableList.Builder<ColumnHandle> columns = ImmutableList.builder();
+            ImmutableList.Builder<Symbol> symbols = ImmutableList.builder();
+            for (Map.Entry<Symbol, ColumnHandle> entry : node.getColumns().entrySet()) {
+                symbols.add(entry.getKey());
+                columns.add(entry.getValue());
             }
 
+            // introduce a projection to match the expected output
+            IdentityProjectionInfo mappings = computeIdentityMapping(symbols.build(), query.getLayout(), types);
+            Operator sourceOperator = new FilterAndProjectOperator(query.getOperator(), FilterFunctions.TRUE_FUNCTION, mappings.getProjections());
+
+            Symbol outputSymbol = Iterables.getOnlyElement(node.getOutputSymbols());
             TableWriterOperator operator = new TableWriterOperator(storageManager,
                     nodeInfo.getNodeId(),
-                    columnHandlesBuilder.build(),
+                    columns.build(),
                     sourceOperator);
 
             context.addSourceOperator(node, operator);
