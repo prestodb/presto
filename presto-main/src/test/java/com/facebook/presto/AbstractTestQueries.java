@@ -1082,7 +1082,7 @@ public abstract class AbstractTestQueries
 
     protected abstract MaterializedResult computeActual(@Language("SQL") String sql);
 
-    private void assertQuery(@Language("SQL") String sql)
+    protected void assertQuery(@Language("SQL") String sql)
             throws Exception
     {
         assertQuery(sql, sql, false);
@@ -1094,7 +1094,7 @@ public abstract class AbstractTestQueries
         assertQuery(sql, sql, true);
     }
 
-    private void assertQuery(@Language("SQL") String actual, @Language("SQL") String expected)
+    protected void assertQuery(@Language("SQL") String actual, @Language("SQL") String expected)
             throws Exception
     {
         assertQuery(actual, expected, false);
