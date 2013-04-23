@@ -62,6 +62,9 @@ import static com.facebook.presto.sql.tree.QueryUtil.table;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.instanceOf;
 
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.*;
+
+
 class StatementAnalyzer
         extends DefaultTraversalVisitor<TupleDescriptor, AnalysisContext>
 {
@@ -86,7 +89,7 @@ class StatementAnalyzer
         if (schema != null) {
             List<String> parts = schema.getParts();
             if (parts.size() > 2) {
-                throw new SemanticException(showTables, "too many parts in schema name: %s", schema);
+                throw new SemanticException(INVALID_SCHEMA_NAME, showTables, "too many parts in schema name: %s", schema);
             }
             if (parts.size() == 2) {
                 catalogName = parts.get(0);
@@ -212,13 +215,13 @@ class StatementAnalyzer
         TableMetadata tableMetadata = metadata.getTable(targetTable);
 
         if (tableMetadata != null) {
-            throw new SemanticException(node, "Destination table '%s' already exists", targetTable);
+            throw new SemanticException(TABLE_ALREADY_EXISTS, node, "Destination table '%s' already exists", targetTable);
         }
 
         if (node.getRefresh().isPresent()) {
             int refreshInterval = Integer.parseInt(node.getRefresh().get());
             if (refreshInterval <= 0) {
-                throw new SemanticException(node, "Refresh interval must be > 0 (was %s)", refreshInterval);
+                throw new SemanticException(INVALID_MATERIALIZED_VIEW_REFRESH_INTERVAL, node, "Refresh interval must be > 0 (was %s)", refreshInterval);
             }
 
             analysis.setRefreshInterval(Optional.of(refreshInterval));
@@ -240,7 +243,7 @@ class StatementAnalyzer
 
         TableMetadata tableMetadata = metadata.getTable(targetTable);
         if (tableMetadata == null) {
-            throw new SemanticException(node, "Destination table '%s' does not exist", targetTable);
+            throw new SemanticException(MISSING_TABLE, node, "Destination table '%s' does not exist", targetTable);
         }
 
         checkState(tableMetadata.getTableHandle().get().getDataSourceType() == DataSourceType.NATIVE, "Cannot import into non-native table %s", tableMetadata.getTable());
@@ -284,12 +287,12 @@ class StatementAnalyzer
 
         With with = node.getWith().get();
         if (with.isRecursive()) {
-            throw new SemanticException(with, "Recursive WITH queries are not supported");
+            throw new SemanticException(NOT_SUPPORTED, with, "Recursive WITH queries are not supported");
         }
 
         for (WithQuery withQuery : with.getQueries()) {
             if (withQuery.getColumnNames() != null && !withQuery.getColumnNames().isEmpty()) {
-                throw new SemanticException(withQuery, "Column alias not supported in WITH queries");
+                throw new SemanticException(NOT_SUPPORTED, withQuery, "Column alias not supported in WITH queries");
             }
 
             Query query = withQuery.getQuery();
@@ -297,7 +300,7 @@ class StatementAnalyzer
 
             String name = withQuery.getName();
             if (context.isNamedQueryDeclared(name)) {
-                throw new SemanticException(withQuery, "WITH query name '%s' specified more than once", name);
+                throw new SemanticException(DUPLICATE_RELATION, withQuery, "WITH query name '%s' specified more than once", name);
             }
 
             context.addNamedQuery(name, query);
@@ -359,17 +362,17 @@ class StatementAnalyzer
             }
 
             if (!nestedExtractor.getWindowFunctions().isEmpty()) {
-                throw new SemanticException(node, "Cannot nest window functions inside window function '%s': %s",
+                throw new SemanticException(NESTED_WINDOW, node, "Cannot nest window functions inside window function '%s': %s",
                         ExpressionFormatter.toString(windowFunction),
                         Iterables.transform(extractor.getWindowFunctions(), ExpressionFormatter.expressionFormatterFunction()));
             }
 
             if (windowFunction.isDistinct()) {
-                throw new SemanticException(node, "DISTINCT in window function parameters not yet supported: %s", ExpressionFormatter.toString(windowFunction));
+                throw new SemanticException(NOT_SUPPORTED, node, "DISTINCT in window function parameters not yet supported: %s", ExpressionFormatter.toString(windowFunction));
             }
 
             if (window.getFrame().isPresent()) {
-                throw new SemanticException(node, "Window frames not yet supported");
+                throw new SemanticException(NOT_SUPPORTED, node, "Window frames not yet supported");
             }
 
             List<TupleInfo.Type> argumentTypes = Lists.transform(windowFunction.getArguments(), new Function<Expression, TupleInfo.Type>()
@@ -383,7 +386,7 @@ class StatementAnalyzer
 
             FunctionInfo info = metadata.getFunction(windowFunction.getName(), argumentTypes);
             if (!info.isWindow()) {
-                throw new SemanticException(node, "Not a window function: %s", windowFunction.getName());
+                throw new SemanticException(MUST_BE_WINDOW_FUNCTION, node, "Not a window function: %s", windowFunction.getName());
             }
         }
 
@@ -398,7 +401,7 @@ class StatementAnalyzer
             Type type = Analyzer.analyzeExpression(metadata, scope, analysis, predicate);
 
             if (type != Type.BOOLEAN && type != Type.NULL) {
-                throw new SemanticException(predicate, "HAVING clause must evaluate to a boolean: actual type %s", type);
+                throw new SemanticException(TYPE_MISMATCH, predicate, "HAVING clause must evaluate to a boolean: actual type %s", type);
             }
 
             analysis.setHaving(node, predicate);
@@ -428,7 +431,7 @@ class StatementAnalyzer
                     QualifiedName name = ((QualifiedNameReference) expression).getName();
                     Collection<AliasedExpression> expressions = byAlias.get(name.getSuffix());
                     if (expressions.size() > 1) {
-                        throw new SemanticException(expression, "'%s' in ORDER BY is ambiguous", name.getSuffix());
+                        throw new SemanticException(AMBIGUOUS_ATTRIBUTE, expression, "'%s' in ORDER BY is ambiguous", name.getSuffix());
                     }
                     else if (expressions.size() == 1) {
                         orderByExpression = new FieldOrExpression(unalias(Iterables.getOnlyElement(expressions)));
@@ -441,7 +444,7 @@ class StatementAnalyzer
 
                     long ordinal = ((LongLiteral) expression).getValue();
                     if (ordinal < 1 || ordinal > outputExpressions.size()) {
-                        throw new SemanticException(expression, "ORDER BY position %s is not in select list", ordinal);
+                        throw new SemanticException(INVALID_ORDINAL, expression, "ORDER BY position %s is not in select list", ordinal);
                     }
 
                     orderByExpression = outputExpressions.get((int) (ordinal - 1));
@@ -464,7 +467,7 @@ class StatementAnalyzer
         analysis.setOrderByExpressions(node, orderByExpressions);
 
         if (node.getSelect().isDistinct() && !outputExpressions.containsAll(orderByExpressions)) {
-            throw new SemanticException(node.getSelect(), "For SELECT DISTINCT, ORDER BY expressions must appear in select list");
+            throw new SemanticException(ORDER_BY_MUST_BE_IN_SELECT, node.getSelect(), "For SELECT DISTINCT, ORDER BY expressions must appear in select list");
         }
         return orderByExpressions;
     }
@@ -482,7 +485,7 @@ class StatementAnalyzer
                 if (expression instanceof LongLiteral) {
                     long ordinal = ((LongLiteral) expression).getValue();
                     if (ordinal < 1 || ordinal > outputExpressions.size()) {
-                        throw new SemanticException(expression, "GROUP BY position %s is not in select list", ordinal);
+                        throw new SemanticException(INVALID_ORDINAL, expression, "GROUP BY position %s is not in select list", ordinal);
                     }
 
                     groupByExpression = outputExpressions.get((int) (ordinal - 1));
@@ -555,7 +558,7 @@ class StatementAnalyzer
 
                 List<TupleDescriptor> descriptors = scope.getDescriptorsMatching(starPrefix);
                 if (descriptors.isEmpty()) {
-                    throw new SemanticException(expression, "Table '%s' not found", starPrefix.get());
+                    throw new SemanticException(MISSING_TABLE, expression, "Table '%s' not found", starPrefix.get());
                 }
 
                 for (TupleDescriptor descriptor : descriptors) {
@@ -586,7 +589,7 @@ class StatementAnalyzer
             Type type = Analyzer.analyzeExpression(metadata, scope, analysis, predicate);
 
             if (type != Type.BOOLEAN && type != Type.NULL) {
-                throw new SemanticException(predicate, "WHERE clause must evaluate to a boolean: actual type %s", type);
+                throw new SemanticException(TYPE_MISMATCH, predicate, "WHERE clause must evaluate to a boolean: actual type %s", type);
             }
 
             analysis.setWhere(node, predicate);
@@ -607,7 +610,7 @@ class StatementAnalyzer
 
         for (Optional<QualifiedName> alias : fromDescriptors.keys()) {
             if (alias.isPresent() && fromDescriptors.keys().count(alias) > 1) {
-                throw new SemanticException(node, "Relation '%s' appears more than once", alias.get());
+                throw new SemanticException(DUPLICATE_RELATION, node, "Relation '%s' appears more than once", alias.get());
             }
         }
 
@@ -625,7 +628,7 @@ class StatementAnalyzer
         // is this an aggregation query?
         if (!aggregates.isEmpty() || !groupByExpressions.isEmpty()) {
             if (Iterables.any(aggregates, distinctPredicate())) {
-                throw new SemanticException(node, "DISTINCT in aggregation parameters not yet supported");
+                throw new SemanticException(NOT_SUPPORTED, node, "DISTINCT in aggregation parameters not yet supported");
             }
 
             // ensure SELECT, ORDER BY and HAVING are constant with respect to group
@@ -653,10 +656,10 @@ class StatementAnalyzer
         else if (!analyzer.analyze(fieldOrExpression.getField().get())) {
             Field field = fieldOrExpression.getField().get();
             if (field.getName().isPresent()) {
-                throw new SemanticException(query, "Column '%s.%s' not in GROUP BY clause", field.getRelationAlias().get(), field.getName().get());
+                throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, query, "Column '%s.%s' not in GROUP BY clause", field.getRelationAlias().get(), field.getName().get());
             }
             else {
-                throw new SemanticException(query, "Column %s from '%s' not in GROUP BY clause", field.getIndex() + 1, field.getRelationAlias().get());
+                throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, query, "Column %s from '%s' not in GROUP BY clause", field.getIndex() + 1, field.getRelationAlias().get());
             }
         }
     }

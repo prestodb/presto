@@ -13,6 +13,8 @@ import com.google.common.collect.Iterables;
 import java.util.IdentityHashMap;
 import java.util.List;
 
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.*;
+
 public class Analyzer
 {
     private final Metadata metadata;
@@ -48,7 +50,7 @@ public class Analyzer
         List<FunctionCall> found = ImmutableList.copyOf(Iterables.concat(extractor.getAggregates(), windowExtractor.getWindowFunctions()));
 
         if (!found.isEmpty()) {
-            throw new SemanticException(predicate,
+            throw new SemanticException(CANNOT_HAVE_AGGREGATIONS_OR_WINDOWS, predicate,
                     "%s clause cannot contain aggregations or window functions: %s",
                     clause,
                     Iterables.transform(found, ExpressionFormatter.expressionFormatterFunction()));

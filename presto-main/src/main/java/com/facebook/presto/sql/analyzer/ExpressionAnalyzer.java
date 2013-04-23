@@ -51,6 +51,8 @@ import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
 
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.*;
+
 public class ExpressionAnalyzer
 {
     private final Metadata metadata;
@@ -99,11 +101,11 @@ public class ExpressionAnalyzer
         protected Type visitCurrentTime(CurrentTime node, Void context)
         {
             if (node.getType() != CurrentTime.Type.TIMESTAMP) {
-                throw new SemanticException(node, "%s not yet supported", node.getType().getName());
+                throw new SemanticException(NOT_SUPPORTED, node, "%s not yet supported", node.getType().getName());
             }
 
             if (node.getPrecision() != null) {
-                throw new SemanticException(node, "non-default precision not yet supported");
+                throw new SemanticException(NOT_SUPPORTED, node, "non-default precision not yet supported");
             }
 
             subExpressionTypes.put(node, Type.LONG);
@@ -115,7 +117,7 @@ public class ExpressionAnalyzer
         {
             List<Field> matches = scope.resolve(node.getName());
             if (matches.isEmpty()) {
-                throw new SemanticException(node, "Attribute '%s' cannot be resolved", node.getName());
+                throw new SemanticException(MISSING_ATTRIBUTE, node, "Attribute '%s' cannot be resolved", node.getName());
             }
             else if (matches.size() > 1) {
                 List<String> names = Lists.transform(matches, new Function<Field, String>()
@@ -132,7 +134,7 @@ public class ExpressionAnalyzer
                     }
                 });
 
-                throw new SemanticException(node, "Attribute '%s' is ambiguous: %s", node.getName(), names);
+                throw new SemanticException(AMBIGUOUS_ATTRIBUTE, node, "Attribute '%s' is ambiguous: %s", node.getName(), names);
             }
 
             Field field = Iterables.getOnlyElement(matches);
@@ -147,7 +149,7 @@ public class ExpressionAnalyzer
         {
             Type value = process(node.getValue(), context);
             if (value != Type.BOOLEAN) {
-                throw new SemanticException(node.getValue(), "Value of logical NOT expression must evaluate to a BOOLEAN (actual: %s)", value);
+                throw new SemanticException(TYPE_MISMATCH, node.getValue(), "Value of logical NOT expression must evaluate to a BOOLEAN (actual: %s)", value);
             }
 
             subExpressionTypes.put(node, Type.BOOLEAN);
@@ -159,11 +161,11 @@ public class ExpressionAnalyzer
         {
             Type left = process(node.getLeft(), context);
             if (left != Type.BOOLEAN) {
-                throw new SemanticException(node.getLeft(), "Left side of logical expression must evaluate to a BOOLEAN (actual: %s)", left);
+                throw new SemanticException(TYPE_MISMATCH, node.getLeft(), "Left side of logical expression must evaluate to a BOOLEAN (actual: %s)", left);
             }
             Type right = process(node.getRight(), context);
             if (right != Type.BOOLEAN) {
-                throw new SemanticException(node.getRight(), "Right side of logical expression must evaluate to a BOOLEAN (actual: %s)", right);
+                throw new SemanticException(TYPE_MISMATCH, node.getRight(), "Right side of logical expression must evaluate to a BOOLEAN (actual: %s)", right);
             }
 
             subExpressionTypes.put(node, Type.BOOLEAN);
@@ -177,7 +179,7 @@ public class ExpressionAnalyzer
             Type right = process(node.getRight(), context);
 
             if (left != right && !(Type.isNumeric(left) && Type.isNumeric(right))) {
-                throw new SemanticException(node, "Types are not comparable with '%s': %s vs %s", node.getType().getValue(), left, right);
+                throw new SemanticException(TYPE_MISMATCH, node, "Types are not comparable with '%s': %s vs %s", node.getType().getValue(), left, right);
             }
 
             subExpressionTypes.put(node, Type.BOOLEAN);
@@ -209,7 +211,7 @@ public class ExpressionAnalyzer
             Type second = process(node.getSecond(), context);
 
             if (first != second && !(Type.isNumeric(first) && Type.isNumeric(second))) {
-                throw new SemanticException(node, "Types are not comparable with nullif: %s vs %s", first, second);
+                throw new SemanticException(TYPE_MISMATCH, node, "Types are not comparable with nullif: %s vs %s", first, second);
             }
 
             subExpressionTypes.put(node, first);
@@ -222,7 +224,7 @@ public class ExpressionAnalyzer
             for (WhenClause whenClause : node.getWhenClauses()) {
                 Type whenOperand = process(whenClause.getOperand(), context);
                 if (!isBooleanOrNull(whenOperand)) {
-                    throw new SemanticException(node, "WHEN clause must be a boolean type: %s", whenOperand);
+                    throw new SemanticException(TYPE_MISMATCH, node, "WHEN clause must be a boolean type: %s", whenOperand);
                 }
             }
 
@@ -247,7 +249,7 @@ public class ExpressionAnalyzer
             for (WhenClause whenClause : node.getWhenClauses()) {
                 Type whenOperand = process(whenClause.getOperand(), context);
                 if (!sameType(operand, whenOperand)) {
-                    throw new SemanticException(node, "CASE operand type does not match WHEN clause operand type: %s vs %s", operand, whenOperand);
+                    throw new SemanticException(TYPE_MISMATCH, node, "CASE operand type does not match WHEN clause operand type: %s vs %s", operand, whenOperand);
                 }
             }
 
@@ -284,7 +286,7 @@ public class ExpressionAnalyzer
             subTypes = ImmutableList.copyOf(filter(subTypes, not(equalTo(Type.NULL))));
             Type firstOperand = Iterables.get(subTypes, 0);
             if (!Iterables.all(subTypes, sameTypePredicate(firstOperand))) {
-                throw new SemanticException(node, "All %s must be the same type: %s", subTypeName, subTypes);
+                throw new SemanticException(TYPE_MISMATCH, node, "All %s must be the same type: %s", subTypeName, subTypes);
             }
             return firstOperand;
         }
@@ -294,7 +296,7 @@ public class ExpressionAnalyzer
         {
             Type type = process(node.getValue(), context);
             if (!Type.isNumeric(type)) {
-                throw new SemanticException(node.getValue(), "Value of negative operator must be numeric (actual: %s)", type);
+                throw new SemanticException(TYPE_MISMATCH, node.getValue(), "Value of negative operator must be numeric (actual: %s)", type);
             }
 
             subExpressionTypes.put(node, type);
@@ -308,10 +310,10 @@ public class ExpressionAnalyzer
             Type right = process(node.getRight(), context);
 
             if (!Type.isNumeric(left)) {
-                throw new SemanticException(node.getLeft(), "Left side of '%s' must be numeric (actual: %s)", node.getType().getValue(), left);
+                throw new SemanticException(TYPE_MISMATCH, node.getLeft(), "Left side of '%s' must be numeric (actual: %s)", node.getType().getValue(), left);
             }
             if (!Type.isNumeric(right)) {
-                throw new SemanticException(node.getRight(), "Right side of '%s' must be numeric (actual: %s)", node.getType().getValue(), right);
+                throw new SemanticException(TYPE_MISMATCH, node.getRight(), "Right side of '%s' must be numeric (actual: %s)", node.getType().getValue(), right);
             }
 
             if (left == Type.LONG && right == Type.LONG) {
@@ -328,18 +330,18 @@ public class ExpressionAnalyzer
         {
             Type value = process(node.getValue(), context);
             if (value != Type.STRING && value != Type.NULL) {
-                throw new SemanticException(node.getValue(), "Left side of LIKE expression must be a STRING (actual: %s)", value);
+                throw new SemanticException(TYPE_MISMATCH, node.getValue(), "Left side of LIKE expression must be a STRING (actual: %s)", value);
             }
 
             Type pattern = process(node.getPattern(), context);
             if (pattern != Type.STRING && pattern != Type.NULL) {
-                throw new SemanticException(node.getValue(), "Pattern for LIKE expression must be a STRING (actual: %s)", pattern);
+                throw new SemanticException(TYPE_MISMATCH, node.getValue(), "Pattern for LIKE expression must be a STRING (actual: %s)", pattern);
             }
 
             if (node.getEscape() != null) {
                 Type escape = process(node.getEscape(), context);
                 if (escape != Type.STRING && escape != Type.NULL) {
-                    throw new SemanticException(node.getValue(), "Escape for LIKE expression must be a STRING (actual: %s)", escape);
+                    throw new SemanticException(TYPE_MISMATCH, node.getValue(), "Escape for LIKE expression must be a STRING (actual: %s)", escape);
                 }
             }
 
@@ -423,7 +425,7 @@ public class ExpressionAnalyzer
         {
             Type type = process(node.getExpression(), context);
             if (type != Type.LONG) {
-                throw new SemanticException(node.getExpression(), "Type of argument to extract must be LONG (actual %s)", type);
+                throw new SemanticException(TYPE_MISMATCH, node.getExpression(), "Type of argument to extract must be LONG (actual %s)", type);
             }
 
             subExpressionTypes.put(node, Type.LONG);
@@ -445,7 +447,7 @@ public class ExpressionAnalyzer
                 subExpressionTypes.put(node, Type.BOOLEAN);
                 return Type.BOOLEAN;
             }
-            throw new SemanticException(node.getValue(), "Between value, min and max must be the same type (value: %s, min: %s, max: %s)", value, min, max);
+            throw new SemanticException(TYPE_MISMATCH, node.getValue(), "Between value, min and max must be the same type (value: %s, min: %s, max: %s)", value, min, max);
         }
 
         @Override
@@ -468,7 +470,7 @@ public class ExpressionAnalyzer
                     type = Type.STRING;
                     break;
                 default:
-                    throw new SemanticException(node, "Cannot cast to type: " + node.getType());
+                    throw new SemanticException(TYPE_MISMATCH, node, "Cannot cast to type: " + node.getType());
             }
             subExpressionTypes.put(node, type);
             return type;
