@@ -8,7 +8,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -18,8 +17,8 @@ public class SubPlanBuilder
 {
     private final PlanFragmentId id;
     private PlanNode root;
+    private PlanNodeId partitionedSource;
     private List<SubPlan> children = new ArrayList<>();
-    private final Set<PlanNodeId> partitionedSources = new HashSet<>();
 
     private final SymbolAllocator allocator;
 
@@ -53,17 +52,17 @@ public class SubPlanBuilder
 
     public boolean isPartitioned()
     {
-        return !partitionedSources.isEmpty();
+        return partitionedSource != null;
     }
 
-    public Set<PlanNodeId> getPartitionedSources()
+    public PlanNodeId getPartitionedSource()
     {
-        return partitionedSources;
+        return partitionedSource;
     }
 
-    public SubPlanBuilder addPartitionedSource(PlanNodeId partitionedSource)
+    public SubPlanBuilder setPartitionedSource(PlanNodeId partitionedSource)
     {
-        this.partitionedSources.add(partitionedSource);
+        this.partitionedSource = partitionedSource;
         return this;
     }
 
@@ -88,7 +87,7 @@ public class SubPlanBuilder
     {
         Set<Symbol> dependencies = SymbolExtractor.extract(root);
 
-        PlanFragment fragment = new PlanFragment(id, partitionedSources, Maps.filterKeys(allocator.getTypes(), in(dependencies)), root);
+        PlanFragment fragment = new PlanFragment(id, partitionedSource, Maps.filterKeys(allocator.getTypes(), in(dependencies)), root);
 
         return new SubPlan(fragment, children);
     }

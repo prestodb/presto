@@ -3,6 +3,7 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.operator.TableWriterResult;
 import com.facebook.presto.spi.PartitionInfo;
+import com.facebook.presto.split.CollocatedSplit;
 import com.facebook.presto.split.NativeSplit;
 import com.facebook.presto.split.PartitionedSplit;
 import com.facebook.presto.split.Split;
@@ -13,7 +14,6 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
 import java.util.Iterator;
@@ -36,7 +36,7 @@ public class TableWriter
     private final Map<String, Set<Long>> finishedPartitions = new ConcurrentHashMap<>();
 
     // Which shards have already been written to disk and where.
-    private final Map<Long, String> shardsDone = new ConcurrentHashMap<Long, String>();
+    private final Map<Long, String> shardsDone = new ConcurrentHashMap<>();
 
     // Which partitions have already been committed.
     private final Set<String> partitionsDone = Sets.newSetFromMap(new ConcurrentHashMap<String, Boolean>());
@@ -97,9 +97,9 @@ public class TableWriter
         }
     }
 
-    public Iterable<SplitAssignments> getSplitAssignments(Iterable<SplitAssignments> splits)
+    public Iterable<SplitAssignments> getSplitAssignments(PlanNodeId planNodeId, Iterable<SplitAssignments> splits)
     {
-        return new TableWriterIterable(splits);
+        return new TableWriterIterable(planNodeId, splits);
     }
 
     private void addPartitionShard(String partition, boolean lastSplit, Long shardId)
@@ -171,9 +171,11 @@ public class TableWriter
     {
         private final AtomicBoolean used = new AtomicBoolean();
         private final Iterable<SplitAssignments> splits;
+        private final PlanNodeId planNodeId;
 
-        private TableWriterIterable(Iterable<SplitAssignments> splits)
+        private TableWriterIterable(PlanNodeId planNodeId, Iterable<SplitAssignments> splits)
         {
+            this.planNodeId = checkNotNull(planNodeId, "planNodeId is null");
             this.splits = checkNotNull(splits, "splits is null");
         }
 
@@ -181,17 +183,19 @@ public class TableWriter
         public Iterator<SplitAssignments> iterator()
         {
             checkState(!used.getAndSet(true), "The table writer can hand out only a single iterator");
-            return new TableWriterIterator(splits.iterator());
+            return new TableWriterIterator(planNodeId, splits.iterator());
         }
     }
 
     private class TableWriterIterator
             extends AbstractIterator<SplitAssignments>
     {
+        private final PlanNodeId planNodeId;
         private final Iterator<SplitAssignments> sourceIterator;
 
-        private TableWriterIterator(final Iterator<SplitAssignments> sourceIterator)
+        private TableWriterIterator(PlanNodeId planNodeId, Iterator<SplitAssignments> sourceIterator)
         {
+            this.planNodeId = planNodeId;
             this.sourceIterator = sourceIterator;
         }
 
@@ -200,16 +204,14 @@ public class TableWriter
         {
             if (sourceIterator.hasNext()) {
                 SplitAssignments sourceAssignment = sourceIterator.next();
-                Map<PlanNodeId, ? extends Split> sourceSplits = sourceAssignment.getSplits();
-                checkState(sourceSplits.size() == 1, "Can only augment single table splits");
-                Map.Entry<PlanNodeId, ? extends Split> split = Iterables.getOnlyElement(sourceSplits.entrySet());
+                Split split = sourceAssignment.getSplit();
 
                 NativeSplit writingSplit = new NativeSplit(shardManager.allocateShard(tableWriterNode.getTable()));
 
                 String partition = "unpartitioned";
                 boolean lastSplit = false;
-                if (split.getValue() instanceof PartitionedSplit) {
-                    PartitionedSplit partitionedSplit = (PartitionedSplit) split.getValue();
+                if (split instanceof PartitionedSplit) {
+                    PartitionedSplit partitionedSplit = (PartitionedSplit) split;
                     partition = partitionedSplit.getPartition();
                     lastSplit = partitionedSplit.isLastSplit();
                 }
@@ -217,12 +219,12 @@ public class TableWriter
                 addPartitionShard(partition, lastSplit, writingSplit.getShardId());
 
                 ImmutableMap.Builder<PlanNodeId, Split> builder = ImmutableMap.builder();
-                builder.putAll(sourceSplits);
+                builder.put(planNodeId, split);
                 builder.put(tableWriterNode.getId(), writingSplit);
-                Map<PlanNodeId, ? extends Split> newSplits = builder.build();
+                CollocatedSplit collocatedSplit = new CollocatedSplit(builder.build());
                 shardsInFlight.incrementAndGet();
 
-                return new SplitAssignments(newSplits, sourceAssignment.getNodes());
+                return new SplitAssignments(collocatedSplit, sourceAssignment.getNodes());
             }
             else {
                 finishOpenPartitions();

@@ -66,7 +66,6 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -99,16 +98,17 @@ public class HttpRemoteTask
     @GuardedBy("this")
     private CurrentRequest currentRequest;
     @GuardedBy("this")
-    private final SetMultimap<Set<PlanNodeId>, ScheduledSplit> pendingSplits = HashMultimap.create();
+    private final SetMultimap<PlanNodeId, ScheduledSplit> pendingSplits = HashMultimap.create();
+    @GuardedBy("this")
+    private boolean noMoreSplits;
     @GuardedBy("this")
     private final SetMultimap<PlanNodeId, URI> exchangeLocations = HashMultimap.create();
+    @GuardedBy("this")
+    private boolean noMoreExchangeLocations;
     @GuardedBy("this")
     private final Set<String> outputIds = new TreeSet<>();
     @GuardedBy("this")
     private boolean noMoreOutputIds;
-
-    private final AtomicBoolean noMoreSplits = new AtomicBoolean();
-    private final AtomicBoolean noMoreExchangeLocations = new AtomicBoolean();
 
     private final AsyncHttpClient httpClient;
     private final JsonCodec<TaskInfo> taskInfoCodec;
@@ -127,7 +127,7 @@ public class HttpRemoteTask
             Node node,
             URI location,
             PlanFragment planFragment,
-            @Nullable Map<PlanNodeId, ? extends Split> initialSplit,
+            Split initialSplit,
             Map<PlanNodeId, OutputReceiver> outputReceivers,
             Multimap<PlanNodeId, URI> initialExchangeLocations,
             Set<String> initialOutputIds,
@@ -150,19 +150,19 @@ public class HttpRemoteTask
         this.session = session;
         this.nodeId = node.getNodeIdentifier();
         this.planFragment = planFragment;
+        this.outputReceivers = ImmutableMap.copyOf(outputReceivers);
         this.outputIds.addAll(initialOutputIds);
         this.httpClient = httpClient;
         this.taskInfoCodec = taskInfoCodec;
         this.taskUpdateRequestCodec = taskUpdateRequestCodec;
-        tupleInfos = planFragment.getTupleInfos();
+        this.tupleInfos = planFragment.getTupleInfos();
         this.maxConsecutiveErrorCount = maxConsecutiveErrorCount;
         this.minErrorDuration = minErrorDuration;
-        this.outputReceivers = outputReceivers;
 
 
         for (Entry<PlanNodeId, URI> entry : initialExchangeLocations.entries()) {
-            ScheduledSplit scheduledSplit = new ScheduledSplit(nextSplitId.getAndIncrement(), createRemoteSplitFor(entry));
-            pendingSplits.put(ImmutableSet.of(entry.getKey()), scheduledSplit);
+            ScheduledSplit scheduledSplit = new ScheduledSplit(nextSplitId.getAndIncrement(), createRemoteSplitFor(entry.getValue()));
+            pendingSplits.put(entry.getKey(), scheduledSplit);
         }
 
         this.exchangeLocations.putAll(initialExchangeLocations);
@@ -178,7 +178,7 @@ public class HttpRemoteTask
 
         if (initialSplit != null) {
             checkState(planFragment.isPartitioned(), "Plan is not partitioned");
-            addPlanSplits(initialSplit);
+            pendingSplits.put(planFragment.getPartitionedSource(), new ScheduledSplit(nextSplitId.getAndIncrement(), initialSplit));
         }
 
         taskInfo.set(new TaskInfo(
@@ -207,18 +207,18 @@ public class HttpRemoteTask
     }
 
     @Override
-    public void addSplits(Map<PlanNodeId, ? extends Split> split)
+    public void addSplit(Split split)
     {
         Preconditions.checkState(!Thread.holdsLock(this), "Update state can not be called while holding a lock on this");
 
         synchronized (this) {
             Preconditions.checkNotNull(split, "split is null");
-            Preconditions.checkState(!noMoreSplits.get(), "noMoreSplits has already been set");
+            Preconditions.checkState(!noMoreSplits, "noMoreSplits has already been set");
             Preconditions.checkState(planFragment.isPartitioned(), "Plan is not partitioned");
 
             // only add pending split if not done
             if (!getTaskInfo().getState().isDone()) {
-                addPlanSplits(split);
+                pendingSplits.put(planFragment.getPartitionedSource(), new ScheduledSplit(nextSplitId.getAndIncrement(), split));
             }
         }
         updateState(false);
@@ -230,8 +230,8 @@ public class HttpRemoteTask
         Preconditions.checkState(!Thread.holdsLock(this), "Update state can not be called while holding a lock on this");
 
         synchronized (this) {
-            Preconditions.checkState(!noMoreSplits.get(), "noMoreSplits has already been set");
-            noMoreSplits.set(true);
+            Preconditions.checkState(!noMoreSplits, "noMoreSplits has already been set");
+            noMoreSplits = true;
         }
         updateState(false);
     }
@@ -243,7 +243,7 @@ public class HttpRemoteTask
 
         // determine which locations are new
         synchronized (this) {
-            Preconditions.checkState(!noMoreExchangeLocations.get() || exchangeLocations.entries().containsAll(additionalLocations.entries()),
+            Preconditions.checkState(!noMoreExchangeLocations || exchangeLocations.entries().containsAll(additionalLocations.entries()),
                     "Locations can not be added after noMoreExchangeLocations has been set");
 
             SetMultimap<PlanNodeId, URI> newExchangeLocations = HashMultimap.create(additionalLocations);
@@ -252,12 +252,11 @@ public class HttpRemoteTask
             // only add pending split if not done
             if (!getTaskInfo().getState().isDone()) {
                 for (Entry<PlanNodeId, URI> entry : newExchangeLocations.entries()) {
-                    ScheduledSplit scheduledSplit = new ScheduledSplit(nextSplitId.getAndIncrement(), createRemoteSplitFor(entry));
-                    pendingSplits.put(ImmutableSet.of(entry.getKey()), scheduledSplit);
+                    ScheduledSplit scheduledSplit = new ScheduledSplit(nextSplitId.getAndIncrement(), createRemoteSplitFor(entry.getValue()));
+                    pendingSplits.put(entry.getKey(), scheduledSplit);
                 }
             }
-
-            noMoreExchangeLocations.set(noMore);
+            noMoreExchangeLocations = noMore;
 
             this.exchangeLocations.putAll(additionalLocations);
         }
@@ -278,19 +277,6 @@ public class HttpRemoteTask
             this.outputIds.addAll(outputBuffers);
         }
         updateState(false);
-    }
-
-    private void addPlanSplits(Map<PlanNodeId, ? extends Split> splits)
-    {
-        checkState(planFragment.isPartitioned(), "can not add plan split to unpartitioned plan");
-        checkState(planFragment.getPartitionedSources().equals(splits.keySet()),
-                "Can only add a split matching the partition sources (%s vs %s)", planFragment.getPartitionedSources(), splits.keySet());
-
-        // enforce the invariant that the map key and the key set of the values is the same.
-        // this is required for the task source ack which relies on the fact that these sets are
-        // the same.
-        Map<PlanNodeId, ? extends Split> splitMap = ImmutableMap.copyOf(splits);
-        pendingSplits.put(splitMap.keySet(), new ScheduledSplit(nextSplitId.getAndIncrement(), splitMap));
     }
 
     private synchronized void updateTaskInfo(TaskInfo newValue)
@@ -402,10 +388,7 @@ public class HttpRemoteTask
     {
         int pendingSplitCount = 0;
         if (planFragment.isPartitioned()) {
-            Set<ScheduledSplit> partitionSplits = pendingSplits.get(planFragment.getPartitionedSources());
-            if (partitionSplits != null) {
-                pendingSplitCount = partitionSplits.size();
-            }
+            pendingSplitCount = pendingSplits.get(planFragment.getPartitionedSource()).size();
         }
         return pendingSplitCount + taskInfo.get().getStats().getQueuedSplits();
     }
@@ -414,43 +397,29 @@ public class HttpRemoteTask
     {
         ImmutableList.Builder<TaskSource> sources = ImmutableList.builder();
         if (planFragment.isPartitioned()) {
-            Set<ScheduledSplit> pendingPartitionedSplits = pendingSplits.get(planFragment.getPartitionedSources());
-
-            boolean pendingPartitionedSplitsIsEmpty = pendingPartitionedSplits == null || pendingPartitionedSplits.isEmpty();
-
-            if (!pendingPartitionedSplitsIsEmpty || noMoreSplits.get()) {
-                sources.add(new TaskSource(planFragment.getPartitionedSources(),
-                        pendingPartitionedSplits,
-                        noMoreSplits.get()));
+            Set<ScheduledSplit> splits = pendingSplits.get(planFragment.getPartitionedSource());
+            if (!splits.isEmpty() || noMoreSplits) {
+                sources.add(new TaskSource(planFragment.getPartitionedSource(), splits, noMoreSplits));
             }
         }
-
-        Set<PlanNodeId> partitionedSources = planFragment.getPartitionedSources();
-        // task sources for non-partitioning nodes (Exchange nodes)
         for (PlanNode planNode : planFragment.getSources()) {
             PlanNodeId planNodeId = planNode.getId();
-            if (partitionedSources.contains(planNodeId)) {
-                // don't schedule again for any partitioned node.
-                continue;
-            }
-
-            Set<PlanNodeId> nodeSet = ImmutableSet.of(planNodeId);
-            Set<ScheduledSplit> splits = pendingSplits.get(nodeSet);
-
-            boolean splitsIsEmpty = splits == null || splits.isEmpty();
-            if (!splitsIsEmpty || noMoreExchangeLocations.get()) {
-                sources.add(new TaskSource(nodeSet, splits, noMoreExchangeLocations.get()));
+            if (!planNodeId.equals(planFragment.getPartitionedSource())) {
+                Set<ScheduledSplit> splits = pendingSplits.get(planNodeId);
+                if (!splits.isEmpty() || noMoreExchangeLocations) {
+                    sources.add(new TaskSource(planNodeId, splits, noMoreExchangeLocations));
+                }
             }
         }
-
         return sources.build();
     }
 
     private synchronized void acknowledgeSources(List<TaskSource> sources)
     {
         for (TaskSource source : sources) {
-            for (ScheduledSplit scheduledSplit : source.getSplits()) {
-                pendingSplits.remove(source.getPlanNodeIds(), scheduledSplit);
+            PlanNodeId planNodeId = source.getPlanNodeId();
+            for (ScheduledSplit split : source.getSplits()) {
+                pendingSplits.remove(planNodeId, split);
             }
         }
     }
@@ -559,10 +528,10 @@ public class HttpRemoteTask
                 taskInfo.getOutputs()));
     }
 
-    private Map<PlanNodeId, ? extends Split> createRemoteSplitFor(Map.Entry<PlanNodeId, URI> taskLocation)
+    private RemoteSplit createRemoteSplitFor(URI taskLocation)
     {
-        URI splitLocation = uriBuilderFrom(taskLocation.getValue()).appendPath("results").appendPath(nodeId).build();
-        return ImmutableMap.of(taskLocation.getKey(), new RemoteSplit(splitLocation, tupleInfos));
+        URI splitLocation = uriBuilderFrom(taskLocation).appendPath("results").appendPath(nodeId).build();
+        return new RemoteSplit(splitLocation, tupleInfos);
     }
 
     @Override

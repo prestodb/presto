@@ -142,23 +142,23 @@ public class SplitManager
         checkNotNull(mappings, "mappings is null");
 
         if (handle instanceof NativeTableHandle) {
-            return getNativeSplitAssignments(planNodeId, (NativeTableHandle) handle);
+            return getNativeSplitAssignments((NativeTableHandle) handle);
         }
         else if (handle instanceof InternalTableHandle) {
-            return getInternalSplitAssignments(planNodeId, (InternalTableHandle) handle, predicate, mappings);
+            return getInternalSplitAssignments((InternalTableHandle) handle, predicate, mappings);
         }
         else if (handle instanceof ImportTableHandle) {
-            return getImportSplitAssignments(planNodeId, session, (ImportTableHandle) handle, predicate, mappings);
+            return getImportSplitAssignments(session, (ImportTableHandle) handle, predicate, mappings);
         }
         else if (handle instanceof TpchTableHandle) {
-            return getTpchSplitAssignments(planNodeId, (TpchTableHandle) handle);
+            return getTpchSplitAssignments((TpchTableHandle) handle);
         }
         else {
             throw new IllegalArgumentException("unsupported handle type: " + handle);
         }
     }
 
-    private Iterable<SplitAssignments> getNativeSplitAssignments(PlanNodeId planNodeId, NativeTableHandle handle)
+    private Iterable<SplitAssignments> getNativeSplitAssignments(NativeTableHandle handle)
     {
         Map<String, Node> nodeMap = getNodeMap(nodeManager.getActiveNodes());
         Multimap<Long, String> shardNodes = shardManager.getCommittedShardNodes(handle.getTableId());
@@ -167,12 +167,12 @@ public class SplitManager
         for (Map.Entry<Long, Collection<String>> entry : shardNodes.asMap().entrySet()) {
             Split split = new NativeSplit(entry.getKey());
             List<Node> nodes = getNodes(nodeMap, entry.getValue());
-            splitAssignments.add(new SplitAssignments(ImmutableMap.of(planNodeId, split), nodes));
+            splitAssignments.add(new SplitAssignments(split, nodes));
         }
         return splitAssignments.build();
     }
 
-    private Iterable<SplitAssignments> getInternalSplitAssignments(PlanNodeId planNodeId, InternalTableHandle handle, Expression predicate, Map<Symbol, ColumnHandle> mappings)
+    private Iterable<SplitAssignments> getInternalSplitAssignments(InternalTableHandle handle, Expression predicate, Map<Symbol, ColumnHandle> mappings)
     {
         Map<Symbol, InternalColumnHandle> symbols = filterValueInstances(mappings, InternalColumnHandle.class);
         Split split = new InternalSplit(handle, extractFilters(predicate, symbols));
@@ -181,7 +181,7 @@ public class SplitManager
         Preconditions.checkState(currentNode.isPresent(), "current node is not in the active set");
 
         List<Node> nodes = ImmutableList.of(currentNode.get());
-        return ImmutableList.of(new SplitAssignments(ImmutableMap.of(planNodeId, split), nodes));
+        return ImmutableList.of(new SplitAssignments(split, nodes));
     }
 
     private static <K, V, V1 extends V> Map<K, V1> filterValueInstances(Map<K, V> map, Class<V1> clazz)
@@ -199,8 +199,7 @@ public class SplitManager
         return uniqueIndex(nodes, Node.getIdentifierFunction());
     }
 
-    private Iterable<SplitAssignments> getImportSplitAssignments(PlanNodeId planNodeId,
-            Session session,
+    private Iterable<SplitAssignments> getImportSplitAssignments(Session session,
             ImportTableHandle handle,
             Expression predicate,
             Map<Symbol, ColumnHandle> mappings)
@@ -228,7 +227,7 @@ public class SplitManager
                     }
                 });
 
-        return Iterables.transform(chunks, createImportSplitFunction(planNodeId, qualifiedTableName.getCatalogName()));
+        return Iterables.transform(chunks, createImportSplitFunction(qualifiedTableName.getCatalogName()));
     }
 
     private List<String> getPartitions(Session session, QualifiedTableName tableName, Expression predicate, Map<Symbol, ColumnHandle> mappings)
@@ -418,7 +417,7 @@ public class SplitManager
         return filters.build();
     }
 
-    private Function<PartitionChunk, SplitAssignments> createImportSplitFunction(final PlanNodeId planNodeId, final String sourceName)
+    private Function<PartitionChunk, SplitAssignments> createImportSplitFunction(final String sourceName)
     {
         // this supplier is thread-safe. TODO: this logic should probably move to the scheduler since the choice of which node to run in should be
         // done as close to when the the split is about to be scheduled
@@ -459,7 +458,7 @@ public class SplitManager
 
                 List<Node> nodes = chooseNodes(nodeMap.get(), chunk.getHosts(), 10);
                 Preconditions.checkState(!nodes.isEmpty(), "No active %s data nodes", sourceName);
-                return new SplitAssignments(ImmutableMap.of(planNodeId, split), nodes);
+                return new SplitAssignments(split, nodes);
             }
         };
     }
@@ -542,7 +541,7 @@ public class SplitManager
         };
     }
 
-    private Iterable<SplitAssignments> getTpchSplitAssignments(PlanNodeId planNodeId, TpchTableHandle handle)
+    private Iterable<SplitAssignments> getTpchSplitAssignments(TpchTableHandle handle)
     {
         Map<String, Node> nodeMap = getNodeMap(nodeManager.getActiveNodes());
         ImmutableList.Builder<SplitAssignments> splitAssignments = ImmutableList.builder();
@@ -553,7 +552,7 @@ public class SplitManager
         // Split the data using split and skew by the number of nodes available.
         for (Map.Entry<String, Node> entry : nodeMap.entrySet()) {
             TpchSplit tpchSplit = new TpchSplit(handle, partNumber++, totalParts);
-            splitAssignments.add(new SplitAssignments(ImmutableMap.of(planNodeId, tpchSplit), ImmutableList.of(entry.getValue())));
+            splitAssignments.add(new SplitAssignments(tpchSplit, ImmutableList.of(entry.getValue())));
         }
 
         return splitAssignments.build();

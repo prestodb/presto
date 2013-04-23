@@ -15,25 +15,25 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public class TaskSource
 {
-    private final Set<PlanNodeId> planNodeIds;
+    private final PlanNodeId planNodeId;
     private final Set<ScheduledSplit> splits;
     private final boolean noMoreSplits;
 
     @JsonCreator
     public TaskSource(
-            @JsonProperty("planNodeIds") Set<PlanNodeId> planNodeIds,
+            @JsonProperty("planNodeId") PlanNodeId planNodeId,
             @JsonProperty("splits") Set<ScheduledSplit> splits,
             @JsonProperty("noMoreSplits") boolean noMoreSplits)
     {
-        this.planNodeIds = ImmutableSet.copyOf(checkNotNull(planNodeIds, "nodes is null"));
+        this.planNodeId = checkNotNull(planNodeId, "planNodeId is null");
         this.splits = ImmutableSet.copyOf(checkNotNull(splits, "splits is null"));
         this.noMoreSplits = noMoreSplits;
     }
 
     @JsonProperty
-    public Set<PlanNodeId> getPlanNodeIds()
+    public PlanNodeId getPlanNodeId()
     {
-        return planNodeIds;
+        return planNodeId;
     }
 
     @JsonProperty
@@ -52,31 +52,9 @@ public class TaskSource
     public String toString()
     {
         return Objects.toStringHelper(this)
-                .add("planNodeIds", planNodeIds)
+                .add("planNodeId", planNodeId)
                 .add("splits", splits)
                 .add("noMoreSplits", noMoreSplits)
                 .toString();
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hashCode(planNodeIds, splits, noMoreSplits);
-    }
-
-    @Override
-    public boolean equals(Object object)
-    {
-        if (object == this) {
-            return true;
-        }
-        else if (object == null || (getClass() != object.getClass())) {
-            return false;
-        }
-
-        TaskSource that = (TaskSource) object;
-        return Objects.equal(this.planNodeIds, that.planNodeIds) &&
-                Objects.equal(this.splits, that.splits) &&
-                this.noMoreSplits == that.noMoreSplits;
     }
 }

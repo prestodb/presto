@@ -339,11 +339,11 @@ public class SqlStageExecution
 
                     RemoteTask task = tasks.get(chosen);
                     if (task == null) {
-                        scheduleTask(nextTaskId, chosen, assignment.getSplits());
+                        scheduleTask(nextTaskId, chosen, assignment.getSplit());
                         stageStats.addScheduleTaskDuration(Duration.nanosSince(scheduleSplitStart));
                     }
                     else {
-                        task.addSplits(assignment.getSplits());
+                        task.addSplit(assignment.getSplit());
                         stageStats.addAddSplitDuration(Duration.nanosSince(scheduleSplitStart));
                     }
 
@@ -415,7 +415,7 @@ public class SqlStageExecution
         }
     }
 
-    private RemoteTask scheduleTask(AtomicInteger nextTaskId, Node node, @Nullable Map<PlanNodeId, ? extends Split> initialSplits)
+    private RemoteTask scheduleTask(AtomicInteger nextTaskId, Node node, @Nullable Split initialSplit)
     {
         String nodeIdentifier = node.getNodeIdentifier();
         TaskId taskId = new TaskId(stageId, String.valueOf(nextTaskId.getAndIncrement()));
@@ -424,7 +424,7 @@ public class SqlStageExecution
                 taskId,
                 node,
                 fragment,
-                initialSplits,
+                initialSplit,
                 outputReceivers,
                 getExchangeLocations(),
                 getOutputBuffers());
@@ -535,8 +535,6 @@ public class SqlStageExecution
                 case PLANNED:
                 case SCHEDULING:
                     return false;
-                default:
-                    break;
             }
         }
         return true;
