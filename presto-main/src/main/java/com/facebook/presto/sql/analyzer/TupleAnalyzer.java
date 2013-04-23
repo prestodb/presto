@@ -36,6 +36,8 @@ import com.google.common.collect.Multimap;
 import java.util.List;
 import java.util.Set;
 
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.*;
+
 class TupleAnalyzer
         extends DefaultTraversalVisitor<Multimap<Optional<QualifiedName>, TupleDescriptor>, AnalysisContext>
 {
@@ -71,7 +73,7 @@ class TupleAnalyzer
 
         TableMetadata tableMetadata = metadata.getTable(name);
         if (tableMetadata == null) {
-            throw new SemanticException(table, "Table %s does not exist", name);
+            throw new SemanticException(MISSING_TABLE, table, "Table %s does not exist", name);
         }
 
         TableHandle tableHandle = tableMetadata.getTableHandle().get();
@@ -107,7 +109,7 @@ class TupleAnalyzer
             }
 
             if (totalColumns != relation.getColumnNames().size()) {
-                throw new SemanticException(relation, "Column alias list has %s entries but '%s' has %s columns available", relation.getColumnNames().size(), relation.getAlias(), totalColumns);
+                throw new SemanticException(MISMATCHED_COLUMN_ALIASES, relation, "Column alias list has %s entries but '%s' has %s columns available", relation.getColumnNames().size(), relation.getAlias(), totalColumns);
             }
         }
 
@@ -149,12 +151,12 @@ class TupleAnalyzer
     protected Multimap<Optional<QualifiedName>, TupleDescriptor> visitJoin(Join node, AnalysisContext context)
     {
         if (node.getType() != Join.Type.INNER) {
-            throw new SemanticException(node, "Only inner joins are supported");
+            throw new SemanticException(NOT_SUPPORTED, node, "Only inner joins are supported");
         }
 
         JoinCriteria criteria = node.getCriteria();
         if (criteria instanceof NaturalJoin) {
-            throw new SemanticException(node, "Natural join not supported");
+            throw new SemanticException(NOT_SUPPORTED, node, "Natural join not supported");
         }
 
         Multimap<Optional<QualifiedName>, TupleDescriptor> left = process(node.getLeft(), context);
@@ -200,7 +202,7 @@ class TupleAnalyzer
             Object optimizedExpression = ExpressionInterpreter.expressionOptimizer(new NoOpSymbolResolver(), metadata, session).process(expression, null);
 
             if (!(optimizedExpression instanceof Expression)) {
-                throw new SemanticException(node, "Joins on constant expressions (i.e., cross joins) not supported");
+                throw new SemanticException(NOT_SUPPORTED, node, "Joins on constant expressions (i.e., cross joins) not supported");
             }
 
             // analyze the optimized expression to record the types of all subexpressions
@@ -209,12 +211,12 @@ class TupleAnalyzer
             ImmutableList.Builder<EquiJoinClause> clauses = ImmutableList.builder();
             for (Expression conjunct : ExpressionUtils.extractConjuncts((Expression) optimizedExpression)) {
                 if (!(conjunct instanceof ComparisonExpression)) {
-                    throw new SemanticException(node, "Non-equi joins not supported: %s", ExpressionFormatter.toString(conjunct));
+                    throw new SemanticException(NOT_SUPPORTED, node, "Non-equi joins not supported: %s", ExpressionFormatter.toString(conjunct));
                 }
 
                 ComparisonExpression comparison = (ComparisonExpression) conjunct;
                 if (comparison.getType() != ComparisonExpression.Type.EQUAL) {
-                    throw new SemanticException(node, "Non-equi joins not supported: %s", ExpressionFormatter.toString(conjunct));
+                    throw new SemanticException(NOT_SUPPORTED, node, "Non-equi joins not supported: %s", ExpressionFormatter.toString(conjunct));
                 }
 
                 Set<QualifiedName> firstDependencies = DependencyExtractor.extract(comparison.getLeft());
@@ -232,7 +234,7 @@ class TupleAnalyzer
                 }
                 else {
                     // must have a complex expression that involves both tuples on one side of the comparison expression (e.g., coalesce(left.x, right.x) = 1)
-                    throw new SemanticException(node, "Non-equi joins not supported: %s", ExpressionFormatter.toString(conjunct));
+                    throw new SemanticException(NOT_SUPPORTED, node, "Non-equi joins not supported: %s", ExpressionFormatter.toString(conjunct));
                 }
 
                 clauses.add(new EquiJoinClause(leftExpression, rightExpression));

@@ -31,6 +31,7 @@ import java.util.List;
 
 import static com.facebook.presto.sql.analyzer.FieldOrExpression.expressionGetter;
 import static com.facebook.presto.sql.analyzer.FieldOrExpression.fieldGetter;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.*;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.instanceOf;
 
@@ -93,7 +94,7 @@ public class AggregationAnalyzer
     public void analyze(Expression expression)
     {
         if (!expression.accept(new Visitor(), null)) {
-            throw new SemanticException(expression, "'%s' must be an aggregate expression or appear in GROUP BY clause", ExpressionFormatter.toString(expression));
+            throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, expression, "'%s' must be an aggregate expression or appear in GROUP BY clause", ExpressionFormatter.toString(expression));
         }
     }
 
@@ -155,13 +156,19 @@ public class AggregationAnalyzer
                 }
 
                 if (!aggregateExtractor.getAggregates().isEmpty()) {
-                    throw new SemanticException(node, "Cannot nest aggregations inside aggregation '%s': %s", node.getName(), Iterables.transform(aggregateExtractor.getAggregates(),
-                            ExpressionFormatter.expressionFormatterFunction()));
+                    throw new SemanticException(NESTED_AGGREGATION,
+                            node,
+                            "Cannot nest aggregations inside aggregation '%s': %s",
+                            node.getName(),
+                            Iterables.transform(aggregateExtractor.getAggregates(), ExpressionFormatter.expressionFormatterFunction()));
                 }
 
                 if (!windowExtractor.getWindowFunctions().isEmpty()) {
-                    throw new SemanticException(node, "Cannot nest window functions inside aggregation '%s': %s", node.getName(), Iterables.transform(windowExtractor.getWindowFunctions(),
-                            ExpressionFormatter.expressionFormatterFunction()));
+                    throw new SemanticException(NESTED_WINDOW,
+                            node,
+                            "Cannot nest window functions inside aggregation '%s': %s",
+                            node.getName(),
+                            Iterables.transform(windowExtractor.getWindowFunctions(), ExpressionFormatter.expressionFormatterFunction()));
                 }
 
                 return true;
@@ -180,20 +187,26 @@ public class AggregationAnalyzer
         {
             for (Expression expression : node.getPartitionBy()) {
                 if (!expression.accept(this, context)) {
-                    throw new SemanticException(expression, "PARTITION BY expression '%s' must be an aggregate expression or appear in GROUP BY clause", ExpressionFormatter.toString(expression));
+                    throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY,
+                            expression,
+                            "PARTITION BY expression '%s' must be an aggregate expression or appear in GROUP BY clause",
+                            ExpressionFormatter.toString(expression));
                 }
             }
 
             for (SortItem sortItem : node.getOrderBy()) {
                 Expression expression = sortItem.getSortKey();
                 if (!expression.accept(this, context)) {
-                    throw new SemanticException(expression, "ORDER BY expression '%s' must be an aggregate expression or appear in GROUP BY clause", ExpressionFormatter.toString(expression));
+                    throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY,
+                            expression,
+                            "ORDER BY expression '%s' must be an aggregate expression or appear in GROUP BY clause",
+                            ExpressionFormatter.toString(expression));
                 }
             }
 
             if (node.getFrame().isPresent() && !node.getFrame().get().accept(this, null)) {
                 WindowFrame frame = node.getFrame().get();
-                throw new SemanticException(frame, "Window frame must be an aggregate expression or appear in GROUP BY clause");
+                throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, frame, "Window frame must be an aggregate expression or appear in GROUP BY clause");
             }
 
             return true;
