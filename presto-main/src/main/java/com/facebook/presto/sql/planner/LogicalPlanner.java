@@ -561,25 +561,15 @@ public class LogicalPlanner
             outputTypesBuilder.put(field.getSymbol(), field.getType());
         }
 
+        Symbol outputSymbol = Iterables.getOnlyElement(analysis.getOutputExpressions().keySet());
+
         TableWriterNode writerNode = new TableWriterNode(idAllocator.getNextId(),
                 queryNode,
                 dstTableHandle.get(),
-                inputSymbolsBuilder.build(),
-                inputTypesBuilder.build(),
                 columnHandlesBuilder.build(),
-                outputTypesBuilder.build());
+                outputSymbol);
 
-        Map<Symbol, AnalyzedExpression> outputExpressions = analysis.getOutputExpressions();
-        checkState(outputExpressions.size() == 1, "only a single output symbol is supported");
-        Symbol outputSymbol = Iterables.getOnlyElement(outputExpressions.keySet());
-
-        // Put a simple SUM(<output symbol>) on top of the table writer node
-        // Build the sum function info here, we need it later in the planner
-        FunctionInfo sum = metadata.getFunction(QualifiedName.of("sum"), Lists.transform(ImmutableList.of(Type.LONG), Type.toRaw()));
-        FunctionCall sumCall = new FunctionCall(QualifiedName.of(outputSymbol.getName()), ImmutableList.of(nameReference(outputSymbol.getName())));
-        PlanNode aggregationNode = new AggregationNode(idAllocator.getNextId(), writerNode, ImmutableList.<Symbol>of(), ImmutableMap.of(outputSymbol, sumCall), ImmutableMap.of(outputSymbol, sum.getHandle()));
-
-        return aggregationNode;
+        return writerNode;
     }
 
     private ColumnHandle findColumnHandle(Field field, TableMetadata tableMetadata)
