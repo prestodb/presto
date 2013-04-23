@@ -14,6 +14,7 @@ import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
@@ -164,6 +165,27 @@ public class ExpressionAnalyzer
             }
 
             return first;
+        }
+
+        @Override
+        protected Type visitIfExpression(IfExpression node, Void context)
+        {
+            Type condition = process(node.getCondition(), context);
+            if (!isBooleanOrNull(condition)) {
+                throw new SemanticException(node, "IF condition must be a boolean type: %s", condition);
+            }
+
+            Type first = process(node.getTrueValue(), context);
+            if (!node.getFalseValue().isPresent()) {
+                return first;
+            }
+
+            Type second = process(node.getFalseValue().get(), context);
+            if (!sameType(first, second)) {
+                throw new SemanticException(node, "Result types for IF must be the same: %s vs %s", first, second);
+            }
+
+            return (first != Type.NULL) ? first : second;
         }
 
         @Override
