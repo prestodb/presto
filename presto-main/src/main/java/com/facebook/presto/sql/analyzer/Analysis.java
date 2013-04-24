@@ -27,7 +27,7 @@ public class Analysis
 
     private TupleDescriptor outputDescriptor;
     private final IdentityHashMap<Node, TupleDescriptor> outputDescriptors = new IdentityHashMap<>();
-    private final IdentityHashMap<Expression, Map<QualifiedName, Field>> resolvedNames = new IdentityHashMap<>();
+    private final IdentityHashMap<Expression, Map<QualifiedName, Integer>> resolvedNames = new IdentityHashMap<>();
 
     private final IdentityHashMap<Query, List<FunctionCall>> aggregates = new IdentityHashMap<>();
     private final IdentityHashMap<Query, List<FieldOrExpression>> groupByExpressions = new IdentityHashMap<>();
@@ -51,8 +51,6 @@ public class Analysis
     private Optional<Integer> refreshInterval;
     private boolean refresh;
 
-    private int nextRelationId;
-
     public Query getQuery()
     {
         return query;
@@ -63,12 +61,12 @@ public class Analysis
         this.query = query;
     }
 
-    public void addResolvedNames(Expression expression, Map<QualifiedName, Field> mappings)
+    public void addResolvedNames(Expression expression, Map<QualifiedName, Integer> mappings)
     {
         resolvedNames.put(expression, mappings);
     }
 
-    public Map<QualifiedName, Field> getResolvedNames(Expression expression)
+    public Map<QualifiedName, Integer> getResolvedNames(Expression expression)
     {
         return resolvedNames.get(expression);
     }
@@ -176,6 +174,7 @@ public class Analysis
 
     public TupleDescriptor getOutputDescriptor(Node node)
     {
+        Preconditions.checkState(outputDescriptors.containsKey(node), "Output descriptor missing for %s. Broken analysis?", node);
         return outputDescriptors.get(node);
     }
 
@@ -247,11 +246,6 @@ public class Analysis
     public void setRefreshInterval(Optional<Integer> refreshInterval)
     {
         this.refreshInterval = refreshInterval;
-    }
-
-    public int getNextRelationId()
-    {
-        return nextRelationId++;
     }
 
     public Query getNamedQuery(Table table)

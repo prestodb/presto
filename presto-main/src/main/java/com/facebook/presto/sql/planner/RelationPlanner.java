@@ -25,9 +25,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 
-import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 
 import static com.facebook.presto.sql.analyzer.EquiJoinClause.leftGetter;
 import static com.facebook.presto.sql.analyzer.EquiJoinClause.rightGetter;
@@ -62,22 +60,25 @@ class RelationPlanner
         if (!node.getName().getPrefix().isPresent()) {
             Query namedQuery = analysis.getNamedQuery(node);
             if (namedQuery != null) {
-                return process(namedQuery, null);
+                RelationPlan subPlan = process(namedQuery, null);
+                return new RelationPlan(subPlan.getRoot(), analysis.getOutputDescriptor(node), subPlan.getOutputSymbols());
             }
         }
 
         TupleDescriptor descriptor = analysis.getOutputDescriptor(node);
         TableHandle handle = analysis.getTableHandle(node);
 
-        ImmutableMap.Builder<Field, Symbol> mappings = ImmutableMap.builder();
+        ImmutableList.Builder<Symbol> outputSymbols = ImmutableList.builder();
         ImmutableMap.Builder<Symbol, ColumnHandle> columns = ImmutableMap.builder();
-        for (Field field : descriptor.getFields()) {
+        for (int i = 0; i < descriptor.getFields().size(); i++) {
+            Field field = descriptor.getFields().get(i);
             Symbol symbol = symbolAllocator.newSymbol(field.getName().get(), field.getType());
-            mappings.put(field, symbol);
+
+            outputSymbols.add(symbol);
             columns.put(symbol, analysis.getColumn(field));
         }
 
-        return new RelationPlan(mappings.build(), new TableScanNode(idAllocator.getNextId(), handle, columns.build()), descriptor);
+        return new RelationPlan(new TableScanNode(idAllocator.getNextId(), handle, columns.build()), descriptor, outputSymbols.build());
     }
 
     @Override
@@ -87,18 +88,7 @@ class RelationPlanner
 
         TupleDescriptor outputDescriptor = analysis.getOutputDescriptor(node);
 
-        ImmutableMap.Builder<Field, Symbol> mappings = ImmutableMap.builder();
-
-        Iterator<Field> inputs = subPlan.getDescriptor().getFields().iterator();
-        Iterator<Field> outputs = outputDescriptor.getFields().iterator();
-        while (inputs.hasNext() && outputs.hasNext()) {
-            Field inputField = inputs.next();
-            Field outputField = outputs.next();
-
-            mappings.put(outputField, subPlan.getSymbol(inputField));
-        }
-
-        return new RelationPlan(mappings.build(), subPlan.getRoot(), outputDescriptor);
+        return new RelationPlan(subPlan.getRoot(), outputDescriptor, subPlan.getOutputSymbols());
     }
 
     @Override
@@ -121,12 +111,12 @@ class RelationPlanner
             clauses.add(new JoinNode.EquiJoinClause(leftSymbol, rightSymbol));
         }
 
-        Map<Field, Symbol> mappings = ImmutableMap.<Field, Symbol>builder()
-                .putAll(leftPlan.getOutputMappings())
-                .putAll(rightPlan.getOutputMappings())
+        List<Symbol> outputSymbols = ImmutableList.<Symbol>builder()
+                .addAll(leftPlan.getOutputSymbols())
+                .addAll(rightPlan.getOutputSymbols())
                 .build();
 
-        return new RelationPlan(mappings, new JoinNode(idAllocator.getNextId(), leftPlanBuilder.getRoot(), rightPlanBuilder.getRoot(), clauses.build()), analysis.getOutputDescriptor(node));
+        return new RelationPlan(new JoinNode(idAllocator.getNextId(), leftPlanBuilder.getRoot(), rightPlanBuilder.getRoot(), clauses.build()), analysis.getOutputDescriptor(node), outputSymbols);
     }
 
     @Override
@@ -141,19 +131,13 @@ class RelationPlanner
         PlanBuilder subPlan = new QueryPlanner(analysis, symbolAllocator, idAllocator, metadata, session).process(node, null);
 
         TupleDescriptor outputDescriptor = analysis.getOutputDescriptor(node);
-        Iterator<Field> outputFields = outputDescriptor.getFields().iterator();
-        Iterator<FieldOrExpression> outputExpressions = analysis.getOutputExpressions(node).iterator();
 
-        ImmutableMap.Builder<Field, Symbol> mappings = ImmutableMap.builder();
-        while (outputFields.hasNext() && outputExpressions.hasNext()) {
-            Field outputField = outputFields.next();
-            FieldOrExpression outputExpression = outputExpressions.next();
-
-            Symbol symbol = subPlan.translate(outputExpression);
-            mappings.put(outputField, symbol);
+        ImmutableList.Builder<Symbol> outputSymbols = ImmutableList.builder();
+        for (FieldOrExpression fieldOrExpression : analysis.getOutputExpressions(node)) {
+            outputSymbols.add(subPlan.translate(fieldOrExpression));
         }
 
-        return new RelationPlan(mappings.build(), subPlan.getRoot(), outputDescriptor);
+        return new RelationPlan(subPlan.getRoot(), outputDescriptor, outputSymbols.build());
     }
 
     private PlanBuilder appendProjections(RelationPlan subPlan, Iterable<Expression> expressions)
@@ -162,7 +146,7 @@ class RelationPlanner
 
         // Make field->symbol mapping from underlying relation plan available for translations
         // This makes it possible to rewrite FieldOrExpressions that reference fields from the underlying tuple directly
-        translations.addMappings(subPlan.getOutputMappings());
+        translations.setFieldMappings(subPlan.getOutputSymbols());
 
         ImmutableMap.Builder<Symbol, Expression> projections = ImmutableMap.builder();
 

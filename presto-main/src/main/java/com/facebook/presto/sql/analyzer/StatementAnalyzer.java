@@ -19,7 +19,6 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.RefreshMaterializedView;
-import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.ShowColumns;
 import com.facebook.presto.sql.tree.ShowFunctions;
 import com.facebook.presto.sql.tree.ShowPartitions;
@@ -34,7 +33,6 @@ import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
@@ -47,6 +45,20 @@ import static com.facebook.presto.metadata.InformationSchemaMetadata.TABLE_COLUM
 import static com.facebook.presto.metadata.InformationSchemaMetadata.TABLE_INTERNAL_FUNCTIONS;
 import static com.facebook.presto.metadata.InformationSchemaMetadata.TABLE_INTERNAL_PARTITIONS;
 import static com.facebook.presto.metadata.InformationSchemaMetadata.TABLE_TABLES;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_MATERIALIZED_VIEW_REFRESH_INTERVAL;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDINAL;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_SCHEMA_NAME;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATE_OR_GROUP_BY;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_WINDOW_FUNCTION;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_WINDOW;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.ORDER_BY_MUST_BE_IN_SELECT;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TABLE_ALREADY_EXISTS;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WILDCARD_WITHOUT_FROM;
 import static com.facebook.presto.sql.tree.AliasedExpression.aliasGetter;
 import static com.facebook.presto.sql.tree.FunctionCall.distinctPredicate;
 import static com.facebook.presto.sql.tree.QueryUtil.aliasedName;
@@ -61,8 +73,6 @@ import static com.facebook.presto.sql.tree.QueryUtil.selectList;
 import static com.facebook.presto.sql.tree.QueryUtil.table;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.instanceOf;
-
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.*;
 
 
 class StatementAnalyzer
@@ -233,7 +243,7 @@ class StatementAnalyzer
         // Analyze the query that creates the table...
         process(node.getTableDefinition(), context);
 
-        return new TupleDescriptor(ImmutableList.of(new Field(analysis.getNextRelationId(), Optional.of("imported_rows"), Type.LONG, 0)));
+        return new TupleDescriptor(Field.newUnqualified("imported_rows", Type.LONG));
     }
 
     @Override
@@ -250,7 +260,7 @@ class StatementAnalyzer
         analysis.setDestination(targetTable);
         analysis.setDoRefresh(true);
 
-        return new TupleDescriptor(ImmutableList.of(new Field(analysis.getNextRelationId(), Optional.of("imported_rows"), Type.LONG, 0)));
+        return new TupleDescriptor(Field.newUnqualified("imported_rows", Type.LONG));
     }
 
     @Override
@@ -262,20 +272,20 @@ class StatementAnalyzer
         AnalysisContext context = new AnalysisContext(parentContext);
         analyzeWith(node, context);
 
-        Scope queryScope = analyzeFrom(node, context);
+        TupleDescriptor tupleDescriptor = analyzeFrom(node, context);
 
-        analyzeWhere(node, queryScope);
+        analyzeWhere(node, tupleDescriptor);
 
-        List<FieldOrExpression> outputExpressions = analyzeSelect(node, queryScope);
-        List<FieldOrExpression> groupByExpressions = analyzeGroupBy(node, queryScope, outputExpressions);
-        List<FieldOrExpression> orderByExpressions = analyzeOrderBy(node, queryScope, outputExpressions);
-        analyzeHaving(node, queryScope);
+        List<FieldOrExpression> outputExpressions = analyzeSelect(node, tupleDescriptor);
+        List<FieldOrExpression> groupByExpressions = analyzeGroupBy(node, tupleDescriptor, outputExpressions);
+        List<FieldOrExpression> orderByExpressions = analyzeOrderBy(node, tupleDescriptor, outputExpressions);
+        analyzeHaving(node, tupleDescriptor);
 
-        analyzeAggregations(node, queryScope, groupByExpressions, outputExpressions, orderByExpressions);
+        analyzeAggregations(node, tupleDescriptor, groupByExpressions, outputExpressions, orderByExpressions);
         analyzeWindowFunctions(node, outputExpressions, orderByExpressions);
 
         analysis.setQuery(node);
-        return computeOutputDescriptor(node, queryScope);
+        return computeOutputDescriptor(node, tupleDescriptor);
     }
 
     private void analyzeWith(Query node, AnalysisContext context)
@@ -334,8 +344,8 @@ class StatementAnalyzer
         WindowFunctionExtractor extractor = new WindowFunctionExtractor();
 
         for (FieldOrExpression fieldOrExpression : Iterables.concat(outputExpressions, orderByExpressions)) {
-            if (fieldOrExpression.getExpression().isPresent()) {
-                extractor.process(fieldOrExpression.getExpression().get(), null);
+            if (fieldOrExpression.isExpression()) {
+                extractor.process(fieldOrExpression.getExpression(), null);
             }
         }
 
@@ -393,12 +403,12 @@ class StatementAnalyzer
         analysis.setWindowFunctions(node, windowFunctions);
     }
 
-    private void analyzeHaving(Query node, Scope scope)
+    private void analyzeHaving(Query node, TupleDescriptor tupleDescriptor)
     {
         if (node.getHaving().isPresent()) {
             Expression predicate = node.getHaving().get();
 
-            Type type = Analyzer.analyzeExpression(metadata, scope, analysis, predicate);
+            Type type = Analyzer.analyzeExpression(metadata, tupleDescriptor, analysis, predicate);
 
             if (type != Type.BOOLEAN && type != Type.NULL) {
                 throw new SemanticException(TYPE_MISMATCH, predicate, "HAVING clause must evaluate to a boolean: actual type %s", type);
@@ -408,7 +418,7 @@ class StatementAnalyzer
         }
     }
 
-    private List<FieldOrExpression> analyzeOrderBy(Query node, Scope scope, List<FieldOrExpression> outputExpressions)
+    private List<FieldOrExpression> analyzeOrderBy(Query node, TupleDescriptor tupleDescriptor, List<FieldOrExpression> outputExpressions)
     {
         List<SortItem> items = node.getOrderBy();
 
@@ -455,8 +465,8 @@ class StatementAnalyzer
                     orderByExpression = new FieldOrExpression(expression);
                 }
 
-                if (orderByExpression.getExpression().isPresent()) {
-                    Analyzer.analyzeExpression(metadata, scope, analysis, orderByExpression.getExpression().get());
+                if (orderByExpression.isExpression()) {
+                    Analyzer.analyzeExpression(metadata, tupleDescriptor, analysis, orderByExpression.getExpression());
                 }
 
                 orderByExpressionsBuilder.add(orderByExpression);
@@ -472,7 +482,7 @@ class StatementAnalyzer
         return orderByExpressions;
     }
 
-    private List<FieldOrExpression> analyzeGroupBy(Query node, Scope scope, List<FieldOrExpression> outputExpressions)
+    private List<FieldOrExpression> analyzeGroupBy(Query node, TupleDescriptor tupleDescriptor, List<FieldOrExpression> outputExpressions)
     {
         ImmutableList.Builder<FieldOrExpression> groupByExpressionsBuilder = ImmutableList.builder();
 
@@ -491,12 +501,12 @@ class StatementAnalyzer
                     groupByExpression = outputExpressions.get((int) (ordinal - 1));
                 }
                 else {
-                    Analyzer.analyzeExpression(metadata, scope, analysis, expression);
+                    Analyzer.analyzeExpression(metadata, tupleDescriptor, analysis, expression);
                     groupByExpression = new FieldOrExpression(expression);
                 }
 
-                if (groupByExpression.getExpression().isPresent()) {
-                    Analyzer.verifyNoAggregatesOrWindowFunctions(metadata, groupByExpression.getExpression().get(), "GROUP BY");
+                if (groupByExpression.isExpression()) {
+                    Analyzer.verifyNoAggregatesOrWindowFunctions(metadata, groupByExpression.getExpression(), "GROUP BY");
                 }
 
                 groupByExpressionsBuilder.add(groupByExpression);
@@ -508,23 +518,17 @@ class StatementAnalyzer
         return groupByExpressions;
     }
 
-    private TupleDescriptor computeOutputDescriptor(Query node, Scope queryScope)
+    private TupleDescriptor computeOutputDescriptor(Query node, TupleDescriptor inputTupleDescriptor)
     {
         ImmutableList.Builder<Field> outputFields = ImmutableList.builder();
 
-        int relationId = analysis.getNextRelationId();
-
-        int index = 0;
         for (Expression expression : node.getSelect().getSelectItems()) {
             if (expression instanceof AllColumns) {
                 // expand * and T.*
                 Optional<QualifiedName> starPrefix = ((AllColumns) expression).getPrefix();
-                List<TupleDescriptor> descriptors = queryScope.getDescriptorsMatching(starPrefix);
 
-                for (TupleDescriptor descriptor : descriptors) {
-                    for (Field field : descriptor.getFields()) {
-                        outputFields.add(new Field(relationId, field.getName(), field.getType(), index++));
-                    }
+                for (Field field : inputTupleDescriptor.resolveFieldsWithPrefix(starPrefix)) {
+                    outputFields.add(Field.newUnqualified(field.getName(), field.getType()));
                 }
             }
             else {
@@ -537,7 +541,7 @@ class StatementAnalyzer
                     alias = Optional.of(((QualifiedNameReference) expression).getName().getSuffix());
                 }
 
-                outputFields.add(new Field(relationId, alias, analysis.getType(expression), index++)); // TODO don't use analysis as a side-channel. Use outputExpressions to look up the type
+                outputFields.add(Field.newUnqualified(alias, analysis.getType(expression))); // TODO don't use analysis as a side-channel. Use outputExpressions to look up the type
             }
         }
 
@@ -547,7 +551,7 @@ class StatementAnalyzer
         return result;
     }
 
-    private List<FieldOrExpression> analyzeSelect(Query node, Scope scope)
+    private List<FieldOrExpression> analyzeSelect(Query node, TupleDescriptor tupleDescriptor)
     {
         ImmutableList.Builder<FieldOrExpression> outputExpressionBuilder = ImmutableList.builder();
 
@@ -556,8 +560,8 @@ class StatementAnalyzer
                 // expand * and T.*
                 Optional<QualifiedName> starPrefix = ((AllColumns) expression).getPrefix();
 
-                List<TupleDescriptor> descriptors = scope.getDescriptorsMatching(starPrefix);
-                if (descriptors.isEmpty()) {
+                List<Integer> fields = tupleDescriptor.resolveFieldIndexesWithPrefix(starPrefix);
+                if (fields.isEmpty()) {
                     if (starPrefix.isPresent()) {
                         throw new SemanticException(MISSING_TABLE, expression, "Table '%s' not found", starPrefix.get());
                     }
@@ -566,14 +570,12 @@ class StatementAnalyzer
                     }
                 }
 
-                for (TupleDescriptor descriptor : descriptors) {
-                    for (Field field : descriptor.getFields()) {
-                        outputExpressionBuilder.add(new FieldOrExpression(field));
-                    }
+                for (int fieldIndex : fields) {
+                    outputExpressionBuilder.add(new FieldOrExpression(fieldIndex));
                 }
             }
             else {
-                Analyzer.analyzeExpression(metadata, scope, analysis, expression);
+                Analyzer.analyzeExpression(metadata, tupleDescriptor, analysis, expression);
                 outputExpressionBuilder.add(new FieldOrExpression(unalias(expression)));
             }
         }
@@ -584,14 +586,14 @@ class StatementAnalyzer
         return result;
     }
 
-    private void analyzeWhere(Query node, Scope scope)
+    private void analyzeWhere(Query node, TupleDescriptor tupleDescriptor)
     {
         if (node.getWhere().isPresent()) {
             Expression predicate = node.getWhere().get();
 
             Analyzer.verifyNoAggregatesOrWindowFunctions(metadata, predicate, "WHERE");
 
-            Type type = Analyzer.analyzeExpression(metadata, scope, analysis, predicate);
+            Type type = Analyzer.analyzeExpression(metadata, tupleDescriptor, analysis, predicate);
 
             if (type != Type.BOOLEAN && type != Type.NULL) {
                 throw new SemanticException(TYPE_MISMATCH, predicate, "WHERE clause must evaluate to a boolean: actual type %s", type);
@@ -601,31 +603,24 @@ class StatementAnalyzer
         }
     }
 
-    private Scope analyzeFrom(Query node, AnalysisContext context)
+    private TupleDescriptor analyzeFrom(Query node, AnalysisContext context)
     {
-        ImmutableMultimap.Builder<Optional<QualifiedName>, TupleDescriptor> fromDescriptorBuilder = ImmutableMultimap.builder();
+        TupleDescriptor fromDescriptor = new TupleDescriptor();
 
         if (node.getFrom() != null && !node.getFrom().isEmpty()) {
             TupleAnalyzer analyzer = new TupleAnalyzer(analysis, session, metadata);
-            for (Relation relation : node.getFrom()) {
-                fromDescriptorBuilder.putAll(analyzer.process(relation, context));
+            if (node.getFrom().size() != 1) {
+                throw new SemanticException(NOT_SUPPORTED, node, "Cross joins not yet supported");
             }
+
+            fromDescriptor = analyzer.process(Iterables.getOnlyElement(node.getFrom()), context);
         }
 
-        // ensure each relation alias appears only once
-        Multimap<Optional<QualifiedName>, TupleDescriptor> fromDescriptors = fromDescriptorBuilder.build();
-
-        for (Optional<QualifiedName> alias : fromDescriptors.keys()) {
-            if (alias.isPresent() && fromDescriptors.keys().count(alias) > 1) {
-                throw new SemanticException(DUPLICATE_RELATION, node, "Relation '%s' appears more than once", alias.get());
-            }
-        }
-
-        return new Scope(fromDescriptors);
+        return fromDescriptor;
     }
 
     private void analyzeAggregations(Query node,
-            Scope scope,
+            TupleDescriptor tupleDescriptor,
             List<FieldOrExpression> groupByExpressions,
             List<FieldOrExpression> outputExpressions,
             List<FieldOrExpression> orderByExpressions)
@@ -644,29 +639,33 @@ class StatementAnalyzer
             //     SELECT f(a + 1) GROUP BY a + 1
             //     SELECT a + sum(b) GROUP BY a
             for (FieldOrExpression fieldOrExpression : Iterables.concat(outputExpressions, orderByExpressions)) {
-                verifyAggregations(node, groupByExpressions, scope, fieldOrExpression);
+                verifyAggregations(node, groupByExpressions, tupleDescriptor, fieldOrExpression);
             }
 
             if (node.getHaving().isPresent()) {
-                verifyAggregations(node, groupByExpressions, scope, new FieldOrExpression(node.getHaving().get()));
+                verifyAggregations(node, groupByExpressions, tupleDescriptor, new FieldOrExpression(node.getHaving().get()));
             }
         }
     }
 
-    private void verifyAggregations(Query query, List<FieldOrExpression> groupByExpressions, Scope scope, FieldOrExpression fieldOrExpression)
+    private void verifyAggregations(Query query, List<FieldOrExpression> groupByExpressions, TupleDescriptor tupleDescriptor, FieldOrExpression fieldOrExpression)
     {
-        AggregationAnalyzer analyzer = new AggregationAnalyzer(groupByExpressions, metadata, scope);
+        AggregationAnalyzer analyzer = new AggregationAnalyzer(groupByExpressions, metadata, tupleDescriptor);
 
-        if (fieldOrExpression.getExpression().isPresent()) {
-            analyzer.analyze(fieldOrExpression.getExpression().get());
+        if (fieldOrExpression.isExpression()) {
+            analyzer.analyze(fieldOrExpression.getExpression());
         }
-        else if (!analyzer.analyze(fieldOrExpression.getField().get())) {
-            Field field = fieldOrExpression.getField().get();
-            if (field.getName().isPresent()) {
-                throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, query, "Column '%s.%s' not in GROUP BY clause", field.getRelationAlias().get(), field.getName().get());
-            }
-            else {
-                throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, query, "Column %s from '%s' not in GROUP BY clause", field.getIndex() + 1, field.getRelationAlias().get());
+        else {
+            int fieldIndex = fieldOrExpression.getFieldIndex();
+            if (!analyzer.analyze(fieldIndex)) {
+                Field field = tupleDescriptor.getFields().get(fieldIndex);
+
+                if (field.getName().isPresent()) {
+                    throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, query, "Column '%s.%s' not in GROUP BY clause", field.getRelationAlias().get(), field.getName().get());
+                }
+                else {
+                    throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, query, "Columns from '%s' not in GROUP BY clause", field.getRelationAlias().get());
+                }
             }
         }
     }

@@ -57,10 +57,10 @@ public class Analyzer
         }
     }
 
-    static Type analyzeExpression(Metadata metadata, Scope scope, Analysis analysis, Expression expression)
+    static Type analyzeExpression(Metadata metadata, TupleDescriptor tupleDescriptor, Analysis analysis, Expression expression)
     {
         ExpressionAnalyzer analyzer = new ExpressionAnalyzer(metadata);
-        Type type = analyzer.analyze(expression, scope);
+        Type type = analyzer.analyze(expression, tupleDescriptor);
 
         analysis.addFunctionInfos(analyzer.getResolvedFunctions());
 

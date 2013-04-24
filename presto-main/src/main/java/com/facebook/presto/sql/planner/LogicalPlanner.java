@@ -30,7 +30,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
-import java.util.Iterator;
 import java.util.List;
 
 import static com.facebook.presto.metadata.ColumnMetadata.columnHandleGetter;
@@ -112,25 +111,23 @@ public class LogicalPlanner
             TableMetadata sourceTableMetadata = metadata.getTable(sourceTable);
             TableHandle sourceTableHandle = sourceTableMetadata.getTableHandle().get();
 
-            ImmutableMap.Builder<Field, Symbol> mappings = ImmutableMap.builder();
+            ImmutableList.Builder<Symbol> outputSymbols = ImmutableList.builder();
             ImmutableMap.Builder<Symbol, ColumnHandle> columns = ImmutableMap.builder();
             ImmutableList.Builder<Field> fields = ImmutableList.builder();
             ImmutableList.Builder<ColumnHandle> columnHandleBuilder = ImmutableList.builder();
 
-            int index = 0;
             for (ColumnMetadata column : sourceTableMetadata.getColumns()) {
-                Field field = new Field(sourceTable.asQualifiedName(), Optional.of(column.getName()), Type.fromRaw(column.getType()), index++);
+                Field field = Field.newQualified(sourceTable.asQualifiedName(), Optional.of(column.getName()), Type.fromRaw(column.getType()));
                 Symbol symbol = symbolAllocator.newSymbol(field);
                 ColumnHandle columnHandle = column.getColumnHandle().get();
 
                 columns.put(symbol, columnHandle);
                 fields.add(field);
                 columnHandleBuilder.add(columnHandle);
+                outputSymbols.add(symbol);
             }
 
-            plan = new RelationPlan(mappings.build(),
-                    new TableScanNode(idAllocator.getNextId(), sourceTableHandle, columns.build()),
-                    new TupleDescriptor(fields.build()));
+            plan = new RelationPlan(new TableScanNode(idAllocator.getNextId(), sourceTableHandle, columns.build()), new TupleDescriptor(fields.build()), outputSymbols.build());
 
             columnHandles = columnHandleBuilder.build();
         }
@@ -142,8 +139,9 @@ public class LogicalPlanner
 
             // Create the destination table
             ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
-            for (Field field : plan.getDescriptor().getFields()) {
-                String name = field.getName().or("_col" + field.getIndex());
+            for (int i = 0; i < plan.getDescriptor().getFields().size(); i++) {
+                Field field = plan.getDescriptor().getFields().get(i);
+                String name = field.getName().or("_field" + i);
                 ColumnMetadata columnMetadata = new ColumnMetadata(name, field.getType().getRawType());
                 columns.add(columnMetadata);
             }
@@ -175,11 +173,9 @@ public class LogicalPlanner
         // compute input symbol <-> column mappings
         ImmutableMap.Builder<Symbol, ColumnHandle> mappings = ImmutableMap.builder();
 
-        Iterator<ColumnHandle> columnIterator = columnHandles.iterator();
-        Iterator<Field> fields = plan.getDescriptor().getFields().iterator();
-        while (columnIterator.hasNext() && fields.hasNext()) {
-            Symbol symbol = plan.getSymbol(fields.next());
-            ColumnHandle column = columnIterator.next();
+        for (int i = 0; i < columnHandles.size(); i++) {
+            ColumnHandle column = columnHandles.get(i);
+            Symbol symbol = plan.getSymbol(i);
             mappings.put(symbol, column);
         }
 
@@ -192,9 +188,7 @@ public class LogicalPlanner
                 mappings.build(),
                 output);
 
-        ImmutableMap<Field, Symbol> outputMappings = ImmutableMap.of(Iterables.getOnlyElement(analysis.getOutputDescriptor().getFields()), output);
-
-        return new RelationPlan(outputMappings, writerNode, analysis.getOutputDescriptor());
+        return new RelationPlan(writerNode, analysis.getOutputDescriptor(), ImmutableList.of(output));
     }
 
 
@@ -203,12 +197,12 @@ public class LogicalPlanner
         ImmutableList.Builder<String> names = ImmutableList.builder();
         ImmutableList.Builder<Symbol> outputs = ImmutableList.builder();
 
-        for (Field field : analysis.getOutputDescriptor().getFields()) {
-            String name = field.getName()
-                    .or("_col" + (field.getIndex() + 1));
+        for (int i = 0; i < analysis.getOutputDescriptor().getFields().size(); i++) {
+            Field field = analysis.getOutputDescriptor().getFields().get(i);
+            String name = field.getName().or("_col" + i);
 
             names.add(name);
-            outputs.add(plan.getSymbol(field));
+            outputs.add(plan.getSymbol(i));
         }
 
         return new OutputNode(idAllocator.getNextId(), plan.getRoot(), names.build(), outputs.build());

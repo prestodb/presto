@@ -35,7 +35,6 @@ import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.sql.tree.Window;
-import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -47,16 +46,18 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ATTRIBUTE;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
 
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.*;
-
 public class ExpressionAnalyzer
 {
     private final Metadata metadata;
-    private final Map<QualifiedName, Field> resolvedNames = new HashMap<>();
+    private final Map<QualifiedName, Integer> resolvedNames = new HashMap<>();
     private final IdentityHashMap<FunctionCall, FunctionInfo> resolvedFunctions = new IdentityHashMap<>();
     private final IdentityHashMap<Expression, Type> subExpressionTypes = new IdentityHashMap<>();
 
@@ -65,7 +66,7 @@ public class ExpressionAnalyzer
         this.metadata = metadata;
     }
 
-    public Map<QualifiedName, Field> getResolvedNames()
+    public Map<QualifiedName, Integer> getResolvedNames()
     {
         return resolvedNames;
     }
@@ -80,9 +81,12 @@ public class ExpressionAnalyzer
         return subExpressionTypes;
     }
 
-    public Type analyze(Expression expression, Scope scope)
+    /**
+     * @param tupleDescriptor the tuple descriptor to use to resolve QualifiedNames
+     */
+    public Type analyze(Expression expression, TupleDescriptor tupleDescriptor)
     {
-        Visitor visitor = new Visitor(scope);
+        Visitor visitor = new Visitor(tupleDescriptor);
 
         return expression.accept(visitor, null);
     }
@@ -90,11 +94,11 @@ public class ExpressionAnalyzer
     private class Visitor
             extends AstVisitor<Type, Void>
     {
-        private final Scope scope;
+        private final TupleDescriptor tupleDescriptor;
 
-        private Visitor(Scope scope)
+        private Visitor(TupleDescriptor tupleDescriptor)
         {
-            this.scope = scope;
+            this.tupleDescriptor = tupleDescriptor;
         }
 
         @Override
@@ -115,32 +119,19 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitQualifiedNameReference(QualifiedNameReference node, Void context)
         {
-            List<Field> matches = scope.resolve(node.getName());
+            List<Integer> matches = tupleDescriptor.resolveFieldIndexes(node.getName());
             if (matches.isEmpty()) {
                 throw new SemanticException(MISSING_ATTRIBUTE, node, "Attribute '%s' cannot be resolved", node.getName());
             }
             else if (matches.size() > 1) {
-                List<String> names = Lists.transform(matches, new Function<Field, String>()
-                {
-                    @Override
-                    public String apply(Field input)
-                    {
-                        if (input.getRelationAlias().isPresent()) {
-                            return input.getRelationAlias().get() + "." + input.getName().get();
-                        }
-                        else {
-                            return input.getName().get();
-                        }
-                    }
-                });
-
-                throw new SemanticException(AMBIGUOUS_ATTRIBUTE, node, "Attribute '%s' is ambiguous: %s", node.getName(), names);
+                throw new SemanticException(AMBIGUOUS_ATTRIBUTE, node, "Attribute '%s' is ambiguous", node.getName());
             }
 
-            Field field = Iterables.getOnlyElement(matches);
-            resolvedNames.put(node.getName(), field);
-
+            int fieldIndex = Iterables.getOnlyElement(matches);
+            Field field = tupleDescriptor.getFields().get(fieldIndex);
+            resolvedNames.put(node.getName(), fieldIndex);
             subExpressionTypes.put(node, field.getType());
+
             return field.getType();
         }
 
