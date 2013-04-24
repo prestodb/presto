@@ -384,6 +384,14 @@ public class TestAnalyzer
         assertFails(MISSING_ATTRIBUTE, "SELECT dummy");
     }
 
+    @Test
+    public void testGroupBy()
+            throws Exception
+    {
+        // TODO: validate output
+        analyze("SELECT a, SUM(b) FROM t1 GROUP BY a");
+    }
+
     @BeforeMethod(alwaysRun = true)
     public void setup()
             throws Exception

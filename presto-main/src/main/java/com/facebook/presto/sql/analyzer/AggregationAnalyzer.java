@@ -19,7 +19,6 @@ import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.util.IterableTransformer;
-import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -30,8 +29,12 @@ import com.google.common.collect.Iterables;
 import java.util.List;
 
 import static com.facebook.presto.sql.analyzer.FieldOrExpression.expressionGetter;
-import static com.facebook.presto.sql.analyzer.FieldOrExpression.fieldGetter;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.*;
+import static com.facebook.presto.sql.analyzer.FieldOrExpression.fieldIndexGetter;
+import static com.facebook.presto.sql.analyzer.FieldOrExpression.isExpressionPredicate;
+import static com.facebook.presto.sql.analyzer.FieldOrExpression.isFieldReferencePredicate;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATE_OR_GROUP_BY;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_AGGREGATION;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_WINDOW;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.instanceOf;
 
@@ -40,34 +43,34 @@ import static com.google.common.base.Predicates.instanceOf;
  */
 public class AggregationAnalyzer
 {
-    private final List<Field> fields;
+    // fields and expressions in the group by clause
+    private final List<Integer> fieldIndexes;
     private final List<Expression> expressions;
+
     private final Metadata metadata;
 
-    private final Scope scope;
+    private final TupleDescriptor tupleDescriptor;
 
-    public AggregationAnalyzer(List<FieldOrExpression> groupByExpressions, Metadata metadata, Scope scope)
+    public AggregationAnalyzer(List<FieldOrExpression> groupByExpressions, Metadata metadata, TupleDescriptor tupleDescriptor)
     {
         Preconditions.checkNotNull(groupByExpressions, "groupByExpressions is null");
         Preconditions.checkNotNull(metadata, "metadata is null");
-        Preconditions.checkNotNull(scope, "scope is null");
+        Preconditions.checkNotNull(tupleDescriptor, "tupleDescriptor is null");
 
-        this.scope = scope;
+        this.tupleDescriptor = tupleDescriptor;
         this.metadata = metadata;
 
         this.expressions = IterableTransformer.on(groupByExpressions)
+                .select(isExpressionPredicate())
                 .transform(expressionGetter())
-                .select(isPresentPredicate())
-                .transform(AggregationAnalyzer.<Expression>optionalGetter())
                 .list();
 
 
-        ImmutableList.Builder<Field> fields = ImmutableList.builder();
+        ImmutableList.Builder<Integer> fields = ImmutableList.builder();
 
         fields.addAll(IterableTransformer.on(groupByExpressions)
-                .transform(fieldGetter())
-                .select(isPresentPredicate())
-                .transform(AggregationAnalyzer.<Field>optionalGetter())
+                .select(isFieldReferencePredicate())
+                .transform(fieldIndexGetter())
                 .all());
 
 
@@ -77,18 +80,20 @@ public class AggregationAnalyzer
         for (Expression expression : Iterables.filter(expressions, instanceOf(QualifiedNameReference.class))) {
             QualifiedName name = ((QualifiedNameReference) expression).getName();
 
-            Field field = Iterables.getOnlyElement(scope.resolve(name), null);
-            if (field != null) {
-                fields.add(field);
+            List<Integer> fieldIndexes = tupleDescriptor.resolveFieldIndexes(name);
+            Preconditions.checkState(fieldIndexes.size() <= 1, "Found more than one field for name '%s': %s", name, fieldIndexes);
+
+            if (fieldIndexes.size() == 1) {
+                fields.add(Iterables.getOnlyElement(fieldIndexes));
             }
         }
 
-        this.fields = fields.build();
+        this.fieldIndexes = fields.build();
     }
 
-    public boolean analyze(Field field)
+    public boolean analyze(int fieldIndex)
     {
-        return Iterables.any(fields, equalTo(field));
+        return Iterables.any(fieldIndexes, equalTo(fieldIndex));
     }
 
     public void analyze(Expression expression)
@@ -239,8 +244,13 @@ public class AggregationAnalyzer
         @Override
         protected Boolean visitQualifiedNameReference(QualifiedNameReference node, Void context)
         {
-            Field field = Iterables.getOnlyElement(scope.resolve(node.getName()), null);
-            return field != null && fields.contains(field);
+            QualifiedName name = node.getName();
+
+            List<Integer> indexes = tupleDescriptor.resolveFieldIndexes(name);
+            Preconditions.checkState(!indexes.isEmpty(), "No fields for name '%s'", name);
+            Preconditions.checkState(indexes.size() <= 1, "Found more than one field for name '%s': %s", name, indexes);
+
+            return fieldIndexes.contains(Iterables.getOnlyElement(indexes));
         }
 
         @Override
@@ -265,29 +275,5 @@ public class AggregationAnalyzer
         {
             return Iterables.any(expressions, Predicates.<Expression>equalTo(expression));
         }
-    }
-
-    public static Predicate<Optional<?>> isPresentPredicate()
-    {
-        return new Predicate<Optional<?>>()
-        {
-            @Override
-            public boolean apply(Optional<?> input)
-            {
-                return input.isPresent();
-            }
-        };
-    }
-
-    public static <T> Function<Optional<T>, T> optionalGetter()
-    {
-        return new Function<Optional<T>, T>()
-        {
-            @Override
-            public T apply(Optional<T> input)
-            {
-                return input.get();
-            }
-        };
     }
 }
