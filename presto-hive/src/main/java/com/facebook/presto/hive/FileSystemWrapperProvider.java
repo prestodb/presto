@@ -14,16 +14,24 @@ public class FileSystemWrapperProvider
     implements Provider<FileSystemWrapper>
 {
     private final FileSystemCache fileSystemCache;
+    private final SlowDatanodeSwitcher slowDatanodeSwitcher;
+    private final boolean slowDatanodeSwitcherEnabled;
 
     @Inject
-    public FileSystemWrapperProvider(FileSystemCache fileSystemCache)
+    public FileSystemWrapperProvider(FileSystemCache fileSystemCache, SlowDatanodeSwitcher slowDatanodeSwitcher, HiveClientConfig config)
     {
         this.fileSystemCache = checkNotNull(fileSystemCache, "fileSystemCache is null");
+        this.slowDatanodeSwitcher = checkNotNull(slowDatanodeSwitcher, "slowDatanodeSwitcher is null");
+        slowDatanodeSwitcherEnabled = checkNotNull(config, "config is null").getSlowDatanodeSwitchingEnabled();
     }
 
     @Override
     public FileSystemWrapper get()
     {
-        return new FileSystemWrapper(Functions.<FileSystem>identity(), fileSystemCache.createPathWrapper(), Functions.<FileStatus>identity(), Functions.<LocatedFileStatus>identity());
+        return new FileSystemWrapper(
+                slowDatanodeSwitcherEnabled && SlowDatanodeSwitcher.isSupported() ? slowDatanodeSwitcher.createFileSystemWrapper() : Functions.<FileSystem>identity(),
+                fileSystemCache.createPathWrapper(),
+                Functions.<FileStatus>identity(),
+                Functions.<LocatedFileStatus>identity());
     }
 }
