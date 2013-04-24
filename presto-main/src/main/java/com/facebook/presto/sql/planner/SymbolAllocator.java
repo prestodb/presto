@@ -52,20 +52,8 @@ public class SymbolAllocator
 
     public Symbol newSymbol(Field field)
     {
-        String nameHint = field.getName().or("col" + field.getIndex());
+        String nameHint = field.getName().or("field");
         return newSymbol(nameHint, field.getType());
-    }
-
-    public Symbol newSymbol(FieldOrExpression fieldOrExpression, Analysis analysis)
-    {
-        if (fieldOrExpression.getField().isPresent()) {
-            Field field = fieldOrExpression.getField().get();
-            return newSymbol(field);
-        }
-        else {
-            Expression expression = fieldOrExpression.getExpression().get();
-            return newSymbol(expression, analysis.getType(expression));
-        }
     }
 
     public Map<Symbol, Type> getTypes()

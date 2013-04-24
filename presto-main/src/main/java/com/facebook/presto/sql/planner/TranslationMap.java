@@ -2,7 +2,6 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.ExpressionFormatter;
 import com.facebook.presto.sql.analyzer.Analysis;
-import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.FieldOrExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Node;
@@ -13,6 +12,7 @@ import com.facebook.presto.sql.tree.TreeRewriter;
 import com.google.common.base.Preconditions;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -24,13 +24,18 @@ class TranslationMap
     private final RelationPlan rewriteBase;
     private final Analysis analysis;
 
-    private final Map<Field, Symbol> fieldMappings = new HashMap<>();
+    // current mappings of underlying field -> symbol for translating direct field references
+    private final Symbol[] fieldSymbols;
+
+    // current mappings of sub-expressions -> symbol
     private final Map<Expression, Symbol> expressionMappings = new HashMap<>();
 
     public TranslationMap(RelationPlan rewriteBase, Analysis analysis)
     {
         this.rewriteBase = rewriteBase;
         this.analysis = analysis;
+
+        fieldSymbols = new Symbol[rewriteBase.getOutputSymbols().size()];
     }
 
     public RelationPlan getRelationPlan()
@@ -38,15 +43,24 @@ class TranslationMap
         return rewriteBase;
     }
 
-    public void addMappings(Map<Field, Symbol> mappings)
+    public void setFieldMappings(List<Symbol> symbols)
     {
-        this.fieldMappings.putAll(mappings);
+        Preconditions.checkArgument(symbols.size() == fieldSymbols.length, "size of symbols list (%s) doesn't match number of expected fields (%s)", symbols.size(), fieldSymbols.length);
+
+        for (int i = 0; i < symbols.size(); i++) {
+            this.fieldSymbols[i] = symbols.get(i);
+        }
     }
 
-    public void addMappingsFrom(TranslationMap other)
+    public void copyMappingsFrom(TranslationMap other)
     {
+        Preconditions.checkArgument(other.fieldSymbols.length == fieldSymbols.length,
+                "number of fields in other (%s) doesn't match number of expected fields (%s)",
+                other.fieldSymbols.length,
+                fieldSymbols.length);
+
         expressionMappings.putAll(other.expressionMappings);
-        fieldMappings.putAll(other.fieldMappings);
+        System.arraycopy(other.fieldSymbols, 0, fieldSymbols, 0, other.fieldSymbols.length);
     }
 
     public Expression rewrite(Expression expression)
@@ -72,14 +86,15 @@ class TranslationMap
 
     public Expression rewrite(FieldOrExpression fieldOrExpression)
     {
-        if (fieldOrExpression.getField().isPresent()) {
-            Symbol symbol = fieldMappings.get(fieldOrExpression.getField().get());
-            Preconditions.checkState(symbol != null, "No mapping for field '%s'", fieldOrExpression.getField().get());
+        if (fieldOrExpression.isFieldReference()) {
+            int fieldIndex = fieldOrExpression.getFieldIndex();
+            Symbol symbol = fieldSymbols[fieldIndex];
+            Preconditions.checkState(symbol != null, "No mapping for field '%s'", fieldIndex);
 
             return new QualifiedNameReference(symbol.toQualifiedName());
         }
         else {
-            return rewrite(fieldOrExpression.getExpression().get());
+            return rewrite(fieldOrExpression.getExpression());
         }
     }
 
@@ -91,11 +106,12 @@ class TranslationMap
 
     public void put(FieldOrExpression fieldOrExpression, Symbol symbol)
     {
-        if (fieldOrExpression.getExpression().isPresent()) {
-            put(fieldOrExpression.getExpression().get(), symbol);
+        if (fieldOrExpression.isFieldReference()) {
+            int fieldIndex = fieldOrExpression.getFieldIndex();
+            fieldSymbols[fieldIndex] = symbol;
         }
         else {
-            fieldMappings.put(fieldOrExpression.getField().get(), symbol);
+            put(fieldOrExpression.getExpression(), symbol);
         }
     }
 
@@ -110,20 +126,20 @@ class TranslationMap
 
     public Symbol get(FieldOrExpression fieldOrExpression)
     {
-        if (fieldOrExpression.getExpression().isPresent()) {
-            return get(fieldOrExpression.getExpression().get());
+        if (fieldOrExpression.isFieldReference()) {
+            int field = fieldOrExpression.getFieldIndex();
+            Preconditions.checkArgument(fieldSymbols[field] != null, "No mapping for field: %s", field);
+            return fieldSymbols[field];
         }
         else {
-            Field field = fieldOrExpression.getField().get();
-            Preconditions.checkArgument(fieldMappings.containsKey(field), "No mapping for field: %s", field);
-            return fieldMappings.get(field);
+            return get(fieldOrExpression.getExpression());
         }
     }
 
 
     private Expression translateNamesToSymbols(Expression expression)
     {
-        final Map<QualifiedName, Field> resolvedNames = analysis.getResolvedNames(expression);
+        final Map<QualifiedName, Integer> resolvedNames = analysis.getResolvedNames(expression);
         Preconditions.checkArgument(resolvedNames != null, "No resolved names for expression %s", ExpressionFormatter.toString(expression));
 
         return TreeRewriter.rewriteWith(new NodeRewriter<Void>()
@@ -133,11 +149,11 @@ class TranslationMap
             {
                 QualifiedName name = node.getName();
 
-                Field field = resolvedNames.get(name);
-                Preconditions.checkState(field != null, "No field mapping for name '%s'", name);
+                Integer fieldIndex = resolvedNames.get(name);
+                Preconditions.checkState(fieldIndex != null, "No field mapping for name '%s'", name);
 
-                Symbol symbol = rewriteBase.getSymbol(field);
-                Preconditions.checkState(symbol != null, "No symbol mapping for name '%s' (%s)", name, field);
+                Symbol symbol = rewriteBase.getSymbol(fieldIndex);
+                Preconditions.checkState(symbol != null, "No symbol mapping for name '%s' (%s)", name, fieldIndex);
 
                 return new QualifiedNameReference(symbol.toQualifiedName());
             }

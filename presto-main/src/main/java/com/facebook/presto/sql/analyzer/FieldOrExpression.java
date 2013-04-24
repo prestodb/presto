@@ -4,8 +4,9 @@ import com.facebook.presto.sql.tree.Expression;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import javax.annotation.Nullable;
 
 /**
  * Represents an expression or a direct field reference. The latter is used, for
@@ -13,14 +14,13 @@ import static com.google.common.base.Preconditions.checkNotNull;
  */
 public class FieldOrExpression
 {
-    private final Optional<Field> field;
+    // reference to field in underlying relation
+    private final Optional<Integer> fieldIndex;
     private final Optional<Expression> expression;
 
-    public FieldOrExpression(Field field)
+    public FieldOrExpression(int fieldIndex)
     {
-        checkNotNull(field, "field is null");
-
-        this.field = Optional.of(field);
+        this.fieldIndex = Optional.of(fieldIndex);
         this.expression = Optional.absent();
     }
 
@@ -28,25 +28,37 @@ public class FieldOrExpression
     {
         Preconditions.checkNotNull(expression, "expression is null");
 
-        this.field = Optional.absent();
+        this.fieldIndex = Optional.absent();
         this.expression = Optional.of(expression);
     }
 
-    public Optional<Field> getField()
+    public boolean isFieldReference()
     {
-        return field;
+        return fieldIndex.isPresent();
     }
 
-    public Optional<Expression> getExpression()
+    public int getFieldIndex()
     {
-        return expression;
+        Preconditions.checkState(isFieldReference(), "Not a field reference");
+        return fieldIndex.get();
+    }
+
+    public boolean isExpression()
+    {
+        return expression.isPresent();
+    }
+
+    public Expression getExpression()
+    {
+        Preconditions.checkState(isExpression(), "Not an expression");
+        return expression.get();
     }
 
     @Override
     public String toString()
     {
-        if (field.isPresent()) {
-            return field.get().toString();
+        if (fieldIndex.isPresent()) {
+            return fieldIndex.get().toString();
         }
 
         return expression.get().toString();
@@ -67,7 +79,7 @@ public class FieldOrExpression
         if (!expression.equals(that.expression)) {
             return false;
         }
-        if (!field.equals(that.field)) {
+        if (!fieldIndex.equals(that.fieldIndex)) {
             return false;
         }
 
@@ -77,29 +89,53 @@ public class FieldOrExpression
     @Override
     public int hashCode()
     {
-        int result = field.hashCode();
+        int result = fieldIndex.hashCode();
         result = 31 * result + expression.hashCode();
         return result;
     }
 
-    public static Function<FieldOrExpression, Optional<Field>> fieldGetter()
+    public static Predicate<FieldOrExpression> isFieldReferencePredicate()
     {
-        return new Function<FieldOrExpression, Optional<Field>>()
+        return new Predicate<FieldOrExpression>()
         {
             @Override
-            public Optional<Field> apply(FieldOrExpression input)
+            public boolean apply(@Nullable FieldOrExpression input)
             {
-                return input.getField();
+                return input.isFieldReference();
             }
         };
     }
 
-    public static Function<FieldOrExpression, Optional<Expression>> expressionGetter()
+    public static Predicate<FieldOrExpression> isExpressionPredicate()
     {
-        return new Function<FieldOrExpression, Optional<Expression>>()
+        return new Predicate<FieldOrExpression>()
         {
             @Override
-            public Optional<Expression> apply(FieldOrExpression input)
+            public boolean apply(@Nullable FieldOrExpression input)
+            {
+                return input.isExpression();
+            }
+        };
+    }
+
+    public static Function<FieldOrExpression, Integer> fieldIndexGetter()
+    {
+        return new Function<FieldOrExpression, Integer>()
+        {
+            @Override
+            public Integer apply(FieldOrExpression input)
+            {
+                return input.getFieldIndex();
+            }
+        };
+    }
+
+    public static Function<FieldOrExpression, Expression> expressionGetter()
+    {
+        return new Function<FieldOrExpression, Expression>()
+        {
+            @Override
+            public Expression apply(FieldOrExpression input)
             {
                 return input.getExpression();
             }

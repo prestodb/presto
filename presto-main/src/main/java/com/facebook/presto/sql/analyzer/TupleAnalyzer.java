@@ -28,18 +28,20 @@ import com.facebook.presto.sql.tree.Table;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Multimap;
+import com.google.common.collect.Sets;
 
 import java.util.List;
 import java.util.Set;
 
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.*;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_COLUMN_ALIASES;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 
 class TupleAnalyzer
-        extends DefaultTraversalVisitor<Multimap<Optional<QualifiedName>, TupleDescriptor>, AnalysisContext>
+        extends DefaultTraversalVisitor<TupleDescriptor, AnalysisContext>
 {
     private final Analysis analysis;
     private final Session session;
@@ -57,15 +59,26 @@ class TupleAnalyzer
     }
 
     @Override
-    protected Multimap<Optional<QualifiedName>, TupleDescriptor> visitTable(Table table, AnalysisContext context)
+    protected TupleDescriptor visitTable(Table table, AnalysisContext context)
     {
         if (!table.getName().getPrefix().isPresent()) {
+            // is this a reference to a WITH query?
             String name = table.getName().getSuffix();
 
             Query query = context.getNamedQuery(name);
             if (query != null) {
                 analysis.registerNamedQuery(table, query);
-                return ImmutableMultimap.of(Optional.of(QualifiedName.of(name)), analysis.getOutputDescriptor(query));
+
+                // re-alias the fields with the name assigned to the query in the WITH declaration
+                TupleDescriptor queryDescriptor = analysis.getOutputDescriptor(query);
+                ImmutableList.Builder<Field> fields = ImmutableList.builder();
+                for (Field field : queryDescriptor.getFields()) {
+                    fields.add(Field.newQualified(QualifiedName.of(name), field.getName(), field.getType()));
+                }
+
+                TupleDescriptor descriptor = new TupleDescriptor(fields.build());
+                analysis.setOutputDescriptor(table, descriptor);
+                return descriptor;
             }
         }
 
@@ -79,76 +92,63 @@ class TupleAnalyzer
         TableHandle tableHandle = tableMetadata.getTableHandle().get();
 
         // TODO: discover columns lazily based on where they are needed (to support datasources that can't enumerate all tables)
-        int index = 0;
         ImmutableList.Builder<Field> fields = ImmutableList.builder();
         for (ColumnMetadata column : tableMetadata.getColumns()) {
-            Field field = new Field(table.getName(), Optional.of(column.getName()), Type.fromRaw(column.getType()), index++);
+            Field field = Field.newQualified(table.getName(), Optional.of(column.getName()), Type.fromRaw(column.getType()));
             fields.add(field);
             analysis.setColumn(field, column.getColumnHandle().get());
         }
 
         analysis.registerTable(table, tableHandle);
-        analysis.setOutputDescriptor(table, new TupleDescriptor(fields.build()));
 
-        return ImmutableMultimap.<Optional<QualifiedName>, TupleDescriptor>builder()
-                .put(Optional.of(table.getName()), new TupleDescriptor(fields.build()))
-                .build();
+        TupleDescriptor descriptor = new TupleDescriptor(fields.build());
+        analysis.setOutputDescriptor(table, descriptor);
+        return descriptor;
     }
 
     @Override
-    protected Multimap<Optional<QualifiedName>, TupleDescriptor> visitAliasedRelation(AliasedRelation relation, AnalysisContext context)
+    protected TupleDescriptor visitAliasedRelation(AliasedRelation relation, AnalysisContext context)
     {
-        Multimap<Optional<QualifiedName>, TupleDescriptor> children = process(relation.getRelation(), context);
+        TupleDescriptor child = process(relation.getRelation(), context);
 
         ImmutableList.Builder<Field> builder = ImmutableList.builder();
 
         if (relation.getColumnNames() != null) {
-            int totalColumns = 0;
-            for (TupleDescriptor descriptor2 : children.values()) {
-                totalColumns += descriptor2.getFields().size();
-            }
-
+            int totalColumns = child.getFields().size();
             if (totalColumns != relation.getColumnNames().size()) {
                 throw new SemanticException(MISMATCHED_COLUMN_ALIASES, relation, "Column alias list has %s entries but '%s' has %s columns available", relation.getColumnNames().size(), relation.getAlias(), totalColumns);
             }
         }
 
-        int index = 0;
-        for (TupleDescriptor descriptor : children.values()) {
-            for (Field field : descriptor.getFields()) {
-                Optional<String> columnAlias = field.getName();
-                if (relation.getColumnNames() != null) {
-                    columnAlias = Optional.of(relation.getColumnNames().get(index));
-                }
-                builder.add(new Field(QualifiedName.of(relation.getAlias()), columnAlias, field.getType(), index));
-                index++;
+        for (int i = 0; i < child.getFields().size(); i++) {
+            Field field = child.getFields().get(i);
+
+            Optional<String> columnAlias = field.getName();
+            if (relation.getColumnNames() != null) {
+                columnAlias = Optional.of(relation.getColumnNames().get(i));
             }
+            builder.add(Field.newQualified(QualifiedName.of(relation.getAlias()), columnAlias, field.getType()));
         }
 
         TupleDescriptor descriptor = new TupleDescriptor(builder.build());
 
         analysis.setOutputDescriptor(relation, descriptor);
-
-        return ImmutableMultimap.<Optional<QualifiedName>, TupleDescriptor>builder()
-                .put(Optional.of(QualifiedName.of(relation.getAlias())), descriptor)
-                .build();
+        return descriptor;
     }
 
     @Override
-    protected Multimap<Optional<QualifiedName>, TupleDescriptor> visitSubquery(Subquery node, AnalysisContext context)
+    protected TupleDescriptor visitSubquery(Subquery node, AnalysisContext context)
     {
         StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, session);
         TupleDescriptor descriptor = analyzer.process(node.getQuery(), context);
 
         analysis.setOutputDescriptor(node, descriptor);
 
-        return ImmutableMultimap.<Optional<QualifiedName>, TupleDescriptor>builder()
-                .put(Optional.<QualifiedName>absent(), descriptor)
-                .build();
+        return descriptor;
     }
 
     @Override
-    protected Multimap<Optional<QualifiedName>, TupleDescriptor> visitJoin(Join node, AnalysisContext context)
+    protected TupleDescriptor visitJoin(Join node, AnalysisContext context)
     {
         if (node.getType() != Join.Type.INNER) {
             throw new SemanticException(NOT_SUPPORTED, node, "Only inner joins are supported");
@@ -159,43 +159,46 @@ class TupleAnalyzer
             throw new SemanticException(NOT_SUPPORTED, node, "Natural join not supported");
         }
 
-        Multimap<Optional<QualifiedName>, TupleDescriptor> left = process(node.getLeft(), context);
-        Multimap<Optional<QualifiedName>, TupleDescriptor> right = process(node.getRight(), context);
+        TupleDescriptor left = process(node.getLeft(), context);
+        TupleDescriptor right = process(node.getRight(), context);
 
-        Multimap<Optional<QualifiedName>, TupleDescriptor> descriptors = ImmutableMultimap.<Optional<QualifiedName>, TupleDescriptor>builder()
-                .putAll(left)
-                .putAll(right)
+        Sets.SetView<QualifiedName> duplicateAliases = Sets.intersection(left.getRelationAliases(), right.getRelationAliases());
+        if (!duplicateAliases.isEmpty()) {
+            throw new SemanticException(DUPLICATE_RELATION, node, "Relations appear more than once: %s", duplicateAliases);
+        }
+
+        // compute output descriptor (all fields from left followed by all fields from right)
+        List<Field> outputFields = ImmutableList.<Field>builder()
+                .addAll(left.getFields())
+                .addAll(right.getFields())
                 .build();
+
+        TupleDescriptor output = new TupleDescriptor(outputFields);
 
         if (criteria instanceof JoinUsing) {
             // TODO: implement proper "using" semantics with respect to output columns
             List<String> columns = ((JoinUsing) criteria).getColumns();
-
-            Scope leftScope = new Scope(left);
-            Scope rightScope = new Scope(right);
 
             ImmutableList.Builder<EquiJoinClause> builder = ImmutableList.builder();
             for (String column : columns) {
                 Expression leftExpression = new QualifiedNameReference(QualifiedName.of(column));
                 Expression rightExpression = new QualifiedNameReference(QualifiedName.of(column));
 
-                Analyzer.analyzeExpression(metadata, leftScope, analysis, leftExpression);
-                Analyzer.analyzeExpression(metadata, rightScope, analysis, rightExpression);
+                Analyzer.analyzeExpression(metadata, left, analysis, leftExpression);
+                Analyzer.analyzeExpression(metadata, right, analysis, rightExpression);
 
                 builder.add(new EquiJoinClause(leftExpression, rightExpression));
             }
 
             analysis.setEquijoinCriteria(node, builder.build());
-            return descriptors;
         }
         else if (criteria instanceof JoinOn) {
-            Scope scope = new Scope(descriptors);
-            Scope leftScope = new Scope(left);
-            Scope rightScope = new Scope(right);
-
             Expression expression = ((JoinOn) criteria).getExpression();
 
-            Analyzer.analyzeExpression(metadata, scope, analysis, expression);
+            // ensure all names can be resolved, types match, etc (we don't need to record resolved names, subexpression types, etc. because
+            // we do it further down when after we determine which subexpressions apply to left vs right tuple)
+            ExpressionAnalyzer analyzer = new ExpressionAnalyzer(metadata);
+            analyzer.analyze(expression, output);
 
             Analyzer.verifyNoAggregatesOrWindowFunctions(metadata, expression, "JOIN");
 
@@ -204,9 +207,6 @@ class TupleAnalyzer
             if (!(optimizedExpression instanceof Expression)) {
                 throw new SemanticException(NOT_SUPPORTED, node, "Joins on constant expressions (i.e., cross joins) not supported");
             }
-
-            // analyze the optimized expression to record the types of all subexpressions
-            Analyzer.analyzeExpression(metadata, scope, analysis, (Expression) optimizedExpression);
 
             ImmutableList.Builder<EquiJoinClause> clauses = ImmutableList.builder();
             for (Expression conjunct : ExpressionUtils.extractConjuncts((Expression) optimizedExpression)) {
@@ -224,11 +224,11 @@ class TupleAnalyzer
 
                 Expression leftExpression;
                 Expression rightExpression;
-                if (Iterables.all(firstDependencies, leftScope.canResolvePredicate()) && Iterables.all(secondDependencies, rightScope.canResolvePredicate())) {
+                if (Iterables.all(firstDependencies, left.canResolvePredicate()) && Iterables.all(secondDependencies, right.canResolvePredicate())) {
                     leftExpression = comparison.getLeft();
                     rightExpression = comparison.getRight();
                 }
-                else if (Iterables.all(firstDependencies, rightScope.canResolvePredicate()) && Iterables.all(secondDependencies, leftScope.canResolvePredicate())) {
+                else if (Iterables.all(firstDependencies, right.canResolvePredicate()) && Iterables.all(secondDependencies, left.canResolvePredicate())) {
                     leftExpression = comparison.getRight();
                     rightExpression = comparison.getLeft();
                 }
@@ -237,14 +237,21 @@ class TupleAnalyzer
                     throw new SemanticException(NOT_SUPPORTED, node, "Non-equi joins not supported: %s", ExpressionFormatter.toString(conjunct));
                 }
 
+                // analyze the clauses to record the types of all subexpressions and resolve names against the left/right underlying tuples
+                Analyzer.analyzeExpression(metadata, left, analysis, leftExpression);
+                Analyzer.analyzeExpression(metadata, right, analysis, rightExpression);
+
                 clauses.add(new EquiJoinClause(leftExpression, rightExpression));
             }
 
             analysis.setEquijoinCriteria(node, clauses.build());
-            return descriptors;
+        }
+        else {
+            throw new UnsupportedOperationException("unsupported join criteria: " + criteria.getClass().getName());
         }
 
-        throw new UnsupportedOperationException("unsupported join criteria: " + criteria.getClass().getName());
+        analysis.setOutputDescriptor(node, output);
+        return output;
     }
 
     public static class DependencyExtractor

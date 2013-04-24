@@ -9,7 +9,6 @@ import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.sql.analyzer.Analysis;
-import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.FieldOrExpression;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.TupleDescriptor;
@@ -112,7 +111,7 @@ class QueryPlanner
 
         // Make field->symbol mapping from underlying relation plan available for translations
         // This makes it possible to rewrite FieldOrExpressions that reference fields from the FROM clause directly
-        translations.addMappings(relationPlan.getOutputMappings());
+        translations.setFieldMappings(relationPlan.getOutputSymbols());
 
         return new PlanBuilder(translations, relationPlan.getRoot());
     }
@@ -121,7 +120,7 @@ class QueryPlanner
     {
         // TODO: replace this with a table-generating operator that produces 1 row with no columns
 
-        RelationPlan relationPlan;QualifiedTableName name = MetadataUtil.createQualifiedTableName(session, QualifiedName.of("dual"));
+        QualifiedTableName name = MetadataUtil.createQualifiedTableName(session, QualifiedName.of("dual"));
         TableMetadata tableMetadata = metadata.getTable(name);
         TableHandle table = tableMetadata.getTableHandle().get();
 
@@ -133,8 +132,7 @@ class QueryPlanner
 
         TableScanNode tableScan = new TableScanNode(idAllocator.getNextId(), table, columns.build());
 
-        relationPlan = new RelationPlan(ImmutableMap.<Field, Symbol>of(), tableScan, new TupleDescriptor(ImmutableList.<Field>of()));
-        return relationPlan;
+        return new RelationPlan(tableScan, new TupleDescriptor(), ImmutableList.<Symbol>of());
     }
 
     private PlanBuilder filter(PlanBuilder subPlan, Expression predicate)
@@ -153,7 +151,15 @@ class QueryPlanner
 
         ImmutableMap.Builder<Symbol, Expression> projections = ImmutableMap.builder();
         for (FieldOrExpression fieldOrExpression : ImmutableSet.copyOf(expressions)) {
-            Symbol symbol = symbolAllocator.newSymbol(fieldOrExpression, analysis);
+            Symbol symbol;
+
+            if (fieldOrExpression.isFieldReference()) {
+                symbol = subPlan.translate(fieldOrExpression);
+            }
+            else {
+                Expression expression = fieldOrExpression.getExpression();
+                symbol = symbolAllocator.newSymbol(expression, analysis.getType(expression));
+            }
 
             projections.put(symbol, subPlan.rewrite(fieldOrExpression));
             outputTranslations.put(fieldOrExpression, symbol);
@@ -240,7 +246,7 @@ class QueryPlanner
             }
 
             TranslationMap outputTranslations = new TranslationMap(subPlan.getRelationPlan(), analysis);
-            outputTranslations.addMappingsFrom(subPlan.getTranslations());
+            outputTranslations.copyMappingsFrom(subPlan.getTranslations());
 
             ImmutableMap.Builder<Symbol, FunctionCall> assignments = ImmutableMap.builder();
             Map<Symbol, FunctionHandle> functionHandles = new HashMap<>();
@@ -265,7 +271,7 @@ class QueryPlanner
     private PlanBuilder appendProjections(PlanBuilder subPlan, Iterable<Expression> expressions)
     {
         TranslationMap translations = new TranslationMap(subPlan.getRelationPlan(), analysis);
-        translations.addMappingsFrom(subPlan.getTranslations());
+        translations.copyMappingsFrom(subPlan.getTranslations());
 
         ImmutableMap.Builder<Symbol, Expression> projections = ImmutableMap.builder();
 

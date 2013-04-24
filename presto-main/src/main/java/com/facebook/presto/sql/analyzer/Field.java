@@ -1,7 +1,10 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.google.common.base.Function;
 import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -10,31 +13,41 @@ public class Field
     private final Optional<QualifiedName> relationAlias;
     private final Optional<String> name;
     private final Type type;
-    private final int index;
 
-    private final int relationId; // used for equality checks when relationAlias is missing
+    public static Field newUnqualified(String name, Type type)
+    {
+        Preconditions.checkNotNull(name, "name is null");
+        Preconditions.checkNotNull(type, "type is null");
 
+        return new Field(Optional.<QualifiedName>absent(), Optional.of(name), type);
+    }
 
-    public Field(QualifiedName relationAlias, Optional<String> name, Type type, int index)
+    public static Field newUnqualified(Optional<String> name, Type type)
+    {
+        Preconditions.checkNotNull(name, "name is null");
+        Preconditions.checkNotNull(type, "type is null");
+
+        return new Field(Optional.<QualifiedName>absent(), name, type);
+    }
+
+    public static Field newQualified(QualifiedName relationAlias, Optional<String> name, Type type)
+    {
+        Preconditions.checkNotNull(relationAlias, "relationAlias is null");
+        Preconditions.checkNotNull(name, "name is null");
+        Preconditions.checkNotNull(type, "type is null");
+
+        return new Field(Optional.of(relationAlias), name, type);
+    }
+
+    private Field(Optional<QualifiedName> relationAlias, Optional<String> name, Type type)
     {
         checkNotNull(relationAlias, "relationAlias is null");
         checkNotNull(name, "name is null");
         checkNotNull(type, "type is null");
 
-        this.index = index;
-        this.relationAlias = Optional.of(relationAlias);
+        this.relationAlias = relationAlias;
         this.name = name;
         this.type = type;
-        this.relationId = 0;
-    }
-
-    public Field(int relationId, Optional<String> name, Type type, int index)
-    {
-        this.index = index;
-        this.relationAlias = Optional.absent();
-        this.name = name;
-        this.type = type;
-        this.relationId = relationId;
     }
 
     public Optional<QualifiedName> getRelationAlias()
@@ -52,51 +65,63 @@ public class Field
         return type;
     }
 
-    public int getIndex()
+    public boolean matchesPrefix(Optional<QualifiedName> prefix)
     {
-        return index;
+        return !prefix.isPresent() || relationAlias.isPresent() && relationAlias.get().hasSuffix(prefix.get());
     }
 
-    @Override
-    public boolean equals(Object o)
+    /*
+      Namespaces can have names such as "x", "x.y" or "" if there's no name
+      Name to resolve can have names like "a", "x.a", "x.y.a"
+
+      namespace  name     possible match
+       ""         "a"           y
+       "x"        "a"           y
+       "x.y"      "a"           y
+
+       ""         "x.a"         n
+       "x"        "x.a"         y
+       "x.y"      "x.a"         n
+
+       ""         "x.y.a"       n
+       "x"        "x.y.a"       n
+       "x.y"      "x.y.a"       n
+
+       ""         "y.a"         n
+       "x"        "y.a"         n
+       "x.y"      "y.a"         y
+     */
+    public boolean canResolve(QualifiedName name)
     {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
+        if (!this.name.isPresent()) {
             return false;
         }
 
-        Field field = (Field) o;
-
-        if (index != field.index) {
-            return false;
-        }
-        if (relationId != field.relationId) {
-            return false;
-        }
-        if (!name.equals(field.name)) {
-            return false;
-        }
-        if (!relationAlias.equals(field.relationAlias)) {
-            return false;
-        }
-        if (type != field.type) {
-            return false;
-        }
-
-        return true;
+        return matchesPrefix(name.getPrefix()) && this.name.get().equals(name.getSuffix());
     }
 
-    @Override
-    public int hashCode()
+    public static Function<Field, Optional<QualifiedName>> relationAliasGetter()
     {
-        int result = relationAlias.hashCode();
-        result = 31 * result + name.hashCode();
-        result = 31 * result + type.hashCode();
-        result = 31 * result + index;
-        result = 31 * result + relationId;
-        return result;
+        return new Function<Field, Optional<QualifiedName>>()
+        {
+            @Override
+            public Optional<QualifiedName> apply(Field input)
+            {
+                return input.getRelationAlias();
+            }
+        };
+    }
+
+    public static Predicate<Field> canResolvePredicate(final QualifiedName name)
+    {
+        return new Predicate<Field>()
+        {
+            @Override
+            public boolean apply(Field input)
+            {
+                return input.canResolve(name);
+            }
+        };
     }
 
     @Override
@@ -108,11 +133,10 @@ public class Field
                     .append(".");
         }
 
-        result.append(name.or("@" + index))
+        result.append(name.or("<anonymous>"))
                 .append(":")
                 .append(type);
 
         return result.toString();
     }
-
 }

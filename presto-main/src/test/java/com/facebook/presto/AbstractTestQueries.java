@@ -569,6 +569,13 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testJoinWithAlias()
+            throws Exception
+    {
+        assertQuery("SELECT * FROM (lineitem JOIN orders ON lineitem.orderkey = orders.orderkey) x");
+    }
+
+    @Test
     public void testJoinWithConstantExpression()
             throws Exception
     {
@@ -902,6 +909,16 @@ public abstract class AbstractTestQueries
                 "WITH a AS (SELECT * FROM orders) " +
                 "SELECT * FROM a",
                 "SELECT * FROM orders");
+    }
+
+    @Test
+    public void testWithQualifiedPrefix()
+            throws Exception
+    {
+        assertQuery("" +
+                "WITH a AS (SELECT 123 FROM orders LIMIT 1)" +
+                "SELECT a.* FROM a",
+                "SELECT 123 FROM orders LIMIT 1");
     }
 
     @Test
