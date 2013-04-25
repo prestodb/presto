@@ -27,8 +27,8 @@ public class TestQueryManagerConfig
                 .setExchangeConcurrentRequestMultiplier(3)
                 .setQueryManagerExecutorPoolSize(100)
                 .setSinkMaxBufferedPages(null)
-                .setRemoteTaskMaxConsecutiveErrorCount(Integer.MAX_VALUE)
-                .setRemoteTaskMinErrorDuration(new Duration(3, TimeUnit.MINUTES)));
+                .setRemoteTaskMaxConsecutiveErrorCount(10)
+                .setRemoteTaskMinErrorDuration(new Duration(2, TimeUnit.MINUTES)));
     }
 
     @Test
