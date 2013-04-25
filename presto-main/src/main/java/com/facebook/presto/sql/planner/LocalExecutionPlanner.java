@@ -256,7 +256,7 @@ public class LocalExecutionPlanner
 
             // find channel that fields were packed into if there is an ordering
             int orderByChannel = 0;
-            if (!orderBySymbols.isEmpty()) {
+            if (!orderingSymbols.isEmpty()) {
                 orderByChannel = Iterables.getOnlyElement(getChannelsForSymbols(orderingSymbols, source.getLayout()));
             }
 
