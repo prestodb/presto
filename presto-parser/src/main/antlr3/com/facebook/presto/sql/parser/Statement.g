@@ -387,9 +387,7 @@ specialFunction
     | CURRENT_TIME ('(' integer ')')?              -> ^(CURRENT_TIME integer?)
     | CURRENT_TIMESTAMP ('(' integer ')')?         -> ^(CURRENT_TIMESTAMP integer?)
     | SUBSTRING '(' expr FROM expr (FOR expr)? ')' -> ^(FUNCTION_CALL ^(QNAME IDENT[$SUBSTRING]) expr expr expr?)
-    | EXTRACT '(' extractFieldOrIdent FROM expr ')'-> ^(EXTRACT IDENT[$extractFieldOrIdent.text] expr)
-    // handle function call-like syntax for extract
-    | extractField '(' expr ')'                    -> ^(FUNCTION_CALL ^(QNAME IDENT[$extractField.text]) expr)
+    | EXTRACT '(' ident FROM expr ')'              -> ^(EXTRACT ident expr)
     | CAST '(' expr AS type ')'                    -> ^(CAST expr IDENT[$type.text])
     ;
 
@@ -400,16 +398,6 @@ type
     | DOUBLE
     | BOOLEAN
     ;
-
-extractFieldOrIdent
-    : ident
-    | extractField
-    ;
-
-extractField
-    : YEAR | MONTH | DAY | HOUR | MINUTE | SECOND | TIMEZONE_HOUR | TIMEZONE_MINUTE
-    ;
-
 
 caseExpression
     : NULLIF '(' expr ',' expr ')'          -> ^(NULLIF expr expr)
@@ -597,6 +585,7 @@ nonReserved
     : SHOW | TABLES | COLUMNS | PARTITIONS | FUNCTIONS
     | OVER | PARTITION | RANGE | ROWS | PRECEDING | FOLLOWING | CURRENT | ROW
     | REFRESH | MATERIALIZED | VIEW | ALIAS
+    | YEAR | MONTH | DAY | HOUR | MINUTE | SECOND
     ;
 
 SELECT: 'SELECT';
@@ -643,8 +632,6 @@ CURRENT_DATE: 'CURRENT_DATE';
 CURRENT_TIME: 'CURRENT_TIME';
 CURRENT_TIMESTAMP: 'CURRENT_TIMESTAMP';
 EXTRACT: 'EXTRACT';
-TIMEZONE_HOUR: 'TIMEZONE_HOUR';
-TIMEZONE_MINUTE: 'TIMEZONE_MINUTE';
 COALESCE: 'COALESCE';
 NULLIF: 'NULLIF';
 CASE: 'CASE';
