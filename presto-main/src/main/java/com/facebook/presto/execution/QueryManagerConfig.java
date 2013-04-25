@@ -27,8 +27,8 @@ public class QueryManagerConfig
 
     private int queryManagerExecutorPoolSize = 100;
 
-    private int remoteTaskMaxConsecutiveErrorCount = Integer.MAX_VALUE;
-    private Duration remoteTaskMinErrorDuration = new Duration(3, TimeUnit.MINUTES);
+    private int remoteTaskMaxConsecutiveErrorCount = 10;
+    private Duration remoteTaskMinErrorDuration = new Duration(2, TimeUnit.MINUTES);
 
     public boolean isCoordinator()
     {
