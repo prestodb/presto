@@ -26,7 +26,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -143,12 +142,15 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode rewriteTableScan(TableScanNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
         {
-            Map<Symbol, ColumnHandle> assignments = new HashMap<>();
+            boolean empty = true;
+
+            ImmutableMap.Builder<Symbol, ColumnHandle> assignments = ImmutableMap.builder();
             for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
                 Symbol symbol = entry.getKey();
 
-                if (expectedOutputs.contains(symbol) || expectedOutputs.isEmpty() && Type.isNumeric(types.get(symbol))) {
+                if (expectedOutputs.contains(symbol) || expectedOutputs.isEmpty() && Type.isNumeric(types.get(symbol))) { // heuristic: numeric fields are cheaper if we have to choose an arbitrary one
                     assignments.put(symbol, entry.getValue());
+                    empty = false;
 
                     if (expectedOutputs.isEmpty()) {
                         break;
@@ -156,14 +158,13 @@ public class PruneUnreferencedOutputs
                 }
             }
 
-            if (assignments.isEmpty()) {
+            if (empty) {
                 Map.Entry<Symbol, ColumnHandle> first = Iterables.getFirst(node.getAssignments().entrySet(), null);
                 assignments.put(first.getKey(), first.getValue());
             }
 
-            return new TableScanNode(node.getId(), node.getTable(), assignments);
+            return new TableScanNode(node.getId(), node.getTable(), assignments.build());
         }
-
         @Override
         public PlanNode rewriteFilter(FilterNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
         {
