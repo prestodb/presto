@@ -9,6 +9,7 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
+import io.airlift.stats.CounterStat;
 import io.airlift.stats.DecayCounter;
 import io.airlift.stats.ExponentialDecay;
 import io.airlift.units.DataSize;
@@ -19,6 +20,8 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.PositionedReadable;
 import org.apache.hadoop.fs.Seekable;
 import org.apache.hadoop.hdfs.protocol.DatanodeInfo;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import javax.annotation.concurrent.NotThreadSafe;
 import javax.inject.Inject;
@@ -27,7 +30,9 @@ import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -63,6 +68,7 @@ public class SlowDatanodeSwitcher
     private final int minGlobalSamples;
     private final DataSize minStreamRate;
     private final int slowStreamPercentile;
+    private final CounterStat slowNodeCounter = new CounterStat();
 
     @Inject
     public SlowDatanodeSwitcher(HiveClientConfig config)
@@ -81,6 +87,31 @@ public class SlowDatanodeSwitcher
                 .build();
         Duration globalDistributionDecay = config.getGlobalDistributionDecay();
         globalDistribution = new Distribution2(ExponentialDecay.seconds((int) globalDistributionDecay.convertTo(SECONDS)));
+    }
+
+    @Managed(description = "Set of data nodes that are currently avoided by this server")
+    public List<String> getUnfavoredNodes()
+    {
+        ArrayList<String> names = new ArrayList<>();
+        for (DatanodeInfo datanodeInfo : unfavoredNodes.asMap().keySet()) {
+            names.add(datanodeInfo.getHostName());
+        }
+        Collections.sort(names);
+        return names;
+    }
+
+    @Managed(description = "Byte rate distribution of reads")
+    @Nested
+    public Distribution2 getByteRate()
+    {
+        return globalDistribution;
+    }
+
+    @Managed(description = "Number of detected slow nodes")
+    @Nested
+    public CounterStat getSlowNodeCounter()
+    {
+        return slowNodeCounter;
     }
 
     public Function<FileSystem, FileSystem> createFileSystemWrapper()
@@ -189,12 +220,8 @@ public class SlowDatanodeSwitcher
                         unfavoredNodes.put(currentDatanode, currentDatanode);
                         setUnfavoredNodes(dfsDataInputStream, unfavoredNodes.asMap().keySet());
                         // Reset the bytes rate counter when we switch to the new node
-<<<<<<< HEAD
-                        byteRateDecayCounter = new ByteRateDecayCounter(streamRateDecayAlpha);
-=======
                         streamByteRate = new ByteRateDecayCounter(streamRateDecayAlpha);
                         slowNodeCounter.update(1);
->>>>>>> 783d2d0... switcher updates
                     }
                 }
             }

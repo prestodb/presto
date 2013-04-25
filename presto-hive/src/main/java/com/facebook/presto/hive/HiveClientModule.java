@@ -8,6 +8,7 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import org.apache.hadoop.fs.Path;
+import org.weakref.jmx.guice.ExportBinder;
 
 import static io.airlift.configuration.ConfigurationModule.bindConfig;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
@@ -39,5 +40,9 @@ public class HiveClientModule
         jsonBinder(binder).addSerializerBinding(Path.class).toInstance(ToStringSerializer.instance);
         jsonBinder(binder).addDeserializerBinding(Path.class).toInstance(PathJsonDeserializer.INSTANCE);
         jsonCodecBinder(binder).bindJsonCodec(HivePartitionChunk.class);
+
+        ExportBinder.newExporter(binder)
+                .export(SlowDatanodeSwitcher.class)
+                .withGeneratedName();
     }
 }
