@@ -53,7 +53,6 @@ import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
-
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.net.URI;
@@ -651,21 +650,11 @@ public class HttpRemoteTask
 
                     updateIfNecessary();
                 }
-                else if (response.getStatusCode() == HttpStatus.INTERNAL_SERVER_ERROR.code()) {
-                    // log failure
-                    String message = String.format("Server at %s returned %s: %s",
-                            taskInfo.getSelf(),
-                            response.getStatusCode(),
-                            response.getStatusMessage());
-                    log.debug(message);
-                    requestFailed(startTime, new RuntimeException(message));
-                    updateState(false);
-                }
                 else if (response.getStatusCode() == HttpStatus.SERVICE_UNAVAILABLE.code()) {
                     requestFailed(startTime, new RuntimeException("Server at %s returned SERVICE_UNAVAILABLE"));
                 }
                 else {
-                    // Something is broken in the server or the client, so fail the task immediately
+                    // Something is broken in the server or the client, so fail the task immediately (includes 500 errors)
                     Exception cause = response.getException();
                     if (cause == null) {
                         cause = new RuntimeException(String.format("Expected response code from %s to be %s, but was %s: %s",
@@ -674,6 +663,7 @@ public class HttpRemoteTask
                                 response.getStatusCode(),
                                 response.getStatusMessage()));
                     }
+                    log.debug(cause, "Remote task failed: %s", taskInfo.getSelf());
                     failTask(cause);
                 }
             }
