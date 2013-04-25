@@ -54,7 +54,7 @@ public class SqlFormatter
         protected Void visitExpression(Expression node, Integer indent)
         {
             checkArgument(indent == 0, "visitExpression should only be called at root");
-            builder.append(ExpressionFormatter.toString(node));
+            builder.append(ExpressionFormatter.formatExpression(node));
             return null;
         }
 
@@ -101,7 +101,7 @@ public class SqlFormatter
             builder.append('\n');
 
             if (node.getWhere().isPresent()) {
-                append(indent, "WHERE " + ExpressionFormatter.toString(node.getWhere().get()))
+                append(indent, "WHERE " + ExpressionFormatter.formatExpression(node.getWhere().get()))
                         .append('\n');
             }
 
@@ -111,7 +111,7 @@ public class SqlFormatter
             }
 
             if (node.getHaving().isPresent()) {
-                append(indent, "HAVING " + ExpressionFormatter.toString(node.getHaving().get()))
+                append(indent, "HAVING " + ExpressionFormatter.formatExpression(node.getHaving().get()))
                         .append('\n');
             }
 
@@ -186,7 +186,7 @@ public class SqlFormatter
             {
                 StringBuilder builder = new StringBuilder();
 
-                builder.append(ExpressionFormatter.toString(input.getSortKey()))
+                builder.append(ExpressionFormatter.formatExpression(input.getSortKey()))
                         .append(' ');
 
                 switch (input.getOrdering()) {
