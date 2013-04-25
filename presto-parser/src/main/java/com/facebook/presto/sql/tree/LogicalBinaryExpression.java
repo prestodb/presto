@@ -1,6 +1,5 @@
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 
 public class LogicalBinaryExpression
@@ -45,16 +44,6 @@ public class LogicalBinaryExpression
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitLogicalBinaryExpression(this, context);
-    }
-
-    @Override
-    public String toString()
-    {
-        return Objects.toStringHelper(this)
-                .add("type", type)
-                .add("left", left)
-                .add("right", right)
-                .toString();
     }
 
     public static LogicalBinaryExpression and(Expression left, Expression right)

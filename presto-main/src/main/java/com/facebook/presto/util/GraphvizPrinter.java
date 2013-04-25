@@ -1,7 +1,6 @@
 package com.facebook.presto.util;
 
 import com.facebook.presto.metadata.ColumnHandle;
-import com.facebook.presto.sql.ExpressionFormatter;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -115,7 +114,7 @@ public final class GraphvizPrinter
         {
             StringBuilder builder = new StringBuilder();
             for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
-                builder.append(format("%s := %s\\n", entry.getKey(), ExpressionFormatter.toString(entry.getValue())));
+                builder.append(format("%s := %s\\n", entry.getKey(), entry.getValue()));
             }
 
             printNode(node, format("Aggregate[%s]", node.getStep()), builder.toString());
@@ -126,7 +125,7 @@ public final class GraphvizPrinter
         @Override
         public Void visitFilter(FilterNode node, Void context)
         {
-            String expression = ExpressionFormatter.toString(node.getPredicate());
+            String expression = node.getPredicate().toString();
             expression = expression.replace(">", "\\>");
             expression = expression.replace("<", "\\<");
 
@@ -145,9 +144,8 @@ public final class GraphvizPrinter
                     // skip identity assignments
                     continue;
                 }
-                String expression = ExpressionFormatter.toString(entry.getValue());
 
-                builder.append(format("%s := %s\\n", entry.getKey(), expression));
+                builder.append(format("%s := %s\\n", entry.getKey(), entry.getValue()));
             }
 
             printNode(node, "Project", builder.toString());
@@ -204,12 +202,11 @@ public final class GraphvizPrinter
         @Override
         public Void visitJoin(JoinNode node, Void context)
         {
-            List<String> joinExpressions = new ArrayList<>();
+            List<Expression> joinExpressions = new ArrayList<>();
             for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
-                joinExpressions.add(ExpressionFormatter.toString(
-                        new ComparisonExpression(ComparisonExpression.Type.EQUAL,
-                                new QualifiedNameReference(clause.getLeft().toQualifiedName()),
-                                new QualifiedNameReference(clause.getRight().toQualifiedName()))));
+                joinExpressions.add(new ComparisonExpression(ComparisonExpression.Type.EQUAL,
+                        new QualifiedNameReference(clause.getLeft().toQualifiedName()),
+                        new QualifiedNameReference(clause.getRight().toQualifiedName())));
             }
 
             String criteria = Joiner.on(" AND ").join(joinExpressions);

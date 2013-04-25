@@ -120,7 +120,7 @@ class TranslationMap
     {
         Expression translated = translateNamesToSymbols(expression);
 
-        Preconditions.checkArgument(expressionMappings.containsKey(translated), "No mapping for expression: %s", ExpressionFormatter.toString(expression));
+        Preconditions.checkArgument(expressionMappings.containsKey(translated), "No mapping for expression: %s", expression);
         return expressionMappings.get(translated);
     }
 
@@ -140,7 +140,7 @@ class TranslationMap
     private Expression translateNamesToSymbols(Expression expression)
     {
         final Map<QualifiedName, Integer> resolvedNames = analysis.getResolvedNames(expression);
-        Preconditions.checkArgument(resolvedNames != null, "No resolved names for expression %s", ExpressionFormatter.toString(expression));
+        Preconditions.checkArgument(resolvedNames != null, "No resolved names for expression %s", expression);
 
         return TreeRewriter.rewriteWith(new NodeRewriter<Void>()
         {

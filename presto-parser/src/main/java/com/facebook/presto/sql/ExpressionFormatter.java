@@ -10,7 +10,9 @@ import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CurrentTime;
+import com.facebook.presto.sql.tree.DateLiteral;
 import com.facebook.presto.sql.tree.DoubleLiteral;
+import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FrameBound;
@@ -18,6 +20,7 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
+import com.facebook.presto.sql.tree.IntervalLiteral;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LikePredicate;
@@ -32,6 +35,7 @@ import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
+import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.sql.tree.Window;
@@ -149,6 +153,34 @@ public final class ExpressionFormatter
         protected String visitNullLiteral(NullLiteral node, Void context)
         {
             return "null";
+        }
+
+        @Override
+        protected String visitDateLiteral(DateLiteral node, Void context)
+        {
+            return "DATE '" + node.getValue() + "'";
+        }
+
+        @Override
+        protected String visitIntervalLiteral(IntervalLiteral node, Void context)
+        {
+            return String.format("INTERVAL %s '%s' %s",
+                    node.getSign() == IntervalLiteral.Sign.NEGATIVE? "-" : "",
+                    node.getValue(),
+                    node.getType()
+            );
+        }
+
+        @Override
+        protected String visitSubqueryExpression(SubqueryExpression node, Void context)
+        {
+            return SqlFormatter.toString(node.getQuery());
+        }
+
+        @Override
+        protected String visitExists(ExistsPredicate node, Void context)
+        {
+            return "EXISTS (" + SqlFormatter.toString(node.getSubquery()) + ")";
         }
 
         @Override
