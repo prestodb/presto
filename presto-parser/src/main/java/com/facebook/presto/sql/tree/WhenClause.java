@@ -1,7 +1,5 @@
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
-
 public class WhenClause
         extends Expression
 {
@@ -28,15 +26,6 @@ public class WhenClause
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitWhenClause(this, context);
-    }
-
-    @Override
-    public String toString()
-    {
-        return Objects.toStringHelper(this)
-                .add("operand", operand)
-                .add("result", result)
-                .toString();
     }
 
     @Override

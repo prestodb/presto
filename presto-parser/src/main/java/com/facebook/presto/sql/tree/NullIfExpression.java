@@ -1,7 +1,5 @@
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
-
 /**
  * NULLIF(V1,V2): CASE WHEN V1=V2 THEN NULL ELSE V1 END
  */
@@ -31,15 +29,6 @@ public class NullIfExpression
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitNullIfExpression(this, context);
-    }
-
-    @Override
-    public String toString()
-    {
-        return Objects.toStringHelper(this)
-                .add("first", first)
-                .add("second", second)
-                .toString();
     }
 
     @Override

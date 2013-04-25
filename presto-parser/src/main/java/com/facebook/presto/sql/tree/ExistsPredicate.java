@@ -1,6 +1,5 @@
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 
 public class ExistsPredicate
@@ -23,14 +22,6 @@ public class ExistsPredicate
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitExists(this, context);
-    }
-
-    @Override
-    public String toString()
-    {
-        return Objects.toStringHelper(this)
-                .addValue(subquery)
-                .toString();
     }
 
     @Override

@@ -83,7 +83,7 @@ public class Analysis
 
     public Type getType(Expression expression)
     {
-        Preconditions.checkArgument(types.containsKey(expression), "Expression not analyzed: %s", ExpressionFormatter.toString(expression));
+        Preconditions.checkArgument(types.containsKey(expression), "Expression not analyzed: %s", expression);
         return types.get(expression);
     }
 

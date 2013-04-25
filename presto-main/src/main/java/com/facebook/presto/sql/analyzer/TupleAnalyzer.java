@@ -211,12 +211,12 @@ class TupleAnalyzer
             ImmutableList.Builder<EquiJoinClause> clauses = ImmutableList.builder();
             for (Expression conjunct : ExpressionUtils.extractConjuncts((Expression) optimizedExpression)) {
                 if (!(conjunct instanceof ComparisonExpression)) {
-                    throw new SemanticException(NOT_SUPPORTED, node, "Non-equi joins not supported: %s", ExpressionFormatter.toString(conjunct));
+                    throw new SemanticException(NOT_SUPPORTED, node, "Non-equi joins not supported: %s", conjunct);
                 }
 
                 ComparisonExpression comparison = (ComparisonExpression) conjunct;
                 if (comparison.getType() != ComparisonExpression.Type.EQUAL) {
-                    throw new SemanticException(NOT_SUPPORTED, node, "Non-equi joins not supported: %s", ExpressionFormatter.toString(conjunct));
+                    throw new SemanticException(NOT_SUPPORTED, node, "Non-equi joins not supported: %s", conjunct);
                 }
 
                 Set<QualifiedName> firstDependencies = DependencyExtractor.extract(comparison.getLeft());
@@ -234,7 +234,7 @@ class TupleAnalyzer
                 }
                 else {
                     // must have a complex expression that involves both tuples on one side of the comparison expression (e.g., coalesce(left.x, right.x) = 1)
-                    throw new SemanticException(NOT_SUPPORTED, node, "Non-equi joins not supported: %s", ExpressionFormatter.toString(conjunct));
+                    throw new SemanticException(NOT_SUPPORTED, node, "Non-equi joins not supported: %s", conjunct);
                 }
 
                 // analyze the clauses to record the types of all subexpressions and resolve names against the left/right underlying tuples

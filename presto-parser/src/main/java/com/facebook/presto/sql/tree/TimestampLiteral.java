@@ -1,6 +1,5 @@
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.DateTimeFormatterBuilder;
@@ -68,14 +67,6 @@ public class TimestampLiteral
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitTimestampLiteral(this, context);
-    }
-
-    @Override
-    public String toString()
-    {
-        return Objects.toStringHelper(this)
-                .addValue(value)
-                .toString();
     }
 
     @Override

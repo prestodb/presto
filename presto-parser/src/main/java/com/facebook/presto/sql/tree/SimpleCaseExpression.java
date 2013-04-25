@@ -1,6 +1,5 @@
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
@@ -42,16 +41,6 @@ public class SimpleCaseExpression
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitSimpleCaseExpression(this, context);
-    }
-
-    @Override
-    public String toString()
-    {
-        return Objects.toStringHelper(this)
-                .add("operand", operand)
-                .add("whenClauses", whenClauses)
-                .add("defaultValue", defaultValue)
-                .toString();
     }
 
     @Override

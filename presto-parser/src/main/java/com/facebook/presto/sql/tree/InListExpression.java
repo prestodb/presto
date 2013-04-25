@@ -1,7 +1,5 @@
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
-
 import java.util.List;
 
 public class InListExpression
@@ -23,14 +21,6 @@ public class InListExpression
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitInListExpression(this, context);
-    }
-
-    @Override
-    public String toString()
-    {
-        return Objects.toStringHelper(this)
-                .addValue(values)
-                .toString();
     }
 
     @Override

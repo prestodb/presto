@@ -55,17 +55,6 @@ public class FunctionCall
     }
 
     @Override
-    public String toString()
-    {
-        return Objects.toStringHelper(this)
-                .add("name", name)
-                .add("window", window)
-                .add("distinct", distinct)
-                .add("arguments", arguments)
-                .toString();
-    }
-
-    @Override
     public boolean equals(Object obj)
     {
         if (this == obj) {

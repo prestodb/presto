@@ -1,7 +1,5 @@
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
-
 public class InPredicate
         extends Expression
 {
@@ -28,15 +26,6 @@ public class InPredicate
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitInPredicate(this, context);
-    }
-
-    @Override
-    public String toString()
-    {
-        return Objects.toStringHelper(this)
-                .add("value", value)
-                .add("valueList", valueList)
-                .toString();
     }
 
     @Override

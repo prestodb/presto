@@ -99,7 +99,7 @@ public class AggregationAnalyzer
     public void analyze(Expression expression)
     {
         if (!expression.accept(new Visitor(), null)) {
-            throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, expression, "'%s' must be an aggregate expression or appear in GROUP BY clause", ExpressionFormatter.toString(expression));
+            throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, expression, "'%s' must be an aggregate expression or appear in GROUP BY clause", expression);
         }
     }
 
@@ -165,7 +165,7 @@ public class AggregationAnalyzer
                             node,
                             "Cannot nest aggregations inside aggregation '%s': %s",
                             node.getName(),
-                            Iterables.transform(aggregateExtractor.getAggregates(), ExpressionFormatter.expressionFormatterFunction()));
+                            aggregateExtractor.getAggregates());
                 }
 
                 if (!windowExtractor.getWindowFunctions().isEmpty()) {
@@ -173,7 +173,7 @@ public class AggregationAnalyzer
                             node,
                             "Cannot nest window functions inside aggregation '%s': %s",
                             node.getName(),
-                            Iterables.transform(windowExtractor.getWindowFunctions(), ExpressionFormatter.expressionFormatterFunction()));
+                            windowExtractor.getWindowFunctions());
                 }
 
                 return true;
@@ -195,7 +195,7 @@ public class AggregationAnalyzer
                     throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY,
                             expression,
                             "PARTITION BY expression '%s' must be an aggregate expression or appear in GROUP BY clause",
-                            ExpressionFormatter.toString(expression));
+                            expression);
                 }
             }
 
@@ -205,7 +205,7 @@ public class AggregationAnalyzer
                     throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY,
                             expression,
                             "ORDER BY expression '%s' must be an aggregate expression or appear in GROUP BY clause",
-                            ExpressionFormatter.toString(expression));
+                            expression);
                 }
             }
 

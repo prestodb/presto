@@ -1,11 +1,7 @@
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Function;
-import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
-
-import javax.annotation.Nullable;
 
 public class ComparisonExpression
         extends Expression
@@ -66,16 +62,6 @@ public class ComparisonExpression
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitComparisonExpression(this, context);
-    }
-
-    @Override
-    public String toString()
-    {
-        return Objects.toStringHelper(this)
-                .add("type", type)
-                .add("left", left)
-                .add("right", right)
-                .toString();
     }
 
     @Override

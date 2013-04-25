@@ -63,15 +63,4 @@ public class IfExpression
     {
         return Objects.hashCode(condition, trueValue, falseValue);
     }
-
-    @Override
-    public String toString()
-    {
-        return Objects.toStringHelper(this)
-                .add("condition", condition)
-                .add("trueValue", trueValue)
-                .add("falseValue", falseValue.orNull())
-                .omitNullValues()
-                .toString();
-    }
 }

@@ -1,6 +1,5 @@
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 
 public class BooleanLiteral
@@ -53,13 +52,5 @@ public class BooleanLiteral
     public int hashCode()
     {
         return value.hashCode();
-    }
-
-    @Override
-    public String toString()
-    {
-        return Objects.toStringHelper(this)
-                .addValue(value)
-                .toString();
     }
 }

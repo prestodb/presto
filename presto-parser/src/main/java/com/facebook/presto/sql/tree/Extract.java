@@ -1,8 +1,5 @@
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
-import com.google.common.base.Preconditions;
-
 import javax.annotation.concurrent.Immutable;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -86,12 +83,4 @@ public class Extract
         return result;
     }
 
-    @Override
-    public String toString()
-    {
-        return Objects.toStringHelper(this)
-                .add("expression", expression)
-                .add("field", field)
-                .toString();
-    }
 }
