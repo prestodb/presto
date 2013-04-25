@@ -3,7 +3,7 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.analyzer.Symbol;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -201,9 +201,9 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode rewriteOutput(OutputNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
         {
-            Set<Symbol> expectedInputs = ImmutableSet.copyOf(node.getAssignments().values());
+            Set<Symbol> expectedInputs = ImmutableSet.copyOf(node.getOutputSymbols());
             PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs);
-            return new OutputNode(node.getId(), source, node.getColumnNames(), node.getAssignments());
+            return new OutputNode(node.getId(), source, node.getColumnNames(), node.getOutputSymbols());
         }
 
         @Override
@@ -237,15 +237,13 @@ public class PruneUnreferencedOutputs
         public PlanNode rewriteTableWriter(TableWriterNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
         {
             // Rewrite Query subtree in terms of the symbols expected by the writer.
-            Set<Symbol> expectedInputs = ImmutableSet.copyOf(node.getInputSymbols());
+            Set<Symbol> expectedInputs = ImmutableSet.copyOf(node.getColumns().keySet());
             PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs);
             return new TableWriterNode(node.getId(),
                     source,
-                    node.getTableHandle(),
-                    node.getInputSymbols(),
-                    node.getInputTypes(),
-                    node.getColumnHandles(),
-                    node.getOutputTypes());
+                    node.getTable(),
+                    node.getColumns(),
+                    node.getOutput());
         }
     }
 }

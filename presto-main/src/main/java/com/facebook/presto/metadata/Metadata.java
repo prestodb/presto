@@ -33,4 +33,6 @@ public interface Metadata
     QualifiedTableName getTableName(TableHandle tableHandle);
 
     TableColumn getTableColumn(TableHandle tableHandle, ColumnHandle columnHandle);
+
+    boolean isAggregationFunction(QualifiedName name);
 }

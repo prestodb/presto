@@ -1,6 +1,5 @@
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;

@@ -1,6 +1,5 @@
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -152,7 +151,7 @@ public class PlanSanityChecker
 
             verifyUniqueId(node);
 
-            Preconditions.checkArgument(source.getOutputSymbols().containsAll(node.getAssignments().values()), "Invalid node. Output column dependencies (%s) not in source plan output (%s)", node.getAssignments().values(), node.getSource().getOutputSymbols());
+            Preconditions.checkArgument(source.getOutputSymbols().containsAll(node.getOutputSymbols()), "Invalid node. Output column dependencies (%s) not in source plan output (%s)", node.getOutputSymbols(), node.getSource().getOutputSymbols());
 
             return null;
         }

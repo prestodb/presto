@@ -29,7 +29,6 @@ import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.server.ExchangeOperatorFactory;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
@@ -216,8 +215,6 @@ public class LocalExecutionPlanner
         {
             PhysicalOperation source = node.getSource().accept(this, context);
 
-            List<Symbol> resultSymbols = Lists.transform(node.getColumnNames(), forMap(node.getAssignments()));
-
             // see if we need to introduce a projection
             //   1. verify that there's one symbol per channel
             //   2. verify that symbols from "source" match the expected order of columns according to OutputNode
@@ -228,6 +225,7 @@ public class LocalExecutionPlanner
                     .transform(MoreFunctions.<Symbol, Input>keyGetter())
                     .list();
 
+            List<Symbol> resultSymbols = node.getOutputSymbols();
             if (resultSymbols.equals(sourceSymbols) && resultSymbols.size() == source.getOperator().getChannelCount()) {
                 // no projection needed
                 return source;
@@ -509,37 +507,24 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitTableWriter(TableWriterNode node, LocalExecutionPlanContext context)
         {
-            LocalExecutionPlanner queryPlanner = new LocalExecutionPlanner(session,
-                    nodeInfo,
-                    metadata,
-                    node.getInputTypes(),
-                    operatorStats,
-                    joinHashFactory,
-                    maxOperatorMemoryUsage,
-                    dataStreamProvider,
-                    storageManager,
-                    exchangeOperatorFactory);
+            PhysicalOperation query = node.getSource().accept(this, context);
 
-            PhysicalOperation query = node.getSource().accept(queryPlanner.new Visitor(), context);
-
-            // introduce a projection to match the expected output
-            IdentityProjectionInfo mappings = computeIdentityMapping(node.getInputSymbols(), query.getLayout(), node.getInputTypes());
-            Operator sourceOperator = new FilterAndProjectOperator(query.getOperator(), FilterFunctions.TRUE_FUNCTION, mappings.getProjections());
-
-            Symbol outputSymbol = Iterables.getOnlyElement(node.getOutputTypes().keySet());
-
-
-            ImmutableList.Builder<ColumnHandle> columnHandlesBuilder = ImmutableList.builder();
-
-            for (Symbol inputSymbol : node.getInputSymbols()) {
-                ColumnHandle columnHandle = node.getColumnHandles().get(inputSymbol);
-                checkState(columnHandle != null, "No column handle for %s found!", inputSymbol);
-                columnHandlesBuilder.add(columnHandle);
+            ImmutableList.Builder<ColumnHandle> columns = ImmutableList.builder();
+            ImmutableList.Builder<Symbol> symbols = ImmutableList.builder();
+            for (Map.Entry<Symbol, ColumnHandle> entry : node.getColumns().entrySet()) {
+                symbols.add(entry.getKey());
+                columns.add(entry.getValue());
             }
 
+
+            // introduce a projection to match the expected output
+            IdentityProjectionInfo mappings = computeIdentityMapping(symbols.build(), query.getLayout(), types);
+            Operator sourceOperator = new FilterAndProjectOperator(query.getOperator(), FilterFunctions.TRUE_FUNCTION, mappings.getProjections());
+
+            Symbol outputSymbol = Iterables.getOnlyElement(node.getOutputSymbols());
             TableWriterOperator operator = new TableWriterOperator(storageManager,
                     nodeInfo.getNodeId(),
-                    columnHandlesBuilder.build(),
+                    columns.build(),
                     sourceOperator);
 
             context.addSourceOperator(node, operator);

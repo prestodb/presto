@@ -1,20 +1,28 @@
 package com.facebook.presto.sql.analyzer;
 
-import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 
+import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
+
+import static com.facebook.presto.sql.analyzer.Field.relationAliasGetter;
+import static com.facebook.presto.sql.analyzer.Optionals.isPresentPredicate;
 
 public class TupleDescriptor
 {
     private final List<Field> fields;
+
+    public TupleDescriptor(Field... fields)
+    {
+        this(Arrays.asList(fields));
+    }
 
     public TupleDescriptor(List<Field> fields)
     {
@@ -22,55 +30,83 @@ public class TupleDescriptor
         this.fields = ImmutableList.copyOf(fields);
     }
 
-    public TupleDescriptor(List<Optional<String>> attributes, List<Symbol> symbols, List<Type> types)
-    {
-        Preconditions.checkNotNull(attributes, "attributes is null");
-        Preconditions.checkNotNull(symbols, "symbols is null");
-        Preconditions.checkNotNull(types, "types is null");
-        Preconditions.checkArgument(attributes.size() == symbols.size(), "attributes and symbols sizes do not match");
-        Preconditions.checkArgument(attributes.size() == types.size(), "attributes and types sizes do not match");
-
-        ImmutableList.Builder<Field> builder = ImmutableList.builder();
-        for (int i = 0; i < attributes.size(); i++) {
-            builder.add(new Field(Optional.<QualifiedName>absent(), attributes.get(i), Optional.<ColumnHandle>absent(), symbols.get(i), types.get(i)));
-        }
-
-        this.fields = builder.build();
-    }
-
     public List<Field> getFields()
     {
         return fields;
     }
 
-    public Map<Symbol, Type> getSymbols()
+    public Set<QualifiedName> getRelationAliases()
     {
-        ImmutableMap.Builder<Symbol, Type> builder = ImmutableMap.builder();
+        return IterableTransformer.on(fields)
+                .transform(relationAliasGetter())
+                .select(isPresentPredicate())
+                .transform(Optionals.<QualifiedName>optionalGetter())
+                .set();
+    }
+
+    public boolean canResolve(QualifiedName name)
+    {
+        return Iterables.any(fields, Field.canResolvePredicate(name));
+    }
+
+    public List<Field> resolveFieldsWithPrefix(Optional<QualifiedName> prefix)
+    {
+        ImmutableList.Builder<Field> builder = ImmutableList.builder();
+
         for (Field field : fields) {
-            builder.put(field.getSymbol(), field.getType());
+            if (field.matchesPrefix(prefix)) {
+                builder.add(field);
+            }
         }
+
         return builder.build();
+    }
+
+    public List<Integer> resolveFieldIndexesWithPrefix(Optional<QualifiedName> prefix)
+    {
+        ImmutableList.Builder<Integer> builder = ImmutableList.builder();
+
+        int index = 0;
+        for (Field field : fields) {
+            if (field.matchesPrefix(prefix)) {
+                builder.add(index);
+            }
+            index++;
+        }
+
+        return builder.build();
+    }
+
+    public List<Integer> resolveFieldIndexes(QualifiedName name)
+    {
+        ImmutableList.Builder<Integer> fields = ImmutableList.builder();
+
+        for (int index = 0; index < this.fields.size(); index++) {
+            Field field = this.fields.get(index);
+
+            if (field.canResolve(name)) {
+                fields.add(index);
+            }
+        }
+
+        return fields.build();
+    }
+
+    public Predicate<QualifiedName> canResolvePredicate()
+    {
+        return new Predicate<QualifiedName>()
+        {
+            @Override
+            public boolean apply(QualifiedName input)
+            {
+                return canResolve(input);
+            }
+        };
     }
 
     @Override
     public String toString()
     {
         return fields.toString();
-    }
-
-    public List<Field> resolve(final QualifiedName name)
-    {
-        return ImmutableList.copyOf(Iterables.filter(fields, new Predicate<Field>()
-        {
-            @Override
-            public boolean apply(Field input)
-            {
-                if (!input.getPrefix().isPresent() || !input.getAttribute().isPresent()) {
-                    return false;
-                }
-
-                return QualifiedName.of(input.getPrefix().get(), input.getAttribute().get()).hasSuffix(name);
-            }
-        }));
     }
 }

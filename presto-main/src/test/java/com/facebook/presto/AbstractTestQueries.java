@@ -53,6 +53,27 @@ public abstract class AbstractTestQueries
     private TpchDataStreamProvider dataProvider;
 
     @Test
+    public void testComplexQuery()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("SELECT sum(orderkey), row_number() OVER (ORDER BY orderkey)\n" +
+                "FROM orders\n" +
+                "WHERE orderkey <= 10\n" +
+                "GROUP BY orderkey\n" +
+                "HAVING sum(orderkey) >= 3\n" +
+                "ORDER BY orderkey DESC\n" +
+                "LIMIT 3");
+
+        MaterializedResult expected = resultBuilder(FIXED_INT_64, FIXED_INT_64)
+                .row(7, 5)
+                .row(6, 4)
+                .row(5, 3)
+                .build();
+
+        assertEquals(actual, expected);
+    }
+
+    @Test
     public void testSumOfNulls()
             throws Exception
     {
@@ -151,7 +172,7 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT DISTINCT custkey FROM orders ORDER BY custkey LIMIT 10");
     }
 
-    @Test(expectedExceptions = Exception.class, expectedExceptionsMessageRegExp = "Expressions must appear in select list for SELECT DISTINCT, ORDER BY.*")
+    @Test(expectedExceptions = Exception.class, expectedExceptionsMessageRegExp = "For SELECT DISTINCT, ORDER BY expressions must appear in select list")
     public void testDistinctWithOrderByNotInSelect()
             throws Exception
     {
@@ -548,6 +569,13 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testJoinWithAlias()
+            throws Exception
+    {
+        assertQuery("SELECT * FROM (lineitem JOIN orders ON lineitem.orderkey = orders.orderkey) x");
+    }
+
+    @Test
     public void testJoinWithConstantExpression()
             throws Exception
     {
@@ -686,18 +714,79 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT orderkey, orderstatus FROM orders ORDER BY custkey DESC, orderstatus");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testOrderByAlias()
             throws Exception
     {
         assertQueryOrdered("SELECT orderstatus x FROM orders ORDER BY x ASC");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testOrderByAliasWithSameNameAsUnselectedColumn()
             throws Exception
     {
         assertQueryOrdered("SELECT orderstatus orderdate FROM orders ORDER BY orderdate ASC");
+    }
+
+    @Test
+    public void testOrderByOrdinal()
+            throws Exception
+    {
+        assertQueryOrdered("SELECT orderstatus, orderdate FROM orders ORDER BY 2, 1");
+    }
+
+    @Test
+    public void testOrderByOrdinalWithWildcard()
+            throws Exception
+    {
+        assertQueryOrdered("SELECT * FROM orders ORDER BY 1");
+    }
+
+    @Test
+    public void testGroupByOrdinal()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT orderstatus, sum(totalprice) FROM orders GROUP BY 1",
+                "SELECT orderstatus, sum(totalprice) FROM orders GROUP BY orderstatus");
+    }
+
+
+    @Test
+    public void testHaving()
+            throws Exception
+    {
+        assertQuery("SELECT orderstatus, sum(totalprice) FROM orders GROUP BY orderstatus HAVING orderstatus = 'O'");
+    }
+
+    @Test
+    public void testHaving2()
+            throws Exception
+    {
+        assertQuery("SELECT custkey, sum(orderkey) FROM orders GROUP BY custkey HAVING sum(orderkey) > 400000");
+    }
+
+    @Test
+    public void testHaving3()
+            throws Exception
+    {
+        assertQuery("SELECT custkey, sum(totalprice) * 2 FROM orders GROUP BY custkey HAVING avg(totalprice + 5) > 10");
+    }
+
+    @Test
+    public void testColumnAliases()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT x, T.y, z + 1 FROM (SELECT custkey, orderstatus, totalprice FROM orders) T (x, y, z)",
+                "SELECT custkey, orderstatus, totalprice + 1 FROM orders");
+    }
+
+    @Test
+    public void testSameInputToAggregates()
+            throws Exception
+    {
+        assertQuery("SELECT max(a), max(b) FROM (SELECT custkey a, custkey b FROM orders) x");
     }
 
     @SuppressWarnings("PointlessArithmeticExpression")
@@ -788,6 +877,152 @@ public abstract class AbstractTestQueries
         computeActual("select * from lineitem l join (select orderkey_1, custkey from orders) o on l.orderkey = o.orderkey_1");
     }
 
+    @Test
+    public void testUnaliasedSubqueries()
+            throws Exception
+    {
+        assertQuery("SELECT orderkey FROM (SELECT orderkey FROM orders)");
+    }
+
+    @Test
+    public void testUnaliasedSubqueries1()
+            throws Exception
+    {
+        assertQuery("SELECT a FROM (SELECT orderkey a FROM orders)");
+    }
+
+    @Test
+    public void testJoinUnaliasedSubqueries()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT COUNT(*) FROM (SELECT * FROM lineitem) join (SELECT * FROM orders) using (orderkey)",
+                "SELECT COUNT(*) FROM lineitem join orders on lineitem.orderkey = orders.orderkey"
+        );
+    }
+
+    @Test
+    public void testWith()
+            throws Exception
+    {
+        assertQuery("" +
+                "WITH a AS (SELECT * FROM orders) " +
+                "SELECT * FROM a",
+                "SELECT * FROM orders");
+    }
+
+    @Test
+    public void testWithQualifiedPrefix()
+            throws Exception
+    {
+        assertQuery("" +
+                "WITH a AS (SELECT 123 FROM orders LIMIT 1)" +
+                "SELECT a.* FROM a",
+                "SELECT 123 FROM orders LIMIT 1");
+    }
+
+    @Test
+    public void testWithAliased()
+            throws Exception
+    {
+        assertQuery("" +
+                "WITH a AS (SELECT * FROM orders) " +
+                "SELECT * FROM a x",
+                "SELECT * FROM orders");
+    }
+
+    @Test
+    public void testReferenceToWithQueryInFromClause()
+            throws Exception
+    {
+        assertQuery(
+                "WITH a AS (SELECT * FROM orders)" +
+                        "SELECT * FROM (" +
+                        "   SELECT * FROM a" +
+                        ")",
+                "SELECT * FROM orders");
+    }
+
+    @Test
+    public void testWithChaining()
+            throws Exception
+    {
+        assertQuery("" +
+                "WITH a AS (SELECT orderkey n FROM orders)\n" +
+                ", b AS (SELECT n + 1 n FROM a)\n" +
+                ", c AS (SELECT n + 1 n FROM b)\n" +
+                "SELECT n + 1 FROM c",
+                "SELECT orderkey + 3 FROM orders");
+    }
+
+    @Test
+    public void testWithSelfJoin()
+            throws Exception
+    {
+        assertQuery("" +
+                "WITH x AS (SELECT DISTINCT orderkey FROM orders ORDER BY orderkey LIMIT 10)\n" +
+                "SELECT count(*) FROM x a JOIN x b USING (orderkey)", "" +
+                "SELECT count(*)\n" +
+                "FROM (SELECT DISTINCT orderkey FROM orders ORDER BY orderkey LIMIT 10) a\n" +
+                "JOIN (SELECT DISTINCT orderkey FROM orders ORDER BY orderkey LIMIT 10) b ON a.orderkey = b.orderkey");
+    }
+
+    @Test
+    public void testWithNestedSubqueries()
+            throws Exception
+    {
+        assertQuery("" +
+                "WITH a AS (\n" +
+                "  WITH aa AS (SELECT 123 x FROM orders LIMIT 1)\n" +
+                "  SELECT x y FROM aa\n" +
+                "), b AS (\n" +
+                "  WITH bb AS (\n" +
+                "    WITH bbb AS (SELECT y FROM a)\n" +
+                "    SELECT bbb.* FROM bbb\n" +
+                "  )\n" +
+                "  SELECT y z FROM bb\n" +
+                ")\n" +
+                "SELECT *\n" +
+                "FROM (\n" +
+                "  WITH q AS (SELECT z w FROM b)\n" +
+                "  SELECT j.*, k.*\n" +
+                "  FROM a j\n" +
+                "  JOIN q k ON (j.y = k.w)\n" +
+                ") t", "" +
+                "SELECT 123, 123 FROM orders LIMIT 1");
+    }
+
+    @Test(enabled = false)
+    public void testWithColumnAliasing()
+            throws Exception
+    {
+        assertQuery(
+                "WITH a (id) AS (SELECT 123 FROM orders LIMIT 1) SELECT * FROM a",
+                "SELECT 123 FROM orders LIMIT 1");
+    }
+
+    @Test
+    public void testWithHiding()
+            throws Exception
+    {
+        assertQuery(
+                "WITH a AS (SELECT custkey FROM orders), " +
+                "     b AS (" +
+                "         WITH a AS (SELECT orderkey FROM orders)" +
+                "         SELECT * FROM a" + // should refer to inner 'a'
+                "    )" +
+                "SELECT * FROM b",
+                "SELECT orderkey FROM orders"
+        );
+    }
+
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Recursive WITH queries are not supported")
+    public void testWithRecursive()
+            throws Exception
+    {
+        computeActual("WITH RECURSIVE a AS (SELECT 123 FROM dual) SELECT * FROM a");
+    }
+
     @BeforeClass(alwaysRun = true)
     public void setupDatabase()
             throws Exception
@@ -864,7 +1099,7 @@ public abstract class AbstractTestQueries
 
     protected abstract MaterializedResult computeActual(@Language("SQL") String sql);
 
-    private void assertQuery(@Language("SQL") String sql)
+    protected void assertQuery(@Language("SQL") String sql)
             throws Exception
     {
         assertQuery(sql, sql, false);
@@ -876,7 +1111,7 @@ public abstract class AbstractTestQueries
         assertQuery(sql, sql, true);
     }
 
-    private void assertQuery(@Language("SQL") String actual, @Language("SQL") String expected)
+    protected void assertQuery(@Language("SQL") String actual, @Language("SQL") String expected)
             throws Exception
     {
         assertQuery(actual, expected, false);

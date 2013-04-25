@@ -1,6 +1,6 @@
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.sql.analyzer.Symbol;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.Expression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -18,6 +18,7 @@ public class ProjectNode
     private final PlanNode source;
     private final Map<Symbol, Expression> outputs;
 
+    // TODO: pass in the "assignments" and the "outputs" separately (i.e., get rid if the symbol := symbol idiom)
     @JsonCreator
     public ProjectNode(@JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,

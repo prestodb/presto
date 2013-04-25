@@ -22,6 +22,12 @@ public abstract class AbstractMetadata
     }
 
     @Override
+    public boolean isAggregationFunction(QualifiedName name)
+    {
+        throw new UnsupportedOperationException("not yet implemented");
+    }
+
+    @Override
     public List<FunctionInfo> listFunctions()
     {
         throw new UnsupportedOperationException();

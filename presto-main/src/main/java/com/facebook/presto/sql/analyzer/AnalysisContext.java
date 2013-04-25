@@ -1,116 +1,45 @@
 package com.facebook.presto.sql.analyzer;
 
-import com.facebook.presto.metadata.QualifiedTableName;
-import com.facebook.presto.metadata.TableMetadata;
-import com.facebook.presto.sql.tree.Join;
-import com.facebook.presto.sql.tree.Relation;
-import com.facebook.presto.sql.tree.Subquery;
-import com.facebook.presto.sql.tree.Table;
+import com.facebook.presto.sql.tree.Query;
+import com.google.common.base.Preconditions;
 
-import java.util.IdentityHashMap;
-import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
-class AnalysisContext
+public class AnalysisContext
 {
-    private final Session session;
-    private final SymbolAllocator symbolAllocator;
+    private final AnalysisContext parent;
+    private final Map<String, Query> namedQueries = new HashMap<>();
 
-    private final IdentityHashMap<Subquery, AnalysisResult> inlineViews = new IdentityHashMap<>();
-    private final IdentityHashMap<Relation, TupleDescriptor> tableDescriptors = new IdentityHashMap<>();
-    private final IdentityHashMap<Relation, TableMetadata> tableMetadata = new IdentityHashMap<>();
-    private final IdentityHashMap<Join, List<AnalyzedJoinClause>> joinCriteria = new IdentityHashMap<>();
-    private final IdentityHashMap<QualifiedTableName, AnalysisResult> destinations = new IdentityHashMap<>();
-
-    public AnalysisContext(Session session)
+    public AnalysisContext(AnalysisContext parent)
     {
-        this(session, new SymbolAllocator());
+        this.parent = parent;
     }
 
-    public AnalysisContext(Session session, SymbolAllocator symbolAllocator)
+    public AnalysisContext()
     {
-        this.session = session;
-        this.symbolAllocator = symbolAllocator;
+        parent = null;
     }
 
-    /**
-     * We really want to expose an unmodifiable identity map here. Unfortunately there's no such a thing, so we expose the raw reference.
-     * Callers should *not* modify its contents.
-     */
-    IdentityHashMap<Subquery, AnalysisResult> getInlineViews()
+    public void addNamedQuery(String name, Query query)
     {
-        return inlineViews;
+        Preconditions.checkState(!namedQueries.containsKey(name), "Named query already registered: %s", name);
+        namedQueries.put(name, query);
     }
 
-    public void registerInlineView(Subquery node, AnalysisResult analysis)
+    public Query getNamedQuery(String name)
     {
-        inlineViews.put(node, analysis);
+        Query result = namedQueries.get(name);
+
+        if (result == null && parent != null) {
+            return parent.getNamedQuery(name);
+        }
+
+        return result;
     }
 
-    public void registerTable(Table table, TupleDescriptor descriptor, TableMetadata metadata)
+    public boolean isNamedQueryDeclared(String name)
     {
-        tableDescriptors.put(table, descriptor);
-        tableMetadata.put(table, metadata);
-    }
-
-    /**
-     * We really want to expose an unmodifiable identity map here. Unfortunately there's no such a thing, so we expose the raw reference.
-     * Callers should *not* modify its contents.
-     */
-    IdentityHashMap<Relation, TupleDescriptor> getTableDescriptors()
-    {
-        return tableDescriptors;
-    }
-
-    /**
-     * We really want to expose an unmodifiable identity map here. Unfortunately there's no such a thing, so we expose the raw reference.
-     * Callers should *not* modify its contents.
-     */
-    IdentityHashMap<Relation, TableMetadata> getTableMetadata()
-    {
-        return tableMetadata;
-    }
-
-    /**
-     * We really want to expose an unmodifiable identity map here. Unfortunately there's no such a thing, so we expose the raw reference.
-     * Callers should *not* modify its contents.
-     */
-    IdentityHashMap<Join, List<AnalyzedJoinClause>> getJoinCriteria()
-    {
-        return joinCriteria;
-    }
-
-    public SymbolAllocator getSymbolAllocator()
-    {
-        return symbolAllocator;
-    }
-
-    public Map<Symbol, Type> getSymbols()
-    {
-        return symbolAllocator.getTypes();
-    }
-
-    public void registerJoin(Join node, List<AnalyzedJoinClause> criteria)
-    {
-        joinCriteria.put(node, criteria);
-    }
-
-    public void addDestination(QualifiedTableName destination, AnalysisResult result)
-    {
-        checkNotNull(destination, "destination is null");
-        checkNotNull(result, "result is null");
-        this.destinations.put(destination, result);
-    }
-
-    IdentityHashMap<QualifiedTableName, AnalysisResult> getDestinations()
-    {
-        return destinations;
-    }
-
-    public Session getSession()
-    {
-        return session;
+        return namedQueries.containsKey(name);
     }
 }
