@@ -13,6 +13,6 @@ public abstract class Expression
 
     public final String toString()
     {
-        return ExpressionFormatter.toString(this);
+        return ExpressionFormatter.formatExpression(this);
     }
 }

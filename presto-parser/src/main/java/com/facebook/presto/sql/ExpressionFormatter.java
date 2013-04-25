@@ -54,7 +54,7 @@ public final class ExpressionFormatter
 {
     private ExpressionFormatter() {}
 
-    public static String toString(Expression expression)
+    public static String formatExpression(Expression expression)
     {
         return new Formatter().process(expression, null);
     }
@@ -66,7 +66,7 @@ public final class ExpressionFormatter
             @Override
             public String apply(Expression input)
             {
-                return ExpressionFormatter.toString(input);
+                return ExpressionFormatter.formatExpression(input);
             }
         };
     }
