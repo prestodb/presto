@@ -118,6 +118,15 @@ public class TestStatementSplitter
     }
 
     @Test
+    public void testSplitterWithDigitIdentifier()
+    {
+        String sql = "select   1x  from dual";
+        StatementSplitter splitter = new StatementSplitter(sql);
+        assertEquals(splitter.getCompleteStatements(), ImmutableList.of());
+        assertEquals(splitter.getPartialStatement(), sql);
+    }
+
+    @Test
     public void testSqueezeStatement()
     {
         String sql = "select   *  from\n foo\n  order by x ; ";
