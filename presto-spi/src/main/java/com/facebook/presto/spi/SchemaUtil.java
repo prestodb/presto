@@ -6,7 +6,7 @@ final class SchemaUtil
     {
     }
 
-    static String checkLowerCase(String value, String name)
+    static String checkNotEmpty(String value, String name)
     {
         if (value == null) {
             throw new NullPointerException(name + " is null");
@@ -14,10 +14,6 @@ final class SchemaUtil
         if (value.isEmpty()) {
             throw new IllegalArgumentException(name + " is empty");
         }
-        if (!value.equals(value.toLowerCase())) {
-            throw new IllegalArgumentException(name + " is not lowercase");
-        }
         return value;
     }
-
 }

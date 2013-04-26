@@ -2,7 +2,7 @@ package com.facebook.presto.spi;
 
 import java.util.Objects;
 
-import static com.facebook.presto.spi.SchemaUtil.checkLowerCase;
+import static com.facebook.presto.spi.SchemaUtil.checkNotEmpty;
 
 public class SchemaTablePrefix
 {
@@ -19,14 +19,14 @@ public class SchemaTablePrefix
 
     public SchemaTablePrefix(String schemaName)
     {
-        this.schemaName = checkLowerCase(schemaName, "schemaName");
+        this.schemaName = checkNotEmpty(schemaName, "schemaName");
         this.tableName = null;
     }
 
     public SchemaTablePrefix(String schemaName, String tableName)
     {
-        this.schemaName = checkLowerCase(schemaName, "schemaName");
-        this.tableName = checkLowerCase(tableName, "tableName");
+        this.schemaName = checkNotEmpty(schemaName, "schemaName");
+        this.tableName = checkNotEmpty(tableName, "tableName");
     }
 
     public String getSchemaName()
