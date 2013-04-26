@@ -1,6 +1,5 @@
 package com.facebook.presto.execution;
 
-import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.metadata.AliasDao;
 import com.facebook.presto.metadata.DataSourceType;
 import com.facebook.presto.metadata.MetadataManager;
@@ -14,7 +13,6 @@ import com.facebook.presto.sql.tree.Statement;
 import com.google.common.base.Preconditions;
 
 import javax.inject.Inject;
-
 import java.net.URI;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedTableName;
@@ -38,7 +36,6 @@ public class CreateAliasExecution
             CreateAlias statement,
             MetadataManager metadataManager,
             AliasDao aliasDao,
-            QueryMonitor queryMonitor,
             Sitevars sitevars)
     {
         this.statement = statement;
@@ -46,7 +43,7 @@ public class CreateAliasExecution
         this.metadataManager = metadataManager;
         this.aliasDao = aliasDao;
 
-        this.stateMachine = new QueryStateMachine(queryId, query, session, self, queryMonitor);
+        this.stateMachine = new QueryStateMachine(queryId, query, session, self);
     }
 
     public void start()
@@ -69,6 +66,12 @@ public class CreateAliasExecution
         catch (Exception e) {
             fail(e);
         }
+    }
+
+    @Override
+    public void addListener(Runnable listener)
+    {
+        stateMachine.addListener(listener);
     }
 
     @Override
@@ -96,7 +99,7 @@ public class CreateAliasExecution
     @Override
     public QueryInfo getQueryInfo()
     {
-        return stateMachine.getQueryInfo();
+        return stateMachine.getQueryInfoWithoutDetails();
     }
 
     private void createAlias()
@@ -129,20 +132,17 @@ public class CreateAliasExecution
         private final LocationFactory locationFactory;
         private final MetadataManager metadataManager;
         private final AliasDao aliasDao;
-        private final QueryMonitor queryMonitor;
         private final Sitevars sitevars;
 
         @Inject
         CreateAliasExecutionFactory(LocationFactory locationFactory,
                 MetadataManager metadataManager,
-                QueryMonitor queryMonitor,
                 AliasDao aliasDao,
                 Sitevars sitevars)
         {
             this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
             this.metadataManager = checkNotNull(metadataManager, "metadataManager is null");
             this.aliasDao = checkNotNull(aliasDao, "aliasDao is null");
-            this.queryMonitor = checkNotNull(queryMonitor, "queryMonitor is null");
             this.sitevars = checkNotNull(sitevars, "sitevars is null");
         }
 
@@ -155,7 +155,6 @@ public class CreateAliasExecution
                     (CreateAlias) statement,
                     metadataManager,
                     aliasDao,
-                    queryMonitor,
                     sitevars);
         }
     }

@@ -3,7 +3,6 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.importer.PeriodicImportManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NodeManager;
@@ -14,12 +13,12 @@ import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.DistributedExecutionPlanner;
 import com.facebook.presto.sql.planner.DistributedLogicalPlanner;
+import com.facebook.presto.sql.planner.LogicalPlanner;
+import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.StageExecutionPlan;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
-import com.facebook.presto.sql.planner.LogicalPlanner;
-import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.storage.StorageManager;
 import com.google.common.base.Preconditions;
@@ -27,7 +26,6 @@ import com.google.common.base.Predicate;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
-
 import java.net.URI;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -77,7 +75,6 @@ public class SqlQueryExecution
             List<PlanOptimizer> planOptimizers,
             RemoteTaskFactory remoteTaskFactory,
             LocationFactory locationFactory,
-            QueryMonitor queryMonitor,
             int maxPendingSplitsPerNode,
             ExecutorService queryExecutor,
             ShardManager shardManager,
@@ -103,8 +100,7 @@ public class SqlQueryExecution
         checkNotNull(query, "query is null");
         checkNotNull(session, "session is null");
         checkNotNull(self, "self is null");
-        checkNotNull(queryMonitor, "queryMonitor is null");
-        this.stateMachine = new QueryStateMachine(queryId, query, session, self, queryMonitor);
+        this.stateMachine = new QueryStateMachine(queryId, query, session, self);
     }
 
     @Override
@@ -144,6 +140,12 @@ public class SqlQueryExecution
         catch (Exception e) {
             fail(e);
         }
+    }
+
+    @Override
+    public void addListener(Runnable listener)
+    {
+        stateMachine.addListener(listener);
     }
 
     private SubPlan analyzeQuery()
@@ -333,7 +335,6 @@ public class SqlQueryExecution
         private final List<PlanOptimizer> planOptimizers;
         private final RemoteTaskFactory remoteTaskFactory;
         private final LocationFactory locationFactory;
-        private final QueryMonitor queryMonitor;
         private final ShardManager shardManager;
         private final StorageManager storageManager;
         private final PeriodicImportManager periodicImportManager;
@@ -343,7 +344,6 @@ public class SqlQueryExecution
         @Inject
         SqlQueryExecutionFactory(QueryManagerConfig config,
                 Metadata metadata,
-                QueryMonitor queryMonitor,
                 LocationFactory locationFactory,
                 SplitManager splitManager,
                 NodeManager nodeManager,
@@ -356,7 +356,6 @@ public class SqlQueryExecution
             Preconditions.checkNotNull(config, "config is null");
             this.maxPendingSplitsPerNode = config.getMaxPendingSplitsPerNode();
             this.metadata = checkNotNull(metadata, "metadata is null");
-            this.queryMonitor = checkNotNull(queryMonitor, "queryMonitor is null");
             this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
             this.splitManager = checkNotNull(splitManager, "splitManager is null");
             this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
@@ -383,7 +382,6 @@ public class SqlQueryExecution
                     planOptimizers,
                     remoteTaskFactory,
                     locationFactory,
-                    queryMonitor,
                     maxPendingSplitsPerNode,
                     queryExecutor,
                     shardManager,

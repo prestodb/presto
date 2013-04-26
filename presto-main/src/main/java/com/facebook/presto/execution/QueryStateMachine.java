@@ -1,6 +1,5 @@
 package com.facebook.presto.execution;
 
-import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.sql.analyzer.Session;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
@@ -9,6 +8,7 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.List;
 
 import static com.facebook.presto.util.Failures.toFailure;
@@ -23,7 +23,6 @@ public class QueryStateMachine
     private final String query;
     private final Session session;
     private final URI self;
-    private final QueryMonitor queryMonitor;
     private final QueryStats queryStats = new QueryStats();
 
     @GuardedBy("this")
@@ -35,23 +34,20 @@ public class QueryStateMachine
     @GuardedBy("this")
     private List<String> outputFieldNames = ImmutableList.of();
 
-    public QueryStateMachine(QueryId queryId, String query, Session session, URI self, QueryMonitor queryMonitor)
+    @GuardedBy("this")
+    private final List<Runnable> listeners = new ArrayList<>();
+
+    public QueryStateMachine(QueryId queryId, String query, Session session, URI self)
     {
         this.queryId = checkNotNull(queryId, "queryId is null");
         this.query = checkNotNull(query, "query is null");
         this.session = checkNotNull(session, "session is null");
         this.self = checkNotNull(self, "self is null");
-        this.queryMonitor = checkNotNull(queryMonitor, "queryMonitor is null");
     }
 
     public QueryId getQueryId()
     {
         return queryId;
-    }
-
-    public String getQuery()
-    {
-        return query;
     }
 
     public Session getSession()
@@ -64,7 +60,7 @@ public class QueryStateMachine
         return queryStats;
     }
 
-    public QueryInfo getQueryInfo()
+    public QueryInfo getQueryInfoWithoutDetails()
     {
         return getQueryInfo(null);
     }
@@ -132,22 +128,25 @@ public class QueryStateMachine
 
     public boolean finished()
     {
+        List<Runnable> listenersToNotify;
         synchronized (this) {
             // transition to failed state, only if not already finished
             if (queryState.isDone()) {
                 return false;
             }
             queryState = QueryState.FINISHED;
+            listenersToNotify = ImmutableList.copyOf(listeners);
         }
 
         log.debug("Finished query %s", queryId);
         queryStats.recordEnd();
-        queryMonitor.completionEvent(getQueryInfo());
+        notifyListeners(listenersToNotify);
         return true;
     }
 
     public boolean cancel()
     {
+        List<Runnable> listenersToNotify;
         // transition to canceled state, only if not already finished
         synchronized (this) {
             // transition to failed state, only if not already finished
@@ -156,16 +155,18 @@ public class QueryStateMachine
             }
             queryState = QueryState.CANCELED;
             failureCause = new RuntimeException("Query was canceled");
+            listenersToNotify = ImmutableList.copyOf(listeners);
         }
 
         log.debug("Canceled query %s", queryId);
         queryStats.recordEnd();
-        queryMonitor.completionEvent(getQueryInfo());
+        notifyListeners(listenersToNotify);
         return true;
     }
 
     public boolean fail(@Nullable Throwable cause)
     {
+        List<Runnable> listenersToNotify;
         synchronized (this) {
             // only fail is query has not already completed successfully
             if (queryState.isDone() && (queryState != QueryState.FAILED)) {
@@ -186,12 +187,33 @@ public class QueryStateMachine
                 return true;
             }
 
+            listenersToNotify = ImmutableList.copyOf(listeners);
             queryState = QueryState.FAILED;
         }
 
         log.debug("Failed query %s", queryId);
         queryStats.recordEnd();
-        queryMonitor.completionEvent(getQueryInfo());
+        notifyListeners(listenersToNotify);
         return true;
+    }
+
+    public void addListener(Runnable listener)
+    {
+        boolean needsToNotify;
+        synchronized (this) {
+            listeners.add(listener);
+            needsToNotify = queryState.isDone();
+        }
+
+        if (needsToNotify) {
+            notifyListeners(ImmutableList.of(listener));
+        }
+    }
+
+    private void notifyListeners(List<Runnable> listeners)
+    {
+        for (Runnable listener : listeners) {
+            listener.run();
+        }
     }
 }
