@@ -1,6 +1,5 @@
 package com.facebook.presto.execution;
 
-import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.importer.PeriodicImportManager;
 import com.facebook.presto.importer.PersistentPeriodicImportJob;
 import com.facebook.presto.metadata.DataSourceType;
@@ -50,7 +49,6 @@ public class DropTableExecution
             StorageManager storageManager,
             ShardManager shardManager,
             PeriodicImportManager periodicImportManager,
-            QueryMonitor queryMonitor,
             Sitevars sitevars)
     {
         this.statement = statement;
@@ -60,7 +58,7 @@ public class DropTableExecution
         this.shardManager = shardManager;
         this.periodicImportManager = periodicImportManager;
 
-        this.stateMachine = new QueryStateMachine(queryId, query, session, self, queryMonitor);
+        this.stateMachine = new QueryStateMachine(queryId, query, session, self);
     }
 
     public void start()
@@ -83,6 +81,12 @@ public class DropTableExecution
         catch (Exception e) {
             fail(e);
         }
+    }
+
+    @Override
+    public void addListener(Runnable listener)
+    {
+        stateMachine.addListener(listener);
     }
 
     @Override
@@ -110,7 +114,7 @@ public class DropTableExecution
     @Override
     public QueryInfo getQueryInfo()
     {
-        return stateMachine.getQueryInfo();
+        return stateMachine.getQueryInfoWithoutDetails();
     }
 
     private void dropTable()
@@ -153,13 +157,11 @@ public class DropTableExecution
         private final StorageManager storageManager;
         private final ShardManager shardManager;
         private final PeriodicImportManager periodicImportManager;
-        private final QueryMonitor queryMonitor;
         private final Sitevars sitevars;
 
         @Inject
         DropTableExecutionFactory(LocationFactory locationFactory,
                 MetadataManager metadataManager,
-                QueryMonitor queryMonitor,
                 StorageManager storageManager,
                 ShardManager shardManager,
                 PeriodicImportManager periodicImportManager,
@@ -170,7 +172,6 @@ public class DropTableExecution
             this.storageManager = checkNotNull(storageManager, "storageManager is null");
             this.shardManager = checkNotNull(shardManager, "shardManager is null");
             this.periodicImportManager = checkNotNull(periodicImportManager, "periodicImportManager is null");
-            this.queryMonitor = checkNotNull(queryMonitor, "queryMonitor is null");
             this.sitevars = checkNotNull(sitevars, "sitevars is null");
         }
 
@@ -185,7 +186,6 @@ public class DropTableExecution
                     storageManager,
                     shardManager,
                     periodicImportManager,
-                    queryMonitor,
                     sitevars);
         }
     }

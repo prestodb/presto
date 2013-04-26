@@ -174,9 +174,18 @@ public class SqlQueryManager
         QueryExecutionFactory<?> queryExecutionFactory = executionFactories.get(statement.getClass());
         Preconditions.checkState(queryExecutionFactory != null, "Unsupported statement type %s", statement.getClass().getName());
         assert queryExecutionFactory != null; // IDEA-60343
-        QueryExecution queryExecution = queryExecutionFactory.createQueryExecution(queryId, query, session, statement);
-
+        final QueryExecution queryExecution = queryExecutionFactory.createQueryExecution(queryId, query, session, statement);
         queryMonitor.createdEvent(queryExecution.getQueryInfo());
+
+        queryExecution.addListener(new Runnable()
+        {
+            @Override
+            public void run()
+            {
+                queryMonitor.completionEvent(queryExecution.getQueryInfo());
+            }
+        });
+
 
         queries.put(queryId, queryExecution);
 

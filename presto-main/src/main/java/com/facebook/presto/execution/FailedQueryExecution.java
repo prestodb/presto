@@ -43,6 +43,12 @@ public class FailedQueryExecution
     }
 
     @Override
+    public void addListener(Runnable listener)
+    {
+        listener.run();
+    }
+
+    @Override
     public void updateState(boolean forceRefresh)
     {
         // no-op
