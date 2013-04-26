@@ -161,7 +161,7 @@ public class HiveClient
     }
 
     @Override
-    public TableHandle getTableHandle(SchemaTableName tableName)
+    public HiveTableHandle getTableHandle(SchemaTableName tableName)
     {
         try {
             metastore.getTable(tableName.getSchemaName(), tableName.getTableName());

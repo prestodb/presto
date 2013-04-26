@@ -9,11 +9,13 @@ import org.testng.annotations.Parameters;
 public class TestHiveClient
         extends AbstractTestHiveClient
 {
-    @Parameters({"hiveMetastoreHost", "hiveMetastorePort"})
+    @Parameters({"hiveMetastoreHost", "hiveMetastorePort", "hiveDatabaseName"})
     @BeforeMethod
-    public void setup(String host, int port)
+    public void setup(String host, int port, String databaseName)
             throws Exception
     {
+        setDatabaseName(databaseName);
+
         HiveClientConfig hiveClientConfig = new HiveClientConfig();
         String proxy = System.getProperty("hive.metastore.thrift.client.socks-proxy");
         if (proxy != null) {
