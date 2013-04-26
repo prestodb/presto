@@ -20,6 +20,11 @@ public interface QueryExecution
 
     void cancelStage(StageId stageId);
 
+    /**
+     * Invoke this runnable when the query finishes
+     */
+    void addListener(Runnable listener);
+
     interface QueryExecutionFactory<T extends QueryExecution>
     {
         T createQueryExecution(QueryId queryId, String query, Session session, Statement statement);
