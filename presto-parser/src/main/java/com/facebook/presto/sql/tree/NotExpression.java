@@ -1,6 +1,5 @@
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 
 public class NotExpression
@@ -23,15 +22,6 @@ public class NotExpression
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitNotExpression(this, context);
-    }
-
-
-    @Override
-    public String toString()
-    {
-        return Objects.toStringHelper(this)
-                .addValue(value)
-                .toString();
     }
 
     @Override

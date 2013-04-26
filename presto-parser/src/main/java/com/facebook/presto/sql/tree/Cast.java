@@ -1,7 +1,5 @@
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
-
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class Cast
@@ -63,14 +61,5 @@ public class Cast
         int result = expression.hashCode();
         result = 31 * result + type.hashCode();
         return result;
-    }
-
-    @Override
-    public String toString()
-    {
-        return Objects.toStringHelper(this)
-                .add("expression", expression)
-                .add("type", type)
-                .toString();
     }
 }

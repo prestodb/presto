@@ -525,7 +525,7 @@ public class TestExpressionInterpreter
         Expression parsedExpression = createExpression(expression);
 
         // verify roundtrip
-        Expression roundtrip = createExpression(ExpressionFormatter.toString(parsedExpression));
+        Expression roundtrip = createExpression(ExpressionFormatter.formatExpression(parsedExpression));
         assertEquals(parsedExpression, roundtrip);
 
         return interpreter.process(parsedExpression, null);
@@ -545,7 +545,7 @@ public class TestExpressionInterpreter
         Expression parsedExpression = createExpression(expression);
 
         // verify roundtrip
-        Expression roundtrip = createExpression(ExpressionFormatter.toString(parsedExpression));
+        Expression roundtrip = createExpression(ExpressionFormatter.formatExpression(parsedExpression));
         assertEquals(parsedExpression, roundtrip);
 
         return interpreter.process(parsedExpression, null);

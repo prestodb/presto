@@ -1,6 +1,5 @@
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 
@@ -29,14 +28,6 @@ public class AllColumns
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitAllColumns(this, context);
-    }
-
-    @Override
-    public String toString()
-    {
-        return Objects.toStringHelper(this)
-                .add("name", prefix)
-                .toString();
     }
 
     @Override

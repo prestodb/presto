@@ -373,12 +373,12 @@ class StatementAnalyzer
 
             if (!nestedExtractor.getWindowFunctions().isEmpty()) {
                 throw new SemanticException(NESTED_WINDOW, node, "Cannot nest window functions inside window function '%s': %s",
-                        ExpressionFormatter.toString(windowFunction),
-                        Iterables.transform(extractor.getWindowFunctions(), ExpressionFormatter.expressionFormatterFunction()));
+                        windowFunction,
+                        extractor.getWindowFunctions());
             }
 
             if (windowFunction.isDistinct()) {
-                throw new SemanticException(NOT_SUPPORTED, node, "DISTINCT in window function parameters not yet supported: %s", ExpressionFormatter.toString(windowFunction));
+                throw new SemanticException(NOT_SUPPORTED, node, "DISTINCT in window function parameters not yet supported: %s", windowFunction);
             }
 
             if (window.getFrame().isPresent()) {

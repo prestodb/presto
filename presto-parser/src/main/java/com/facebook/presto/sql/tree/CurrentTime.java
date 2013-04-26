@@ -1,7 +1,5 @@
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
-
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class CurrentTime
@@ -84,14 +82,5 @@ public class CurrentTime
         int result = type.hashCode();
         result = 31 * result + (precision != null ? precision.hashCode() : 0);
         return result;
-    }
-
-    @Override
-    public String toString()
-    {
-        return Objects.toStringHelper(this)
-                .add("type", type)
-                .add("precision", precision)
-                .toString();
     }
 }

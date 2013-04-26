@@ -1,7 +1,6 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.metadata.ColumnHandle;
-import com.facebook.presto.sql.ExpressionFormatter;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
@@ -70,12 +69,11 @@ public class PlanPrinter
         @Override
         public Void visitJoin(JoinNode node, Integer indent)
         {
-            List<String> joinExpressions = new ArrayList<>();
+            List<Expression> joinExpressions = new ArrayList<>();
             for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
-                joinExpressions.add(ExpressionFormatter.toString(
-                        new ComparisonExpression(ComparisonExpression.Type.EQUAL,
-                                new QualifiedNameReference(clause.getLeft().toQualifiedName()),
-                                new QualifiedNameReference(clause.getRight().toQualifiedName()))));
+                joinExpressions.add(new ComparisonExpression(ComparisonExpression.Type.EQUAL,
+                        new QualifiedNameReference(clause.getLeft().toQualifiedName()),
+                        new QualifiedNameReference(clause.getRight().toQualifiedName())));
             }
 
             print(indent, "- Join[%s] => [%s]", Joiner.on(" AND ").join(joinExpressions), formatOutputs(node.getOutputSymbols()));
@@ -107,7 +105,7 @@ public class PlanPrinter
             print(indent, "- Aggregate%s%s => [%s]", type, key, formatOutputs(node.getOutputSymbols()));
 
             for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
-                print(indent + 2, "%s := %s", entry.getKey(), ExpressionFormatter.toString(entry.getValue()));
+                print(indent + 2, "%s := %s", entry.getKey(), entry.getValue());
             }
 
             return processChildren(node, indent + 1);
@@ -158,7 +156,7 @@ public class PlanPrinter
         @Override
         public Void visitFilter(FilterNode node, Integer indent)
         {
-            print(indent, "- Filter[%s] => [%s]", ExpressionFormatter.toString(node.getPredicate()), formatOutputs(node.getOutputSymbols()));
+            print(indent, "- Filter[%s] => [%s]", node.getPredicate(), formatOutputs(node.getOutputSymbols()));
             return processChildren(node, indent + 1);
         }
 
@@ -171,7 +169,7 @@ public class PlanPrinter
                     // skip identity assignments
                     continue;
                 }
-                print(indent + 2, "%s := %s", entry.getKey(), ExpressionFormatter.toString(entry.getValue()));
+                print(indent + 2, "%s := %s", entry.getKey(), entry.getValue());
             }
 
             return processChildren(node, indent + 1);
