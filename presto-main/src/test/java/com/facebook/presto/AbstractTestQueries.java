@@ -841,6 +841,27 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testOrderByWindowFunction()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT orderkey, row_number() OVER (ORDER BY orderkey)\n" +
+                "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10)\n" +
+                "ORDER BY 2 DESC\n" +
+                "LIMIT 5");
+
+        MaterializedResult expected = resultBuilder(FIXED_INT_64, FIXED_INT_64)
+                .row(34, 10)
+                .row(33, 9)
+                .row(32, 8)
+                .row(7, 7)
+                .row(6, 6)
+                .build();
+
+        assertEquals(actual, expected);
+    }
+
+    @Test
     public void testScalarFunction()
             throws Exception
     {
