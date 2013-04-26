@@ -120,6 +120,12 @@ public class TestSqlParser
         SqlParser.createStatement("select * from foo `bar`");
     }
 
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:8: identifiers must not start with a digit; surround the identifier with double quotes")
+    public void testParseErrorDigitIdentifiers()
+    {
+        SqlParser.createStatement("select 1x from dual");
+    }
+
     @Test
     public void testParsingExceptionPositionInfo()
     {

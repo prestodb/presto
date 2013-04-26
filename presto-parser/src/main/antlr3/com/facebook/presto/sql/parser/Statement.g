@@ -104,6 +104,9 @@ tokens {
         if (e.token.getType() == BACKQUOTED_IDENT) {
             return "backquoted identifiers are not supported; use double quotes to quote identifiers";
         }
+        if (e.token.getType() == DIGIT_IDENT) {
+            return "identifiers must not start with a digit; surround the identifier with double quotes";
+        }
         return super.getErrorMessage(e, tokenNames);
     }
 }
@@ -717,6 +720,10 @@ DECIMAL_VALUE
 
 IDENT
     : (LETTER | '_') (LETTER | DIGIT | '_' | '\@')*
+    ;
+
+DIGIT_IDENT
+    : DIGIT (LETTER | DIGIT | '_' | '\@')+
     ;
 
 QUOTED_IDENT
