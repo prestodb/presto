@@ -19,8 +19,9 @@ public class TestHiveClient
                 50,
                 500,
                 getHiveChunkEncoder(),
+                new HiveChunkReader(new HdfsEnvironment()),
                 new CachingHiveMetastore(new TestingHiveCluster(host, port), Duration.valueOf("1m")),
-                new FileSystemCache(),
+                new HdfsEnvironment(),
                 MoreExecutors.sameThreadExecutor());
     }
 }
