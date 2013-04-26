@@ -56,7 +56,7 @@ public class WindowFrame
         }
         WindowFrame o = (WindowFrame) obj;
         return Objects.equal(type, o.type) &&
-                Objects.equal(start, o.end) &&
+                Objects.equal(start, o.start) &&
                 Objects.equal(end, o.end);
     }
 
