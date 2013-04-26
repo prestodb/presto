@@ -214,7 +214,7 @@ class QueryPlanner
 
     private PlanBuilder window(PlanBuilder subPlan, Query node)
     {
-        List<FunctionCall> windowFunctions = analysis.getWindowFunctions(node);
+        Set<FunctionCall> windowFunctions = ImmutableSet.copyOf(analysis.getWindowFunctions(node));
         if (windowFunctions.isEmpty()) {
             return subPlan;
         }
