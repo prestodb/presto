@@ -370,7 +370,10 @@ public class SqlStageExecution
         catch (Throwable e) {
             // some exceptions can occur when the query finishes early
             if (!getState().isDone()) {
-                transitionToState(StageState.FAILED);
+                synchronized (this) {
+                    failureCauses.add(e);
+                    transitionToState(StageState.FAILED);
+                }
                 log.error(e, "Error while starting stage %s", stageId);
                 cancelAll();
                 throw e;
@@ -426,34 +429,23 @@ public class SqlStageExecution
                 getExchangeLocations(),
                 getOutputBuffers());
 
-        try {
-            // create and update task
-            task.updateState(false);
+        // create and update task
+        task.updateState(false);
 
-            // record this task
-            tasks.put(node, task);
+        // record this task
+        tasks.put(node, task);
 
-            // stop is stage is already done
-            if (getState().isDone()) {
-                return task;
-            }
-
-            // tell the sub stages to create a buffer for this task
-            for (StageExecutionNode subStage : subStages.values()) {
-                subStage.addOutputBuffer(nodeIdentifier);
-            }
-
+        // stop is stage is already done
+        if (getState().isDone()) {
             return task;
         }
-        catch (Throwable e) {
-            synchronized (this) {
-                failureCauses.add(e);
-                transitionToState(StageState.FAILED);
-            }
-            log.error(e, "Stage %s failed to start", stageId);
-            cancelAll();
-            throw Throwables.propagate(e);
+
+        // tell the sub stages to create a buffer for this task
+        for (StageExecutionNode subStage : subStages.values()) {
+            subStage.addOutputBuffer(nodeIdentifier);
         }
+
+        return task;
     }
 
     private void notifyParentSubStageFinishedScheduling()
