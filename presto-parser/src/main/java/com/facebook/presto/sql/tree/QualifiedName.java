@@ -124,6 +124,18 @@ public class QualifiedName
         return Iterables.getLast(parts);
     }
 
+    public static Function<String, QualifiedName> fromStringFunction()
+    {
+        return new Function<String, QualifiedName>()
+        {
+            @Override
+            public QualifiedName apply(String input)
+            {
+                return new QualifiedName(input);
+            }
+        };
+    }
+
     @Override
     public boolean equals(Object o)
     {

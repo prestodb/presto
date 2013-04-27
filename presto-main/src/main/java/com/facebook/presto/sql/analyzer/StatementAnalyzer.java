@@ -71,6 +71,7 @@ import static com.facebook.presto.sql.tree.QueryUtil.nameReference;
 import static com.facebook.presto.sql.tree.QueryUtil.selectAll;
 import static com.facebook.presto.sql.tree.QueryUtil.selectList;
 import static com.facebook.presto.sql.tree.QueryUtil.table;
+import static com.google.common.base.Functions.compose;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.instanceOf;
 
@@ -426,10 +427,10 @@ class StatementAnalyzer
 
         if (!items.isEmpty()) {
             // Compute aliased output terms so we can resolve order by expressions against them first
-            Multimap<String, AliasedExpression> byAlias = IterableTransformer.on(node.getSelect().getSelectItems())
+            Multimap<QualifiedName, AliasedExpression> byAlias = IterableTransformer.on(node.getSelect().getSelectItems())
                     .select(instanceOf(AliasedExpression.class))
                     .cast(AliasedExpression.class)
-                    .index(aliasGetter());
+                    .index(compose(QualifiedName.fromStringFunction(), aliasGetter())); // TODO: need to know if alias was quoted
 
             for (SortItem item : items) {
                 Expression expression = item.getSortKey();
@@ -439,7 +440,7 @@ class StatementAnalyzer
                     // if this is a simple name reference, try to resolve against output columns
 
                     QualifiedName name = ((QualifiedNameReference) expression).getName();
-                    Collection<AliasedExpression> expressions = byAlias.get(name.getSuffix());
+                    Collection<AliasedExpression> expressions = byAlias.get(name);
                     if (expressions.size() > 1) {
                         throw new SemanticException(AMBIGUOUS_ATTRIBUTE, expression, "'%s' in ORDER BY is ambiguous", name.getSuffix());
                     }
