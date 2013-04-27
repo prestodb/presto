@@ -1075,6 +1075,17 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testGroupByIf()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT IF(orderkey between 1 and 5, 'orders', 'others'), sum(totalprice) FROM orders GROUP BY 1",
+                "SELECT CASE WHEN orderkey BETWEEN 1 AND 5 THEN 'orders' ELSE 'others' END, sum(totalprice)\n" +
+                        "FROM orders\n" +
+                        "GROUP BY CASE WHEN orderkey BETWEEN 1 AND 5 THEN 'orders' ELSE 'others' END");
+    }
+
+    @Test
     public void testDuplicateFields()
             throws Exception
     {
