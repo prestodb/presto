@@ -9,6 +9,7 @@ import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CurrentTime;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.NegativeExpression;
@@ -121,7 +122,7 @@ public class AggregationAnalyzer
         @Override
         protected Boolean visitExpression(Expression node, Void context)
         {
-            throw new UnsupportedOperationException("aggregation analysis not yet implemented for: " + getClass().getName());
+            throw new UnsupportedOperationException("aggregation analysis not yet implemented for: " + node.getClass().getName());
         }
 
         @Override
@@ -269,6 +270,24 @@ public class AggregationAnalyzer
         protected Boolean visitLogicalBinaryExpression(LogicalBinaryExpression node, Void context)
         {
             return isInGroupBy(node) || Iterables.all(ImmutableList.of(node.getLeft(), node.getRight()), isConstantPredicate());
+        }
+
+        @Override
+        protected Boolean visitIfExpression(IfExpression node, Void context)
+        {
+            if (isInGroupBy(node)) {
+                return true;
+            }
+
+            ImmutableList.Builder<Expression> expressions = ImmutableList.<Expression>builder()
+                    .add(node.getCondition())
+                    .add(node.getTrueValue());
+
+            if (node.getFalseValue().isPresent()) {
+                expressions.add(node.getFalseValue().get());
+            }
+
+            return Iterables.all(expressions.build(), isConstantPredicate());
         }
 
         private boolean isInGroupBy(Expression expression)
