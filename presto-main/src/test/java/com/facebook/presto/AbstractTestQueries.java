@@ -1065,6 +1065,27 @@ public abstract class AbstractTestQueries
                 "SELECT sum(CASE WHEN NULLIF(orderstatus, 'F') <> 'F' THEN totalprice ELSE 5.1 END) FROM orders");
     }
 
+    @Test
+    public void testCaseInsensitiveOutputAliasInOrderBy()
+            throws Exception
+    {
+        assertQuery("SELECT orderkey X FROM orders ORDER BY x");
+    }
+
+    @Test
+    public void testCaseInsensitiveAttribute()
+            throws Exception
+    {
+        assertQuery("SELECT x FROM (SELECT orderkey X FROM orders)");
+    }
+
+    @Test
+    public void testCaseInsensitiveAliasedRelation()
+            throws Exception
+    {
+        assertQuery("SELECT A.* FROM orders a");
+    }
+
     @BeforeClass(alwaysRun = true)
     public void setupDatabase()
             throws Exception
