@@ -1,13 +1,19 @@
 package com.facebook.presto.sql.parser;
 
+import com.facebook.presto.sql.SqlFormatter;
+import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
 import org.antlr.runtime.tree.CommonTree;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
+import static com.facebook.presto.sql.parser.TreeAssertions.assertFormattedSql;
 import static com.facebook.presto.sql.parser.TreePrinter.treeToString;
 import static com.google.common.base.Strings.repeat;
 
@@ -53,11 +59,26 @@ public class TestStatementBuilder
 
         printStatement("select * from a.b.c@d");
 
+        printStatement("select \"TOTALPRICE\" \"my price\" from \"ORDERS\"");
+    }
+
+    @DataProvider(name = "tpch")
+    public Object[][] tpchDataProvider()
+    {
+        List<Object[]> tests = new ArrayList<>();
         for (int i = 1; i <= 22; i++) {
             if (i != 15) {
-                printStatement(getTpchQuery(i));
+                tests.add(new Object[] {i});
             }
         }
+        return tests.toArray(new Object[tests.size()][]);
+    }
+
+    @Test(dataProvider = "tpch")
+    public void testStatementBuilderTpch(int query)
+            throws Exception
+    {
+        printStatement(getTpchQuery(query));
     }
 
     private static void printStatement(String sql)
@@ -72,6 +93,13 @@ public class TestStatementBuilder
         Statement statement = SqlParser.createStatement(tree);
         println(statement.toString());
         println("");
+
+        // TODO: support formatting all statement types
+        if (statement instanceof Query) {
+            println(SqlFormatter.formatSql(statement));
+            println("");
+            assertFormattedSql(statement);
+        }
 
         println(repeat("=", 60));
         println("");

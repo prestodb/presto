@@ -23,14 +23,15 @@ import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.split.InternalSplit;
 import com.facebook.presto.split.Split;
+import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.planner.LogicalPlanner;
-import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DistributedLogicalPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
+import com.facebook.presto.sql.planner.LogicalPlanner;
+import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.PlanOptimizersFactory;
 import com.facebook.presto.sql.planner.PlanPrinter;
@@ -38,7 +39,6 @@ import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
-import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.storage.MockStorageManager;
@@ -63,6 +63,7 @@ import java.util.Map;
 import static com.facebook.presto.metadata.MetadataUtil.checkTable;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
+import static com.facebook.presto.sql.parser.TreeAssertions.assertFormattedSql;
 import static com.facebook.presto.util.MaterializedResult.materialize;
 import static com.facebook.presto.util.TestingTpchBlocksProvider.readTpchRecords;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -91,6 +92,8 @@ public class LocalQueryRunner
     public MaterializedResult execute(@Language("SQL") String sql)
     {
         Statement statement = SqlParser.createStatement(sql);
+
+        assertFormattedSql(statement);
 
         Analyzer analyzer = new Analyzer(session, metadata);
 
