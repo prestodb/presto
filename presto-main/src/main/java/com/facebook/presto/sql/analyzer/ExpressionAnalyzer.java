@@ -16,6 +16,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.IfExpression;
+import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
@@ -495,7 +496,16 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitInPredicate(InPredicate node, Void context)
         {
-            // todo should values be the same type?
+            Type valueType = process(node.getValue(), context);
+            Type listType = process(node.getValueList(), context);
+
+            if (valueType == Type.NULL) {
+                subExpressionTypes.put(node, Type.NULL);
+            }
+            else if (valueType != listType && !(Type.isNumeric(valueType) && Type.isNumeric(listType))) {
+                throw new SemanticException(TYPE_MISMATCH, node, "Types are not comparable for 'IN': %s vs %s", valueType, listType);
+            }
+
             subExpressionTypes.put(node, Type.BOOLEAN);
             return Type.BOOLEAN;
         }
@@ -510,9 +520,24 @@ public class ExpressionAnalyzer
         }
 
         @Override
+        protected Type visitInListExpression(InListExpression node, Void context)
+        {
+            List<Type> types = new ArrayList<>();
+            for (Expression value : node.getValues()) {
+                types.add(process(value, context));
+            }
+
+            // make sure all types are the same
+            Type type = getSingleType(node, "values", types);
+
+            subExpressionTypes.put(node, type);
+            return type; // TODO: this really should a be relation type
+        }
+
+        @Override
         protected Type visitExpression(Expression node, Void context)
         {
-            throw new UnsupportedOperationException("not yet implemented: " + getClass().getName());
+            throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
         }
     }
 

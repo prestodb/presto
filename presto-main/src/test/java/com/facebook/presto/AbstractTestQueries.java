@@ -1066,6 +1066,15 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testIn()
+            throws Exception
+    {
+        assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (1, 2, 3)");
+        assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (1.5, 2.3)");
+        assertQuery("SELECT orderkey FROM orders WHERE totalprice IN (1, 2, 3)");
+    }
+
+    @Test
     public void testDuplicateFields()
             throws Exception
     {

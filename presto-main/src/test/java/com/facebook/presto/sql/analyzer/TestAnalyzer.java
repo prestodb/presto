@@ -367,6 +367,17 @@ public class TestAnalyzer
         assertFails(TYPE_MISMATCH, "SELECT 1 BETWEEN 0 AND 'b' FROM t1");
         assertFails(TYPE_MISMATCH, "SELECT 1 BETWEEN 'a' AND 'b' FROM t1");
 
+        // in
+        assertFails(TYPE_MISMATCH, "SELECT * FROM t1 WHERE 1 IN ('a')");
+        assertFails(TYPE_MISMATCH, "SELECT * FROM t1 WHERE 'a' IN (1)");
+        assertFails(TYPE_MISMATCH, "SELECT * FROM t1 WHERE 'a' IN (1, 'b')");
+    }
+
+    @Test(enabled=false) // TODO: need to support widening conversion for numbers
+    public void testInWithNumericTypes()
+            throws Exception
+    {
+        analyze("SELECT * FROM t1 WHERE 1 IN (1, 2, 3.5)");
     }
 
     @Test
