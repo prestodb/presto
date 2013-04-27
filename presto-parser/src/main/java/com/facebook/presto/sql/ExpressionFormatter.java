@@ -47,6 +47,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.sql.SqlFormatter.orderByFormatterFunction;
 import static com.google.common.collect.Iterables.transform;
 
@@ -174,13 +175,13 @@ public final class ExpressionFormatter
         @Override
         protected String visitSubqueryExpression(SubqueryExpression node, Void context)
         {
-            return SqlFormatter.toString(node.getQuery());
+            return formatSql(node.getQuery());
         }
 
         @Override
         protected String visitExists(ExistsPredicate node, Void context)
         {
-            return "EXISTS (" + SqlFormatter.toString(node.getSubquery()) + ")";
+            return "EXISTS (" + formatSql(node.getSubquery()) + ")";
         }
 
         @Override
