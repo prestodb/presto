@@ -71,6 +71,7 @@ public class TestConditions
     public void testIn()
     {
         assertFunction("3 in (2, 4, 3, 5)", true);
+        assertFunction("3 not in (2, 4, 3, 5)", false);
         assertFunction("3 in (2, 4, 9, 5)", false);
         assertFunction("3 in (2, null, 3, 5)", true);
 
@@ -78,9 +79,10 @@ public class TestConditions
         assertFunction("'foo' in ('bar', 'baz', 'buz', 'blah')", false);
         assertFunction("'foo' in ('bar', null, 'foo', 'blah')", true);
 
-        // todo test that these are null when we support boolean types
-        assertFunction("null in (2, null, 3, 5)", false);
-        assertFunction("3 in (2, null)", false);
+        assertFunction("null in (2, null, 3, 5) is null", true);
+        assertFunction("3 in (2, null) is null", true);
+        assertFunction("null not in (2, null, 3, 5) is null", true);
+        assertFunction("3 not in (2, null) is null", true);
     }
 
     @Test(expectedExceptions = ArithmeticException.class)
