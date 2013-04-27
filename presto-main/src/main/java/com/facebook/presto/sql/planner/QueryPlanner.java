@@ -9,6 +9,7 @@ import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.sql.analyzer.Analysis;
+import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.FieldOrExpression;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.TupleDescriptor;
@@ -154,7 +155,8 @@ class QueryPlanner
             Symbol symbol;
 
             if (fieldOrExpression.isFieldReference()) {
-                symbol = subPlan.translate(fieldOrExpression);
+                Field field = subPlan.getRelationPlan().getDescriptor().getFields().get(fieldOrExpression.getFieldIndex());
+                symbol = symbolAllocator.newSymbol(field);
             }
             else {
                 Expression expression = fieldOrExpression.getExpression();
