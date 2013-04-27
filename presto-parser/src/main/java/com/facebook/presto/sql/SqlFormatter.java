@@ -23,11 +23,13 @@ import java.util.List;
 import static com.facebook.presto.sql.ExpressionFormatter.expressionFormatterFunction;
 import static com.google.common.base.Preconditions.checkArgument;
 
-public class SqlFormatter
+public final class SqlFormatter
 {
     private static final String INDENT = "   ";
 
-    public static String toString(Node root)
+    private SqlFormatter() {}
+
+    public static String formatSql(Node root)
     {
         StringBuilder builder = new StringBuilder();
         new Formatter(builder).process(root, 0);
