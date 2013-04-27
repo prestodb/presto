@@ -1066,6 +1066,15 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testDuplicateFields()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT * FROM (SELECT orderkey, orderkey FROM orders)",
+                "SELECT orderkey, orderkey FROM orders");
+    }
+
+    @Test
     public void testCaseInsensitiveOutputAliasInOrderBy()
             throws Exception
     {
