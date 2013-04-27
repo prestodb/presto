@@ -36,6 +36,7 @@ import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubqueryExpression;
+import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.sql.tree.Window;
@@ -145,9 +146,15 @@ public final class ExpressionFormatter
         }
 
         @Override
+        protected String visitTimeLiteral(TimeLiteral node, Void context)
+        {
+            return "TIME '" + node.getValue() + "'";
+        }
+
+        @Override
         protected String visitTimestampLiteral(TimestampLiteral node, Void context)
         {
-            return "'" + node.getValue() + "'";
+            return "TIMESTAMP '" + node.getValue() + "'";
         }
 
         @Override
@@ -165,17 +172,14 @@ public final class ExpressionFormatter
         @Override
         protected String visitIntervalLiteral(IntervalLiteral node, Void context)
         {
-            return String.format("INTERVAL %s '%s' %s",
-                    node.getSign() == IntervalLiteral.Sign.NEGATIVE? "-" : "",
-                    node.getValue(),
-                    node.getType()
-            );
+            String sign = (node.getSign() == IntervalLiteral.Sign.NEGATIVE) ? "- " : "";
+            return "INTERVAL " + sign + "'" + node.getValue() + "' " + node.getType();
         }
 
         @Override
         protected String visitSubqueryExpression(SubqueryExpression node, Void context)
         {
-            return formatSql(node.getQuery());
+            return "(" + formatSql(node.getQuery()) + ")";
         }
 
         @Override
@@ -187,13 +191,17 @@ public final class ExpressionFormatter
         @Override
         protected String visitQualifiedNameReference(QualifiedNameReference node, Void context)
         {
-            return '"' + node.getName().toString() + '"';
+            List<String> parts = new ArrayList<>();
+            for (String part : node.getName().getParts()) {
+                parts.add(formatIdentifier(part));
+            }
+            return Joiner.on('.').join(parts);
         }
 
         @Override
         protected String visitAliasedExpression(AliasedExpression node, Void context)
         {
-            return process(node.getExpression(), null) + ' ' + node.getAlias();
+            return process(node.getExpression(), null) + ' ' + formatIdentifier(node.getAlias());
         }
 
         @Override
@@ -201,8 +209,16 @@ public final class ExpressionFormatter
         {
             StringBuilder builder = new StringBuilder();
 
+            String arguments = joinExpressions(node.getArguments());
+            if (node.getArguments().isEmpty() && "count".equalsIgnoreCase(node.getName().getSuffix())) {
+                arguments = "*";
+            }
+            if (node.isDistinct()) {
+                arguments = "DISTINCT " + arguments;
+            }
+
             builder.append(node.getName())
-                    .append('(').append(joinExpressions(node.getArguments())).append(')');
+                    .append('(').append(arguments).append(')');
 
             if (node.getWindow().isPresent()) {
                 builder.append(" OVER ").append(visitWindow(node.getWindow().get(), null));
@@ -451,6 +467,12 @@ public final class ExpressionFormatter
                     return process(input, null);
                 }
             }));
+        }
+
+        private static String formatIdentifier(String s)
+        {
+            // TODO: handle escaping properly
+            return '"' + s + '"';
         }
     }
 }
