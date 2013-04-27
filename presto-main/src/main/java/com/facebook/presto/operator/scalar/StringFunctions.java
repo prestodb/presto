@@ -76,6 +76,12 @@ public final class StringFunctions
     }
 
     @ScalarFunction
+    public static Slice substr(Slice slice, long start)
+    {
+        return substr(slice, start, slice.length());
+    }
+
+    @ScalarFunction
     public static Slice substr(Slice slice, long start, long length)
     {
         if ((start == 0) || (length <= 0)) {

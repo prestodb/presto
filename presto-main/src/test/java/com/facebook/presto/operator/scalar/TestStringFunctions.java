@@ -75,6 +75,12 @@ public class TestStringFunctions
     @Test
     public void testSubstring()
     {
+        assertFunction("SUBSTR('Quadratically', 5)", "ratically");
+        assertFunction("SUBSTR('Quadratically', 50)", "");
+        assertFunction("SUBSTR('Quadratically', -5)", "cally");
+        assertFunction("SUBSTR('Quadratically', -50)", "");
+        assertFunction("SUBSTR('Quadratically', 0)", "");
+
         assertFunction("SUBSTR('Quadratically', 5, 6)", "ratica");
         assertFunction("SUBSTR('Quadratically', 5, 10)", "ratically");
         assertFunction("SUBSTR('Quadratically', 5, 50)", "ratically");
@@ -84,6 +90,15 @@ public class TestStringFunctions
         assertFunction("SUBSTR('Quadratically', -50, 4)", "");
         assertFunction("SUBSTR('Quadratically', 0, 4)", "");
         assertFunction("SUBSTR('Quadratically', 5, 0)", "");
+
+        assertFunction("SUBSTRING('Quadratically' FROM 5)", "ratically");
+        assertFunction("SUBSTRING('Quadratically' FROM 50)", "");
+        assertFunction("SUBSTRING('Quadratically' FROM -5)", "cally");
+        assertFunction("SUBSTRING('Quadratically' FROM -50)", "");
+        assertFunction("SUBSTRING('Quadratically' FROM 0)", "");
+
+        assertFunction("SUBSTRING('Quadratically' FROM 5 FOR 6)", "ratica");
+        assertFunction("SUBSTRING('Quadratically' FROM 5 FOR 50)", "ratically");
     }
 
     @Test
