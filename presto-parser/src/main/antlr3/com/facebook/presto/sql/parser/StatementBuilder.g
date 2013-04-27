@@ -357,9 +357,13 @@ intervalValue returns [IntervalLiteral value]
     : ^(INTERVAL s=string q=intervalQualifier g=intervalSign) { $value = new IntervalLiteral($s.value, $q.value, $g.value); }
     ;
 
+// TODO: this needs to be structured data
 intervalQualifier returns [String value]
-    : ^(t=nonSecond p=integer?)         { $value = String.format("\%s (\%s)", $t.value, $p.value); }
-    | ^(SECOND (p=integer s=integer?)?) { $value = String.format("SECOND (\%s, \%s)", $p.value, $s.value); }
+    : t=nonSecond                   { $value = $t.value; }
+    | ^(t=nonSecond p=integer)      { $value = String.format("\%s (\%s)", $t.value, $p.value); }
+    | SECOND                        { $value = "SECOND"; }
+    | ^(SECOND p=integer)           { $value = String.format("SECOND (\%s)", $p.value); }
+    | ^(SECOND p=integer s=integer) { $value = String.format("SECOND (\%s, \%s)", $p.value, $s.value); }
     ;
 
 nonSecond returns [String value]
