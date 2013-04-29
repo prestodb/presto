@@ -153,6 +153,22 @@ public class SqlTaskManager
     }
 
     @Override
+    public void waitForStateChange(TaskId taskId, Duration waitForStateChange)
+            throws InterruptedException
+    {
+        Preconditions.checkNotNull(taskId, "taskId is null");
+        Preconditions.checkNotNull(waitForStateChange, "waitForStateChange is null");
+
+        TaskExecution taskExecution = tasks.get(taskId);
+        if (taskExecution == null) {
+            return;
+        }
+
+        taskExecution.recordHeartBeat();
+        taskExecution.waitForStateChange(waitForStateChange);
+    }
+
+    @Override
     public TaskInfo getTaskInfo(TaskId taskId, boolean full)
     {
         Preconditions.checkNotNull(taskId, "taskId is null");

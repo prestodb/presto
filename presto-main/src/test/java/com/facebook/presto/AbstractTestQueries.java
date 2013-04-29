@@ -11,7 +11,9 @@ import com.facebook.presto.util.MaterializedResult;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Iterables;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slices;
+import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
@@ -1191,10 +1193,14 @@ public abstract class AbstractTestQueries
         assertQuery(actual, expected, false);
     }
 
+    private static final Logger log = Logger.get(AbstractTestQueries.class);
     private void assertQuery(@Language("SQL") String actual, @Language("SQL") String expected, boolean ensureOrdering)
             throws Exception
     {
+        long start = System.nanoTime();
         MaterializedResult actualResults = computeActual(actual);
+        log.info("FINISHED in %s", Duration.nanosSince(start));
+
         MaterializedResult expectedResults = computeExpected(expected, actualResults.getTupleInfo());
 
         if (ensureOrdering) {

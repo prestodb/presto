@@ -16,9 +16,9 @@ import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.operator.SourceHashProviderFactory;
 import com.facebook.presto.operator.SourceOperator;
+import com.facebook.presto.spi.Split;
 import com.facebook.presto.split.CollocatedSplit;
 import com.facebook.presto.split.DataStreamProvider;
-import com.facebook.presto.spi.Split;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
@@ -32,6 +32,7 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFutureTask;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -58,6 +59,8 @@ import static java.lang.Math.max;
 public class SqlTaskExecution
         implements TaskExecution
 {
+    private static final Logger log = Logger.get(SqlTaskExecution.class);
+
     private final TaskId taskId;
     private final TaskOutput taskOutput;
     private final DataStreamProvider dataStreamProvider;
@@ -177,6 +180,13 @@ public class SqlTaskExecution
     public TaskId getTaskId()
     {
         return taskId;
+    }
+
+    @Override
+    public void waitForStateChange(Duration maxWait)
+            throws InterruptedException
+    {
+        taskOutput.waitForStateChange(maxWait);
     }
 
     @Override

@@ -4,6 +4,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.execution.NodeScheduler.NodeSelector;
+import com.facebook.presto.execution.RemoteTask.TaskStateChangeListener;
 import com.facebook.presto.metadata.Node;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.sql.analyzer.Session;
@@ -71,6 +72,7 @@ public class SqlStageExecution
     // NOTE: DO NOT call methods on the parent while holding a lock on the child.  Locks
     // are always acquired top down in the tree, so calling a method on the parent while
     // holding a lock on the 'this' could cause a deadlock.
+    // This is only here to aid in debugging
     @Nullable
     private final StageExecutionNode parent;
     private final StageId stageId;
@@ -98,6 +100,9 @@ public class SqlStageExecution
     private final Set<String> outputBuffers = new TreeSet<>();
     @GuardedBy("this")
     private boolean noMoreOutputIds;
+
+    @GuardedBy("this")
+    private final List<StageStateChangeListener> stateChangeListeners = new ArrayList<>();
 
     private final ExecutorService executor;
 
@@ -163,6 +168,15 @@ public class SqlStageExecution
                     remoteTaskFactory,
                     session,
                     maxPendingSplitsPerNode, executor);
+
+            subStage.addStateChangeListener(new StageStateChangeListener() {
+                @Override
+                public void stateChanged(StageInfo stageInfo)
+                {
+                    doUpdateState();
+                }
+            });
+
             subStages.put(subStageFragmentId, subStage);
         }
         this.subStages = subStages.build();
@@ -238,6 +252,35 @@ public class SqlStageExecution
         // wake up worker thread waiting for new buffers
         this.notifyAll();
     }
+
+    @Override
+    public synchronized void addStateChangeListener(StageStateChangeListener stateChangeListener)
+    {
+        stateChangeListeners.add(stateChangeListener);
+    }
+
+    private void fireStateChangedEvent(final StageInfo newValue)
+    {
+        final ImmutableList<StageStateChangeListener> stateChangeListeners;
+        synchronized (this) {
+            stateChangeListeners = ImmutableList.copyOf(this.stateChangeListeners);
+        }
+        executor.execute(new Runnable() {
+            @Override
+            public void run()
+            {
+                for (StageStateChangeListener stateChangeListener : stateChangeListeners) {
+                    try {
+                        stateChangeListener.stateChanged(newValue);
+                    }
+                    catch (Exception e) {
+                        log.error(e, "Error notifying state change listener for stage %s", newValue.getStageId());
+                    }
+                }
+            }
+        });
+    }
+
 
     private Multimap<PlanNodeId, URI> getExchangeLocations()
     {
@@ -339,8 +382,6 @@ public class SqlStageExecution
 
             transitionToState(StageState.SCHEDULED);
 
-            notifyParentSubStageFinishedScheduling();
-
             // tell sub stages there will be no more output buffers
             for (StageExecutionNode subStage : subStages.values()) {
                 subStage.noMoreOutputBuffers();
@@ -411,6 +452,15 @@ public class SqlStageExecution
                 getExchangeLocations(),
                 getOutputBuffers());
 
+        task.addStateChangeListener(new TaskStateChangeListener()
+        {
+            @Override
+            public void stateChanged(TaskInfo taskInfo)
+            {
+                doUpdateState();
+            }
+        });
+
         // create and update task
         task.updateState(false);
 
@@ -428,21 +478,6 @@ public class SqlStageExecution
         }
 
         return task;
-    }
-
-    private void notifyParentSubStageFinishedScheduling()
-    {
-        // calling this while holding a lock on 'this' can cause a deadlock
-        Preconditions.checkState(!Thread.holdsLock(this), "Parent can not be notified while holding a lock on the child");
-        if (parent != null) {
-            parent.subStageFinishedScheduling();
-        }
-    }
-
-    @VisibleForTesting
-    public synchronized void subStageFinishedScheduling()
-    {
-        this.notifyAll();
     }
 
     private void addNewExchangesAndBuffers(boolean waitUntilFinished)
@@ -551,14 +586,18 @@ public class SqlStageExecution
                     log.error(t, "Error updating stage");
                 }
             }
-        });
+        }, executor);
     }
 
-    private void doUpdateState()
+    @VisibleForTesting
+    public void doUpdateState()
     {
         Preconditions.checkState(!Thread.holdsLock(this), "Can not doUpdateState while holding a lock on this");
 
         synchronized (this) {
+            // wake up worker thread waiting for state changes
+            this.notifyAll();
+
             StageState currentState = stageState.get();
             if (currentState.isDone()) {
                 return;
@@ -580,9 +619,6 @@ public class SqlStageExecution
                     }
                     else if (any(taskStates, equalTo(TaskState.RUNNING))) {
                         transitionToState(StageState.RUNNING);
-                    }
-                    else if (any(taskStates, equalTo(TaskState.QUEUED))) {
-                        transitionToState(StageState.SCHEDULED);
                     }
                 }
             }
@@ -633,12 +669,16 @@ public class SqlStageExecution
                 .toString();
     }
 
-    private void transitionToState(StageState newState)
+    private synchronized void transitionToState(StageState newState)
     {
         StageState oldState = stageState.getAndSet(newState);
-        if (oldState != newState) {
-            log.debug("Stage %s is %s", stageId, newState);
+        if (oldState == newState) {
+            return;
         }
+
+        fireStateChangedEvent(getStageInfo());
+
+        log.debug("Stage %s is %s", stageId, newState);
     }
 
     public static Function<RemoteTask, TaskInfo> taskInfoGetter()
@@ -686,13 +726,18 @@ interface StageExecutionNode
 
     Iterable<? extends URI> getTaskLocations();
 
-    void subStageFinishedScheduling();
+    void addStateChangeListener(StageStateChangeListener stateChangeListener);
 
     ListenableFuture<?> updateState(boolean forceRefresh);
 
     void cancelStage(StageId stageId);
 
     void cancel();
+
+    public static interface StageStateChangeListener
+    {
+        void stateChanged(StageInfo stageInfo);
+    }
 }
 
 

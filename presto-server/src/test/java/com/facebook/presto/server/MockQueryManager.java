@@ -141,7 +141,6 @@ public class MockQueryManager
             QueryState state;
             switch (outputTask.getState()) {
                 case PLANNED:
-                case QUEUED:
                 case RUNNING:
                     state = QueryState.RUNNING;
                     break;
