@@ -16,7 +16,7 @@ public interface TaskManager
 {
     List<TaskInfo> getAllTaskInfo(boolean full);
 
-    void waitForStateChange(TaskId taskId, Duration waitForStateChange)
+    void waitForStateChange(TaskId taskId, TaskState currentState, Duration maxWait)
             throws InterruptedException;
 
     TaskInfo getTaskInfo(TaskId taskId, boolean full);

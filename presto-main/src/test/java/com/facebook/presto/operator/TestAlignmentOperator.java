@@ -4,9 +4,12 @@ import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskOutput;
+import com.facebook.presto.util.Threads;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
@@ -18,6 +21,8 @@ import static org.testng.Assert.assertEquals;
 
 public class TestAlignmentOperator
 {
+    private final Executor executor = Executors.newCachedThreadPool(Threads.daemonThreadsNamed("test-%d"));
+
     @Test
     public void testAlignment()
             throws Exception
@@ -39,7 +44,7 @@ public class TestAlignmentOperator
     {
         AlignmentOperator operator = createAlignmentOperator();
 
-        TaskOutput taskOutput = new TaskOutput(new TaskId("0", "0", "0"), URI.create("unknown://unknown"), 1000);
+        TaskOutput taskOutput = new TaskOutput(new TaskId("0", "0", "0"), URI.create("unknown://unknown"), 1000, executor);
         taskOutput.addResultQueue("unknown");
         taskOutput.noMoreResultQueues();
 

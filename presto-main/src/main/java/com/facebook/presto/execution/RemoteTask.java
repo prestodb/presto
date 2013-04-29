@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.Multimap;
@@ -25,16 +26,11 @@ public interface RemoteTask
 
     void addOutputBuffers(Set<String> outputBuffers, boolean noMore);
 
-    void addStateChangeListener(TaskStateChangeListener stateChangeListener);
+    void addStateChangeListener(StateChangeListener<TaskInfo> stateChangeListener);
 
     void cancel();
 
     ListenableFuture<?> updateState(boolean forceRefresh);
 
     int getQueuedSplits();
-
-    public static interface TaskStateChangeListener
-    {
-        void stateChanged(TaskInfo taskInfo);
-    }
 }

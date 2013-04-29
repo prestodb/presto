@@ -10,9 +10,11 @@ import com.facebook.presto.execution.BufferResult;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.TaskOutput;
+import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.util.Threads;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -27,6 +29,8 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
@@ -34,6 +38,8 @@ import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 public class MockTaskManager
         implements TaskManager
 {
+    private final Executor executor = Executors.newCachedThreadPool(Threads.daemonThreadsNamed("test-%d"));
+
     private final HttpServerInfo httpServerInfo;
     private final int pageBufferMax;
     private final int initialPages;
@@ -68,7 +74,7 @@ public class MockTaskManager
     }
 
     @Override
-    public void waitForStateChange(TaskId taskId, Duration waitForStateChange)
+    public void waitForStateChange(TaskId taskId, TaskState currentState, Duration maxWait)
             throws InterruptedException
     {
     }
@@ -96,7 +102,7 @@ public class MockTaskManager
         TaskOutput taskOutput = tasks.get(taskId);
         if (taskOutput == null) {
             URI location = uriBuilderFrom(httpServerInfo.getHttpUri()).appendPath("v1/task").appendPath(taskId.toString()).build();
-            taskOutput = new TaskOutput(taskId, location, pageBufferMax);
+            taskOutput = new TaskOutput(taskId, location, pageBufferMax, executor);
             tasks.put(taskId, taskOutput);
 
             List<String> data = ImmutableList.of("apple", "banana", "cherry", "date");
