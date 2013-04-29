@@ -47,6 +47,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.Callable;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.LinkedBlockingDeque;
@@ -114,7 +115,8 @@ public class SqlTaskExecution
                 storageManager,
                 shardExecutor,
                 maxOperatorMemoryUsage,
-                queryMonitor);
+                queryMonitor,
+                taskMasterExecutor);
 
         task.start(taskMasterExecutor);
 
@@ -133,7 +135,8 @@ public class SqlTaskExecution
             LocalStorageManager storageManager,
             ListeningExecutorService shardExecutor,
             DataSize maxOperatorMemoryUsage,
-            QueryMonitor queryMonitor)
+            QueryMonitor queryMonitor,
+            Executor notificationExecutor)
     {
         Preconditions.checkNotNull(session, "session is null");
         Preconditions.checkNotNull(nodeInfo, "nodeInfo is null");
@@ -159,7 +162,7 @@ public class SqlTaskExecution
         this.queryMonitor = queryMonitor;
 
         // create output buffers
-        this.taskOutput = new TaskOutput(taskId, location, pageBufferMax);
+        this.taskOutput = new TaskOutput(taskId, location, pageBufferMax, notificationExecutor);
     }
 
     //
@@ -183,10 +186,10 @@ public class SqlTaskExecution
     }
 
     @Override
-    public void waitForStateChange(Duration maxWait)
+    public void waitForStateChange(TaskState currentState, Duration maxWait)
             throws InterruptedException
     {
-        taskOutput.waitForStateChange(maxWait);
+        taskOutput.waitForStateChange(currentState, maxWait);
     }
 
     @Override

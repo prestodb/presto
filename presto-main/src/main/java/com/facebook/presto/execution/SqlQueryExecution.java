@@ -3,7 +3,7 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.execution.StageExecutionNode.StageStateChangeListener;
+import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.importer.PeriodicImportManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.ShardManager;
@@ -195,7 +195,8 @@ public class SqlQueryExecution
                 maxPendingSplitsPerNode,
                 queryExecutor);
         this.outputStage.set(outputStage);
-        outputStage.addStateChangeListener(new StageStateChangeListener() {
+        outputStage.addStateChangeListener(new StateChangeListener<StageInfo>()
+        {
             @Override
             public void stateChanged(StageInfo stageInfo)
             {

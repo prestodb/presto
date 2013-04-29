@@ -4,7 +4,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.execution.NodeScheduler.NodeSelector;
-import com.facebook.presto.execution.RemoteTask.TaskStateChangeListener;
+import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.metadata.Node;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.sql.analyzer.Session;
@@ -52,7 +52,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.execution.StageInfo.stageStateGetter;
 import static com.facebook.presto.execution.TaskInfo.taskStateGetter;
@@ -89,10 +88,7 @@ public class SqlStageExecution
     private final Session session; // only used for remote task factory
     private final int maxPendingSplitsPerNode;
 
-    // Changes to state must happen within a synchronized lock.
-    // The only reason we use an atomic reference here is so read-only threads don't have to block.
-    @GuardedBy("this")
-    private final AtomicReference<StageState> stageState = new AtomicReference<>(StageState.PLANNED);
+    private final StateMachine<StageState> stageState;
 
     private final LinkedBlockingQueue<Throwable> failureCauses = new LinkedBlockingQueue<>();
 
@@ -100,9 +96,6 @@ public class SqlStageExecution
     private final Set<String> outputBuffers = new TreeSet<>();
     @GuardedBy("this")
     private boolean noMoreOutputIds;
-
-    @GuardedBy("this")
-    private final List<StageStateChangeListener> stateChangeListeners = new ArrayList<>();
 
     private final ExecutorService executor;
 
@@ -169,7 +162,8 @@ public class SqlStageExecution
                     session,
                     maxPendingSplitsPerNode, executor);
 
-            subStage.addStateChangeListener(new StageStateChangeListener() {
+            subStage.addStateChangeListener(new StateChangeListener<StageInfo>()
+            {
                 @Override
                 public void stateChanged(StageInfo stageInfo)
                 {
@@ -191,6 +185,15 @@ public class SqlStageExecution
                 return task == null ? 0 : task.getQueuedSplits();
             }
         }));
+        stageState = new StateMachine<>("stage " + stageId, this.executor, StageState.PLANNED);
+        stageState.addStateChangeListener(new StateChangeListener<StageState>()
+        {
+            @Override
+            public void stateChanged(StageState newValue)
+            {
+                log.debug("Stage %s is %s", stageId, newValue);
+            }
+        });
     }
 
     @Override
@@ -254,33 +257,17 @@ public class SqlStageExecution
     }
 
     @Override
-    public synchronized void addStateChangeListener(StageStateChangeListener stateChangeListener)
+    public void addStateChangeListener(final StateChangeListener<StageInfo> stateChangeListener)
     {
-        stateChangeListeners.add(stateChangeListener);
-    }
-
-    private void fireStateChangedEvent(final StageInfo newValue)
-    {
-        final ImmutableList<StageStateChangeListener> stateChangeListeners;
-        synchronized (this) {
-            stateChangeListeners = ImmutableList.copyOf(this.stateChangeListeners);
-        }
-        executor.execute(new Runnable() {
+        stageState.addStateChangeListener(new StateChangeListener<StageState>()
+        {
             @Override
-            public void run()
+            public void stateChanged(StageState newValue)
             {
-                for (StageStateChangeListener stateChangeListener : stateChangeListeners) {
-                    try {
-                        stateChangeListener.stateChanged(newValue);
-                    }
-                    catch (Exception e) {
-                        log.error(e, "Error notifying state change listener for stage %s", newValue.getStageId());
-                    }
-                }
+                stateChangeListener.stateChanged(getStageInfo());
             }
         });
     }
-
 
     private Multimap<PlanNodeId, URI> getExchangeLocations()
     {
@@ -380,7 +367,7 @@ public class SqlStageExecution
                 }
             }
 
-            transitionToState(StageState.SCHEDULED);
+            stageState.set(StageState.SCHEDULED);
 
             // tell sub stages there will be no more output buffers
             for (StageExecutionNode subStage : subStages.values()) {
@@ -395,7 +382,7 @@ public class SqlStageExecution
             if (!getState().isDone()) {
                 synchronized (this) {
                     failureCauses.add(e);
-                    transitionToState(StageState.FAILED);
+                    stageState.set(StageState.FAILED);
                 }
                 log.error(e, "Error while starting stage %s", stageId);
                 cancelAll();
@@ -452,7 +439,7 @@ public class SqlStageExecution
                 getExchangeLocations(),
                 getOutputBuffers());
 
-        task.addStateChangeListener(new TaskStateChangeListener()
+        task.addStateChangeListener(new StateChangeListener<TaskInfo>()
         {
             @Override
             public void stateChanged(TaskInfo taskInfo)
@@ -605,20 +592,20 @@ public class SqlStageExecution
 
             List<StageState> subStageStates = ImmutableList.copyOf(transform(transform(subStages.values(), stageInfoGetter()), stageStateGetter()));
             if (any(subStageStates, equalTo(StageState.FAILED))) {
-                transitionToState(StageState.FAILED);
+                stageState.set(StageState.FAILED);
             }
             else {
                 List<TaskState> taskStates = ImmutableList.copyOf(transform(transform(tasks.values(), taskInfoGetter()), taskStateGetter()));
                 if (any(taskStates, equalTo(TaskState.FAILED))) {
-                    transitionToState(StageState.FAILED);
+                    stageState.set(StageState.FAILED);
                 }
                 else if (currentState != StageState.PLANNED && currentState != StageState.SCHEDULING) {
                     // all tasks are now scheduled, so we can check the finished state
                     if (all(taskStates, TaskState.inDoneState())) {
-                        transitionToState(StageState.FINISHED);
+                        stageState.set(StageState.FINISHED);
                     }
                     else if (any(taskStates, equalTo(TaskState.RUNNING))) {
-                        transitionToState(StageState.RUNNING);
+                        stageState.set(StageState.RUNNING);
                     }
                 }
             }
@@ -640,7 +627,7 @@ public class SqlStageExecution
                 return;
             }
             log.debug("Cancelling stage %s", stageId);
-            transitionToState(StageState.CANCELED);
+            stageState.set(StageState.CANCELED);
         }
 
         cancelAll();
@@ -667,18 +654,6 @@ public class SqlStageExecution
                 .add("location", location)
                 .add("stageState", stageState.get())
                 .toString();
-    }
-
-    private synchronized void transitionToState(StageState newState)
-    {
-        StageState oldState = stageState.getAndSet(newState);
-        if (oldState == newState) {
-            return;
-        }
-
-        fireStateChangedEvent(getStageInfo());
-
-        log.debug("Stage %s is %s", stageId, newState);
     }
 
     public static Function<RemoteTask, TaskInfo> taskInfoGetter()
@@ -726,18 +701,13 @@ interface StageExecutionNode
 
     Iterable<? extends URI> getTaskLocations();
 
-    void addStateChangeListener(StageStateChangeListener stateChangeListener);
+    void addStateChangeListener(StateChangeListener<StageInfo> stateChangeListener);
 
     ListenableFuture<?> updateState(boolean forceRefresh);
 
     void cancelStage(StageId stageId);
 
     void cancel();
-
-    public static interface StageStateChangeListener
-    {
-        void stateChanged(StageInfo stageInfo);
-    }
 }
 
 

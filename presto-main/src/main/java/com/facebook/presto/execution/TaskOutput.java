@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.OperatorStats.SplitExecutionStats;
 import com.facebook.presto.operator.Page;
@@ -24,16 +25,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 import static com.facebook.presto.util.Failures.toFailures;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @ThreadSafe
 public class TaskOutput
@@ -45,7 +42,7 @@ public class TaskOutput
     private final SharedBuffer<Page> sharedBuffer;
 
     private final ExecutionStats stats = new ExecutionStats();
-    private final AtomicReference<TaskState> taskState = new AtomicReference<>(TaskState.RUNNING);
+    private final StateMachine<TaskState> taskState;
     private final AtomicLong nextTaskInfoVersion = new AtomicLong(TaskInfo.STARTING_VERSION);
 
     private final LinkedBlockingQueue<Throwable> failureCauses = new LinkedBlockingQueue<>();
@@ -58,18 +55,24 @@ public class TaskOutput
 
     private final Set<OperatorStats> activeSplits = Sets.newSetFromMap(new ConcurrentHashMap<OperatorStats, Boolean>());
 
-    private final Lock stateChangeLock = new ReentrantLock();
-    private final Condition stateChangeCondition = stateChangeLock.newCondition();
-
-    public TaskOutput(TaskId taskId, URI location, int pageBufferMax)
+    public TaskOutput(TaskId taskId, URI location, int pageBufferMax, Executor executor)
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(location, "location is null");
         Preconditions.checkArgument(pageBufferMax > 0, "pageBufferMax must be at least 1");
+        Preconditions.checkNotNull(executor, "executor is null");
 
         this.taskId = taskId;
         this.location = location;
         sharedBuffer = new SharedBuffer<>(pageBufferMax);
+        taskState = new StateMachine<>("task " + taskId, executor, TaskState.RUNNING);
+        taskState.addStateChangeListener(new StateChangeListener<TaskState>() {
+            @Override
+            public void stateChanged(TaskState newValue)
+            {
+                log.debug("Task %s is %s", TaskOutput.this.taskId, newValue);
+            }
+        });
     }
 
     public TaskId getTaskId()
@@ -201,63 +204,29 @@ public class TaskOutput
         Preconditions.checkArgument(doneState.isDone(), "doneState %s is not a done state", doneState);
 
         while (true) {
-            TaskState taskState = this.taskState.get();
-            if (taskState.isDone()) {
+            TaskState currentTaskState = this.taskState.get();
+            if (currentTaskState.isDone()) {
                 return false;
             }
 
-            if (this.taskState.compareAndSet(taskState, doneState)) {
+            // If someone changed the state while we were working, start
+            // the whole process over again.  This assures that a final
+            // state can not be changed.
+            if (taskState.compareAndSet(currentTaskState, doneState)) {
 
                 stats.recordEnd();
 
                 sharedBuffer.destroy();
-
-                log.debug("Task %s is %s", taskId, doneState);
-
-                stateChanged();
 
                 return true;
             }
         }
     }
 
-    private void stateChanged()
-    {
-        stateChangeLock.lock();
-        try {
-            stateChangeCondition.signalAll();
-        }
-        finally {
-            stateChangeLock.unlock();
-        }
-    }
-
-    public void waitForStateChange(Duration maxWait)
+    public void waitForStateChange(TaskState currentState, Duration maxWait)
             throws InterruptedException
     {
-        TaskState currentState = taskState.get();
-        if (currentState.isDone()) {
-            return;
-        }
-
-        // wait for task state to change
-        long remainingNanos = (long) maxWait.convertTo(NANOSECONDS);
-        long start = System.nanoTime();
-        long end = start + remainingNanos;
-
-        if (stateChangeLock.tryLock(remainingNanos, NANOSECONDS)) {
-            // remove time waiting for lock
-            remainingNanos = end - System.nanoTime();
-
-            try {
-                while (remainingNanos > 0 && currentState == taskState.get()) {
-                    remainingNanos = stateChangeCondition.awaitNanos(remainingNanos);
-                }
-            }
-            finally {
-                stateChangeLock.unlock();
-            }
-        }
+        taskState.waitForStateChange(currentState, maxWait);
     }
 
     public TaskInfo getTaskInfo(boolean full)

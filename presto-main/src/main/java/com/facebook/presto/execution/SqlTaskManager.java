@@ -153,11 +153,11 @@ public class SqlTaskManager
     }
 
     @Override
-    public void waitForStateChange(TaskId taskId, Duration waitForStateChange)
+    public void waitForStateChange(TaskId taskId, TaskState currentState, Duration maxWait)
             throws InterruptedException
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
-        Preconditions.checkNotNull(waitForStateChange, "waitForStateChange is null");
+        Preconditions.checkNotNull(maxWait, "maxWait is null");
 
         TaskExecution taskExecution = tasks.get(taskId);
         if (taskExecution == null) {
@@ -165,7 +165,7 @@ public class SqlTaskManager
         }
 
         taskExecution.recordHeartBeat();
-        taskExecution.waitForStateChange(waitForStateChange);
+        taskExecution.waitForStateChange(currentState, maxWait);
     }
 
     @Override

@@ -7,11 +7,14 @@ import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.client.FailureInfo;
+import com.facebook.presto.client.PrestoHeaders;
 import com.facebook.presto.execution.BufferInfo;
 import com.facebook.presto.execution.ExecutionStats.ExecutionStatsSnapshot;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.SharedBuffer.QueueState;
 import com.facebook.presto.execution.SharedBufferInfo;
+import com.facebook.presto.execution.StateMachine;
+import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskState;
@@ -28,6 +31,7 @@ import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -56,7 +60,6 @@ import javax.annotation.concurrent.GuardedBy;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.net.URI;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -70,7 +73,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.Preconditions.checkState;
@@ -98,7 +100,7 @@ public class HttpRemoteTask
     private final AtomicLong nextSplitId = new AtomicLong();
 
     // a lock on "this" is required for mutual exclusion
-    private final AtomicReference<TaskInfo> taskInfo = new AtomicReference<>();
+    private final StateMachine<TaskInfo> taskInfo;
     @GuardedBy("this")
     private CurrentRequest currentRequest;
     @GuardedBy("this")
@@ -113,8 +115,6 @@ public class HttpRemoteTask
     private final Set<String> outputIds = new TreeSet<>();
     @GuardedBy("this")
     private boolean noMoreOutputIds;
-    @GuardedBy("this")
-    private final List<TaskStateChangeListener> stateChangeListeners = new ArrayList<>();
 
     @GuardedBy("this")
     private UpdateLoop updateLoop;
@@ -172,7 +172,6 @@ public class HttpRemoteTask
         this.maxConsecutiveErrorCount = maxConsecutiveErrorCount;
         this.minErrorDuration = minErrorDuration;
 
-
         for (Entry<PlanNodeId, URI> entry : initialExchangeLocations.entries()) {
             ScheduledSplit scheduledSplit = new ScheduledSplit(nextSplitId.getAndIncrement(), createRemoteSplitFor(entry.getValue()));
             pendingSplits.put(entry.getKey(), scheduledSplit);
@@ -194,7 +193,7 @@ public class HttpRemoteTask
             pendingSplits.put(planFragment.getPartitionedSource(), new ScheduledSplit(nextSplitId.getAndIncrement(), initialSplit));
         }
 
-        taskInfo.set(new TaskInfo(
+        taskInfo = new StateMachine<>("task " + taskId, executor, new TaskInfo(
                 taskId,
                 TaskInfo.MIN_VERSION,
                 TaskState.PLANNED,
@@ -293,51 +292,15 @@ public class HttpRemoteTask
     }
 
     @Override
-    public synchronized void addStateChangeListener(TaskStateChangeListener stateChangeListener)
+    public synchronized void addStateChangeListener(StateChangeListener<TaskInfo> stateChangeListener)
     {
-        stateChangeListeners.add(stateChangeListener);
+        taskInfo.addStateChangeListener(stateChangeListener);
     }
 
-    private void fireStateChangedEvent(final TaskInfo newValue)
+    private synchronized void updateTaskInfo(final TaskInfo newValue)
     {
-        final ImmutableList<TaskStateChangeListener> stateChangeListeners;
-        synchronized (this) {
-            stateChangeListeners = ImmutableList.copyOf(this.stateChangeListeners);
-        }
-        executor.execute(new Runnable() {
-            @Override
-            public void run()
-            {
-                for (TaskStateChangeListener stateChangeListener : stateChangeListeners) {
-                    try {
-                        stateChangeListener.stateChanged(newValue);
-                    }
-                    catch (Exception e) {
-                        log.error(e, "Error notifying state change listener for task %s", newValue.getTaskId());
-                    }
-                }
-            }
-        });
-    }
-
-    private synchronized void updateTaskInfo(TaskInfo newValue)
-    {
-        TaskInfo oldValue = taskInfo.get();
-        if (oldValue.getState().isDone()) {
-            // never update if the task has reached a terminal state
-            return;
-        }
-        if (newValue.getVersion() < oldValue.getVersion()) {
-            // don't update to an older version (same version is ok)
-            return;
-        }
-
-        boolean stateChanged = newValue.getState() != oldValue.getState();
-
-        taskInfo.set(newValue);
-
-        for (Map.Entry<PlanNodeId, Set<?>> entry : newValue.getOutputs().entrySet()) {
-            OutputReceiver outputReceiver =  outputReceivers.get(entry.getKey());
+        for (Entry<PlanNodeId, Set<?>> entry : newValue.getOutputs().entrySet()) {
+            OutputReceiver outputReceiver = outputReceivers.get(entry.getKey());
             checkState(outputReceiver != null, "Got Result for node %s which is not an output receiver!", entry.getKey());
             for (Object result : entry.getValue()) {
                 outputReceiver.updateOutput(result);
@@ -349,9 +312,22 @@ public class HttpRemoteTask
             pendingSplits.clear();
         }
 
-        if (stateChanged) {
-            fireStateChangedEvent(newValue);
-        }
+        // change to new value if old value is not changed and new value has a newer version
+        taskInfo.setIf(newValue, new Predicate<TaskInfo>()
+        {
+            public boolean apply(TaskInfo oldValue)
+            {
+                if (oldValue.getState().isDone()) {
+                    // never update if the task has reached a terminal state
+                    return false;
+                }
+                if (newValue.getVersion() < oldValue.getVersion()) {
+                    // don't update to an older version (same version is ok)
+                    return false;
+                }
+                return true;
+            }
+        });
     }
 
     @Override
@@ -774,13 +750,11 @@ public class HttpRemoteTask
 
         private UpdateLoop()
         {
-            URI build = uriBuilderFrom(taskInfo.get().getSelf())
-                    .addParameter("waitForStateChange", "200ms")
-                    .build();
-
             request = prepareGet()
-                    .setUri(build)
+                    .setUri(taskInfo.get().getSelf())
                     .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.JSON_UTF_8.toString())
+                    .setHeader(PrestoHeaders.PRESTO_CURRENT_STATE, taskInfo.get().getState().toString())
+                    .setHeader(PrestoHeaders.PRESTO_MAX_WAIT, "200ms")
                     .build();
         }
 

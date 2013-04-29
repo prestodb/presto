@@ -9,6 +9,7 @@ import com.facebook.presto.execution.NoSuchBufferException;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
+import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.operator.Page;
 import com.google.common.base.Throwables;
 import com.google.common.reflect.TypeToken;
@@ -20,11 +21,11 @@ import javax.inject.Inject;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
+import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.GenericEntity;
 import javax.ws.rs.core.MediaType;
@@ -34,6 +35,8 @@ import javax.ws.rs.core.UriInfo;
 import java.util.List;
 import java.util.NoSuchElementException;
 
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_CURRENT_STATE;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -86,13 +89,16 @@ public class TaskResource
     @GET
     @Path("{taskId}")
     @Produces(MediaType.APPLICATION_JSON)
-    public Response getTaskInfo(@PathParam("taskId") TaskId taskId, @QueryParam("waitForStateChange") Duration waitForStateChange, @Context() UriInfo uriInfo)
+    public Response getTaskInfo(@PathParam("taskId") TaskId taskId,
+            @HeaderParam(PRESTO_CURRENT_STATE) TaskState currentState,
+            @HeaderParam(PRESTO_MAX_WAIT) Duration maxWait,
+            @Context() UriInfo uriInfo)
             throws InterruptedException
     {
         checkNotNull(taskId, "taskId is null");
 
-        if (waitForStateChange != null) {
-            taskManager.waitForStateChange(taskId, waitForStateChange);
+        if (maxWait != null) {
+            taskManager.waitForStateChange(taskId, currentState, maxWait);
         }
 
         try {
