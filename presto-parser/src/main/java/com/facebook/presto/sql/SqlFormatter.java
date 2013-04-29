@@ -1,8 +1,13 @@
 package com.facebook.presto.sql;
 
 import com.facebook.presto.sql.tree.AliasedRelation;
-import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
+import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Join;
+import com.facebook.presto.sql.tree.JoinCriteria;
+import com.facebook.presto.sql.tree.JoinOn;
+import com.facebook.presto.sql.tree.JoinUsing;
+import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Relation;
@@ -21,13 +26,16 @@ import java.util.Iterator;
 import java.util.List;
 
 import static com.facebook.presto.sql.ExpressionFormatter.expressionFormatterFunction;
+import static com.facebook.presto.sql.ExpressionFormatter.formatExpression;
 import static com.google.common.base.Preconditions.checkArgument;
 
-public class SqlFormatter
+public final class SqlFormatter
 {
     private static final String INDENT = "   ";
 
-    public static String toString(Node root)
+    private SqlFormatter() {}
+
+    public static String formatSql(Node root)
     {
         StringBuilder builder = new StringBuilder();
         new Formatter(builder).process(root, 0);
@@ -35,7 +43,7 @@ public class SqlFormatter
     }
 
     private static class Formatter
-            extends DefaultTraversalVisitor<Void, Integer>
+            extends AstVisitor<Void, Integer>
     {
         private final StringBuilder builder;
 
@@ -54,7 +62,7 @@ public class SqlFormatter
         protected Void visitExpression(Expression node, Integer indent)
         {
             checkArgument(indent == 0, "visitExpression should only be called at root");
-            builder.append(ExpressionFormatter.formatExpression(node));
+            builder.append(formatExpression(node));
             return null;
         }
 
@@ -63,18 +71,19 @@ public class SqlFormatter
         {
             if (node.getWith().isPresent()) {
                 With with = node.getWith().get();
-                append(indent, "WITH ");
+                append(indent, "WITH");
                 if (with.isRecursive()) {
-                    builder.append("RECURSIVE ");
+                    builder.append(" RECURSIVE");
                 }
-                builder.append('\n');
+                builder.append("\n  ");
                 Iterator<WithQuery> queries = with.getQueries().iterator();
                 while (queries.hasNext()) {
                     WithQuery query = queries.next();
-                    builder.append(query.getName());
+                    append(indent, query.getName());
                     appendAliasColumns(builder, query.getColumnNames());
                     builder.append(" AS ");
                     process(new Subquery(query.getQuery()), indent);
+                    builder.append('\n');
                     if (queries.hasNext()) {
                         builder.append(", ");
                     }
@@ -83,25 +92,28 @@ public class SqlFormatter
 
             process(node.getSelect(), indent);
 
-            append(indent, "FROM ");
+            append(indent, "FROM");
             if (node.getFrom().size() > 1) {
                 builder.append('\n');
+                append(indent, "  ");
                 Iterator<Relation> relations = node.getFrom().iterator();
                 while (relations.hasNext()) {
                     process(relations.next(), indent);
                     if (relations.hasNext()) {
-                        builder.append(", ");
+                        builder.append('\n');
+                        append(indent, ", ");
                     }
                 }
             }
             else {
+                builder.append(' ');
                 process(Iterables.getOnlyElement(node.getFrom()), indent);
             }
 
             builder.append('\n');
 
             if (node.getWhere().isPresent()) {
-                append(indent, "WHERE " + ExpressionFormatter.formatExpression(node.getWhere().get()))
+                append(indent, "WHERE " + formatExpression(node.getWhere().get()))
                         .append('\n');
             }
 
@@ -111,16 +123,18 @@ public class SqlFormatter
             }
 
             if (node.getHaving().isPresent()) {
-                append(indent, "HAVING " + ExpressionFormatter.formatExpression(node.getHaving().get()))
+                append(indent, "HAVING " + formatExpression(node.getHaving().get()))
                         .append('\n');
             }
 
             if (!node.getOrderBy().isEmpty()) {
-                append(indent, "ORDER BY " + Joiner.on(", ").join(Iterables.transform(node.getOrderBy(), orderByFormatterFunction())));
+                append(indent, "ORDER BY " + Joiner.on(", ").join(Iterables.transform(node.getOrderBy(), orderByFormatterFunction())))
+                        .append('\n');
             }
 
             if (node.getLimit().isPresent()) {
-                append(indent, "LIMIT " + node.getLimit().get());
+                append(indent, "LIMIT " + node.getLimit().get())
+                        .append('\n');
             }
 
             return null;
@@ -129,10 +143,22 @@ public class SqlFormatter
         @Override
         protected Void visitSelect(Select node, Integer indent)
         {
-            append(indent, "SELECT ")
-                    .append(node.isDistinct() ? "DISTINCT " : "")
-                    .append(Joiner.on(", ").join(Iterables.transform(node.getSelectItems(), expressionFormatterFunction())))
-                    .append('\n');
+            append(indent, "SELECT");
+            if (node.isDistinct()) {
+                builder.append(" DISTINCT");
+            }
+
+            if (node.getSelectItems().size() > 1) {
+                builder.append("\n  ");
+                append(indent, Joiner.on('\n' + indentString(indent) + ", ")
+                        .join(Iterables.transform(node.getSelectItems(), expressionFormatterFunction())));
+            }
+            else {
+                builder.append(' ')
+                        .append(formatExpression(Iterables.getOnlyElement(node.getSelectItems())));
+            }
+
+            builder.append('\n');
 
             return null;
         }
@@ -141,6 +167,44 @@ public class SqlFormatter
         protected Void visitTable(Table node, Integer indent)
         {
             builder.append(node.getName().toString());
+            return null;
+        }
+
+        @Override
+        protected Void visitJoin(Join node, Integer indent)
+        {
+            JoinCriteria criteria = node.getCriteria();
+            String type = node.getType().toString();
+            if (criteria instanceof NaturalJoin) {
+                type = "NATURAL " + type;
+            }
+
+            builder.append('(');
+            process(node.getLeft(), indent);
+
+            builder.append('\n');
+            append(indent, type).append(" JOIN ");
+
+            process(node.getRight(), indent);
+
+            if (criteria instanceof JoinUsing) {
+                JoinUsing using = (JoinUsing) criteria;
+                builder.append(" USING (")
+                        .append(Joiner.on(", ").join(using.getColumns()))
+                        .append(")");
+            }
+            else if (criteria instanceof JoinOn) {
+                JoinOn on = (JoinOn) criteria;
+                builder.append(" ON (")
+                        .append(formatExpression(on.getExpression()))
+                        .append(")");
+            }
+            else if (!(criteria instanceof NaturalJoin)) {
+                throw new UnsupportedOperationException("unknown join criteria: " + criteria);
+            }
+
+            builder.append(")");
+
             return null;
         }
 
@@ -172,8 +236,13 @@ public class SqlFormatter
 
         private StringBuilder append(int indent, String value)
         {
-            return builder.append(Strings.repeat(INDENT, indent))
+            return builder.append(indentString(indent))
                     .append(value);
+        }
+
+        private static String indentString(int indent)
+        {
+            return Strings.repeat(INDENT, indent);
         }
     }
 
@@ -186,15 +255,14 @@ public class SqlFormatter
             {
                 StringBuilder builder = new StringBuilder();
 
-                builder.append(ExpressionFormatter.formatExpression(input.getSortKey()))
-                        .append(' ');
+                builder.append(formatExpression(input.getSortKey()));
 
                 switch (input.getOrdering()) {
                     case ASCENDING:
-                        builder.append("ASC");
+                        builder.append(" ASC");
                         break;
                     case DESCENDING:
-                        builder.append("DESC");
+                        builder.append(" DESC");
                         break;
                     default:
                         throw new UnsupportedOperationException("unknown ordering: " + input.getOrdering());

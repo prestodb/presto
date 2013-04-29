@@ -56,6 +56,9 @@ public class DefaultTraversalVisitor<R, C>
     @Override
     protected R visitQuery(Query node, C context)
     {
+        if (node.getWith().isPresent()) {
+            process(node.getWith().get(), context);
+        }
         process(node.getSelect(), context);
         for (Relation relation : node.getFrom()) {
             process(relation, context);
@@ -74,6 +77,22 @@ public class DefaultTraversalVisitor<R, C>
         }
 
         return null;
+    }
+
+    @Override
+    protected R visitWith(With node, C context)
+    {
+        for (WithQuery query : node.getQueries()) {
+            process(query, context);
+        }
+
+        return null;
+    }
+
+    @Override
+    protected R visitWithQuery(WithQuery node, C context)
+    {
+        return process(node.getQuery(), context);
     }
 
     @Override
@@ -131,6 +150,27 @@ public class DefaultTraversalVisitor<R, C>
 
         if (node.getFrame().isPresent()) {
             process(node.getFrame().get(), context);
+        }
+
+        return null;
+    }
+
+    @Override
+    public R visitWindowFrame(WindowFrame node, C context)
+    {
+        process(node.getStart(), context);
+        if (node.getEnd().isPresent()) {
+            process(node.getEnd().get(), context);
+        }
+
+        return null;
+    }
+
+    @Override
+    public R visitFrameBound(FrameBound node, C context)
+    {
+        if (node.getValue().isPresent()) {
+            process(node.getValue().get(), context);
         }
 
         return null;
@@ -274,6 +314,10 @@ public class DefaultTraversalVisitor<R, C>
     {
         process(node.getLeft(), context);
         process(node.getRight(), context);
+
+        if (node.getCriteria() instanceof JoinOn) {
+            process(((JoinOn) node.getCriteria()).getExpression(), context);
+        }
 
         return null;
     }
