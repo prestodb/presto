@@ -17,7 +17,6 @@ import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
-
 import java.net.URI;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -28,9 +27,13 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 import static com.facebook.presto.util.Failures.toFailures;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @ThreadSafe
 public class TaskOutput
@@ -54,6 +57,9 @@ public class TaskOutput
     private final Map<PlanNodeId, Set<?>> outputs = new HashMap<>();
 
     private final Set<OperatorStats> activeSplits = Sets.newSetFromMap(new ConcurrentHashMap<OperatorStats, Boolean>());
+
+    private final Lock stateChangeLock = new ReentrantLock();
+    private final Condition stateChangeCondition = stateChangeLock.newCondition();
 
     public TaskOutput(TaskId taskId, URI location, int pageBufferMax)
     {
@@ -109,7 +115,7 @@ public class TaskOutput
             builder.addAll(current);
         }
         builder.addAll(output);
-        this.outputs.put(id,  builder.build());
+        this.outputs.put(id, builder.build());
     }
 
     public synchronized Map<PlanNodeId, Set<?>> getOutputs()
@@ -207,7 +213,49 @@ public class TaskOutput
                 sharedBuffer.destroy();
 
                 log.debug("Task %s is %s", taskId, doneState);
+
+                stateChanged();
+
                 return true;
+            }
+        }
+    }
+
+    private void stateChanged()
+    {
+        stateChangeLock.lock();
+        try {
+            stateChangeCondition.signalAll();
+        }
+        finally {
+            stateChangeLock.unlock();
+        }
+    }
+
+    public void waitForStateChange(Duration maxWait)
+            throws InterruptedException
+    {
+        TaskState currentState = taskState.get();
+        if (currentState.isDone()) {
+            return;
+        }
+
+        // wait for task state to change
+        long remainingNanos = (long) maxWait.convertTo(NANOSECONDS);
+        long start = System.nanoTime();
+        long end = start + remainingNanos;
+
+        if (stateChangeLock.tryLock(remainingNanos, NANOSECONDS)) {
+            // remove time waiting for lock
+            remainingNanos = end - System.nanoTime();
+
+            try {
+                while (remainingNanos > 0 && currentState == taskState.get()) {
+                    remainingNanos = stateChangeCondition.awaitNanos(remainingNanos);
+                }
+            }
+            finally {
+                stateChangeLock.unlock();
             }
         }
     }

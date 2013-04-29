@@ -6,15 +6,18 @@ package com.facebook.presto.operator;
 import com.facebook.presto.operator.HttpPageBufferClient.ClientCallback;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.io.Closeables;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.units.Duration;
 
 import javax.annotation.Nullable;
+import javax.annotation.concurrent.GuardedBy;
 import java.io.Closeable;
 import java.net.URI;
 import java.util.Deque;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -27,12 +30,18 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class ExchangeClient
         implements Closeable
 {
+    private static final Page NO_MORE_PAGES = new Page(0);
+
     private final int maxBufferedPages;
     private final int expectedPagesPerRequest;
     private final int concurrentRequestMultiplier;
     private final AsyncHttpClient httpClient;
-    private final Set<URI> locations;
-    private final AtomicBoolean noMoreLocations;
+
+    @GuardedBy("this")
+    private final Set<URI> locations = new HashSet<>();
+
+    @GuardedBy("this")
+    private boolean noMoreLocations;
 
     private final Map<URI, HttpPageBufferClient> allClients = new ConcurrentHashMap<>();
     private final Deque<HttpPageBufferClient> queuedClients = new LinkedList<>();
@@ -45,15 +54,23 @@ public class ExchangeClient
     public ExchangeClient(int maxBufferedPages,
             int expectedPagesPerRequest,
             int concurrentRequestMultiplier,
+            AsyncHttpClient httpClient)
+    {
+        this(maxBufferedPages, expectedPagesPerRequest, concurrentRequestMultiplier, httpClient, ImmutableSet.<URI>of(), false);
+    }
+
+    public ExchangeClient(int maxBufferedPages,
+            int expectedPagesPerRequest,
+            int concurrentRequestMultiplier,
             AsyncHttpClient httpClient,
             Set<URI> locations,
-            AtomicBoolean noMoreLocations)
+            boolean noMoreLocations)
     {
         this.concurrentRequestMultiplier = concurrentRequestMultiplier;
         this.maxBufferedPages = maxBufferedPages;
         this.expectedPagesPerRequest = expectedPagesPerRequest;
         this.httpClient = httpClient;
-        this.locations = locations;
+        this.locations.addAll(locations);
         this.noMoreLocations = noMoreLocations;
     }
 
@@ -66,23 +83,42 @@ public class ExchangeClient
         return exchangeStatus.build();
     }
 
+    public synchronized void addLocation(URI location)
+    {
+        Preconditions.checkNotNull(location, "location is null");
+        if (locations.contains(location)) {
+            return;
+        }
+        Preconditions.checkState(!noMoreLocations, "No more locations already set");
+        locations.add(location);
+        scheduleRequestIfNecessary();
+    }
+
+    public synchronized void noMoreLocations()
+    {
+        noMoreLocations = true;
+        scheduleRequestIfNecessary();
+    }
+
     @Nullable
     public Page getNextPage(Duration maxWaitTime)
             throws InterruptedException
     {
-        // There is a safe race condition here. This code is checking the completed
-        // clients list which can change while the code is executing, but this fine
-        // since client state only moves in one direction from running to closed.
-        boolean allClientsComplete = noMoreLocations.get() && completedClients.size() == locations.size();
-
-        if (!allClientsComplete) {
-            scheduleRequestIfNecessary();
-        }
+        scheduleRequestIfNecessary();
 
         Page page = pageBuffer.poll((long) maxWaitTime.toMillis(), TimeUnit.MILLISECONDS);
-        if (allClientsComplete && page == null) {
+
+        if (page == NO_MORE_PAGES) {
+            // mark client closed
             closed.set(true);
+
+            // add end marker back to queue
+            pageBuffer.offer(NO_MORE_PAGES);
+
+            // don't return end of stream marker
+            page = null;
         }
+
         return page;
     }
 
@@ -94,14 +130,25 @@ public class ExchangeClient
     @Override
     public synchronized void close()
     {
+        closed.set(true);
         for (HttpPageBufferClient client : allClients.values()) {
             Closeables.closeQuietly(client);
         }
-        closed.set(true);
+        if (pageBuffer.peek() != NO_MORE_PAGES) {
+            pageBuffer.offer(NO_MORE_PAGES);
+        }
     }
 
-    private synchronized void scheduleRequestIfNecessary()
+    public synchronized void scheduleRequestIfNecessary()
     {
+        // if finished, add the end marker
+        if (noMoreLocations && completedClients.size() == locations.size()) {
+            if (pageBuffer.peek() != NO_MORE_PAGES) {
+                pageBuffer.offer(NO_MORE_PAGES);
+            }
+            return;
+        }
+
         // add clients for new locations
         for (URI location : locations) {
             if (!allClients.containsKey(location)) {

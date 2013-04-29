@@ -68,6 +68,12 @@ public class MockTaskManager
     }
 
     @Override
+    public void waitForStateChange(TaskId taskId, Duration waitForStateChange)
+            throws InterruptedException
+    {
+    }
+
+    @Override
     public synchronized TaskInfo getTaskInfo(TaskId taskId, boolean full)
     {
         Preconditions.checkNotNull(taskId, "taskId is null");

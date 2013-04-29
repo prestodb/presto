@@ -17,8 +17,8 @@ import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.metadata.Node;
 import com.facebook.presto.operator.OperatorStats.SplitExecutionStats;
-import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.spi.Split;
+import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.OutputReceiver;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -56,6 +56,7 @@ import javax.annotation.concurrent.GuardedBy;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -64,8 +65,10 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -76,6 +79,7 @@ import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonRespo
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
+import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -109,14 +113,20 @@ public class HttpRemoteTask
     private final Set<String> outputIds = new TreeSet<>();
     @GuardedBy("this")
     private boolean noMoreOutputIds;
+    @GuardedBy("this")
+    private final List<TaskStateChangeListener> stateChangeListeners = new ArrayList<>();
+
+    @GuardedBy("this")
+    private UpdateLoop updateLoop;
 
     private final AsyncHttpClient httpClient;
+    private final Executor executor;
     private final JsonCodec<TaskInfo> taskInfoCodec;
     private final JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec;
     private final List<TupleInfo> tupleInfos;
     private final Map<PlanNodeId, OutputReceiver> outputReceivers;
 
-    private final RateLimiter requestRateLimiter = RateLimiter.create(10);
+    private final RateLimiter errorRequestRateLimiter = RateLimiter.create(0.1);
 
     private final AtomicLong lastSuccessfulRequest = new AtomicLong(System.nanoTime());
     private final AtomicLong errorCount = new AtomicLong();
@@ -132,6 +142,7 @@ public class HttpRemoteTask
             Multimap<PlanNodeId, URI> initialExchangeLocations,
             Set<String> initialOutputIds,
             AsyncHttpClient httpClient,
+            Executor executor,
             int maxConsecutiveErrorCount,
             Duration minErrorDuration,
             JsonCodec<TaskInfo> taskInfoCodec,
@@ -144,6 +155,7 @@ public class HttpRemoteTask
         Preconditions.checkNotNull(outputReceivers, "outputReceivers is null");
         Preconditions.checkNotNull(initialOutputIds, "initialOutputIds is null");
         Preconditions.checkNotNull(httpClient, "httpClient is null");
+        Preconditions.checkNotNull(executor, "executor is null");
         Preconditions.checkNotNull(taskInfoCodec, "taskInfoCodec is null");
         Preconditions.checkNotNull(taskUpdateRequestCodec, "taskUpdateRequestCodec is null");
 
@@ -153,6 +165,7 @@ public class HttpRemoteTask
         this.outputReceivers = ImmutableMap.copyOf(outputReceivers);
         this.outputIds.addAll(initialOutputIds);
         this.httpClient = httpClient;
+        this.executor = executor;
         this.taskInfoCodec = taskInfoCodec;
         this.taskUpdateRequestCodec = taskUpdateRequestCodec;
         this.tupleInfos = planFragment.getTupleInfos();
@@ -279,16 +292,47 @@ public class HttpRemoteTask
         updateState(false);
     }
 
+    @Override
+    public synchronized void addStateChangeListener(TaskStateChangeListener stateChangeListener)
+    {
+        stateChangeListeners.add(stateChangeListener);
+    }
+
+    private void fireStateChangedEvent(final TaskInfo newValue)
+    {
+        final ImmutableList<TaskStateChangeListener> stateChangeListeners;
+        synchronized (this) {
+            stateChangeListeners = ImmutableList.copyOf(this.stateChangeListeners);
+        }
+        executor.execute(new Runnable() {
+            @Override
+            public void run()
+            {
+                for (TaskStateChangeListener stateChangeListener : stateChangeListeners) {
+                    try {
+                        stateChangeListener.stateChanged(newValue);
+                    }
+                    catch (Exception e) {
+                        log.error(e, "Error notifying state change listener for task %s", newValue.getTaskId());
+                    }
+                }
+            }
+        });
+    }
+
     private synchronized void updateTaskInfo(TaskInfo newValue)
     {
-        if (taskInfo.get().getState().isDone()) {
+        TaskInfo oldValue = taskInfo.get();
+        if (oldValue.getState().isDone()) {
             // never update if the task has reached a terminal state
             return;
         }
-        if (newValue.getVersion() < taskInfo.get().getVersion()) {
+        if (newValue.getVersion() < oldValue.getVersion()) {
             // don't update to an older version (same version is ok)
             return;
         }
+
+        boolean stateChanged = newValue.getState() != oldValue.getState();
 
         taskInfo.set(newValue);
 
@@ -303,6 +347,10 @@ public class HttpRemoteTask
         if (newValue.getState().isDone()) {
             // splits can be huge so clear the list
             pendingSplits.clear();
+        }
+
+        if (stateChanged) {
+            fireStateChangedEvent(newValue);
         }
     }
 
@@ -323,6 +371,11 @@ public class HttpRemoteTask
                 return Futures.immediateFuture(null);
             }
 
+            if (updateLoop == null) {
+                updateLoop = new UpdateLoop();
+                updateLoop.start();
+            }
+
             if (!forceRefresh) {
                 if (this.currentRequest != null) {
                     if (!this.currentRequest.isDone()) {
@@ -336,10 +389,9 @@ public class HttpRemoteTask
                     this.currentRequest = null;
                 }
 
-                // don't update too fast
-                if (!requestRateLimiter.tryAcquire()) {
-                    // todo return existing pending request future?
-                    return Futures.immediateFuture(null);
+                // don't update too fast in the face of errors
+                if (errorCount.get() > 0) {
+                    errorRequestRateLimiter.acquire();
                 }
             }
 
@@ -471,12 +523,13 @@ public class HttpRemoteTask
                 {
                     // reschedule
                     if (Duration.nanosSince(start).compareTo(new Duration(2, TimeUnit.MINUTES)) < 0) {
-                        Futures.addCallback(httpClient.executeAsync(request, createStatusResponseHandler()), this);
-                    } else {
+                        Futures.addCallback(httpClient.executeAsync(request, createStatusResponseHandler()), this, executor);
+                    }
+                    else {
                         log.error(t, "Unable to cancel task at %s", request.getUri());
                     }
                 }
-            });
+            }, executor);
         }
     }
 
@@ -581,7 +634,7 @@ public class HttpRemoteTask
             if (isDone()) {
                 requestFuture.cancel(true);
             } else {
-                Futures.addCallback(requestFuture, this);
+                Futures.addCallback(requestFuture, this, executor);
             }
         }
 
@@ -616,8 +669,6 @@ public class HttpRemoteTask
 
                     // remove acknowledged splits, which frees memory
                     acknowledgeSources(sources);
-
-                    updateIfNecessary();
                 }
                 else if (response.getStatusCode() == HttpStatus.SERVICE_UNAVAILABLE.code()) {
                     requestFailed(startTime, new RuntimeException("Server at %s returned SERVICE_UNAVAILABLE"));
@@ -645,6 +696,7 @@ public class HttpRemoteTask
             }
             finally {
                 set(null);
+                updateIfNecessary();
             }
         }
 
@@ -704,6 +756,111 @@ public class HttpRemoteTask
             return super.setException(throwable);
         }
 
+    }
+
+    /**
+     * Continuous update loop for task info.  Wait for a short period for task state to change, and
+     * if it does not, return the current state of the task.  This will cause stats to be updated at
+     * a regular interval, and state changes will be immediately recorded.
+     */
+    private class UpdateLoop
+            implements FutureCallback<JsonResponse<TaskInfo>>
+    {
+        private final Request request;
+        private final AtomicBoolean running = new AtomicBoolean();
+        // if we are getting errors, don't schedule more than 10 requests a second
+        private final RateLimiter errorRequestRateLimiter = RateLimiter.create(0.1);
+        private ListenableFuture<JsonResponse<TaskInfo>> future;
+
+        private UpdateLoop()
+        {
+            URI build = uriBuilderFrom(taskInfo.get().getSelf())
+                    .addParameter("waitForStateChange", "200ms")
+                    .build();
+
+            request = prepareGet()
+                    .setUri(build)
+                    .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.JSON_UTF_8.toString())
+                    .build();
+        }
+
+        public void start()
+        {
+            running.set(true);
+            reschedule();
+        }
+
+        public void stop()
+        {
+            running.set(false);
+        }
+
+        private synchronized void reschedule()
+        {
+            // stopped or done?
+            if (!running.get() || taskInfo.get().getState().isDone()) {
+                return;
+            }
+
+            // outstanding request?
+            if (future != null && !future.isDone()) {
+                log.error("Can not reschedule update because an update is already running");
+            }
+
+            future = httpClient.executeAsync(request, createFullJsonResponseHandler(taskInfoCodec));
+            Futures.addCallback(future, this, executor);
+        }
+
+        @Override
+        public void onSuccess(JsonResponse<TaskInfo> response)
+        {
+            try {
+                TaskInfo taskInfo = getTaskInfo();
+                int statusCode = response.getStatusCode();
+                if (statusCode == HttpStatus.OK.code() && response.hasValue()) {
+                    // update task info
+                    updateTaskInfo(response.getValue());
+                    lastSuccessfulRequest.set(System.nanoTime());
+                    errorCount.set(0);
+                    errorsSinceLastSuccess.clear();
+                }
+                else if (statusCode != HttpStatus.GONE.code() && statusCode != HttpStatus.SERVICE_UNAVAILABLE.code()) {
+                    // Something is broken in the server or the client, so fail the task immediately (includes 500 errors)
+                    Exception cause = response.getException();
+                    if (cause == null) {
+                        cause = new RuntimeException(String.format("Expected response code from %s to be %s, but was %s: %s",
+                                taskInfo.getSelf(),
+                                HttpStatus.OK.code(),
+                                statusCode,
+                                response.getStatusMessage()));
+                    }
+                    log.debug(cause, "Remote task failed: %s", taskInfo.getSelf());
+                    failTask(cause);
+                }
+            }
+            catch (Throwable t) {
+                log.error(t, "Error processing task update response: %s", taskInfo.get().getSelf());
+                errorRequestRateLimiter.acquire();
+            }
+            finally {
+                // if task has finished, the reschedule call will do nothing
+                reschedule();
+            }
+        }
+
+        @Override
+        public void onFailure(Throwable t)
+        {
+            TaskInfo info = taskInfo.get();
+            if (isSocketError(t)) {
+                log.warn("%s task %s: %s: %s", "Error updating", info.getTaskId(), t.getMessage(), info.getSelf());
+            }
+            else {
+                log.warn(t, "%s task %s: %s", "Error updating", info.getTaskId(), info.getSelf());
+            }
+            errorRequestRateLimiter.acquire();
+            reschedule();
+        }
     }
 
     private static boolean isSocketError(Throwable t)

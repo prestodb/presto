@@ -16,6 +16,9 @@ public interface TaskManager
 {
     List<TaskInfo> getAllTaskInfo(boolean full);
 
+    void waitForStateChange(TaskId taskId, Duration waitForStateChange)
+            throws InterruptedException;
+
     TaskInfo getTaskInfo(TaskId taskId, boolean full);
 
     TaskInfo updateTask(Session session, TaskId taskId, PlanFragment fragment, List<TaskSource> sources, OutputBuffers outputIds);

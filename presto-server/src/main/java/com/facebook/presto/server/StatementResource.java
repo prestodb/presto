@@ -53,7 +53,6 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
-
 import java.io.Closeable;
 import java.net.URI;
 import java.util.ArrayList;
@@ -66,7 +65,6 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
@@ -85,7 +83,6 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static java.lang.String.format;
-import static java.util.Collections.newSetFromMap;
 
 @Path("/v1/statement")
 public class StatementResource
@@ -134,7 +131,7 @@ public class StatementResource
         Session session = new Session(user, catalog, schema);
         Query query = new Query(session, statement, queryManager, httpClient);
         queries.put(query.getQueryId(), query);
-        return Response.ok(query.getNextResults(uriInfo, new Duration(100, TimeUnit.MILLISECONDS))).build();
+        return Response.ok(query.getNextResults(uriInfo, new Duration(1, TimeUnit.MILLISECONDS))).build();
     }
 
     static void assertRequest(boolean expression, String format, Object... args)
@@ -190,9 +187,6 @@ public class StatementResource
         private final QueryId queryId;
         private final ExchangeClient exchangeClient;
 
-        private final Set<URI> locations = newSetFromMap(new ConcurrentHashMap<URI, Boolean>());
-        private final AtomicBoolean noMoreLocations = new AtomicBoolean();
-
         private final AtomicLong resultId = new AtomicLong();
 
         @GuardedBy("this")
@@ -217,7 +211,7 @@ public class StatementResource
 
             QueryInfo queryInfo = queryManager.createQuery(session, query);
             queryId = queryInfo.getQueryId();
-            exchangeClient = new ExchangeClient(100, 10, 3, httpClient, locations, noMoreLocations);
+            exchangeClient = new ExchangeClient(100, 10, 3, httpClient);
         }
 
         @Override
@@ -261,7 +255,8 @@ public class StatementResource
             Iterable<List<Object>> data = getData(maxWaitTime);
 
             // get the query info before returning
-            QueryInfo queryInfo = queryManager.getQueryInfo(queryId, false);
+            // force update if query manager is closed
+            QueryInfo queryInfo = queryManager.getQueryInfo(queryId, exchangeClient.isClosed());
 
             // close exchange client if the query has failed
             if (queryInfo.getState().isDone()) {
@@ -317,7 +312,9 @@ public class StatementResource
             QueryInfo queryInfo = queryManager.getQueryInfo(queryId, false);
 
             StageInfo outputStage = queryInfo.getOutputStage();
-            if (outputStage == null) {
+
+            // Only wait for data if there are tasks to pull data from
+            if (outputStage == null || outputStage.getTasks().isEmpty()) {
                 // query hasn't finished planning
                 return null;
             }
@@ -350,10 +347,10 @@ public class StatementResource
 
                 String bufferId = Iterables.getOnlyElement(buffers).getBufferId();
                 URI uri = uriBuilderFrom(taskInfo.getSelf()).appendPath("results").appendPath(bufferId).build();
-                locations.add(uri);
+                exchangeClient.addLocation(uri);
             }
             if ((outputStage.getState() != StageState.PLANNED) && (outputStage.getState() != StageState.SCHEDULING)) {
-                noMoreLocations.set(true);
+                exchangeClient.noMoreLocations();
             }
         }
 

@@ -14,10 +14,6 @@ public enum TaskState
      */
     PLANNED(false),
     /**
-     * Task is ready to execute, but has not been scheduled a thread.
-     */
-    QUEUED(false),
-    /**
      * Task is running.
      */
     RUNNING(false),

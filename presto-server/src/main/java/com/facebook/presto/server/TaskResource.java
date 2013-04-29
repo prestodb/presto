@@ -4,9 +4,9 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.PrestoMediaTypes;
-import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.BufferResult;
 import com.facebook.presto.execution.NoSuchBufferException;
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.operator.Page;
@@ -24,13 +24,13 @@ import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.GenericEntity;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
-
 import java.util.List;
 import java.util.NoSuchElementException;
 
@@ -86,9 +86,14 @@ public class TaskResource
     @GET
     @Path("{taskId}")
     @Produces(MediaType.APPLICATION_JSON)
-    public Response getTaskInfo(@PathParam("taskId") TaskId taskId, @Context() UriInfo uriInfo)
+    public Response getTaskInfo(@PathParam("taskId") TaskId taskId, @QueryParam("waitForStateChange") Duration waitForStateChange, @Context() UriInfo uriInfo)
+            throws InterruptedException
     {
         checkNotNull(taskId, "taskId is null");
+
+        if (waitForStateChange != null) {
+            taskManager.waitForStateChange(taskId, waitForStateChange);
+        }
 
         try {
             TaskInfo taskInfo = taskManager.getTaskInfo(taskId, isFullTaskInfoRequested(uriInfo));

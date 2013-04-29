@@ -8,6 +8,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 
 public final class FutureUtils
@@ -41,7 +42,7 @@ public final class FutureUtils
         }
     }
 
-    public static <V> ListenableFuture<?> chainedCallback(ListenableFuture<V> future, final FutureCallback<? super V> callback)
+    public static <V> ListenableFuture<?> chainedCallback(ListenableFuture<V> future, final FutureCallback<? super V> callback, Executor executor)
     {
         final SettableFuture<?> done = SettableFuture.create();
         Futures.addCallback(future, new FutureCallback<V>()
@@ -69,7 +70,7 @@ public final class FutureUtils
                     done.setException(e);
                 }
             }
-        });
+        }, executor);
         return done;
     }
 }

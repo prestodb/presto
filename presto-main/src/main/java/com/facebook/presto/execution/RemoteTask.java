@@ -25,9 +25,16 @@ public interface RemoteTask
 
     void addOutputBuffers(Set<String> outputBuffers, boolean noMore);
 
+    void addStateChangeListener(TaskStateChangeListener stateChangeListener);
+
     void cancel();
 
     ListenableFuture<?> updateState(boolean forceRefresh);
 
     int getQueuedSplits();
+
+    public static interface TaskStateChangeListener
+    {
+        void stateChanged(TaskInfo taskInfo);
+    }
 }

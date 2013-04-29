@@ -181,7 +181,7 @@ public class SharedBuffer<T>
         if (namedQueue.isEmpty()) {
             long remainingNanos = (long) maxWait.convertTo(NANOSECONDS);
             long end = System.nanoTime() + remainingNanos;
-            while (remainingNanos > 0 && namedQueue.isEmpty()) {
+            while (remainingNanos > 0 && namedQueue.isEmpty() && !namedQueue.isFinished()) {
                 // wait for timeout or notification
                 NANOSECONDS.timedWait(this, remainingNanos);
                 remainingNanos = end - System.nanoTime();
@@ -257,6 +257,8 @@ public class SharedBuffer<T>
         if (state == QueueState.NO_MORE_QUEUES && closed.get() && openQueuesBySequenceId.isEmpty()) {
             state = QueueState.FINISHED;
         }
+
+        this.notifyAll();
     }
 
     /**

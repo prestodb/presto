@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.execution.StageExecutionNode.StageStateChangeListener;
 import com.facebook.presto.importer.PeriodicImportManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.ShardManager;
@@ -194,6 +195,13 @@ public class SqlQueryExecution
                 maxPendingSplitsPerNode,
                 queryExecutor);
         this.outputStage.set(outputStage);
+        outputStage.addStateChangeListener(new StageStateChangeListener() {
+            @Override
+            public void stateChanged(StageInfo stageInfo)
+            {
+                doUpdateState(stageInfo);
+            }
+        });
 
         // record planning time
         stateMachine.getStats().recordDistributedPlanningTime(distributedPlanningStart);
@@ -261,13 +269,17 @@ public class SqlQueryExecution
 
         outputStage.updateState(forceRefresh);
 
+        doUpdateState(outputStage.getStageInfo());
+    }
+
+    private void doUpdateState(StageInfo stageInfo)
+    {
         if (!stateMachine.isDone()) {
             // if output stage is done, transition to done
-            StageInfo outputStageInfo = outputStage.getStageInfo();
-            StageState outputStageState = outputStageInfo.getState();
+            StageState outputStageState = stageInfo.getState();
             if (outputStageState.isDone()) {
                 if (outputStageState == StageState.FAILED) {
-                    stateMachine.fail(failureCause(outputStageInfo));
+                    stateMachine.fail(failureCause(stageInfo));
                 }
                 else if (outputStageState == StageState.CANCELED) {
                     stateMachine.cancel();
@@ -283,7 +295,7 @@ public class SqlQueryExecution
                 }
 
                 // if any stage is running, record execution start time
-                if (any(transform(getAllStages(outputStage.getStageInfo()), stageStateGetter()), isStageRunningOrDone())) {
+                if (any(transform(getAllStages(stageInfo), stageStateGetter()), isStageRunningOrDone())) {
                     stateMachine.getStats().recordExecutionStart();
                 }
             }
