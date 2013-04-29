@@ -97,7 +97,8 @@ public class Field
             return false;
         }
 
-        return matchesPrefix(name.getPrefix()) && this.name.get().equals(name.getSuffix());
+        // TODO: need to know whether the qualified name and the name of this field were quoted
+        return matchesPrefix(name.getPrefix()) && this.name.get().equalsIgnoreCase(name.getSuffix());
     }
 
     public static Function<Field, Optional<QualifiedName>> relationAliasGetter()

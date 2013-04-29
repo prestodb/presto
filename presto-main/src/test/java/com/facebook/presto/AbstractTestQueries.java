@@ -1065,6 +1065,56 @@ public abstract class AbstractTestQueries
                 "SELECT sum(CASE WHEN NULLIF(orderstatus, 'F') <> 'F' THEN totalprice ELSE 5.1 END) FROM orders");
     }
 
+    @Test
+    public void testIn()
+            throws Exception
+    {
+        assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (1, 2, 3)");
+        assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (1.5, 2.3)");
+        assertQuery("SELECT orderkey FROM orders WHERE totalprice IN (1, 2, 3)");
+    }
+
+    @Test
+    public void testGroupByIf()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT IF(orderkey between 1 and 5, 'orders', 'others'), sum(totalprice) FROM orders GROUP BY 1",
+                "SELECT CASE WHEN orderkey BETWEEN 1 AND 5 THEN 'orders' ELSE 'others' END, sum(totalprice)\n" +
+                        "FROM orders\n" +
+                        "GROUP BY CASE WHEN orderkey BETWEEN 1 AND 5 THEN 'orders' ELSE 'others' END");
+    }
+
+    @Test
+    public void testDuplicateFields()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT * FROM (SELECT orderkey, orderkey FROM orders)",
+                "SELECT orderkey, orderkey FROM orders");
+    }
+
+    @Test
+    public void testCaseInsensitiveOutputAliasInOrderBy()
+            throws Exception
+    {
+        assertQuery("SELECT orderkey X FROM orders ORDER BY x");
+    }
+
+    @Test
+    public void testCaseInsensitiveAttribute()
+            throws Exception
+    {
+        assertQuery("SELECT x FROM (SELECT orderkey X FROM orders)");
+    }
+
+    @Test
+    public void testCaseInsensitiveAliasedRelation()
+            throws Exception
+    {
+        assertQuery("SELECT A.* FROM orders a");
+    }
+
     @BeforeClass(alwaysRun = true)
     public void setupDatabase()
             throws Exception
