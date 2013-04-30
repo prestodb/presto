@@ -560,8 +560,9 @@ public class HiveClient
                     }
                 });
             }
-            catch (IOException e) {
-                throw Throwables.propagate(e);
+            catch (Throwable e) {
+                partitionChunkQueue.fail(e);
+                Throwables.propagateIfInstanceOf(e, Error.class);
             }
         }
 
@@ -691,18 +692,18 @@ public class HiveClient
             private void fail(Throwable e)
             {
                 throwable.set(e);
+                queue.add(FINISHED_MARKER);
             }
 
             @Override
             protected PartitionChunk computeNext()
             {
-                if (throwable.get() != null) {
-                    throw Throwables.propagate(throwable.get());
-                }
-
                 try {
                     PartitionChunk chunk = queue.take();
                     if (chunk == FINISHED_MARKER) {
+                        if (throwable.get() != null) {
+                            throw Throwables.propagate(throwable.get());
+                        }
                         return endOfData();
                     }
                     if (outstandingChunkCount.getAndDecrement() == maxOutstandingChunks) {
