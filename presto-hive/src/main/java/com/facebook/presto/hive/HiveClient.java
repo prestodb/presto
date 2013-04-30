@@ -494,12 +494,15 @@ public class HiveClient
                         InputSplit[] splits = inputFormat.getSplits(jobConf, 0);
                         for (InputSplit rawSplit : splits) {
                             FileSplit split = ((SymlinkTextInputSplit) rawSplit).getTargetSplit();
-                            chunkPoisoner.writeChunks(createHivePartitionChunks(partitionName, fs.getFileStatus(split.getPath()),
+
+                            // get the filesystem for the target path -- it may be a different hdfs instance
+                            FileSystem targetFilesystem = split.getPath().getFileSystem(hdfsEnvironment.getConfiguration());
+                            chunkPoisoner.writeChunks(createHivePartitionChunks(partitionName, targetFilesystem.getFileStatus(split.getPath()),
                                     split.getStart(),
                                     split.getLength(),
                                     schema,
                                     partitionKeys,
-                                    fs,
+                                    targetFilesystem,
                                     false));
                         }
                         chunkPoisoner.finish();
@@ -560,8 +563,9 @@ public class HiveClient
                     }
                 });
             }
-            catch (IOException e) {
-                throw Throwables.propagate(e);
+            catch (Throwable e) {
+                partitionChunkQueue.fail(e);
+                Throwables.propagateIfInstanceOf(e, Error.class);
             }
         }
 
@@ -691,18 +695,18 @@ public class HiveClient
             private void fail(Throwable e)
             {
                 throwable.set(e);
+                queue.add(FINISHED_MARKER);
             }
 
             @Override
             protected PartitionChunk computeNext()
             {
-                if (throwable.get() != null) {
-                    throw Throwables.propagate(throwable.get());
-                }
-
                 try {
                     PartitionChunk chunk = queue.take();
                     if (chunk == FINISHED_MARKER) {
+                        if (throwable.get() != null) {
+                            throw Throwables.propagate(throwable.get());
+                        }
                         return endOfData();
                     }
                     if (outstandingChunkCount.getAndDecrement() == maxOutstandingChunks) {
