@@ -277,7 +277,7 @@ public class HiveClient
             return ImmutableList.<Partition>of(UnpartitionedPartition.INSTANCE);
         }
 
-        Iterable<List<String>> partitionNameBatches = partition(partitionNames, partitionBatchSize);
+        Iterable<List<String>> partitionNameBatches = partitionExponentially(partitionNames, partitionBatchSize);
         Iterable<List<Partition>> partitionBatches = transform(partitionNameBatches, new Function<List<String>, List<Partition>>()
         {
             @Override
@@ -862,6 +862,43 @@ public class HiveClient
             return table.getSd().getLocation();
         }
         return partition.getSd().getLocation();
+    }
+
+    /**
+     * Partition the given list in exponentially (power of 2) increasing batch sizes starting at 1 up to maxBatchSize
+     */
+    private static <T> Iterable<List<T>> partitionExponentially(final List<T> values, final int maxBatchSize)
+    {
+        return new Iterable<List<T>>()
+        {
+            @Override
+            public Iterator<List<T>> iterator()
+            {
+                return new AbstractIterator<List<T>>()
+                {
+                    private int currentSize = 1;
+                    private final Iterator<T> iterator = values.iterator();
+
+                    @Override
+                    protected List<T> computeNext()
+                    {
+                        if (!iterator.hasNext()) {
+                            return endOfData();
+                        }
+
+                        int count = 0;
+                        ImmutableList.Builder<T> builder = ImmutableList.builder();
+                        while (iterator.hasNext() && count < currentSize) {
+                            builder.add(iterator.next());
+                            ++count;
+                        }
+
+                        currentSize = Math.min(maxBatchSize, currentSize * 2);
+                        return builder.build();
+                    }
+                };
+            }
+        };
     }
 
     private static class ThreadContextClassLoader
