@@ -494,12 +494,15 @@ public class HiveClient
                         InputSplit[] splits = inputFormat.getSplits(jobConf, 0);
                         for (InputSplit rawSplit : splits) {
                             FileSplit split = ((SymlinkTextInputSplit) rawSplit).getTargetSplit();
-                            chunkPoisoner.writeChunks(createHivePartitionChunks(partitionName, fs.getFileStatus(split.getPath()),
+
+                            // get the filesystem for the target path -- it may be a different hdfs instance
+                            FileSystem targetFilesystem = split.getPath().getFileSystem(hdfsEnvironment.getConfiguration());
+                            chunkPoisoner.writeChunks(createHivePartitionChunks(partitionName, targetFilesystem.getFileStatus(split.getPath()),
                                     split.getStart(),
                                     split.getLength(),
                                     schema,
                                     partitionKeys,
-                                    fs,
+                                    targetFilesystem,
                                     false));
                         }
                         chunkPoisoner.finish();
