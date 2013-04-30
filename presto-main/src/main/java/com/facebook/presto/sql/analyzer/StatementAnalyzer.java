@@ -142,7 +142,8 @@ class StatementAnalyzer
                 selectList(
                         aliasedName("column_name", "Column"),
                         aliasedName("data_type", "Type"),
-                        aliasedName("is_nullable", "Null")),
+                        aliasedName("is_nullable", "Null"),
+                        aliasedName("is_partition_key", "Partition Key")),
                 table(QualifiedName.of(tableName.getCatalogName(), INFORMATION_SCHEMA, TABLE_COLUMNS)),
                 Optional.of(logicalAnd(
                         equal(nameReference("table_schema"), new StringLiteral(tableName.getSchemaName())),
