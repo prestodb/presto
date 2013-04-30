@@ -136,7 +136,10 @@ class StatementAnalyzer
     {
         QualifiedTableName tableName = MetadataUtil.createQualifiedTableName(session, showColumns.getTable());
 
-        // TODO: throw SemanticException if table does not exist
+        if (!metadata.getTableHandle(tableName).isPresent()) {
+            throw new SemanticException(MISSING_TABLE, showColumns, "Table '%s' does not exist", tableName);
+        }
+
         Query query = new Query(
                 Optional.<With>absent(),
                 selectList(
@@ -188,7 +191,6 @@ class StatementAnalyzer
             selectList.add(new AliasedExpression(function, column.getName()));
         }
 
-        // TODO: throw SemanticException if table does not exist
         Query query = new Query(
                 Optional.<With>absent(),
                 selectAll(selectList.build()),
