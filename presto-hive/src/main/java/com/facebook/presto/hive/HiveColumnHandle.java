@@ -173,14 +173,14 @@ public class HiveColumnHandle
         };
     }
 
-    public static Predicate<HiveColumnHandle> partitionColumnPredicate()
+    public static Predicate<HiveColumnHandle> isPartitionKeyPredicate()
     {
         return new Predicate<HiveColumnHandle>()
         {
             @Override
             public boolean apply(HiveColumnHandle input)
             {
-                return !input.isPartitionKey();
+                return input.isPartitionKey();
             }
         };
     }

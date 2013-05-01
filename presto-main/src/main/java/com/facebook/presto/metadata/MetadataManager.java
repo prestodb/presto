@@ -12,6 +12,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 
 import javax.inject.Singleton;
@@ -175,7 +176,7 @@ public class MetadataManager
     {
         checkNotNull(prefix, "prefix is null");
 
-        ImmutableList.Builder<QualifiedTableName> tables = ImmutableList.builder();
+        ImmutableSet.Builder<QualifiedTableName> tables = ImmutableSet.builder();
         ConnectorMetadata connectorMetadata = connectors.get(prefix.getCatalogName());
         if (connectorMetadata != null) {
             tables.addAll(transform(connectorMetadata.listTables(prefix.getSchemaName().orNull()), convertFromSchemaTableName(prefix.getCatalogName())));
@@ -186,7 +187,7 @@ public class MetadataManager
             tables.addAll(internalSchemaMetadata.listTables(prefix));
         }
 
-        return tables.build();
+        return ImmutableList.copyOf(tables.build());
     }
 
     @Override

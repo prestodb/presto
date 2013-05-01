@@ -99,10 +99,10 @@ public class TpchMetadata
     public TableHandle getTableHandle(SchemaTableName table)
     {
         checkNotNull(table, "table is null");
-        if (!TPCH_SCHEMA_NAME.equals(table.getSchemaName()) || !tables.containsKey(table.getTableName())) {
-            return null;
+        if (TPCH_SCHEMA_NAME.equals(table.getSchemaName()) && tables.containsKey(table.getTableName())) {
+            return new TpchTableHandle(table.getTableName());
         }
-        return new TpchTableHandle(table.getTableName());
+        return null;
     }
 
     @Override
@@ -174,15 +174,14 @@ public class TpchMetadata
     @Override
     public List<SchemaTableName> listTables(@Nullable String schemaNameOrNull)
     {
-        if (schemaNameOrNull != null && !TPCH_SCHEMA_NAME.equals(schemaNameOrNull)) {
-            return ImmutableList.of();
+        if (schemaNameOrNull == null || TPCH_SCHEMA_NAME.equals(schemaNameOrNull)) {
+            ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();
+            for (String tableName : tables.keySet()) {
+                builder.add(new SchemaTableName(TPCH_SCHEMA_NAME, tableName));
+            }
+            return builder.build();
         }
-
-        ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();
-        for (String tableName : tables.keySet()) {
-            builder.add(new SchemaTableName(TPCH_SCHEMA_NAME, tableName));
-        }
-        return builder.build();
+        return ImmutableList.of();
     }
 
     @Override

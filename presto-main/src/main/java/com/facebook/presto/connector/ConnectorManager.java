@@ -50,7 +50,7 @@ public class ConnectorManager
         this.handleResolver = handleResolver;
         this.connectorFactories.putAll(connectorFactories);
 
-        // for not just hard code the handle resolvers
+        // for now just hard code the handle resolvers
         handleResolver.addHandleResolver("internal", new InternalHandleResolver());
         handleResolver.addHandleResolver("remote", new RemoteSplitHandleResolver());
         handleResolver.addHandleResolver("collocated", new CollocatedSplitHandleResolver());
