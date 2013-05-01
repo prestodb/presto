@@ -296,12 +296,15 @@ public class SqlTaskManager
 
         // make sure task is finished
         taskExecution.cancel();
-        tasks.remove(taskId);
 
         // cache task info
         TaskInfo taskInfo = taskExecution.getTaskInfo(false);
         taskInfos.putIfAbsent(taskId, taskInfo);
-        return taskExecution.getTaskInfo(false);
+
+        // remove task (after caching the task info)
+        tasks.remove(taskId);
+
+        return taskInfo;
     }
 
     public void removeOldTasks()
