@@ -141,7 +141,7 @@ public class NativeMetadata
 
         ImmutableListMultimap.Builder<SchemaTableName, ColumnMetadata> columns = ImmutableListMultimap.builder();
         for (TableColumn tableColumn : dao.listTableColumns(catalogName, prefix.getSchemaName(), prefix.getTableName())) {
-            ColumnMetadata columnMetadata = new ColumnMetadata(tableColumn.getColumnName(), tableColumn.getDataType().toColumnType(), tableColumn.getOrdinalPosition());
+            ColumnMetadata columnMetadata = new ColumnMetadata(tableColumn.getColumnName(), tableColumn.getDataType().toColumnType(), tableColumn.getOrdinalPosition(), false);
             columns.put(tableColumn.getTable().asSchemaTableName(), columnMetadata);
         }
         // This is safe for a list multimap

@@ -79,7 +79,7 @@ public class HiveColumnHandle
 
     public ColumnMetadata getColumnMetadata()
     {
-        return new ColumnMetadata(name, hiveType.getNativeType(), ordinalPosition);
+        return new ColumnMetadata(name, hiveType.getNativeType(), ordinalPosition, partitionKey);
     }
 
     public ColumnType getType()

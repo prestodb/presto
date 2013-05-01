@@ -138,7 +138,7 @@ public class MetadataUtil
 
         public ColumnMetadataListBuilder column(String columnName, ColumnType type)
         {
-            columns.add(new ColumnMetadata(columnName, type, ordinalPosition++));
+            columns.add(new ColumnMetadata(columnName, type, ordinalPosition++, false));
             return this;
         }
 

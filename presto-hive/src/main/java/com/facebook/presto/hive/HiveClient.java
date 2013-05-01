@@ -192,12 +192,7 @@ public class HiveClient
             Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
             List<ColumnMetadata> columns = ImmutableList.copyOf(transform(getColumnHandles(table), columnMetadataGetter()));
 
-            ImmutableList.Builder<String> keys = ImmutableList.builder();
-            for (FieldSchema field : table.getPartitionKeys()) {
-                keys.add(field.getName());
-            }
-
-            return new SchemaTableMetadata(tableName, columns, keys.build());
+            return new SchemaTableMetadata(tableName, columns);
         }
         catch (NoSuchObjectException e) {
             throw new TableNotFoundException(tableName);

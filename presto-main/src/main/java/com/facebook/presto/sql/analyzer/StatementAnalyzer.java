@@ -5,8 +5,8 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.metadata.NativeTableHandle;
 import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.sql.ExpressionFormatter;
 import com.facebook.presto.sql.tree.AliasedExpression;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
@@ -178,10 +178,13 @@ class StatementAnalyzer
             */
 
         ImmutableList.Builder<Expression> selectList = ImmutableList.builder();
-        for (String partition : metadata.getTableMetadata(tableHandle.get()).getPartitionKeys()) {
-            Expression key = equal(nameReference("partition_key"), new StringLiteral(partition));
+        for (ColumnMetadata column : metadata.getTableMetadata(tableHandle.get()).getColumns()) {
+            if (!column.isPartitionKey()) {
+                continue;
+            }
+            Expression key = equal(nameReference("partition_key"), new StringLiteral(column.getName()));
             Expression function = functionCall("max", caseWhen(key, nameReference("partition_value")));
-            selectList.add(new AliasedExpression(function, partition));
+            selectList.add(new AliasedExpression(function, column.getName()));
         }
 
         // TODO: throw SemanticException if table does not exist

@@ -147,7 +147,7 @@ public class TpchMetadata
             int position = 1;
             ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
             for (ColumnMetadata column : tables.get(tableName.getTableName()).getColumns()) {
-                columns.add(new ColumnMetadata(column.getName(), column.getType(), position));
+                columns.add(new ColumnMetadata(column.getName(), column.getType(), position, false));
                 position++;
             }
             tableColumns.put(tableName, columns.build());

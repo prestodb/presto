@@ -100,18 +100,6 @@ public abstract class AbstractTestHiveClient
     }
 
     @Test
-    public void testGetPartitionKeys()
-            throws Exception
-    {
-        TableHandle tableHandle = metadata.getTableHandle(table);
-        List<String> partitionKeys = metadata.getTableMetadata(tableHandle).getPartitionKeys();
-        assertEquals(partitionKeys.size(), 3);
-        assertEquals(partitionKeys.get(0), "ds");
-        assertEquals(partitionKeys.get(1), "file_format");
-        assertEquals(partitionKeys.get(2), "dummy");
-    }
-
-    @Test
     public void testGetPartitions()
             throws Exception
     {
@@ -161,22 +149,22 @@ public abstract class AbstractTestHiveClient
         SchemaTableMetadata tableMetadata = metadata.getTableMetadata(metadata.getTableHandle(table));
         Map<String, ColumnMetadata> map = uniqueIndex(tableMetadata.getColumns(), columnNameGetter());
 
-        assertPrimitiveField(map, "t_string", ColumnType.STRING);
-        assertPrimitiveField(map, "t_tinyint", ColumnType.LONG);
-        assertPrimitiveField(map, "t_smallint", ColumnType.LONG);
-        assertPrimitiveField(map, "t_int", ColumnType.LONG);
-        assertPrimitiveField(map, "t_bigint", ColumnType.LONG);
-        assertPrimitiveField(map, "t_float", ColumnType.DOUBLE);
-        assertPrimitiveField(map, "t_double", ColumnType.DOUBLE);
-        assertPrimitiveField(map, "t_boolean", ColumnType.LONG);
+        assertPrimitiveField(map, "t_string", ColumnType.STRING, false);
+        assertPrimitiveField(map, "t_tinyint", ColumnType.LONG, false);
+        assertPrimitiveField(map, "t_smallint", ColumnType.LONG, false);
+        assertPrimitiveField(map, "t_int", ColumnType.LONG, false);
+        assertPrimitiveField(map, "t_bigint", ColumnType.LONG, false);
+        assertPrimitiveField(map, "t_float", ColumnType.DOUBLE, false);
+        assertPrimitiveField(map, "t_double", ColumnType.DOUBLE, false);
+        assertPrimitiveField(map, "t_boolean", ColumnType.LONG, false);
 //        assertPrimitiveField(map, "t_timestamp", Type.LONG);
 //        assertPrimitiveField(map, "t_binary", Type.STRING);
-        assertPrimitiveField(map, "t_array_string", ColumnType.STRING); // Currently mapped as a string
-        assertPrimitiveField(map, "t_map", ColumnType.STRING); // Currently mapped as a string
-        assertPrimitiveField(map, "t_complex", ColumnType.STRING); // Currently mapped as a string
-        assertPrimitiveField(map, "ds", ColumnType.STRING);
-        assertPrimitiveField(map, "file_format", ColumnType.STRING);
-        assertPrimitiveField(map, "dummy", ColumnType.LONG);
+        assertPrimitiveField(map, "t_array_string", ColumnType.STRING, false); // Currently mapped as a string
+        assertPrimitiveField(map, "t_map", ColumnType.STRING, false); // Currently mapped as a string
+        assertPrimitiveField(map, "t_complex", ColumnType.STRING, false); // Currently mapped as a string
+        assertPrimitiveField(map, "ds", ColumnType.STRING, true);
+        assertPrimitiveField(map, "file_format", ColumnType.STRING, true);
+        assertPrimitiveField(map, "dummy", ColumnType.LONG, true);
     }
 
     @Test
@@ -187,8 +175,8 @@ public abstract class AbstractTestHiveClient
         SchemaTableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
         Map<String, ColumnMetadata> map = uniqueIndex(tableMetadata.getColumns(), columnNameGetter());
 
-        assertPrimitiveField(map, "t_string", ColumnType.STRING);
-        assertPrimitiveField(map, "t_tinyint", ColumnType.LONG);
+        assertPrimitiveField(map, "t_string", ColumnType.STRING, false);
+        assertPrimitiveField(map, "t_tinyint", ColumnType.LONG, false);
     }
 
     @Test
@@ -475,11 +463,12 @@ public abstract class AbstractTestHiveClient
         }
     }
 
-    private static void assertPrimitiveField(Map<String, ColumnMetadata> map, String name, ColumnType type)
+    private static void assertPrimitiveField(Map<String, ColumnMetadata> map, String name, ColumnType type, boolean partitionKey)
     {
         assertTrue(map.containsKey(name));
         ColumnMetadata column = map.get(name);
-        assertEquals(column.getType(), type);
+        assertEquals(column.getType(), type, name);
+        assertEquals(column.isPartitionKey(), partitionKey, name);
     }
 
     private static ImmutableMap<String, Integer> indexColumns(List<ColumnHandle> columnHandles)
