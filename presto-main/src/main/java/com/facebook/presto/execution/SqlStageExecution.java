@@ -29,9 +29,6 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Ordering;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
@@ -39,12 +36,10 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 import java.net.URI;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
@@ -56,7 +51,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static com.facebook.presto.execution.StageInfo.stageStateGetter;
 import static com.facebook.presto.execution.TaskInfo.taskStateGetter;
 import static com.facebook.presto.util.Failures.toFailures;
-import static com.facebook.presto.util.FutureUtils.chainedCallback;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.collect.Iterables.all;
 import static com.google.common.collect.Iterables.any;
@@ -391,6 +385,9 @@ public class SqlStageExecution
             Throwables.propagateIfInstanceOf(e, Error.class);
             log.debug(e, "Error while starting stage in done query %s", stageId);
         }
+        finally {
+            doUpdateState();
+        }
     }
 
     private Node chooseNode(NodeSelector nodeSelector, Split split)
@@ -449,12 +446,15 @@ public class SqlStageExecution
         });
 
         // create and update task
-        task.updateState(false);
+        task.start();
 
         // record this task
         tasks.put(node, task);
 
-        // stop is stage is already done
+        // update in case task finished before listener was registered
+        doUpdateState();
+
+        // stop if stage is already done
         if (getState().isDone()) {
             return task;
         }
@@ -542,38 +542,6 @@ public class SqlStageExecution
             }
         }
         return true;
-    }
-
-    @Override
-    public ListenableFuture<?> updateState(boolean forceRefresh)
-    {
-        Preconditions.checkState(!Thread.holdsLock(this), "Can not update state while holding a lock on this");
-
-        // propagate update to tasks and stages
-        List<ListenableFuture<?>> futures = new ArrayList<>();
-        for (StageExecutionNode subStage : subStages.values()) {
-            futures.add(subStage.updateState(forceRefresh));
-        }
-        for (RemoteTask task : tasks.values()) {
-            futures.add(task.updateState(forceRefresh));
-        }
-
-        return chainedCallback(Futures.allAsList(futures), new FutureCallback<List<?>>()
-        {
-            @Override
-            public void onSuccess(List<?> result)
-            {
-                doUpdateState();
-            }
-
-            @Override
-            public void onFailure(Throwable t)
-            {
-                if (!(t instanceof CancellationException)) {
-                    log.error(t, "Error updating stage");
-                }
-            }
-        }, executor);
     }
 
     @VisibleForTesting
@@ -702,8 +670,6 @@ interface StageExecutionNode
     Iterable<? extends URI> getTaskLocations();
 
     void addStateChangeListener(StateChangeListener<StageInfo> stateChangeListener);
-
-    ListenableFuture<?> updateState(boolean forceRefresh);
 
     void cancelStage(StageId stageId);
 

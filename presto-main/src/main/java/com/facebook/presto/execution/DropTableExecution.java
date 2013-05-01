@@ -1,5 +1,6 @@
 package com.facebook.presto.execution;
 
+import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.importer.PeriodicImportManager;
 import com.facebook.presto.importer.PersistentPeriodicImportJob;
 import com.facebook.presto.metadata.MetadataManager;
@@ -15,12 +16,17 @@ import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import io.airlift.log.Logger;
+import io.airlift.units.Duration;
 
 import javax.inject.Inject;
 import java.net.URI;
 import java.util.Set;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedTableName;
+import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -47,7 +53,8 @@ public class DropTableExecution
             StorageManager storageManager,
             ShardManager shardManager,
             PeriodicImportManager periodicImportManager,
-            Sitevars sitevars)
+            Sitevars sitevars,
+            Executor executor)
     {
         this.statement = statement;
         this.sitevars = sitevars;
@@ -56,7 +63,7 @@ public class DropTableExecution
         this.shardManager = shardManager;
         this.periodicImportManager = periodicImportManager;
 
-        this.stateMachine = new QueryStateMachine(queryId, query, session, self);
+        this.stateMachine = new QueryStateMachine(queryId, query, session, self, executor);
     }
 
     public void start()
@@ -82,9 +89,16 @@ public class DropTableExecution
     }
 
     @Override
-    public void addListener(Runnable listener)
+    public Duration waitForStateChange(QueryState currentState, Duration maxWait)
+            throws InterruptedException
     {
-        stateMachine.addListener(listener);
+        return stateMachine.waitForStateChange(currentState, maxWait);
+    }
+
+    @Override
+    public void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener)
+    {
+        stateMachine.addStateChangeListener(stateChangeListener);
     }
 
     @Override
@@ -97,11 +111,6 @@ public class DropTableExecution
     public void fail(Throwable cause)
     {
         stateMachine.fail(cause);
-    }
-
-    @Override
-    public void updateState(boolean forceUpdate)
-    {
     }
 
     @Override
@@ -154,6 +163,7 @@ public class DropTableExecution
         private final ShardManager shardManager;
         private final PeriodicImportManager periodicImportManager;
         private final Sitevars sitevars;
+        private final ExecutorService executor;
 
         @Inject
         DropTableExecutionFactory(LocationFactory locationFactory,
@@ -169,6 +179,7 @@ public class DropTableExecution
             this.shardManager = checkNotNull(shardManager, "shardManager is null");
             this.periodicImportManager = checkNotNull(periodicImportManager, "periodicImportManager is null");
             this.sitevars = checkNotNull(sitevars, "sitevars is null");
+            this.executor = Executors.newCachedThreadPool(daemonThreadsNamed("drop-table-scheduler-%d"));
         }
 
         public DropTableExecution createQueryExecution(QueryId queryId, String query, Session session, Statement statement)
@@ -182,7 +193,8 @@ public class DropTableExecution
                     storageManager,
                     shardManager,
                     periodicImportManager,
-                    sitevars);
+                    sitevars,
+                    executor);
         }
     }
 }

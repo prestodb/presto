@@ -4,11 +4,10 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.execution.QueryId;
-import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
+import com.facebook.presto.execution.StageId;
 import com.facebook.presto.sql.analyzer.Session;
-import com.google.common.net.HttpHeaders;
 
 import javax.inject.Inject;
 import javax.ws.rs.DELETE;
@@ -60,12 +59,12 @@ public class QueryResource
 
     @GET
     @Path("{queryId}")
-    public Response getQueryInfo(@PathParam("queryId") QueryId queryId, @HeaderParam(HttpHeaders.CACHE_CONTROL) String cacheControl)
+    public Response getQueryInfo(@PathParam("queryId") QueryId queryId)
     {
         checkNotNull(queryId, "queryId is null");
 
         try {
-            QueryInfo queryInfo = queryManager.getQueryInfo(queryId, NO_CACHE.equals(cacheControl));
+            QueryInfo queryInfo = queryManager.getQueryInfo(queryId);
             return Response.ok(queryInfo).build();
         }
         catch (NoSuchElementException e) {

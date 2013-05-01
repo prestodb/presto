@@ -1,7 +1,9 @@
 package com.facebook.presto.execution;
 
+import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.sql.analyzer.Session;
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.Duration;
 
 import java.net.URI;
 
@@ -43,15 +45,16 @@ public class FailedQueryExecution
     }
 
     @Override
-    public void addListener(Runnable listener)
+    public Duration waitForStateChange(QueryState currentState, Duration maxWait)
+            throws InterruptedException
     {
-        listener.run();
+        return maxWait;
     }
 
     @Override
-    public void updateState(boolean forceRefresh)
+    public void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener)
     {
-        // no-op
+        stateChangeListener.stateChanged(QueryState.FAILED);
     }
 
     @Override

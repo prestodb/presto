@@ -4,6 +4,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.sql.analyzer.Session;
+import io.airlift.units.Duration;
 
 import java.util.List;
 
@@ -11,7 +12,10 @@ public interface QueryManager
 {
     List<QueryInfo> getAllQueryInfo();
 
-    QueryInfo getQueryInfo(QueryId queryId, boolean forceRefresh);
+    Duration waitForStateChange(QueryId queryId, QueryState currentState, Duration maxWait)
+            throws InterruptedException;
+
+    QueryInfo getQueryInfo(QueryId queryId);
 
     QueryInfo createQuery(Session session, String query);
 
