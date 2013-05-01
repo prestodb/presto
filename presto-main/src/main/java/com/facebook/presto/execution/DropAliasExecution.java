@@ -105,7 +105,7 @@ public class DropAliasExecution
         QualifiedTableName remoteTableName = createQualifiedTableName(stateMachine.getSession(), statement.getRemote());
 
         Optional<TableHandle> remoteTableHandle = metadataManager.getTableHandle(remoteTableName);
-        checkState(!remoteTableHandle.isPresent(), "Table %s does not exists", remoteTableName);
+        checkState(!remoteTableHandle.isPresent(), "Table %s does not exist", remoteTableName);
 
         TableAlias tableAlias = aliasDao.getAlias(remoteTableName);
 

@@ -30,7 +30,7 @@ import static java.util.Arrays.asList;
 public class DiscoveryNodeManager
         implements NodeManager
 {
-    private final static Duration MAX_AGE = new Duration(5, TimeUnit.SECONDS);
+    private static final Duration MAX_AGE = new Duration(5, TimeUnit.SECONDS);
 
     private static final Splitter DATASOURCES_SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
     private final ServiceSelector serviceSelector;

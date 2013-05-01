@@ -36,7 +36,7 @@ public class InMemoryNodeManager
         addNode(datasourceName, ImmutableList.copyOf(nodes));
     }
 
-    public void addNode(String datasourceName, Iterable<? extends Node> nodes)
+    public void addNode(String datasourceName, Iterable<Node> nodes)
     {
         remoteNodes.putAll(datasourceName, nodes);
     }

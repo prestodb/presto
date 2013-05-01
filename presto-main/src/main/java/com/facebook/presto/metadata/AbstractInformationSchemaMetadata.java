@@ -21,13 +21,13 @@ public abstract class AbstractInformationSchemaMetadata
         implements InternalSchemaMetadata
 {
     protected final String schemaName;
-    protected final Map<String, List<ColumnMetadata>> metadata;
+    protected final Map<String, List<ColumnMetadata>> tableColumns;
 
     public AbstractInformationSchemaMetadata(String informationSchema,
-            Map<String, List<ColumnMetadata>> metadata)
+            Map<String, List<ColumnMetadata>> tableColumns)
     {
         this.schemaName = informationSchema;
-        this.metadata = metadata;
+        this.tableColumns = tableColumns;
     }
 
     @Override
@@ -38,7 +38,7 @@ public abstract class AbstractInformationSchemaMetadata
             return Optional.absent();
         }
 
-        List<ColumnMetadata> metadata = this.metadata.get(tableName.getTableName());
+        List<ColumnMetadata> metadata = this.tableColumns.get(tableName.getTableName());
         if (metadata == null) {
             return Optional.absent();
         }
@@ -58,7 +58,7 @@ public abstract class AbstractInformationSchemaMetadata
             return Optional.absent();
         }
 
-        List<ColumnMetadata> metadata = this.metadata.get(tableName.getTableName());
+        List<ColumnMetadata> metadata = this.tableColumns.get(tableName.getTableName());
         checkArgument(metadata != null, "Unknown table %s", tableName);
         return Optional.of(new TableMetadata(tableName, metadata));
     }
@@ -69,7 +69,7 @@ public abstract class AbstractInformationSchemaMetadata
         if (prefix.getSchemaName().isPresent() && !prefix.getSchemaName().get().equals(schemaName)) {
             return ImmutableList.of();
         }
-        return ImmutableList.copyOf(transform(metadata.keySet(), toQualifiedTableName(prefix.getCatalogName(), schemaName)));
+        return ImmutableList.copyOf(transform(tableColumns.keySet(), toQualifiedTableName(prefix.getCatalogName(), schemaName)));
     }
 
     @Override
@@ -116,7 +116,7 @@ public abstract class AbstractInformationSchemaMetadata
         }
 
         ImmutableMap.Builder<QualifiedTableName, List<ColumnMetadata>> builder = ImmutableMap.builder();
-        for (Entry<String, List<ColumnMetadata>> entry : metadata.entrySet()) {
+        for (Entry<String, List<ColumnMetadata>> entry : tableColumns.entrySet()) {
             Optional<String> tableName = prefix.getSchemaName();
             if (!tableName.isPresent() || tableName.get().equals(entry.getKey())) {
                 builder.put(new QualifiedTableName(prefix.getCatalogName(), this.schemaName, entry.getKey()), entry.getValue());

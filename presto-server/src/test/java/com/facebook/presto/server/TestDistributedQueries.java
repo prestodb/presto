@@ -139,7 +139,6 @@ public class TestDistributedQueries
                 return (String) input.getField(0);
             }
         }));
-        assertEquals(tableNames.size(), 2);
         assertEquals(tableNames, ImmutableSet.copyOf(loadedTableNames));
     }
 

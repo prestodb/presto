@@ -31,7 +31,7 @@ public class HashAggregationBenchmark
     @Override
     protected Operator createBenchmarkedOperator(TpchBlocksProvider blocksProvider)
     {
-        BlockIterable orderStatusBlockIterable =getBlockIterable(blocksProvider, "orders", "orderStatus", BlocksFileEncoding.RAW);
+        BlockIterable orderStatusBlockIterable = getBlockIterable(blocksProvider, "orders", "orderStatus", BlocksFileEncoding.RAW);
         BlockIterable totalPriceBlockIterable = getBlockIterable(blocksProvider, "orders", "totalPrice", BlocksFileEncoding.RAW);
 
         AlignmentOperator alignmentOperator = new AlignmentOperator(orderStatusBlockIterable, totalPriceBlockIterable);
@@ -63,7 +63,7 @@ public class HashAggregationBenchmark
                 outputBytes += block.getDataSize().toBytes();
             }
         }
-        return new long[] {outputRows, outputBytes};
+        return new long[]{outputRows, outputBytes};
     }
 
     public static void main(String[] args)

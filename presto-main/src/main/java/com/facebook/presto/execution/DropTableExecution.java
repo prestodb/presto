@@ -122,7 +122,7 @@ public class DropTableExecution
         log.debug("Dropping %s", tableName);
 
         final Optional<TableHandle> tableHandle = metadataManager.getTableHandle(tableName);
-        checkState(!tableHandle.isPresent(), "Table %s does not exists", tableName);
+        checkState(!tableHandle.isPresent(), "Table %s does not exist", tableName);
         Preconditions.checkState(tableHandle.get() instanceof NativeTableHandle, "Can drop only native tables");
 
         storageManager.dropTableSource((NativeTableHandle) tableHandle.get());

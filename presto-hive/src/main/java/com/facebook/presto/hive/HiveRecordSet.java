@@ -6,9 +6,9 @@ import com.facebook.presto.spi.RecordSet;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import org.apache.hadoop.fs.Path;
 import com.google.common.collect.Iterables;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.MetaStoreUtils;
 import org.apache.hadoop.hive.serde.Constants;
 import org.apache.hadoop.hive.serde2.ColumnProjectionUtils;
@@ -31,11 +31,12 @@ import java.util.List;
 import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveColumnHandle.hiveColumnIndexGetter;
+import static com.facebook.presto.hive.HiveColumnHandle.isPartitionKeyPredicate;
 import static com.facebook.presto.hive.HiveColumnHandle.nativeTypeGetter;
-import static com.facebook.presto.hive.HiveColumnHandle.partitionColumnPredicate;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
 import static com.facebook.presto.hive.HiveUtil.getInputFormatName;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Lists.transform;
 
@@ -60,7 +61,7 @@ public class HiveRecordSet
         this.columnTypes = ImmutableList.copyOf(Iterables.transform(columns, nativeTypeGetter()));
 
         // determine which hive columns we will read
-        List<HiveColumnHandle> readColumns = ImmutableList.copyOf(filter(columns, partitionColumnPredicate()));
+        List<HiveColumnHandle> readColumns = ImmutableList.copyOf(filter(columns, not(isPartitionKeyPredicate())));
         if (readColumns.isEmpty()) {
             // for count(*) queries we will have "no" columns we want to read, but since hive doesn't
             // support no columns (it will read all columns instead), we must choose a single column
