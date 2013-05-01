@@ -164,13 +164,13 @@ public class StateMachine<T>
     /**
      * Wait for the state to not be {@code ==} to the specified current state.
      */
-    public void waitForStateChange(T currentState, Duration maxWait)
+    public Duration waitForStateChange(T currentState, Duration maxWait)
             throws InterruptedException
     {
         checkState(!Thread.holdsLock(this), "Can not wait for state change while holding a lock on this");
 
         if (state != currentState) {
-            return;
+            return maxWait;
         }
 
         // wait for task state to change
@@ -185,10 +185,20 @@ public class StateMachine<T>
                 remainingNanos = end - System.nanoTime();
             }
         }
+        if (remainingNanos < 0) {
+            remainingNanos = 0;
+        }
+        return new Duration(remainingNanos, NANOSECONDS);
     }
 
     public static interface StateChangeListener<T>
     {
         public void stateChanged(T newValue);
+    }
+
+    @Override
+    public String toString()
+    {
+        return String.valueOf(get());
     }
 }

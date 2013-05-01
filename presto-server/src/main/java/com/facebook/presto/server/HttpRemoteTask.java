@@ -207,15 +207,16 @@ public class HttpRemoteTask
     }
 
     @Override
-    public TaskId getTaskId()
-    {
-        return taskInfo.get().getTaskId();
-    }
-
-    @Override
     public TaskInfo getTaskInfo()
     {
         return taskInfo.get();
+    }
+
+    @Override
+    public void start()
+    {
+        // to start we just need to trigger an update
+        updateState();
     }
 
     @Override
@@ -233,7 +234,7 @@ public class HttpRemoteTask
                 pendingSplits.put(planFragment.getPartitionedSource(), new ScheduledSplit(nextSplitId.getAndIncrement(), split));
             }
         }
-        updateState(false);
+        updateState();
     }
 
     @Override
@@ -245,7 +246,7 @@ public class HttpRemoteTask
             Preconditions.checkState(!noMoreSplits, "noMoreSplits has already been set");
             noMoreSplits = true;
         }
-        updateState(false);
+        updateState();
     }
 
     @Override
@@ -272,7 +273,7 @@ public class HttpRemoteTask
 
             this.exchangeLocations.putAll(additionalLocations);
         }
-        updateState(false);
+        updateState();
     }
 
     @Override
@@ -288,7 +289,7 @@ public class HttpRemoteTask
             noMoreOutputIds = noMore;
             this.outputIds.addAll(outputBuffers);
         }
-        updateState(false);
+        updateState();
     }
 
     @Override
@@ -330,8 +331,7 @@ public class HttpRemoteTask
         });
     }
 
-    @Override
-    public ListenableFuture<?> updateState(boolean forceRefresh)
+    private ListenableFuture<?> updateState()
     {
         Preconditions.checkState(!Thread.holdsLock(this), "Update state can not be called while holding a lock on this");
 
@@ -352,23 +352,21 @@ public class HttpRemoteTask
                 updateLoop.start();
             }
 
-            if (!forceRefresh) {
-                if (this.currentRequest != null) {
-                    if (!this.currentRequest.isDone()) {
-                        // request is still running, but when it finishes, it should update again
-                        this.currentRequest.requestAnotherUpdate();
+            if (this.currentRequest != null) {
+                if (!this.currentRequest.isDone()) {
+                    // request is still running, but when it finishes, it should update again
+                    this.currentRequest.requestAnotherUpdate();
 
-                        // todo return existing pending request future?
-                        return Futures.immediateFuture(null);
-                    }
-
-                    this.currentRequest = null;
+                    // todo return existing pending request future?
+                    return Futures.immediateFuture(null);
                 }
 
-                // don't update too fast in the face of errors
-                if (errorCount.get() > 0) {
-                    errorRequestRateLimiter.acquire();
-                }
+                this.currentRequest = null;
+            }
+
+            // don't update too fast in the face of errors
+            if (errorCount.get() > 0) {
+                errorRequestRateLimiter.acquire();
             }
 
             List<TaskSource> sources = getSources();
@@ -689,7 +687,7 @@ public class HttpRemoteTask
                 }
             }
 
-            updateState(false);
+            updateState();
         }
 
         @Override
@@ -708,7 +706,7 @@ public class HttpRemoteTask
             }
 
             requestFailed(startTime, t);
-            updateState(false);
+            updateState();
         }
 
 

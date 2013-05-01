@@ -7,16 +7,16 @@ import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.Multimap;
-import com.google.common.util.concurrent.ListenableFuture;
 
 import java.net.URI;
 import java.util.Set;
 
 public interface RemoteTask
 {
-    TaskId getTaskId();
 
     TaskInfo getTaskInfo();
+
+    void start();
 
     void addSplit(Split split);
 
@@ -29,8 +29,6 @@ public interface RemoteTask
     void addStateChangeListener(StateChangeListener<TaskInfo> stateChangeListener);
 
     void cancel();
-
-    ListenableFuture<?> updateState(boolean forceRefresh);
 
     int getQueuedSplits();
 }

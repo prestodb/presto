@@ -1,5 +1,6 @@
 package com.facebook.presto.execution;
 
+import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.metadata.AliasDao;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.QualifiedTableName;
@@ -9,11 +10,16 @@ import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.tree.DropAlias;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.base.Optional;
+import io.airlift.units.Duration;
 
 import javax.inject.Inject;
 import java.net.URI;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedTableName;
+import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -34,14 +40,15 @@ public class DropAliasExecution
             DropAlias statement,
             MetadataManager metadataManager,
             AliasDao aliasDao,
-            Sitevars sitevars)
+            Sitevars sitevars,
+            Executor executor)
     {
         this.statement = statement;
         this.sitevars = sitevars;
         this.metadataManager = metadataManager;
         this.aliasDao = aliasDao;
 
-        this.stateMachine = new QueryStateMachine(queryId, query, session, self);
+        this.stateMachine = new QueryStateMachine(queryId, query, session, self, executor);
     }
 
     public void start()
@@ -67,9 +74,16 @@ public class DropAliasExecution
     }
 
     @Override
-    public void addListener(Runnable listener)
+    public Duration waitForStateChange(QueryState currentState, Duration maxWait)
+            throws InterruptedException
     {
-        stateMachine.addListener(listener);
+        return stateMachine.waitForStateChange(currentState, maxWait);
+    }
+
+    @Override
+    public void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener)
+    {
+        stateMachine.addStateChangeListener(stateChangeListener);
     }
 
     @Override
@@ -82,11 +96,6 @@ public class DropAliasExecution
     public void fail(Throwable cause)
     {
         stateMachine.fail(cause);
-    }
-
-    @Override
-    public void updateState(boolean forceUpdate)
-    {
     }
 
     @Override
@@ -123,6 +132,7 @@ public class DropAliasExecution
         private final MetadataManager metadataManager;
         private final AliasDao aliasDao;
         private final Sitevars sitevars;
+        private final ExecutorService executor;
 
         @Inject
         DropAliasExecutionFactory(LocationFactory locationFactory,
@@ -134,6 +144,7 @@ public class DropAliasExecution
             this.metadataManager = checkNotNull(metadataManager, "metadataManager is null");
             this.aliasDao = checkNotNull(aliasDao, "aliasDao is null");
             this.sitevars = checkNotNull(sitevars, "sitevars is null");
+            this.executor = Executors.newCachedThreadPool(daemonThreadsNamed("drop-alias-scheduler-%d"));
         }
 
         public DropAliasExecution createQueryExecution(QueryId queryId, String query, Session session, Statement statement)
@@ -145,7 +156,8 @@ public class DropAliasExecution
                     (DropAlias) statement,
                     metadataManager,
                     aliasDao,
-                    sitevars);
+                    sitevars,
+                    executor);
         }
     }
 }

@@ -106,7 +106,11 @@ public class ExchangeClient
     {
         scheduleRequestIfNecessary();
 
-        Page page = pageBuffer.poll((long) maxWaitTime.toMillis(), TimeUnit.MILLISECONDS);
+        Page page = pageBuffer.poll();
+        // only wait for a page if we have remote clients
+        if (page == null && !allClients.isEmpty()) {
+            page = pageBuffer.poll((long) maxWaitTime.toMillis(), TimeUnit.MILLISECONDS);
+        }
 
         if (page == NO_MORE_PAGES) {
             // mark client closed

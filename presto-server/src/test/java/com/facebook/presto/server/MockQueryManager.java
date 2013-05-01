@@ -25,6 +25,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
@@ -78,7 +79,14 @@ public class MockQueryManager
     }
 
     @Override
-    public QueryInfo getQueryInfo(QueryId queryId, boolean forceRefresh)
+    public Duration waitForStateChange(QueryId queryId, QueryState currentState, Duration maxWait)
+            throws InterruptedException
+    {
+        return maxWait;
+    }
+
+    @Override
+    public QueryInfo getQueryInfo(QueryId queryId)
     {
         Preconditions.checkNotNull(queryId, "queryId is null");
 

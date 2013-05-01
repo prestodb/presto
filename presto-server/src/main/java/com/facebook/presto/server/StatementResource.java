@@ -232,7 +232,7 @@ public class StatementResource
             String requestedPath = uriInfo.getAbsolutePath().getPath();
             if (lastResultPath != null && requestedPath.equals(lastResultPath)) {
                 // tell query manager we are still interested in the query
-                queryManager.getQueryInfo(queryId, false);
+                queryManager.getQueryInfo(queryId);
                 return lastResult;
             }
 
@@ -256,7 +256,13 @@ public class StatementResource
 
             // get the query info before returning
             // force update if query manager is closed
-            QueryInfo queryInfo = queryManager.getQueryInfo(queryId, exchangeClient.isClosed());
+            QueryInfo queryInfo = queryManager.getQueryInfo(queryId);
+
+            // if we have received all of the output data and the query is not marked as done, wait for the query to finish
+            if (exchangeClient.isClosed() && !queryInfo.getState().isDone()) {
+                queryManager.waitForStateChange(queryId, queryInfo.getState(), maxWaitTime);
+                queryInfo = queryManager.getQueryInfo(queryId);
+            }
 
             // close exchange client if the query has failed
             if (queryInfo.getState().isDone()) {
@@ -306,16 +312,18 @@ public class StatementResource
             return queryResults;
         }
 
-        private synchronized Iterable<List<Object>> getData(Duration maxWaitTime)
+        private synchronized Iterable<List<Object>> getData(Duration maxWait)
                 throws InterruptedException
         {
-            QueryInfo queryInfo = queryManager.getQueryInfo(queryId, false);
+            // wait for query to start
+            QueryInfo queryInfo = queryManager.getQueryInfo(queryId);
+            while (maxWait.toMillis() > 1 && !isQueryStarted(queryInfo)) {
+                maxWait = queryManager.waitForStateChange(queryId, queryInfo.getState(), maxWait);
+                queryInfo = queryManager.getQueryInfo(queryId);
+            }
 
-            StageInfo outputStage = queryInfo.getOutputStage();
-
-            // Only wait for data if there are tasks to pull data from
-            if (outputStage == null || outputStage.getTasks().isEmpty()) {
-                // query hasn't finished planning
+            // if query did not finish starting or does not have output, just return
+            if (!isQueryStarted(queryInfo) || queryInfo.getOutputStage() == null) {
                 return null;
             }
 
@@ -323,16 +331,22 @@ public class StatementResource
                 columns = createColumnsList(queryInfo);
             }
 
-            updateExchangeClient(outputStage);
+            updateExchangeClient(queryInfo.getOutputStage());
 
             // fetch next page
-            Page page = exchangeClient.getNextPage(maxWaitTime);
+            Page page = exchangeClient.getNextPage(maxWait);
             if (page == null) {
                 // no data this time
                 return null;
             }
 
             return new RowIterable(page);
+        }
+
+        private static boolean isQueryStarted(QueryInfo queryInfo)
+        {
+            QueryState state = queryInfo.getState();
+            return state != QueryState.QUEUED && queryInfo.getState() != QueryState.PLANNING && queryInfo.getState() != QueryState.STARTING;
         }
 
         private synchronized void updateExchangeClient(StageInfo outputStage)
@@ -361,9 +375,15 @@ public class StatementResource
 
         private static List<Column> createColumnsList(QueryInfo queryInfo)
         {
+            checkNotNull(queryInfo, "queryInfo is null");
+            StageInfo outputStage = queryInfo.getOutputStage();
+            if (outputStage == null) {
+                checkNotNull(outputStage, "outputStage is null");
+            }
+
             List<String> names = queryInfo.getFieldNames();
             ArrayList<Type> types = new ArrayList<>();
-            for (TupleInfo tupleInfo : queryInfo.getOutputStage().getTupleInfos()) {
+            for (TupleInfo tupleInfo : outputStage.getTupleInfos()) {
                 types.addAll(tupleInfo.getTypes());
             }
 
