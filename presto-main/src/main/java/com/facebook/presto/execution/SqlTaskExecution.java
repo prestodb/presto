@@ -234,9 +234,10 @@ public class SqlTaskExecution
             }
             for (WeakReference<SplitWorker> workerReference : splitWorkers) {
                 SplitWorker worker = workerReference.get();
-                // this should not happen until the all sources have been closed
-                Preconditions.checkState(worker != null, "SplitWorker has been GCed");
-                worker.addSplit(sourceId, split);
+                // the worker can be GCed due to a failure or a limit
+                if (worker != null) {
+                    worker.addSplit(sourceId, split);
+                }
             }
         }
     }
@@ -316,9 +317,10 @@ public class SqlTaskExecution
             // add this to all of the existing workers
             for (WeakReference<SplitWorker> workerReference : splitWorkers) {
                 SplitWorker worker = workerReference.get();
-                // this should not happen until the all sources have been closed
-                Preconditions.checkState(worker != null, "SplitWorker has been GCed");
-                worker.noMoreSplits(sourceId);
+                // the worker can be GCed due to a failure or a limit
+                if (worker != null) {
+                    worker.noMoreSplits(sourceId);
+                }
             }
         }
     }
