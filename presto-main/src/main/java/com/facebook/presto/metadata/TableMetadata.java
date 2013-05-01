@@ -13,19 +13,12 @@ public class TableMetadata
 {
     private final QualifiedTableName table;
     private final List<ColumnMetadata> columns;
-    private final List<String> partitionKeys;
 
     public TableMetadata(QualifiedTableName table, List<ColumnMetadata> columns)
-    {
-        this(table, columns, ImmutableList.<String>of());
-    }
-
-    public TableMetadata(QualifiedTableName table, List<ColumnMetadata> columns, List<String> partitionKeys)
     {
         this.table = checkNotNull(table, "table is null");
         this.columns = ImmutableList.copyOf(checkNotNull(columns, "columns is null"));
         checkArgument(!columns.isEmpty(), "columns is empty");
-        this.partitionKeys = checkNotNull(partitionKeys, "partitionKeys is null");
     }
 
     public QualifiedTableName getTable()
@@ -38,18 +31,12 @@ public class TableMetadata
         return columns;
     }
 
-    public List<String> getPartitionKeys()
-    {
-        return partitionKeys;
-    }
-
     @Override
     public String toString()
     {
         return Objects.toStringHelper(this)
                 .add("table", table)
                 .add("columns", columns)
-                .add("partitionKeys", partitionKeys)
                 .toString();
     }
 }

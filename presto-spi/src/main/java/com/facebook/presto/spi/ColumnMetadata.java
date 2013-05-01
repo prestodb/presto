@@ -7,8 +7,9 @@ public class ColumnMetadata
     private final String name;
     private final ColumnType type;
     private final int ordinalPosition;
+    private final boolean partitionKey;
 
-    public ColumnMetadata(String name, ColumnType type, int ordinalPosition)
+    public ColumnMetadata(String name, ColumnType type, int ordinalPosition, boolean partitionKey)
     {
         if (name == null || name.isEmpty()) {
             throw new NullPointerException("name is null or empty");
@@ -23,6 +24,7 @@ public class ColumnMetadata
         this.name = name.toLowerCase();
         this.type = type;
         this.ordinalPosition = ordinalPosition;
+        this.partitionKey = partitionKey;
     }
 
     public String getName()
@@ -40,6 +42,11 @@ public class ColumnMetadata
         return ordinalPosition;
     }
 
+    public boolean isPartitionKey()
+    {
+        return partitionKey;
+    }
+
     @Override
     public String toString()
     {
@@ -47,6 +54,7 @@ public class ColumnMetadata
         sb.append("name='").append(name).append('\'');
         sb.append(", type=").append(type);
         sb.append(", ordinalPosition=").append(ordinalPosition);
+        sb.append(", partitionKey=").append(partitionKey);
         sb.append('}');
         return sb.toString();
     }
@@ -54,7 +62,7 @@ public class ColumnMetadata
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, type, ordinalPosition);
+        return Objects.hash(name, type, ordinalPosition, partitionKey);
     }
 
     @Override
@@ -67,6 +75,9 @@ public class ColumnMetadata
             return false;
         }
         final ColumnMetadata other = (ColumnMetadata) obj;
-        return Objects.equals(this.name, other.name) && Objects.equals(this.type, other.type) && Objects.equals(this.ordinalPosition, other.ordinalPosition);
+        return Objects.equals(this.name, other.name) &&
+                Objects.equals(this.type, other.type) &&
+                Objects.equals(this.ordinalPosition, other.ordinalPosition) &&
+                Objects.equals(this.partitionKey, other.partitionKey);
     }
 }

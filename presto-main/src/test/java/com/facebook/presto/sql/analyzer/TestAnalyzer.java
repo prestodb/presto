@@ -429,25 +429,22 @@ public class TestAnalyzer
         QualifiedTableName table1 = new QualifiedTableName("tpch", "default", "t1");
         metadata.createTable(new TableMetadata(table1,
                 ImmutableList.<ColumnMetadata>of(
-                        new ColumnMetadata("a", ColumnType.LONG, 0),
-                        new ColumnMetadata("b", ColumnType.LONG, 1),
-                        new ColumnMetadata("c", ColumnType.LONG, 2),
-                        new ColumnMetadata("d", ColumnType.LONG, 3)
-                ), ImmutableList.<String>of()));
+                        new ColumnMetadata("a", ColumnType.LONG, 0, false),
+                        new ColumnMetadata("b", ColumnType.LONG, 1, false),
+                        new ColumnMetadata("c", ColumnType.LONG, 2, false),
+                        new ColumnMetadata("d", ColumnType.LONG, 3, false))));
 
         QualifiedTableName table2 = new QualifiedTableName("tpch", "default", "t2");
         metadata.createTable(new TableMetadata(table2,
                 ImmutableList.<ColumnMetadata>of(
-                        new ColumnMetadata("a", ColumnType.LONG, 0),
-                        new ColumnMetadata("b", ColumnType.LONG, 1)
-                ), ImmutableList.<String>of()));
+                        new ColumnMetadata("a", ColumnType.LONG, 0, false),
+                        new ColumnMetadata("b", ColumnType.LONG, 1, false))));
 
         QualifiedTableName table3 = new QualifiedTableName("tpch", "default", "t3");
         metadata.createTable(new TableMetadata(table3,
                 ImmutableList.<ColumnMetadata>of(
-                        new ColumnMetadata("a", ColumnType.LONG, 0),
-                        new ColumnMetadata("b", ColumnType.LONG, 1)
-                ), ImmutableList.<String>of()));
+                        new ColumnMetadata("a", ColumnType.LONG, 0, false),
+                        new ColumnMetadata("b", ColumnType.LONG, 1, false))));
 
         analyzer = new Analyzer(new Session(null, "tpch", "default"), metadata);
     }

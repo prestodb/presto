@@ -142,7 +142,7 @@ public class LogicalPlanner
             for (int i = 0; i < plan.getDescriptor().getFields().size(); i++) {
                 Field field = plan.getDescriptor().getFields().get(i);
                 String name = field.getName().or("_field" + i);
-                ColumnMetadata columnMetadata = new ColumnMetadata(name, field.getType().getColumnType(), i);
+                ColumnMetadata columnMetadata = new ColumnMetadata(name, field.getType().getColumnType(), i, false);
                 columns.add(columnMetadata);
             }
             TableMetadata tableMetadata = new TableMetadata(destination, columns.build());

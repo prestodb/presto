@@ -134,7 +134,7 @@ public class MetadataManager
             if (metadata.canHandle(tableHandle)) {
                 SchemaTableMetadata tableMetadata = lookupDataSource(tableHandle).getTableMetadata(tableHandle);
                 QualifiedTableName qualifiedTableName = new QualifiedTableName(entry.getKey(), tableMetadata.getTable().getSchemaName(), tableMetadata.getTable().getTableName());
-                return new TableMetadata(qualifiedTableName, tableMetadata.getColumns(), tableMetadata.getPartitionKeys());
+                return new TableMetadata(qualifiedTableName, tableMetadata.getColumns());
             }
         }
 
@@ -231,7 +231,7 @@ public class MetadataManager
     {
         ConnectorMetadata connectorMetadata = connectors.get(tableMetadata.getTable().getCatalogName());
         checkArgument(connectorMetadata != null, "Catalog %s does not exist", tableMetadata.getTable().getCatalogName());
-        return connectorMetadata.createTable(new SchemaTableMetadata(tableMetadata.getTable().asSchemaTableName(), tableMetadata.getColumns(), tableMetadata.getPartitionKeys()));
+        return connectorMetadata.createTable(new SchemaTableMetadata(tableMetadata.getTable().asSchemaTableName(), tableMetadata.getColumns()));
     }
 
     @Override

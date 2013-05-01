@@ -22,7 +22,7 @@ public class DualTable
 
     public static final String COLUMN_NAME = "dummy";
 
-    private static final ColumnMetadata COLUMN_METADATA = new ColumnMetadata(COLUMN_NAME, STRING, 0);
+    private static final ColumnMetadata COLUMN_METADATA = new ColumnMetadata(COLUMN_NAME, STRING, 0, false);
 
     private static final InternalTable DATA;
 
