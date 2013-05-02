@@ -5,6 +5,7 @@ import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.ingest.DelimitedRecordSet;
 import com.facebook.presto.serde.BlocksFileEncoding;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.SchemaTableMetadata;
@@ -27,6 +28,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URL;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.zip.GZIPInputStream;
 
@@ -179,31 +181,26 @@ public class TestingTpchBlocksProvider
 
     public static RecordSet readTpchRecords(SchemaTableMetadata tableMetadata)
     {
-        return readTpchRecords(tableMetadata.getTable().getTableName(), tableMetadata.getColumns().size());
+        return readTpchRecords(tableMetadata.getTable().getTableName(), tableMetadata.getColumns());
     }
 
-    public static RecordSet readTpchRecords(String name, int expectedColumnCount)
+    public static RecordSet readTpchRecords(String name, List<ColumnMetadata> columns)
     {
         try {
-            return readRecords("tpch/" + name + ".dat.gz", expectedColumnCount);
+            return readRecords("tpch/" + name + ".dat.gz", columns);
         }
         catch (IOException e) {
             throw Throwables.propagate(e);
         }
     }
 
-    private static RecordSet readRecords(String name, int expectedColumnCount)
+    private static RecordSet readRecords(String name, List<ColumnMetadata> columns)
             throws IOException
     {
-        int[] columnIndexes = new int[expectedColumnCount];
-        for (int i = 0; i < columnIndexes.length; i++) {
-            columnIndexes[i] = i;
-        }
-
         // tpch does not contain nulls, but does have a trailing pipe character,
         // so omitting empty strings will prevent an extra column at the end being added
         Splitter splitter = Splitter.on('|').omitEmptyStrings();
-        return new DelimitedRecordSet(readResource(name), splitter, columnIndexes);
+        return new DelimitedRecordSet(readResource(name), splitter, columns);
     }
 
     private static InputSupplier<InputStreamReader> readResource(final String name)

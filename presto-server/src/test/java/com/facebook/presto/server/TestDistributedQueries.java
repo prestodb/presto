@@ -152,7 +152,7 @@ public class TestDistributedQueries
             @Override
             public String apply(MaterializedTuple input)
             {
-                assertEquals(input.getFieldCount(), 3);
+                assertEquals(input.getFieldCount(), 4);
                 return (String) input.getField(0);
             }
         }));

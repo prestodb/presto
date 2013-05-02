@@ -1,5 +1,7 @@
 package com.facebook.presto.ingest;
 
+import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.RecordCursor;
 import com.google.common.base.Splitter;
 import org.testng.annotations.Test;
@@ -18,7 +20,9 @@ public class TestDelimitedRecordIterable
         DelimitedRecordSet recordIterable = new DelimitedRecordSet(
                 newReaderSupplier("apple,fuu,123\nbanana,bar,456"),
                 Splitter.on(','),
-                0, 1, 2);
+                new ColumnMetadata("fruit", ColumnType.STRING, 0, false),
+                new ColumnMetadata("foo", ColumnType.STRING, 1, false),
+                new ColumnMetadata("value", ColumnType.STRING, 2, false));
 
         RecordCursor cursor = recordIterable.cursor();
         assertTrue(cursor.advanceNextPosition());

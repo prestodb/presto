@@ -3,9 +3,11 @@
  */
 package com.facebook.presto.ingest;
 
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
+import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
@@ -13,47 +15,58 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closeables;
 import com.google.common.io.InputSupplier;
 import com.google.common.io.LineReader;
-import com.google.common.primitives.Ints;
 
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.Reader;
-import java.util.Collections;
 import java.util.List;
 
 import static com.google.common.base.Charsets.UTF_8;
+import static com.google.common.collect.Iterables.transform;
 
 public class DelimitedRecordSet
         implements RecordSet
 {
     private final InputSupplier<? extends Reader> readerSupplier;
     private final Splitter columnSplitter;
-    private final List<Integer> columnIndexes;
+    private final List<ColumnMetadata> columns;
+    private final List<ColumnType> columnTypes;
 
-    public DelimitedRecordSet(InputSupplier<? extends Reader> readerSupplier, Splitter columnSplitter, int... columns)
+    public DelimitedRecordSet(InputSupplier<? extends Reader> readerSupplier, Splitter columnSplitter, ColumnMetadata... columns)
     {
-        this(readerSupplier, columnSplitter, Ints.asList(columns));
+        this(readerSupplier, columnSplitter, ImmutableList.copyOf(columns));
     }
 
-    public DelimitedRecordSet(InputSupplier<? extends Reader> readerSupplier, Splitter columnSplitter, List<Integer> columns)
+    public DelimitedRecordSet(InputSupplier<? extends Reader> readerSupplier, Splitter columnSplitter, Iterable<ColumnMetadata> columns)
     {
         Preconditions.checkNotNull(readerSupplier, "readerSupplier is null");
         Preconditions.checkNotNull(columnSplitter, "columnSplitter is null");
 
         this.readerSupplier = readerSupplier;
         this.columnSplitter = columnSplitter;
-        this.columnIndexes = ImmutableList.copyOf(columns);
+        this.columns = ImmutableList.copyOf(columns);
+
+        this.columnTypes = ImmutableList.copyOf(transform(columns, new Function<ColumnMetadata, ColumnType>()
+        {
+            @Nullable
+            @Override
+            public ColumnType apply(ColumnMetadata columnMetadata)
+            {
+                return columnMetadata.getType();
+            }
+        }));
     }
 
     @Override
     public List<ColumnType> getColumnTypes()
     {
-        return Collections.nCopies(columnIndexes.size(), ColumnType.STRING);
+        return columnTypes;
     }
 
     @Override
     public RecordCursor cursor()
     {
-        return new DelimitedRecordCursor(readerSupplier, columnSplitter, columnIndexes);
+        return new DelimitedRecordCursor(readerSupplier, columnSplitter, columns);
     }
 
     private static class DelimitedRecordCursor
@@ -62,16 +75,16 @@ public class DelimitedRecordSet
         private final Reader reader;
         private final LineReader lineReader;
         private final Splitter columnSplitter;
-        private final List<Integer> columnIndexes;
-        private List<String> columns;
+        private final List<ColumnMetadata> columns;
+        private List<String> row;
 
-        private DelimitedRecordCursor(InputSupplier<? extends Reader> readerSupplier, Splitter columnSplitter, List<Integer> columnIndexes)
+        private DelimitedRecordCursor(InputSupplier<? extends Reader> readerSupplier, Splitter columnSplitter, List<ColumnMetadata> columns)
         {
             try {
                 this.reader = readerSupplier.getInput();
                 this.lineReader = new LineReader(reader);
                 this.columnSplitter = columnSplitter;
-                this.columnIndexes = columnIndexes;
+                this.columns = columns;
             }
             catch (IOException e) {
                 throw Throwables.propagate(e);
@@ -96,10 +109,10 @@ public class DelimitedRecordSet
             try {
                 String line = lineReader.readLine();
                 if (line == null) {
-                    columns = null;
+                    row = null;
                     return false;
                 }
-                columns = ImmutableList.copyOf(columnSplitter.split(line));
+                row = ImmutableList.copyOf(columnSplitter.split(line));
                 return true;
             }
             catch (IOException e) {
@@ -110,29 +123,31 @@ public class DelimitedRecordSet
         @Override
         public long getLong(int field)
         {
-            int columnIndex = columnIndexes.get(field);
-            return Long.parseLong(columns.get(columnIndex));
+            return Long.parseLong(getField(field));
         }
 
         @Override
         public double getDouble(int field)
         {
-            int columnIndex = columnIndexes.get(field);
-            return Double.parseDouble(columns.get(columnIndex));
+            return Double.parseDouble(getField(field));
         }
 
         @Override
         public byte[] getString(int field)
         {
-            int columnIndex = columnIndexes.get(field);
-            return columns.get(columnIndex).getBytes(UTF_8);
+            return getField(field).getBytes(UTF_8);
         }
 
         @Override
         public boolean isNull(int field)
         {
-            int columnIndex = columnIndexes.get(field);
-            return columns.get(columnIndex).isEmpty();
+            return getField(field).isEmpty();
+        }
+
+        private String getField(int field)
+        {
+            ColumnMetadata columnMetadata = columns.get(field);
+            return row.get(columnMetadata.getOrdinalPosition());
         }
 
         @Override

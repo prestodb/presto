@@ -29,6 +29,7 @@ import io.airlift.units.DataSize;
 import java.util.Map;
 
 import static com.facebook.presto.tpch.TpchMetadata.TPCH_SCHEMA_NAME;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -45,6 +46,7 @@ public abstract class AbstractOperatorBenchmark
         ConnectorMetadata metadata = new TpchMetadata();
         TableHandle tableHandle = metadata.getTableHandle(new SchemaTableName(TPCH_SCHEMA_NAME, tableName));
         ColumnHandle columnHandle = metadata.getColumnHandle(tableHandle, columnName);
+        checkArgument(columnHandle != null, "Table %s does not have a column %s", tableName, columnName);
         return blocksProvider.getBlocks((TpchTableHandle) tableHandle, (TpchColumnHandle) columnHandle, columnEncoding);
     }
 
