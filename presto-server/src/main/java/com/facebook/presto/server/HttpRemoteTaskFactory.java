@@ -25,6 +25,10 @@ import javax.inject.Inject;
 import java.net.URI;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+
+import static com.facebook.presto.util.Threads.daemonThreadsNamed;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class HttpRemoteTaskFactory
         implements RemoteTaskFactory
@@ -35,6 +39,7 @@ public class HttpRemoteTaskFactory
     private final JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec;
     private final int maxConsecutiveErrorCount;
     private final Duration minErrorDuration;
+    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("remote-task-callback-%d"));
 
     @Inject
     public HttpRemoteTaskFactory(QueryManagerConfig config,
@@ -71,6 +76,7 @@ public class HttpRemoteTaskFactory
                 initialExchangeLocations,
                 initialOutputIds,
                 httpClient,
+                executor,
                 maxConsecutiveErrorCount,
                 minErrorDuration,
                 taskInfoCodec,

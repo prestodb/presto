@@ -5,6 +5,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
+import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -81,22 +82,6 @@ public class SqlQueryManager
             @Override
             public void run()
             {
-                for (QueryExecution queryExecution : queries.values()) {
-                    try {
-                        queryExecution.updateState(false);
-                    }
-                    catch (Throwable e) {
-                        log.warn(e, "Error updating state for query %s", queryExecution.getQueryInfo().getQueryId());
-                    }
-                }
-            }
-        }, 200, 200, TimeUnit.MILLISECONDS);
-
-        queryManagementExecutor.scheduleAtFixedRate(new Runnable()
-        {
-            @Override
-            public void run()
-            {
                 try {
                     removeExpiredQueries();
                 }
@@ -139,7 +124,23 @@ public class SqlQueryManager
     }
 
     @Override
-    public QueryInfo getQueryInfo(QueryId queryId, boolean forceRefresh)
+    public Duration waitForStateChange(QueryId queryId, QueryState currentState, Duration maxWait)
+            throws InterruptedException
+    {
+        Preconditions.checkNotNull(queryId, "queryId is null");
+        Preconditions.checkNotNull(maxWait, "maxWait is null");
+
+        QueryExecution query = queries.get(queryId);
+        if (query == null) {
+            return maxWait;
+        }
+
+        query.getQueryInfo().getQueryStats().recordHeartBeat();
+        return query.waitForStateChange(currentState, maxWait);
+    }
+
+    @Override
+    public QueryInfo getQueryInfo(QueryId queryId)
     {
         checkNotNull(queryId, "queryId is null");
 
@@ -149,9 +150,6 @@ public class SqlQueryManager
         }
         // todo should this be a method on QueryExecution?
         query.getQueryInfo().getQueryStats().recordHeartBeat();
-        if (forceRefresh) {
-            query.updateState(forceRefresh);
-        }
         return query.getQueryInfo();
     }
 
@@ -177,15 +175,15 @@ public class SqlQueryManager
         final QueryExecution queryExecution = queryExecutionFactory.createQueryExecution(queryId, query, session, statement);
         queryMonitor.createdEvent(queryExecution.getQueryInfo());
 
-        queryExecution.addListener(new Runnable()
-        {
+        queryExecution.addStateChangeListener(new StateChangeListener<QueryState>() {
             @Override
-            public void run()
+            public void stateChanged(QueryState newValue)
             {
-                queryMonitor.completionEvent(queryExecution.getQueryInfo());
+                if (newValue.isDone()) {
+                    queryMonitor.completionEvent(queryExecution.getQueryInfo());
+                }
             }
         });
-
 
         queries.put(queryId, queryExecution);
 

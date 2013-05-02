@@ -20,7 +20,7 @@ public enum QueryState
      */
     STARTING(false),
     /**
-     * Query has at least one task running.
+     * Query has at least one task in the output stage.
      */
     RUNNING(false),
     /**

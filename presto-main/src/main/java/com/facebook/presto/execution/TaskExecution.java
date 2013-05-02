@@ -16,6 +16,9 @@ public interface TaskExecution
 
     TaskInfo getTaskInfo(boolean full);
 
+    void waitForStateChange(TaskState currentState, Duration maxWait)
+            throws InterruptedException;
+
     void addSources(List<TaskSource> sources);
 
     void addResultQueue(OutputBuffers outputIds);

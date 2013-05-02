@@ -3,16 +3,19 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.tree.Statement;
+import io.airlift.units.Duration;
 
 public interface QueryExecution
 {
     QueryInfo getQueryInfo();
 
-    void start();
+    Duration waitForStateChange(QueryState currentState, Duration maxWait)
+            throws InterruptedException;
 
-    void updateState(boolean forceRefresh);
+    void start();
 
     void cancel();
 
@@ -20,10 +23,7 @@ public interface QueryExecution
 
     void cancelStage(StageId stageId);
 
-    /**
-     * Invoke this runnable when the query finishes
-     */
-    void addListener(Runnable listener);
+    void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener);
 
     interface QueryExecutionFactory<T extends QueryExecution>
     {

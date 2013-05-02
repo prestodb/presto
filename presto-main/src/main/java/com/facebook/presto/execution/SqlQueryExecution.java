@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.importer.PeriodicImportManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.ShardManager;
@@ -21,7 +22,8 @@ import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.storage.StorageManager;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
+import com.google.common.base.Throwables;
+import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
@@ -31,14 +33,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.execution.StageInfo.getAllStages;
-import static com.facebook.presto.execution.StageInfo.stageStateGetter;
-import static com.facebook.presto.util.FutureUtils.waitForFuture;
 import static com.facebook.presto.util.Threads.threadsNamed;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.collect.Iterables.any;
-import static com.google.common.collect.Iterables.transform;
 
 @ThreadSafe
 public class SqlQueryExecution
@@ -99,7 +96,7 @@ public class SqlQueryExecution
         checkNotNull(query, "query is null");
         checkNotNull(session, "session is null");
         checkNotNull(self, "self is null");
-        this.stateMachine = new QueryStateMachine(queryId, query, session, self);
+        this.stateMachine = new QueryStateMachine(queryId, query, session, self, queryExecutor);
     }
 
     @Override
@@ -136,15 +133,16 @@ public class SqlQueryExecution
                 stage.cancel();
             }
         }
-        catch (Exception e) {
+        catch (Throwable e) {
             fail(e);
+            Throwables.propagateIfInstanceOf(e, Error.class);
         }
     }
 
     @Override
-    public void addListener(Runnable listener)
+    public void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener)
     {
-        stateMachine.addListener(listener);
+        stateMachine.addStateChangeListener(stateChangeListener);
     }
 
     private SubPlan analyzeQuery()
@@ -194,9 +192,20 @@ public class SqlQueryExecution
                 maxPendingSplitsPerNode,
                 queryExecutor);
         this.outputStage.set(outputStage);
+        outputStage.addStateChangeListener(new StateChangeListener<StageInfo>()
+        {
+            @Override
+            public void stateChanged(StageInfo stageInfo)
+            {
+                doUpdateState(stageInfo);
+            }
+        });
 
         // record planning time
         stateMachine.getStats().recordDistributedPlanningTime(distributedPlanningStart);
+
+        // update state in case output finished before listener was added
+        doUpdateState(outputStage.getStageInfo());
     }
 
     @Override
@@ -234,6 +243,13 @@ public class SqlQueryExecution
     }
 
     @Override
+    public Duration waitForStateChange(QueryState currentState, Duration maxWait)
+            throws InterruptedException
+    {
+        return stateMachine.waitForStateChange(currentState, maxWait);
+    }
+
+    @Override
     public QueryInfo getQueryInfo()
     {
         SqlStageExecution outputStage = this.outputStage.get();
@@ -244,48 +260,31 @@ public class SqlQueryExecution
         return stateMachine.getQueryInfo(stageInfo);
     }
 
-    @Override
-    public void updateState(boolean forceRefresh)
+    private void doUpdateState(StageInfo outputStageInfo)
     {
-        if (!forceRefresh) {
-            if (stateMachine.isDone()) {
-                return;
-            }
-        }
-
-        SqlStageExecution outputStage = this.outputStage.get();
-        if (outputStage == null) {
+        // if already complete, just return
+        if (stateMachine.isDone()) {
             return;
         }
-        waitForFuture(outputStage.updateState(forceRefresh));
 
-        outputStage.updateState(forceRefresh);
-
-        if (!stateMachine.isDone()) {
-            // if output stage is done, transition to done
-            StageInfo outputStageInfo = outputStage.getStageInfo();
-            StageState outputStageState = outputStageInfo.getState();
-            if (outputStageState.isDone()) {
-                if (outputStageState == StageState.FAILED) {
-                    stateMachine.fail(failureCause(outputStageInfo));
-                }
-                else if (outputStageState == StageState.CANCELED) {
-                    stateMachine.cancel();
-                }
-                else {
-                    stateMachine.finished();
-                }
+        // if output stage is done, transition to done
+        StageState outputStageState = outputStageInfo.getState();
+        if (outputStageState.isDone()) {
+            if (outputStageState == StageState.FAILED) {
+                stateMachine.fail(failureCause(outputStageInfo));
             }
-            else if (stateMachine.getQueryState() == QueryState.STARTING) {
-                // if output stage is running,  transition query to running...
-                if (outputStageState == StageState.RUNNING) {
-                    stateMachine.running();
-                }
-
-                // if any stage is running, record execution start time
-                if (any(transform(getAllStages(outputStage.getStageInfo()), stageStateGetter()), isStageRunningOrDone())) {
-                    stateMachine.getStats().recordExecutionStart();
-                }
+            else if (outputStageState == StageState.CANCELED) {
+                stateMachine.cancel();
+            }
+            else {
+                stateMachine.finished();
+            }
+        }
+        else if (stateMachine.getQueryState() == QueryState.STARTING) {
+            // if output stage has at least one task, we are running
+            if (!outputStageInfo.getTasks().isEmpty()) {
+                stateMachine.running();
+                stateMachine.getStats().recordExecutionStart();
             }
         }
     }
@@ -310,18 +309,6 @@ public class SqlQueryExecution
         }
 
         return null;
-    }
-
-    private static Predicate<StageState> isStageRunningOrDone()
-    {
-        return new Predicate<StageState>()
-        {
-            @Override
-            public boolean apply(StageState stageState)
-            {
-                return stageState == StageState.RUNNING || stageState.isDone();
-            }
-        };
     }
 
     public static class SqlQueryExecutionFactory

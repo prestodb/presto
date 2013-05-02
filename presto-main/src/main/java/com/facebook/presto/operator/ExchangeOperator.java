@@ -12,14 +12,14 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.units.Duration;
 
+import javax.annotation.concurrent.GuardedBy;
 import java.net.URI;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 
-import static java.util.Collections.newSetFromMap;
+import static com.google.common.base.Preconditions.checkState;
 
 public class ExchangeOperator
         implements SourceOperator
@@ -28,12 +28,15 @@ public class ExchangeOperator
 
     private final AsyncHttpClient httpClient;
     private final List<TupleInfo> tupleInfos;
-    private final Set<URI> locations = newSetFromMap(new ConcurrentHashMap<URI, Boolean>());
-    private final AtomicBoolean noMoreLocations = new AtomicBoolean();
+    private final Set<URI> locations = new HashSet<>();
+    private boolean noMoreLocations;
 
     private final int maxBufferedPages;
     private final int expectedPagesPerRequest;
     private final int concurrentRequestMultiplier;
+
+    @GuardedBy("this")
+    private ExchangeClient activeClient;
 
     public ExchangeOperator(AsyncHttpClient httpClient, List<TupleInfo> tupleInfos, URI... locations)
     {
@@ -62,17 +65,34 @@ public class ExchangeOperator
     @Override
     public synchronized void addSplit(Split split)
     {
-        Preconditions.checkNotNull(split, "split is null");
-        Preconditions.checkArgument(split instanceof RemoteSplit, "split is not a remote split");
-        Preconditions.checkState(!noMoreLocations.get(), "No more splits already set");
-        URI location = ((RemoteSplit) split).getLocation();
-        locations.add(location);
+        URI location;
+        synchronized (this) {
+            Preconditions.checkNotNull(split, "split is null");
+            Preconditions.checkArgument(split instanceof RemoteSplit, "split is not a remote split");
+            checkState(!noMoreLocations, "No more splits already set");
+            location = ((RemoteSplit) split).getLocation();
+            if (!locations.add(location)) {
+                return;
+            }
+        }
+
+        if (activeClient != null) {
+            activeClient.addLocation(location);
+        }
     }
 
     @Override
-    public synchronized void noMoreSplits()
+    public void noMoreSplits()
     {
-        noMoreLocations.set(true);
+        synchronized (this) {
+            if (noMoreLocations) {
+                return;
+            }
+            noMoreLocations = true;
+        }
+        if (activeClient != null) {
+            activeClient.noMoreLocations();
+        }
     }
 
     @Override
@@ -87,10 +107,24 @@ public class ExchangeOperator
         return tupleInfos;
     }
 
+    private ExchangeClient createExchangeClient()
+    {
+        ExchangeClient exchangeClient;
+        synchronized (this) {
+            checkState(activeClient == null, "ExchangeOperator can only be used once");
+            exchangeClient = new ExchangeClient(maxBufferedPages, expectedPagesPerRequest, concurrentRequestMultiplier, httpClient, locations, noMoreLocations);
+            activeClient = exchangeClient;
+        }
+
+        exchangeClient.scheduleRequestIfNecessary();
+        return exchangeClient;
+    }
+
     @Override
     public PageIterator iterator(OperatorStats operatorStats)
     {
-        return new ExchangePageIterator(operatorStats, maxBufferedPages, expectedPagesPerRequest, concurrentRequestMultiplier, httpClient, tupleInfos, locations, noMoreLocations);
+        ExchangeClient exchangeClient = createExchangeClient();
+        return new ExchangePageIterator(tupleInfos, operatorStats, exchangeClient);
     }
 
     private static class ExchangePageIterator
@@ -99,19 +133,11 @@ public class ExchangeOperator
         private final OperatorStats operatorStats;
         private final ExchangeClient exchangeClient;
 
-        public ExchangePageIterator(OperatorStats operatorStats,
-                int maxBufferedPages,
-                int expectedPagesPerRequest,
-                int concurrentRequestMultiplier,
-                AsyncHttpClient httpClient,
-                Iterable<TupleInfo> tupleInfos,
-                Set<URI> locations,
-                AtomicBoolean noMoreLocations)
+        private ExchangePageIterator(Iterable<TupleInfo> tupleInfos, OperatorStats operatorStats, ExchangeClient exchangeClient)
         {
             super(tupleInfos);
-
             this.operatorStats = operatorStats;
-            this.exchangeClient = new ExchangeClient(maxBufferedPages, expectedPagesPerRequest, concurrentRequestMultiplier, httpClient, locations, noMoreLocations);
+            this.exchangeClient = exchangeClient;
         }
 
         @Override

@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.OperatorStats.SplitExecutionStats;
 import com.facebook.presto.operator.Page;
@@ -17,7 +18,6 @@ import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
-
 import java.net.URI;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -25,9 +25,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.util.Failures.toFailures;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -42,7 +42,7 @@ public class TaskOutput
     private final SharedBuffer<Page> sharedBuffer;
 
     private final ExecutionStats stats = new ExecutionStats();
-    private final AtomicReference<TaskState> taskState = new AtomicReference<>(TaskState.RUNNING);
+    private final StateMachine<TaskState> taskState;
     private final AtomicLong nextTaskInfoVersion = new AtomicLong(TaskInfo.STARTING_VERSION);
 
     private final LinkedBlockingQueue<Throwable> failureCauses = new LinkedBlockingQueue<>();
@@ -55,15 +55,24 @@ public class TaskOutput
 
     private final Set<OperatorStats> activeSplits = Sets.newSetFromMap(new ConcurrentHashMap<OperatorStats, Boolean>());
 
-    public TaskOutput(TaskId taskId, URI location, int pageBufferMax)
+    public TaskOutput(TaskId taskId, URI location, int pageBufferMax, Executor executor)
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(location, "location is null");
         Preconditions.checkArgument(pageBufferMax > 0, "pageBufferMax must be at least 1");
+        Preconditions.checkNotNull(executor, "executor is null");
 
         this.taskId = taskId;
         this.location = location;
         sharedBuffer = new SharedBuffer<>(pageBufferMax);
+        taskState = new StateMachine<>("task " + taskId, executor, TaskState.RUNNING);
+        taskState.addStateChangeListener(new StateChangeListener<TaskState>() {
+            @Override
+            public void stateChanged(TaskState newValue)
+            {
+                log.debug("Task %s is %s", TaskOutput.this.taskId, newValue);
+            }
+        });
     }
 
     public TaskId getTaskId()
@@ -109,7 +118,7 @@ public class TaskOutput
             builder.addAll(current);
         }
         builder.addAll(output);
-        this.outputs.put(id,  builder.build());
+        this.outputs.put(id, builder.build());
     }
 
     public synchronized Map<PlanNodeId, Set<?>> getOutputs()
@@ -195,21 +204,29 @@ public class TaskOutput
         Preconditions.checkArgument(doneState.isDone(), "doneState %s is not a done state", doneState);
 
         while (true) {
-            TaskState taskState = this.taskState.get();
-            if (taskState.isDone()) {
+            TaskState currentTaskState = this.taskState.get();
+            if (currentTaskState.isDone()) {
                 return false;
             }
 
-            if (this.taskState.compareAndSet(taskState, doneState)) {
+            // If someone changed the state while we were working, start
+            // the whole process over again.  This assures that a final
+            // state can not be changed.
+            if (taskState.compareAndSet(currentTaskState, doneState)) {
 
                 stats.recordEnd();
 
                 sharedBuffer.destroy();
 
-                log.debug("Task %s is %s", taskId, doneState);
                 return true;
             }
         }
+    }
+
+    public void waitForStateChange(TaskState currentState, Duration maxWait)
+            throws InterruptedException
+    {
+        taskState.waitForStateChange(currentState, maxWait);
     }
 
     public TaskInfo getTaskInfo(boolean full)

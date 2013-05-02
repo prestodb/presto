@@ -153,6 +153,22 @@ public class SqlTaskManager
     }
 
     @Override
+    public void waitForStateChange(TaskId taskId, TaskState currentState, Duration maxWait)
+            throws InterruptedException
+    {
+        Preconditions.checkNotNull(taskId, "taskId is null");
+        Preconditions.checkNotNull(maxWait, "maxWait is null");
+
+        TaskExecution taskExecution = tasks.get(taskId);
+        if (taskExecution == null) {
+            return;
+        }
+
+        taskExecution.recordHeartBeat();
+        taskExecution.waitForStateChange(currentState, maxWait);
+    }
+
+    @Override
     public TaskInfo getTaskInfo(TaskId taskId, boolean full)
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
@@ -280,12 +296,15 @@ public class SqlTaskManager
 
         // make sure task is finished
         taskExecution.cancel();
-        tasks.remove(taskId);
 
         // cache task info
         TaskInfo taskInfo = taskExecution.getTaskInfo(false);
         taskInfos.putIfAbsent(taskId, taskInfo);
-        return taskExecution.getTaskInfo(false);
+
+        // remove task (after caching the task info)
+        tasks.remove(taskId);
+
+        return taskInfo;
     }
 
     public void removeOldTasks()

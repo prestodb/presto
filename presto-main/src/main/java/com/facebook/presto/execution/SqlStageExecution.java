@@ -4,6 +4,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.execution.NodeScheduler.NodeSelector;
+import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.metadata.Node;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.sql.analyzer.Session;
@@ -28,9 +29,6 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Ordering;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
@@ -38,12 +36,10 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 import java.net.URI;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
@@ -51,12 +47,10 @@ import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.execution.StageInfo.stageStateGetter;
 import static com.facebook.presto.execution.TaskInfo.taskStateGetter;
 import static com.facebook.presto.util.Failures.toFailures;
-import static com.facebook.presto.util.FutureUtils.chainedCallback;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.collect.Iterables.all;
 import static com.google.common.collect.Iterables.any;
@@ -71,6 +65,7 @@ public class SqlStageExecution
     // NOTE: DO NOT call methods on the parent while holding a lock on the child.  Locks
     // are always acquired top down in the tree, so calling a method on the parent while
     // holding a lock on the 'this' could cause a deadlock.
+    // This is only here to aid in debugging
     @Nullable
     private final StageExecutionNode parent;
     private final StageId stageId;
@@ -87,10 +82,7 @@ public class SqlStageExecution
     private final Session session; // only used for remote task factory
     private final int maxPendingSplitsPerNode;
 
-    // Changes to state must happen within a synchronized lock.
-    // The only reason we use an atomic reference here is so read-only threads don't have to block.
-    @GuardedBy("this")
-    private final AtomicReference<StageState> stageState = new AtomicReference<>(StageState.PLANNED);
+    private final StateMachine<StageState> stageState;
 
     private final LinkedBlockingQueue<Throwable> failureCauses = new LinkedBlockingQueue<>();
 
@@ -163,6 +155,16 @@ public class SqlStageExecution
                     remoteTaskFactory,
                     session,
                     maxPendingSplitsPerNode, executor);
+
+            subStage.addStateChangeListener(new StateChangeListener<StageInfo>()
+            {
+                @Override
+                public void stateChanged(StageInfo stageInfo)
+                {
+                    doUpdateState();
+                }
+            });
+
             subStages.put(subStageFragmentId, subStage);
         }
         this.subStages = subStages.build();
@@ -177,6 +179,15 @@ public class SqlStageExecution
                 return task == null ? 0 : task.getQueuedSplits();
             }
         }));
+        stageState = new StateMachine<>("stage " + stageId, this.executor, StageState.PLANNED);
+        stageState.addStateChangeListener(new StateChangeListener<StageState>()
+        {
+            @Override
+            public void stateChanged(StageState newValue)
+            {
+                log.debug("Stage %s is %s", stageId, newValue);
+            }
+        });
     }
 
     @Override
@@ -237,6 +248,19 @@ public class SqlStageExecution
 
         // wake up worker thread waiting for new buffers
         this.notifyAll();
+    }
+
+    @Override
+    public void addStateChangeListener(final StateChangeListener<StageInfo> stateChangeListener)
+    {
+        stageState.addStateChangeListener(new StateChangeListener<StageState>()
+        {
+            @Override
+            public void stateChanged(StageState newValue)
+            {
+                stateChangeListener.stateChanged(getStageInfo());
+            }
+        });
     }
 
     private Multimap<PlanNodeId, URI> getExchangeLocations()
@@ -337,9 +361,7 @@ public class SqlStageExecution
                 }
             }
 
-            transitionToState(StageState.SCHEDULED);
-
-            notifyParentSubStageFinishedScheduling();
+            stageState.set(StageState.SCHEDULED);
 
             // tell sub stages there will be no more output buffers
             for (StageExecutionNode subStage : subStages.values()) {
@@ -354,7 +376,7 @@ public class SqlStageExecution
             if (!getState().isDone()) {
                 synchronized (this) {
                     failureCauses.add(e);
-                    transitionToState(StageState.FAILED);
+                    stageState.set(StageState.FAILED);
                 }
                 log.error(e, "Error while starting stage %s", stageId);
                 cancelAll();
@@ -362,6 +384,9 @@ public class SqlStageExecution
             }
             Throwables.propagateIfInstanceOf(e, Error.class);
             log.debug(e, "Error while starting stage in done query %s", stageId);
+        }
+        finally {
+            doUpdateState();
         }
     }
 
@@ -385,6 +410,7 @@ public class SqlStageExecution
             synchronized (this) {
                 // otherwise wait for some tasks to complete
                 try {
+                    // todo this adds latency: replace this wait with an event listener
                     TimeUnit.SECONDS.timedWait(this, 1);
                 }
                 catch (InterruptedException e) {
@@ -411,13 +437,25 @@ public class SqlStageExecution
                 getExchangeLocations(),
                 getOutputBuffers());
 
+        task.addStateChangeListener(new StateChangeListener<TaskInfo>()
+        {
+            @Override
+            public void stateChanged(TaskInfo taskInfo)
+            {
+                doUpdateState();
+            }
+        });
+
         // create and update task
-        task.updateState(false);
+        task.start();
 
         // record this task
         tasks.put(node, task);
 
-        // stop is stage is already done
+        // update in case task finished before listener was registered
+        doUpdateState();
+
+        // stop if stage is already done
         if (getState().isDone()) {
             return task;
         }
@@ -428,21 +466,6 @@ public class SqlStageExecution
         }
 
         return task;
-    }
-
-    private void notifyParentSubStageFinishedScheduling()
-    {
-        // calling this while holding a lock on 'this' can cause a deadlock
-        Preconditions.checkState(!Thread.holdsLock(this), "Parent can not be notified while holding a lock on the child");
-        if (parent != null) {
-            parent.subStageFinishedScheduling();
-        }
-    }
-
-    @VisibleForTesting
-    public synchronized void subStageFinishedScheduling()
-    {
-        this.notifyAll();
     }
 
     private void addNewExchangesAndBuffers(boolean waitUntilFinished)
@@ -501,6 +524,7 @@ public class SqlStageExecution
             }
 
             try {
+                // todo this adds latency: replace this wait with an event listener
                 TimeUnit.SECONDS.timedWait(this, 1);
             }
             catch (InterruptedException e) {
@@ -522,43 +546,15 @@ public class SqlStageExecution
         return true;
     }
 
-    @Override
-    public ListenableFuture<?> updateState(boolean forceRefresh)
-    {
-        Preconditions.checkState(!Thread.holdsLock(this), "Can not update state while holding a lock on this");
-
-        // propagate update to tasks and stages
-        List<ListenableFuture<?>> futures = new ArrayList<>();
-        for (StageExecutionNode subStage : subStages.values()) {
-            futures.add(subStage.updateState(forceRefresh));
-        }
-        for (RemoteTask task : tasks.values()) {
-            futures.add(task.updateState(forceRefresh));
-        }
-
-        return chainedCallback(Futures.allAsList(futures), new FutureCallback<List<?>>()
-        {
-            @Override
-            public void onSuccess(List<?> result)
-            {
-                doUpdateState();
-            }
-
-            @Override
-            public void onFailure(Throwable t)
-            {
-                if (!(t instanceof CancellationException)) {
-                    log.error(t, "Error updating stage");
-                }
-            }
-        });
-    }
-
-    private void doUpdateState()
+    @VisibleForTesting
+    public void doUpdateState()
     {
         Preconditions.checkState(!Thread.holdsLock(this), "Can not doUpdateState while holding a lock on this");
 
         synchronized (this) {
+            // wake up worker thread waiting for state changes
+            this.notifyAll();
+
             StageState currentState = stageState.get();
             if (currentState.isDone()) {
                 return;
@@ -566,23 +562,20 @@ public class SqlStageExecution
 
             List<StageState> subStageStates = ImmutableList.copyOf(transform(transform(subStages.values(), stageInfoGetter()), stageStateGetter()));
             if (any(subStageStates, equalTo(StageState.FAILED))) {
-                transitionToState(StageState.FAILED);
+                stageState.set(StageState.FAILED);
             }
             else {
                 List<TaskState> taskStates = ImmutableList.copyOf(transform(transform(tasks.values(), taskInfoGetter()), taskStateGetter()));
                 if (any(taskStates, equalTo(TaskState.FAILED))) {
-                    transitionToState(StageState.FAILED);
+                    stageState.set(StageState.FAILED);
                 }
                 else if (currentState != StageState.PLANNED && currentState != StageState.SCHEDULING) {
                     // all tasks are now scheduled, so we can check the finished state
                     if (all(taskStates, TaskState.inDoneState())) {
-                        transitionToState(StageState.FINISHED);
+                        stageState.set(StageState.FINISHED);
                     }
                     else if (any(taskStates, equalTo(TaskState.RUNNING))) {
-                        transitionToState(StageState.RUNNING);
-                    }
-                    else if (any(taskStates, equalTo(TaskState.QUEUED))) {
-                        transitionToState(StageState.SCHEDULED);
+                        stageState.set(StageState.RUNNING);
                     }
                 }
             }
@@ -604,7 +597,7 @@ public class SqlStageExecution
                 return;
             }
             log.debug("Cancelling stage %s", stageId);
-            transitionToState(StageState.CANCELED);
+            stageState.set(StageState.CANCELED);
         }
 
         cancelAll();
@@ -631,14 +624,6 @@ public class SqlStageExecution
                 .add("location", location)
                 .add("stageState", stageState.get())
                 .toString();
-    }
-
-    private void transitionToState(StageState newState)
-    {
-        StageState oldState = stageState.getAndSet(newState);
-        if (oldState != newState) {
-            log.debug("Stage %s is %s", stageId, newState);
-        }
     }
 
     public static Function<RemoteTask, TaskInfo> taskInfoGetter()
@@ -686,9 +671,7 @@ interface StageExecutionNode
 
     Iterable<? extends URI> getTaskLocations();
 
-    void subStageFinishedScheduling();
-
-    ListenableFuture<?> updateState(boolean forceRefresh);
+    void addStateChangeListener(StateChangeListener<StageInfo> stateChangeListener);
 
     void cancelStage(StageId stageId);
 
