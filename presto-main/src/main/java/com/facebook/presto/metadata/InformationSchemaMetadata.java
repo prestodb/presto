@@ -32,6 +32,7 @@ public class InformationSchemaMetadata
                     .column("column_default", STRING)
                     .column("is_nullable", STRING)
                     .column("data_type", STRING)
+                    .column("is_partition_key", STRING) // TODO: this needs to be changed to boolean when we support them
                     .build())
             .put(TABLE_TABLES, columnsBuilder()
                     .column("table_catalog", STRING)

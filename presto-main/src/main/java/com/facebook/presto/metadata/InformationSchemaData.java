@@ -74,6 +74,7 @@ public class InformationSchemaData
                         .appendNull()
                         .append("YES")
                         .append(fromColumnType(column.getType()).getName())
+                        .append(column.isPartitionKey() ? "YES" : "NO")
                         .build());
             }
         }
