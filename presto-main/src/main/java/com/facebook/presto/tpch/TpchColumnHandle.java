@@ -45,7 +45,7 @@ public class TpchColumnHandle
     @Override
     public String toString()
     {
-        return "tpch:" + fieldIndex;
+        return "tpch:" + columnName + ":" + fieldIndex;
     }
 
     @Override

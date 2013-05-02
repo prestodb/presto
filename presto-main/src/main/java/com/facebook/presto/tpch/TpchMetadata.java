@@ -2,7 +2,6 @@ package com.facebook.presto.tpch;
 
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.metadata.InternalColumnHandle;
 import com.facebook.presto.metadata.InternalSchemaMetadata;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
@@ -161,8 +160,8 @@ public class TpchMetadata
         String tableName = getTableName(tableHandle);
         checkArgument(tables.containsKey(tableName), "Table %s does not exist", tableHandle);
 
-        checkArgument(columnHandle instanceof InternalColumnHandle, "columnHandle is not an instance of InternalColumnHandle");
-        String columnName = ((InternalColumnHandle) columnHandle).getColumnName();
+        checkArgument(columnHandle instanceof TpchColumnHandle, "columnHandle is not an instance of TpchColumnHandle");
+        String columnName = ((TpchColumnHandle) columnHandle).getColumnName();
         for (ColumnMetadata column : tables.get(tableName).getColumns()) {
             if (column.getName().equals(columnName)) {
                 return column;
