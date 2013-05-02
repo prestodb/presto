@@ -8,6 +8,7 @@ import com.facebook.presto.sql.tree.IntervalLiteral.Sign;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
+import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.TimeLiteral;
@@ -55,11 +56,14 @@ public class TestSqlParser
         assertStatement("SELECT 123.456E7 FROM DUAL",
                 new Query(
                         Optional.<With>absent(),
-                        selectList(new DoubleLiteral("123.456E7")),
-                        table(QualifiedName.of("DUAL")),
-                        Optional.<Expression>absent(),
-                        ImmutableList.<Expression>of(),
-                        Optional.<Expression>absent(),
+                        new QuerySpecification(
+                                selectList(new DoubleLiteral("123.456E7")),
+                                table(QualifiedName.of("DUAL")),
+                                Optional.<Expression>absent(),
+                                ImmutableList.<Expression>of(),
+                                Optional.<Expression>absent(),
+                                ImmutableList.<SortItem>of(),
+                                Optional.<String>absent()),
                         ImmutableList.<SortItem>of(),
                         Optional.<String>absent()));
     }
@@ -128,6 +132,18 @@ public class TestSqlParser
     public void testParseErrorDigitIdentifiers()
     {
         SqlParser.createStatement("select 1x from dual");
+    }
+
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:35: no viable alternative at input 'order'")
+    public void testParseErrorDualOrderBy()
+    {
+        SqlParser.createStatement("select fuu from dual order by fuu order by fuu");
+    }
+
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:31: mismatched input 'order' expecting EOF")
+    public void testParseErrorReverseOrderByLimit()
+    {
+        SqlParser.createStatement("select fuu from dual limit 10 order by fuu");
     }
 
     @Test

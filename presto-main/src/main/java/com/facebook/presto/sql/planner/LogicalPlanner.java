@@ -20,6 +20,8 @@ import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
+import com.facebook.presto.sql.tree.QueryBody;
+import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.storage.StorageManager;
@@ -157,7 +159,9 @@ public class LogicalPlanner
             columnHandles = columnHandleBuilder.build();
 
             // find source table (TODO: do this in analyzer)
-            List<Relation> relations = analysis.getQuery().getFrom();
+            QueryBody queryBody = analysis.getQuery().getQueryBody();
+            checkState(queryBody instanceof QuerySpecification, "Query is not a simple select statement");
+            List<Relation> relations = ((QuerySpecification) queryBody).getFrom();
             checkState(relations.size() == 1, "Query has more than one source table");
             Relation relation = Iterables.getOnlyElement(relations);
             checkState(relation instanceof Table, "FROM clause is not a simple table name");

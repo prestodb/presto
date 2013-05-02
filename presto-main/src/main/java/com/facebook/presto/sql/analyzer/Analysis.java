@@ -4,13 +4,13 @@ import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.sql.ExpressionFormatter;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
+import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Table;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
@@ -29,13 +29,13 @@ public class Analysis
     private final IdentityHashMap<Node, TupleDescriptor> outputDescriptors = new IdentityHashMap<>();
     private final IdentityHashMap<Expression, Map<QualifiedName, Integer>> resolvedNames = new IdentityHashMap<>();
 
-    private final IdentityHashMap<Query, List<FunctionCall>> aggregates = new IdentityHashMap<>();
-    private final IdentityHashMap<Query, List<FieldOrExpression>> groupByExpressions = new IdentityHashMap<>();
-    private final IdentityHashMap<Query, Expression> where = new IdentityHashMap<>();
-    private final IdentityHashMap<Query, Expression> having = new IdentityHashMap<>();
-    private final IdentityHashMap<Query, List<FieldOrExpression>> orderByExpressions = new IdentityHashMap<>();
-    private final IdentityHashMap<Query, List<FieldOrExpression>> outputExpressions = new IdentityHashMap<>();
-    private final IdentityHashMap<Query, List<FunctionCall>> windowFunctions = new IdentityHashMap<>();
+    private final IdentityHashMap<QuerySpecification, List<FunctionCall>> aggregates = new IdentityHashMap<>();
+    private final IdentityHashMap<QuerySpecification, List<FieldOrExpression>> groupByExpressions = new IdentityHashMap<>();
+    private final IdentityHashMap<QuerySpecification, Expression> where = new IdentityHashMap<>();
+    private final IdentityHashMap<QuerySpecification, Expression> having = new IdentityHashMap<>();
+    private final IdentityHashMap<Node, List<FieldOrExpression>> orderByExpressions = new IdentityHashMap<>();
+    private final IdentityHashMap<Node, List<FieldOrExpression>> outputExpressions = new IdentityHashMap<>();
+    private final IdentityHashMap<QuerySpecification, List<FunctionCall>> windowFunctions = new IdentityHashMap<>();
 
     private final IdentityHashMap<Join, List<EquiJoinClause>> joins = new IdentityHashMap<>();
 
@@ -71,12 +71,12 @@ public class Analysis
         return resolvedNames.get(expression);
     }
 
-    public void setAggregates(Query node, List<FunctionCall> aggregates)
+    public void setAggregates(QuerySpecification node, List<FunctionCall> aggregates)
     {
         this.aggregates.put(node, aggregates);
     }
 
-    public List<FunctionCall> getAggregates(Query query)
+    public List<FunctionCall> getAggregates(QuerySpecification query)
     {
         return aggregates.get(query);
     }
@@ -87,47 +87,47 @@ public class Analysis
         return types.get(expression);
     }
 
-    public void setGroupByExpressions(Query node, List<FieldOrExpression> expressions)
+    public void setGroupByExpressions(QuerySpecification node, List<FieldOrExpression> expressions)
     {
         groupByExpressions.put(node, expressions);
     }
 
-    public List<FieldOrExpression> getGroupByExpressions(Query node)
+    public List<FieldOrExpression> getGroupByExpressions(QuerySpecification node)
     {
         return groupByExpressions.get(node);
     }
 
-    public void setWhere(Query node, Expression expression)
+    public void setWhere(QuerySpecification node, Expression expression)
     {
         where.put(node, expression);
     }
 
-    public Expression getWhere(Query node)
+    public Expression getWhere(QuerySpecification node)
     {
         return where.get(node);
     }
 
-    public void setOrderByExpressions(Query query, List<FieldOrExpression> items)
+    public void setOrderByExpressions(Node node, List<FieldOrExpression> items)
     {
-        orderByExpressions.put(query, items);
+        orderByExpressions.put(node, items);
     }
 
-    public List<FieldOrExpression> getOrderByExpressions(Query query)
+    public List<FieldOrExpression> getOrderByExpressions(Node node)
     {
-        return orderByExpressions.get(query);
+        return orderByExpressions.get(node);
     }
 
-    public void setOutputExpressions(Query node, List<FieldOrExpression> expressions)
+    public void setOutputExpressions(Node node, List<FieldOrExpression> expressions)
     {
         outputExpressions.put(node, expressions);
     }
 
-    public List<FieldOrExpression> getOutputExpressions(Query query)
+    public List<FieldOrExpression> getOutputExpressions(Node node)
     {
-        return outputExpressions.get(query);
+        return outputExpressions.get(node);
     }
 
-    public void setHaving(Query node, Expression expression)
+    public void setHaving(QuerySpecification node, Expression expression)
     {
         having.put(node, expression);
     }
@@ -142,17 +142,17 @@ public class Analysis
         return joins.get(join);
     }
 
-    public void setWindowFunctions(Query node, List<FunctionCall> functions)
+    public void setWindowFunctions(QuerySpecification node, List<FunctionCall> functions)
     {
         windowFunctions.put(node, functions);
     }
 
-    public Map<Query, List<FunctionCall>> getWindowFunctions()
+    public Map<QuerySpecification, List<FunctionCall>> getWindowFunctions()
     {
         return windowFunctions;
     }
 
-    public List<FunctionCall> getWindowFunctions(Query query)
+    public List<FunctionCall> getWindowFunctions(QuerySpecification query)
     {
         return windowFunctions.get(query);
     }
@@ -203,7 +203,7 @@ public class Analysis
         this.types.putAll(types);
     }
 
-    public Expression getHaving(Query query)
+    public Expression getHaving(QuerySpecification query)
     {
         return having.get(query);
     }

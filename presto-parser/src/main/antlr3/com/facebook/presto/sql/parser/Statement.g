@@ -73,6 +73,7 @@ tokens {
     COLUMN_DEF;
     NOT_NULL;
     ALIASED_RELATION;
+    QUERY_SPEC;
 }
 
 @header {
@@ -157,14 +158,29 @@ query
     ;
 
 queryExpr
-    : withClause?
-      selectClause
+    : withClause? ( selectQueryBody | relationQueryBody orderClause? limitClause? )
+    ;
+
+selectQueryBody
+    : selectClause
       fromClause?
       whereClause?
       groupClause?
       havingClause?
       orderClause?
       limitClause?
+      -> ^(QUERY_SPEC
+            selectClause
+            fromClause?
+            whereClause?
+            groupClause?
+            havingClause?
+            orderClause?
+            limitClause?)
+    ;
+
+relationQueryBody
+    : tableSubquery
     ;
 
 restrictedSelectStmt
@@ -246,8 +262,8 @@ tablePrimary
 
 relation
     : table
+    | ('(' tableRef ')') => joinedTable
     | tableSubquery
-    | joinedTable
     ;
 
 table
@@ -337,8 +353,7 @@ numericFactor
 
 exprPrimary
     : NULL
-    | qname
-    | function
+    | qnameOrFunction
     | specialFunction
     | number
     | bool
@@ -346,12 +361,19 @@ exprPrimary
     | dateValue
     | intervalValue
     | caseExpression
+    | ('(' expr ')') => ('(' expr ')' -> expr)
     | subquery
-    | '(' expr ')' -> expr
+    ;
+
+qnameOrFunction
+    : (qname -> qname)
+      ( ('(' '*' ')' over?                          -> ^(FUNCTION_CALL $qnameOrFunction over?))
+      | ('(' setQuant? expr? (',' expr)* ')' over?  -> ^(FUNCTION_CALL $qnameOrFunction over? setQuant? expr*))
+      )?
     ;
 
 inList
-    : '(' expr (',' expr)* ')' -> ^(IN_LIST expr+)
+    : ('(' expr) => ('(' expr (',' expr)* ')' -> ^(IN_LIST expr+))
     | subquery
     ;
 
@@ -433,11 +455,6 @@ whenClause
 
 elseClause
     : ELSE expr -> expr
-    ;
-
-function
-    : qname '(' '*' ')' over?                         -> ^(FUNCTION_CALL qname over?)
-    | qname '(' setQuant? expr? (',' expr)* ')' over? -> ^(FUNCTION_CALL qname over? setQuant? expr*)
     ;
 
 over

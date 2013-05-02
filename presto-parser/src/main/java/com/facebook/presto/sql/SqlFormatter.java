@@ -10,6 +10,7 @@ import com.facebook.presto.sql.tree.JoinUsing;
 import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.Query;
+import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SortItem;
@@ -90,6 +91,24 @@ public final class SqlFormatter
                 }
             }
 
+            process(node.getQueryBody(), indent);
+
+            if (!node.getOrderBy().isEmpty()) {
+                append(indent, "ORDER BY " + Joiner.on(", ").join(Iterables.transform(node.getOrderBy(), orderByFormatterFunction())))
+                        .append('\n');
+            }
+
+            if (node.getLimit().isPresent()) {
+                append(indent, "LIMIT " + node.getLimit().get())
+                        .append('\n');
+            }
+
+            return null;
+        }
+
+        @Override
+        protected Void visitQuerySpecification(QuerySpecification node, Integer indent)
+        {
             process(node.getSelect(), indent);
 
             if (node.getFrom() != null) {
@@ -138,7 +157,6 @@ public final class SqlFormatter
                 append(indent, "LIMIT " + node.getLimit().get())
                         .append('\n');
             }
-
             return null;
         }
 

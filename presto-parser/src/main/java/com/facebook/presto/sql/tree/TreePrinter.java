@@ -35,6 +35,31 @@ public class TreePrinter
                 print(indentLevel, "Query ");
 
                 indentLevel++;
+
+                print(indentLevel, "QueryBody");
+                process(node.getQueryBody(), indentLevel);
+
+                if (!node.getOrderBy().isEmpty()) {
+                    print(indentLevel, "OrderBy");
+                    for (SortItem sortItem : node.getOrderBy()) {
+                        process(sortItem, indentLevel + 1);
+                    }
+                }
+
+                if (node.getLimit().isPresent()) {
+                    print(indentLevel, "Limit: " + node.getLimit().get());
+                }
+
+                return null;
+            }
+
+            @Override
+            protected Void visitQuerySpecification(QuerySpecification node, Integer indentLevel)
+            {
+                print(indentLevel, "QuerySpecification ");
+
+                indentLevel++;
+
                 process(node.getSelect(), indentLevel);
 
                 print(indentLevel, "From");

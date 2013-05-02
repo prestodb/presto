@@ -1,7 +1,7 @@
 package com.facebook.presto.sql.tree;
 
-public abstract class Relation
-    extends Node
+public abstract class QueryBody
+    extends Relation
 {
     @Override
     public abstract int hashCode();
@@ -15,6 +15,6 @@ public abstract class Relation
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
-        return visitor.visitRelation(this, context);
+        return visitor.visitQueryBody(this, context);
     }
 }
