@@ -18,8 +18,9 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
-import com.facebook.presto.sql.tree.TableSubquery;
+import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Table;
+import com.facebook.presto.sql.tree.TableSubquery;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -130,14 +131,25 @@ class RelationPlanner
     {
         PlanBuilder subPlan = new QueryPlanner(analysis, symbolAllocator, idAllocator, metadata, session).process(node, null);
 
-        TupleDescriptor outputDescriptor = analysis.getOutputDescriptor(node);
+        ImmutableList.Builder<Symbol> outputSymbols = ImmutableList.builder();
+        for (FieldOrExpression fieldOrExpression : analysis.getOutputExpressions(node)) {
+            outputSymbols.add(subPlan.translate(fieldOrExpression));
+        }
+
+        return new RelationPlan(subPlan.getRoot(), analysis.getOutputDescriptor(node),  outputSymbols.build());
+    }
+
+    @Override
+    protected RelationPlan visitQuerySpecification(QuerySpecification node, Void context)
+    {
+        PlanBuilder subPlan = new QueryPlanner(analysis, symbolAllocator, idAllocator, metadata, session).process(node, null);
 
         ImmutableList.Builder<Symbol> outputSymbols = ImmutableList.builder();
         for (FieldOrExpression fieldOrExpression : analysis.getOutputExpressions(node)) {
             outputSymbols.add(subPlan.translate(fieldOrExpression));
         }
 
-        return new RelationPlan(subPlan.getRoot(), outputDescriptor, outputSymbols.build());
+        return new RelationPlan(subPlan.getRoot(), analysis.getOutputDescriptor(node), outputSymbols.build());
     }
 
     private PlanBuilder appendProjections(RelationPlan subPlan, Iterable<Expression> expressions)

@@ -5,45 +5,29 @@ import com.google.common.base.Optional;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class Query
         extends Statement
 {
     private final Optional<With> with;
-    private final Select select;
-    private final List<Relation> from;
-    private final Optional<Expression> where;
-    private final List<Expression> groupBy;
-    private final Optional<Expression> having;
+    private final QueryBody queryBody;
     private final List<SortItem> orderBy;
     private final Optional<String> limit;
 
     public Query(
             Optional<With> with,
-            Select select,
-            List<Relation> from,
-            Optional<Expression> where,
-            List<Expression> groupBy,
-            Optional<Expression> having,
+            QueryBody queryBody,
             List<SortItem> orderBy,
             Optional<String> limit)
     {
         checkNotNull(with, "with is null");
-        checkNotNull(select, "select is null");
-        checkNotNull(groupBy, "groupBy is null");
+        checkNotNull(queryBody, "queryBody is null");
         checkNotNull(orderBy, "orderBy is null");
-        checkNotNull(where, "where is null");
-        checkNotNull(having, "having is null");
         checkNotNull(limit, "limit is null");
 
         this.with = with;
-        this.select = select;
-        this.from = from;
-        this.where = where;
-        this.groupBy = groupBy;
-        this.having = having;
+        this.queryBody = queryBody;
         this.orderBy = orderBy;
         this.limit = limit;
     }
@@ -53,29 +37,9 @@ public class Query
         return with;
     }
 
-    public Select getSelect()
+    public QueryBody getQueryBody()
     {
-        return select;
-    }
-
-    public List<Relation> getFrom()
-    {
-        return from;
-    }
-
-    public Optional<Expression> getWhere()
-    {
-        return where;
-    }
-
-    public List<Expression> getGroupBy()
-    {
-        return groupBy;
-    }
-
-    public Optional<Expression> getHaving()
-    {
-        return having;
+        return queryBody;
     }
 
     public List<SortItem> getOrderBy()
@@ -99,11 +63,7 @@ public class Query
     {
         return Objects.toStringHelper(this)
                 .add("with", with.orNull())
-                .add("select", select)
-                .add("from", from)
-                .add("where", where.orNull())
-                .add("groupBy", groupBy)
-                .add("having", having.orNull())
+                .add("queryBody", queryBody)
                 .add("orderBy", orderBy)
                 .add("limit", limit.orNull())
                 .omitNullValues()
@@ -121,11 +81,7 @@ public class Query
         }
         Query o = (Query) obj;
         return Objects.equal(with, o.with) &&
-                Objects.equal(select, o.select) &&
-                Objects.equal(from, o.from) &&
-                Objects.equal(where, o.where) &&
-                Objects.equal(groupBy, o.groupBy) &&
-                Objects.equal(having, o.having) &&
+                Objects.equal(queryBody, o.queryBody) &&
                 Objects.equal(orderBy, o.orderBy) &&
                 Objects.equal(limit, o.limit);
     }
@@ -133,6 +89,6 @@ public class Query
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(with, select, from, where, groupBy, having, orderBy, limit);
+        return Objects.hashCode(with, queryBody, orderBy, limit);
     }
 }

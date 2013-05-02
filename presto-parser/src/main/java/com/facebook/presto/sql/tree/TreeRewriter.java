@@ -79,27 +79,7 @@ public final class TreeRewriter<C>
                 with = rewrite(node.getWith().get(), context.get());
             }
 
-            Select select = rewrite(node.getSelect(), context.get());
-
-            ImmutableList.Builder<Relation> from = ImmutableList.builder();
-            for (Relation relation : node.getFrom()) {
-                from.add(rewrite(relation, context.get()));
-            }
-
-            Expression where = null;
-            if (node.getWhere().isPresent()) {
-                where = rewrite(node.getWhere().get(), context.get());
-            }
-
-            ImmutableList.Builder<Expression> groupBy = ImmutableList.builder();
-            for (Expression expression : node.getGroupBy()) {
-                groupBy.add(rewrite(expression, context.get()));
-            }
-
-            Expression having = null;
-            if (node.getHaving().isPresent()) {
-                having = rewrite(node.getHaving().get(), context.get());
-            }
+            QueryBody queryBody = rewrite(node.getQueryBody(), context.get());
 
             ImmutableList.Builder<SortItem> orderBy = ImmutableList.builder();
             for (SortItem sortItem : node.getOrderBy()) {
@@ -107,20 +87,12 @@ public final class TreeRewriter<C>
             }
 
             if ((with != node.getWith().orNull()) ||
-                    (select != node.getSelect()) ||
-                    !sameElements(node.getFrom(), from.build()) ||
-                    where != node.getWhere().orNull() ||
-                    !sameElements(node.getGroupBy(), groupBy.build()) ||
-                    having != node.getHaving().orNull() ||
+                    (queryBody != node.getQueryBody()) ||
                     !sameElements(orderBy.build(), node.getOrderBy())) {
 
                 return new Query(
                         Optional.fromNullable(with),
-                        select,
-                        from.build(),
-                        Optional.fromNullable(where),
-                        groupBy.build(),
-                        Optional.fromNullable(having),
+                        queryBody,
                         orderBy.build(),
                         node.getLimit());
             }
@@ -203,6 +175,56 @@ public final class TreeRewriter<C>
             Relation child = rewrite(node.getRelation(), context.get());
             if (child != node.getRelation()) {
                 return new AliasedRelation(child, node.getAlias(), node.getColumnNames());
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Node visitQuerySpecification(QuerySpecification node, Context<C> context)
+        {
+            Select select = rewrite(node.getSelect(), context.get());
+
+            ImmutableList.Builder<Relation> from = ImmutableList.builder();
+            for (Relation relation : node.getFrom()) {
+                from.add(rewrite(relation, context.get()));
+            }
+
+            Expression where = null;
+            if (node.getWhere().isPresent()) {
+                where = rewrite(node.getWhere().get(), context.get());
+            }
+
+            ImmutableList.Builder<Expression> groupBy = ImmutableList.builder();
+            for (Expression expression : node.getGroupBy()) {
+                groupBy.add(rewrite(expression, context.get()));
+            }
+
+            Expression having = null;
+            if (node.getHaving().isPresent()) {
+                having = rewrite(node.getHaving().get(), context.get());
+            }
+
+            ImmutableList.Builder<SortItem> orderBy = ImmutableList.builder();
+            for (SortItem sortItem : node.getOrderBy()) {
+                orderBy.add(rewrite(sortItem, context.get()));
+            }
+
+            if ((select != node.getSelect()) ||
+                    !sameElements(node.getFrom(), from.build()) ||
+                    where != node.getWhere().orNull() ||
+                    !sameElements(node.getGroupBy(), groupBy.build()) ||
+                    having != node.getHaving().orNull() ||
+                    !sameElements(node.getOrderBy(), orderBy.build())) {
+
+                return new QuerySpecification(
+                        select,
+                        from.build(),
+                        Optional.fromNullable(where),
+                        groupBy.build(),
+                        Optional.fromNullable(having),
+                        orderBy.build(),
+                        node.getLimit());
             }
 
             return node;

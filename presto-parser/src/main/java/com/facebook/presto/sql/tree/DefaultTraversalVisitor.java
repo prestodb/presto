@@ -59,19 +59,7 @@ public class DefaultTraversalVisitor<R, C>
         if (node.getWith().isPresent()) {
             process(node.getWith().get(), context);
         }
-        process(node.getSelect(), context);
-        for (Relation relation : node.getFrom()) {
-            process(relation, context);
-        }
-        if (node.getWhere().isPresent()) {
-            process(node.getWhere().get(), context);
-        }
-        for (Expression expression : node.getGroupBy()) {
-            process(expression, context);
-        }
-        if (node.getHaving().isPresent()) {
-            process(node.getHaving().get(), context);
-        }
+        process(node.getQueryBody(), context);
         for (SortItem sortItem : node.getOrderBy()) {
             process(sortItem, context);
         }
@@ -295,6 +283,28 @@ public class DefaultTraversalVisitor<R, C>
     protected R visitSortItem(SortItem node, C context)
     {
         return process(node.getSortKey(), context);
+    }
+
+    @Override
+    protected R visitQuerySpecification(QuerySpecification node, C context)
+    {
+        process(node.getSelect(), context);
+        for (Relation relation : node.getFrom()) {
+            process(relation, context);
+        }
+        if (node.getWhere().isPresent()) {
+            process(node.getWhere().get(), context);
+        }
+        for (Expression expression : node.getGroupBy()) {
+            process(expression, context);
+        }
+        if (node.getHaving().isPresent()) {
+            process(node.getHaving().get(), context);
+        }
+        for (SortItem sortItem : node.getOrderBy()) {
+            process(sortItem, context);
+        }
+        return null;
     }
 
     @Override
