@@ -14,6 +14,7 @@ import io.airlift.units.Duration;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.concurrent.NotThreadSafe;
 import java.io.Closeable;
 import java.net.URI;
 import java.util.Deque;
@@ -27,6 +28,9 @@ import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.google.common.base.Preconditions.checkState;
+
+@NotThreadSafe
 public class ExchangeClient
         implements Closeable
 {
@@ -89,7 +93,7 @@ public class ExchangeClient
         if (locations.contains(location)) {
             return;
         }
-        Preconditions.checkState(!noMoreLocations, "No more locations already set");
+        checkState(!noMoreLocations, "No more locations already set");
         locations.add(location);
         scheduleRequestIfNecessary();
     }
@@ -117,7 +121,7 @@ public class ExchangeClient
             closed.set(true);
 
             // add end marker back to queue
-            pageBuffer.offer(NO_MORE_PAGES);
+            checkState(pageBuffer.add(NO_MORE_PAGES), "Could not add no more pages marker");
 
             // don't return end of stream marker
             page = null;
@@ -139,7 +143,7 @@ public class ExchangeClient
             Closeables.closeQuietly(client);
         }
         if (pageBuffer.peek() != NO_MORE_PAGES) {
-            pageBuffer.offer(NO_MORE_PAGES);
+            checkState(pageBuffer.add(NO_MORE_PAGES), "Could not add no more pages marker");
         }
     }
 
@@ -148,7 +152,7 @@ public class ExchangeClient
         // if finished, add the end marker
         if (noMoreLocations && completedClients.size() == locations.size()) {
             if (pageBuffer.peek() != NO_MORE_PAGES) {
-                pageBuffer.offer(NO_MORE_PAGES);
+                checkState(pageBuffer.add(NO_MORE_PAGES), "Could not add no more pages marker");
             }
             return;
         }

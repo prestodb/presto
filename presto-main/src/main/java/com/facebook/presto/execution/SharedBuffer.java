@@ -218,9 +218,6 @@ public class SharedBuffer<T>
         namedQueue.setFinished();
         openQueuesBySequenceId.remove(namedQueue);
 
-        // notify readers that they may have been aborted
-        this.notifyAll();
-
         updateState();
     }
 
@@ -267,9 +264,6 @@ public class SharedBuffer<T>
     public synchronized void finish()
     {
         closed.set(true);
-
-        // notify readers that there may be no more data
-        this.notifyAll();
 
         // the output will only transition to finished if it isn't already marked as failed or cancel
         updateState();
