@@ -64,6 +64,11 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
+            <artifactId>dbpool</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
             <artifactId>event</artifactId>
         </dependency>
 
@@ -80,11 +85,6 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>units</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>http-server</artifactId>
         </dependency>
 
         <dependency>
@@ -160,14 +160,20 @@
 
         <!-- for testing -->
         <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>dbpool</artifactId>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>org.testng</groupId>
-            <artifactId>testng</artifactId>
+            <groupId>io.airlift</groupId>
+            <artifactId>bootstrap</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>trace-token</artifactId>
             <scope>test</scope>
         </dependency>
 

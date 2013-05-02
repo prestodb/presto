@@ -1,13 +1,13 @@
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.metadata.ColumnHandle;
-import com.facebook.presto.metadata.ColumnMetadata;
 import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.metadata.QualifiedTableName;
-import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableMetadata;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.FieldOrExpression;
@@ -122,13 +122,14 @@ class QueryPlanner
         // TODO: replace this with a table-generating operator that produces 1 row with no columns
 
         QualifiedTableName name = MetadataUtil.createQualifiedTableName(session, QualifiedName.of("dual"));
-        TableMetadata tableMetadata = metadata.getTable(name);
-        TableHandle table = tableMetadata.getTableHandle().get();
+        TableHandle table = metadata.getTableHandle(name).get();
+        TableMetadata tableMetadata = metadata.getTableMetadata(table);
+        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(table);
 
         ImmutableMap.Builder<Symbol, ColumnHandle> columns = ImmutableMap.builder();
         for (ColumnMetadata column : tableMetadata.getColumns()) {
             Symbol symbol = symbolAllocator.newSymbol(column.getName(), Type.fromRaw(column.getType()));
-            columns.put(symbol, column.getColumnHandle().get());
+            columns.put(symbol, columnHandles.get(column.getName()));
         }
 
         TableScanNode tableScan = new TableScanNode(idAllocator.getNextId(), table, columns.build());

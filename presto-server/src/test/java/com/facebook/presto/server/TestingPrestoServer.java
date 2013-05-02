@@ -1,10 +1,19 @@
 package com.facebook.presto.server;
 
+import com.facebook.presto.connector.ConnectorManager;
+import com.facebook.presto.failureDetector.FailureDetectorModule;
+import com.facebook.presto.guice.TestingJmxModule;
 import com.facebook.presto.metadata.NodeManager;
+import com.facebook.presto.tpch.TpchBlocksProvider;
+import com.facebook.presto.tpch.TpchModule;
+import com.facebook.presto.util.TestingTpchBlocksProvider;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
+import com.google.inject.Binder;
 import com.google.inject.Injector;
+import com.google.inject.Module;
+import com.google.inject.Scopes;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.discovery.client.Announcer;
@@ -53,7 +62,15 @@ public class TestingPrestoServer
                 new InMemoryEventModule(),
                 new TraceTokenModule(),
                 new FailureDetectorModule(),
-                new ServerMainModule());
+                new ServerMainModule(),
+                new TpchModule(),
+                new Module() {
+                    @Override
+                    public void configure(Binder binder)
+                    {
+                        binder.bind(TpchBlocksProvider.class).to(TestingTpchBlocksProvider.class).in(Scopes.SINGLETON);
+                    }
+                });
 
         Injector injector = app
                 .strictConfig()
@@ -66,6 +83,10 @@ public class TestingPrestoServer
         injector.getInstance(NodeManager.class).refreshNodes(true);
 
         lifeCycleManager = injector.getInstance(LifeCycleManager.class);
+
+        ConnectorManager connectorManager = injector.getInstance(ConnectorManager.class);
+        connectorManager.createConnection("default", "native", ImmutableMap.<String, String>of());
+        connectorManager.createConnection("tpch", "tpch", ImmutableMap.<String, String>of());
 
         server = injector.getInstance(TestingHttpServer.class);
     }

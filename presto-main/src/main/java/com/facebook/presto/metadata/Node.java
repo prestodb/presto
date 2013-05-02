@@ -1,5 +1,6 @@
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.HostAddress;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 
@@ -34,6 +35,11 @@ public class Node
         return httpUri;
     }
 
+    public HostAddress getHostAndPort()
+    {
+        return HostAddress.fromUri(httpUri);
+    }
+
     @Override
     public boolean equals(Object obj)
     {
@@ -64,11 +70,24 @@ public class Node
 
     public static Function<Node, String> getIdentifierFunction()
     {
-        return new Function<Node, String>() {
+        return new Function<Node, String>()
+        {
             @Override
             public String apply(Node node)
             {
                 return node.getNodeIdentifier();
+            }
+        };
+    }
+
+    public static Function<Node, HostAddress> hostAndPortGetter()
+    {
+        return new Function<Node, HostAddress>()
+        {
+            @Override
+            public HostAddress apply(Node node)
+            {
+                return node.getHostAndPort();
             }
         };
     }

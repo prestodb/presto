@@ -1,6 +1,8 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.metadata.Table.TableMapper;
+import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.SchemaTableName;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.skife.jdbi.v2.exceptions.UnableToObtainConnectionException;
@@ -42,7 +44,10 @@ public interface MetadataDao
             "  AND schema_name = :schemaName\n" +
             "  AND table_name = :tableName")
     @Mapper(TableMapper.class)
-    Table getTableInformation(@BindBean QualifiedTableName table);
+    Table getTableInformation(
+            @Bind("catalogName") String catalogName,
+            @Bind("schemaName") String schemaName,
+            @Bind("tableName") String tableName);
 
     @SqlQuery("SELECT catalog_name, schema_name, table_name\n" +
             "FROM tables\n" +
@@ -50,27 +55,31 @@ public interface MetadataDao
     @Mapper(QualifiedTableNameMapper.class)
     QualifiedTableName getTableName(@Bind("tableId") long tableId);
 
-    @SqlQuery("SELECT t.catalog_name, t.schema_name, t.table_name,\n" +
-            "  c.column_name, c.ordinal_position, c.data_type\n" +
+    @SqlQuery("SELECT c.column_name, c.data_type, c.ordinal_position\n" +
             "FROM tables t\n" +
             "JOIN columns c ON (t.table_id = c.table_id)\n" +
             "WHERE (c.column_id = :columnId)")
-    @Mapper(TableColumnMapper.class)
-    TableColumn getTableColumn(@Bind("columnId") long columnId);
+    @Mapper(ColumnMetadataMapper.class)
+    ColumnMetadata getColumnMetadata(@Bind("columnId") long columnId);
 
-    @SqlQuery("SELECT column_id, column_name, data_type\n" +
+    @SqlQuery("SELECT column_name, data_type, ordinal_position\n" +
             "FROM columns\n" +
             "WHERE table_id = :tableId\n" +
             "ORDER BY ordinal_position")
     @Mapper(ColumnMetadataMapper.class)
     List<ColumnMetadata> getTableColumnMetaData(@Bind("tableId") long tableId);
 
+    @SqlQuery("SELECT column_id\n" +
+            "FROM columns\n" +
+            "WHERE table_id = :tableId AND column_name = :columnName")
+    Long getColumnId(@Bind("tableId") long tableId, @Bind("columnName") String columnName);
+
     @SqlQuery("SELECT catalog_name, schema_name, table_name\n" +
             "FROM tables\n" +
             "WHERE (catalog_name = :catalogName OR :catalogName IS NULL)\n" +
             "  AND (schema_name = :schemaName OR :schemaName IS NULL)")
-    @Mapper(QualifiedTableNameMapper.class)
-    List<QualifiedTableName> listTables(
+    @Mapper(SchemaTableNameMapper.class)
+    List<SchemaTableName> listTables(
             @Bind("catalogName") String catalogName,
             @Bind("schemaName") String schemaName);
 
@@ -79,7 +88,7 @@ public interface MetadataDao
     List<String> listSchemaNames(@Bind("catalogName") String catalogName);
 
     @SqlQuery("SELECT t.catalog_name, t.schema_name, t.table_name,\n" +
-            "  c.column_name, c.ordinal_position, c.data_type\n" +
+            "  c.column_id, c.column_name, c.ordinal_position, c.data_type\n" +
             "FROM tables t\n" +
             "JOIN columns c ON (t.table_id = c.table_id)\n" +
             "WHERE (catalog_name = :catalogName OR :catalogName IS NULL)\n" +
@@ -92,6 +101,14 @@ public interface MetadataDao
             @Bind("schemaName") String schemaName,
             @Bind("tableName") String tableName);
 
+    @SqlQuery("SELECT t.catalog_name, t.schema_name, t.table_name,\n" +
+            "  c.column_id, c.column_name, c.ordinal_position, c.data_type\n" +
+            "FROM tables t\n" +
+            "JOIN columns c ON (t.table_id = c.table_id)\n" +
+            "WHERE t.table_id = :tableId")
+    @Mapper(TableColumnMapper.class)
+    List<TableColumn> listTableColumns(@Bind("tableId") long tableId);
+
     @SqlQuery("SELECT COUNT(*) > 0 FROM tables\n" +
             "WHERE catalog_name = :catalogName\n" +
             "  AND schema_name = :schemaName\n" +
@@ -101,7 +118,10 @@ public interface MetadataDao
     @SqlUpdate("INSERT INTO tables (catalog_name, schema_name, table_name)\n" +
             "VALUES (:catalogName, :schemaName, :tableName)")
     @GetGeneratedKeys
-    long insertTable(@BindBean QualifiedTableName table);
+    long insertTable(
+            @Bind("catalogName") String catalogName,
+            @Bind("schemaName") String schemaName,
+            @Bind("tableName") String tableName);
 
     @SqlUpdate("INSERT INTO columns (table_id, column_name, ordinal_position, data_type)\n" +
             "VALUES (:tableId, :columnName, :ordinalPosition, :dataType)")
@@ -110,7 +130,6 @@ public interface MetadataDao
             @Bind("columnName") String columnName,
             @Bind("ordinalPosition") int ordinalPosition,
             @Bind("dataType") String dataType);
-
 
     @SqlUpdate("DELETE FROM tables WHERE table_id = :tableId")
     int dropTable(@Bind("tableId") long tableId);

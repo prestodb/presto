@@ -1,5 +1,6 @@
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.tuple.TupleInfo;
 import org.skife.jdbi.v2.StatementContext;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
@@ -13,9 +14,9 @@ public class ColumnMetadataMapper
     public ColumnMetadata map(int index, ResultSet r, StatementContext ctx)
             throws SQLException
     {
-        ColumnHandle handle = new NativeColumnHandle(r.getLong("column_id"));
         String name = r.getString("column_name");
         TupleInfo.Type type = TupleInfo.Type.fromName(r.getString("data_type"));
-        return new ColumnMetadata(name, type, handle);
+        int ordinalPosition = r.getInt("ordinal_position");
+        return new ColumnMetadata(name, type.toColumnType(), ordinalPosition, false);
     }
 }

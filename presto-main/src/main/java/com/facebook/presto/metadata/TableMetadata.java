@@ -1,7 +1,7 @@
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.ColumnMetadata;
 import com.google.common.base.Objects;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -13,27 +13,12 @@ public class TableMetadata
 {
     private final QualifiedTableName table;
     private final List<ColumnMetadata> columns;
-    private final Optional<TableHandle> tableHandle;
 
     public TableMetadata(QualifiedTableName table, List<ColumnMetadata> columns)
     {
-        this(table, columns, Optional.<TableHandle>absent());
-    }
-
-    public TableMetadata(QualifiedTableName table, List<ColumnMetadata> columns, TableHandle tableHandle)
-    {
-        this(table, columns, Optional.of(checkNotNull(tableHandle, "tableHandle is null")));
-    }
-
-    private TableMetadata(QualifiedTableName table, List<ColumnMetadata> columns, Optional<TableHandle> tableHandle)
-    {
-        checkNotNull(table, "table is null");
-        checkNotNull(columns, "columns is null");
+        this.table = checkNotNull(table, "table is null");
+        this.columns = ImmutableList.copyOf(checkNotNull(columns, "columns is null"));
         checkArgument(!columns.isEmpty(), "columns is empty");
-
-        this.table = table;
-        this.columns = ImmutableList.copyOf(columns);
-        this.tableHandle = tableHandle;
     }
 
     public QualifiedTableName getTable()
@@ -44,11 +29,6 @@ public class TableMetadata
     public List<ColumnMetadata> getColumns()
     {
         return columns;
-    }
-
-    public Optional<TableHandle> getTableHandle()
-    {
-        return tableHandle;
     }
 
     @Override

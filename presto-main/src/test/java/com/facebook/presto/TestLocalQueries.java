@@ -1,17 +1,15 @@
 package com.facebook.presto;
 
-import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MockLocalStorageManager;
-import com.facebook.presto.metadata.TestingMetadata;
+import com.facebook.presto.split.DataStreamManager;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.tpch.TpchDataStreamProvider;
+import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.util.LocalQueryRunner;
 import com.facebook.presto.util.MaterializedResult;
-import com.google.common.base.Throwables;
+import com.facebook.presto.util.TestingTpchBlocksProvider;
 import org.intellij.lang.annotations.Language;
-
-import java.io.IOException;
 
 public class TestLocalQueries
         extends AbstractTestQueries
@@ -19,16 +17,16 @@ public class TestLocalQueries
     private String catalog;
     private String schema;
     private DataStreamProvider dataStreamProvider;
-    private Metadata metadata;
 
     @Override
-    protected void setUpQueryFramework(String catalog, String schema, TpchDataStreamProvider dataStreamProvider, TestingMetadata metadata)
+    protected void setUpQueryFramework(String catalog, String schema)
             throws Exception
     {
         this.catalog = catalog;
         this.schema = schema;
-        this.dataStreamProvider = dataStreamProvider;
-        this.metadata = metadata;
+
+        TestingTpchBlocksProvider tpchBlocksProvider = new TestingTpchBlocksProvider();
+        dataStreamProvider = new DataStreamManager(new TpchDataStreamProvider(tpchBlocksProvider));
     }
 
     @Override
@@ -36,12 +34,7 @@ public class TestLocalQueries
     {
         Session session = new Session(null, catalog, schema);
 
-        try {
-            LocalQueryRunner runner = new LocalQueryRunner(dataStreamProvider, metadata, new MockLocalStorageManager(), session);
-            return runner.execute(sql);
-        }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
-        }
+        LocalQueryRunner runner = new LocalQueryRunner(dataStreamProvider, TpchMetadata.createTpchMetadata(), MockLocalStorageManager.createMockLocalStorageManager(), session);
+        return runner.execute(sql);
     }
 }

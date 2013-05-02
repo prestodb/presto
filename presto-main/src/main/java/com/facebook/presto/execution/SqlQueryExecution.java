@@ -5,7 +5,6 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.importer.PeriodicImportManager;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.Analysis;
@@ -52,7 +51,7 @@ public class SqlQueryExecution
     private final Statement statement;
     private final Metadata metadata;
     private final SplitManager splitManager;
-    private final NodeManager nodeManager;
+    private final NodeScheduler nodeScheduler;
     private final List<PlanOptimizer> planOptimizers;
     private final RemoteTaskFactory remoteTaskFactory;
     private final LocationFactory locationFactory;
@@ -71,7 +70,7 @@ public class SqlQueryExecution
             Statement statement,
             Metadata metadata,
             SplitManager splitManager,
-            NodeManager nodeManager,
+            NodeScheduler nodeScheduler,
             List<PlanOptimizer> planOptimizers,
             RemoteTaskFactory remoteTaskFactory,
             LocationFactory locationFactory,
@@ -84,7 +83,7 @@ public class SqlQueryExecution
         this.statement = checkNotNull(statement, "statement is null");
         this.metadata = checkNotNull(metadata, "metadata is null");
         this.splitManager = checkNotNull(splitManager, "splitManager is null");
-        this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
+        this.nodeScheduler = checkNotNull(nodeScheduler, "nodeScheduler is null");
         this.planOptimizers = checkNotNull(planOptimizers, "planOptimizers is null");
         this.remoteTaskFactory = checkNotNull(remoteTaskFactory, "remoteTaskFactory is null");
         this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
@@ -189,7 +188,7 @@ public class SqlQueryExecution
         SqlStageExecution outputStage = new SqlStageExecution(stateMachine.getQueryId(),
                 locationFactory,
                 outputStageExecutionPlan,
-                nodeManager,
+                nodeScheduler,
                 remoteTaskFactory,
                 stateMachine.getSession(),
                 maxPendingSplitsPerNode,
@@ -331,7 +330,7 @@ public class SqlQueryExecution
         private final int maxPendingSplitsPerNode;
         private final Metadata metadata;
         private final SplitManager splitManager;
-        private final NodeManager nodeManager;
+        private final NodeScheduler nodeScheduler;
         private final List<PlanOptimizer> planOptimizers;
         private final RemoteTaskFactory remoteTaskFactory;
         private final LocationFactory locationFactory;
@@ -346,7 +345,7 @@ public class SqlQueryExecution
                 Metadata metadata,
                 LocationFactory locationFactory,
                 SplitManager splitManager,
-                NodeManager nodeManager,
+                NodeScheduler nodeScheduler,
                 List<PlanOptimizer> planOptimizers,
                 RemoteTaskFactory remoteTaskFactory,
                 ShardManager shardManager,
@@ -358,7 +357,7 @@ public class SqlQueryExecution
             this.metadata = checkNotNull(metadata, "metadata is null");
             this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
             this.splitManager = checkNotNull(splitManager, "splitManager is null");
-            this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
+            this.nodeScheduler = checkNotNull(nodeScheduler, "nodeScheduler is null");
             this.planOptimizers = checkNotNull(planOptimizers, "planOptimizers is null");
             this.remoteTaskFactory = checkNotNull(remoteTaskFactory, "remoteTaskFactory is null");
             this.shardManager = checkNotNull(shardManager, "shardManager is null");
@@ -378,7 +377,7 @@ public class SqlQueryExecution
                     statement,
                     metadata,
                     splitManager,
-                    nodeManager,
+                    nodeScheduler,
                     planOptimizers,
                     remoteTaskFactory,
                     locationFactory,

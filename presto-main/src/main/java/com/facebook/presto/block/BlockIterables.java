@@ -24,8 +24,15 @@ public final class BlockIterables
     {
     }
 
-    public static BlockIterable createBlockIterable(TupleInfo tupleInfo, Block... blocks)
+    public static BlockIterable createBlockIterable(Block firstBlock, Block... otherBlocks)
     {
+        TupleInfo tupleInfo = firstBlock.getTupleInfo();
+        return new StaticBlockIterable(tupleInfo, ImmutableList.<Block>builder().add(firstBlock).add(otherBlocks).build());
+    }
+
+    public static BlockIterable createBlockIterable(Iterable<? extends Block> blocks)
+    {
+        TupleInfo tupleInfo = Iterables.get(blocks, 0).getTupleInfo();
         return new StaticBlockIterable(tupleInfo, ImmutableList.copyOf(blocks));
     }
 

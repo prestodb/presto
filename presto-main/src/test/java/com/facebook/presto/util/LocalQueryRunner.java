@@ -1,28 +1,27 @@
 package com.facebook.presto.util;
 
 import com.facebook.presto.importer.MockPeriodicImportManager;
-import com.facebook.presto.metadata.AbstractMetadata;
-import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.DualTable;
-import com.facebook.presto.metadata.FunctionHandle;
-import com.facebook.presto.metadata.FunctionInfo;
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.InternalColumnHandle;
 import com.facebook.presto.metadata.InternalTable;
 import com.facebook.presto.metadata.InternalTableHandle;
 import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.MockLocalStorageManager;
 import com.facebook.presto.metadata.QualifiedTableName;
-import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.SourceHashProviderFactory;
 import com.facebook.presto.operator.SourceOperator;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.Split;
+import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.split.DataStreamManager;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.split.InternalSplit;
-import com.facebook.presto.split.Split;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.Session;
@@ -39,16 +38,13 @@ import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.storage.MockStorageManager;
 import com.facebook.presto.tpch.TpchDataStreamProvider;
-import com.facebook.presto.tpch.TpchSchema;
+import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tpch.TpchSplit;
 import com.facebook.presto.tpch.TpchTableHandle;
-import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.node.NodeConfig;
@@ -56,16 +52,13 @@ import io.airlift.node.NodeInfo;
 import io.airlift.units.DataSize;
 import org.intellij.lang.annotations.Language;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.metadata.MetadataUtil.checkTable;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
 import static com.facebook.presto.sql.parser.TreeAssertions.assertFormattedSql;
 import static com.facebook.presto.util.MaterializedResult.materialize;
-import static com.facebook.presto.util.TestingTpchBlocksProvider.readTpchRecords;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -140,20 +133,12 @@ public class LocalQueryRunner
 
     public static LocalQueryRunner createTpchLocalQueryRunner()
     {
-        TestingTpchBlocksProvider tpchBlocksProvider = new TestingTpchBlocksProvider(ImmutableMap.of(
-                "orders", readTpchRecords("orders"),
-                "lineitem", readTpchRecords("lineitem")));
+        TestingTpchBlocksProvider tpchBlocksProvider = new TestingTpchBlocksProvider();
 
-        DataStreamProvider dataProvider = new TpchDataStreamProvider(tpchBlocksProvider);
-        Metadata metadata = TpchSchema.createMetadata();
-        Session session = new Session(null, TpchSchema.CATALOG_NAME, TpchSchema.SCHEMA_NAME);
+        DataStreamProvider dataProvider = new DataStreamManager(new TpchDataStreamProvider(tpchBlocksProvider));
+        Session session = new Session(null, TpchMetadata.TPCH_CATALOG_NAME, TpchMetadata.TPCH_SCHEMA_NAME);
 
-        try {
-            return new LocalQueryRunner(dataProvider, metadata, new MockLocalStorageManager(), session);
-        }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
-        }
+        return new LocalQueryRunner(dataProvider, TpchMetadata.createTpchMetadata(), MockLocalStorageManager.createMockLocalStorageManager(), session);
     }
 
     public static LocalQueryRunner createDualLocalQueryRunner()
@@ -164,13 +149,8 @@ public class LocalQueryRunner
     public static LocalQueryRunner createDualLocalQueryRunner(Session session)
     {
         DataStreamProvider dataProvider = new DualTableDataStreamProvider();
-        Metadata metadata = new DualTableMetadata();
-        try {
-            return new LocalQueryRunner(dataProvider, metadata, new MockLocalStorageManager(), session);
-        }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
-        }
+        Metadata metadata = new MetadataManager();
+        return new LocalQueryRunner(dataProvider, metadata, MockLocalStorageManager.createMockLocalStorageManager(), session);
     }
 
     private static Split createSplit(TableHandle handle)
@@ -179,41 +159,9 @@ public class LocalQueryRunner
             return new TpchSplit((TpchTableHandle) handle);
         }
         if (handle instanceof InternalTableHandle) {
-            return new InternalSplit((InternalTableHandle) handle);
+            return new InternalSplit((InternalTableHandle) handle, ImmutableMap.<InternalColumnHandle, Object>of(), ImmutableList.of(HostAddress.fromParts("127.0.0.1", 0)));
         }
         throw new IllegalArgumentException("unsupported table handle: " + handle.getClass().getName());
-    }
-
-    private static class DualTableMetadata
-            extends AbstractMetadata
-    {
-        private final FunctionRegistry functions = new FunctionRegistry();
-
-        @Override
-        public FunctionInfo getFunction(QualifiedName name, List<TupleInfo.Type> parameterTypes)
-        {
-            return functions.get(name, parameterTypes);
-        }
-
-        @Override
-        public FunctionInfo getFunction(FunctionHandle handle)
-        {
-            return functions.get(handle);
-        }
-
-        @Override
-        public boolean isAggregationFunction(QualifiedName name)
-        {
-            return functions.isAggregationFunction(name);
-        }
-
-        @Override
-        public TableMetadata getTable(QualifiedTableName table)
-        {
-            checkTable(table);
-            checkArgument(table.getTableName().equals(DualTable.NAME), "wrong table name: %s", table);
-            return DualTable.getTable(table);
-        }
     }
 
     private static class DualTableDataStreamProvider
@@ -225,8 +173,8 @@ public class LocalQueryRunner
         public Operator createDataStream(Split split, List<ColumnHandle> columns)
         {
             checkArgument(columns.size() == 1, "expected exactly one column");
-            InternalTable table = DualTable.getInternalTable(DEFAULT_DUAL_TABLE);
-            return new AlignmentOperator(ImmutableList.of(table.getColumn(0)));
+            InternalTable table = new DualTable().getInternalTable(DEFAULT_DUAL_TABLE);
+            return new AlignmentOperator(ImmutableList.of(table.getColumn(DualTable.COLUMN_NAME)));
         }
     }
 }

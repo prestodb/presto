@@ -13,36 +13,29 @@ import com.google.common.base.Functions;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.concurrent.Immutable;
-
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 @Immutable
 public class PlanFragment
 {
     private final PlanFragmentId id;
     private final PlanNode root;
-    private final Set<PlanNodeId> partitionedSources;
+    private final PlanNodeId partitionedSource;
     private final Map<Symbol, Type> symbols;
 
     @JsonCreator
-    public PlanFragment(@JsonProperty("id") PlanFragmentId id,
-            @JsonProperty("partitionedSources") Set<PlanNodeId> partitionedSources,
-            @JsonProperty("symbols") Map<Symbol, Type> symbols,
-            @JsonProperty("root") PlanNode root)
+    public PlanFragment(@JsonProperty("id") PlanFragmentId id, @JsonProperty("partitionedSource") PlanNodeId partitionedSource, @JsonProperty("symbols") Map<Symbol, Type> symbols, @JsonProperty("root") PlanNode root)
     {
         Preconditions.checkNotNull(id, "id is null");
         Preconditions.checkNotNull(symbols, "symbols is null");
         Preconditions.checkNotNull(root, "root is null");
-        Preconditions.checkNotNull(partitionedSources, "partitionedSources is null");
 
         this.id = id;
         this.root = root;
-        this.partitionedSources = ImmutableSet.copyOf(partitionedSources);
+        this.partitionedSource = partitionedSource;
         this.symbols = symbols;
     }
 
@@ -54,13 +47,13 @@ public class PlanFragment
 
     public boolean isPartitioned()
     {
-        return !partitionedSources.isEmpty();
+        return partitionedSource != null;
     }
 
     @JsonProperty
-    public Set<PlanNodeId> getPartitionedSources()
+    public PlanNodeId getPartitionedSource()
     {
-        return partitionedSources;
+        return partitionedSource;
     }
 
     @JsonProperty
@@ -114,7 +107,7 @@ public class PlanFragment
     {
         return Objects.toStringHelper(this)
                 .add("id", id)
-                .add("partitionedSources", partitionedSources)
+                .add("partitionedSource", partitionedSource)
                 .toString();
     }
 

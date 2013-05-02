@@ -1,12 +1,10 @@
 package com.facebook.presto.hive;
 
+import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.SchemaField.Type;
 import com.google.common.base.Charsets;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Ordering;
 import org.apache.hadoop.hive.metastore.MetaStoreUtils;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.SerDeUtils;
@@ -20,34 +18,34 @@ import org.apache.hadoop.mapred.RecordReader;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveBooleanParser.parseHiveBoolean;
-import static com.facebook.presto.hive.HiveColumn.indexGetter;
 import static com.facebook.presto.hive.NumberParser.parseDouble;
 import static com.facebook.presto.hive.NumberParser.parseLong;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Maps.uniqueIndex;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
 class GenericHiveRecordCursor<K, V extends Writable>
         implements RecordCursor
 {
-    private final int partitionKeyCount;
-
     private final RecordReader<K, V> recordReader;
     private final K key;
     private final V value;
     private final Deserializer deserializer;
 
-    private final Type[] types;
+    private final String[] names;
+    private final ColumnType[] types;
     private final HiveType[] hiveTypes;
 
     private final StructObjectInspector rowInspector;
     private final ObjectInspector[] fieldInspectors;
     private final StructField[] structFields;
 
-    private final int[] hiveColumnIndexes;
+    private final boolean[] isPartitionColumn;
 
     private final long[] longs;
     private final double[] doubles;
@@ -57,11 +55,11 @@ class GenericHiveRecordCursor<K, V extends Writable>
     private final long totalBytes;
     private long completedBytes;
 
-    public GenericHiveRecordCursor(RecordReader<K, V> recordReader, long totalBytes, Properties chunkSchema, List<HivePartitionKey> partitionKeys, List<HiveColumn> columns)
+    public GenericHiveRecordCursor(RecordReader<K, V> recordReader, long totalBytes, Properties splitSchema, List<HivePartitionKey> partitionKeys, List<HiveColumnHandle> columns)
     {
         Preconditions.checkNotNull(recordReader, "recordReader is null");
         Preconditions.checkArgument(totalBytes >= 0, "totalBytes is negative");
-        Preconditions.checkNotNull(chunkSchema, "chunkSchema is null");
+        Preconditions.checkNotNull(splitSchema, "splitSchema is null");
         Preconditions.checkNotNull(partitionKeys, "partitionKeys is null");
         Preconditions.checkNotNull(columns, "columns is null");
         Preconditions.checkArgument(!columns.isEmpty(), "columns is empty");
@@ -72,44 +70,58 @@ class GenericHiveRecordCursor<K, V extends Writable>
         this.value = recordReader.createValue();
 
         try {
-            this.deserializer = MetaStoreUtils.getDeserializer(null, chunkSchema);
+            this.deserializer = MetaStoreUtils.getDeserializer(null, splitSchema);
             this.rowInspector = (StructObjectInspector) deserializer.getObjectInspector();
         }
         catch (Exception e) {
             throw Throwables.propagate(e);
         }
 
-        this.partitionKeyCount = partitionKeys.size();
-        int size = partitionKeyCount + Ordering.natural().max(Iterables.transform(columns, indexGetter())) + 1;
+        int size = columns.size();
 
-        this.types = new Type[size];
+        this.names = new String[size];
+        this.types = new ColumnType[size];
         this.hiveTypes = new HiveType[size];
+
+        this.structFields = new StructField[size];
+        this.fieldInspectors = new ObjectInspector[size];
+
+        this.isPartitionColumn = new boolean[size];
+
         this.longs = new long[size];
         this.doubles = new double[size];
         this.strings = new byte[size][];
         this.nulls = new boolean[size];
 
-        // add partition columns first
-        for (int columnIndex = 0; columnIndex < partitionKeyCount; columnIndex++) {
-            HivePartitionKey partitionKey = partitionKeys.get(columnIndex);
-            this.types[columnIndex] = partitionKey.getHiveType().getNativeType();
-            byte[] bytes = partitionKey.getValue().getBytes(Charsets.UTF_8);
-            parseColumn(columnIndex, bytes, 0, bytes.length);
+        // initialize data columns
+        for (int i = 0; i < columns.size(); i++) {
+            HiveColumnHandle column = columns.get(i);
+
+            names[i] = column.getName();
+            types[i] = column.getType();
+            hiveTypes[i] = column.getHiveType();
+
+            if (!column.isPartitionKey()) {
+                StructField field = rowInspector.getStructFieldRef(column.getName());
+                structFields[i] = field;
+                fieldInspectors[i] = field.getFieldObjectInspector();
+            }
+
+            isPartitionColumn[i] = column.isPartitionKey();
         }
 
-        // then add data columns
-        this.hiveColumnIndexes = new int[columns.size()];
-        this.fieldInspectors = new ObjectInspector[columns.size()];
-        this.structFields = new StructField[columns.size()];
-        for (int i = 0; i < columns.size(); i++) {
-            HiveColumn column = columns.get(i);
-            hiveColumnIndexes[i] = column.getIndex();
-            this.types[partitionKeyCount + column.getIndex()] = column.getHiveType().getNativeType();
-            this.hiveTypes[partitionKeyCount + column.getIndex()] = column.getHiveType();
+        // parse requested partition columns
+        Map<String,HivePartitionKey> partitionKeysByName = uniqueIndex(partitionKeys, HivePartitionKey.nameGetter());
+        for (int columnIndex = 0; columnIndex < columns.size(); columnIndex++) {
+            HiveColumnHandle column = columns.get(columnIndex);
+            if (column.isPartitionKey()) {
+                HivePartitionKey partitionKey = partitionKeysByName.get(column.getName());
+                Preconditions.checkArgument(partitionKey != null, "Unknown partition key %s", column.getName());
 
-            StructField field = rowInspector.getStructFieldRef(column.getName());
-            structFields[i] = field;
-            fieldInspectors[i] = field.getFieldObjectInspector();
+                byte[] bytes = partitionKey.getValue().getBytes(Charsets.UTF_8);
+
+                parseColumn(columnIndex, bytes, 0, bytes.length);
+            }
         }
     }
 
@@ -155,30 +167,33 @@ class GenericHiveRecordCursor<K, V extends Writable>
 
         Object rowData = deserializer.deserialize(value);
 
-        for (int i = 0; i < hiveColumnIndexes.length; i++) {
-            int hiveColumnIndex = hiveColumnIndexes[i];
-            Object fieldData = rowInspector.getStructFieldData(rowData, structFields[i]);
-            int column = partitionKeyCount + hiveColumnIndex;
+        for (int outputColumnIndex = 0; outputColumnIndex < types.length; outputColumnIndex++) {
+            if (isPartitionColumn[outputColumnIndex]) {
+                // skip partition keys
+                continue;
+            }
+
+            Object fieldData = rowInspector.getStructFieldData(rowData, structFields[outputColumnIndex]);
 
             if (fieldData == null) {
-                nulls[column] = true;
+                nulls[outputColumnIndex] = true;
             }
-            else if (hiveTypes[column] == HiveType.MAP || hiveTypes[column] == HiveType.LIST || hiveTypes[column] == HiveType.STRUCT) {
+            else if (hiveTypes[outputColumnIndex] == HiveType.MAP || hiveTypes[outputColumnIndex] == HiveType.LIST || hiveTypes[outputColumnIndex] == HiveType.STRUCT) {
                 // temporarily special case MAP, LIST, and STRUCT types as strings
-                strings[column] = SerDeUtils.getJSONString(fieldData, fieldInspectors[i]).getBytes(Charsets.UTF_8);
+                strings[outputColumnIndex] = SerDeUtils.getJSONString(fieldData, fieldInspectors[outputColumnIndex]).getBytes(Charsets.UTF_8);
             }
             else {
-                Object fieldValue = ((PrimitiveObjectInspector) fieldInspectors[i]).getPrimitiveJavaObject(fieldData);
+                Object fieldValue = ((PrimitiveObjectInspector) fieldInspectors[outputColumnIndex]).getPrimitiveJavaObject(fieldData);
                 checkState(fieldValue != null, "fieldValue should not be null");
-                switch (types[column]) {
+                switch (types[outputColumnIndex]) {
                     case LONG:
-                        longs[column] = getLongOrBoolean(fieldValue);
+                        longs[outputColumnIndex] = getLongOrBoolean(fieldValue);
                         break;
                     case DOUBLE:
-                        doubles[column] = ((Number) fieldValue).doubleValue();
+                        doubles[outputColumnIndex] = ((Number) fieldValue).doubleValue();
                         break;
                     case STRING:
-                        strings[column] = ((String) fieldValue).getBytes(Charsets.UTF_8);
+                        strings[outputColumnIndex] = ((String) fieldValue).getBytes(Charsets.UTF_8);
                         break;
                 }
             }
@@ -230,21 +245,21 @@ class GenericHiveRecordCursor<K, V extends Writable>
     @Override
     public long getLong(int fieldId)
     {
-        validateType(fieldId, Type.LONG);
+        validateType(fieldId, ColumnType.LONG);
         return longs[fieldId];
     }
 
     @Override
     public double getDouble(int fieldId)
     {
-        validateType(fieldId, Type.DOUBLE);
+        validateType(fieldId, ColumnType.DOUBLE);
         return doubles[fieldId];
     }
 
     @Override
     public byte[] getString(int fieldId)
     {
-        validateType(fieldId, Type.STRING);
+        validateType(fieldId, ColumnType.STRING);
         return strings[fieldId];
     }
 
@@ -254,7 +269,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
         return nulls[fieldId];
     }
 
-    private void validateType(int fieldId, Type type)
+    private void validateType(int fieldId, ColumnType type)
     {
         if (types[fieldId] != type) {
             // we don't use Preconditions.checkArgument because it requires boxing fieldId, which affects inner loop performance

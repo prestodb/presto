@@ -8,6 +8,7 @@ import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.SourceHashProviderFactory;
 import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.sql.analyzer.Analysis;
+import com.facebook.presto.split.DataStreamManager;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
@@ -29,17 +30,15 @@ import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.storage.MockStorageManager;
 import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.facebook.presto.tpch.TpchDataStreamProvider;
-import com.facebook.presto.tpch.TpchSchema;
+import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tpch.TpchSplit;
 import com.facebook.presto.tpch.TpchTableHandle;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
 import io.airlift.node.NodeConfig;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.DataSize;
 import org.intellij.lang.annotations.Language;
 
-import java.io.IOException;
 import java.util.Map;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -59,9 +58,9 @@ public abstract class AbstractSqlBenchmark
 
         Statement statement = SqlParser.createStatement(query);
 
-        metadata = TpchSchema.createMetadata();
+        metadata = TpchMetadata.createTpchMetadata();
 
-        session = new Session(null, TpchSchema.CATALOG_NAME, TpchSchema.SCHEMA_NAME);
+        session = new Session(null, TpchMetadata.TPCH_CATALOG_NAME, TpchMetadata.TPCH_SCHEMA_NAME);
         analysis = new Analyzer(session, metadata).analyze(statement);
 
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
@@ -79,40 +78,35 @@ public abstract class AbstractSqlBenchmark
     @Override
     protected Operator createBenchmarkedOperator(TpchBlocksProvider provider)
     {
-        try {
-            DataSize maxOperatorMemoryUsage = new DataSize(100, MEGABYTE);
-            LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(session,
-                    new NodeInfo(new NodeConfig()
-                            .setEnvironment("test")
-                            .setNodeId("test-node")),
-                    metadata,
-                    symbols,
-                    new OperatorStats(),
-                    new SourceHashProviderFactory(maxOperatorMemoryUsage),
-                    maxOperatorMemoryUsage,
-                    new TpchDataStreamProvider(provider),
-                    new MockLocalStorageManager(),
-                    null);
+        DataSize maxOperatorMemoryUsage = new DataSize(100, MEGABYTE);
+        LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(session,
+                new NodeInfo(new NodeConfig()
+                        .setEnvironment("test")
+                        .setNodeId("test-node")),
+                metadata,
+                symbols,
+                new OperatorStats(),
+                new SourceHashProviderFactory(maxOperatorMemoryUsage),
+                maxOperatorMemoryUsage,
+                new DataStreamManager(new TpchDataStreamProvider(provider)),
+                MockLocalStorageManager.createMockLocalStorageManager(),
+                null);
 
-            LocalExecutionPlan localExecutionPlan = executionPlanner.plan(fragment.getRoot());
+        LocalExecutionPlan localExecutionPlan = executionPlanner.plan(fragment.getRoot());
 
-            Map<PlanNodeId, SourceOperator> sourceOperators = localExecutionPlan.getSourceOperators();
-            for (PlanNode source : fragment.getSources()) {
-                TableScanNode tableScan = (TableScanNode) source;
-                TpchTableHandle handle = (TpchTableHandle) tableScan.getTable();
+        Map<PlanNodeId, SourceOperator> sourceOperators = localExecutionPlan.getSourceOperators();
+        for (PlanNode source : fragment.getSources()) {
+            TableScanNode tableScan = (TableScanNode) source;
+            TpchTableHandle handle = (TpchTableHandle) tableScan.getTable();
 
-                SourceOperator sourceOperator = sourceOperators.get(tableScan.getId());
-                Preconditions.checkArgument(sourceOperator != null, "Unknown plan source %s; known sources are %s", tableScan.getId(), sourceOperators.keySet());
-                sourceOperator.addSplit(new TpchSplit(handle));
-            }
-            for (SourceOperator sourceOperator : sourceOperators.values()) {
-                sourceOperator.noMoreSplits();
-            }
-
-            return localExecutionPlan.getRootOperator();
+            SourceOperator sourceOperator = sourceOperators.get(tableScan.getId());
+            Preconditions.checkArgument(sourceOperator != null, "Unknown plan source %s; known sources are %s", tableScan.getId(), sourceOperators.keySet());
+            sourceOperator.addSplit(new TpchSplit(handle));
         }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
+        for (SourceOperator sourceOperator : sourceOperators.values()) {
+            sourceOperator.noMoreSplits();
         }
+
+        return localExecutionPlan.getRootOperator();
     }
 }

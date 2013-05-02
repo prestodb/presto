@@ -1,19 +1,14 @@
 package com.facebook.presto;
 
-import com.facebook.presto.ingest.RecordCursor;
-import com.facebook.presto.ingest.RecordSet;
-import com.facebook.presto.metadata.ColumnMetadata;
-import com.facebook.presto.metadata.TableMetadata;
-import com.facebook.presto.metadata.TestingMetadata;
-import com.facebook.presto.operator.OperatorStats;
-import com.facebook.presto.tpch.TpchDataStreamProvider;
-import com.facebook.presto.tpch.TpchSchema;
+import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.RecordSet;
+import com.facebook.presto.spi.SchemaTableMetadata;
+import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.util.MaterializedResult;
-import com.facebook.presto.util.TestingTpchBlocksProvider;
 import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Iterables;
 import io.airlift.slice.Slices;
@@ -32,6 +27,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
 
+import static com.facebook.presto.tpch.TpchMetadata.TPCH_LINEITEM_METADATA;
+import static com.facebook.presto.tpch.TpchMetadata.TPCH_LINEITEM_NAME;
+import static com.facebook.presto.tpch.TpchMetadata.TPCH_ORDERS_METADATA;
+import static com.facebook.presto.tpch.TpchMetadata.TPCH_ORDERS_NAME;
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
@@ -49,8 +48,6 @@ import static org.testng.Assert.fail;
 public abstract class AbstractTestQueries
 {
     private Handle handle;
-    private TestingMetadata metadata;
-    private TpchDataStreamProvider dataProvider;
 
     @Test
     public void testComplexQuery()
@@ -1121,7 +1118,7 @@ public abstract class AbstractTestQueries
     {
         handle = DBI.open("jdbc:h2:mem:test" + System.nanoTime());
 
-        RecordSet ordersRecords = readTpchRecords("orders");
+        RecordSet ordersRecords = readTpchRecords(TPCH_ORDERS_NAME, TPCH_ORDERS_METADATA.getColumns().size());
         handle.execute("CREATE TABLE orders (\n" +
                 "  orderkey BIGINT PRIMARY KEY,\n" +
                 "  custkey BIGINT NOT NULL,\n" +
@@ -1133,9 +1130,9 @@ public abstract class AbstractTestQueries
                 "  shippriority BIGINT NOT NULL,\n" +
                 "  comment VARCHAR(79) NOT NULL\n" +
                 ")");
-        insertRows(TpchSchema.createOrders(), handle, ordersRecords);
+        insertRows(TPCH_ORDERS_METADATA, handle, ordersRecords);
 
-        RecordSet lineItemRecords = readTpchRecords("lineitem");
+        RecordSet lineItemRecords = readTpchRecords(TPCH_LINEITEM_NAME, TPCH_LINEITEM_METADATA.getColumns().size());
         handle.execute("CREATE TABLE lineitem (\n" +
                 "  orderkey BIGINT,\n" +
                 "  partkey BIGINT NOT NULL,\n" +
@@ -1155,20 +1152,9 @@ public abstract class AbstractTestQueries
                 "  comment VARCHAR(44) NOT NULL,\n" +
                 "  PRIMARY KEY (orderkey, linenumber)" +
                 ")");
-        insertRows(TpchSchema.createLineItem(), handle, lineItemRecords);
+        insertRows(TPCH_LINEITEM_METADATA, handle, lineItemRecords);
 
-        metadata = TpchSchema.createMetadata();
-
-        TestingTpchBlocksProvider tpchBlocksProvider = new TestingTpchBlocksProvider(
-                ImmutableMap.of(
-                        "orders", ordersRecords,
-                        "lineitem", lineItemRecords
-                )
-        );
-
-        dataProvider = new TpchDataStreamProvider(tpchBlocksProvider);
-
-        setUpQueryFramework(TpchSchema.CATALOG_NAME, TpchSchema.SCHEMA_NAME, dataProvider, metadata);
+        setUpQueryFramework(TpchMetadata.TPCH_CATALOG_NAME, TpchMetadata.TPCH_SCHEMA_NAME);
     }
 
     @AfterClass(alwaysRun = true)
@@ -1179,10 +1165,8 @@ public abstract class AbstractTestQueries
         handle.close();
     }
 
-    protected void setUpQueryFramework(String catalog, String schema, TpchDataStreamProvider dataStreamProvider, TestingMetadata metadata)
-            throws Exception
-    {
-    }
+    protected abstract void setUpQueryFramework(String catalog, String schema)
+            throws Exception;
 
     protected void tearDownQueryFramework()
             throws Exception
@@ -1298,12 +1282,12 @@ public abstract class AbstractTestQueries
         };
     }
 
-    private static void insertRows(TableMetadata tableMetadata, Handle handle, RecordSet data)
+    private static void insertRows(SchemaTableMetadata tableMetadata, Handle handle, RecordSet data)
     {
         String vars = Joiner.on(',').join(nCopies(tableMetadata.getColumns().size(), "?"));
         String sql = format("INSERT INTO %s VALUES (%s)", tableMetadata.getTable().getTableName(), vars);
 
-        RecordCursor cursor = data.cursor(new OperatorStats());
+        RecordCursor cursor = data.cursor();
         while (true) {
             // insert 1000 rows at a time
             PreparedBatch batch = handle.prepareBatch(sql);
@@ -1316,13 +1300,13 @@ public abstract class AbstractTestQueries
                 for (int column = 0; column < tableMetadata.getColumns().size(); column++) {
                     ColumnMetadata columnMetadata = tableMetadata.getColumns().get(column);
                     switch (columnMetadata.getType()) {
-                        case FIXED_INT_64:
+                        case LONG:
                             part.bind(column, cursor.getLong(column));
                             break;
                         case DOUBLE:
                             part.bind(column, cursor.getDouble(column));
                             break;
-                        case VARIABLE_BINARY:
+                        case STRING:
                             part.bind(column, new String(cursor.getString(column), UTF_8));
                             break;
                     }

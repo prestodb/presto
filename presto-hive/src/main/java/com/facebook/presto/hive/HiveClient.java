@@ -1,19 +1,27 @@
 package com.facebook.presto.hive;
 
-import javax.annotation.concurrent.ThreadSafe;
-
 import com.facebook.presto.hive.util.AsyncRecursiveWalker;
 import com.facebook.presto.hive.util.BoundedExecutor;
 import com.facebook.presto.hive.util.FileStatusCallback;
 import com.facebook.presto.hive.util.SuspendingExecutor;
-import com.facebook.presto.spi.ImportClient;
-import com.facebook.presto.spi.ObjectNotFoundException;
-import com.facebook.presto.spi.PartitionChunk;
-import com.facebook.presto.spi.PartitionInfo;
-import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.SchemaField;
-import com.facebook.presto.spi.SchemaField.Type;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorHandleResolver;
+import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.ConnectorSplitManager;
+import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.Partition;
+import com.facebook.presto.spi.RecordSet;
+import com.facebook.presto.spi.SchemaNotFoundException;
+import com.facebook.presto.spi.SchemaTableMetadata;
+import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.Split;
+import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.base.Function;
+import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
@@ -25,6 +33,7 @@ import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.FileStatus;
@@ -35,7 +44,6 @@ import org.apache.hadoop.hive.metastore.Warehouse;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
-import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat.SymlinkTextInputSplit;
@@ -51,17 +59,18 @@ import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.JobConf;
 
+import javax.annotation.concurrent.ThreadSafe;
 import java.io.Closeable;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.Collections;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
@@ -73,89 +82,212 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.hive.HivePartitionChunk.makeLastChunk;
-
-import static com.facebook.presto.hive.HiveUtil.convertHiveType;
+import static com.facebook.presto.hive.HiveColumnHandle.columnMetadataGetter;
+import static com.facebook.presto.hive.HiveColumnHandle.hiveColumnHandle;
+import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
+import static com.facebook.presto.hive.HiveSplit.markAsLastSplit;
+import static com.facebook.presto.hive.HiveType.getHiveType;
 import static com.facebook.presto.hive.HiveUtil.convertNativeHiveType;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
+import static com.facebook.presto.hive.UnpartitionedPartition.UNPARTITIONED_PARTITION;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.concat;
-import static com.google.common.collect.Iterables.partition;
 import static com.google.common.collect.Iterables.transform;
-
 
 @SuppressWarnings("deprecation")
 public class HiveClient
-        implements ImportClient
+        implements ConnectorMetadata, ConnectorSplitManager, ConnectorRecordSetProvider, ConnectorHandleResolver
 {
     public static final String HIVE_VIEWS_NOT_SUPPORTED = "Hive views are not supported";
 
     private static final Logger log = Logger.get(HiveClient.class);
 
-    private final long maxChunkBytes;
-    private final int maxOutstandingChunks;
-    private final int maxChunkIteratorThreads;
+    private final String connectorId;
+    private final int maxOutstandingSplits;
+    private final int maxSplitIteratorThreads;
     private final int partitionBatchSize;
-    private final HiveChunkEncoder hiveChunkEncoder;
-    private final HiveChunkReader hiveChunkReader;
     private final CachingHiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
     private final ExecutorService executor;
 
-    public HiveClient(
-            long maxChunkBytes,
-            int maxOutstandingChunks,
-            int maxChunkIteratorThreads,
-            int partitionBatchSize,
-            HiveChunkEncoder hiveChunkEncoder,
-            HiveChunkReader hiveChunkReader,
+    @Inject
+    public HiveClient(HiveConnectorId connectorId,
+            HiveClientConfig hiveClientConfig,
             CachingHiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
-            ExecutorService executor)
+            @ForHiveClient ExecutorService executor)
     {
-        this.maxChunkBytes = maxChunkBytes;
-        this.maxOutstandingChunks = maxOutstandingChunks;
-        this.maxChunkIteratorThreads = maxChunkIteratorThreads;
+        this(connectorId,
+                metastore,
+                hdfsEnvironment,
+                executor,
+                hiveClientConfig.getMaxOutstandingSplits(),
+                hiveClientConfig.getMaxSplitIteratorThreads(),
+                hiveClientConfig.getPartitionBatchSize());
+    }
+
+    public HiveClient(HiveConnectorId connectorId,
+            CachingHiveMetastore metastore,
+            HdfsEnvironment hdfsEnvironment,
+            ExecutorService executor,
+            int maxOutstandingSplits,
+            int maxSplitIteratorThreads,
+            int partitionBatchSize)
+    {
+        this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
+
+        this.maxOutstandingSplits = maxOutstandingSplits;
+        this.maxSplitIteratorThreads = maxSplitIteratorThreads;
         this.partitionBatchSize = partitionBatchSize;
-        this.hiveChunkEncoder = hiveChunkEncoder;
-        this.hiveChunkReader = hiveChunkReader;
-        this.metastore = metastore;
-        this.hdfsEnvironment = hdfsEnvironment;
-        this.executor = executor;
+
+        this.metastore = checkNotNull(metastore, "metastore is null");
+        this.hdfsEnvironment = checkNotNull(hdfsEnvironment, "hdfsEnvironment is null");
+
+        this.executor = checkNotNull(executor, "executor is null");
     }
 
     @Override
-    public List<String> getDatabaseNames()
+    public String getConnectorId()
+    {
+        return connectorId;
+    }
+
+    @Override
+    public List<String> listSchemaNames()
     {
         return metastore.getAllDatabases();
     }
 
     @Override
-    public List<String> getTableNames(String databaseName)
-            throws ObjectNotFoundException
+    public HiveTableHandle getTableHandle(SchemaTableName tableName)
     {
         try {
-            return metastore.getAllTables(databaseName);
+            metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
+            return new HiveTableHandle(connectorId, tableName);
         }
         catch (NoSuchObjectException e) {
-            throw new ObjectNotFoundException(e.getMessage());
+            // table was not found
+            return null;
+        }
+    }
+
+    private SchemaTableName getTableName(TableHandle tableHandle)
+    {
+        checkArgument(tableHandle instanceof HiveTableHandle, "tableHandle is not an instance of HiveTableHandle");
+        return ((HiveTableHandle) tableHandle).getTableName();
+    }
+
+    @Override
+    public SchemaTableMetadata getTableMetadata(TableHandle tableHandle)
+    {
+        SchemaTableName tableName = getTableName(tableHandle);
+        return getTableMetadata(tableName);
+    }
+
+    private SchemaTableMetadata getTableMetadata(SchemaTableName tableName)
+    {
+        try {
+            Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
+            List<ColumnMetadata> columns = ImmutableList.copyOf(transform(getColumnHandles(table), columnMetadataGetter()));
+
+            return new SchemaTableMetadata(tableName, columns);
+        }
+        catch (NoSuchObjectException e) {
+            throw new TableNotFoundException(tableName);
         }
     }
 
     @Override
-    public List<SchemaField> getTableSchema(String databaseName, String tableName)
-            throws ObjectNotFoundException
+    public List<SchemaTableName> listTables(String schemaNameOrNull)
     {
+        List<String> schemaNames;
+        if (schemaNameOrNull == null) {
+            schemaNames = listSchemaNames();
+        }
+        else {
+            schemaNames = Collections.singletonList(schemaNameOrNull);
+        }
+
+        ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
+        for (String schemaName : schemaNames) {
+            try {
+                for (String tableName : metastore.getAllTables(schemaName)) {
+                    tableNames.add(new SchemaTableName(schemaName, tableName));
+                }
+            }
+            catch (NoSuchObjectException e) {
+                throw new SchemaNotFoundException(schemaName);
+            }
+        }
+        return tableNames.build();
+    }
+
+    private List<SchemaTableName> listTables(SchemaTablePrefix prefix)
+    {
+        List<SchemaTableName> tableNames;
+        if (prefix.getSchemaName() == null) {
+            tableNames = listTables(prefix.getSchemaName());
+        } else {
+            tableNames = Collections.singletonList(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
+        }
+        return tableNames;
+    }
+
+    @Override
+    public ColumnHandle getColumnHandle(TableHandle tableHandle, String columnName)
+    {
+        return getColumnHandles(tableHandle).get(columnName);
+    }
+
+    @Override
+    public Map<String, ColumnHandle> getColumnHandles(TableHandle tableHandle)
+    {
+        SchemaTableName tableName = getTableName(tableHandle);
         try {
-            Table table = metastore.getTable(databaseName, tableName);
-            List<FieldSchema> partitionKeys = table.getPartitionKeys();
-            Properties schema = MetaStoreUtils.getSchema(table);
-            return getSchemaFields(schema, partitionKeys);
+            Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
+            ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
+            for (HiveColumnHandle columnHandle : getColumnHandles(table)) {
+                columnHandles.put(columnHandle.getName(), columnHandle);
+            }
+            return columnHandles.build();
         }
         catch (NoSuchObjectException e) {
-            throw new ObjectNotFoundException(e.getMessage());
+            throw new TableNotFoundException(tableName);
+        }
+    }
+
+    private List<HiveColumnHandle> getColumnHandles(Table table)
+    {
+        try {
+            Deserializer deserializer = MetaStoreUtils.getDeserializer(null, MetaStoreUtils.getSchema(table));
+            ObjectInspector inspector = deserializer.getObjectInspector();
+            checkArgument(inspector.getCategory() == ObjectInspector.Category.STRUCT, "expected STRUCT: %s", inspector.getCategory());
+            StructObjectInspector structObjectInspector = (StructObjectInspector) inspector;
+
+            ImmutableList.Builder<HiveColumnHandle> columns = ImmutableList.builder();
+
+            // add the partition keys
+            List<FieldSchema> partitionKeys = table.getPartitionKeys();
+            for (int i = 0; i < partitionKeys.size(); i++) {
+                FieldSchema field = partitionKeys.get(i);
+
+                HiveType hiveType = getHiveType(field.getType());
+                columns.add(new HiveColumnHandle(connectorId, field.getName(), i, hiveType, -1, true));
+            }
+
+            // add the data fields
+            int hiveColumnIndex = 0;
+            for (StructField field : structObjectInspector.getAllStructFieldRefs()) {
+                // ignore unsupported types rather than failing
+                HiveType hiveType = getHiveType(field.getFieldObjectInspector());
+                if (hiveType != null) {
+                    columns.add(new HiveColumnHandle(connectorId, field.getFieldName(), partitionKeys.size() + hiveColumnIndex, hiveType, hiveColumnIndex, false));
+                }
+                hiveColumnIndex++;
+            }
+            return columns.build();
         }
         catch (MetaException | SerDeException e) {
             throw Throwables.propagate(e);
@@ -163,130 +295,137 @@ public class HiveClient
     }
 
     @Override
-    public List<SchemaField> getPartitionKeys(String databaseName, String tableName)
-            throws ObjectNotFoundException
+    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(SchemaTablePrefix prefix)
     {
-        try {
-            Table table = metastore.getTable(databaseName, tableName);
-            List<FieldSchema> partitionKeys = table.getPartitionKeys();
-
-            ImmutableList.Builder<SchemaField> schemaFields = ImmutableList.builder();
-            for (int i = 0; i < partitionKeys.size(); i++) {
-                FieldSchema field = partitionKeys.get(i);
-                Type type = convertHiveType(field.getType());
-
-                // partition keys are always the first fields in the table
-                schemaFields.add(SchemaField.createPrimitive(field.getName(), i, type));
-            }
-
-            return schemaFields.build();
+        ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
+        for (SchemaTableName tableName : listTables(prefix)) {
+            columns.put(tableName, getTableMetadata(tableName).getColumns());
         }
-        catch (NoSuchObjectException e) {
-            throw new ObjectNotFoundException(e.getMessage());
-        }
+        return columns.build();
     }
 
     @Override
-    public List<String> getPartitionNames(String databaseName, String tableName)
-            throws ObjectNotFoundException
+    public ColumnMetadata getColumnMetadata(TableHandle tableHandle, ColumnHandle columnHandle)
     {
-        try {
-            return metastore.getPartitionNames(databaseName, tableName);
-        }
-        catch (NoSuchObjectException e) {
-            throw new ObjectNotFoundException(e.getMessage());
-        }
+        checkArgument(tableHandle instanceof HiveTableHandle, "tableHandle is not an instance of HiveTableHandle");
+        checkArgument(columnHandle instanceof HiveColumnHandle, "columnHandle is not an instance of HiveColumnHandle");
+        return ((HiveColumnHandle) columnHandle).getColumnMetadata();
     }
 
     @Override
-    public List<PartitionInfo> getPartitions(String databaseName, String tableName, final Map<String, Object> filters)
-            throws ObjectNotFoundException
+    public TableHandle createTable(SchemaTableMetadata tableMetadata)
     {
-        // build the filtering prefix
-        List<String> parts = new ArrayList<>();
-        List<SchemaField> partitionKeys = getPartitionKeys(databaseName, tableName);
-        for (SchemaField key : partitionKeys) {
-            Object value = filters.get(key.getFieldName());
+        throw new UnsupportedOperationException();
+    }
 
-            if (value == null) {
-                // we're building a partition prefix, so stop at the first missing binding
-                break;
+    @Override
+    public void dropTable(TableHandle tableHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public List<Partition> getPartitions(TableHandle tableHandle, Map<ColumnHandle, Object> bindings)
+    {
+        SchemaTableName tableName = getTableName(tableHandle);
+
+        List<FieldSchema> partitionKeys;
+        try {
+            partitionKeys = metastore.getTable(tableName.getSchemaName(), tableName.getTableName()).getPartitionKeys();
+        }
+        catch (NoSuchObjectException e) {
+            throw new TableNotFoundException(tableName);
+        }
+
+        LinkedHashMap<String, ColumnHandle> partitionKeysByName = new LinkedHashMap<>();
+        List<String> filterPrefix = new ArrayList<>();
+        for (int i = 0; i < partitionKeys.size(); i++) {
+            FieldSchema field = partitionKeys.get(i);
+
+            HiveColumnHandle columnHandle = new HiveColumnHandle(connectorId, field.getName(), i, getHiveType(field.getType()), -1, true);
+            partitionKeysByName.put(field.getName(), columnHandle);
+
+            // only add to prefix if all previous keys have a value
+            if (filterPrefix.size() == i) {
+                Object value = bindings.get(columnHandle);
+                if (value != null) {
+                    Preconditions.checkArgument(value instanceof String || value instanceof Double || value instanceof Long,
+                            "Only String, Double and Long partition keys are supported");
+                    filterPrefix.add(value.toString());
+                }
             }
-
-            Preconditions.checkArgument(value instanceof String || value instanceof Double || value instanceof Long,
-                    "Only String, Double and Long partition keys are supported");
-
-            parts.add(value.toString());
         }
 
         // fetch the partition names
-        List<PartitionInfo> partitions;
-        if (parts.isEmpty()) {
-            partitions = getPartitions(databaseName, tableName);
+        List<String> partitionNames;
+        try {
+            if (filterPrefix.isEmpty()) {
+                partitionNames = metastore.getPartitionNames(tableName.getSchemaName(), tableName.getTableName());
+            }
+            else {
+                partitionNames = metastore.getPartitionNamesByParts(tableName.getSchemaName(), tableName.getTableName(), filterPrefix);
+            }
         }
-        else {
-            try {
-                List<String> names = metastore.getPartitionNamesByParts(databaseName, tableName, parts);
-                partitions = Lists.transform(names, toPartitionInfo(partitionKeys));
-            }
-            catch (NoSuchObjectException e) {
-                throw new ObjectNotFoundException(e.getMessage());
-            }
+        catch (NoSuchObjectException e) {
+            throw new TableNotFoundException(tableName);
         }
 
         // do a final pass to filter based on fields that could not be used to build the prefix
-        return ImmutableList.copyOf(Iterables.filter(partitions, partitionMatches(filters)));
+        Iterable<Partition> partitions = transform(partitionNames, toPartition(tableName, partitionKeysByName));
+        return ImmutableList.copyOf(Iterables.filter(partitions, partitionMatches(bindings)));
     }
 
     @Override
-    public List<PartitionInfo> getPartitions(String databaseName, String tableName)
-            throws ObjectNotFoundException
+    public Iterable<Split> getPartitionSplits(List<Partition> partitions)
     {
-        List<SchemaField> partitionKeys = getPartitionKeys(databaseName, tableName);
-        return Lists.transform(getPartitionNames(databaseName, tableName), toPartitionInfo(partitionKeys));
-    }
+        checkNotNull(partitions, "partitions is null");
 
-    @Override
-    public Iterable<PartitionChunk> getPartitionChunks(String databaseName, String tableName, String partitionName, List<String> columns)
-            throws ObjectNotFoundException
-    {
-        return getPartitionChunks(databaseName, tableName, ImmutableList.of(partitionName), columns);
-    }
+        Partition partition = Iterables.getFirst(partitions, null);
+        if (partition == null) {
+            return ImmutableList.of();
+        }
+        checkArgument(partition instanceof HivePartition, "Partition must be a hive partition");
+        SchemaTableName tableName = ((HivePartition) partition).getTableName();
 
-    @Override
-    public Iterable<PartitionChunk> getPartitionChunks(String databaseName, String tableName, List<String> partitionNames, List<String> columns)
-            throws ObjectNotFoundException
-    {
+        List<String> partitionNames = Lists.transform(partitions, new Function<Partition, String>()
+        {
+            @Override
+            public String apply(Partition input)
+            {
+                return input.getPartitionId();
+            }
+        });
+
         Table table;
-        Iterable<Partition> partitions;
+        Iterable<org.apache.hadoop.hive.metastore.api.Partition> hivePartitions;
         try {
-            table = metastore.getTable(databaseName, tableName);
-            partitions = getPartitions(databaseName, tableName, partitionNames);
+            table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
+            hivePartitions = getPartitions(tableName, partitionNames);
         }
         catch (NoSuchObjectException e) {
-            throw new ObjectNotFoundException(e.getMessage());
+            throw new TableNotFoundException(tableName);
         }
 
-        return getPartitionChunks(table, ImmutableList.copyOf(partitionNames), partitions, getHiveColumns(table, columns));
+        return new HiveSplitIterable(connectorId, table, partitionNames, hivePartitions, maxOutstandingSplits, maxSplitIteratorThreads, hdfsEnvironment, executor, partitionBatchSize);
     }
 
-    private Iterable<Partition> getPartitions(final String databaseName, final String tableName, final List<String> partitionNames)
+    private Iterable<org.apache.hadoop.hive.metastore.api.Partition> getPartitions(final SchemaTableName tableName, final List<String> partitionNames)
             throws NoSuchObjectException
     {
-        if (partitionNames.equals(ImmutableList.of(UnpartitionedPartition.UNPARTITIONED_NAME))) {
-            return ImmutableList.<Partition>of(UnpartitionedPartition.INSTANCE);
+        if (partitionNames.equals(ImmutableList.of(UNPARTITIONED_ID))) {
+            return ImmutableList.of(UNPARTITIONED_PARTITION);
         }
 
         Iterable<List<String>> partitionNameBatches = partitionExponentially(partitionNames, partitionBatchSize);
-        Iterable<List<Partition>> partitionBatches = transform(partitionNameBatches, new Function<List<String>, List<Partition>>()
+        Iterable<List<org.apache.hadoop.hive.metastore.api.Partition>> partitionBatches = transform(partitionNameBatches, new Function<List<String>, List<org.apache.hadoop.hive.metastore.api.Partition>>()
         {
             @Override
-            public List<Partition> apply(List<String> partitionNameBatch)
+            public List<org.apache.hadoop.hive.metastore.api.Partition> apply(List<String> partitionNameBatch)
             {
                 Exception exception = null;
                 for (int attempt = 0; attempt < 10; attempt++) {
                     try {
-                        List<Partition> partitions = metastore.getPartitionsByNames(databaseName, tableName, partitionNameBatch);
+                        List<org.apache.hadoop.hive.metastore.api.Partition> partitions = metastore.getPartitionsByNames(tableName.getSchemaName(), tableName.getTableName(), partitionNameBatch);
                         checkState(partitionNameBatch.size() == partitions.size(), "expected %s partitions but found %s", partitionNameBatch.size(), partitions.size());
                         return partitions;
                     }
@@ -313,89 +452,73 @@ public class HiveClient
     }
 
     @Override
-    public RecordCursor getRecords(PartitionChunk partitionChunk)
+    public RecordSet getRecordSet(Split split, List<? extends ColumnHandle> columns)
     {
-        checkArgument(partitionChunk instanceof HivePartitionChunk,
-                "expected instance of %s: %s", HivePartitionChunk.class, partitionChunk.getClass());
-        assert partitionChunk instanceof HivePartitionChunk; // IDEA-60343
-        return hiveChunkReader.getRecords((HivePartitionChunk) partitionChunk);
+        checkArgument(split instanceof HiveSplit,
+                "expected instance of %s: %s", HiveSplit.class, split.getClass());
+        assert split instanceof HiveSplit; // IDEA-60343
+
+        List<HiveColumnHandle> hiveColumns = ImmutableList.copyOf(transform(columns, hiveColumnHandle()));
+        return new HiveRecordSet(hdfsEnvironment, (HiveSplit) split, hiveColumns);
     }
 
     @Override
-    public byte[] serializePartitionChunk(PartitionChunk partitionChunk)
+    public boolean canHandle(TableHandle tableHandle)
     {
-        checkArgument(partitionChunk instanceof HivePartitionChunk,
-                "expected instance of %s: %s", HivePartitionChunk.class, partitionChunk.getClass());
-        assert partitionChunk instanceof HivePartitionChunk; // IDEA-60343
-        return hiveChunkEncoder.serialize((HivePartitionChunk) partitionChunk);
+        return tableHandle instanceof HiveTableHandle && ((HiveTableHandle) tableHandle).getClientId().equals(connectorId);
     }
 
     @Override
-    public PartitionChunk deserializePartitionChunk(byte[] bytes)
+    public boolean canHandle(ColumnHandle columnHandle)
     {
-        return hiveChunkEncoder.deserialize(bytes);
+        return columnHandle instanceof HiveColumnHandle && ((HiveColumnHandle) columnHandle).getClientId().equals(connectorId);
     }
 
-    private static List<HiveColumn> getHiveColumns(Table table, List<String> columns)
+    @Override
+    public boolean canHandle(Split split)
     {
-        HashSet<String> columnNames = new HashSet<>(columns);
-
-        // remove primary keys
-        for (FieldSchema fieldSchema : table.getPartitionKeys()) {
-            columnNames.remove(fieldSchema.getName());
-        }
-
-        try {
-            Properties schema = MetaStoreUtils.getSchema(table);
-            Deserializer deserializer = MetaStoreUtils.getDeserializer(null, schema);
-            StructObjectInspector tableInspector = (StructObjectInspector) deserializer.getObjectInspector();
-
-            ImmutableList.Builder<HiveColumn> hiveColumns = ImmutableList.builder();
-            int index = 0;
-            for (StructField field : tableInspector.getAllStructFieldRefs()) {
-                // ignore unused columns
-                // remove the columns as we find them so we can know if all columns were found
-                if (columnNames.remove(field.getFieldName())) {
-                    ObjectInspector fieldInspector = field.getFieldObjectInspector();
-                    HiveType hiveType = HiveType.getSupportedHiveType(fieldInspector);
-                    hiveColumns.add(new HiveColumn(field.getFieldName(), index, hiveType));
-                }
-                index++;
-            }
-
-            Preconditions.checkArgument(columnNames.isEmpty(), "Table %s does not contain the columns %s", table.getTableName(), columnNames);
-
-            return hiveColumns.build();
-        }
-        catch (MetaException | SerDeException e) {
-            throw Throwables.propagate(e);
-        }
+        return split instanceof HiveSplit && ((HiveSplit) split).getClientId().equals(connectorId);
     }
 
-    private Iterable<PartitionChunk> getPartitionChunks(Table table, Iterable<String> partitionNames, Iterable<Partition> partitions, List<HiveColumn> columns)
+    @Override
+    public Class<? extends TableHandle> getTableHandleClass()
     {
-        return new PartitionChunkIterable(table, partitionNames, partitions, columns, maxChunkBytes, maxOutstandingChunks, maxChunkIteratorThreads, hdfsEnvironment, executor, partitionBatchSize);
+        return HiveTableHandle.class;
     }
 
-    private static class PartitionChunkIterable
-            implements Iterable<PartitionChunk>
+    @Override
+    public Class<? extends ColumnHandle> getColumnHandleClass()
     {
-        private static final PartitionChunk FINISHED_MARKER = new PartitionChunk()
+        return HiveColumnHandle.class;
+    }
+
+    @Override
+    public Class<? extends Split> getSplitClass()
+    {
+        return HiveSplit.class;
+    }
+
+    @Override
+    public String toString()
+    {
+        return Objects.toStringHelper(this)
+                .add("clientId", connectorId)
+                .toString();
+    }
+
+    private static class HiveSplitIterable
+            implements Iterable<Split>
+    {
+        private static final Split FINISHED_MARKER = new Split()
         {
             @Override
-            public String getPartitionName()
+            public boolean isRemotelyAccessible()
             {
                 throw new UnsupportedOperationException();
             }
 
             @Override
-            public long getLength()
-            {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public List<InetAddress> getHosts()
+            public List<HostAddress> getAddresses()
             {
                 throw new UnsupportedOperationException();
             }
@@ -405,44 +528,35 @@ public class HiveClient
             {
                 throw new UnsupportedOperationException();
             }
-
-            @Override
-            public boolean isLastChunk()
-            {
-                throw new UnsupportedOperationException();
-            }
         };
 
+        private final String clientId;
         private final Table table;
         private final Iterable<String> partitionNames;
-        private final Iterable<Partition> partitions;
-        private final List<HiveColumn> columns;
-        private final long maxChunkBytes;
-        private final int maxOutstandingChunks;
+        private final Iterable<org.apache.hadoop.hive.metastore.api.Partition> partitions;
+        private final int maxOutstandingSplits;
         private final int maxThreads;
         private final HdfsEnvironment hdfsEnvironment;
         private final ExecutorService executor;
         private final ClassLoader classLoader;
         private final int partitionBatchSize;
 
-        private PartitionChunkIterable(Table table,
+        private HiveSplitIterable(String clientId,
+                Table table,
                 Iterable<String> partitionNames,
-                Iterable<Partition> partitions,
-                List<HiveColumn> columns,
-                long maxChunkBytes,
-                int maxOutstandingChunks,
+                Iterable<org.apache.hadoop.hive.metastore.api.Partition> partitions,
+                int maxOutstandingSplits,
                 int maxThreads,
                 HdfsEnvironment hdfsEnvironment,
                 ExecutorService executor,
                 int partitionBatchSize)
         {
+            this.clientId = clientId;
             this.table = table;
             this.partitionNames = partitionNames;
             this.partitions = partitions;
             this.partitionBatchSize = partitionBatchSize;
-            this.columns = ImmutableList.copyOf(columns);
-            this.maxChunkBytes = maxChunkBytes;
-            this.maxOutstandingChunks = maxOutstandingChunks;
+            this.maxOutstandingSplits = maxOutstandingSplits;
             this.maxThreads = maxThreads;
             this.hdfsEnvironment = hdfsEnvironment;
             this.executor = executor;
@@ -450,25 +564,25 @@ public class HiveClient
         }
 
         @Override
-        public Iterator<PartitionChunk> iterator()
+        public Iterator<Split> iterator()
         {
             // Each iterator has its own bounded executor and can be independently suspended
             final SuspendingExecutor suspendingExecutor = new SuspendingExecutor(new BoundedExecutor(executor, maxThreads));
-            final PartitionChunkQueue partitionChunkQueue = new PartitionChunkQueue(maxOutstandingChunks, suspendingExecutor);
+            final HiveSplitQueue hiveSplitQueue = new HiveSplitQueue(maxOutstandingSplits, suspendingExecutor);
             executor.submit(new Callable<Void>()
             {
                 @Override
                 public Void call()
                         throws Exception
                 {
-                    loadPartitionChunks(partitionChunkQueue, suspendingExecutor);
+                    loadPartitionSplits(hiveSplitQueue, suspendingExecutor);
                     return null;
                 }
             });
-            return partitionChunkQueue;
+            return hiveSplitQueue;
         }
 
-        private void loadPartitionChunks(final PartitionChunkQueue partitionChunkQueue, final SuspendingExecutor suspendingExecutor)
+        private void loadPartitionSplits(final HiveSplitQueue hiveSplitQueue, final SuspendingExecutor suspendingExecutor)
                 throws InterruptedException
         {
             final Semaphore semaphore = new Semaphore(partitionBatchSize);
@@ -476,7 +590,7 @@ public class HiveClient
                 ImmutableList.Builder<ListenableFuture<Void>> futureBuilder = ImmutableList.builder();
 
                 Iterator<String> nameIterator = partitionNames.iterator();
-                for (Partition partition : partitions) {
+                for (org.apache.hadoop.hive.metastore.api.Partition partition : partitions) {
                     checkState(nameIterator.hasNext(), "different number of partitions and partition names!");
                     semaphore.acquire();
                     final String partitionName = nameIterator.next();
@@ -486,7 +600,7 @@ public class HiveClient
                     Path partitionPath = hdfsEnvironment.getFileSystemWrapper().wrap(new Path(getPartitionLocation(table, partition)));
 
                     final FileSystem fs = partitionPath.getFileSystem(hdfsEnvironment.getConfiguration());
-                    final PartitionChunkPoisoner chunkPoisoner = new PartitionChunkPoisoner(partitionChunkQueue);
+                    final LastSplitMarkingQueue markerQueue = new LastSplitMarkingQueue(hiveSplitQueue);
 
                     if (inputFormat instanceof SymlinkTextInputFormat) {
                         JobConf jobConf = new JobConf(hdfsEnvironment.getConfiguration());
@@ -497,7 +611,8 @@ public class HiveClient
 
                             // get the filesystem for the target path -- it may be a different hdfs instance
                             FileSystem targetFilesystem = split.getPath().getFileSystem(hdfsEnvironment.getConfiguration());
-                            chunkPoisoner.writeChunks(createHivePartitionChunks(partitionName, targetFilesystem.getFileStatus(split.getPath()),
+                            markerQueue.addToQueue(createHiveSplits(partitionName,
+                                    targetFilesystem.getFileStatus(split.getPath()),
                                     split.getStart(),
                                     split.getLength(),
                                     schema,
@@ -505,7 +620,7 @@ public class HiveClient
                                     targetFilesystem,
                                     false));
                         }
-                        chunkPoisoner.finish();
+                        markerQueue.finish();
                         continue;
                     }
 
@@ -519,10 +634,10 @@ public class HiveClient
                                         file.getPath().getFileSystem(hdfsEnvironment.getConfiguration()),
                                         file.getPath());
 
-                                chunkPoisoner.writeChunks(createHivePartitionChunks(partitionName, file, 0, file.getLen(), schema, partitionKeys, fs, splittable));
+                                markerQueue.addToQueue(createHiveSplits(partitionName, file, 0, file.getLen(), schema, partitionKeys, fs, splittable));
                             }
                             catch (IOException e) {
-                                partitionChunkQueue.fail(e);
+                                hiveSplitQueue.fail(e);
                             }
                         }
                     });
@@ -533,14 +648,14 @@ public class HiveClient
                         @Override
                         public void onSuccess(Void result)
                         {
-                            chunkPoisoner.finish();
+                            markerQueue.finish();
                             semaphore.release();
                         }
 
                         @Override
                         public void onFailure(Throwable t)
                         {
-                            chunkPoisoner.finish();
+                            markerQueue.finish();
                             semaphore.release();
                         }
                     });
@@ -553,23 +668,23 @@ public class HiveClient
                     @Override
                     public void onSuccess(List<Void> result)
                     {
-                        partitionChunkQueue.finished();
+                        hiveSplitQueue.finished();
                     }
 
                     @Override
                     public void onFailure(Throwable t)
                     {
-                        partitionChunkQueue.fail(t);
+                        hiveSplitQueue.fail(t);
                     }
                 });
             }
             catch (Throwable e) {
-                partitionChunkQueue.fail(e);
+                hiveSplitQueue.fail(e);
                 Throwables.propagateIfInstanceOf(e, Error.class);
             }
         }
 
-        private List<HivePartitionChunk> createHivePartitionChunks(
+        private List<HiveSplit> createHiveSplits(
                 String partitionName,
                 FileStatus file,
                 long start,
@@ -582,74 +697,70 @@ public class HiveClient
         {
             BlockLocation[] fileBlockLocations = fs.getFileBlockLocations(file, start, length);
 
-            ImmutableList.Builder<HivePartitionChunk> builder = ImmutableList.builder();
+            ImmutableList.Builder<HiveSplit> builder = ImmutableList.builder();
             if (splittable) {
                 for (BlockLocation blockLocation : fileBlockLocations) {
-                    builder.add(new HivePartitionChunk(partitionName,
+                    builder.add(new HiveSplit(clientId,
+                            partitionName,
                             false,
-                            file.getPath(),
+                            file.getPath().toString(),
                             blockLocation.getOffset(),
                             blockLocation.getLength(),
                             schema,
                             partitionKeys,
-                            columns,
-                            toInetAddress(blockLocation.getHosts())));
+                            toHostAddress(blockLocation.getHosts())));
                 }
             } else {
                 // not splittable, use the hosts from the first block
-                builder.add(new HivePartitionChunk(
+                builder.add(new HiveSplit(clientId,
                         partitionName,
                         false,
-                        file.getPath(),
+                        file.getPath().toString(),
                         start,
                         length,
                         schema,
                         partitionKeys,
-                        columns,
-                        toInetAddress(fileBlockLocations[0].getHosts())));
+                        toHostAddress(fileBlockLocations[0].getHosts())));
             }
             return builder.build();
         }
 
-        private List<InetAddress> toInetAddress(String[] hosts)
+        private List<HostAddress> toHostAddress(String[] hosts)
         {
-            ImmutableList.Builder<InetAddress> builder = ImmutableList.builder();
+            ImmutableList.Builder<HostAddress> builder = ImmutableList.builder();
             for (String host : hosts) {
-                try {
-                    builder.add(InetAddress.getByName(host));
-                }
-                catch (UnknownHostException e) {
-                }
+                builder.add(HostAddress.fromString(host));
             }
             return builder.build();
         }
 
         /**
-         * Holds onto the last seen partition chunk for a given partition and
-         * will "poison" it with an end marker when a partition is finished.
+         * Buffers a single split for a given partition and when the queue
+         * is finished, tags the final split so a reader of the stream can
+         * know when
          */
         @ThreadSafe
-        private static class PartitionChunkPoisoner
+        private static class LastSplitMarkingQueue
         {
-            private final PartitionChunkQueue partitionChunkQueue;
+            private final HiveSplitQueue hiveSplitQueue;
 
-            private final AtomicReference<HivePartitionChunk> chunkHolder = new AtomicReference<>();
+            private final AtomicReference<HiveSplit> bufferedSplit = new AtomicReference<>();
             private final AtomicBoolean done = new AtomicBoolean();
 
-            private PartitionChunkPoisoner(PartitionChunkQueue partitionChunkQueue)
+            private LastSplitMarkingQueue(HiveSplitQueue hiveSplitQueue)
             {
-                this.partitionChunkQueue = checkNotNull(partitionChunkQueue, "partitionChunkQueue is null");
+                this.hiveSplitQueue = checkNotNull(hiveSplitQueue, "split is null");
             }
 
-            public synchronized void writeChunks(Iterable<HivePartitionChunk> chunks)
+            public synchronized void addToQueue(Iterable<HiveSplit> splits)
             {
-                checkNotNull(chunks, "chunks is null");
+                checkNotNull(splits, "splits is null");
                 checkState(!done.get(), "already done");
 
-                for (HivePartitionChunk chunk : chunks) {
-                    HivePartitionChunk previousChunk = chunkHolder.getAndSet(chunk);
-                    if (previousChunk != null) {
-                        partitionChunkQueue.addToQueue(previousChunk);
+                for (HiveSplit split : splits) {
+                    HiveSplit previousSplit = bufferedSplit.getAndSet(split);
+                    if (previousSplit != null) {
+                        hiveSplitQueue.addToQueue(previousSplit);
                     }
                 }
             }
@@ -657,32 +768,32 @@ public class HiveClient
             private synchronized void finish()
             {
                 checkState(!done.getAndSet(true), "already done");
-                HivePartitionChunk finalChunk = chunkHolder.getAndSet(null);
-                if (finalChunk != null) {
-                    partitionChunkQueue.addToQueue(makeLastChunk(finalChunk));
+                HiveSplit finalSplit = bufferedSplit.getAndSet(null);
+                if (finalSplit != null) {
+                    hiveSplitQueue.addToQueue(markAsLastSplit(finalSplit));
                 }
             }
         }
 
-        private static class PartitionChunkQueue
-                extends AbstractIterator<PartitionChunk>
+        private static class HiveSplitQueue
+                extends AbstractIterator<Split>
         {
-            private final BlockingQueue<PartitionChunk> queue = new LinkedBlockingQueue<>();
-            private final AtomicInteger outstandingChunkCount = new AtomicInteger();
+            private final BlockingQueue<Split> queue = new LinkedBlockingQueue<>();
+            private final AtomicInteger outstandingSplitCount = new AtomicInteger();
             private final AtomicReference<Throwable> throwable = new AtomicReference<>();
-            private final int maxOutstandingChunks;
+            private final int maxOutstandingSplits;
             private final SuspendingExecutor suspendingExecutor;
 
-            private PartitionChunkQueue(int maxOutstandingChunks, SuspendingExecutor suspendingExecutor)
+            private HiveSplitQueue(int maxOutstandingSplits, SuspendingExecutor suspendingExecutor)
             {
-                this.maxOutstandingChunks = maxOutstandingChunks;
+                this.maxOutstandingSplits = maxOutstandingSplits;
                 this.suspendingExecutor = suspendingExecutor;
             }
 
-            private void addToQueue(PartitionChunk chunk)
+            private void addToQueue(Split split)
             {
-                queue.add(chunk);
-                if (outstandingChunkCount.incrementAndGet() == maxOutstandingChunks) {
+                queue.add(split);
+                if (outstandingSplitCount.incrementAndGet() == maxOutstandingSplits) {
                     suspendingExecutor.suspend();
                 }
             }
@@ -699,20 +810,21 @@ public class HiveClient
             }
 
             @Override
-            protected PartitionChunk computeNext()
+            protected Split computeNext()
             {
                 try {
-                    PartitionChunk chunk = queue.take();
-                    if (chunk == FINISHED_MARKER) {
+                    Split split = queue.take();
+                    if (split == FINISHED_MARKER) {
                         if (throwable.get() != null) {
                             throw Throwables.propagate(throwable.get());
                         }
+
                         return endOfData();
                     }
-                    if (outstandingChunkCount.getAndDecrement() == maxOutstandingChunks) {
+                    if (outstandingSplitCount.getAndDecrement() == maxOutstandingSplits) {
                         suspendingExecutor.resume();
                     }
-                    return chunk;
+                    return split;
                 }
                 catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
@@ -724,7 +836,7 @@ public class HiveClient
 
     private static boolean isSplittable(InputFormat<?,?> inputFormat, FileSystem fileSystem, Path path)
     {
-        // use reflection to get isSplitable method on InputFormat
+        // use reflection to get isSplittable method on InputFormat
         Method method = null;
         for (Class<?> clazz = inputFormat.getClass(); clazz != null; clazz = clazz.getSuperclass()) {
             try {
@@ -747,43 +859,45 @@ public class HiveClient
         }
     }
 
-    private static Function<String, PartitionInfo> toPartitionInfo(final List<SchemaField> keys)
+    private static Function<String, Partition> toPartition(final SchemaTableName tableName, final Map<String, ColumnHandle> columnsByName)
     {
-        return new Function<String, PartitionInfo>()
+        return new Function<String, Partition>()
         {
             @Override
-            public PartitionInfo apply(String partitionName)
+            public Partition apply(String partitionId)
             {
-                if (partitionName.equals(UnpartitionedPartition.UNPARTITIONED_NAME)) {
-                    return new PartitionInfo(UnpartitionedPartition.UNPARTITIONED_NAME);
-                }
-
                 try {
-                    ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-                    List<String> parts = Warehouse.getPartValuesFromPartName(partitionName);
-                    for (int i = 0; i < parts.size(); i++) {
-                        builder.put(keys.get(i).getFieldName(), parts.get(i));
+                    if (partitionId.equals(UNPARTITIONED_ID)) {
+                        return new HivePartition(tableName);
                     }
 
-                    return new PartitionInfo(partitionName, builder.build());
+                    LinkedHashMap<String, String> keys = Warehouse.makeSpecFromName(partitionId);
+                    ImmutableMap.Builder<ColumnHandle, String> builder = ImmutableMap.builder();
+                    for (Entry<String, String> entry : keys.entrySet()) {
+                        ColumnHandle columnHandle = columnsByName.get(entry.getKey());
+                        checkArgument(columnHandle != null, "Invalid partition key %s in partition %s", entry.getKey(), partitionId);
+                        builder.put(columnHandle, entry.getValue());
+                    }
+
+                    return new HivePartition(tableName, partitionId, builder.build());
                 }
                 catch (MetaException e) {
+                    // invalid partition id
                     throw Throwables.propagate(e);
                 }
             }
         };
     }
 
-    public static Predicate<PartitionInfo> partitionMatches(final Map<String, Object> filters)
+    public static Predicate<Partition> partitionMatches(final Map<ColumnHandle, Object> filters)
     {
-        return new Predicate<PartitionInfo>()
+        return new Predicate<Partition>()
         {
             @Override
-            public boolean apply(PartitionInfo partition)
+            public boolean apply(Partition partition)
             {
-                for (Map.Entry<String, String> entry : partition.getKeyFields().entrySet()) {
-                    String partitionKey = entry.getKey();
-                    Object filterValue = filters.get(partitionKey);
+                for (Map.Entry<ColumnHandle, String> entry : partition.getKeys().entrySet()) {
+                    Object filterValue = filters.get(entry.getKey());
                     if (filterValue != null && !entry.getValue().equals(filterValue)) {
                         return false;
                     }
@@ -793,44 +907,9 @@ public class HiveClient
         };
     }
 
-    private static List<SchemaField> getSchemaFields(Properties schema, List<FieldSchema> partitionKeys)
-            throws MetaException, SerDeException
+    private static List<HivePartitionKey> getPartitionKeys(Table table, org.apache.hadoop.hive.metastore.api.Partition partition)
     {
-        Deserializer deserializer = MetaStoreUtils.getDeserializer(null, schema);
-        ObjectInspector inspector = deserializer.getObjectInspector();
-        checkArgument(inspector.getCategory() == ObjectInspector.Category.STRUCT, "expected STRUCT: %s", inspector.getCategory());
-        StructObjectInspector structObjectInspector = (StructObjectInspector) inspector;
-
-        ImmutableList.Builder<SchemaField> schemaFields = ImmutableList.builder();
-
-        // add the partition keys
-        for (int i = 0; i < partitionKeys.size(); i++) {
-            FieldSchema field = partitionKeys.get(i);
-            SchemaField.Type type = convertHiveType(field.getType());
-            schemaFields.add(SchemaField.createPrimitive(field.getName(), i, type));
-        }
-
-        // add the data fields
-        List<? extends StructField> fields = structObjectInspector.getAllStructFieldRefs();
-        int columnIndex = partitionKeys.size();
-        for (StructField field : fields) {
-            ObjectInspector fieldInspector = field.getFieldObjectInspector();
-
-            // ignore unsupported types rather than failing
-            HiveType hiveType = HiveType.getHiveType(fieldInspector);
-            if (hiveType != null) {
-                schemaFields.add(SchemaField.createPrimitive(field.getFieldName(), columnIndex, hiveType.getNativeType()));
-            }
-
-            columnIndex++;
-        }
-
-        return schemaFields.build();
-    }
-
-    private static List<HivePartitionKey> getPartitionKeys(Table table, Partition partition)
-    {
-        if (partition instanceof UnpartitionedPartition) {
+        if (partition == UNPARTITIONED_PARTITION) {
             return ImmutableList.of();
         }
         ImmutableList.Builder<HivePartitionKey> partitionKeys = ImmutableList.builder();
@@ -848,17 +927,17 @@ public class HiveClient
         return partitionKeys.build();
     }
 
-    private static Properties getPartitionSchema(Table table, Partition partition)
+    private static Properties getPartitionSchema(Table table, org.apache.hadoop.hive.metastore.api.Partition partition)
     {
-        if (partition instanceof UnpartitionedPartition) {
+        if (partition == UNPARTITIONED_PARTITION) {
             return MetaStoreUtils.getSchema(table);
         }
         return MetaStoreUtils.getSchema(partition, table);
     }
 
-    private static String getPartitionLocation(Table table, Partition partition)
+    private static String getPartitionLocation(Table table, org.apache.hadoop.hive.metastore.api.Partition partition)
     {
-        if (partition instanceof UnpartitionedPartition) {
+        if (partition == UNPARTITIONED_PARTITION) {
             return table.getSd().getLocation();
         }
         return partition.getSd().getLocation();

@@ -3,39 +3,34 @@
  */
 package com.facebook.presto.ingest;
 
-import com.facebook.presto.metadata.ImportColumnHandle;
-import com.facebook.presto.operator.OperatorStats;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.spi.ColumnType;
+import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.RecordSet;
 import com.google.common.base.Charsets;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
 public class InfiniteRecordSet
         implements RecordSet
 {
+    private final List<ColumnType> types;
     private final List<?> record;
-    private final ImmutableList<ImportColumnHandle> columns;
 
-    public InfiniteRecordSet(List<TupleInfo.Type> types, List<?> record)
+    public InfiniteRecordSet(List<ColumnType> types, List<?> record)
     {
+        this.types = types;
         this.record = record;
-
-        ImmutableList.Builder<ImportColumnHandle> builder = ImmutableList.builder();
-        for (int i = 0; i < types.size(); i++) {
-            builder.add(new ImportColumnHandle("test", "column" + i, i, types.get(i)));
-        }
-        columns = builder.build();
-    }
-
-    public List<ImportColumnHandle> getColumns()
-    {
-        return columns;
     }
 
     @Override
-    public RecordCursor cursor(OperatorStats operatorStats)
+    public List<ColumnType> getColumnTypes()
+    {
+        return types;
+    }
+
+    @Override
+    public RecordCursor cursor()
     {
         return new InMemoryRecordCursor(record);
     }

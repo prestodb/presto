@@ -4,6 +4,8 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.client.QueryResults;
+import com.facebook.presto.connector.ConnectorManager;
+import com.facebook.presto.connector.NativeConnectorFactory;
 import com.facebook.presto.event.query.QueryCompletionEvent;
 import com.facebook.presto.event.query.QueryCreatedEvent;
 import com.facebook.presto.event.query.QueryMonitor;
@@ -11,7 +13,9 @@ import com.facebook.presto.event.query.SplitCompletionEvent;
 import com.facebook.presto.execution.CreateAliasExecution.CreateAliasExecutionFactory;
 import com.facebook.presto.execution.DropAliasExecution.DropAliasExecutionFactory;
 import com.facebook.presto.execution.DropTableExecution.DropTableExecutionFactory;
+import com.facebook.presto.execution.ExchangeOperatorFactory;
 import com.facebook.presto.execution.LocationFactory;
+import com.facebook.presto.execution.NodeScheduler;
 import com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
 import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.execution.QueryInfo;
@@ -25,6 +29,7 @@ import com.facebook.presto.execution.SqlQueryManager;
 import com.facebook.presto.execution.SqlTaskManager;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
+import com.facebook.presto.guice.AbstractConfigurationAwareModule;
 import com.facebook.presto.importer.DatabasePeriodicImportManager;
 import com.facebook.presto.importer.ForPeriodicImport;
 import com.facebook.presto.importer.JobStateFactory;
@@ -35,21 +40,24 @@ import com.facebook.presto.importer.PeriodicImportRunnable;
 import com.facebook.presto.metadata.AliasDao;
 import com.facebook.presto.metadata.DatabaseLocalStorageManager;
 import com.facebook.presto.metadata.DatabaseLocalStorageManagerConfig;
+import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.metadata.CatalogManager;
+import com.facebook.presto.metadata.CatalogManagerConfig;
 import com.facebook.presto.metadata.DatabaseShardManager;
+import com.facebook.presto.metadata.DiscoveryNodeManager;
 import com.facebook.presto.metadata.ForAlias;
 import com.facebook.presto.metadata.ForMetadata;
 import com.facebook.presto.metadata.ForShardCleaner;
 import com.facebook.presto.metadata.ForShardManager;
 import com.facebook.presto.metadata.ForStorageManager;
 import com.facebook.presto.metadata.HandleJsonModule;
-import com.facebook.presto.metadata.ImportMetadata;
+import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.InformationSchemaData;
 import com.facebook.presto.metadata.InformationSchemaMetadata;
-import com.facebook.presto.metadata.InternalMetadata;
+import com.facebook.presto.metadata.InternalSchemaMetadata;
 import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.NativeMetadata;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.ShardCleaner;
 import com.facebook.presto.metadata.ShardCleanerConfig;
@@ -57,14 +65,16 @@ import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.metadata.SystemTables;
 import com.facebook.presto.operator.ForExchange;
 import com.facebook.presto.operator.ForScheduler;
-import com.facebook.presto.spi.ImportClientFactory;
+import com.facebook.presto.spi.ConnectorFactory;
+import com.facebook.presto.spi.ConnectorSplitManager;
+import com.facebook.presto.spi.Split;
+import com.facebook.presto.split.ConnectorDataStreamProvider;
 import com.facebook.presto.split.DataStreamManager;
 import com.facebook.presto.split.DataStreamProvider;
-import com.facebook.presto.split.ImportClientManager;
-import com.facebook.presto.split.ImportDataStreamProvider;
 import com.facebook.presto.split.InternalDataStreamProvider;
+import com.facebook.presto.split.InternalSplitManager;
 import com.facebook.presto.split.NativeDataStreamProvider;
-import com.facebook.presto.split.Split;
+import com.facebook.presto.split.NativeSplitManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.planner.PlanOptimizersFactory;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
@@ -105,13 +115,12 @@ import org.skife.jdbi.v2.IDBI;
 import org.weakref.jmx.guice.ExportBinder;
 
 import javax.inject.Singleton;
-
 import java.io.File;
 import java.lang.annotation.Annotation;
 import java.util.List;
 
-import static com.facebook.presto.server.ConditionalModule.installIfPropertyEquals;
-import static com.facebook.presto.server.DbiProvider.bindDbiToDataSource;
+import static com.facebook.presto.guice.ConditionalModule.installIfPropertyEquals;
+import static com.facebook.presto.guice.DbiProvider.bindDbiToDataSource;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.configuration.ConfigurationModule.bindConfig;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
@@ -151,30 +160,43 @@ public class ServerMainModule
 
         bindConfig(binder).to(DatabaseLocalStorageManagerConfig.class);
         binder.bind(LocalStorageManager.class).to(DatabaseLocalStorageManager.class).in(Scopes.SINGLETON);
+
+        // data stream provider
+        binder.bind(DataStreamManager.class).in(Scopes.SINGLETON);
         binder.bind(DataStreamProvider.class).to(DataStreamManager.class).in(Scopes.SINGLETON);
-        binder.bind(NativeDataStreamProvider.class).in(Scopes.SINGLETON);
-        binder.bind(ImportDataStreamProvider.class).in(Scopes.SINGLETON);
+        Multibinder<ConnectorDataStreamProvider> connectorDataStreamProviderBinder = Multibinder.newSetBinder(binder, ConnectorDataStreamProvider.class);
 
-        binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
-        binder.bind(MetadataManager.class).in(Scopes.SINGLETON);
-        binder.bind(NativeMetadata.class).in(Scopes.SINGLETON);
-
+        // metadata
+        binder.bind(CatalogManager.class).in(Scopes.SINGLETON);
+        bindConfig(binder).to(CatalogManagerConfig.class);
         binder.bind(MetadataResource.class).in(Scopes.SINGLETON);
+        binder.bind(MetadataManager.class).in(Scopes.SINGLETON);
+        binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
+        MapBinder.newMapBinder(binder, String.class, ConnectorMetadata.class);
+        Multibinder<InternalSchemaMetadata> internalSchemaMetadataBinder = Multibinder.newSetBinder(binder, InternalSchemaMetadata.class);
 
-        binder.bind(InternalMetadata.class).in(Scopes.SINGLETON);
-        binder.bind(InternalDataStreamProvider.class).in(Scopes.SINGLETON);
-        binder.bind(InformationSchemaMetadata.class).in(Scopes.SINGLETON);
-        binder.bind(InformationSchemaData.class).in(Scopes.SINGLETON);
-        binder.bind(SystemTables.class).in(Scopes.SINGLETON);
-
-        binder.bind(ImportClientManager.class).in(Scopes.SINGLETON);
-
-        // kick off binding of import client factories
-        Multibinder.newSetBinder(binder, ImportClientFactory.class);
-        binder.bind(ImportMetadata.class).in(Scopes.SINGLETON);
-
+        // split manager
         binder.bind(SplitManager.class).in(Scopes.SINGLETON);
-        ExportBinder.newExporter(binder).export(SplitManager.class).withGeneratedName();
+        Multibinder<ConnectorSplitManager> connectorSplitManagerMapBinder = Multibinder.newSetBinder(binder, ConnectorSplitManager.class);
+
+        // connector
+        binder.bind(ConnectorManager.class).in(Scopes.SINGLETON);
+        MapBinder<String, ConnectorFactory> connectorFactoryBinder = MapBinder.newMapBinder(binder, String.class, ConnectorFactory.class);
+
+        // native
+        connectorFactoryBinder.addBinding("native").to(NativeConnectorFactory.class);
+        binder.bind(NativeSplitManager.class).in(Scopes.SINGLETON);
+        binder.bind(NativeDataStreamProvider.class).in(Scopes.SINGLETON);
+
+        // internal schemas like information_schema and sys
+        internalSchemaMetadataBinder.addBinding().to(InformationSchemaMetadata.class);
+        internalSchemaMetadataBinder.addBinding().to(SystemTables.class);
+        connectorSplitManagerMapBinder.addBinding().to(InternalSplitManager.class).in(Scopes.SINGLETON);
+        connectorDataStreamProviderBinder.addBinding().to(InternalDataStreamProvider.class).in(Scopes.SINGLETON);
+
+        // system tables (e.g., Dual, information_schema, and sys)
+        binder.bind(SystemTables.class).in(Scopes.SINGLETON);
+        binder.bind(InformationSchemaData.class).in(Scopes.SINGLETON);
 
         jsonCodecBinder(binder).bindJsonCodec(TaskUpdateRequest.class);
         jsonCodecBinder(binder).bindJsonCodec(Split.class);
@@ -189,7 +211,9 @@ public class ServerMainModule
 
         discoveryBinder(binder).bindSelector("presto");
 
-        binder.bind(NodeManager.class).in(Scopes.SINGLETON);
+        binder.bind(NodeManager.class).to(DiscoveryNodeManager.class).in(Scopes.SINGLETON);
+        binder.bind(NodeScheduler.class).in(Scopes.SINGLETON);
+        ExportBinder.newExporter(binder).export(NodeScheduler.class).withGeneratedName();
         binder.bind(ShardManager.class).to(DatabaseShardManager.class).in(Scopes.SINGLETON);
 
         bindConfig(binder).to(ShardCleanerConfig.class);
@@ -224,6 +248,7 @@ public class ServerMainModule
 
         binder.install(new HandleJsonModule());
 
+        binder.bind(HandleResolver.class).in(Scopes.SINGLETON);
         binder.bind(PluginManager.class).in(Scopes.SINGLETON);
         bindConfig(binder).to(PluginManagerConfig.class);
 

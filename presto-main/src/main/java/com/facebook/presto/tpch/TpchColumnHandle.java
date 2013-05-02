@@ -1,8 +1,7 @@
 package com.facebook.presto.tpch;
 
-import com.facebook.presto.metadata.ColumnHandle;
-import com.facebook.presto.metadata.DataSourceType;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -10,24 +9,25 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class TpchColumnHandle
-    implements ColumnHandle
+        implements ColumnHandle
 {
+    private final String columnName;
     private final int fieldIndex;
-    private final TupleInfo.Type type;
+    private final ColumnType type;
 
     @JsonCreator
-    public TpchColumnHandle(@JsonProperty("fieldIndex") int fieldIndex, @JsonProperty("type") TupleInfo.Type type)
+    public TpchColumnHandle(@JsonProperty("columnName") String columnName, @JsonProperty("fieldIndex") int fieldIndex, @JsonProperty("type") ColumnType type)
     {
+        this.columnName = checkNotNull(columnName, "columnName is null");
         checkArgument(fieldIndex >= 0, "fieldIndex must be at least zero");
-        checkNotNull(type, "type is null");
         this.fieldIndex = fieldIndex;
-        this.type = type;
+        this.type = checkNotNull(type, "type is null");
     }
 
-    @Override
-    public DataSourceType getDataSourceType()
+    @JsonProperty
+    public String getColumnName()
     {
-        return DataSourceType.TPCH;
+        return columnName;
     }
 
     @JsonProperty
@@ -37,7 +37,7 @@ public class TpchColumnHandle
     }
 
     @JsonProperty
-    public TupleInfo.Type getType()
+    public ColumnType getType()
     {
         return type;
     }

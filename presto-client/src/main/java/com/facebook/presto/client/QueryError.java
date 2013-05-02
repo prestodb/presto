@@ -8,8 +8,6 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 import javax.validation.constraints.NotNull;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 @Immutable
 public class QueryError
 {
@@ -27,7 +25,7 @@ public class QueryError
             @JsonProperty("errorLocation") ErrorLocation errorLocation,
             @JsonProperty("failureInfo") FailureInfo failureInfo)
     {
-        this.message = checkNotNull(message, "message");
+        this.message = message;
         this.sqlState = sqlState;
         this.errorCode = errorCode;
         this.errorLocation = errorLocation;

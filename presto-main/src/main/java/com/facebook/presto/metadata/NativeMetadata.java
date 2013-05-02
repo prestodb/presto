@@ -1,35 +1,43 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.metadata.MetadataDao.Utils;
-import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.collect.ImmutableList;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.SchemaTableMetadata;
+import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.TableHandle;
+import com.google.common.collect.ImmutableListMultimap;
+import com.facebook.presto.spi.ConnectorMetadata;
+import com.google.common.collect.ImmutableMap;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
+import org.skife.jdbi.v2.TransactionCallback;
 import org.skife.jdbi.v2.TransactionStatus;
 import org.skife.jdbi.v2.VoidTransactionCallback;
 
-import javax.inject.Inject;
-
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
 
-import static com.facebook.presto.metadata.MetadataUtil.checkTable;
+import static com.facebook.presto.tuple.TupleInfo.Type.fromColumnType;
 import static com.facebook.presto.util.SqlUtils.runIgnoringConstraintViolation;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 public class NativeMetadata
-        extends AbstractMetadata
+        implements ConnectorMetadata
 {
     private final IDBI dbi;
     private final MetadataDao dao;
-    private final FunctionRegistry functions = new FunctionRegistry();
+    private final String catalogName;
 
-    @Inject
-    public NativeMetadata(@ForMetadata IDBI dbi)
+    public NativeMetadata(String catalogName, IDBI dbi)
             throws InterruptedException
     {
+        this.catalogName = catalogName;
         this.dbi = checkNotNull(dbi, "dbi is null");
         this.dao = dbi.onDemand(MetadataDao.class);
 
@@ -37,154 +45,166 @@ public class NativeMetadata
     }
 
     @Override
-    public FunctionInfo getFunction(QualifiedName name, List<TupleInfo.Type> parameterTypes)
+    public boolean canHandle(TableHandle tableHandle)
     {
-        return functions.get(name, parameterTypes);
+        return tableHandle instanceof NativeTableHandle;
     }
 
     @Override
-    public FunctionInfo getFunction(FunctionHandle handle)
-    {
-        return functions.get(handle);
-    }
-
-    @Override
-    public boolean isAggregationFunction(QualifiedName name)
-    {
-        return functions.isAggregationFunction(name);
-    }
-
-    @Override
-    public List<FunctionInfo> listFunctions()
-    {
-        return functions.list();
-    }
-
-    @Override
-    public List<String> listSchemaNames(String catalogName)
+    public List<String> listSchemaNames()
     {
         return dao.listSchemaNames(catalogName);
     }
 
     @Override
-    public TableMetadata getTable(QualifiedTableName tableName)
+    public TableHandle getTableHandle(SchemaTableName tableName)
     {
-        checkTable(tableName);
-
-        Table table = dao.getTableInformation(tableName);
+        checkNotNull(tableName, "tableName is null");
+        Table table = dao.getTableInformation(catalogName, tableName.getSchemaName(), tableName.getTableName());
         if (table == null) {
             return null;
         }
-        TableHandle tableHandle = new NativeTableHandle(table.getTableId());
+        return new NativeTableHandle(tableName.getSchemaName(), tableName.getTableName(), table.getTableId());
+    }
 
-        List<ColumnMetadata> columns = dao.getTableColumnMetaData(table.getTableId());
+    @Override
+    public SchemaTableMetadata getTableMetadata(TableHandle tableHandle)
+    {
+        checkNotNull(tableHandle, "tableHandle is null");
+        checkArgument(tableHandle instanceof NativeTableHandle, "tableHandle is not an instance of NativeTableHandle");
+        NativeTableHandle nativeTableHandle = (NativeTableHandle) tableHandle;
+
+        SchemaTableName tableName = getTableName(tableHandle);
+        checkArgument(tableName != null, "Table %s does not exist", tableName);
+        List<ColumnMetadata> columns = dao.getTableColumnMetaData(nativeTableHandle.getTableId());
+        checkArgument(!columns.isEmpty(), "Table %s does not have any columns", tableName);
         if (columns.isEmpty()) {
             return null;
         }
 
-        return new TableMetadata(tableName, columns, tableHandle);
+        return new SchemaTableMetadata(tableName, columns);
     }
 
     @Override
-    public List<QualifiedTableName> listTables(QualifiedTablePrefix prefix)
+    public List<SchemaTableName> listTables(@Nullable String schemaNameOrNull)
     {
-        checkNotNull(prefix, "prefix is null");
-        return dao.listTables(prefix.getCatalogName(), prefix.getSchemaName().orNull());
+        return dao.listTables(catalogName, schemaNameOrNull);
     }
 
     @Override
-    public List<TableColumn> listTableColumns(QualifiedTablePrefix prefix)
-    {
-        checkNotNull(prefix, "prefix is null");
-        return dao.listTableColumns(prefix.getCatalogName(),
-                prefix.getSchemaName().orNull(),
-                prefix.getTableName().orNull());
-    }
-
-    @Override
-    public List<String> listTablePartitionKeys(QualifiedTableName table)
-    {
-        checkTable(table);
-        return ImmutableList.of();
-    }
-
-    @Override
-    public List<Map<String, String>> listTablePartitionValues(QualifiedTablePrefix prefix)
-    {
-        checkNotNull(prefix, "prefix is null");
-        return ImmutableList.of();
-    }
-
-    @Override
-    public QualifiedTableName getTableName(TableHandle tableHandle)
+    public Map<String, ColumnHandle> getColumnHandles(TableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
-        checkState(DataSourceType.NATIVE == tableHandle.getDataSourceType(), "not a native handle: %s", tableHandle);
+        checkArgument(tableHandle instanceof NativeTableHandle, "tableHandle is not an instance of NativeTableHandle");
+        NativeTableHandle nativeTableHandle = (NativeTableHandle) tableHandle;
+
+        ImmutableMap.Builder<String, ColumnHandle> builder = ImmutableMap.builder();
+        for (TableColumn tableColumn : dao.listTableColumns(nativeTableHandle.getTableId())) {
+            builder.put(tableColumn.getColumnName(), new NativeColumnHandle(tableColumn.getColumnName(), tableColumn.getColumnId()));
+        }
+        return builder.build();
+    }
+
+    @Override
+    public ColumnHandle getColumnHandle(TableHandle tableHandle, String columnName)
+    {
+        checkNotNull(tableHandle, "tableHandle is null");
+        checkArgument(tableHandle instanceof NativeTableHandle, "tableHandle is not an instance of NativeTableHandle");
+        NativeTableHandle nativeTableHandle = (NativeTableHandle) tableHandle;
+
+        Long columnId = dao.getColumnId(nativeTableHandle.getTableId(), columnName);
+        if (columnId == null) {
+            return null;
+        }
+        return new NativeColumnHandle(columnName, columnId);
+    }
+
+    @Override
+    public ColumnMetadata getColumnMetadata(TableHandle tableHandle, ColumnHandle columnHandle)
+    {
+        checkNotNull(tableHandle, "tableHandle is null");
+        checkNotNull(columnHandle, "columnHandle is null");
+        checkArgument(tableHandle instanceof NativeTableHandle, "tableHandle is not an instance of NativeTableHandle");
+        checkArgument(columnHandle instanceof NativeColumnHandle, "columnHandle is not an instance of NativeColumnHandle");
+
+        long columnId = ((NativeColumnHandle) columnHandle).getColumnId();
+
+        ColumnMetadata columnMetadata = dao.getColumnMetadata(columnId);
+        checkState(columnMetadata != null, "no column with id %s exists", columnId);
+        return columnMetadata;
+    }
+
+    @Override
+    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(SchemaTablePrefix prefix)
+    {
+        checkNotNull(prefix, "prefix is null");
+
+        ImmutableListMultimap.Builder<SchemaTableName, ColumnMetadata> columns = ImmutableListMultimap.builder();
+        for (TableColumn tableColumn : dao.listTableColumns(catalogName, prefix.getSchemaName(), prefix.getTableName())) {
+            ColumnMetadata columnMetadata = new ColumnMetadata(tableColumn.getColumnName(), tableColumn.getDataType().toColumnType(), tableColumn.getOrdinalPosition(), false);
+            columns.put(tableColumn.getTable().asSchemaTableName(), columnMetadata);
+        }
+        // This is safe for a list multimap
+        return (Map<SchemaTableName, List<ColumnMetadata>>) (Object) columns.build().asMap();
+    }
+
+    private SchemaTableName getTableName(TableHandle tableHandle)
+    {
+        checkNotNull(tableHandle, "tableHandle is null");
+        checkArgument(tableHandle instanceof NativeTableHandle, "tableHandle is not an instance of NativeTableHandle");
 
         long tableId = ((NativeTableHandle) tableHandle).getTableId();
 
-        QualifiedTableName tableName = dao.getTableName(tableId);
+        SchemaTableName tableName = dao.getTableName(tableId).asSchemaTableName();
         checkState(tableName != null, "no table with id %s exists", tableId);
         return tableName;
     }
 
     @Override
-    public TableColumn getTableColumn(TableHandle tableHandle, ColumnHandle columnHandle)
+    public TableHandle createTable(final SchemaTableMetadata tableMetadata)
     {
-        checkNotNull(tableHandle, "tableHandle is null");
-        checkNotNull(columnHandle, "columnHandle is null");
-        checkState(DataSourceType.NATIVE == tableHandle.getDataSourceType(), "not a native handle: %s", tableHandle);
-        checkState(DataSourceType.NATIVE == columnHandle.getDataSourceType(), "not a native handle: %s", columnHandle);
-
-        long columnId = ((NativeColumnHandle) columnHandle).getColumnId();
-
-        TableColumn tableColumn = dao.getTableColumn(columnId);
-        checkState(tableColumn != null, "no column with id %s exists", columnId);
-        return tableColumn;
-    }
-
-    @Override
-    public void createTable(final TableMetadata table)
-    {
-        dbi.inTransaction(new VoidTransactionCallback()
+        Long tableId = dbi.inTransaction(new TransactionCallback<Long>()
         {
             @Override
-            protected void execute(final Handle handle, TransactionStatus status)
+            public Long inTransaction(final Handle handle, TransactionStatus status)
                     throws Exception
             {
                 // Ignore exception if table already exists
-                runIgnoringConstraintViolation(new Runnable()
+                return runIgnoringConstraintViolation(new Callable<Long>()
                 {
                     @Override
-                    public void run()
+                    public Long call()
+                            throws Exception
                     {
                         MetadataDao dao = handle.attach(MetadataDao.class);
-                        long tableId = dao.insertTable(table.getTable());
-                        int position = 1;
-                        for (ColumnMetadata column : table.getColumns()) {
-                            dao.insertColumn(tableId, column.getName(), position, column.getType().getName());
-                            position++;
+                        long tableId = dao.insertTable(catalogName, tableMetadata.getTable().getSchemaName(), tableMetadata.getTable().getTableName());
+                        int ordinalPosition = 0;
+                        for (ColumnMetadata column : tableMetadata.getColumns()) {
+                            dao.insertColumn(tableId, column.getName(), ordinalPosition, fromColumnType(column.getType()).getName());
+                            ordinalPosition++;
                         }
+                        return tableId;
                     }
-                });
+                }, null);
             }
         });
+        checkState(tableId != null, "table %s already exists", tableMetadata.getTable());
+        return new NativeTableHandle(tableMetadata.getTable().getSchemaName(), tableMetadata.getTable().getTableName(), tableId);
     }
 
     @Override
-    public void dropTable(final TableMetadata tableMetadata)
+    public void dropTable(TableHandle tableHandle)
     {
+        checkNotNull(tableHandle, "tableHandle is null");
+        checkArgument(tableHandle instanceof NativeTableHandle, "tableHandle is not an instance of NativeTableHandle");
+        final long tableId = ((NativeTableHandle) tableHandle).getTableId();
         dbi.inTransaction(new VoidTransactionCallback()
         {
             @Override
             protected void execute(final Handle handle, TransactionStatus status)
                     throws Exception
             {
-                MetadataDao dao = handle.attach(MetadataDao.class);
-                Table table = dao.getTableInformation(tableMetadata.getTable());
-                if (table != null) {
-                    Utils.dropTable(dao, table.getTableId());
-                }
+                Utils.dropTable(dao, tableId);
             }
         });
     }

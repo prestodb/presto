@@ -1,11 +1,12 @@
 package com.facebook.presto.split;
 
 import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.metadata.ColumnHandle;
-import com.facebook.presto.metadata.DataSourceType;
 import com.facebook.presto.metadata.LocalStorageManager;
+import com.facebook.presto.metadata.NativeColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.Operator;
+import com.facebook.presto.spi.Split;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 
@@ -15,7 +16,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class NativeDataStreamProvider
-        implements DataStreamProvider
+        implements ConnectorDataStreamProvider
 {
     private final LocalStorageManager storageManager;
 
@@ -23,6 +24,12 @@ public class NativeDataStreamProvider
     public NativeDataStreamProvider(LocalStorageManager storageManager)
     {
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
+    }
+
+    @Override
+    public boolean canHandle(Split split)
+    {
+        return split instanceof NativeSplit;
     }
 
     @Override
@@ -38,7 +45,7 @@ public class NativeDataStreamProvider
 
         ImmutableList.Builder<BlockIterable> builder = ImmutableList.builder();
         for (ColumnHandle column : columns) {
-            checkArgument(column.getDataSourceType() == DataSourceType.NATIVE, "column must be native, not %s", column.getDataSourceType());
+            checkArgument(column instanceof NativeColumnHandle, "column must be native, not %s", column);
             builder.add(storageManager.getBlocks(nativeSplit.getShardId(), column));
         }
         return new AlignmentOperator(builder.build());

@@ -1,12 +1,10 @@
 package com.facebook.presto.hive;
 
+import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.SchemaField.Type;
 import com.google.common.base.Charsets;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Ordering;
 import org.apache.hadoop.hive.metastore.MetaStoreUtils;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.SerDeUtils;
@@ -16,33 +14,33 @@ import org.apache.hadoop.hive.serde2.lazy.ByteArrayRef;
 import org.apache.hadoop.hive.serde2.lazy.LazyFactory;
 import org.apache.hadoop.hive.serde2.lazy.LazyObject;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
-import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.mapred.RecordReader;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveBooleanParser.parseHiveBoolean;
-import static com.facebook.presto.hive.HiveColumn.indexGetter;
 import static com.facebook.presto.hive.NumberParser.parseDouble;
 import static com.facebook.presto.hive.NumberParser.parseLong;
+import static com.google.common.collect.Maps.uniqueIndex;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
 class BytesHiveRecordCursor<K>
         implements RecordCursor
 {
-    private final int partitionKeyCount;
-
     private final RecordReader<K, BytesRefArrayWritable> recordReader;
     private final K key;
     private final BytesRefArrayWritable value;
 
-    private final Type[] types;
+    private final String[] names;
+    private final ColumnType[] types;
     private final HiveType[] hiveTypes;
+
     private final ObjectInspector[] fieldInspectors; // DON'T USE THESE UNLESS EXTRACTION WILL BE SLOW ANYWAY
 
     private final int[] hiveColumnIndexes;
@@ -55,11 +53,11 @@ class BytesHiveRecordCursor<K>
     private final long totalBytes;
     private long completedBytes;
 
-    public BytesHiveRecordCursor(RecordReader<K, BytesRefArrayWritable> recordReader, long totalBytes, Properties chunkSchema, List<HivePartitionKey> partitionKeys, List<HiveColumn> columns)
+    public BytesHiveRecordCursor(RecordReader<K, BytesRefArrayWritable> recordReader, long totalBytes, Properties splitSchema, List<HivePartitionKey> partitionKeys, List<HiveColumnHandle> columns)
     {
         Preconditions.checkNotNull(recordReader, "recordReader is null");
         Preconditions.checkArgument(totalBytes >= 0, "totalBytes is negative");
-        Preconditions.checkNotNull(chunkSchema, "chunkSchema is null");
+        Preconditions.checkNotNull(splitSchema, "splitSchema is null");
         Preconditions.checkNotNull(partitionKeys, "partitionKeys is null");
         Preconditions.checkNotNull(columns, "columns is null");
         Preconditions.checkArgument(!columns.isEmpty(), "columns is empty");
@@ -69,43 +67,55 @@ class BytesHiveRecordCursor<K>
         this.key = recordReader.createKey();
         this.value = recordReader.createValue();
 
-        this.partitionKeyCount = partitionKeys.size();
-        int size = partitionKeyCount + Ordering.natural().max(Iterables.transform(columns, indexGetter())) + 1;
+        int size = columns.size();
 
-        this.types = new Type[size];
+        this.names = new String[size];
+        this.types = new ColumnType[size];
         this.hiveTypes = new HiveType[size];
+        this.fieldInspectors = new ObjectInspector[size];
+
+        this.hiveColumnIndexes = new int[size];
+
         this.longs = new long[size];
         this.doubles = new double[size];
         this.strings = new byte[size][];
         this.nulls = new boolean[size];
 
-        // add partition columns first
-        for (int columnIndex = 0; columnIndex < partitionKeyCount; columnIndex++) {
-            HivePartitionKey partitionKey = partitionKeys.get(columnIndex);
-            this.types[columnIndex] = partitionKey.getHiveType().getNativeType();
-            this.hiveTypes[columnIndex] = partitionKey.getHiveType();
-            byte[] bytes = partitionKey.getValue().getBytes(Charsets.UTF_8);
-            parsePrimitiveColumn(columnIndex, bytes, 0, bytes.length);
-        }
-
-        // then add data columns
+        // initialize data columns
         try {
-            Deserializer deserializer = MetaStoreUtils.getDeserializer(null, chunkSchema);
+            Deserializer deserializer = MetaStoreUtils.getDeserializer(null, splitSchema);
             StructObjectInspector rowInspector = (StructObjectInspector) deserializer.getObjectInspector();
 
-            this.hiveColumnIndexes = new int[columns.size()];
-            this.fieldInspectors = new ObjectInspector[columns.size()];
             for (int i = 0; i < columns.size(); i++) {
-                HiveColumn column = columns.get(i);
-                hiveColumnIndexes[i] = column.getIndex();
-                this.types[partitionKeyCount + column.getIndex()] = column.getHiveType().getNativeType();
-                this.hiveTypes[partitionKeyCount + column.getIndex()] = column.getHiveType();
-                StructField field = rowInspector.getStructFieldRef(column.getName());
-                fieldInspectors[i] = field.getFieldObjectInspector();
+                HiveColumnHandle column = columns.get(i);
+
+                names[i] = column.getName();
+                types[i] = column.getType();
+                hiveTypes[i] = column.getHiveType();
+
+                if (!column.isPartitionKey()) {
+                    fieldInspectors[i] = rowInspector.getStructFieldRef(column.getName()).getFieldObjectInspector();
+                }
+
+                hiveColumnIndexes[i] = column.getHiveColumnIndex();
             }
         }
         catch (Exception e) {
             throw Throwables.propagate(e);
+        }
+
+        // parse requested partition columns
+        Map<String,HivePartitionKey> partitionKeysByName = uniqueIndex(partitionKeys, HivePartitionKey.nameGetter());
+        for (int columnIndex = 0; columnIndex < columns.size(); columnIndex++) {
+            HiveColumnHandle column = columns.get(columnIndex);
+            if (column.isPartitionKey()) {
+                HivePartitionKey partitionKey = partitionKeysByName.get(column.getName());
+                Preconditions.checkArgument(partitionKey != null, "Unknown partition key %s", column.getName());
+
+                byte[] bytes = partitionKey.getValue().getBytes(Charsets.UTF_8);
+
+                parsePrimitiveColumn(columnIndex, bytes, 0, bytes.length);
+            }
         }
     }
 
@@ -149,35 +159,38 @@ class BytesHiveRecordCursor<K>
     {
         Arrays.fill(nulls, false);
 
+        for (int outputColumnIndex = 0; outputColumnIndex < types.length; outputColumnIndex++) {
+            if (hiveColumnIndexes[outputColumnIndex] < 0) {
+                // skip partition keys
+                continue;
+            }
 
-        for (int i = 0; i < hiveColumnIndexes.length; i++) {
-            int hiveColumnIndex = hiveColumnIndexes[i];
-            if (hiveColumnIndex >= value.size()) {
+            if (hiveColumnIndexes[outputColumnIndex] >= value.size()) {
                 // this partition may contain fewer fields than what's declared in the schema
-                nulls[partitionKeyCount + hiveColumnIndex] = true;
+                // this happens when additional columns are added to the hive table after a partition has been created
+                nulls[outputColumnIndex] = true;
             }
             else {
-                BytesRefWritable fieldData = value.unCheckedGet(hiveColumnIndex);
+                BytesRefWritable fieldData = value.unCheckedGet(hiveColumnIndexes[outputColumnIndex]);
 
                 byte[] bytes = fieldData.getData();
                 int start = fieldData.getStart();
                 int length = fieldData.getLength();
 
-                int column = partitionKeyCount + hiveColumnIndex;
                 if (length == "\\N".length() && bytes[start] == '\\' && bytes[start + 1] == 'N') {
-                    nulls[column] = true;
+                    nulls[outputColumnIndex] = true;
                 }
-                else if (hiveTypes[column] == HiveType.MAP || hiveTypes[column] == HiveType.LIST || hiveTypes[column] == HiveType.STRUCT) {
+                else if (hiveTypes[outputColumnIndex] == HiveType.MAP || hiveTypes[outputColumnIndex] == HiveType.LIST || hiveTypes[outputColumnIndex] == HiveType.STRUCT) {
                     // temporarily special case MAP, LIST, and STRUCT types as strings
                     // TODO: create a real parser for these complex types when we implement data types
-                    LazyObject<? extends ObjectInspector> lazyObject = LazyFactory.createLazyObject(fieldInspectors[i]);
+                    LazyObject<? extends ObjectInspector> lazyObject = LazyFactory.createLazyObject(fieldInspectors[outputColumnIndex]);
                     ByteArrayRef byteArrayRef = new ByteArrayRef();
                     byteArrayRef.setData(bytes);
                     lazyObject.init(byteArrayRef, start, length);
-                    strings[column] = SerDeUtils.getJSONString(lazyObject.getObject(), fieldInspectors[i]).getBytes(Charsets.UTF_8);
+                    strings[outputColumnIndex] = SerDeUtils.getJSONString(lazyObject.getObject(), fieldInspectors[outputColumnIndex]).getBytes(Charsets.UTF_8);
                 }
                 else {
-                    parsePrimitiveColumn(column, bytes, start, length);
+                    parsePrimitiveColumn(outputColumnIndex, bytes, start, length);
                 }
             }
         }
@@ -220,21 +233,21 @@ class BytesHiveRecordCursor<K>
     @Override
     public long getLong(int fieldId)
     {
-        validateType(fieldId, Type.LONG);
+        validateType(fieldId, ColumnType.LONG);
         return longs[fieldId];
     }
 
     @Override
     public double getDouble(int fieldId)
     {
-        validateType(fieldId, Type.DOUBLE);
+        validateType(fieldId, ColumnType.DOUBLE);
         return doubles[fieldId];
     }
 
     @Override
     public byte[] getString(int fieldId)
     {
-        validateType(fieldId, Type.STRING);
+        validateType(fieldId, ColumnType.STRING);
         return strings[fieldId];
     }
 
@@ -244,7 +257,7 @@ class BytesHiveRecordCursor<K>
         return nulls[fieldId];
     }
 
-    private void validateType(int fieldId, Type type)
+    private void validateType(int fieldId, ColumnType type)
     {
         if (types[fieldId] != type) {
             // we don't use Preconditions.checkArgument because it requires boxing fieldId, which affects inner loop performance

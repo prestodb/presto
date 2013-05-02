@@ -4,17 +4,19 @@ import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
 import com.facebook.presto.importer.JobStateFactory.JobState;
+import com.facebook.presto.metadata.Node;
+import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.google.common.base.Function;
+import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import io.airlift.http.client.AsyncHttpClient;
-import io.airlift.http.server.HttpServerInfo;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 
 import javax.inject.Inject;
-
 import java.net.URI;
 import java.util.Iterator;
 import java.util.List;
@@ -30,22 +32,22 @@ public class PeriodicImportRunnable
 {
     private static final Logger log = Logger.get(PeriodicImportRunnable.class);
 
-    private final HttpServerInfo serverInfo;
+    private final NodeManager nodeManager;
     private final AsyncHttpClient httpClient;
     private final JsonCodec<QueryResults> queryResultsCodec;
 
     PeriodicImportRunnable(
             PeriodicImportManager periodicImportManager,
             JobState jobState,
-            HttpServerInfo serverInfo,
+            NodeManager nodeManager,
             AsyncHttpClient httpClient,
             JsonCodec<QueryResults> queryResultsCodec)
     {
         super(jobState, periodicImportManager);
 
-        this.serverInfo = serverInfo;
-        this.httpClient = httpClient;
-        this.queryResultsCodec = queryResultsCodec;
+        this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
+        this.httpClient = checkNotNull(httpClient, "httpClient is null");
+        this.queryResultsCodec = checkNotNull(queryResultsCodec, "queryResultsCodec is null");
     }
 
     @Override
@@ -70,18 +72,18 @@ public class PeriodicImportRunnable
     {
         private final PeriodicImportManager periodicImportManager;
 
-        private final HttpServerInfo serverInfo;
+        private final NodeManager nodeManager;
         private final AsyncHttpClient httpClient;
         private final JsonCodec<QueryResults> queryResultsCodec;
 
         @Inject
         public PeriodicImportRunnableFactory(
                 PeriodicImportManager periodicImportManager,
-                HttpServerInfo serverInfo,
+                NodeManager nodeManager,
                 @ForPeriodicImport AsyncHttpClient httpClient,
                 JsonCodec<QueryResults> queryResultsCodec)
         {
-            this.serverInfo = checkNotNull(serverInfo, "serverInfo is null");
+            this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
             this.httpClient = checkNotNull(httpClient, "httpClient is null");
             this.queryResultsCodec = checkNotNull(queryResultsCodec, "queryResultsCodec is null");
             this.periodicImportManager = checkNotNull(periodicImportManager, "periodicImportManager is null");
@@ -91,7 +93,7 @@ public class PeriodicImportRunnable
         {
             return new PeriodicImportRunnable(periodicImportManager,
                     jobState,
-                    serverInfo,
+                    nodeManager,
                     httpClient,
                     queryResultsCodec);
         }
@@ -99,10 +101,10 @@ public class PeriodicImportRunnable
 
     private URI serverUri()
     {
-        URI serverUri = serverInfo.getHttpUri();
-        if (serverUri == null) {
-            serverUri = serverInfo.getHttpsUri();
-        }
+        Optional<Node> currentNode = nodeManager.getCurrentNode();
+        Preconditions.checkState(currentNode.isPresent(), "current node is not in the active set");
+
+        URI serverUri = currentNode.get().getHttpUri();
         checkState(serverUri != null, "no uri for the server present!");
         return serverUri;
     }

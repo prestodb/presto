@@ -1,8 +1,9 @@
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.execution.DataSource;
 import com.facebook.presto.metadata.ShardManager;
-import com.facebook.presto.spi.PartitionInfo;
-import com.facebook.presto.split.SplitAssignments;
+import com.facebook.presto.spi.Partition;
+import com.facebook.presto.spi.Split;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.analyzer.Session;
@@ -34,7 +35,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import javax.inject.Inject;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -71,7 +71,7 @@ public class DistributedExecutionPlanner
 
         // get splits for this fragment, this is lazy so split assignments aren't actually calculated here
         Visitor visitor = new Visitor();
-        Optional<Iterable<SplitAssignments>> splits = currentFragment.getRoot().accept(visitor, context);
+        NodeSplits nodeSplits = currentFragment.getRoot().accept(visitor, context);
 
         // create child stages
         ImmutableList.Builder<StageExecutionPlan> dependencies = ImmutableList.builder();
@@ -84,19 +84,19 @@ public class DistributedExecutionPlanner
         }
 
         return new StageExecutionPlan(currentFragment,
-                splits,
+                nodeSplits.dataSource,
                 dependencies.build(),
                 visitor.getOutputReceivers());
     }
 
     public static final class VisitorContext
     {
-        private static final VisitorContext INITIAL_VISITOR_CONTEXT = new VisitorContext(BooleanLiteral.TRUE_LITERAL, Predicates.<PartitionInfo>alwaysTrue());
+        private static final VisitorContext INITIAL_VISITOR_CONTEXT = new VisitorContext(BooleanLiteral.TRUE_LITERAL, Predicates.<Partition>alwaysTrue());
 
         private final Expression inheritedPredicate;
-        private final Predicate<PartitionInfo> partitionPredicate;
+        private final Predicate<Partition> partitionPredicate;
 
-        private VisitorContext(Expression inheritedPredicate, Predicate<PartitionInfo> partitionPredicate)
+        public VisitorContext(Expression inheritedPredicate, Predicate<Partition> partitionPredicate)
         {
             this.inheritedPredicate = inheritedPredicate;
             this.partitionPredicate = partitionPredicate;
@@ -107,14 +107,14 @@ public class DistributedExecutionPlanner
             return inheritedPredicate;
         }
 
-        public Predicate<PartitionInfo> getPartitionPredicate()
+        public Predicate<Partition> getPartitionPredicate()
         {
             return partitionPredicate;
         }
     }
 
     private final class Visitor
-            extends PlanVisitor<VisitorContext, Optional<Iterable<SplitAssignments>>>
+            extends PlanVisitor<VisitorContext, NodeSplits>
     {
         private final Map<PlanFragmentId, Expression> inheritedPredicatesBySourceFragmentId = new HashMap<>();
 
@@ -131,18 +131,20 @@ public class DistributedExecutionPlanner
         }
 
         @Override
-        public Optional<Iterable<SplitAssignments>> visitTableScan(TableScanNode node, VisitorContext context)
+        public NodeSplits visitTableScan(TableScanNode node, VisitorContext context)
         {
-            // get splits for table
-            return Optional.of(splitManager.getSplitAssignments(node.getId(),
-                    session, node.getTable(),
+            // get dataSource for table
+            DataSource dataSource = splitManager.getSplits(session,
+                    node.getTable(),
                     context.getInheritedPredicate(),
                     context.getPartitionPredicate(),
-                    node.getAssignments()));
+                    node.getAssignments());
+
+            return new NodeSplits(node.getId(), dataSource);
         }
 
         @Override
-        public Optional<Iterable<SplitAssignments>> visitJoin(JoinNode node, VisitorContext context)
+        public NodeSplits visitJoin(JoinNode node, VisitorContext context)
         {
             List<Expression> leftConjuncts = new ArrayList<>();
             List<Expression> rightConjuncts = new ArrayList<>();
@@ -169,12 +171,12 @@ public class DistributedExecutionPlanner
                 rightPredicate = ExpressionUtils.and(rightConjuncts);
             }
 
-            Optional<Iterable<SplitAssignments>> leftSplits = node.getLeft().accept(this, new VisitorContext(leftPredicate, context.getPartitionPredicate()));
-            Optional<Iterable<SplitAssignments>> rightSplits = node.getRight().accept(this, new VisitorContext(rightPredicate, context.getPartitionPredicate()));
-            if (leftSplits.isPresent() && rightSplits.isPresent()) {
+            NodeSplits leftSplits = node.getLeft().accept(this, new VisitorContext(leftPredicate, context.getPartitionPredicate()));
+            NodeSplits rightSplits = node.getRight().accept(this, new VisitorContext(rightPredicate, context.getPartitionPredicate()));
+            if (leftSplits.dataSource.isPresent() && rightSplits.dataSource.isPresent()) {
                 throw new IllegalArgumentException("Both left and right join nodes are partitioned"); // TODO: "partitioned" may not be the right term
             }
-            if (leftSplits.isPresent()) {
+            if (leftSplits.dataSource.isPresent()) {
                 return leftSplits;
             }
             else {
@@ -183,16 +185,16 @@ public class DistributedExecutionPlanner
         }
 
         @Override
-        public Optional<Iterable<SplitAssignments>> visitExchange(ExchangeNode node, VisitorContext context)
+        public NodeSplits visitExchange(ExchangeNode node, VisitorContext context)
         {
             inheritedPredicatesBySourceFragmentId.put(node.getSourceFragmentId(), context.getInheritedPredicate());
 
             // exchange node does not have splits
-            return Optional.absent();
+            return new NodeSplits(node.getId());
         }
 
         @Override
-        public Optional<Iterable<SplitAssignments>> visitFilter(FilterNode node, VisitorContext context)
+        public NodeSplits visitFilter(FilterNode node, VisitorContext context)
         {
             Expression inheritedPredicate = context.getInheritedPredicate();
             Expression predicate = node.getPredicate();
@@ -204,71 +206,93 @@ public class DistributedExecutionPlanner
         }
 
         @Override
-        public Optional<Iterable<SplitAssignments>> visitAggregation(AggregationNode node, VisitorContext context)
+        public NodeSplits visitAggregation(AggregationNode node, VisitorContext context)
         {
             return node.getSource().accept(this, new VisitorContext(BooleanLiteral.TRUE_LITERAL, context.getPartitionPredicate()));
         }
 
         @Override
-        public Optional<Iterable<SplitAssignments>> visitWindow(WindowNode node, VisitorContext context)
+        public NodeSplits visitWindow(WindowNode node, VisitorContext context)
         {
             return node.getSource().accept(this, context);
         }
 
         @Override
-        public Optional<Iterable<SplitAssignments>> visitProject(ProjectNode node, VisitorContext context)
+        public NodeSplits visitProject(ProjectNode node, VisitorContext context)
         {
             return node.getSource().accept(this, context);
         }
 
         @Override
-        public Optional<Iterable<SplitAssignments>> visitTopN(TopNNode node, VisitorContext context)
+        public NodeSplits visitTopN(TopNNode node, VisitorContext context)
         {
             return node.getSource().accept(this, context);
         }
 
         @Override
-        public Optional<Iterable<SplitAssignments>> visitOutput(OutputNode node, VisitorContext context)
+        public NodeSplits visitOutput(OutputNode node, VisitorContext context)
         {
             return node.getSource().accept(this, context);
         }
 
         @Override
-        public Optional<Iterable<SplitAssignments>> visitLimit(LimitNode node, VisitorContext context)
+        public NodeSplits visitLimit(LimitNode node, VisitorContext context)
         {
             return node.getSource().accept(this, context);
         }
 
         @Override
-        public Optional<Iterable<SplitAssignments>> visitSort(SortNode node, VisitorContext context)
+        public NodeSplits visitSort(SortNode node, VisitorContext context)
         {
             return node.getSource().accept(this, context);
         }
 
         @Override
-        public Optional<Iterable<SplitAssignments>> visitSink(SinkNode node, VisitorContext context)
+        public NodeSplits visitSink(SinkNode node, VisitorContext context)
         {
             return node.getSource().accept(this, context);
         }
 
         @Override
-        public Optional<Iterable<SplitAssignments>> visitTableWriter(final TableWriterNode node, VisitorContext context)
+        public NodeSplits visitTableWriter(final TableWriterNode node, VisitorContext context)
         {
             TableWriter tableWriter = new TableWriter(node, shardManager);
 
-            Optional<Iterable<SplitAssignments>> splits = node.getSource().accept(this,
-                    new VisitorContext(context.getInheritedPredicate(), tableWriter.getPartitionPredicate()));
-            checkState(splits.isPresent(), "No splits present for import");
+            // get source splits
+            NodeSplits nodeSplits = node.getSource().accept(this, new VisitorContext(context.getInheritedPredicate(), tableWriter.getPartitionPredicate()));
+            checkState(nodeSplits.dataSource.isPresent(), "No splits present for import");
+            DataSource dataSource = nodeSplits.dataSource.get();
 
+            // record output
             outputReceivers.put(node.getId(), tableWriter.getOutputReceiver());
 
-            return Optional.of(tableWriter.getSplitAssignments(splits.get()));
+            // wrap splits with table writer info
+            Iterable<Split> newSplits = tableWriter.wrapSplits(nodeSplits.planNodeId, dataSource.getSplits());
+            return new NodeSplits(node.getId(), new DataSource(dataSource.getDataSourceName(), newSplits));
         }
 
         @Override
-        protected Optional<Iterable<SplitAssignments>> visitPlan(PlanNode node, VisitorContext context)
+        protected NodeSplits visitPlan(PlanNode node, VisitorContext context)
         {
             throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
+        }
+    }
+
+    private class NodeSplits
+    {
+        private final PlanNodeId planNodeId;
+        private final Optional<DataSource> dataSource;
+
+        private NodeSplits(PlanNodeId planNodeId)
+        {
+            this.planNodeId = planNodeId;
+            this.dataSource = Optional.absent();
+        }
+
+        private NodeSplits(PlanNodeId planNodeId, DataSource dataSource)
+        {
+            this.planNodeId = planNodeId;
+            this.dataSource = Optional.of(dataSource);
         }
     }
 }

@@ -3,46 +3,58 @@
  */
 package com.facebook.presto.hive;
 
-import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.inject.Binder;
 import com.google.inject.Module;
+import com.google.inject.Provides;
 import com.google.inject.Scopes;
-import org.apache.hadoop.fs.Path;
 import org.weakref.jmx.guice.ExportBinder;
+
+import javax.inject.Singleton;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static io.airlift.configuration.ConfigurationModule.bindConfig;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
-import static io.airlift.json.JsonBinder.jsonBinder;
-import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 
 public class HiveClientModule
         implements Module
 {
+    private final String connectorId;
+
+    public HiveClientModule(String connectorId)
+    {
+        this.connectorId = connectorId;
+    }
+
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(HiveImportClientFactory.class).in(Scopes.SINGLETON);
+        binder.bind(HiveConnectorId.class).toInstance(new HiveConnectorId(connectorId));
+        binder.bind(HiveClient.class).in(Scopes.SINGLETON);
 
-        binder.bind(HiveClientFactory.class).in(Scopes.SINGLETON);
         binder.bind(FileSystemCache.class).in(Scopes.SINGLETON);
         binder.bind(HdfsConfiguration.class).in(Scopes.SINGLETON);
         binder.bind(SlowDatanodeSwitcher.class).in(Scopes.SINGLETON);
         binder.bind(FileSystemWrapper.class).toProvider(FileSystemWrapperProvider.class).in(Scopes.SINGLETON);
         binder.bind(HdfsEnvironment.class).in(Scopes.SINGLETON);
-        binder.bind(DiscoveryLocatedHiveCluster.class).in(Scopes.SINGLETON);
-        binder.bind(HiveCluster.class).to(DiscoveryLocatedHiveCluster.class).in(Scopes.SINGLETON);
         bindConfig(binder).to(HiveClientConfig.class);
-        binder.bind(HiveChunkEncoder.class).in(Scopes.SINGLETON);
-        binder.bind(HiveChunkReader.class).in(Scopes.SINGLETON);
+
+        binder.bind(CachingHiveMetastore.class).in(Scopes.SINGLETON);
+        binder.bind(HiveCluster.class).to(DiscoveryLocatedHiveCluster.class).in(Scopes.SINGLETON);
         binder.bind(HiveMetastoreClientFactory.class).in(Scopes.SINGLETON);
         discoveryBinder(binder).bindSelector("hive-metastore");
-
-        jsonBinder(binder).addSerializerBinding(Path.class).toInstance(ToStringSerializer.instance);
-        jsonBinder(binder).addDeserializerBinding(Path.class).toInstance(PathJsonDeserializer.INSTANCE);
-        jsonCodecBinder(binder).bindJsonCodec(HivePartitionChunk.class);
 
         ExportBinder.newExporter(binder)
                 .export(SlowDatanodeSwitcher.class)
                 .withGeneratedName();
+    }
+
+    @ForHiveClient
+    @Singleton
+    @Provides
+    public ExecutorService createCachingHiveMetastore(HiveConnectorId hiveClientId, HiveClientConfig hiveClientConfig)
+    {
+        return Executors.newCachedThreadPool(new ThreadFactoryBuilder().setDaemon(true).setNameFormat("hive-" + hiveClientId + "-%d").build());
     }
 }

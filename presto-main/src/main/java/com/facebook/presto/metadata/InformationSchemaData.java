@@ -1,21 +1,28 @@
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.Partition;
+import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Joiner;
+import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableBiMap;
 
 import javax.inject.Inject;
-
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import static com.facebook.presto.metadata.InformationSchemaMetadata.INFORMATION_SCHEMA;
 import static com.facebook.presto.metadata.InformationSchemaMetadata.TABLE_COLUMNS;
 import static com.facebook.presto.metadata.InformationSchemaMetadata.TABLE_INTERNAL_FUNCTIONS;
 import static com.facebook.presto.metadata.InformationSchemaMetadata.TABLE_INTERNAL_PARTITIONS;
 import static com.facebook.presto.metadata.InformationSchemaMetadata.TABLE_TABLES;
-import static com.facebook.presto.metadata.InformationSchemaMetadata.informationSchemaColumnIndex;
-import static com.facebook.presto.metadata.InformationSchemaMetadata.informationSchemaTupleInfo;
+import static com.facebook.presto.metadata.InformationSchemaMetadata.informationSchemaTableColumns;
 import static com.facebook.presto.metadata.MetadataUtil.checkTable;
+import static com.facebook.presto.tuple.TupleInfo.Type.fromColumnType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
@@ -24,14 +31,16 @@ import static java.lang.String.format;
 public class InformationSchemaData
 {
     private final Metadata metadata;
+    private final SplitManager splitManager;
 
     @Inject
-    public InformationSchemaData(Metadata metadata)
+    public InformationSchemaData(Metadata metadata, SplitManager splitManager)
     {
         this.metadata = checkNotNull(metadata, "metadata is null");
+        this.splitManager = checkNotNull(splitManager, "splitManager is null");
     }
 
-    public InternalTable getInternalTable(QualifiedTableName table, Map<InternalColumnHandle, String> filters)
+    public InternalTable getInternalTable(QualifiedTableName table, Map<InternalColumnHandle, Object> filters)
     {
         checkTable(table);
         checkArgument(table.getSchemaName().equals(INFORMATION_SCHEMA), "schema is not %s", INFORMATION_SCHEMA);
@@ -50,39 +59,37 @@ public class InformationSchemaData
         throw new IllegalArgumentException(format("table does not exist: %s", table));
     }
 
-    private InternalTable buildColumns(String catalogName, Map<InternalColumnHandle, String> filters)
+    private InternalTable buildColumns(String catalogName, Map<InternalColumnHandle, Object> filters)
     {
-        TupleInfo tupleInfo = informationSchemaTupleInfo(TABLE_COLUMNS);
-        InternalTable.Builder table = InternalTable.builder(tupleInfo);
-        for (TableColumn column : getColumnsList(catalogName, filters)) {
-            table.add(tupleInfo.builder()
-                    .append(column.getTable().getCatalogName())
-                    .append(column.getTable().getSchemaName())
-                    .append(column.getTable().getTableName())
-                    .append(column.getColumnName())
-                    .append(column.getOrdinalPosition())
-                    .appendNull()
-                    .append("YES")
-                    .append(column.getDataType().getName())
-                    .build());
+        InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_COLUMNS));
+        for (Entry<QualifiedTableName, List<ColumnMetadata>> entry : getColumnsList(catalogName, filters).entrySet()) {
+            QualifiedTableName tableName = entry.getKey();
+            for (ColumnMetadata column : entry.getValue()) {
+                table.add(table.getTupleInfo().builder()
+                        .append(tableName.getCatalogName())
+                        .append(tableName.getSchemaName())
+                        .append(tableName.getTableName())
+                        .append(column.getName())
+                        .append(column.getOrdinalPosition() + 1)
+                        .appendNull()
+                        .append("YES")
+                        .append(fromColumnType(column.getType()).getName())
+                        .build());
+            }
         }
         return table.build();
     }
 
-    private List<TableColumn> getColumnsList(String catalogName, Map<InternalColumnHandle, String> filters)
+    private Map<QualifiedTableName, List<ColumnMetadata>> getColumnsList(String catalogName, Map<InternalColumnHandle, Object> filters)
     {
-        return metadata.listTableColumns(QualifiedTablePrefix.builder(catalogName)
-                .schemaName(getFilterColumn(filters, TABLE_COLUMNS, "table_schema"))
-                .tableName(getFilterColumn(filters, TABLE_COLUMNS, "table_name"))
-                .build());
+        return metadata.listTableColumns(extractQualifiedTablePrefix(catalogName, filters));
     }
 
-    private InternalTable buildTables(String catalogName, Map<InternalColumnHandle, String> filters)
+    private InternalTable buildTables(String catalogName, Map<InternalColumnHandle, Object> filters)
     {
-        TupleInfo tupleInfo = informationSchemaTupleInfo(TABLE_TABLES);
-        InternalTable.Builder table = InternalTable.builder(tupleInfo);
+        InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_TABLES));
         for (QualifiedTableName name : getTablesList(catalogName, filters)) {
-            table.add(tupleInfo.builder()
+            table.add(table.getTupleInfo().builder()
                     .append(name.getCatalogName())
                     .append(name.getSchemaName())
                     .append(name.getTableName())
@@ -92,20 +99,17 @@ public class InformationSchemaData
         return table.build();
     }
 
-    private List<QualifiedTableName> getTablesList(String catalogName, Map<InternalColumnHandle, String> filters)
+    private List<QualifiedTableName> getTablesList(String catalogName, Map<InternalColumnHandle, Object> filters)
     {
-        return metadata.listTables(QualifiedTablePrefix.builder(catalogName)
-                .schemaName(getFilterColumn(filters, TABLE_COLUMNS, "table_schema"))
-                .build());
+        return metadata.listTables(extractQualifiedTablePrefix(catalogName, filters));
     }
 
     private InternalTable buildFunctions()
     {
-        TupleInfo tupleInfo = informationSchemaTupleInfo(TABLE_INTERNAL_FUNCTIONS);
-        InternalTable.Builder table = InternalTable.builder(tupleInfo);
+        InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_INTERNAL_FUNCTIONS));
         for (FunctionInfo function : metadata.listFunctions()) {
             Iterable<String> arguments = transform(function.getArgumentTypes(), TupleInfo.Type.nameGetter());
-            table.add(tupleInfo.builder()
+            table.add(table.getTupleInfo().builder()
                     .append(function.getName().toString())
                     .append(Joiner.on(", ").join(arguments))
                     .append(function.getReturnType().getName())
@@ -114,27 +118,28 @@ public class InformationSchemaData
         return table.build();
     }
 
-    private InternalTable buildPartitions(String catalogName, Map<InternalColumnHandle, String> filters)
+    private InternalTable buildPartitions(String catalogName, Map<InternalColumnHandle, Object> filters)
     {
-        String schemaName = requiredFilterColumn(filters, TABLE_INTERNAL_PARTITIONS, "table_schema");
-        String tableName = requiredFilterColumn(filters, TABLE_INTERNAL_PARTITIONS, "table_name");
+        QualifiedTableName tableName = extractQualifiedTableName(catalogName, filters);
 
-        TupleInfo tupleInfo = informationSchemaTupleInfo(TABLE_INTERNAL_PARTITIONS);
-        InternalTable.Builder table = InternalTable.builder(tupleInfo);
+        InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_INTERNAL_PARTITIONS));
         int partitionNumber = 1;
-        List<Map<String, String>> partitions = metadata.listTablePartitionValues(QualifiedTablePrefix.builder(catalogName)
-                .schemaName(schemaName)
-                .tableName(tableName)
-                .build());
 
-        for (Map<String, String> partition : partitions) {
-            for (Map.Entry<String, String> entry : partition.entrySet()) {
-                table.add(tupleInfo.builder()
+        Optional<TableHandle> tableHandle = metadata.getTableHandle(tableName);
+        checkArgument(tableHandle.isPresent(), "Table %s does not exist", tableName);
+        Map<ColumnHandle, String> columnHandles = ImmutableBiMap.copyOf(metadata.getColumnHandles(tableHandle.get())).inverse();
+        List<Partition> partitions = splitManager.getPartitions(tableHandle.get(), Optional.<Map<ColumnHandle, Object>>absent());
+
+        for (Partition partition : partitions) {
+            for (Map.Entry<ColumnHandle, String> entry : partition.getKeys().entrySet()) {
+                ColumnHandle columnHandle = entry.getKey();
+                String columnName = columnHandles.get(columnHandle);
+                table.add(table.getTupleInfo().builder()
                         .append(catalogName)
-                        .append(schemaName)
-                        .append(tableName)
+                        .append(tableName.getSchemaName())
+                        .append(tableName.getTableName())
                         .append(partitionNumber)
-                        .append(entry.getKey())
+                        .append(columnName)
                         .append(entry.getValue())
                         .build());
             }
@@ -143,21 +148,32 @@ public class InformationSchemaData
         return table.build();
     }
 
-    private static String requiredFilterColumn(Map<InternalColumnHandle, String> filters, String tableName, String columnName)
+    private QualifiedTableName extractQualifiedTableName(String catalogName, Map<InternalColumnHandle, Object> filters)
     {
-        String value = getFilterColumn(filters, tableName, columnName);
-        checkArgument(value != null, "filter is required for column: %s.%s", tableName, columnName);
-        return value;
+        Optional<String> schemaName = getFilterColumn(filters, "table_schema");
+        checkArgument(schemaName.isPresent(), "filter is required for column: %s.%s", TABLE_INTERNAL_PARTITIONS, "table_schema");
+        Optional<String> tableName = getFilterColumn(filters, "table_name");
+        checkArgument(schemaName.isPresent(), "filter is required for column: %s.%s", TABLE_INTERNAL_PARTITIONS, "table_name");
+        return new QualifiedTableName(catalogName, schemaName.get(), tableName.get());
     }
 
-    private static String getFilterColumn(Map<InternalColumnHandle, String> filters, String tableName, String columnName)
+    private QualifiedTablePrefix extractQualifiedTablePrefix(String catalogName, Map<InternalColumnHandle, Object> filters)
     {
-        int index = informationSchemaColumnIndex(tableName, columnName);
-        for (Map.Entry<InternalColumnHandle, String> entry : filters.entrySet()) {
-            if (entry.getKey().getColumnIndex() == index) {
-                return entry.getValue();
+        return new QualifiedTablePrefix(catalogName,
+                getFilterColumn(filters, "table_schema"),
+                getFilterColumn(filters, "table_name"));
+    }
+
+    private static Optional<String> getFilterColumn(Map<InternalColumnHandle, Object> filters, String columnName)
+    {
+        for (Map.Entry<InternalColumnHandle, Object> entry : filters.entrySet()) {
+            if (entry.getKey().getColumnName().equals(columnName)) {
+                if (entry.getValue() instanceof String) {
+                    return Optional.of((String) entry.getValue());
+                }
+                break;
             }
         }
-        return null;
+        return Optional.absent();
     }
 }

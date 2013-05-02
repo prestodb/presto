@@ -1,25 +1,19 @@
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.base.Predicate;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 
+import javax.inject.Inject;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.metadata.MetadataUtil.checkTable;
-
-import static com.facebook.presto.metadata.MetadataUtil.getTableColumns;
-import static com.facebook.presto.metadata.MetadataUtil.getTableNames;
-import static com.facebook.presto.metadata.MetadataUtil.getType;
 import static com.facebook.presto.metadata.MetadataUtil.ColumnMetadataListBuilder.columnsBuilder;
-import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
-import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
+import static com.facebook.presto.spi.ColumnType.LONG;
+import static com.facebook.presto.spi.ColumnType.STRING;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.transform;
 
 public class InformationSchemaMetadata
+        extends AbstractInformationSchemaMetadata
 {
     public static final String INFORMATION_SCHEMA = "information_schema";
 
@@ -30,87 +24,45 @@ public class InformationSchemaMetadata
 
     private static final Map<String, List<ColumnMetadata>> METADATA = ImmutableMap.<String, List<ColumnMetadata>>builder()
             .put(TABLE_COLUMNS, columnsBuilder()
-                    .column("table_catalog", VARIABLE_BINARY)
-                    .column("table_schema", VARIABLE_BINARY)
-                    .column("table_name", VARIABLE_BINARY)
-                    .column("column_name", VARIABLE_BINARY)
-                    .column("ordinal_position", FIXED_INT_64)
-                    .column("column_default", VARIABLE_BINARY)
-                    .column("is_nullable", VARIABLE_BINARY)
-                    .column("data_type", VARIABLE_BINARY)
+                    .column("table_catalog", STRING)
+                    .column("table_schema", STRING)
+                    .column("table_name", STRING)
+                    .column("column_name", STRING)
+                    .column("ordinal_position", LONG)
+                    .column("column_default", STRING)
+                    .column("is_nullable", STRING)
+                    .column("data_type", STRING)
                     .build())
             .put(TABLE_TABLES, columnsBuilder()
-                    .column("table_catalog", VARIABLE_BINARY)
-                    .column("table_schema", VARIABLE_BINARY)
-                    .column("table_name", VARIABLE_BINARY)
-                    .column("table_type", VARIABLE_BINARY)
+                    .column("table_catalog", STRING)
+                    .column("table_schema", STRING)
+                    .column("table_name", STRING)
+                    .column("table_type", STRING)
                     .build())
             .put(TABLE_INTERNAL_FUNCTIONS, columnsBuilder()
-                    .column("function_name", VARIABLE_BINARY)
-                    .column("argument_types", VARIABLE_BINARY)
-                    .column("return_type", VARIABLE_BINARY)
+                    .column("function_name", STRING)
+                    .column("argument_types", STRING)
+                    .column("return_type", STRING)
                     .build())
             .put(TABLE_INTERNAL_PARTITIONS, columnsBuilder()
-                    .column("table_catalog", VARIABLE_BINARY)
-                    .column("table_schema", VARIABLE_BINARY)
-                    .column("table_name", VARIABLE_BINARY)
-                    .column("partition_number", FIXED_INT_64)
-                    .column("partition_key", VARIABLE_BINARY)
-                    .column("partition_value", VARIABLE_BINARY)
+                    .column("table_catalog", STRING)
+                    .column("table_schema", STRING)
+                    .column("table_name", STRING)
+                    .column("partition_number", LONG)
+                    .column("partition_key", STRING)
+                    .column("partition_value", STRING)
                     .build())
             .build();
 
-    public TableMetadata getTable(QualifiedTableName table)
+    @Inject
+    public InformationSchemaMetadata()
     {
-        checkTable(table);
-        checkArgument(table.getSchemaName().equals(INFORMATION_SCHEMA), "schema is not %s", INFORMATION_SCHEMA);
-
-        List<ColumnMetadata> metadata = METADATA.get(table.getTableName());
-        if (metadata != null) {
-            InternalTableHandle handle = InternalTableHandle.forQualifiedTableName(table);
-            return new TableMetadata(table, metadata, handle);
-        }
-
-        return null;
+        super(INFORMATION_SCHEMA, METADATA);
     }
 
-    static TupleInfo informationSchemaTupleInfo(String tableName)
+    static List<ColumnMetadata> informationSchemaTableColumns(String tableName)
     {
         checkArgument(METADATA.containsKey(tableName), "table does not exist: %s", tableName);
-        return new TupleInfo(transform(METADATA.get(tableName), getType()));
-    }
-
-    static int informationSchemaColumnIndex(String tableName, String columnName)
-    {
-        checkArgument(METADATA.containsKey(tableName), "table does not exist: %s", tableName);
-        List<ColumnMetadata> columns = METADATA.get(tableName);
-        for (int i = 0; i < columns.size(); i++) {
-            if (columns.get(i).getName().equals(columnName)) {
-                return i;
-            }
-        }
-        throw new IllegalArgumentException("column does not exist: " + columnName);
-    }
-
-    public static List<QualifiedTableName> listInformationSchemaTables(String catalogName)
-    {
-        return getTableNames(catalogName, INFORMATION_SCHEMA, filteredTables());
-    }
-
-    public static List<TableColumn> listInformationSchemaTableColumns(String catalogName)
-    {
-        return getTableColumns(catalogName, INFORMATION_SCHEMA, filteredTables());
-    }
-
-    private static Map<String, List<ColumnMetadata>> filteredTables()
-    {
-        return Maps.filterKeys(METADATA, new Predicate<String>()
-        {
-            @Override
-            public boolean apply(String name)
-            {
-                return !name.startsWith("__");
-            }
-        });
+        return METADATA.get(tableName);
     }
 }

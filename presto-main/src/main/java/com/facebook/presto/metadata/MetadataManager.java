@@ -1,113 +1,174 @@
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.SchemaTableMetadata;
+import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 
 import javax.inject.Singleton;
-
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
-import static com.facebook.presto.metadata.InformationSchemaMetadata.INFORMATION_SCHEMA;
-import static com.facebook.presto.metadata.InformationSchemaMetadata.listInformationSchemaTableColumns;
-import static com.facebook.presto.metadata.InformationSchemaMetadata.listInformationSchemaTables;
 import static com.facebook.presto.metadata.MetadataUtil.checkCatalogName;
+import static com.facebook.presto.metadata.MetadataUtil.checkColumnName;
 import static com.facebook.presto.metadata.MetadataUtil.checkTable;
-import static com.facebook.presto.metadata.SystemTables.SYSTEM_SCHEMA;
-import static com.facebook.presto.metadata.SystemTables.listSystemTableColumns;
-import static com.facebook.presto.metadata.SystemTables.listSystemTables;
+import static com.facebook.presto.metadata.QualifiedTableName.convertFromSchemaTableName;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.collect.Iterables.concat;
+import static com.google.common.collect.Iterables.transform;
 
 @Singleton
 public class MetadataManager
         implements Metadata
 {
-    private Map<DataSourceType, Metadata> metadataSourceMap = null;
-    private final ImportMetadata importMetadata;
+    // Note this must be a list to assure dual is always checked first
+    private final List<InternalSchemaMetadata> internalSchemas;
+    private final ConcurrentMap<String, ConnectorMetadata> connectors = new ConcurrentHashMap<>();
+    private final FunctionRegistry functions = new FunctionRegistry();
+
+    @VisibleForTesting
+    public MetadataManager()
+    {
+        this.internalSchemas = ImmutableList.<InternalSchemaMetadata>of(new DualTable());
+    }
 
     @Inject
-    public MetadataManager(NativeMetadata nativeMetadata,
-            InternalMetadata internalMetadata,
-            ImportMetadata importMetadata)
+    public MetadataManager(Set<InternalSchemaMetadata> internalSchemas, Map<String, ConnectorMetadata> connectors)
     {
-        this.importMetadata = importMetadata;
-
-        metadataSourceMap = ImmutableMap.<DataSourceType, Metadata>builder()
-                .put(DataSourceType.NATIVE, checkNotNull(nativeMetadata, "nativeMetadata is null"))
-                .put(DataSourceType.INTERNAL, checkNotNull(internalMetadata, "internalMetadata is null"))
-                .put(DataSourceType.IMPORT, checkNotNull(importMetadata, "importMetadata is null"))
+        this.internalSchemas = ImmutableList.<InternalSchemaMetadata>builder()
+                .add(new DualTable())
+                .addAll(checkNotNull(internalSchemas, "internalSchemas is null"))
                 .build();
+        this.connectors.putAll(checkNotNull(connectors, "connectors is null"));
     }
 
-    // only used in TestDistributedQueries to get the Tpch stuff in.
-    @Inject(optional = true)
-    public synchronized void addTpchMetadata(TestingMetadata tpchMetadata)
+    public void addConnectorMetadata(String catalogName, ConnectorMetadata value)
     {
-        ImmutableMap.Builder<DataSourceType, Metadata> builder = ImmutableMap.builder();
-        builder.putAll(metadataSourceMap);
-        builder.put(DataSourceType.TPCH, tpchMetadata);
-        this.metadataSourceMap = builder.build();
+        if (connectors.putIfAbsent(catalogName, value) != null) {
+            throw new IllegalStateException("Catalog '" + catalogName + "' is already registered");
+        }
     }
-
 
     @Override
     public FunctionInfo getFunction(QualifiedName name, List<TupleInfo.Type> parameterTypes)
     {
-        return lookup(DataSourceType.NATIVE).getFunction(name, parameterTypes);
+        return functions.get(name, parameterTypes);
     }
 
     @Override
     public FunctionInfo getFunction(FunctionHandle handle)
     {
-        return lookup(DataSourceType.NATIVE).getFunction(handle);
+        return functions.get(handle);
     }
 
     @Override
     public boolean isAggregationFunction(QualifiedName name)
     {
-        return lookup(DataSourceType.NATIVE).isAggregationFunction(name);
+        return functions.isAggregationFunction(name);
     }
 
     @Override
     public List<FunctionInfo> listFunctions()
     {
-        return lookup(DataSourceType.NATIVE).listFunctions();
+        return functions.list();
     }
 
     @Override
     public List<String> listSchemaNames(String catalogName)
     {
         checkCatalogName(catalogName);
-        DataSourceType dataSourceType = lookupDataSource(QualifiedTablePrefix.builder(catalogName).build());
-        return lookup(dataSourceType).listSchemaNames(catalogName);
+        ConnectorMetadata connectorMetadata = connectors.get(catalogName);
+        if (connectorMetadata == null) {
+            return ImmutableList.of();
+        }
+        return connectorMetadata.listSchemaNames();
     }
 
     @Override
-    public TableMetadata getTable(QualifiedTableName table)
+    public Optional<TableHandle> getTableHandle(QualifiedTableName table)
     {
         checkTable(table);
-        DataSourceType dataSourceType = lookupDataSource(table);
-        return lookup(dataSourceType).getTable(table);
+
+        // internal schemas like information_schema and sys are in every catalog
+        for (InternalSchemaMetadata internalSchemaMetadata : internalSchemas) {
+            Optional<TableHandle> tableHandle = internalSchemaMetadata.getTableHandle(table);
+            if (tableHandle.isPresent()) {
+                return tableHandle;
+            }
+        }
+
+        ConnectorMetadata connectorMetadata = connectors.get(table.getCatalogName());
+        if (connectorMetadata == null) {
+            return Optional.absent();
+        }
+        return Optional.fromNullable(connectorMetadata.getTableHandle(table.asSchemaTableName()));
     }
 
     @Override
-    public QualifiedTableName getTableName(TableHandle tableHandle)
+    public TableMetadata getTableMetadata(TableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
-        return lookup(tableHandle.getDataSourceType()).getTableName(tableHandle);
+
+        for (InternalSchemaMetadata internalSchemaMetadata : internalSchemas) {
+            Optional<TableMetadata> tableMetadata = internalSchemaMetadata.getTableMetadata(tableHandle);
+            if (tableMetadata.isPresent()) {
+                return tableMetadata.get();
+            }
+        }
+        for (Entry<String, ConnectorMetadata> entry : connectors.entrySet()) {
+            ConnectorMetadata metadata = entry.getValue();
+            if (metadata.canHandle(tableHandle)) {
+                SchemaTableMetadata tableMetadata = lookupDataSource(tableHandle).getTableMetadata(tableHandle);
+                QualifiedTableName qualifiedTableName = new QualifiedTableName(entry.getKey(), tableMetadata.getTable().getSchemaName(), tableMetadata.getTable().getTableName());
+                return new TableMetadata(qualifiedTableName, tableMetadata.getColumns());
+            }
+        }
+
+        throw new IllegalArgumentException("Table %s does not exist: " + tableHandle);
     }
 
     @Override
-    public TableColumn getTableColumn(TableHandle tableHandle, ColumnHandle columnHandle)
+    public Map<String, ColumnHandle> getColumnHandles(TableHandle tableHandle)
+    {
+        checkNotNull(tableHandle, "tableHandle is null");
+
+        for (InternalSchemaMetadata internalSchemaMetadata : internalSchemas) {
+            Optional<Map<String, ColumnHandle>> columnHandles = internalSchemaMetadata.getColumnHandles(tableHandle);
+            if (columnHandles.isPresent()) {
+                return columnHandles.get();
+            }
+        }
+        return lookupDataSource(tableHandle).getColumnHandles(tableHandle);
+    }
+
+    @Override
+    public ColumnMetadata getColumnMetadata(TableHandle tableHandle, ColumnHandle columnHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         checkNotNull(columnHandle, "columnHandle is null");
-        return lookup(columnHandle.getDataSourceType()).getTableColumn(tableHandle, columnHandle);
+
+        for (InternalSchemaMetadata internalSchemaMetadata : internalSchemas) {
+            Optional<ColumnMetadata> column = internalSchemaMetadata.getColumnMetadata(tableHandle, columnHandle);
+            if (column.isPresent()) {
+                return column.get();
+            }
+        }
+
+        return lookupDataSource(tableHandle).getColumnMetadata(tableHandle, columnHandle);
     }
 
     @Override
@@ -115,110 +176,78 @@ public class MetadataManager
     {
         checkNotNull(prefix, "prefix is null");
 
-        if (prefix.hasSchemaName()) {
-            DataSourceType dataSourceType = lookupDataSource(prefix);
-            return lookup(dataSourceType).listTables(prefix);
+        ImmutableSet.Builder<QualifiedTableName> tables = ImmutableSet.builder();
+        ConnectorMetadata connectorMetadata = connectors.get(prefix.getCatalogName());
+        if (connectorMetadata != null) {
+            tables.addAll(transform(connectorMetadata.listTables(prefix.getSchemaName().orNull()), convertFromSchemaTableName(prefix.getCatalogName())));
         }
-        else {
-            // blank catalog must also return the system and information schema tables.
-            DataSourceType dataSourceType = lookupDataSource(prefix);
-            List<QualifiedTableName> catalogTables = lookup(dataSourceType).listTables(prefix);
-            List<QualifiedTableName> informationSchemaTables = listInformationSchemaTables(prefix.getCatalogName());
-            List<QualifiedTableName> systemTables = listSystemTables(prefix.getCatalogName());
-            return ImmutableList.copyOf(concat(catalogTables, informationSchemaTables, systemTables));
+
+        // internal schemas like information_schema and sys are in every catalog
+        for (InternalSchemaMetadata internalSchemaMetadata : internalSchemas) {
+            tables.addAll(internalSchemaMetadata.listTables(prefix));
         }
+
+        return ImmutableList.copyOf(tables.build());
     }
 
     @Override
-    public List<TableColumn> listTableColumns(QualifiedTablePrefix prefix)
+    public Optional<ColumnHandle> getColumnHandle(TableHandle tableHandle, String columnName)
+    {
+        checkNotNull(tableHandle, "tableHandle is null");
+        checkColumnName(columnName);
+
+
+        for (InternalSchemaMetadata internalSchemaMetadata : internalSchemas) {
+            Optional<Map<String, ColumnHandle>> columnHandles = internalSchemaMetadata.getColumnHandles(tableHandle);
+            if (columnHandles.isPresent()) {
+                return Optional.fromNullable(columnHandles.get().get(columnName));
+            }
+        }
+
+        return Optional.fromNullable(lookupDataSource(tableHandle).getColumnHandle(tableHandle, columnName));
+    }
+
+    @Override
+    public Map<QualifiedTableName, List<ColumnMetadata>> listTableColumns(QualifiedTablePrefix prefix)
     {
         checkNotNull(prefix, "prefix is null");
-        DataSourceType dataSourceType = lookupDataSource(prefix);
-        return getTableColumns(prefix.getCatalogName(), lookup(dataSourceType).listTableColumns(prefix));
+
+        ImmutableMap.Builder<QualifiedTableName, List<ColumnMetadata>> builder = ImmutableMap.builder();
+        for (InternalSchemaMetadata internalSchemaMetadata : internalSchemas) {
+            builder.putAll(internalSchemaMetadata.listTableColumns(prefix));
+        }
+        ConnectorMetadata connector = connectors.get(prefix.getCatalogName());
+        if (connector != null) {
+            for (Entry<SchemaTableName, List<ColumnMetadata>> entry : connector.listTableColumns(prefix.asSchemaTablePrefix()).entrySet()) {
+                QualifiedTableName tableName = new QualifiedTableName(prefix.getCatalogName(), entry.getKey().getSchemaName(), entry.getKey().getTableName());
+                builder.put(tableName, entry.getValue());
+            }
+        }
+        return builder.build();
     }
 
     @Override
-    public List<String> listTablePartitionKeys(QualifiedTableName table)
+    public TableHandle createTable(TableMetadata tableMetadata)
     {
-        checkTable(table);
-        DataSourceType dataSourceType = lookupDataSource(table);
-        return lookup(dataSourceType).listTablePartitionKeys(table);
+        ConnectorMetadata connectorMetadata = connectors.get(tableMetadata.getTable().getCatalogName());
+        checkArgument(connectorMetadata != null, "Catalog %s does not exist", tableMetadata.getTable().getCatalogName());
+        return connectorMetadata.createTable(new SchemaTableMetadata(tableMetadata.getTable().asSchemaTableName(), tableMetadata.getColumns()));
     }
 
     @Override
-    public List<Map<String, String>> listTablePartitionValues(QualifiedTablePrefix prefix)
+    public void dropTable(TableHandle tableHandle)
     {
-        checkNotNull(prefix, "prefix is null");
-        DataSourceType dataSourceType = lookupDataSource(prefix);
-        return lookup(dataSourceType).listTablePartitionValues(prefix);
+        lookupDataSource(tableHandle).dropTable(tableHandle);
     }
 
-    @Override
-    public void createTable(TableMetadata table)
+    private ConnectorMetadata lookupDataSource(TableHandle tableHandle)
     {
-        DataSourceType dataSourceType = lookupDataSource(table.getTable());
-        checkArgument(dataSourceType == DataSourceType.NATIVE, "table creation is only supported for native tables");
-        metadataSourceMap.get(dataSourceType).createTable(table);
-    }
-
-    @Override
-    public void dropTable(TableMetadata table)
-    {
-        DataSourceType dataSourceType = lookupDataSource(table.getTable());
-        checkArgument(dataSourceType == DataSourceType.NATIVE, "table drop is only supported for native tables");
-        metadataSourceMap.get(dataSourceType).dropTable(table);
-    }
-
-    private List<TableColumn> getTableColumns(String catalogName, List<TableColumn> catalogColumns)
-    {
-        List<TableColumn> informationSchemaColumns = listInformationSchemaTableColumns(catalogName);
-        List<TableColumn> systemColumns = listSystemTableColumns(catalogName);
-        return ImmutableList.copyOf(concat(catalogColumns, informationSchemaColumns, systemColumns));
-    }
-
-    public DataSourceType lookupDataSource(QualifiedTableName table)
-    {
-        checkTable(table);
-        return lookupDataSource(QualifiedTablePrefix.builder(table.getCatalogName())
-                .schemaName(table.getSchemaName())
-                .tableName(table.getTableName())
-                .build());
-    }
-
-    private DataSourceType lookupDataSource(QualifiedTablePrefix prefix)
-    {
-        if (DualTable.NAME.equals(prefix.getTableName().orNull())) {
-            return DataSourceType.INTERNAL;
+        for (ConnectorMetadata metadata : connectors.values()) {
+            if (metadata.canHandle(tableHandle)) {
+                return metadata;
+            }
         }
 
-        String schemaName = prefix.getSchemaName().orNull();
-
-        if (prefix.getCatalogName().equals("tpch")) {
-            return DataSourceType.TPCH; // only used in tests.
-        }
-
-        if (INFORMATION_SCHEMA.equals(schemaName) || SYSTEM_SCHEMA.equals(schemaName)) {
-            return DataSourceType.INTERNAL;
-        }
-
-        // TODO: use some sort of catalog registry for this
-        if (prefix.getCatalogName().equals("default")) {
-            return DataSourceType.NATIVE;
-        }
-
-        // TODO: this is a hack until we have the ability to create and manage catalogs from sql
-        if (importMetadata.hasCatalog(prefix.getCatalogName())) {
-            return DataSourceType.IMPORT;
-        }
-
-        // TODO: need a proper way to report that catalog does not exist
-        throw new IllegalArgumentException("catalog does not exist: " + prefix.getCatalogName());
-    }
-
-    private Metadata lookup(DataSourceType dataSourceType)
-    {
-        Metadata metadata = metadataSourceMap.get(dataSourceType);
-        checkArgument(metadata != null, "tableMetadataSource does not exist: %s", dataSourceType);
-        return metadata;
+        throw new IllegalArgumentException("Table %s does not exist: " + tableHandle);
     }
 }

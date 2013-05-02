@@ -3,15 +3,15 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.RemoteTaskFactory;
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.metadata.Node;
 import com.facebook.presto.operator.ForScheduler;
-import com.facebook.presto.split.Split;
+import com.facebook.presto.spi.Split;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.OutputReceiver;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -21,9 +21,7 @@ import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 
-import javax.annotation.Nullable;
 import javax.inject.Inject;
-
 import java.net.URI;
 import java.util.Map;
 import java.util.Set;
@@ -58,7 +56,7 @@ public class HttpRemoteTaskFactory
             TaskId taskId,
             Node node,
             PlanFragment fragment,
-            @Nullable Map<PlanNodeId, ? extends Split> initialSplit,
+            Split initialSplit,
             Map<PlanNodeId, OutputReceiver> outputReceivers,
             Multimap<PlanNodeId, URI> initialExchangeLocations,
             Set<String> initialOutputIds)

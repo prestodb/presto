@@ -3,7 +3,8 @@
  */
 package com.facebook.presto.split;
 
-import com.facebook.presto.metadata.DataSourceType;
+import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.Split;
 import com.facebook.presto.tuple.TupleInfo;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -32,12 +33,6 @@ public class RemoteSplit
         this.tupleInfos = ImmutableList.copyOf(tupleInfos);
     }
 
-    @Override
-    public DataSourceType getDataSourceType()
-    {
-        return DataSourceType.REMOTE;
-    }
-
     @JsonProperty
     public URI getLocation()
     {
@@ -54,6 +49,18 @@ public class RemoteSplit
     public Object getInfo()
     {
         return this;
+    }
+
+    @Override
+    public boolean isRemotelyAccessible()
+    {
+        return true;
+    }
+
+    @Override
+    public List<HostAddress> getAddresses()
+    {
+        return ImmutableList.of();
     }
 
     @Override

@@ -1,20 +1,37 @@
 package com.facebook.presto.sql.analyzer;
 
-import com.facebook.presto.metadata.ColumnMetadata;
-import com.facebook.presto.metadata.NativeColumnHandle;
-import com.facebook.presto.metadata.NativeTableHandle;
+import com.facebook.presto.metadata.InMemoryMetadata;
+import com.facebook.presto.metadata.InternalSchemaMetadata;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableMetadata;
-import com.facebook.presto.metadata.TestingMetadata;
+import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ColumnType;
+import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Statement;
-import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.*;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CANNOT_HAVE_AGGREGATIONS_OR_WINDOWS;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDINAL;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_COLUMN_ALIASES;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ATTRIBUTE;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATE_OR_GROUP_BY;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_AGGREGATION;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_WINDOW;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.ORDER_BY_MUST_BE_IN_SELECT;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WILDCARD_WITHOUT_FROM;
 import static java.lang.String.format;
 import static org.testng.Assert.fail;
 
@@ -407,29 +424,29 @@ public class TestAnalyzer
     public void setup()
             throws Exception
     {
-        TestingMetadata metadata = new TestingMetadata();
+        Metadata metadata = new MetadataManager(ImmutableSet.<InternalSchemaMetadata>of(), ImmutableMap.<String, ConnectorMetadata>of("tpch", new InMemoryMetadata()));
 
-        metadata.createTable(new TableMetadata(new QualifiedTableName("default", "default", "t1"),
+        QualifiedTableName table1 = new QualifiedTableName("tpch", "default", "t1");
+        metadata.createTable(new TableMetadata(table1,
                 ImmutableList.<ColumnMetadata>of(
-                        new ColumnMetadata("a", TupleInfo.Type.FIXED_INT_64, new NativeColumnHandle(1)),
-                        new ColumnMetadata("b", TupleInfo.Type.FIXED_INT_64, new NativeColumnHandle(2)),
-                        new ColumnMetadata("c", TupleInfo.Type.FIXED_INT_64, new NativeColumnHandle(3)),
-                        new ColumnMetadata("d", TupleInfo.Type.FIXED_INT_64, new NativeColumnHandle(4))
-                ), new NativeTableHandle(1)));
+                        new ColumnMetadata("a", ColumnType.LONG, 0, false),
+                        new ColumnMetadata("b", ColumnType.LONG, 1, false),
+                        new ColumnMetadata("c", ColumnType.LONG, 2, false),
+                        new ColumnMetadata("d", ColumnType.LONG, 3, false))));
 
-        metadata.createTable(new TableMetadata(new QualifiedTableName("default", "default", "t2"),
+        QualifiedTableName table2 = new QualifiedTableName("tpch", "default", "t2");
+        metadata.createTable(new TableMetadata(table2,
                 ImmutableList.<ColumnMetadata>of(
-                        new ColumnMetadata("a", TupleInfo.Type.FIXED_INT_64, new NativeColumnHandle(1)),
-                        new ColumnMetadata("b", TupleInfo.Type.FIXED_INT_64, new NativeColumnHandle(2))
-                ), new NativeTableHandle(2)));
+                        new ColumnMetadata("a", ColumnType.LONG, 0, false),
+                        new ColumnMetadata("b", ColumnType.LONG, 1, false))));
 
-        metadata.createTable(new TableMetadata(new QualifiedTableName("default", "default", "t3"),
+        QualifiedTableName table3 = new QualifiedTableName("tpch", "default", "t3");
+        metadata.createTable(new TableMetadata(table3,
                 ImmutableList.<ColumnMetadata>of(
-                        new ColumnMetadata("a", TupleInfo.Type.FIXED_INT_64, new NativeColumnHandle(1)),
-                        new ColumnMetadata("b", TupleInfo.Type.FIXED_INT_64, new NativeColumnHandle(2))
-                ), new NativeTableHandle(3)));
+                        new ColumnMetadata("a", ColumnType.LONG, 0, false),
+                        new ColumnMetadata("b", ColumnType.LONG, 1, false))));
 
-        analyzer = new Analyzer(new Session(null, "default", "default"), metadata);
+        analyzer = new Analyzer(new Session(null, "tpch", "default"), metadata);
     }
 
     private void analyze(@Language("SQL") String query)

@@ -148,6 +148,7 @@
                             <systemProperties>
                                 <hiveMetastoreHost>localhost</hiveMetastoreHost>
                                 <hiveMetastorePort>9083</hiveMetastorePort>
+                                <hiveDatabaseName>default</hiveDatabaseName>
                             </systemProperties>
                         </configuration>
                     </plugin>

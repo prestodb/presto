@@ -4,14 +4,15 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.ingest.DelimitedRecordSet;
-import com.facebook.presto.ingest.RecordCursor;
-import com.facebook.presto.ingest.RecordSet;
-import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.serde.BlocksFileEncoding;
+import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.RecordSet;
+import com.facebook.presto.spi.SchemaTableMetadata;
 import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.facebook.presto.tpch.TpchColumnHandle;
 import com.facebook.presto.tpch.TpchTableHandle;
 import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.base.Optional;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
@@ -21,6 +22,7 @@ import com.google.common.io.InputSupplier;
 import com.google.common.io.Resources;
 import io.airlift.units.DataSize;
 
+import javax.inject.Inject;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URL;
@@ -28,6 +30,8 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.zip.GZIPInputStream;
 
+import static com.facebook.presto.tpch.TpchMetadata.TPCH_LINEITEM_METADATA;
+import static com.facebook.presto.tpch.TpchMetadata.TPCH_ORDERS_METADATA;
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -36,6 +40,14 @@ public class TestingTpchBlocksProvider
         extends TpchBlocksProvider
 {
     private final Map<String, RecordSet> data;
+
+    @Inject
+    public TestingTpchBlocksProvider()
+    {
+        this(ImmutableMap.of(
+                "orders", readTpchRecords(TPCH_ORDERS_METADATA),
+                "lineitem", readTpchRecords(TPCH_LINEITEM_METADATA)));
+    }
 
     public TestingTpchBlocksProvider(Map<String, RecordSet> data)
     {
@@ -49,10 +61,12 @@ public class TestingTpchBlocksProvider
             int totalParts,
             BlocksFileEncoding encoding)
     {
-        String tableName = tableHandle.getTableName();
-        int fieldIndex = columnHandle.getFieldIndex();
-        TupleInfo.Type fieldType = columnHandle.getType();
-        return new TpchBlockIterable(fieldType, partNumber, totalParts, tableName, fieldIndex);
+
+        return new TpchBlockIterable(Type.fromColumnType(columnHandle.getType()),
+                partNumber,
+                totalParts,
+                tableHandle.getTableName(),
+                columnHandle.getFieldIndex());
     }
 
     @Override
@@ -117,7 +131,7 @@ public class TestingTpchBlocksProvider
 
             public TpchBlockIterator()
             {
-                this.cursor = data.get(tableName).cursor(new OperatorStats());
+                this.cursor = data.get(tableName).cursor();
 
                 // Skip the first elements for this iterator.
                 for (int i = 0; i < partNumber; i++) {
@@ -163,23 +177,33 @@ public class TestingTpchBlocksProvider
         }
     }
 
-    public static RecordSet readTpchRecords(String name)
+    public static RecordSet readTpchRecords(SchemaTableMetadata tableMetadata)
+    {
+        return readTpchRecords(tableMetadata.getTable().getTableName(), tableMetadata.getColumns().size());
+    }
+
+    public static RecordSet readTpchRecords(String name, int expectedColumnCount)
     {
         try {
-            return readRecords("tpch/" + name + ".dat.gz");
+            return readRecords("tpch/" + name + ".dat.gz", expectedColumnCount);
         }
         catch (IOException e) {
             throw Throwables.propagate(e);
         }
     }
 
-    private static RecordSet readRecords(String name)
+    private static RecordSet readRecords(String name, int expectedColumnCount)
             throws IOException
     {
+        int[] columnIndexes = new int[expectedColumnCount];
+        for (int i = 0; i < columnIndexes.length; i++) {
+            columnIndexes[i] = i;
+        }
+
         // tpch does not contain nulls, but does have a trailing pipe character,
         // so omitting empty strings will prevent an extra column at the end being added
         Splitter splitter = Splitter.on('|').omitEmptyStrings();
-        return new DelimitedRecordSet(readResource(name), splitter);
+        return new DelimitedRecordSet(readResource(name), splitter, columnIndexes);
     }
 
     private static InputSupplier<InputStreamReader> readResource(final String name)

@@ -15,7 +15,8 @@ public enum DataSourceType
     NATIVE("native"),
     INTERNAL("internal"),
     IMPORT("import"),
-    REMOTE("remote");
+    REMOTE("remote"),
+    COLLOCATED("collocated");
 
     private static final Map<String, DataSourceType> NAME_MAP;
     static {

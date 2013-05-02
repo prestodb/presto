@@ -4,7 +4,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.metadata.Node;
-import com.facebook.presto.split.Split;
+import com.facebook.presto.spi.Split;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.OutputReceiver;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -21,7 +21,7 @@ public interface RemoteTaskFactory
             TaskId taskId,
             Node node,
             PlanFragment fragment,
-            Map<PlanNodeId, ? extends Split> initialSplits,
+            Split initialSplit,
             Map<PlanNodeId, OutputReceiver> outputReceivers,
             Multimap<PlanNodeId, URI> initialExchangeLocations,
             Set<String> initialOutputIds);
