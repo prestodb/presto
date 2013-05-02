@@ -5,6 +5,7 @@ import com.facebook.presto.ingest.ImportingOperator;
 import com.facebook.presto.ingest.RecordProjectOperator;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.serde.BlocksFileWriter;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
 import com.google.common.hash.Hashing;
@@ -139,7 +140,9 @@ public class GeneratingTpchDataProvider
 
             InputSupplier<InputStream> inputSupplier = tableInputSupplierFactory.getInputSupplier(tableName);
 
-            DelimitedRecordSet records = new DelimitedRecordSet(newReaderSupplier(inputSupplier, UTF_8), Splitter.on("|"), columnHandle.getFieldIndex());
+            ColumnMetadata columnMetadata = new TpchMetadata().getColumnMetadata(tableHandle, columnHandle);
+
+            DelimitedRecordSet records = new DelimitedRecordSet(newReaderSupplier(inputSupplier, UTF_8), Splitter.on("|"), columnMetadata);
 
             RecordProjectOperator source = new RecordProjectOperator(records);
 

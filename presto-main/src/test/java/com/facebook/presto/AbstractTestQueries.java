@@ -28,9 +28,7 @@ import java.sql.SQLException;
 import java.util.List;
 
 import static com.facebook.presto.tpch.TpchMetadata.TPCH_LINEITEM_METADATA;
-import static com.facebook.presto.tpch.TpchMetadata.TPCH_LINEITEM_NAME;
 import static com.facebook.presto.tpch.TpchMetadata.TPCH_ORDERS_METADATA;
-import static com.facebook.presto.tpch.TpchMetadata.TPCH_ORDERS_NAME;
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
@@ -1118,7 +1116,7 @@ public abstract class AbstractTestQueries
     {
         handle = DBI.open("jdbc:h2:mem:test" + System.nanoTime());
 
-        RecordSet ordersRecords = readTpchRecords(TPCH_ORDERS_NAME, TPCH_ORDERS_METADATA.getColumns().size());
+        RecordSet ordersRecords = readTpchRecords(TPCH_ORDERS_METADATA);
         handle.execute("CREATE TABLE orders (\n" +
                 "  orderkey BIGINT PRIMARY KEY,\n" +
                 "  custkey BIGINT NOT NULL,\n" +
@@ -1132,7 +1130,7 @@ public abstract class AbstractTestQueries
                 ")");
         insertRows(TPCH_ORDERS_METADATA, handle, ordersRecords);
 
-        RecordSet lineItemRecords = readTpchRecords(TPCH_LINEITEM_NAME, TPCH_LINEITEM_METADATA.getColumns().size());
+        RecordSet lineItemRecords = readTpchRecords(TPCH_LINEITEM_METADATA);
         handle.execute("CREATE TABLE lineitem (\n" +
                 "  orderkey BIGINT,\n" +
                 "  partkey BIGINT NOT NULL,\n" +

@@ -31,8 +31,8 @@ public class HashAggregationBenchmark
     @Override
     protected Operator createBenchmarkedOperator(TpchBlocksProvider blocksProvider)
     {
-        BlockIterable orderStatusBlockIterable = getBlockIterable(blocksProvider, "orders", "orderStatus", BlocksFileEncoding.RAW);
-        BlockIterable totalPriceBlockIterable = getBlockIterable(blocksProvider, "orders", "totalPrice", BlocksFileEncoding.RAW);
+        BlockIterable orderStatusBlockIterable = getBlockIterable(blocksProvider, "orders", "orderstatus", BlocksFileEncoding.RAW);
+        BlockIterable totalPriceBlockIterable = getBlockIterable(blocksProvider, "orders", "totalprice", BlocksFileEncoding.RAW);
 
         AlignmentOperator alignmentOperator = new AlignmentOperator(orderStatusBlockIterable, totalPriceBlockIterable);
         return new HashAggregationOperator(alignmentOperator,
