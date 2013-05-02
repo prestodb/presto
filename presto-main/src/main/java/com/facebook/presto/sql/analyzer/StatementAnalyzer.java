@@ -136,13 +136,17 @@ class StatementAnalyzer
     {
         QualifiedTableName tableName = MetadataUtil.createQualifiedTableName(session, showColumns.getTable());
 
-        // TODO: throw SemanticException if table does not exist
+        if (!metadata.getTableHandle(tableName).isPresent()) {
+            throw new SemanticException(MISSING_TABLE, showColumns, "Table '%s' does not exist", tableName);
+        }
+
         Query query = new Query(
                 Optional.<With>absent(),
                 selectList(
                         aliasedName("column_name", "Column"),
                         aliasedName("data_type", "Type"),
-                        aliasedName("is_nullable", "Null")),
+                        aliasedName("is_nullable", "Null"),
+                        aliasedName("is_partition_key", "Partition Key")),
                 table(QualifiedName.of(tableName.getCatalogName(), INFORMATION_SCHEMA, TABLE_COLUMNS)),
                 Optional.of(logicalAnd(
                         equal(nameReference("table_schema"), new StringLiteral(tableName.getSchemaName())),
@@ -187,7 +191,6 @@ class StatementAnalyzer
             selectList.add(new AliasedExpression(function, column.getName()));
         }
 
-        // TODO: throw SemanticException if table does not exist
         Query query = new Query(
                 Optional.<With>absent(),
                 selectAll(selectList.build()),
