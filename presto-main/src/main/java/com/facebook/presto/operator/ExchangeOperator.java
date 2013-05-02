@@ -13,12 +13,13 @@ import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.GuardedBy;
-import java.lang.ref.WeakReference;
 import java.net.URI;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+
+import static com.google.common.base.Preconditions.checkState;
 
 public class ExchangeOperator
         implements SourceOperator
@@ -35,7 +36,7 @@ public class ExchangeOperator
     private final int concurrentRequestMultiplier;
 
     @GuardedBy("this")
-    private final Set<WeakReference<ExchangeClient>> activeClients = new HashSet<>();
+    private ExchangeClient activeClient;
 
     public ExchangeOperator(AsyncHttpClient httpClient, List<TupleInfo> tupleInfos, URI... locations)
     {
@@ -68,18 +69,15 @@ public class ExchangeOperator
         synchronized (this) {
             Preconditions.checkNotNull(split, "split is null");
             Preconditions.checkArgument(split instanceof RemoteSplit, "split is not a remote split");
-            Preconditions.checkState(!noMoreLocations, "No more splits already set");
+            checkState(!noMoreLocations, "No more splits already set");
             location = ((RemoteSplit) split).getLocation();
             if (!locations.add(location)) {
                 return;
             }
         }
 
-        for (WeakReference<ExchangeClient> activeClientReference : activeClients) {
-            ExchangeClient activeClient = activeClientReference.get();
-            if (activeClient != null) {
-                activeClient.addLocation(location);
-            }
+        if (activeClient != null) {
+            activeClient.addLocation(location);
         }
     }
 
@@ -92,11 +90,8 @@ public class ExchangeOperator
             }
             noMoreLocations = true;
         }
-        for (WeakReference<ExchangeClient> activeClientReference : activeClients) {
-            ExchangeClient activeClient = activeClientReference.get();
-            if (activeClient != null) {
-                activeClient.noMoreLocations();
-            }
+        if (activeClient != null) {
+            activeClient.noMoreLocations();
         }
     }
 
@@ -116,8 +111,9 @@ public class ExchangeOperator
     {
         ExchangeClient exchangeClient;
         synchronized (this) {
+            checkState(activeClient == null, "ExchangeOperator can only be used once");
             exchangeClient = new ExchangeClient(maxBufferedPages, expectedPagesPerRequest, concurrentRequestMultiplier, httpClient, locations, noMoreLocations);
-            activeClients.add(new WeakReference<>(exchangeClient));
+            activeClient = exchangeClient;
         }
 
         exchangeClient.scheduleRequestIfNecessary();

@@ -410,6 +410,7 @@ public class SqlStageExecution
             synchronized (this) {
                 // otherwise wait for some tasks to complete
                 try {
+                    // todo this adds latency: replace this wait with an event listener
                     TimeUnit.SECONDS.timedWait(this, 1);
                 }
                 catch (InterruptedException e) {
@@ -523,6 +524,7 @@ public class SqlStageExecution
             }
 
             try {
+                // todo this adds latency: replace this wait with an event listener
                 TimeUnit.SECONDS.timedWait(this, 1);
             }
             catch (InterruptedException e) {
