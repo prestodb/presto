@@ -420,7 +420,7 @@ public class SqlTaskExecution
             while (!taskOutput.getState().isDone()) {
                 FutureTask<?> futureTask = scheduledWorkers.pollFirst(1, TimeUnit.SECONDS);
                 // if we got a task and the state is not done, run the task
-                if (futureTask != null && taskOutput.getState().isDone()) {
+                if (futureTask != null && !taskOutput.getState().isDone()) {
                     futureTask.run();
                 }
             }
