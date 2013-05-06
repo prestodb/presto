@@ -1,7 +1,6 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.sql.ExpressionFormatter;
 import com.facebook.presto.sql.tree.AliasedExpression;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
@@ -226,10 +225,10 @@ public class AggregationAnalyzer
                     throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, start.get(), "Window frame start must be an aggregate expression or appear in GROUP BY clause");
                 }
             }
-            if (node.getEnd().isPresent()) {
-                Optional<Expression> end = node.getEnd().get().getValue();
-                if (!end.get().accept(this, context)) {
-                    throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, start.get(), "Window frame end must be an aggregate expression or appear in GROUP BY clause");
+            if (node.getEnd().isPresent() && node.getEnd().get().getValue().isPresent()) {
+                Expression endValue = node.getEnd().get().getValue().get();
+                if (!endValue.accept(this, context)) {
+                    throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, endValue, "Window frame end must be an aggregate expression or appear in GROUP BY clause");
                 }
             }
 
