@@ -45,6 +45,7 @@ public class BenchmarkSuite
             new SqlDistinctMultipleFields(),
             new SqlDistinctSingleField(),
             new SqlTpchQuery1(),
+            new SqlLikeBenchmark(),
 
             // statistics benchmarks
             new StatisticsBenchmark.LongVarianceBenchmark(),
