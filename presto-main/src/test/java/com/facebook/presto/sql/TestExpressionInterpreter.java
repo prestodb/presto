@@ -22,6 +22,7 @@ import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
 import static com.facebook.presto.sql.parser.SqlParser.createExpression;
 import static com.google.common.base.Charsets.UTF_8;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
 
 public class TestExpressionInterpreter
@@ -138,21 +139,21 @@ public class TestExpressionInterpreter
     public void testExtract()
     {
         DateTime dateTime = new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC);
-        long millis = dateTime.getMillis();
+        long seconds = MILLISECONDS.toSeconds(dateTime.getMillis());
 
-        assertOptimizedEquals("extract (CENTURY from " + millis + ")", "20");
-        assertOptimizedEquals("extract (YEAR from " + millis + ")", "2001");
-        assertOptimizedEquals("extract (QUARTER from " + millis + ")", "3");
-        assertOptimizedEquals("extract (MONTH from " + millis + ")", "8");
-        assertOptimizedEquals("extract (WEEK from " + millis + ")", "34");
-        assertOptimizedEquals("extract (DOW from " + millis + ")", "3");
-        assertOptimizedEquals("extract (DOY from " + millis + ")", "234");
-        assertOptimizedEquals("extract (DAY from " + millis + ")", "22");
-        assertOptimizedEquals("extract (HOUR from " + millis + ")", "3");
-        assertOptimizedEquals("extract (MINUTE from " + millis + ")", "4");
-        assertOptimizedEquals("extract (SECOND from " + millis + ")", "5");
-        assertOptimizedEquals("extract (TIMEZONE_HOUR from " + millis + ")", "0");
-        assertOptimizedEquals("extract (TIMEZONE_MINUTE from " + millis + ")", "0");
+        assertOptimizedEquals("extract (CENTURY from " + seconds + ")", "20");
+        assertOptimizedEquals("extract (YEAR from " + seconds + ")", "2001");
+        assertOptimizedEquals("extract (QUARTER from " + seconds + ")", "3");
+        assertOptimizedEquals("extract (MONTH from " + seconds + ")", "8");
+        assertOptimizedEquals("extract (WEEK from " + seconds + ")", "34");
+        assertOptimizedEquals("extract (DOW from " + seconds + ")", "3");
+        assertOptimizedEquals("extract (DOY from " + seconds + ")", "234");
+        assertOptimizedEquals("extract (DAY from " + seconds + ")", "22");
+        assertOptimizedEquals("extract (HOUR from " + seconds + ")", "3");
+        assertOptimizedEquals("extract (MINUTE from " + seconds + ")", "4");
+        assertOptimizedEquals("extract (SECOND from " + seconds + ")", "5");
+        assertOptimizedEquals("extract (TIMEZONE_HOUR from " + seconds + ")", "0");
+        assertOptimizedEquals("extract (TIMEZONE_MINUTE from " + seconds + ")", "0");
 
 
         assertOptimizedEquals("extract (CENTURY from boundTimestamp)", "20");
@@ -170,7 +171,7 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("extract (TIMEZONE_MINUTE from boundTimestamp)", "0");
 
         assertOptimizedEquals("extract (YEAR from a)", "extract (YEAR from a)");
-        assertOptimizedEquals("extract (SECOND from boundTimestamp + 1000)", "6");
+        assertOptimizedEquals("extract (SECOND from boundTimestamp + 3)", "8");
     }
 
     @Test
@@ -207,12 +208,12 @@ public class TestExpressionInterpreter
     }
 
     @Test
-    public void testCurrenTimestamp()
+    public void testCurrentTimestamp()
             throws Exception
     {
-        long current = System.currentTimeMillis();
+        long current = MILLISECONDS.toSeconds(System.currentTimeMillis());
         assertOptimizedEquals("current_timestamp >= " + current, "true");
-        assertOptimizedEquals("current_timestamp > " + current + TimeUnit.MINUTES.toMillis(1), "false");
+        assertOptimizedEquals("current_timestamp > " + current + TimeUnit.MINUTES.toSeconds(1), "false");
     }
 
     @Test
@@ -515,7 +516,8 @@ public class TestExpressionInterpreter
                     case "bounddouble":
                         return 12.34;
                     case "boundtimestamp":
-                        return new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis();
+                        DateTime dateTime = new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC);
+                        return MILLISECONDS.toSeconds(dateTime.getMillis());
                 }
 
                 return new QualifiedNameReference(symbol.toQualifiedName());

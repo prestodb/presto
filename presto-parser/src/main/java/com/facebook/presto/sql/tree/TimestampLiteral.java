@@ -5,6 +5,8 @@ import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.DateTimeFormatterBuilder;
 import org.joda.time.format.ISODateTimeFormat;
 
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+
 public class TimestampLiteral
         extends Literal
 {
@@ -50,7 +52,7 @@ public class TimestampLiteral
         Preconditions.checkNotNull(value, "value is null");
 
         this.value = value;
-        unixTime = DATE_TIME_FORMATTER.parseMillis(value);
+        unixTime = MILLISECONDS.toSeconds(DATE_TIME_FORMATTER.parseMillis(value));
     }
 
     public String getValue()
