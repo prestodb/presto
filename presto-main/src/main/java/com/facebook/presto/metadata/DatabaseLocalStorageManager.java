@@ -39,10 +39,8 @@ import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 
-import static com.facebook.presto.util.RetryDriver.retry;
 import static com.facebook.presto.util.Threads.threadsNamed;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -390,26 +388,13 @@ public class DatabaseLocalStorageManager
         @Override
         public void run()
         {
-            try {
-                retry().stopOnIllegalExceptions().runUnchecked(new Callable<Void>()
-                {
-                    @Override
-                    public Void call()
-                            throws Exception
-                    {
-                        // TODO: dropping needs to be globally coordinated with read queries
-                        List<String> shardFiles = dao.getShardFiles(shardId);
-                        for (String shardFile : shardFiles) {
-                            File file = new File(getShardPath(baseStorageDir, shardId), shardFile);
-                            java.nio.file.Files.deleteIfExists(file.toPath());
-                        }
-                        dao.dropShard(shardId);
-                        return null;
-                    }
-                });
-            } catch (Exception e) {
-                log.error(e, "shard drop failed");
+            // TODO: dropping needs to be globally coordinated with read queries
+            List<String> shardFiles = dao.getShardFiles(shardId);
+            for (String shardFile : shardFiles) {
+                File file = new File(getShardPath(baseStorageDir, shardId), shardFile);
+                file.delete();
             }
+            dao.dropShard(shardId);
         }
     }
 

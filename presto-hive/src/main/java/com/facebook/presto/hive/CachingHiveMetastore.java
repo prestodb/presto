@@ -1,6 +1,5 @@
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.shaded.org.apache.thrift.TException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.base.Objects;
@@ -11,14 +10,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.units.Duration;
 import org.apache.hadoop.hive.metastore.TableType;
-import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.Table;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
-
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -26,6 +23,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
+import static com.facebook.presto.hive.RetryDriver.retry;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -109,9 +107,17 @@ public class CachingHiveMetastore
             public List<String> call()
                     throws Exception
             {
-                try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                    return client.get_all_databases();
-                }
+                return retry().stopOnIllegalExceptions().run("getAllDatabases", new Callable<List<String>>()
+                {
+                    @Override
+                    public List<String> call()
+                            throws Exception
+                    {
+                        try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
+                            return client.get_all_databases();
+                        }
+                    }
+                });
             }
         }, RuntimeException.class);
     }
@@ -125,14 +131,22 @@ public class CachingHiveMetastore
             public List<String> call()
                     throws Exception
             {
-                try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                    List<String> tables = client.get_all_tables(databaseName);
-                    if (tables.isEmpty()) {
-                        // Check to see if the database exists
-                        client.get_database(databaseName);
+                return retry().stopOn(NoSuchObjectException.class).stopOnIllegalExceptions().run("getAllTables", new Callable<List<String>>()
+                {
+                    @Override
+                    public List<String> call()
+                            throws Exception
+                    {
+                        try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
+                            List<String> tables = client.get_all_tables(databaseName);
+                            if (tables.isEmpty()) {
+                                // Check to see if the database exists
+                                client.get_database(databaseName);
+                            }
+                            return tables;
+                        }
                     }
-                    return tables;
-                }
+                });
             }
         }, NoSuchObjectException.class);
     }
@@ -146,13 +160,21 @@ public class CachingHiveMetastore
             public Table call()
                     throws Exception
             {
-                try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                    Table table = client.get_table(databaseName, tableName);
-                    if (table.getTableType().equals(TableType.VIRTUAL_VIEW.toString())) {
-                        throw new TableNotFoundException(new SchemaTableName(databaseName, tableName), HiveClient.HIVE_VIEWS_NOT_SUPPORTED);
+                return retry().stopOn(NoSuchObjectException.class).stopOnIllegalExceptions().run("getTable", new Callable<Table>()
+                {
+                    @Override
+                    public Table call()
+                            throws Exception
+                    {
+                        try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
+                            Table table = client.get_table(databaseName, tableName);
+                            if (table.getTableType().equals(TableType.VIRTUAL_VIEW.toString())) {
+                                throw new TableNotFoundException(new SchemaTableName(databaseName, tableName), HiveClient.HIVE_VIEWS_NOT_SUPPORTED);
+                            }
+                            return table;
+                        }
                     }
-                    return table;
-                }
+                });
             }
         }, NoSuchObjectException.class);
     }
@@ -166,15 +188,23 @@ public class CachingHiveMetastore
             public List<String> call()
                     throws Exception
             {
-                try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                    List<String> partitionNames = client.get_partition_names(databaseName, tableName, (short) 0);
-                    if (partitionNames.isEmpty()) {
-                        // Check if the table exists
-                        getTable(databaseName, tableName);
-                        return ImmutableList.of(UNPARTITIONED_ID);
+                return retry().stopOn(NoSuchObjectException.class).stopOnIllegalExceptions().run("getPartitionNames", new Callable<List<String>>()
+                {
+                    @Override
+                    public List<String> call()
+                            throws Exception
+                    {
+                        try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
+                            List<String> partitionNames = client.get_partition_names(databaseName, tableName, (short) 0);
+                            if (partitionNames.isEmpty()) {
+                                // Check if the table exists
+                                getTable(databaseName, tableName);
+                                return ImmutableList.of(UNPARTITIONED_ID);
+                            }
+                            return partitionNames;
+                        }
                     }
-                    return partitionNames;
-                }
+                });
             }
         }, NoSuchObjectException.class);
     }
@@ -188,18 +218,26 @@ public class CachingHiveMetastore
             public List<String> call()
                     throws Exception
             {
-                try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                    return client.get_partition_names_ps(databaseName, tableName, parts, (short) -1);
-                }
+                return retry().stopOn(NoSuchObjectException.class).stopOnIllegalExceptions().run("getPartitionNamesByParts", new Callable<List<String>>()
+                {
+                    @Override
+                    public List<String> call()
+                            throws Exception
+                    {
+                        try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
+                            return client.get_partition_names_ps(databaseName, tableName, parts, (short) -1);
+                        }
+                    }
+                });
             }
         }, NoSuchObjectException.class);
     }
 
-    public List<Partition> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames)
+    public List<Partition> getPartitionsByNames(final String databaseName, final String tableName, List<String> partitionNames)
             throws NoSuchObjectException
     {
         // Pre-populate some results with already cached partitions
-        List<String> partitionsToFetch = new ArrayList<>();
+        final List<String> partitionsToFetch = new ArrayList<>();
         Partition[] partitions = new Partition[partitionNames.size()];
         for (int i = 0; i < partitionNames.size(); i++) {
             String partitionName = partitionNames.get(i);
@@ -214,10 +252,23 @@ public class CachingHiveMetastore
 
         if (!partitionsToFetch.isEmpty()) {
             List<Partition> fetchedPartitions;
-            try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                fetchedPartitions = client.get_partitions_by_names(databaseName, tableName, partitionsToFetch);
+            try {
+                fetchedPartitions = retry()
+                        .stopOn(NoSuchObjectException.class)
+                        .stopOnIllegalExceptions().run("getPartitionsByNames", new Callable<List<Partition>>()
+                        {
+                            @Override
+                            public List<Partition> call()
+                                    throws Exception
+                            {
+                                try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
+                                    return client.get_partitions_by_names(databaseName, tableName, partitionsToFetch);
+                                }
+                            }
+                        });
             }
-            catch (TException | MetaException e) {
+            catch (Exception e) {
+                Throwables.propagateIfInstanceOf(e, NoSuchObjectException.class);
                 throw Throwables.propagate(e);
             }
 

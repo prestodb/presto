@@ -47,7 +47,7 @@ public class MockHiveMetastoreClient
     {
         accessCount.incrementAndGet();
         if (throwException) {
-            throw new RuntimeException();
+            throw new IllegalStateException();
         }
         return ImmutableList.of(TEST_DATABASE);
     }

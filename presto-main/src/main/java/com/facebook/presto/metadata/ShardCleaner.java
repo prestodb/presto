@@ -20,11 +20,9 @@ import io.airlift.units.Duration;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
-
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
@@ -34,7 +32,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.metadata.Node.getIdentifierFunction;
-import static com.facebook.presto.util.RetryDriver.retry;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
@@ -178,19 +175,10 @@ public class ShardCleaner
         public void run()
         {
             try {
-                retry().stopOnIllegalExceptions().runUnchecked(new Callable<Void>()
-                {
-                    @Override
-                    public Void call()
-                            throws Exception
-                    {
-                        if (!dropShardRequest()) {
-                            throw new Exception("Failed to drop shard " + shardId + " for " + node);
-                        }
-                        shardManager.disassociateShard(shardId, node.getNodeIdentifier());
-                        return null;
-                    }
-                });
+                if (!dropShardRequest()) {
+                    throw new Exception("Failed to drop shard " + shardId + " for " + node);
+                }
+                shardManager.disassociateShard(shardId, node.getNodeIdentifier());
             }
             catch (Exception e) {
                 log.error(e);
