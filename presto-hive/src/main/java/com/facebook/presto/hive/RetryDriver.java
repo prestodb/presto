@@ -1,6 +1,5 @@
-package com.facebook.presto.util;
+package com.facebook.presto.hive;
 
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -16,19 +15,18 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class RetryDriver
 {
     private static final Logger log = Logger.get(RetryDriver.class);
-    private static final String DEFAULT_CALLABLE_NAME = "<default>";
     private static final int DEFAULT_RETRY_ATTEMPTS = 10;
     private static final Duration DEFAULT_SLEEP_TIME = Duration.valueOf("1s");
 
     private final int maxRetryAttempts;
     private final Duration sleepTime;
-    private final List<Class<? extends Exception>> exceptionWhitelist;
+    private final List<Class<? extends Exception>> exceptionWhiteList;
 
-    private RetryDriver(int maxRetryAttempts, Duration sleepTime, List<Class<? extends Exception>> exceptionWhitelist)
+    private RetryDriver(int maxRetryAttempts, Duration sleepTime, List<Class<? extends Exception>> exceptionWhiteList)
     {
         this.maxRetryAttempts = maxRetryAttempts;
         this.sleepTime = sleepTime;
-        this.exceptionWhitelist = exceptionWhitelist;
+        this.exceptionWhiteList = exceptionWhiteList;
 
     }
 
@@ -45,12 +43,12 @@ public class RetryDriver
     public RetryDriver withMaxRetries(int maxRetryAttempts)
     {
         checkArgument(maxRetryAttempts > 0, "maxRetryAttempts must be greater than zero");
-        return new RetryDriver(maxRetryAttempts, sleepTime, exceptionWhitelist);
+        return new RetryDriver(maxRetryAttempts, sleepTime, exceptionWhiteList);
     }
 
     public RetryDriver withSleep(Duration sleepTime)
     {
-        return new RetryDriver(maxRetryAttempts, checkNotNull(sleepTime, "sleepTime is null"), exceptionWhitelist);
+        return new RetryDriver(maxRetryAttempts, checkNotNull(sleepTime, "sleepTime is null"), exceptionWhiteList);
     }
 
     @SafeVarargs
@@ -58,7 +56,7 @@ public class RetryDriver
     {
         checkNotNull(classes, "classes is null");
         List<Class<? extends Exception>> exceptions = ImmutableList.<Class<? extends Exception>>builder()
-                .addAll(exceptionWhitelist)
+                .addAll(exceptionWhiteList)
                 .addAll(Arrays.asList(classes))
                 .build();
 
@@ -69,12 +67,6 @@ public class RetryDriver
     public RetryDriver stopOnIllegalExceptions()
     {
         return stopOn(NullPointerException.class, IllegalStateException.class, IllegalArgumentException.class);
-    }
-
-    public <V> V run(Callable<V> callable)
-            throws Exception
-    {
-        return run(DEFAULT_CALLABLE_NAME, callable);
     }
 
     public <V> V run(String callableName, Callable<V> callable)
@@ -90,7 +82,7 @@ public class RetryDriver
                 return callable.call();
             }
             catch (Exception e) {
-                for (Class<? extends Exception> clazz : exceptionWhitelist) {
+                for (Class<? extends Exception> clazz : exceptionWhiteList) {
                     if (clazz.isInstance(e)) {
                         throw e;
                     }
@@ -103,21 +95,6 @@ public class RetryDriver
                 }
                 TimeUnit.MILLISECONDS.sleep((long) sleepTime.toMillis());
             }
-        }
-    }
-
-    public <V> V runUnchecked(Callable<V> callable)
-    {
-        return runUnchecked(DEFAULT_CALLABLE_NAME, callable);
-    }
-
-    public <V> V runUnchecked(String callableName, Callable<V> callable)
-    {
-        try {
-            return run(callableName, callable);
-        }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
         }
     }
 }
