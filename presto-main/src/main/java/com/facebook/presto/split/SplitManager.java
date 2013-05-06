@@ -96,7 +96,7 @@ public class SplitManager
     public List<Partition> getPartitions(TableHandle table, Optional<Map<ColumnHandle, Object>> bindings)
     {
         checkNotNull(table, "table is null");
-        return getConnectorSplitManager(table).getPartitions(table, bindings.get());
+        return getConnectorSplitManager(table).getPartitions(table, bindings.or(ImmutableMap.<ColumnHandle, Object>of()));
     }
 
     private List<Partition> prunePartitions(Session session, List<Partition> partitions, Expression predicate, Map<ColumnHandle, Symbol> columnToSymbol)
