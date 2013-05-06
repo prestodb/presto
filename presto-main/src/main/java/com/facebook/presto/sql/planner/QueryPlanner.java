@@ -32,6 +32,7 @@ import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -47,6 +48,7 @@ import java.util.Set;
 
 import static com.facebook.presto.sql.tree.FunctionCall.argumentsGetter;
 import static com.facebook.presto.sql.tree.SortItem.sortKeyGetter;
+import static com.google.common.base.Preconditions.checkState;
 
 class QueryPlanner
         extends DefaultTraversalVisitor<PlanBuilder, Void>
@@ -122,7 +124,9 @@ class QueryPlanner
         // TODO: replace this with a table-generating operator that produces 1 row with no columns
 
         QualifiedTableName name = MetadataUtil.createQualifiedTableName(session, QualifiedName.of("dual"));
-        TableHandle table = metadata.getTableHandle(name).get();
+        Optional<TableHandle> optionalHandle = metadata.getTableHandle(name);
+        checkState(optionalHandle.isPresent(), "Dual table provider not installed");
+        TableHandle table = optionalHandle.get();
         TableMetadata tableMetadata = metadata.getTableMetadata(table);
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(table);
 
@@ -297,7 +301,7 @@ class QueryPlanner
     private PlanBuilder distinct(PlanBuilder subPlan, Query query, List<FieldOrExpression> outputs, List<FieldOrExpression> orderBy)
     {
         if (query.getSelect().isDistinct()) {
-            Preconditions.checkState(outputs.containsAll(orderBy), "Expected ORDER BY terms to be in SELECT. Broken analysis");
+            checkState(outputs.containsAll(orderBy), "Expected ORDER BY terms to be in SELECT. Broken analysis");
 
             AggregationNode aggregation = new AggregationNode(idAllocator.getNextId(),
                 subPlan.getRoot(),

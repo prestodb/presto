@@ -669,11 +669,20 @@ class StatementAnalyzer
             if (!analyzer.analyze(fieldIndex)) {
                 Field field = tupleDescriptor.getFields().get(fieldIndex);
 
-                if (field.getName().isPresent()) {
-                    throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, query, "Column '%s.%s' not in GROUP BY clause", field.getRelationAlias().get(), field.getName().get());
-                }
-                else {
-                    throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, query, "Columns from '%s' not in GROUP BY clause", field.getRelationAlias().get());
+                if (field.getRelationAlias().isPresent()) {
+                    if (field.getName().isPresent()) {
+                        throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, query, "Column '%s.%s' not in GROUP BY clause", field.getRelationAlias().get(), field.getName().get());
+                    }
+                    else {
+                        throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, query, "Columns from '%s' not in GROUP BY clause", field.getRelationAlias().get());
+                    }
+                } else {
+                    if (field.getName().isPresent()) {
+                        throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, query, "Column '%s' not in GROUP BY clause", field.getName().get());
+                    }
+                    else {
+                        throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, query, "Some columns from FROM clause not in GROUP BY clause");
+                    }
                 }
             }
         }

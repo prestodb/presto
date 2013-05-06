@@ -551,22 +551,22 @@ public final class TreeRewriter<C>
                 }
             }
 
-            Window window = node.getWindow().orNull();
-            if (window != null) {
+            Window rewrittenWindow = node.getWindow().orNull();
+            if (rewrittenWindow != null) {
                 ImmutableList.Builder<Expression> partitionBy = ImmutableList.builder();
-                for (Expression expression : node.getWindow().get().getPartitionBy()) {
+                for (Expression expression : rewrittenWindow.getPartitionBy()) {
                     partitionBy.add(rewrite(expression, context.get()));
                 }
 
                 ImmutableList.Builder<SortItem> orderBy = ImmutableList.builder();
-                for (SortItem sortItem : node.getWindow().get().getOrderBy()) {
+                for (SortItem sortItem : rewrittenWindow.getOrderBy()) {
                     orderBy.add(rewrite(sortItem, context.get()));
                 }
 
                 // TODO: rewrite frame
-                if (!sameElements(window.getPartitionBy(), partitionBy.build()) ||
-                        !sameElements(window.getOrderBy(), orderBy.build())) {
-                    window = new Window(partitionBy.build(), orderBy.build(), window.getFrame().orNull());
+                if (!sameElements(rewrittenWindow.getPartitionBy(), partitionBy.build()) ||
+                        !sameElements(rewrittenWindow.getOrderBy(), orderBy.build())) {
+                    rewrittenWindow = new Window(partitionBy.build(), orderBy.build(), rewrittenWindow.getFrame().orNull());
                 }
             }
 
@@ -576,8 +576,8 @@ public final class TreeRewriter<C>
             }
 
             if (!sameElements(node.getArguments(), arguments.build()) ||
-                    (window != node.getWindow().orNull())) {
-                return new FunctionCall(node.getName(), window, node.isDistinct(), arguments.build());
+                    (rewrittenWindow != node.getWindow().orNull())) {
+                return new FunctionCall(node.getName(), rewrittenWindow, node.isDistinct(), arguments.build());
             }
 
             return node;

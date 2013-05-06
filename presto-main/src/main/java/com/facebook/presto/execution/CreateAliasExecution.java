@@ -116,7 +116,7 @@ public class CreateAliasExecution
         QualifiedTableName aliasTableName = createQualifiedTableName(stateMachine.getSession(), statement.getAlias());
 
         Optional<TableHandle> aliasTableHandle = metadataManager.getTableHandle(aliasTableName);
-        checkState(!aliasTableHandle.isPresent(), "Table %s does not exist", aliasTableHandle);
+        checkState(aliasTableHandle.isPresent(), "Table %s does not exist", aliasTableHandle);
         Preconditions.checkState(aliasTableHandle.get() instanceof NativeTableHandle, "Can only use a native table as alias");
 
         QualifiedTableName remoteTableName = createQualifiedTableName(stateMachine.getSession(), statement.getRemote());
