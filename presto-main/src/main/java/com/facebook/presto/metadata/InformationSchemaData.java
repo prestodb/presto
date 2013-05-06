@@ -154,7 +154,7 @@ public class InformationSchemaData
         Optional<String> schemaName = getFilterColumn(filters, "table_schema");
         checkArgument(schemaName.isPresent(), "filter is required for column: %s.%s", TABLE_INTERNAL_PARTITIONS, "table_schema");
         Optional<String> tableName = getFilterColumn(filters, "table_name");
-        checkArgument(schemaName.isPresent(), "filter is required for column: %s.%s", TABLE_INTERNAL_PARTITIONS, "table_name");
+        checkArgument(tableName.isPresent(), "filter is required for column: %s.%s", TABLE_INTERNAL_PARTITIONS, "table_name");
         return new QualifiedTableName(catalogName, schemaName.get(), tableName.get());
     }
 
