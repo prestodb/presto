@@ -4,12 +4,12 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-public class SchemaTableMetadata
+public class TableMetadata
 {
     private final SchemaTableName table;
     private final List<ColumnMetadata> columns;
 
-    public SchemaTableMetadata(SchemaTableName table, List<ColumnMetadata> columns)
+    public TableMetadata(SchemaTableName table, List<ColumnMetadata> columns)
     {
         if (table == null) {
             throw new NullPointerException("table is null or empty");

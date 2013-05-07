@@ -10,18 +10,16 @@ import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
 import com.facebook.presto.connector.ConnectorManager;
+import com.facebook.presto.connector.informationSchema.InformationSchemaHandleResolver;
 import com.facebook.presto.failureDetector.FailureDetectorModule;
 import com.facebook.presto.guice.TestingJmxModule;
-import com.facebook.presto.metadata.CollocatedSplitHandleResolver;
 import com.facebook.presto.metadata.HandleJsonModule;
-import com.facebook.presto.metadata.HandleResolver;
-import com.facebook.presto.metadata.InternalHandleResolver;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NativeHandleResolver;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
-import com.facebook.presto.metadata.RemoteSplitHandleResolver;
+import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Serialization.ExpressionDeserializer;
@@ -51,6 +49,7 @@ import com.google.inject.Module;
 import com.google.inject.Scopes;
 import com.google.inject.Stage;
 import com.google.inject.TypeLiteral;
+import com.google.inject.multibindings.MapBinder;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.discovery.DiscoveryServerModule;
@@ -112,7 +111,7 @@ public class TestDistributedQueries
     public void testNodeRoster()
             throws Exception
     {
-        List<MaterializedTuple> result = computeActual("SELECT * FROM sys.nodes").getMaterializedTuples();
+        List<MaterializedTuple> result = computeActual("SELECT * FROM sys.node").getMaterializedTuples();
         assertEquals(result.size(), servers.size());
     }
 
@@ -234,9 +233,14 @@ public class TestDistributedQueries
     private List<String> distributeData(String catalog, String schema)
             throws Exception
     {
+//        if (true) return ImmutableList.of();
+
         ImmutableList.Builder<String> tableNames = ImmutableList.builder();
         List<QualifiedTableName> qualifiedTableNames = coordinator.metadata.listTables(new QualifiedTablePrefix(catalog, schema));
         for (QualifiedTableName qualifiedTableName : qualifiedTableNames) {
+            if (qualifiedTableName.getTableName().equalsIgnoreCase("dual")) {
+                continue;
+            }
             log.info("Running import for %s", qualifiedTableName.getTableName());
             MaterializedResult importResult = computeActual(format("CREATE MATERIALIZED VIEW default.default.%s AS SELECT * FROM %s",
                     qualifiedTableName.getTableName(),
@@ -556,18 +560,13 @@ public class TestDistributedQueries
                         JsonBinder.jsonBinder(binder).addSerializerBinding(Expression.class).to(ExpressionSerializer.class);
                         JsonBinder.jsonBinder(binder).addDeserializerBinding(Expression.class).to(ExpressionDeserializer.class);
                         JsonBinder.jsonBinder(binder).addDeserializerBinding(FunctionCall.class).to(FunctionCallDeserializer.class);
-                        binder.bind(HandleResolver.class).in(Scopes.SINGLETON);
+
+                        MapBinder<String, ConnectorHandleResolver> connectorHandleResolverBinder = MapBinder.newMapBinder(binder, String.class, ConnectorHandleResolver.class);
+                        connectorHandleResolverBinder.addBinding("information_schema").to(InformationSchemaHandleResolver.class).in(Scopes.SINGLETON);
+                        connectorHandleResolverBinder.addBinding("native").to(NativeHandleResolver.class).in(Scopes.SINGLETON);
+                        connectorHandleResolverBinder.addBinding("tpch").to(TpchHandleResolver.class).in(Scopes.SINGLETON);
                     }
                 });
-
-        HandleResolver handleResolver = injector.getInstance(HandleResolver.class);
-
-        // for not just hard code the handle resolvers
-        handleResolver.addHandleResolver("native", new NativeHandleResolver());
-        handleResolver.addHandleResolver("tpch", new TpchHandleResolver());
-        handleResolver.addHandleResolver("internal", new InternalHandleResolver());
-        handleResolver.addHandleResolver("remote", new RemoteSplitHandleResolver());
-        handleResolver.addHandleResolver("collocated", new CollocatedSplitHandleResolver());
 
         return injector.getInstance(JsonCodecFactory.class);
     }

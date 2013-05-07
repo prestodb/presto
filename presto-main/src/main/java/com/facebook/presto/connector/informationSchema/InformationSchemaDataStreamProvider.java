@@ -1,67 +1,105 @@
-package com.facebook.presto.metadata;
+package com.facebook.presto.connector.informationSchema;
 
+import com.facebook.presto.block.BlockIterable;
+import com.facebook.presto.metadata.FunctionInfo;
+import com.facebook.presto.metadata.InternalTable;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.QualifiedTablePrefix;
+import com.facebook.presto.operator.AlignmentOperator;
+import com.facebook.presto.operator.Operator;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.Partition;
+import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.split.ConnectorDataStreamProvider;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableBiMap;
+import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import static com.facebook.presto.metadata.InformationSchemaMetadata.INFORMATION_SCHEMA;
-import static com.facebook.presto.metadata.InformationSchemaMetadata.TABLE_COLUMNS;
-import static com.facebook.presto.metadata.InformationSchemaMetadata.TABLE_INTERNAL_FUNCTIONS;
-import static com.facebook.presto.metadata.InformationSchemaMetadata.TABLE_INTERNAL_PARTITIONS;
-import static com.facebook.presto.metadata.InformationSchemaMetadata.TABLE_TABLES;
-import static com.facebook.presto.metadata.InformationSchemaMetadata.informationSchemaTableColumns;
-import static com.facebook.presto.metadata.MetadataUtil.checkTable;
 import static com.facebook.presto.tuple.TupleInfo.Type.fromColumnType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
 import static java.lang.String.format;
 
-public class InformationSchemaData
+public class InformationSchemaDataStreamProvider
+        implements ConnectorDataStreamProvider
 {
     private final Metadata metadata;
     private final SplitManager splitManager;
 
     @Inject
-    public InformationSchemaData(Metadata metadata, SplitManager splitManager)
+    public InformationSchemaDataStreamProvider(Metadata metadata, SplitManager splitManager)
     {
         this.metadata = checkNotNull(metadata, "metadata is null");
         this.splitManager = checkNotNull(splitManager, "splitManager is null");
     }
 
-    public InternalTable getInternalTable(QualifiedTableName table, Map<InternalColumnHandle, Object> filters)
+    @Override
+    public boolean canHandle(Split split)
     {
-        checkTable(table);
-        checkArgument(table.getSchemaName().equals(INFORMATION_SCHEMA), "schema is not %s", INFORMATION_SCHEMA);
+        return split instanceof InformationSchemaSplit;
+    }
 
-        switch (table.getTableName()) {
-            case TABLE_COLUMNS:
-                return buildColumns(table.getCatalogName(), filters);
-            case TABLE_TABLES:
-                return buildTables(table.getCatalogName(), filters);
-            case TABLE_INTERNAL_FUNCTIONS:
-                return buildFunctions();
-            case TABLE_INTERNAL_PARTITIONS:
-                return buildPartitions(table.getCatalogName(), filters);
+    @Override
+    public Operator createDataStream(Split split, List<ColumnHandle> columns)
+    {
+        checkNotNull(split, "split is null");
+        checkArgument(split instanceof InformationSchemaSplit, "Split must be of type %s, not %s", InformationSchemaSplit.class.getName(), split.getClass().getName());
+
+        checkNotNull(columns, "columns is null");
+        checkArgument(!columns.isEmpty(), "must provide at least one column");
+
+        InformationSchemaTableHandle handle = ((InformationSchemaSplit) split).getTableHandle();
+        Map<String, Object> filters = ((InformationSchemaSplit) split).getFilters();
+
+        InternalTable table = getInformationSchemaTable(handle.getCatalogName(), handle.getSchemaTableName(), filters);
+
+        ImmutableList.Builder<BlockIterable> list = ImmutableList.builder();
+        for (ColumnHandle column : columns) {
+            checkArgument(column instanceof InformationSchemaColumnHandle, "column must be of type %s, not %s", InformationSchemaColumnHandle.class.getName(), column.getClass().getName());
+            InformationSchemaColumnHandle internalColumn = (InformationSchemaColumnHandle) column;
+
+            list.add(table.getColumn(internalColumn.getColumnName()));
+        }
+        ImmutableList<BlockIterable> channels = list.build();
+
+        return new AlignmentOperator(channels);
+    }
+
+    public InternalTable getInformationSchemaTable(String catalog, SchemaTableName table, Map<String, Object> filters)
+    {
+        if (table.equals(InformationSchemaMetadata.TABLE_COLUMNS)) {
+            return buildColumns(catalog, filters);
+        }
+        else if (table.equals(InformationSchemaMetadata.TABLE_TABLES)) {
+            return buildTables(catalog, filters);
+        }
+        else if (table.equals(InformationSchemaMetadata.TABLE_INTERNAL_FUNCTIONS)) {
+            return buildFunctions();
+        }
+        else if (table.equals(InformationSchemaMetadata.TABLE_INTERNAL_PARTITIONS)) {
+            return buildPartitions(catalog, filters);
         }
 
         throw new IllegalArgumentException(format("table does not exist: %s", table));
     }
 
-    private InternalTable buildColumns(String catalogName, Map<InternalColumnHandle, Object> filters)
+    private InternalTable buildColumns(String catalogName, Map<String, Object> filters)
     {
-        InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_COLUMNS));
+        InternalTable.Builder table = InternalTable.builder(InformationSchemaMetadata.informationSchemaTableColumns(InformationSchemaMetadata.TABLE_COLUMNS));
         for (Entry<QualifiedTableName, List<ColumnMetadata>> entry : getColumnsList(catalogName, filters).entrySet()) {
             QualifiedTableName tableName = entry.getKey();
             for (ColumnMetadata column : entry.getValue()) {
@@ -81,14 +119,14 @@ public class InformationSchemaData
         return table.build();
     }
 
-    private Map<QualifiedTableName, List<ColumnMetadata>> getColumnsList(String catalogName, Map<InternalColumnHandle, Object> filters)
+    private Map<QualifiedTableName, List<ColumnMetadata>> getColumnsList(String catalogName, Map<String, Object> filters)
     {
         return metadata.listTableColumns(extractQualifiedTablePrefix(catalogName, filters));
     }
 
-    private InternalTable buildTables(String catalogName, Map<InternalColumnHandle, Object> filters)
+    private InternalTable buildTables(String catalogName, Map<String, Object> filters)
     {
-        InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_TABLES));
+        InternalTable.Builder table = InternalTable.builder(InformationSchemaMetadata.informationSchemaTableColumns(InformationSchemaMetadata.TABLE_TABLES));
         for (QualifiedTableName name : getTablesList(catalogName, filters)) {
             table.add(table.getTupleInfo().builder()
                     .append(name.getCatalogName())
@@ -100,14 +138,14 @@ public class InformationSchemaData
         return table.build();
     }
 
-    private List<QualifiedTableName> getTablesList(String catalogName, Map<InternalColumnHandle, Object> filters)
+    private List<QualifiedTableName> getTablesList(String catalogName, Map<String, Object> filters)
     {
         return metadata.listTables(extractQualifiedTablePrefix(catalogName, filters));
     }
 
     private InternalTable buildFunctions()
     {
-        InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_INTERNAL_FUNCTIONS));
+        InternalTable.Builder table = InternalTable.builder(InformationSchemaMetadata.informationSchemaTableColumns(InformationSchemaMetadata.TABLE_INTERNAL_FUNCTIONS));
         for (FunctionInfo function : metadata.listFunctions()) {
             Iterable<String> arguments = transform(function.getArgumentTypes(), TupleInfo.Type.nameGetter());
             table.add(table.getTupleInfo().builder()
@@ -119,11 +157,11 @@ public class InformationSchemaData
         return table.build();
     }
 
-    private InternalTable buildPartitions(String catalogName, Map<InternalColumnHandle, Object> filters)
+    private InternalTable buildPartitions(String catalogName, Map<String, Object> filters)
     {
         QualifiedTableName tableName = extractQualifiedTableName(catalogName, filters);
 
-        InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_INTERNAL_PARTITIONS));
+        InternalTable.Builder table = InternalTable.builder(InformationSchemaMetadata.informationSchemaTableColumns(InformationSchemaMetadata.TABLE_INTERNAL_PARTITIONS));
         int partitionNumber = 1;
 
         Optional<TableHandle> tableHandle = metadata.getTableHandle(tableName);
@@ -149,26 +187,26 @@ public class InformationSchemaData
         return table.build();
     }
 
-    private QualifiedTableName extractQualifiedTableName(String catalogName, Map<InternalColumnHandle, Object> filters)
+    private QualifiedTableName extractQualifiedTableName(String catalogName, Map<String, Object> filters)
     {
         Optional<String> schemaName = getFilterColumn(filters, "table_schema");
-        checkArgument(schemaName.isPresent(), "filter is required for column: %s.%s", TABLE_INTERNAL_PARTITIONS, "table_schema");
+        Preconditions.checkArgument(schemaName.isPresent(), "filter is required for column: %s.%s", InformationSchemaMetadata.TABLE_INTERNAL_PARTITIONS, "table_schema");
         Optional<String> tableName = getFilterColumn(filters, "table_name");
-        checkArgument(tableName.isPresent(), "filter is required for column: %s.%s", TABLE_INTERNAL_PARTITIONS, "table_name");
+        Preconditions.checkArgument(tableName.isPresent(), "filter is required for column: %s.%s", InformationSchemaMetadata.TABLE_INTERNAL_PARTITIONS, "table_name");
         return new QualifiedTableName(catalogName, schemaName.get(), tableName.get());
     }
 
-    private QualifiedTablePrefix extractQualifiedTablePrefix(String catalogName, Map<InternalColumnHandle, Object> filters)
+    private QualifiedTablePrefix extractQualifiedTablePrefix(String catalogName, Map<String, Object> filters)
     {
         return new QualifiedTablePrefix(catalogName,
                 getFilterColumn(filters, "table_schema"),
                 getFilterColumn(filters, "table_name"));
     }
 
-    private static Optional<String> getFilterColumn(Map<InternalColumnHandle, Object> filters, String columnName)
+    private static Optional<String> getFilterColumn(Map<String, Object> filters, String columnName)
     {
-        for (Map.Entry<InternalColumnHandle, Object> entry : filters.entrySet()) {
-            if (entry.getKey().getColumnName().equals(columnName)) {
+        for (Map.Entry<String, Object> entry : filters.entrySet()) {
+            if (entry.getKey().equals(columnName)) {
                 if (entry.getValue() instanceof String) {
                     return Optional.of((String) entry.getValue());
                 }

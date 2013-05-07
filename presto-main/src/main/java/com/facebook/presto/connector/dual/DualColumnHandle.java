@@ -1,17 +1,17 @@
-package com.facebook.presto.metadata;
+package com.facebook.presto.connector.dual;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
 
-public class InternalColumnHandle
+public class DualColumnHandle
         implements ColumnHandle
 {
     private final String columnName;
 
     @JsonCreator
-    public InternalColumnHandle(@JsonProperty("columnName") String columnName)
+    public DualColumnHandle(@JsonProperty("columnName") String columnName)
     {
         this.columnName = columnName;
     }
@@ -37,13 +37,13 @@ public class InternalColumnHandle
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final InternalColumnHandle other = (InternalColumnHandle) obj;
+        final DualColumnHandle other = (DualColumnHandle) obj;
         return Objects.equal(this.columnName, other.columnName);
     }
 
     @Override
     public String toString()
     {
-        return "internal:" + columnName;
+        return "dual:" + columnName;
     }
 }

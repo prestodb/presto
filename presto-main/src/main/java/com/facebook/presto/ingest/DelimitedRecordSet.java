@@ -7,7 +7,6 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
@@ -16,11 +15,11 @@ import com.google.common.io.Closeables;
 import com.google.common.io.InputSupplier;
 import com.google.common.io.LineReader;
 
-import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.Reader;
 import java.util.List;
 
+import static com.facebook.presto.metadata.MetadataUtil.columnTypeGetter;
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.collect.Iterables.transform;
 
@@ -46,15 +45,7 @@ public class DelimitedRecordSet
         this.columnSplitter = columnSplitter;
         this.columns = ImmutableList.copyOf(columns);
 
-        this.columnTypes = ImmutableList.copyOf(transform(columns, new Function<ColumnMetadata, ColumnType>()
-        {
-            @Nullable
-            @Override
-            public ColumnType apply(ColumnMetadata columnMetadata)
-            {
-                return columnMetadata.getType();
-            }
-        }));
+        this.columnTypes = ImmutableList.copyOf(transform(columns, columnTypeGetter()));
     }
 
     @Override

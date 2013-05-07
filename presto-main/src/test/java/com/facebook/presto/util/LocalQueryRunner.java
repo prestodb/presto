@@ -1,27 +1,22 @@
 package com.facebook.presto.util;
 
 import com.facebook.presto.importer.MockPeriodicImportManager;
-import com.facebook.presto.metadata.DualTable;
-import com.facebook.presto.metadata.InternalColumnHandle;
-import com.facebook.presto.metadata.InternalTable;
-import com.facebook.presto.metadata.InternalTableHandle;
+import com.facebook.presto.connector.dual.DualTableHandle;
+import com.facebook.presto.connector.system.SystemTableHandle;
 import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.MockLocalStorageManager;
-import com.facebook.presto.metadata.QualifiedTableName;
-import com.facebook.presto.operator.AlignmentOperator;
-import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.SourceHashProviderFactory;
 import com.facebook.presto.operator.SourceOperator;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.split.DataStreamManager;
 import com.facebook.presto.split.DataStreamProvider;
-import com.facebook.presto.split.InternalSplit;
+import com.facebook.presto.connector.dual.DualDataStreamProvider;
+import com.facebook.presto.connector.dual.DualSplit;
+import com.facebook.presto.connector.system.SystemSplit;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.Session;
@@ -52,14 +47,13 @@ import io.airlift.node.NodeInfo;
 import io.airlift.units.DataSize;
 import org.intellij.lang.annotations.Language;
 
-import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.connector.dual.DualMetadata.DUAL_METADATA_MANAGER;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
 import static com.facebook.presto.sql.parser.TreeAssertions.assertFormattedSql;
 import static com.facebook.presto.util.MaterializedResult.materialize;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static org.testng.Assert.assertTrue;
@@ -148,9 +142,8 @@ public class LocalQueryRunner
 
     public static LocalQueryRunner createDualLocalQueryRunner(Session session)
     {
-        DataStreamProvider dataProvider = new DualTableDataStreamProvider();
-        Metadata metadata = new MetadataManager();
-        return new LocalQueryRunner(dataProvider, metadata, MockLocalStorageManager.createMockLocalStorageManager(), session);
+        DataStreamProvider dataStreamProvider = new DataStreamManager(new DualDataStreamProvider());
+        return new LocalQueryRunner(dataStreamProvider, DUAL_METADATA_MANAGER, MockLocalStorageManager.createMockLocalStorageManager(), session);
     }
 
     private static Split createSplit(TableHandle handle)
@@ -158,23 +151,12 @@ public class LocalQueryRunner
         if (handle instanceof TpchTableHandle) {
             return new TpchSplit((TpchTableHandle) handle);
         }
-        if (handle instanceof InternalTableHandle) {
-            return new InternalSplit((InternalTableHandle) handle, ImmutableMap.<InternalColumnHandle, Object>of(), ImmutableList.of(HostAddress.fromParts("127.0.0.1", 0)));
+        if (handle instanceof DualTableHandle) {
+            return new DualSplit(ImmutableList.of(HostAddress.fromParts("127.0.0.1", 0)));
+        }
+        if (handle instanceof SystemTableHandle) {
+            return new SystemSplit((SystemTableHandle) handle, ImmutableMap.<String, Object>of(), ImmutableList.of(HostAddress.fromParts("127.0.0.1", 0)));
         }
         throw new IllegalArgumentException("unsupported table handle: " + handle.getClass().getName());
-    }
-
-    private static class DualTableDataStreamProvider
-            implements DataStreamProvider
-    {
-        private static final QualifiedTableName DEFAULT_DUAL_TABLE = new QualifiedTableName(DEFAULT_CATALOG, DEFAULT_SCHEMA, DualTable.NAME);
-
-        @Override
-        public Operator createDataStream(Split split, List<ColumnHandle> columns)
-        {
-            checkArgument(columns.size() == 1, "expected exactly one column");
-            InternalTable table = new DualTable().getInternalTable(DEFAULT_DUAL_TABLE);
-            return new AlignmentOperator(ImmutableList.of(table.getColumn(DualTable.COLUMN_NAME)));
-        }
     }
 }

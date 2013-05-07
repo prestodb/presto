@@ -18,9 +18,15 @@ import static org.testng.Assert.fail;
 
 public class TestAliasDao
 {
-    private static final QualifiedTableName TABLE_1 = new QualifiedTableName("a", "b", "c");
-    private static final QualifiedTableName TABLE_2 = new QualifiedTableName("d", "e", "f");
-    private static final QualifiedTableName TABLE_3 = new QualifiedTableName("g", "h", "i");
+    private static final String TABLE_1_CONNECTOR_ID = "apple_connector";
+    private static final String TABLE_1_SCHEMA_NAME = "apple_schema";
+    private static final String TABLE_1_TABLE_NAME = "apple_table";
+    private static final String TABLE_2_CONNECTOR_ID = "banana_connector";
+    private static final String TABLE_2_SCHEMA_NAME = "banana_schema";
+    private static final String TABLE_2_TABLE_NAME = "banana_table";
+    private static final String TABLE_3_CONNECTOR_ID = "cherry_connector";
+    private static final String TABLE_3_SCHEMA_NAME = "cherry_schema";
+    private static final String TABLE_3_TABLE_NAME = "cherry_table";
 
     AliasDao dao;
     Handle handle;
@@ -46,20 +52,25 @@ public class TestAliasDao
     {
         createTables(dao);
 
-        assertNull(dao.getAlias(TABLE_1));
+        assertNull(dao.getAlias(TABLE_1_CONNECTOR_ID, TABLE_1_SCHEMA_NAME, TABLE_1_TABLE_NAME));
     }
 
     @Test
     public void testAliasCreation()
     {
         createTables(dao);
-        assertNull(dao.getAlias(TABLE_1));
+        assertNull(dao.getAlias(TABLE_1_CONNECTOR_ID, TABLE_1_SCHEMA_NAME, TABLE_1_TABLE_NAME));
 
-        TableAlias tableAlias = TableAlias.createTableAlias(TABLE_1, TABLE_2);
+        TableAlias tableAlias = new TableAlias(TABLE_1_CONNECTOR_ID,
+                TABLE_1_SCHEMA_NAME,
+                TABLE_1_TABLE_NAME,
+                TABLE_2_CONNECTOR_ID,
+                TABLE_2_SCHEMA_NAME,
+                TABLE_2_TABLE_NAME);
 
         dao.insertAlias(tableAlias);
 
-        TableAlias tableAlias2 = dao.getAlias(TABLE_1);
+        TableAlias tableAlias2 = dao.getAlias(TABLE_1_CONNECTOR_ID, TABLE_1_SCHEMA_NAME, TABLE_1_TABLE_NAME);
 
         Assert.assertEquals(tableAlias, tableAlias2);
     }
@@ -68,32 +79,47 @@ public class TestAliasDao
     public void testAliasDeletion()
     {
         createTables(dao);
-        assertNull(dao.getAlias(TABLE_1));
+        assertNull(dao.getAlias(TABLE_1_CONNECTOR_ID, TABLE_1_SCHEMA_NAME, TABLE_1_TABLE_NAME));
 
-        TableAlias tableAlias = TableAlias.createTableAlias(TABLE_1, TABLE_2);
+        TableAlias tableAlias = new TableAlias(TABLE_1_CONNECTOR_ID,
+                TABLE_1_SCHEMA_NAME,
+                TABLE_1_TABLE_NAME,
+                TABLE_2_CONNECTOR_ID,
+                TABLE_2_SCHEMA_NAME,
+                TABLE_2_TABLE_NAME);
 
         dao.insertAlias(tableAlias);
 
-        TableAlias tableAlias2 = dao.getAlias(TABLE_1);
+        TableAlias tableAlias2 = dao.getAlias(TABLE_1_CONNECTOR_ID, TABLE_1_SCHEMA_NAME, TABLE_1_TABLE_NAME);
 
         Assert.assertEquals(tableAlias, tableAlias2);
 
         dao.dropAlias(tableAlias);
 
-        assertNull(dao.getAlias(TABLE_1));
+        assertNull(dao.getAlias(TABLE_1_CONNECTOR_ID, TABLE_1_SCHEMA_NAME, TABLE_1_TABLE_NAME));
     }
 
     @Test
     public void testDoubleDestinationFails()
     {
         createTables(dao);
-        assertNull(dao.getAlias(TABLE_1));
+        assertNull(dao.getAlias(TABLE_1_CONNECTOR_ID, TABLE_1_SCHEMA_NAME, TABLE_1_TABLE_NAME));
 
-        TableAlias tableAlias = TableAlias.createTableAlias(TABLE_1, TABLE_2);
+        TableAlias tableAlias = new TableAlias(TABLE_1_CONNECTOR_ID,
+                TABLE_1_SCHEMA_NAME,
+                TABLE_1_TABLE_NAME,
+                TABLE_2_CONNECTOR_ID,
+                TABLE_2_SCHEMA_NAME,
+                TABLE_2_TABLE_NAME);
         dao.insertAlias(tableAlias);
 
         try {
-            tableAlias = TableAlias.createTableAlias(TABLE_3, TABLE_2);
+            tableAlias = new TableAlias(TABLE_3_CONNECTOR_ID,
+                    TABLE_3_SCHEMA_NAME,
+                    TABLE_3_TABLE_NAME,
+                    TABLE_2_CONNECTOR_ID,
+                    TABLE_2_SCHEMA_NAME,
+                    TABLE_2_TABLE_NAME);
             dao.insertAlias(tableAlias);
             fail("Could insert table twice!");
         }
@@ -106,12 +132,22 @@ public class TestAliasDao
     public void testDoubleSourceOk()
     {
         createTables(dao);
-        assertNull(dao.getAlias(TABLE_1));
+        assertNull(dao.getAlias(TABLE_1_CONNECTOR_ID, TABLE_1_SCHEMA_NAME, TABLE_1_TABLE_NAME));
 
-        TableAlias tableAlias = TableAlias.createTableAlias(TABLE_1, TABLE_2);
+        TableAlias tableAlias = new TableAlias(TABLE_1_CONNECTOR_ID,
+                TABLE_1_SCHEMA_NAME,
+                TABLE_1_TABLE_NAME,
+                TABLE_2_CONNECTOR_ID,
+                TABLE_2_SCHEMA_NAME,
+                TABLE_2_TABLE_NAME);
         dao.insertAlias(tableAlias);
 
-        tableAlias = TableAlias.createTableAlias(TABLE_1, TABLE_3);
+        tableAlias = new TableAlias(TABLE_1_CONNECTOR_ID,
+                TABLE_1_SCHEMA_NAME,
+                TABLE_1_TABLE_NAME,
+                TABLE_3_CONNECTOR_ID,
+                TABLE_3_SCHEMA_NAME,
+                TABLE_3_TABLE_NAME);
         dao.insertAlias(tableAlias);
     }
 

@@ -3,7 +3,6 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.ComparisonExpression;
@@ -12,6 +11,7 @@ import com.facebook.presto.sql.tree.Input;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.connector.dual.DualMetadata.DUAL_METADATA_MANAGER;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
 import static java.lang.String.format;
@@ -178,7 +178,7 @@ public class TestInterpretedFilterFunction
     {
         Expression parsed = SqlParser.createExpression(expression);
         Session session = new Session(null, DEFAULT_CATALOG, DEFAULT_SCHEMA);
-        InterpretedFilterFunction filterFunction = new InterpretedFilterFunction(parsed, ImmutableMap.<Symbol, Input>of(), new MetadataManager(), session);
+        InterpretedFilterFunction filterFunction = new InterpretedFilterFunction(parsed, ImmutableMap.<Symbol, Input>of(), DUAL_METADATA_MANAGER, session);
         boolean result = filterFunction.filter();
         assertEquals(result, expectedValue);
     }

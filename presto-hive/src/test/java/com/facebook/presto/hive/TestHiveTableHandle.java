@@ -1,6 +1,5 @@
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.SchemaTableName;
 import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
@@ -12,12 +11,12 @@ public class TestHiveTableHandle {
     @Test
     public void testRoundTrip()
     {
-        HiveTableHandle expected = new HiveTableHandle("client", new SchemaTableName("schema", "table"));
+        HiveTableHandle expected = new HiveTableHandle("client", "schema", "table");
 
         String json = codec.toJson(expected);
         HiveTableHandle actual = codec.fromJson(json);
 
         assertEquals(actual.getClientId(), expected.getClientId());
-        assertEquals(actual.getTableName(), expected.getTableName());
+        assertEquals(actual.getSchemaTableName(), expected.getSchemaTableName());
     }
 }

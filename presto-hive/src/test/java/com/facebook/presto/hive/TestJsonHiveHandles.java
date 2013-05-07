@@ -18,7 +18,8 @@ public class TestJsonHiveHandles
 {
     private static final Map<String, Object> TABLE_HANDLE_AS_MAP = ImmutableMap.<String, Object>of(
             "clientId", "hive",
-            "tableName", "schema.table");
+            "schemaName", "hive_schema",
+            "tableName", "hive_table");
 
     private static final Map<String, Object> COLUMN_HANDLE_AS_MAP = ImmutableMap.<String, Object>builder()
             .put("clientId", "hive")
@@ -35,7 +36,7 @@ public class TestJsonHiveHandles
     public void testTableHandleSerialize()
             throws Exception
     {
-        HiveTableHandle tableHandle = new HiveTableHandle("hive", new SchemaTableName("schema", "table"));
+        HiveTableHandle tableHandle = new HiveTableHandle("hive", "hive_schema", "hive_table");
 
         assertTrue(objectMapper.canSerialize(HiveTableHandle.class));
         String json = objectMapper.writeValueAsString(tableHandle);
@@ -50,7 +51,10 @@ public class TestJsonHiveHandles
 
         HiveTableHandle tableHandle = objectMapper.readValue(json, HiveTableHandle.class);
 
-        assertEquals(tableHandle.getTableName(), new SchemaTableName("schema", "table"));
+        assertEquals(tableHandle.getClientId(), "hive");
+        assertEquals(tableHandle.getSchemaName(), "hive_schema");
+        assertEquals(tableHandle.getTableName(), "hive_table");
+        assertEquals(tableHandle.getSchemaTableName(), new SchemaTableName("hive_schema", "hive_table"));
     }
 
     @Test

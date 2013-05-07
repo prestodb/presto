@@ -10,6 +10,7 @@ import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.tree.DropAlias;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
 import io.airlift.units.Duration;
 
 import javax.inject.Inject;
@@ -115,10 +116,12 @@ public class DropAliasExecution
 
         Optional<TableHandle> remoteTableHandle = metadataManager.getTableHandle(remoteTableName);
         checkState(!remoteTableHandle.isPresent(), "Table %s does not exist", remoteTableName);
+        Optional<String> remoteConnectorId = metadataManager.getConnectorId(remoteTableHandle.get());
+        Preconditions.checkArgument(remoteConnectorId.isPresent(), "Table %s can not an alias", remoteTableName);
 
-        TableAlias tableAlias = aliasDao.getAlias(remoteTableName);
+        TableAlias tableAlias = aliasDao.getAlias(remoteConnectorId.get(), remoteTableName.getSchemaName(), remoteTableName.getTableName());
 
-        checkState(tableAlias != null, "Table %s is not aliased", remoteTableName);
+        checkState(tableAlias != null, "Table %s is not an alias", remoteTableName);
 
         aliasDao.dropAlias(tableAlias);
 
