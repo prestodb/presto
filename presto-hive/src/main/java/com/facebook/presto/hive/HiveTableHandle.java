@@ -4,8 +4,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-
-import java.util.Objects;
+import com.google.common.base.Objects;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -13,12 +12,14 @@ public class HiveTableHandle
         implements TableHandle
 {
     private final String clientId;
-    private final SchemaTableName tableName;
+    private final String schemaName;
+    private final String tableName;
 
     @JsonCreator
-    public HiveTableHandle(@JsonProperty("clientId") String clientId, @JsonProperty("tableName") SchemaTableName tableName)
+    public HiveTableHandle(@JsonProperty("clientId") String clientId, @JsonProperty("schemaName") String schemaName, @JsonProperty("tableName") String tableName)
     {
         this.clientId = checkNotNull(clientId, "clientId is null");
+        this.schemaName = checkNotNull(schemaName, "schemaName is null");
         this.tableName = checkNotNull(tableName, "tableName is null");
     }
 
@@ -29,15 +30,26 @@ public class HiveTableHandle
     }
 
     @JsonProperty
-    public SchemaTableName getTableName()
+    public String getSchemaName()
+    {
+        return schemaName;
+    }
+
+    @JsonProperty
+    public String getTableName()
     {
         return tableName;
+    }
+
+    public SchemaTableName getSchemaTableName()
+    {
+        return new SchemaTableName(schemaName, tableName);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(tableName);
+        return Objects.hashCode(clientId, schemaName, tableName);
     }
 
     @Override
@@ -50,15 +62,14 @@ public class HiveTableHandle
             return false;
         }
         final HiveTableHandle other = (HiveTableHandle) obj;
-        return Objects.equals(this.tableName, other.tableName);
+        return Objects.equal(this.clientId, other.clientId) &&
+                Objects.equal(this.schemaName, other.schemaName) &&
+                Objects.equal(this.tableName, other.tableName);
     }
 
     @Override
     public String toString()
     {
-        final StringBuilder sb = new StringBuilder("HiveTableHandle{");
-        sb.append("tableName=").append(tableName);
-        sb.append('}');
-        return sb.toString();
+        return clientId + ":" + schemaName + ":" + tableName;
     }
 }

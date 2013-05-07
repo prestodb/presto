@@ -40,11 +40,10 @@ import com.google.common.collect.Multimap;
 import java.util.Collection;
 import java.util.List;
 
-import static com.facebook.presto.metadata.InformationSchemaMetadata.INFORMATION_SCHEMA;
-import static com.facebook.presto.metadata.InformationSchemaMetadata.TABLE_COLUMNS;
-import static com.facebook.presto.metadata.InformationSchemaMetadata.TABLE_INTERNAL_FUNCTIONS;
-import static com.facebook.presto.metadata.InformationSchemaMetadata.TABLE_INTERNAL_PARTITIONS;
-import static com.facebook.presto.metadata.InformationSchemaMetadata.TABLE_TABLES;
+import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_COLUMNS;
+import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_INTERNAL_FUNCTIONS;
+import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_INTERNAL_PARTITIONS;
+import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLES;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_MATERIALIZED_VIEW_REFRESH_INTERVAL;
@@ -121,7 +120,7 @@ class StatementAnalyzer
         Query query = new Query(
                 Optional.<With>absent(),
                 selectList(aliasedName("table_name", "Table")),
-                table(QualifiedName.of(catalogName, INFORMATION_SCHEMA, TABLE_TABLES)),
+                table(QualifiedName.of(catalogName, TABLE_TABLES.getSchemaName(), TABLE_TABLES.getTableName())),
                 Optional.of(predicate),
                 ImmutableList.<Expression>of(),
                 Optional.<Expression>absent(),
@@ -147,7 +146,7 @@ class StatementAnalyzer
                         aliasedName("data_type", "Type"),
                         aliasedName("is_nullable", "Null"),
                         aliasedName("is_partition_key", "Partition Key")),
-                table(QualifiedName.of(tableName.getCatalogName(), INFORMATION_SCHEMA, TABLE_COLUMNS)),
+                table(QualifiedName.of(tableName.getCatalogName(), TABLE_COLUMNS.getSchemaName(), TABLE_COLUMNS.getTableName())),
                 Optional.of(logicalAnd(
                         equal(nameReference("table_schema"), new StringLiteral(tableName.getSchemaName())),
                         equal(nameReference("table_name"), new StringLiteral(tableName.getTableName())))),
@@ -194,7 +193,7 @@ class StatementAnalyzer
         Query query = new Query(
                 Optional.<With>absent(),
                 selectAll(selectList.build()),
-                table(QualifiedName.of(table.getCatalogName(), INFORMATION_SCHEMA, TABLE_INTERNAL_PARTITIONS)),
+                table(QualifiedName.of(table.getCatalogName(), TABLE_INTERNAL_PARTITIONS.getSchemaName(), TABLE_INTERNAL_PARTITIONS.getTableName())),
                 Optional.of(logicalAnd(
                         equal(nameReference("table_schema"), new StringLiteral(table.getSchemaName())),
                         equal(nameReference("table_name"), new StringLiteral(table.getTableName())))),
@@ -215,7 +214,7 @@ class StatementAnalyzer
                         aliasedName("function_name", "Function"),
                         aliasedName("return_type", "Return Type"),
                         aliasedName("argument_types", "Argument Types")),
-                table(QualifiedName.of(INFORMATION_SCHEMA, TABLE_INTERNAL_FUNCTIONS)),
+                table(QualifiedName.of(TABLE_INTERNAL_FUNCTIONS.getSchemaName(), TABLE_INTERNAL_FUNCTIONS.getTableName())),
                 Optional.<Expression>absent(),
                 ImmutableList.<Expression>of(),
                 Optional.<Expression>absent(),

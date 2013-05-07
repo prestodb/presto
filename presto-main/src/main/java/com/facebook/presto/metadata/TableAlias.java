@@ -9,95 +9,91 @@ import org.skife.jdbi.v2.tweak.ResultSetMapper;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-import static com.facebook.presto.metadata.MetadataUtil.checkTable;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public final class TableAlias
 {
-    private final QualifiedTableName srcTable;
-    private final QualifiedTableName dstTable;
-
-    public static TableAlias createTableAlias(QualifiedTableName srcTable, QualifiedTableName dstTable)
-    {
-        return new TableAlias(srcTable, dstTable);
-    }
+    private final String sourceConnectorId ;
+    private final String sourceSchemaName;
+    private final String sourceTableName ;
+    private final String destinationConnectorId;
+    private final String destinationSchemaName;
+    private final String destinationTableName;
 
     @JsonCreator
-    public TableAlias(@JsonProperty("srcCatalogName") String srcCatalogName,
-            @JsonProperty("srcSchemaName") String srcSchemaName,
-            @JsonProperty("srcTableName") String srcTableName,
-            @JsonProperty("dstCatalogName") String dstCatalogName,
-            @JsonProperty("dstSchemaName") String dstSchemaName,
-            @JsonProperty("dstTableName") String dstTableName)
+    public TableAlias(@JsonProperty("sourceConnectorId") String sourceConnectorId,
+            @JsonProperty("sourceSchemaName") String sourceSchemaName,
+            @JsonProperty("sourceTableName") String sourceTableName,
+            @JsonProperty("destinationConnectorId") String destinationConnectorId,
+            @JsonProperty("destinationSchemaName") String destinationSchemaName,
+            @JsonProperty("destinationTableName") String destinationTableName)
     {
-        this(new QualifiedTableName(srcCatalogName, srcSchemaName, srcTableName),
-                new QualifiedTableName(dstCatalogName, dstSchemaName, dstTableName));
-    }
-
-    private TableAlias(QualifiedTableName srcTable, QualifiedTableName dstTable)
-    {
-        this.srcTable = checkTable(srcTable);
-        this.dstTable = checkTable(dstTable);
-    }
-
-    @JsonProperty
-    public String getSrcCatalogName()
-    {
-        return srcTable.getCatalogName();
+        this.sourceConnectorId = checkNotNull(sourceConnectorId, "sourceConnectorId is null");
+        this.sourceSchemaName = checkNotNull(sourceSchemaName, "sourceSchemaName is null");
+        this.sourceTableName = checkNotNull(sourceTableName, "sourceTableName is null");
+        this.destinationConnectorId = checkNotNull(destinationConnectorId, "destinationConnectorId is null");
+        this.destinationSchemaName = checkNotNull(destinationSchemaName, "destinationSchemaName is null");
+        this.destinationTableName = checkNotNull(destinationTableName, "destinationTableName is null");
     }
 
     @JsonProperty
-    public String getSrcSchemaName()
+    public String getSourceConnectorId()
     {
-        return srcTable.getSchemaName();
+        return sourceConnectorId;
     }
 
     @JsonProperty
-    public String getSrcTableName()
+    public String getSourceSchemaName()
     {
-        return srcTable.getTableName();
+        return sourceSchemaName;
     }
 
     @JsonProperty
-    public String getDstCatalogName()
+    public String getSourceTableName()
     {
-        return dstTable.getCatalogName();
+        return sourceTableName;
     }
 
     @JsonProperty
-    public String getDstSchemaName()
+    public String getDestinationConnectorId()
     {
-        return dstTable.getSchemaName();
+        return destinationConnectorId;
     }
 
     @JsonProperty
-    public String getDstTableName()
+    public String getDestinationSchemaName()
     {
-        return dstTable.getTableName();
+        return destinationSchemaName;
     }
 
-    public QualifiedTableName getSrcTable()
+    @JsonProperty
+    public String getDestinationTableName()
     {
-        return srcTable;
-    }
-
-    public QualifiedTableName getDstTable()
-    {
-        return dstTable;
+        return destinationTableName;
     }
 
     @Override
     public String toString()
     {
         return Objects.toStringHelper(this)
-                .add("srcTable", srcTable)
-                .add("dstTable", dstTable)
+                .add("sourceConnectorId", sourceConnectorId)
+                .add("sourceSchemaName", sourceSchemaName)
+                .add("sourceTableName", sourceTableName)
+                .add("destinationConnectorId", destinationConnectorId)
+                .add("destinationSchemaName", destinationSchemaName)
+                .add("destinationTableName", destinationTableName)
                 .toString();
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(srcTable, dstTable);
+        return Objects.hashCode(sourceConnectorId,
+                sourceSchemaName,
+                sourceTableName,
+                destinationConnectorId,
+                destinationSchemaName,
+                destinationTableName);
     }
 
     @Override
@@ -106,13 +102,16 @@ public final class TableAlias
         if (this == obj) {
             return true;
         }
-        else if ((obj == null) || (this.getClass() != obj.getClass())) {
+        if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-
-        TableAlias other = (TableAlias) obj;
-        return Objects.equal(srcTable, other.srcTable)
-                && Objects.equal(dstTable, other.dstTable);
+        final TableAlias other = (TableAlias) obj;
+        return Objects.equal(this.sourceConnectorId, other.sourceConnectorId) &&
+                Objects.equal(this.sourceSchemaName, other.sourceSchemaName) &&
+                Objects.equal(this.sourceTableName, other.sourceTableName) &&
+                Objects.equal(this.destinationConnectorId, other.destinationConnectorId) &&
+                Objects.equal(this.destinationSchemaName, other.destinationSchemaName) &&
+                Objects.equal(this.destinationTableName, other.destinationTableName);
     }
 
     public static class TableAliasMapper implements ResultSetMapper<TableAlias>
@@ -121,16 +120,21 @@ public final class TableAlias
         public TableAlias map(int index, ResultSet r, StatementContext ctx)
                 throws SQLException
         {
-            QualifiedTableName srcTable = new QualifiedTableName(r.getString("src_catalog_name"),
-                    r.getString("src_schema_name"),
-                    r.getString("src_table_name"));
+            String sourceConnectorId = r.getString("source_connector_id");
+            String sourceSchemaName = r.getString("source_schema_name");
+            String sourceTableName = r.getString("source_table_name");
 
-            QualifiedTableName dstTable = new QualifiedTableName(r.getString("dst_catalog_name"),
-                    r.getString("dst_schema_name"),
-                    r.getString("dst_table_name"));
+            String destinationConnectorId = r.getString("destination_connector_id");
+            String destinationSchemaName = r.getString("destination_schema_name");
+            String destinationTableName = r.getString("destination_table_name");
 
-
-            return new TableAlias(srcTable, dstTable);
+            return new TableAlias(
+                    sourceConnectorId,
+                    sourceSchemaName,
+                    sourceTableName,
+                    destinationConnectorId,
+                    destinationSchemaName,
+                    destinationTableName);
         }
     }
 }

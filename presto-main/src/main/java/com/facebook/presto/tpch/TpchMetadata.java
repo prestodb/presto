@@ -1,25 +1,23 @@
 package com.facebook.presto.tpch;
 
-import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.metadata.InternalSchemaMetadata;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.spi.SchemaTableMetadata;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.TableMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.metadata.MetadataUtil.ColumnMetadataListBuilder.columnsBuilder;
+import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.spi.ColumnType.DOUBLE;
 import static com.facebook.presto.spi.ColumnType.LONG;
 import static com.facebook.presto.spi.ColumnType.STRING;
@@ -34,7 +32,7 @@ public class TpchMetadata
 
     public static final String TPCH_ORDERS_NAME = "orders";
 
-    public static final SchemaTableMetadata TPCH_ORDERS_METADATA = new SchemaTableMetadata(new SchemaTableName(TPCH_SCHEMA_NAME, TPCH_ORDERS_NAME), columnsBuilder()
+    public static final TableMetadata TPCH_ORDERS_METADATA = tableMetadataBuilder(TPCH_SCHEMA_NAME, TPCH_ORDERS_NAME)
             .column("orderkey", LONG) // Mostly increasing IDs
             .column("custkey", LONG) // 15:1
             .column("orderstatus", STRING) // 3 unique
@@ -44,10 +42,10 @@ public class TpchMetadata
             .column("clerk", STRING) // High cardinality
             .column("shippriority", STRING) // 1 unique
             .column("comment", STRING)
-            .build()); // Arbitrary strings
+            .build(); // Arbitrary strings
 
     public static final String TPCH_LINEITEM_NAME = "lineitem";
-    public static final SchemaTableMetadata TPCH_LINEITEM_METADATA = new SchemaTableMetadata(new SchemaTableName(TPCH_SCHEMA_NAME, TPCH_LINEITEM_NAME),  columnsBuilder()
+    public static final TableMetadata TPCH_LINEITEM_METADATA = tableMetadataBuilder(TPCH_SCHEMA_NAME, TPCH_LINEITEM_NAME)
             .column("orderkey", LONG)
             .column("partkey", LONG)
             .column("suppkey", LONG)
@@ -64,15 +62,16 @@ public class TpchMetadata
             .column("shipinstruct", STRING)
             .column("shipmode", STRING)
             .column("comment", STRING)
-            .build());
+            .build();
 
     public static Metadata createTpchMetadata()
     {
-        return new MetadataManager(ImmutableSet.<InternalSchemaMetadata>of(),
-                ImmutableMap.<String, ConnectorMetadata>of(TPCH_CATALOG_NAME, new TpchMetadata()));
+        MetadataManager metadataManager = new MetadataManager();
+        metadataManager.addConnectorMetadata(TPCH_CATALOG_NAME, new TpchMetadata());
+        return metadataManager;
     }
 
-    private final Map<String, SchemaTableMetadata> tables;
+    private final Map<String, TableMetadata> tables;
 
     @Inject
     public TpchMetadata()
@@ -105,7 +104,7 @@ public class TpchMetadata
     }
 
     @Override
-    public SchemaTableMetadata getTableMetadata(TableHandle tableHandle)
+    public TableMetadata getTableMetadata(TableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         String tableName = getTableName(tableHandle);
@@ -184,7 +183,7 @@ public class TpchMetadata
     }
 
     @Override
-    public TableHandle createTable(SchemaTableMetadata tableMetadata)
+    public TableHandle createTable(TableMetadata tableMetadata)
     {
         throw new UnsupportedOperationException();
     }

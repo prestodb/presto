@@ -6,15 +6,15 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NativeTableHandle;
 import com.facebook.presto.metadata.Node;
 import com.facebook.presto.metadata.NodeManager;
-import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.metadata.TableAlias;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.analyzer.Type;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
 import com.facebook.presto.sql.planner.plan.PlanRewriter;
@@ -101,15 +101,21 @@ public class TableAliasSelector
         {
             TableHandle tableHandle = node.getTable();
 
-            QualifiedTableName tableName = metadata.getTableMetadata(tableHandle).getTable();
+            Optional<String> connectorId = metadata.getConnectorId(tableHandle);
+            if (!connectorId.isPresent()) {
+                return null;
+            }
+            SchemaTableName tableName = metadata.getTableMetadata(tableHandle).getTable();
 
-            TableAlias tableAlias = aliasDao.getAlias(tableName);
+            TableAlias tableAlias = aliasDao.getAlias(connectorId.get(), tableName.getSchemaName(), tableName.getTableName());
             if (tableAlias == null) {
                 return node;
             }
 
-            QualifiedTableName aliasTable = new QualifiedTableName(tableAlias.getDstCatalogName(), tableAlias.getDstSchemaName(), tableAlias.getDstTableName());
-            Optional<TableHandle> aliasTableHandle = metadata.getTableHandle(aliasTable);
+            Optional<TableHandle> aliasTableHandle = metadata.getTableHandle(
+                    tableAlias.getDestinationConnectorId(),
+                    new SchemaTableName(tableAlias.getDestinationSchemaName(), tableAlias.getDestinationTableName()));
+
             if (!aliasTableHandle.isPresent()) {
                 return node;
             }

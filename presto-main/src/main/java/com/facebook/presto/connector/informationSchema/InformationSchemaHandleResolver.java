@@ -1,47 +1,46 @@
-package com.facebook.presto.metadata;
+package com.facebook.presto.connector.informationSchema;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.split.InternalSplit;
 import com.facebook.presto.spi.Split;
+import com.facebook.presto.spi.TableHandle;
 
-public class InternalHandleResolver
+public class InformationSchemaHandleResolver
         implements ConnectorHandleResolver
 {
     @Override
     public boolean canHandle(TableHandle tableHandle)
     {
-        return tableHandle instanceof InternalTableHandle;
+        return tableHandle instanceof InformationSchemaTableHandle;
     }
 
     @Override
     public boolean canHandle(ColumnHandle columnHandle)
     {
-        return columnHandle instanceof InternalColumnHandle;
+        return columnHandle instanceof InformationSchemaColumnHandle;
     }
 
     @Override
     public boolean canHandle(Split split)
     {
-        return split instanceof InternalSplit;
+        return split instanceof InformationSchemaSplit;
     }
 
     @Override
     public Class<? extends TableHandle> getTableHandleClass()
     {
-        return InternalTableHandle.class;
+        return InformationSchemaTableHandle.class;
     }
 
     @Override
     public Class<? extends ColumnHandle> getColumnHandleClass()
     {
-        return InternalColumnHandle.class;
+        return InformationSchemaColumnHandle.class;
     }
 
     @Override
     public Class<? extends Split> getSplitClass()
     {
-        return InternalSplit.class;
+        return InformationSchemaSplit.class;
     }
 }

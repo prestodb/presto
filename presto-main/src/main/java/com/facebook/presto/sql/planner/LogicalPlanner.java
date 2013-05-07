@@ -6,9 +6,9 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.metadata.NativeTableHandle;
 import com.facebook.presto.metadata.QualifiedTableName;
-import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
@@ -145,8 +145,8 @@ public class LogicalPlanner
                 ColumnMetadata columnMetadata = new ColumnMetadata(name, field.getType().getColumnType(), i, false);
                 columns.add(columnMetadata);
             }
-            TableMetadata tableMetadata = new TableMetadata(destination, columns.build());
-            targetTable = metadata.createTable(tableMetadata);
+            TableMetadata tableMetadata = new TableMetadata(destination.asSchemaTableName(), columns.build());
+            targetTable = metadata.createTable(destination.getCatalogName(), tableMetadata);
 
             // get the column handles for the destination table
             Map<String, ColumnHandle> columnHandleIndex = metadata.getColumnHandles(targetTable);

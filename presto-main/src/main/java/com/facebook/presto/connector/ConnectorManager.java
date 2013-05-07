@@ -1,10 +1,7 @@
 package com.facebook.presto.connector;
 
-import com.facebook.presto.metadata.CollocatedSplitHandleResolver;
 import com.facebook.presto.metadata.HandleResolver;
-import com.facebook.presto.metadata.InternalHandleResolver;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.RemoteSplitHandleResolver;
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorHandleResolver;
@@ -18,7 +15,9 @@ import com.facebook.presto.split.SplitManager;
 import com.google.common.base.Preconditions;
 import com.google.inject.Inject;
 
+import javax.annotation.Nullable;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -42,7 +41,8 @@ public class ConnectorManager
             SplitManager splitManager,
             DataStreamManager dataStreamManager,
             HandleResolver handleResolver,
-            Map<String, ConnectorFactory> connectorFactories)
+            Map<String, ConnectorFactory> connectorFactories,
+            Map<String, Connector> globalConnectors)
     {
         this.metadataManager = metadataManager;
         this.splitManager = splitManager;
@@ -50,10 +50,10 @@ public class ConnectorManager
         this.handleResolver = handleResolver;
         this.connectorFactories.putAll(connectorFactories);
 
-        // for now just hard code the handle resolvers
-        handleResolver.addHandleResolver("internal", new InternalHandleResolver());
-        handleResolver.addHandleResolver("remote", new RemoteSplitHandleResolver());
-        handleResolver.addHandleResolver("collocated", new CollocatedSplitHandleResolver());
+        // add the global connectors
+        for (Entry<String, Connector> entry : globalConnectors.entrySet()) {
+            addGlobalConnector(entry.getKey(), entry.getValue());
+        }
     }
 
     public void addConnectorFactory(ConnectorFactory connectorFactory)
@@ -78,6 +78,16 @@ public class ConnectorManager
         Connector connector = connectorFactory.create(connectorId, properties);
         connectors.put(connectorName, connector);
 
+        addConnector(catalogName, connectorId, connector);
+    }
+
+    public void addGlobalConnector(String connectorId, Connector connector)
+    {
+        addConnector(null, connectorId, connector);
+    }
+
+    private void addConnector(@Nullable String catalogName, String connectorId, Connector connector)
+    {
         ConnectorMetadata connectorMetadata = connector.getService(ConnectorMetadata.class);
         checkState(connectorMetadata != null, "Connector %s can not provide metadata", connectorId);
 
@@ -92,9 +102,14 @@ public class ConnectorManager
         }
 
         ConnectorHandleResolver connectorHandleResolver = connector.getService(ConnectorHandleResolver.class);
-        checkState(connectorDataStreamProvider != null, "Connector %s does not have a handle resolver", connectorId);
 
-        metadataManager.addConnectorMetadata(catalogName, connectorMetadata);
+        if (catalogName != null) {
+            metadataManager.addConnectorMetadata(catalogName, connectorMetadata);
+        }
+        else {
+            metadataManager.addInternalSchemaMetadata(connectorMetadata);
+        }
+
         handleResolver.addHandleResolver(connectorId, connectorHandleResolver);
         splitManager.addConnectorSplitManager(connectorSplitManager);
         dataStreamManager.addConnectorDataStreamProvider(connectorDataStreamProvider);

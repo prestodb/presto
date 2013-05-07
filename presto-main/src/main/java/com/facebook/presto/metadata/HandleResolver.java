@@ -2,18 +2,31 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.Split;
+import com.facebook.presto.spi.TableHandle;
 
+import javax.inject.Inject;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
 public class HandleResolver
 {
     private final ConcurrentMap<String, ConnectorHandleResolver> handleIdResolvers = new ConcurrentHashMap<>();
+
+    public HandleResolver()
+    {
+    }
+
+    @Inject
+    public HandleResolver(Map<String, ConnectorHandleResolver> handleIdResolvers)
+    {
+        this.handleIdResolvers.putAll(handleIdResolvers);
+    }
 
     public void addHandleResolver(String id, ConnectorHandleResolver connectorHandleResolver)
     {
@@ -53,16 +66,22 @@ public class HandleResolver
 
     public Class<? extends TableHandle> getTableHandleClass(String id)
     {
-        return handleIdResolvers.get(id).getTableHandleClass();
+        ConnectorHandleResolver connectorHandleResolver = handleIdResolvers.get(id);
+        checkArgument(connectorHandleResolver != null, "No handle resolver for %s", id);
+        return connectorHandleResolver.getTableHandleClass();
     }
 
     public Class<? extends ColumnHandle> getColumnHandleClass(String id)
     {
-        return handleIdResolvers.get(id).getColumnHandleClass();
+        ConnectorHandleResolver connectorHandleResolver = handleIdResolvers.get(id);
+        checkArgument(connectorHandleResolver != null, "No handle resolver for %s", id);
+        return connectorHandleResolver.getColumnHandleClass();
     }
 
     public Class<? extends Split> getSplitClass(String id)
     {
-        return handleIdResolvers.get(id).getSplitClass();
+        ConnectorHandleResolver connectorHandleResolver = handleIdResolvers.get(id);
+        checkArgument(connectorHandleResolver != null, "No handle resolver for %s", id);
+        return connectorHandleResolver.getSplitClass();
     }
 }

@@ -3,7 +3,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorMetadata;
-import com.facebook.presto.spi.SchemaTableMetadata;
+import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableHandle;
@@ -24,7 +24,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class InMemoryMetadata
         implements ConnectorMetadata
 {
-    private final ConcurrentMap<SchemaTableName, SchemaTableMetadata> tables = new ConcurrentHashMap<>();
+    private final ConcurrentMap<SchemaTableName, TableMetadata> tables = new ConcurrentHashMap<>();
 
     @Override
     public boolean canHandle(TableHandle tableHandle)
@@ -55,11 +55,11 @@ public class InMemoryMetadata
     }
 
     @Override
-    public SchemaTableMetadata getTableMetadata(TableHandle tableHandle)
+    public TableMetadata getTableMetadata(TableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         SchemaTableName tableName = getTableName(tableHandle);
-        SchemaTableMetadata tableMetadata = tables.get(tableName);
+        TableMetadata tableMetadata = tables.get(tableName);
         checkArgument(tableMetadata != null, "Table %s does not exist", tableName);
         return tableMetadata;
     }
@@ -126,9 +126,9 @@ public class InMemoryMetadata
     }
 
     @Override
-    public TableHandle createTable(SchemaTableMetadata tableMetadata)
+    public TableHandle createTable(TableMetadata tableMetadata)
     {
-        SchemaTableMetadata existingTable = tables.putIfAbsent(tableMetadata.getTable(), tableMetadata);
+        TableMetadata existingTable = tables.putIfAbsent(tableMetadata.getTable(), tableMetadata);
         checkArgument(existingTable == null, "Table %s already exists", tableMetadata.getTable());
         return new InMemoryTableHandle(tableMetadata.getTable());
     }

@@ -2,7 +2,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.SchemaTableMetadata;
+import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
@@ -19,7 +19,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.metadata.MetadataUtil.ColumnMetadataListBuilder.columnsBuilder;
+import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.spi.ColumnType.DOUBLE;
 import static com.facebook.presto.spi.ColumnType.LONG;
 import static com.facebook.presto.spi.ColumnType.STRING;
@@ -58,7 +58,7 @@ public class TestNativeMetadata
         assertInstanceOf(tableHandle, NativeTableHandle.class);
         assertEquals(((NativeTableHandle) tableHandle).getTableId(), 1);
 
-        SchemaTableMetadata table = metadata.getTableMetadata(tableHandle);
+        TableMetadata table = metadata.getTableMetadata(tableHandle);
         assertTableEqual(table, getOrdersTable());
 
         ColumnHandle columnHandle = metadata.getColumnHandle(tableHandle, "orderkey");
@@ -79,12 +79,7 @@ public class TestNativeMetadata
     {
         metadata.createTable(getOrdersTable());
         Map<SchemaTableName, List<ColumnMetadata>> columns = metadata.listTableColumns(new SchemaTablePrefix());
-        assertEquals(columns, ImmutableMap.of(DEFAULT_TEST_ORDERS, columnsBuilder()
-                .column("orderkey", LONG)
-                .column("custkey", LONG)
-                .column("totalprice", DOUBLE)
-                .column("orderdate", STRING)
-                .build()));
+        assertEquals(columns, ImmutableMap.of(DEFAULT_TEST_ORDERS, getOrdersTable().getColumns()));
     }
 
     @Test
@@ -98,17 +93,17 @@ public class TestNativeMetadata
         assertEquals(filterCatalog, filterTable);
     }
 
-    private static SchemaTableMetadata getOrdersTable()
+    private static TableMetadata getOrdersTable()
     {
-        return new SchemaTableMetadata(DEFAULT_TEST_ORDERS, columnsBuilder()
+        return tableMetadataBuilder(DEFAULT_TEST_ORDERS)
                 .column("orderkey", LONG)
                 .column("custkey", LONG)
                 .column("totalprice", DOUBLE)
                 .column("orderdate", STRING)
-                .build());
+                .build();
     }
 
-    private static void assertTableEqual(SchemaTableMetadata actual, SchemaTableMetadata expected)
+    private static void assertTableEqual(TableMetadata actual, TableMetadata expected)
     {
         assertEquals(actual.getTable(), expected.getTable());
 

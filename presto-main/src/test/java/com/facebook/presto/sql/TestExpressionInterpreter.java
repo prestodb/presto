@@ -1,10 +1,9 @@
 package com.facebook.presto.sql;
 
-import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.InputResolver;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolResolver;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Input;
@@ -18,6 +17,7 @@ import org.testng.annotations.Test;
 
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.connector.dual.DualMetadata.DUAL_METADATA_MANAGER;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
 import static com.facebook.presto.sql.parser.SqlParser.createExpression;
@@ -522,7 +522,7 @@ public class TestExpressionInterpreter
 
                 return new QualifiedNameReference(symbol.toQualifiedName());
             }
-        }, new MetadataManager(), new Session(null, DEFAULT_CATALOG, DEFAULT_SCHEMA));
+        }, DUAL_METADATA_MANAGER, new Session(null, DEFAULT_CATALOG, DEFAULT_SCHEMA));
 
         Expression parsedExpression = createExpression(expression);
 
@@ -542,7 +542,7 @@ public class TestExpressionInterpreter
             {
                 throw new UnsupportedOperationException();
             }
-        }, new MetadataManager(), new Session(null, DEFAULT_CATALOG, DEFAULT_SCHEMA));
+        }, DUAL_METADATA_MANAGER, new Session(null, DEFAULT_CATALOG, DEFAULT_SCHEMA));
 
         Expression parsedExpression = createExpression(expression);
 

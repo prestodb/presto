@@ -5,8 +5,14 @@ import java.util.Map;
 
 public interface ConnectorMetadata
 {
+    /**
+     * Can this connector handler operations for the specified table handle.
+     */
     boolean canHandle(TableHandle tableHandle);
 
+    /**
+     * Returns the schemas provided by this connector.
+     */
     List<String> listSchemaNames();
 
     /**
@@ -18,7 +24,7 @@ public interface ConnectorMetadata
      * Return the metadata for the specified table handle.
      * @throws RuntimeException if table handle is no longer valid
      */
-    SchemaTableMetadata getTableMetadata(TableHandle table);
+    TableMetadata getTableMetadata(TableHandle table);
 
     /**
      * Get the names that match the specified table prefix (never null).
@@ -51,7 +57,7 @@ public interface ConnectorMetadata
     /**
      * Creates a table using the specified table metadata.
      */
-    TableHandle createTable(SchemaTableMetadata tableMetadata);
+    TableHandle createTable(TableMetadata tableMetadata);
 
     /**
      * Drops the specified table

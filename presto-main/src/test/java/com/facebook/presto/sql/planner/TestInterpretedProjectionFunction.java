@@ -5,7 +5,6 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
@@ -20,6 +19,7 @@ import org.testng.annotations.Test;
 import javax.annotation.Nullable;
 import java.util.Map;
 
+import static com.facebook.presto.connector.dual.DualMetadata.DUAL_METADATA_MANAGER;
 import static com.facebook.presto.sql.analyzer.Type.DOUBLE;
 import static com.facebook.presto.sql.analyzer.Type.LONG;
 import static com.facebook.presto.sql.analyzer.Type.STRING;
@@ -140,7 +140,7 @@ public class TestInterpretedProjectionFunction
         InterpretedProjectionFunction projectionFunction = new InterpretedProjectionFunction(outputType,
                 expression,
                 symbolToInputMappings,
-                new MetadataManager(),
+                DUAL_METADATA_MANAGER,
                 new Session(null, Session.DEFAULT_CATALOG, Session.DEFAULT_SCHEMA));
 
         // create output

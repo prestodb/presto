@@ -1,7 +1,5 @@
-package com.facebook.presto.split;
+package com.facebook.presto.connector.informationSchema;
 
-import com.facebook.presto.metadata.InternalColumnHandle;
-import com.facebook.presto.metadata.InternalTableHandle;
 import com.facebook.presto.metadata.Node;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.spi.ColumnHandle;
@@ -25,13 +23,13 @@ import java.util.Map.Entry;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class InternalSplitManager
+public class InformationSchemaSplitManager
         implements ConnectorSplitManager
 {
     private final NodeManager nodeManager;
 
     @Inject
-    public InternalSplitManager(NodeManager nodeManager)
+    public InformationSchemaSplitManager(NodeManager nodeManager)
     {
         this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
     }
@@ -39,14 +37,14 @@ public class InternalSplitManager
     @Override
     public String getConnectorId()
     {
-        // internal is not a connector
+        // information schema is not a connector
         return null;
     }
 
     @Override
     public boolean canHandle(TableHandle handle)
     {
-        return handle instanceof InternalTableHandle;
+        return handle instanceof InformationSchemaTableHandle;
     }
 
     @Override
@@ -55,10 +53,10 @@ public class InternalSplitManager
         checkNotNull(table, "table is null");
         checkNotNull(bindings, "bindings is null");
 
-        checkArgument(table instanceof InternalTableHandle, "TableHandle must be an InternalTableHandle");
-        InternalTableHandle internalTableHandle = (InternalTableHandle) table;
+        checkArgument(table instanceof InformationSchemaTableHandle, "TableHandle must be an InformationSchemaTableHandle");
+        InformationSchemaTableHandle informationSchemaTableHandle = (InformationSchemaTableHandle) table;
 
-        return ImmutableList.<Partition>of(new InternalPartition(internalTableHandle, bindings));
+        return ImmutableList.<Partition>of(new InformationSchemaPartition(informationSchemaTableHandle, bindings));
     }
 
     @Override
@@ -68,36 +66,37 @@ public class InternalSplitManager
         Preconditions.checkArgument(!partitions.isEmpty(), "partitions is empty");
 
         Partition partition = Iterables.getOnlyElement(partitions);
-        checkArgument(partition instanceof InternalPartition, "Partition must be an internal partition");
-        InternalPartition internalPartition = (InternalPartition) partition;
+        checkArgument(partition instanceof InformationSchemaPartition, "Partition must be an informationSchema partition");
+        InformationSchemaPartition informationSchemaPartition = (InformationSchemaPartition) partition;
 
         Optional<Node> currentNode = nodeManager.getCurrentNode();
         Preconditions.checkState(currentNode.isPresent(), "current node is not in the active set");
         ImmutableList<HostAddress> localAddress = ImmutableList.of(currentNode.get().getHostAndPort());
 
-        ImmutableMap.Builder<InternalColumnHandle, Object> filters = ImmutableMap.builder();
-        for (Entry<ColumnHandle, Object> entry : internalPartition.getFilters().entrySet()) {
-            filters.put((InternalColumnHandle) entry.getKey(), entry.getValue());
+        ImmutableMap.Builder<String, Object> filters = ImmutableMap.builder();
+        for (Entry<ColumnHandle, Object> entry : informationSchemaPartition.getFilters().entrySet()) {
+            InformationSchemaColumnHandle informationSchemaColumnHandle = (InformationSchemaColumnHandle) entry.getKey();
+            filters.put(informationSchemaColumnHandle.getColumnName(), entry.getValue());
         }
 
-        Split split = new InternalSplit(internalPartition.table, filters.build(), localAddress);
+        Split split = new InformationSchemaSplit(informationSchemaPartition.table, filters.build(), localAddress);
 
         return ImmutableList.of(split);
     }
 
-    public static class InternalPartition
+    public static class InformationSchemaPartition
             implements Partition
     {
-        private final InternalTableHandle table;
+        private final InformationSchemaTableHandle table;
         private final Map<ColumnHandle, Object> filters;
 
-        public InternalPartition(InternalTableHandle table, Map<ColumnHandle, Object> filters)
+        public InformationSchemaPartition(InformationSchemaTableHandle table, Map<ColumnHandle, Object> filters)
         {
             this.table = table;
             this.filters = ImmutableMap.copyOf(checkNotNull(filters, "filters is null"));
         }
 
-        public InternalTableHandle getTable()
+        public InformationSchemaTableHandle getTable()
         {
             return table;
         }
@@ -105,7 +104,7 @@ public class InternalSplitManager
         @Override
         public String getPartitionId()
         {
-            return table.getTableName().toString();
+            return table.getSchemaTableName().toString();
         }
 
         @Override

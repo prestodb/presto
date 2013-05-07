@@ -2,19 +2,19 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnType;
+import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 
-import java.util.ArrayList;
 import java.util.List;
 
-import static com.facebook.presto.tuple.TupleInfo.Type.fromColumnType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -93,26 +93,36 @@ public class MetadataUtil
         return value;
     }
 
-    public static Function<ColumnMetadata, TupleInfo.Type> getType()
+    public static ColumnMetadata findColumnMetadata(TableMetadata tableMetadata, String columnName)
     {
-        return new Function<ColumnMetadata, TupleInfo.Type>()
+        for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
+            if (columnName.equals(columnMetadata.getName())) {
+                return columnMetadata;
+            }
+        }
+        return null;
+    }
+
+    public static Function<ColumnMetadata, ColumnType> columnTypeGetter()
+    {
+        return new Function<ColumnMetadata, ColumnType>()
         {
             @Override
-            public TupleInfo.Type apply(ColumnMetadata column)
+            public ColumnType apply(ColumnMetadata columnMetadata)
             {
-                return fromColumnType(column.getType());
+                return columnMetadata.getType();
             }
         };
     }
 
-    public static Function<String, QualifiedTableName> toQualifiedTableName(final String catalogName, final String schemaName)
+    public static Function<ColumnMetadata, String> columnNameGetter()
     {
-        return new Function<String, QualifiedTableName>()
+        return new Function<ColumnMetadata, String>()
         {
             @Override
-            public QualifiedTableName apply(String tableName)
+            public String apply(ColumnMetadata columnMetadata)
             {
-                return new QualifiedTableName(catalogName, schemaName, tableName);
+                return columnMetadata.getName();
             }
         };
     }
@@ -131,25 +141,81 @@ public class MetadataUtil
         return new QualifiedTableName(catalogName, schemaName, tableName);
     }
 
-    public static class ColumnMetadataListBuilder
+    public static Function<SchemaTableName, String> schemaNameGetter()
     {
-        private final List<ColumnMetadata> columns = new ArrayList<>();
+        return new Function<SchemaTableName, String>()
+        {
+            @Override
+            public String apply(SchemaTableName schemaTableName)
+            {
+                return schemaTableName.getSchemaName();
+            }
+        };
+    }
+
+    public static Function<SchemaTableName, String> tableNameGetter()
+    {
+        return new Function<SchemaTableName, String>()
+        {
+            @Override
+            public String apply(SchemaTableName schemaTableName)
+            {
+                return schemaTableName.getTableName();
+            }
+        };
+    }
+
+    public static class SchemaMetadataBuilder
+    {
+        public static SchemaMetadataBuilder schemaMetadataBuilder()
+        {
+            return new SchemaMetadataBuilder();
+        }
+
+        private final ImmutableMap.Builder<SchemaTableName, TableMetadata> tables = ImmutableMap.builder();
+
+        public SchemaMetadataBuilder table(TableMetadata tableMetadata)
+        {
+            tables.put(tableMetadata.getTable(), tableMetadata);
+            return this;
+        }
+
+        public ImmutableMap<SchemaTableName,TableMetadata> build()
+        {
+            return tables.build();
+        }
+    }
+
+    public static class TableMetadataBuilder
+    {
+        public static TableMetadataBuilder tableMetadataBuilder(String schemaName, String tableName)
+        {
+            return new TableMetadataBuilder(new SchemaTableName(schemaName, tableName));
+        }
+
+        public static TableMetadataBuilder tableMetadataBuilder(SchemaTableName tableName)
+        {
+            return new TableMetadataBuilder(tableName);
+        }
+
+        private final SchemaTableName tableName;
+        private final ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
         private int ordinalPosition = 0;
 
-        public ColumnMetadataListBuilder column(String columnName, ColumnType type)
+        private TableMetadataBuilder(SchemaTableName tableName)
+        {
+            this.tableName = tableName;
+        }
+
+        public TableMetadataBuilder column(String columnName, ColumnType type)
         {
             columns.add(new ColumnMetadata(columnName, type, ordinalPosition++, false));
             return this;
         }
 
-        public List<ColumnMetadata> build()
+        public TableMetadata build()
         {
-            return ImmutableList.copyOf(columns);
-        }
-
-        public static ColumnMetadataListBuilder columnsBuilder()
-        {
-            return new ColumnMetadataListBuilder();
+            return new TableMetadata(tableName, columns.build());
         }
     }
 }

@@ -1,19 +1,14 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.metadata.InMemoryMetadata;
-import com.facebook.presto.metadata.InternalSchemaMetadata;
-import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.QualifiedTableName;
-import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnType;
-import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -449,24 +444,25 @@ public class TestAnalyzer
     public void setup()
             throws Exception
     {
-        Metadata metadata = new MetadataManager(ImmutableSet.<InternalSchemaMetadata>of(), ImmutableMap.<String, ConnectorMetadata>of("tpch", new InMemoryMetadata()));
+        MetadataManager metadata = new MetadataManager();
+        metadata.addConnectorMetadata("tpch", new InMemoryMetadata());
 
-        QualifiedTableName table1 = new QualifiedTableName("tpch", "default", "t1");
-        metadata.createTable(new TableMetadata(table1,
+        SchemaTableName table1 = new SchemaTableName("default", "t1");
+        metadata.createTable("tpch", new TableMetadata(table1,
                 ImmutableList.<ColumnMetadata>of(
                         new ColumnMetadata("a", ColumnType.LONG, 0, false),
                         new ColumnMetadata("b", ColumnType.LONG, 1, false),
                         new ColumnMetadata("c", ColumnType.LONG, 2, false),
                         new ColumnMetadata("d", ColumnType.LONG, 3, false))));
 
-        QualifiedTableName table2 = new QualifiedTableName("tpch", "default", "t2");
-        metadata.createTable(new TableMetadata(table2,
+        SchemaTableName table2 = new SchemaTableName("default", "t2");
+        metadata.createTable("tpch", new TableMetadata(table2,
                 ImmutableList.<ColumnMetadata>of(
                         new ColumnMetadata("a", ColumnType.LONG, 0, false),
                         new ColumnMetadata("b", ColumnType.LONG, 1, false))));
 
-        QualifiedTableName table3 = new QualifiedTableName("tpch", "default", "t3");
-        metadata.createTable(new TableMetadata(table3,
+        SchemaTableName table3 = new SchemaTableName("default", "t3");
+        metadata.createTable("tpch", new TableMetadata(table3,
                 ImmutableList.<ColumnMetadata>of(
                         new ColumnMetadata("a", ColumnType.LONG, 0, false),
                         new ColumnMetadata("b", ColumnType.LONG, 1, false))));

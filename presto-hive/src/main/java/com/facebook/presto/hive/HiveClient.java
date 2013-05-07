@@ -14,7 +14,7 @@ import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.SchemaNotFoundException;
-import com.facebook.presto.spi.SchemaTableMetadata;
+import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.Split;
@@ -165,7 +165,7 @@ public class HiveClient
     {
         try {
             metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
-            return new HiveTableHandle(connectorId, tableName);
+            return new HiveTableHandle(connectorId, tableName.getSchemaName(), tableName.getTableName());
         }
         catch (NoSuchObjectException e) {
             // table was not found
@@ -176,23 +176,23 @@ public class HiveClient
     private SchemaTableName getTableName(TableHandle tableHandle)
     {
         checkArgument(tableHandle instanceof HiveTableHandle, "tableHandle is not an instance of HiveTableHandle");
-        return ((HiveTableHandle) tableHandle).getTableName();
+        return ((HiveTableHandle) tableHandle).getSchemaTableName();
     }
 
     @Override
-    public SchemaTableMetadata getTableMetadata(TableHandle tableHandle)
+    public TableMetadata getTableMetadata(TableHandle tableHandle)
     {
         SchemaTableName tableName = getTableName(tableHandle);
         return getTableMetadata(tableName);
     }
 
-    private SchemaTableMetadata getTableMetadata(SchemaTableName tableName)
+    private TableMetadata getTableMetadata(SchemaTableName tableName)
     {
         try {
             Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
             List<ColumnMetadata> columns = ImmutableList.copyOf(transform(getColumnHandles(table), columnMetadataGetter()));
 
-            return new SchemaTableMetadata(tableName, columns);
+            return new TableMetadata(tableName, columns);
         }
         catch (NoSuchObjectException e) {
             throw new TableNotFoundException(tableName);
@@ -313,7 +313,7 @@ public class HiveClient
     }
 
     @Override
-    public TableHandle createTable(SchemaTableMetadata tableMetadata)
+    public TableHandle createTable(TableMetadata tableMetadata)
     {
         throw new UnsupportedOperationException();
     }

@@ -3,6 +3,7 @@ package com.facebook.presto.metadata;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.skife.jdbi.v2.exceptions.UnableToObtainConnectionException;
+import org.skife.jdbi.v2.sqlobject.Bind;
 import org.skife.jdbi.v2.sqlobject.BindBean;
 import org.skife.jdbi.v2.sqlobject.SqlQuery;
 import org.skife.jdbi.v2.sqlobject.SqlUpdate;
@@ -16,28 +17,28 @@ public interface AliasDao
     // TableAliases
     //
     @SqlUpdate("CREATE TABLE IF NOT EXISTS alias (\n" +
-            "  src_catalog_name VARCHAR(255) NOT NULL,\n" +
-            "  src_schema_name VARCHAR(255) NOT NULL,\n" +
-            "  src_table_name VARCHAR(255) NOT NULL,\n" +
-            "  dst_catalog_name VARCHAR(255) NOT NULL,\n" +
-            "  dst_schema_name VARCHAR(255) NOT NULL,\n" +
-            "  dst_table_name VARCHAR(255) NOT NULL,\n" +
-            "  UNIQUE(dst_catalog_name, dst_schema_name, dst_table_name)\n" +
+            "  source_connector_id VARCHAR(255) NOT NULL,\n" +
+            "  source_schema_name VARCHAR(255) NOT NULL,\n" +
+            "  source_table_name VARCHAR(255) NOT NULL,\n" +
+            "  destination_connector_id VARCHAR(255) NOT NULL,\n" +
+            "  destination_schema_name VARCHAR(255) NOT NULL,\n" +
+            "  destination_table_name VARCHAR(255) NOT NULL,\n" +
+            "  UNIQUE(destination_connector_id, destination_schema_name, destination_table_name)\n" +
             ")")
     void createAliasTable();
 
     @SqlUpdate("INSERT INTO alias\n" +
-            "  (src_catalog_name, src_schema_name, src_table_name, dst_catalog_name, dst_schema_name, dst_table_name)\n" +
-            "  VALUES (:srcCatalogName, :srcSchemaName, :srcTableName, :dstCatalogName, :dstSchemaName, :dstTableName)")
+            "  (source_connector_id, source_schema_name, source_table_name, destination_connector_id, destination_schema_name, destination_table_name)\n" +
+            "  VALUES (:sourceConnectorId, :sourceSchemaName, :sourceTableName, :destinationConnectorId, :destinationSchemaName, :destinationTableName)")
     long insertAlias(@BindBean TableAlias alias);
 
     @SqlUpdate("DELETE FROM alias\n" +
-            "  WHERE src_catalog_name = :srcCatalogName AND src_schema_name = :srcSchemaName AND src_table_name = :srcTableName")
+            "  WHERE source_connector_id = :sourceConnectorId AND source_schema_name = :sourceSchemaName AND source_table_name = :sourceTableName")
     void dropAlias(@BindBean TableAlias alias);
 
-    @SqlQuery("SELECT * FROM alias WHERE src_catalog_name = :catalogName AND src_schema_name = :schemaName AND src_table_name = :tableName")
+    @SqlQuery("SELECT * FROM alias WHERE source_connector_id = :connectorId AND source_schema_name = :schemaName AND source_table_name = :tableName")
     @Mapper(TableAlias.TableAliasMapper.class)
-    TableAlias getAlias(@BindBean QualifiedTableName table);
+    TableAlias getAlias(@Bind("connectorId") String connectorId, @Bind("schemaName") String schemaName, @Bind("tableName") String tableName);
 
     public static final class Utils
     {
