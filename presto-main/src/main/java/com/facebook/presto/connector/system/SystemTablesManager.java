@@ -1,7 +1,5 @@
 package com.facebook.presto.connector.system;
 
-import com.facebook.presto.spi.TableMetadata;
-
 import javax.inject.Inject;
 import java.util.Set;
 
@@ -18,12 +16,14 @@ import java.util.Set;
 public class SystemTablesManager
 {
     private final SystemTablesMetadata metadata;
+    private final SystemSplitManager splitManager;
     private final SystemDataStreamProvider dataStreamProvider;
 
     @Inject
-    public SystemTablesManager(SystemTablesMetadata metadata, SystemDataStreamProvider dataStreamProvider, Set<SystemTable> tables)
+    public SystemTablesManager(SystemTablesMetadata metadata, SystemSplitManager splitManager, SystemDataStreamProvider dataStreamProvider, Set<SystemTable> tables)
     {
         this.metadata = metadata;
+        this.splitManager = splitManager;
         this.dataStreamProvider = dataStreamProvider;
         for (SystemTable table : tables) {
             addTable(table);
@@ -32,8 +32,8 @@ public class SystemTablesManager
 
     public void addTable(SystemTable systemTable)
     {
-        TableMetadata tableMetadata = systemTable.getTableMetadata();
-        metadata.addTable(tableMetadata);
+        metadata.addTable(systemTable.getTableMetadata());
+        splitManager.addTable(systemTable);
         dataStreamProvider.addTable(systemTable);
     }
 }

@@ -4,8 +4,8 @@ import com.facebook.presto.metadata.Node;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplitManager;
-import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Partition;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.TableHandle;
 import com.google.common.base.Objects;
@@ -19,6 +19,8 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -27,11 +29,19 @@ public class SystemSplitManager
         implements ConnectorSplitManager
 {
     private final NodeManager nodeManager;
+    private final ConcurrentMap<SchemaTableName, SystemTable> tables = new ConcurrentHashMap<>();
 
     @Inject
     public SystemSplitManager(NodeManager nodeManager)
     {
         this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
+    }
+
+    public void addTable(SystemTable systemTable)
+    {
+        checkNotNull(systemTable, "systemTable is null");
+        SchemaTableName tableName = systemTable.getTableMetadata().getTable();
+        checkArgument(tables.putIfAbsent(tableName, systemTable) == null, "Table %s is already registered", tableName);
     }
 
     @Override
@@ -69,9 +79,8 @@ public class SystemSplitManager
         checkArgument(partition instanceof SystemPartition, "Partition must be a system partition");
         SystemPartition systemPartition = (SystemPartition) partition;
 
-        Optional<Node> currentNode = nodeManager.getCurrentNode();
-        Preconditions.checkState(currentNode.isPresent(), "current node is not in the active set");
-        ImmutableList<HostAddress> localAddress = ImmutableList.of(currentNode.get().getHostAndPort());
+        SystemTable systemTable = tables.get(systemPartition.getTableHandle().getSchemaTableName());
+        checkArgument(systemTable != null, "Table %s does not exist", systemPartition.getTableHandle().getTableName());
 
         ImmutableMap.Builder<String, Object> filters = ImmutableMap.builder();
         for (Entry<ColumnHandle, Object> entry : systemPartition.getFilters().entrySet()) {
@@ -79,32 +88,43 @@ public class SystemSplitManager
             filters.put(systemColumnHandle.getColumnName(), entry.getValue());
         }
 
-        Split split = new SystemSplit(systemPartition.table, filters.build(), localAddress);
-
-        return ImmutableList.of(split);
+        if (systemTable.isDistributed()) {
+            ImmutableList.Builder<Split> splits = ImmutableList.builder();
+            for (Node node : nodeManager.getActiveNodes()) {
+                splits.add(new SystemSplit(systemPartition.tableHandle, filters.build(), ImmutableList.of(node.getHostAndPort())));
+            }
+            return splits.build();
+        }
+        else {
+            // table is not distributed
+            Optional<Node> currentNode = nodeManager.getCurrentNode();
+            Preconditions.checkState(currentNode.isPresent(), "current node is not in the active set");
+            Split split = new SystemSplit(systemPartition.tableHandle, filters.build(), ImmutableList.of(currentNode.get().getHostAndPort()));
+            return ImmutableList.of(split);
+        }
     }
 
     public static class SystemPartition
             implements Partition
     {
-        private final SystemTableHandle table;
+        private final SystemTableHandle tableHandle;
         private final Map<ColumnHandle, Object> filters;
 
-        public SystemPartition(SystemTableHandle table, Map<ColumnHandle, Object> filters)
+        public SystemPartition(SystemTableHandle tableHandle, Map<ColumnHandle, Object> filters)
         {
-            this.table = table;
+            this.tableHandle = checkNotNull(tableHandle, "tableHandle is null");
             this.filters = ImmutableMap.copyOf(checkNotNull(filters, "filters is null"));
         }
 
-        public SystemTableHandle getTable()
+        public SystemTableHandle getTableHandle()
         {
-            return table;
+            return tableHandle;
         }
 
         @Override
         public String getPartitionId()
         {
-            return table.getSchemaTableName().toString();
+            return tableHandle.getSchemaTableName().toString();
         }
 
         @Override
@@ -122,7 +142,7 @@ public class SystemSplitManager
         public String toString()
         {
             return Objects.toStringHelper(this)
-                    .add("table", table)
+                    .add("tableHandle", tableHandle)
                     .add("filters", filters)
                     .toString();
         }

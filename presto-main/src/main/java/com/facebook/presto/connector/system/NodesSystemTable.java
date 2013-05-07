@@ -25,7 +25,7 @@ public class NodesSystemTable
     public static final SchemaTableName NODES_TABLE_NAME = new SchemaTableName("sys", "node");
 
     public static final TableMetadata NODES_TABLE = tableMetadataBuilder(NODES_TABLE_NAME)
-            .column("node_identifier", STRING)
+            .column("node_id", STRING)
             .column("http_uri", STRING)
             .column("is_active", STRING)
             .build();
@@ -36,6 +36,12 @@ public class NodesSystemTable
     public NodesSystemTable(NodeManager nodeManager)
     {
         this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
+    }
+
+    @Override
+    public boolean isDistributed()
+    {
+        return false;
     }
 
     @Override

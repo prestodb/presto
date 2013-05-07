@@ -9,6 +9,7 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableMetadata;
 import com.google.common.collect.ImmutableList;
+import io.airlift.node.NodeInfo;
 
 import javax.inject.Inject;
 import java.util.List;
@@ -26,6 +27,7 @@ public class QuerySystemTable
     public static final SchemaTableName QUERY_TABLE_NAME = new SchemaTableName("sys", "query");
 
     public static final TableMetadata QUERY_TABLE = tableMetadataBuilder(QUERY_TABLE_NAME)
+            .column("node_id", STRING)
             .column("query_id", STRING)
             .column("state", STRING)
             .column("user", STRING)
@@ -34,11 +36,19 @@ public class QuerySystemTable
             .build();
 
     private final QueryManager queryManager;
+    private final String nodeId;
 
     @Inject
-    public QuerySystemTable(QueryManager queryManager)
+    public QuerySystemTable(QueryManager queryManager, NodeInfo nodeInfo)
     {
         this.queryManager = queryManager;
+        this.nodeId = nodeInfo.getNodeId();
+    }
+
+    @Override
+    public boolean isDistributed()
+    {
+        return true;
     }
 
     @Override
@@ -59,6 +69,7 @@ public class QuerySystemTable
         Builder table = InMemoryRecordSet.builder(QUERY_TABLE);
         for (QueryInfo queryInfo : queryManager.getAllQueryInfo()) {
             table.addRow(
+                    nodeId,
                     queryInfo.getQueryId().toString(),
                     queryInfo.getState().toString(),
                     queryInfo.getSession().getUser(),
