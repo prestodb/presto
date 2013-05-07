@@ -261,13 +261,9 @@ public class HostAddress
     }
 
     public InetAddress toInetAddress()
+            throws UnknownHostException
     {
-        try {
-            return InetAddress.getByName(getHostText());
-        }
-        catch (UnknownHostException e) {
-            throw new RuntimeException(e);
-        }
+        return InetAddress.getByName(getHostText());
     }
 
     @Override
