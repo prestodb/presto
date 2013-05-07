@@ -9,8 +9,8 @@ import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.ExecutionStats.ExecutionStatsSnapshot;
 import com.facebook.presto.execution.SharedBuffer.QueueState;
-import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.LocalStorageManager;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.OperatorStats.SplitExecutionStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.split.DataStreamProvider;
@@ -31,13 +31,12 @@ import org.joda.time.DateTime;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
-
 import java.net.URI;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
@@ -144,11 +143,11 @@ public class SqlTaskManager
     @Override
     public List<TaskInfo> getAllTaskInfo(boolean full)
     {
-        Map<TaskId, TaskInfo> taskInfos = new TreeMap<>();
-        taskInfos.putAll(taskInfos);
+        Map<TaskId, TaskInfo> taskInfos = new HashMap<>();
         for (TaskExecution taskExecution : tasks.values()) {
             taskInfos.put(taskExecution.getTaskId(), taskExecution.getTaskInfo(full));
         }
+        taskInfos.putAll(this.taskInfos);
         return ImmutableList.copyOf(taskInfos.values());
     }
 
