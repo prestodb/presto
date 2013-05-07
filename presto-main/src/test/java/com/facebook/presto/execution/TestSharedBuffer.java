@@ -198,12 +198,8 @@ public class TestSharedBuffer
         sharedBuffer.noMoreQueues();
         assertFinished(sharedBuffer);
 
-        try {
-            sharedBuffer.addQueue("foo");
-            fail("Expected IllegalStateException from addQueue after noMoreQueues has been called");
-        }
-        catch (IllegalStateException expected) {
-        }
+        // add queue calls after finish should be ignored
+        sharedBuffer.addQueue("foo");
     }
 
     @Test
