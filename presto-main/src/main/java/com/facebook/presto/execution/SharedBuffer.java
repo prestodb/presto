@@ -92,7 +92,9 @@ public class SharedBuffer<T>
     public synchronized void addQueue(String queueId)
     {
         Preconditions.checkNotNull(queueId, "queueId is null");
-        if (namedQueues.containsKey(queueId)) {
+        // ignore buffers added after query finishes, which can happen when a query is canceled
+        // also ignore duplicates, which is normal
+        if (state == QueueState.FINISHED || namedQueues.containsKey(queueId)) {
             return;
         }
         Preconditions.checkState(state == QueueState.OPEN, "%s is not OPEN", SharedBuffer.class.getSimpleName());
