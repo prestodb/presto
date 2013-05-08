@@ -748,6 +748,193 @@ public abstract class AbstractTestQueries
                 "SELECT orderstatus, sum(totalprice) FROM orders GROUP BY orderstatus");
     }
 
+    @Test
+    public void testGroupBySearchedCase()
+            throws Exception
+    {
+        assertQuery("SELECT CASE WHEN orderstatus = 'O' THEN 'a' ELSE 'b' END, count(*)\n" +
+                "FROM orders\n" +
+                "GROUP BY CASE WHEN orderstatus = 'O' THEN 'a' ELSE 'b' END");
+
+        assertQuery(
+                "SELECT CASE WHEN orderstatus = 'O' THEN 'a' ELSE 'b' END, count(*)\n" +
+                        "FROM orders\n" +
+                        "GROUP BY 1",
+                "SELECT CASE WHEN orderstatus = 'O' THEN 'a' ELSE 'b' END, count(*)\n" +
+                        "FROM orders\n" +
+                        "GROUP BY CASE WHEN orderstatus = 'O' THEN 'a' ELSE 'b' END");
+
+    }
+
+    @Test
+    public void testGroupBySearchedCaseNoElse()
+            throws Exception
+    {
+        // whole CASE in group by clause
+        assertQuery("SELECT CASE WHEN orderstatus = 'O' THEN 'a' END, count(*)\n" +
+                "FROM orders\n" +
+                "GROUP BY CASE WHEN orderstatus = 'O' THEN 'a' END");
+
+        assertQuery(
+                "SELECT CASE WHEN orderstatus = 'O' THEN 'a' END, count(*)\n" +
+                        "FROM orders\n" +
+                        "GROUP BY 1",
+                "SELECT CASE WHEN orderstatus = 'O' THEN 'a' END, count(*)\n" +
+                        "FROM orders\n" +
+                        "GROUP BY CASE WHEN orderstatus = 'O' THEN 'a' END");
+
+        assertQuery("SELECT CASE WHEN true THEN orderstatus END, count(*)\n" +
+                "FROM orders\n" +
+                "GROUP BY orderstatus");
+    }
+
+    @Test
+    public void testGroupByCase()
+            throws Exception
+    {
+        // whole CASE in group by clause
+        assertQuery("SELECT CASE orderstatus WHEN 'O' THEN 'a' ELSE 'b' END, count(*)\n" +
+                "FROM orders\n" +
+                "GROUP BY CASE orderstatus WHEN 'O' THEN 'a' ELSE 'b' END");
+
+        assertQuery(
+                "SELECT CASE orderstatus WHEN 'O' THEN 'a' ELSE 'b' END, count(*)\n" +
+                        "FROM orders\n" +
+                        "GROUP BY 1",
+                "SELECT CASE orderstatus WHEN 'O' THEN 'a' ELSE 'b' END, count(*)\n" +
+                        "FROM orders\n" +
+                        "GROUP BY CASE orderstatus WHEN 'O' THEN 'a' ELSE 'b' END");
+
+        // operand in group by clause
+        assertQuery("SELECT CASE orderstatus WHEN 'O' THEN 'a' ELSE 'b' END, count(*)\n" +
+                "FROM orders\n" +
+                "GROUP BY orderstatus");
+
+        // condition in group by clause
+        assertQuery("SELECT CASE 'O' WHEN orderstatus THEN 'a' ELSE 'b' END, count(*)\n" +
+                "FROM orders\n" +
+                "GROUP BY orderstatus");
+
+        // 'then' in group by clause
+        assertQuery("SELECT CASE 1 WHEN 1 THEN orderstatus ELSE 'x' END, count(*)\n" +
+                "FROM orders\n" +
+                "GROUP BY orderstatus");
+
+        // 'else' in group by clause
+        assertQuery("SELECT CASE 1 WHEN 1 THEN 'x' ELSE orderstatus END, count(*)\n" +
+                "FROM orders\n" +
+                "GROUP BY orderstatus");
+    }
+
+    @Test
+    public void testGroupByCaseNoElse()
+            throws Exception
+    {
+        // whole CASE in group by clause
+        assertQuery("SELECT CASE orderstatus WHEN 'O' THEN 'a' END, count(*)\n" +
+                "FROM orders\n" +
+                "GROUP BY CASE orderstatus WHEN 'O' THEN 'a' END");
+
+        // operand in group by clause
+        assertQuery("SELECT CASE orderstatus WHEN 'O' THEN 'a' END, count(*)\n" +
+                "FROM orders\n" +
+                "GROUP BY orderstatus");
+
+        // condition in group by clause
+        assertQuery("SELECT CASE 'O' WHEN orderstatus THEN 'a' END, count(*)\n" +
+                "FROM orders\n" +
+                "GROUP BY orderstatus");
+
+        // 'then' in group by clause
+        assertQuery("SELECT CASE 1 WHEN 1 THEN orderstatus END, count(*)\n" +
+                "FROM orders\n" +
+                "GROUP BY orderstatus");
+    }
+
+    @Test
+    public void testGroupByCast()
+            throws Exception
+    {
+        // whole CAST in group by expression
+        assertQuery("SELECT CAST(orderkey AS VARCHAR), count(*) FROM orders GROUP BY CAST(orderkey AS VARCHAR)");
+
+        assertQuery(
+                "SELECT CAST(orderkey AS VARCHAR), count(*) FROM orders GROUP BY 1",
+                "SELECT CAST(orderkey AS VARCHAR), count(*) FROM orders GROUP BY CAST(orderkey AS VARCHAR)");
+
+        // argument in group by expression
+        assertQuery("SELECT CAST(orderkey AS VARCHAR), count(*) FROM orders GROUP BY orderkey");
+    }
+
+    @Test
+    public void testGroupByCoalesce()
+            throws Exception
+    {
+        // whole COALESCE in group by
+        assertQuery("SELECT COALESCE(orderkey, custkey), count(*) FROM orders GROUP BY COALESCE(orderkey, custkey)");
+
+        assertQuery(
+                "SELECT COALESCE(orderkey, custkey), count(*) FROM orders GROUP BY 1",
+                "SELECT COALESCE(orderkey, custkey), count(*) FROM orders GROUP BY COALESCE(orderkey, custkey)"
+        );
+
+        // operands in group by
+        assertQuery("SELECT COALESCE(orderkey, 1), count(*) FROM orders GROUP BY orderkey");
+
+        // operands in group by
+        assertQuery("SELECT COALESCE(1, orderkey), count(*) FROM orders GROUP BY orderkey");
+    }
+
+    @Test
+    public void testGroupByNullIf()
+            throws Exception
+    {
+        // whole NULLIF in group by
+        assertQuery("SELECT NULLIF(orderkey, custkey), count(*) FROM orders GROUP BY NULLIF(orderkey, custkey)");
+
+        assertQuery(
+                "SELECT NULLIF(orderkey, custkey), count(*) FROM orders GROUP BY 1",
+                "SELECT NULLIF(orderkey, custkey), count(*) FROM orders GROUP BY NULLIF(orderkey, custkey)");
+
+        // first operand in group by
+        assertQuery("SELECT NULLIF(orderkey, 1), count(*) FROM orders GROUP BY orderkey");
+
+        // second operand in group by
+        assertQuery("SELECT NULLIF(1, orderkey), count(*) FROM orders GROUP BY orderkey");
+    }
+
+    @Test
+    public void testGroupByExtract()
+            throws Exception
+    {
+        // whole expression in group by
+        assertQuery("SELECT EXTRACT(YEAR FROM now()), count(*) FROM orders GROUP BY EXTRACT(YEAR FROM now())");
+
+        assertQuery(
+                "SELECT EXTRACT(YEAR FROM now()), count(*) FROM orders GROUP BY 1",
+                "SELECT EXTRACT(YEAR FROM now()), count(*) FROM orders GROUP BY EXTRACT(YEAR FROM now())");
+
+        // argument in group by
+        assertQuery("SELECT EXTRACT(YEAR FROM now()), count(*) FROM orders GROUP BY now()");
+    }
+
+    @Test
+    public void testGroupByBetween()
+            throws Exception
+    {
+        // whole expression in group by
+        // TODO: enable once we support booleans
+        // assertQuery("SELECT orderkey BETWEEN 1 AND 100 FROM orders GROUP BY orderkey BETWEEN 1 AND 100 ");
+
+        // expression in group by
+        assertQuery("SELECT CAST(orderkey BETWEEN 1 AND 100 AS BIGINT) FROM orders GROUP BY orderkey");
+
+        // min in group by
+        assertQuery("SELECT CAST(50 BETWEEN orderkey AND 100 AS BIGINT) FROM orders GROUP BY orderkey");
+
+        // max in group by
+        assertQuery("SELECT CAST(50 BETWEEN 1 AND orderkey AS BIGINT) FROM orders GROUP BY orderkey");
+    }
 
     @Test
     public void testHaving()
@@ -1042,6 +1229,13 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testCaseNoElse()
+            throws Exception
+    {
+        assertQuery("SELECT orderkey, CASE orderstatus WHEN 'O' THEN 'a' END FROM orders");
+    }
+
+    @Test
     public void testIfExpression()
             throws Exception
     {
@@ -1282,7 +1476,9 @@ public abstract class AbstractTestQueries
                             if (resultSet.wasNull()) {
                                 builder.appendNull();
                             }
-                            builder.append(Slices.wrappedBuffer(value.getBytes(UTF_8)));
+                            else {
+                                builder.append(Slices.wrappedBuffer(value.getBytes(UTF_8)));
+                            }
                             break;
                         default:
                             throw new AssertionError("unhandled type: " + type);
