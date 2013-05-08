@@ -87,10 +87,6 @@ public class AlignmentOperator implements Operator
             return PageIterators.emptyIterator(tupleInfos);
         }
 
-        if (expectedDataSize.isPresent()) {
-            operatorStats.addCompletedDataSize(expectedDataSize.get().toBytes());
-        }
-        operatorStats.addCompletedPositions(expectedPositionCount.or(0));
         return new AlignmentIterator(tupleInfos, iterators, operatorStats);
     }
 
