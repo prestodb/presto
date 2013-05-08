@@ -886,6 +886,24 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testGroupByNullIf()
+            throws Exception
+    {
+        // whole NULLIF in group by
+        assertQuery("SELECT NULLIF(orderkey, custkey), count(*) FROM orders GROUP BY NULLIF(orderkey, custkey)");
+
+        assertQuery(
+                "SELECT NULLIF(orderkey, custkey), count(*) FROM orders GROUP BY 1",
+                "SELECT NULLIF(orderkey, custkey), count(*) FROM orders GROUP BY NULLIF(orderkey, custkey)");
+
+        // first operand in group by
+        assertQuery("SELECT NULLIF(orderkey, 1), count(*) FROM orders GROUP BY orderkey");
+
+        // second operand in group by
+        assertQuery("SELECT NULLIF(1, orderkey), count(*) FROM orders GROUP BY orderkey");
+    }
+
+    @Test
     public void testHaving()
             throws Exception
     {

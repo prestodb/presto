@@ -15,6 +15,7 @@ import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.NegativeExpression;
 import com.facebook.presto.sql.tree.NotExpression;
+import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
@@ -147,6 +148,16 @@ public class AggregationAnalyzer
             }
 
             return Iterables.all(node.getOperands(), isConstantPredicate());
+        }
+
+        @Override
+        protected Boolean visitNullIfExpression(NullIfExpression node, Void context)
+        {
+            if (isInGroupBy(node)) {
+                return true;
+            }
+
+            return process(node.getFirst(), null) && process(node.getSecond(), null);
         }
 
         @Override
