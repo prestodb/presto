@@ -8,6 +8,7 @@ import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.NativeConnectorFactory;
 import com.facebook.presto.connector.dual.DualModule;
 import com.facebook.presto.connector.informationSchema.InformationSchemaModule;
+import com.facebook.presto.connector.jmx.JmxConnectorFactory;
 import com.facebook.presto.connector.system.SystemTablesModule;
 import com.facebook.presto.event.query.QueryCompletionEvent;
 import com.facebook.presto.event.query.QueryCreatedEvent;
@@ -178,6 +179,9 @@ public class ServerMainModule
         connectorFactoryBinder.addBinding("native").to(NativeConnectorFactory.class);
         binder.bind(NativeSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(NativeDataStreamProvider.class).in(Scopes.SINGLETON);
+
+        // jmx connector
+        connectorFactoryBinder.addBinding("jmx").to(JmxConnectorFactory.class);
 
         // dual
         binder.install(new DualModule());
