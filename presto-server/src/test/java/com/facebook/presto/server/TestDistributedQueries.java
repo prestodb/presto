@@ -31,8 +31,8 @@ import com.facebook.presto.tpch.TpchModule;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
+import com.facebook.presto.util.InMemoryTpchBlocksProvider;
 import com.facebook.presto.util.MaterializedResult;
-import com.facebook.presto.util.TestingTpchBlocksProvider;
 import com.google.common.base.Function;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -332,7 +332,7 @@ public class TestDistributedQueries
                         @Override
                         public void configure(Binder binder)
                         {
-                            binder.bind(TpchBlocksProvider.class).to(TestingTpchBlocksProvider.class).in(Scopes.SINGLETON);
+                            binder.bind(TpchBlocksProvider.class).to(InMemoryTpchBlocksProvider.class).in(Scopes.SINGLETON);
                         }
                     });
 

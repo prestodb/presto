@@ -12,7 +12,6 @@ import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.tree.Input;
-import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
@@ -29,10 +28,10 @@ public class HashAggregationBenchmark
     }
 
     @Override
-    protected Operator createBenchmarkedOperator(TpchBlocksProvider blocksProvider)
+    protected Operator createBenchmarkedOperator()
     {
-        BlockIterable orderStatusBlockIterable = getBlockIterable(blocksProvider, "orders", "orderstatus", BlocksFileEncoding.RAW);
-        BlockIterable totalPriceBlockIterable = getBlockIterable(blocksProvider, "orders", "totalprice", BlocksFileEncoding.RAW);
+        BlockIterable orderStatusBlockIterable = getBlockIterable("orders", "orderstatus", BlocksFileEncoding.RAW);
+        BlockIterable totalPriceBlockIterable = getBlockIterable("orders", "totalprice", BlocksFileEncoding.RAW);
 
         AlignmentOperator alignmentOperator = new AlignmentOperator(orderStatusBlockIterable, totalPriceBlockIterable);
         return new HashAggregationOperator(alignmentOperator,
@@ -45,13 +44,13 @@ public class HashAggregationBenchmark
     }
 
     @Override
-    protected long[] execute(TpchBlocksProvider blocksProvider)
+    protected long[] execute(OperatorStats operatorStats)
     {
-        Operator operator = createBenchmarkedOperator(blocksProvider);
+        Operator operator = createBenchmarkedOperator();
 
         long outputRows = 0;
         long outputBytes = 0;
-        PageIterator iterator = operator.iterator(new OperatorStats());
+        PageIterator iterator = operator.iterator(operatorStats);
         while (iterator.hasNext()) {
             Page page = iterator.next();
             BlockCursor cursor = page.getBlock(0).cursor();
@@ -63,7 +62,7 @@ public class HashAggregationBenchmark
                 outputBytes += block.getDataSize().toBytes();
             }
         }
-        return new long[]{outputRows, outputBytes};
+        return new long[] {outputRows, outputBytes};
     }
 
     public static void main(String[] args)

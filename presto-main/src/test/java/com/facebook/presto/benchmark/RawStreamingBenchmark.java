@@ -9,7 +9,6 @@ import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.serde.BlocksFileEncoding;
-import com.facebook.presto.tpch.TpchBlocksProvider;
 
 public class RawStreamingBenchmark
         extends AbstractOperatorBenchmark
@@ -20,20 +19,20 @@ public class RawStreamingBenchmark
     }
 
     @Override
-    protected Operator createBenchmarkedOperator(TpchBlocksProvider blocksProvider)
+    protected Operator createBenchmarkedOperator()
     {
-        BlockIterable blockIterable = getBlockIterable(blocksProvider, "orders", "totalprice", BlocksFileEncoding.RAW);
+        BlockIterable blockIterable = getBlockIterable("orders", "totalprice", BlocksFileEncoding.RAW);
         return new AlignmentOperator(blockIterable);
     }
 
     @Override
-    protected long[] execute(TpchBlocksProvider blocksProvider)
+    protected long[] execute(OperatorStats operatorStats)
     {
-        Operator operator = createBenchmarkedOperator(blocksProvider);
+        Operator operator = createBenchmarkedOperator();
 
         long outputRows = 0;
         long outputBytes = 0;
-        PageIterator iterator = operator.iterator(new OperatorStats());
+        PageIterator iterator = operator.iterator(operatorStats);
         while (iterator.hasNext()) {
             Page page = iterator.next();
             BlockCursor cursor = page.getBlock(0).cursor();

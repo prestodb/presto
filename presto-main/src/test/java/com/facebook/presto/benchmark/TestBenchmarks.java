@@ -10,8 +10,8 @@ public class TestBenchmarks
             throws Exception
     {
         for (AbstractBenchmark benchmark : BenchmarkSuite.BENCHMARKS) {
-            // this query is to slow for the smoke test
-            if (benchmark instanceof SqlTpchQuery1) {
+            // these queries are to slow for the smoke test
+            if (benchmark instanceof SqlTpchQuery1 || benchmark instanceof SqlLikeBenchmark) {
                 continue;
             }
             benchmark.runOnce();

@@ -10,7 +10,6 @@ import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.operator.TopNOperator;
 import com.facebook.presto.serde.BlocksFileEncoding;
-import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
 
@@ -25,21 +24,21 @@ public class Top100Benchmark
     }
 
     @Override
-    protected Operator createBenchmarkedOperator(TpchBlocksProvider blocksProvider)
+    protected Operator createBenchmarkedOperator()
     {
-        BlockIterable blockIterable = getBlockIterable(blocksProvider, "orders", "totalprice", BlocksFileEncoding.RAW);
+        BlockIterable blockIterable = getBlockIterable("orders", "totalprice", BlocksFileEncoding.RAW);
         AlignmentOperator alignmentOperator = new AlignmentOperator(blockIterable);
         return new TopNOperator(alignmentOperator, 100, 0, ImmutableList.of(singleColumn(TupleInfo.Type.DOUBLE, 0, 0)));
     }
 
     @Override
-    protected long[] execute(TpchBlocksProvider blocksProvider)
+    protected long[] execute(OperatorStats operatorStats)
     {
-        Operator operator = createBenchmarkedOperator(blocksProvider);
+        Operator operator = createBenchmarkedOperator();
 
         long outputRows = 0;
         long outputBytes = 0;
-        PageIterator iterator = operator.iterator(new OperatorStats());
+        PageIterator iterator = operator.iterator(operatorStats);
         while (iterator.hasNext()) {
             Page page = iterator.next();
             BlockCursor cursor = page.getBlock(0).cursor();

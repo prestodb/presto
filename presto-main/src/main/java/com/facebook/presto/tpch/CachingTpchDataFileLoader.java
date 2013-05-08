@@ -8,13 +8,13 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class CachingTpchDataProvider
-    implements TpchDataProvider
+public class CachingTpchDataFileLoader
+    implements TpchDataFileLoader
 {
     private final Map<TpchColumnRequest, File> localFileCache = new HashMap<>();
-    private final TpchDataProvider delegate;
+    private final TpchDataFileLoader delegate;
 
-    public CachingTpchDataProvider(TpchDataProvider delegate)
+    public CachingTpchDataFileLoader(TpchDataFileLoader delegate)
     {
         this.delegate = checkNotNull(delegate, "delegate is null");
     }

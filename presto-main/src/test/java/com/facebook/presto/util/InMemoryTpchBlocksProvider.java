@@ -38,20 +38,20 @@ import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-public class TestingTpchBlocksProvider
-        extends TpchBlocksProvider
+public class InMemoryTpchBlocksProvider
+        implements TpchBlocksProvider
 {
     private final Map<String, RecordSet> data;
 
     @Inject
-    public TestingTpchBlocksProvider()
+    public InMemoryTpchBlocksProvider()
     {
         this(ImmutableMap.of(
                 "orders", readTpchRecords(TPCH_ORDERS_METADATA),
                 "lineitem", readTpchRecords(TPCH_LINEITEM_METADATA)));
     }
 
-    public TestingTpchBlocksProvider(Map<String, RecordSet> data)
+    public InMemoryTpchBlocksProvider(Map<String, RecordSet> data)
     {
         this.data = ImmutableMap.copyOf(checkNotNull(data, "data is null"));
     }
@@ -71,16 +71,6 @@ public class TestingTpchBlocksProvider
                 columnHandle.getFieldIndex());
     }
 
-    @Override
-    public DataSize getColumnDataSize(TpchTableHandle tableHandle,
-            TpchColumnHandle columnHandle,
-            int partNumber,
-            int totalParts,
-            BlocksFileEncoding encoding)
-    {
-        throw new UnsupportedOperationException();
-    }
-
     private class TpchBlockIterable
             implements BlockIterable
     {
@@ -92,8 +82,8 @@ public class TestingTpchBlocksProvider
 
         public TpchBlockIterable(TupleInfo.Type fieldType, int partNumber, int totalParts, String tableName, int fieldIndex)
         {
+            checkState(partNumber >= 0, "partNumber must be positive");
             checkState(totalParts > 0, "can not split by 0");
-            checkState(partNumber >= 0, "skew must be positive");
 
             this.fieldType = fieldType;
             this.partNumber = partNumber;
