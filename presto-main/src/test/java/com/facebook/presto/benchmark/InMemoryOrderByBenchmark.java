@@ -6,6 +6,7 @@ import com.facebook.presto.operator.InMemoryOrderByOperator;
 import com.facebook.presto.operator.LimitOperator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.serde.BlocksFileEncoding;
+import com.facebook.presto.tpch.TpchBlocksProvider;
 import io.airlift.units.DataSize;
 
 import static com.facebook.presto.block.BlockIterables.concat;
@@ -17,9 +18,9 @@ public class InMemoryOrderByBenchmark
 {
     private static final int ROWS = 1_500_000;
 
-    public InMemoryOrderByBenchmark()
+    public InMemoryOrderByBenchmark(TpchBlocksProvider tpchBlocksProvider)
     {
-        super("in_memory_orderby_1.5M", 5, 10);
+        super(tpchBlocksProvider, "in_memory_orderby_1.5M", 5, 10);
     }
 
     @Override
@@ -36,7 +37,7 @@ public class InMemoryOrderByBenchmark
 
     public static void main(String[] args)
     {
-        new InMemoryOrderByBenchmark().runBenchmark(
+        new InMemoryOrderByBenchmark(DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(
                 new SimpleLineBenchmarkResultWriter(System.out)
         );
     }

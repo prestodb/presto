@@ -6,6 +6,7 @@ import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.serde.BlocksFileEncoding;
+import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.tuple.TupleReadable;
 
@@ -14,9 +15,9 @@ import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
 public class PredicateFilterBenchmark
         extends AbstractOperatorBenchmark
 {
-    public PredicateFilterBenchmark()
+    public PredicateFilterBenchmark(TpchBlocksProvider tpchBlocksProvider)
     {
-        super("predicate_filter", 5, 50);
+        super(tpchBlocksProvider, "predicate_filter", 5, 50);
     }
 
     @Override
@@ -45,7 +46,7 @@ public class PredicateFilterBenchmark
 
     public static void main(String[] args)
     {
-        new PredicateFilterBenchmark().runBenchmark(
+        new PredicateFilterBenchmark(DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(
                 new SimpleLineBenchmarkResultWriter(System.out)
         );
     }

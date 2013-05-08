@@ -1,11 +1,13 @@
 package com.facebook.presto.benchmark;
 
+import com.facebook.presto.tpch.TpchBlocksProvider;
+
 public class SqlTpchQuery1
         extends AbstractSqlBenchmark
 {
-    public SqlTpchQuery1()
+    public SqlTpchQuery1(TpchBlocksProvider tpchBlocksProvider)
     {
-        super("sql_tpch_query_1", 1, 5, "" +
+        super(tpchBlocksProvider, "sql_tpch_query_1", 1, 5, "" +
                 "select\n" +
                 "    returnflag,\n" +
                 "    linestatus,\n" +
@@ -31,6 +33,6 @@ public class SqlTpchQuery1
 
     public static void main(String[] args)
     {
-        new SqlTpchQuery1().runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));
+        new SqlTpchQuery1(DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));
     }
 }

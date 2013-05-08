@@ -1,15 +1,17 @@
 package com.facebook.presto.benchmark;
 
+import com.facebook.presto.tpch.TpchBlocksProvider;
+
 public class SqlDoubleSumAggregationBenchmark
         extends AbstractSqlBenchmark
 {
-    public SqlDoubleSumAggregationBenchmark()
+    public SqlDoubleSumAggregationBenchmark(TpchBlocksProvider tpchBlocksProvider)
     {
-        super("sql_double_sum_agg", 10, 100, "select sum(totalprice) from orders");
+        super(tpchBlocksProvider, "sql_double_sum_agg", 10, 100, "select sum(totalprice) from orders");
     }
 
     public static void main(String[] args)
     {
-        new SqlDoubleSumAggregationBenchmark().runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));
+        new SqlDoubleSumAggregationBenchmark(DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));
     }
 }
