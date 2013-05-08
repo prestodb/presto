@@ -15,7 +15,10 @@ import com.facebook.presto.sql.tree.NegativeExpression;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.SearchedCaseExpression;
+import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.SortItem;
+import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.util.IterableTransformer;
@@ -287,6 +290,50 @@ public class AggregationAnalyzer
             }
 
             return Iterables.all(expressions.build(), isConstantPredicate());
+        }
+
+        @Override
+        protected Boolean visitSimpleCaseExpression(SimpleCaseExpression node, Void context)
+        {
+            if (isInGroupBy(node)) {
+                return true;
+            }
+
+            if (!process(node.getOperand(), null)) {
+                return false;
+            }
+
+            for (WhenClause whenClause : node.getWhenClauses()) {
+                if (!process(whenClause.getOperand(), null) || !process(whenClause.getResult(), null)) {
+                    return false;
+                }
+            }
+
+            if (node.getDefaultValue() != null && !process(node.getDefaultValue(), null)) {
+                return false;
+            }
+
+            return true;
+        }
+
+        @Override
+        protected Boolean visitSearchedCaseExpression(SearchedCaseExpression node, Void context)
+        {
+            if (isInGroupBy(node)) {
+                return true;
+            }
+
+            for (WhenClause whenClause : node.getWhenClauses()) {
+                if (!process(whenClause.getOperand(), null) || !process(whenClause.getResult(), null)) {
+                    return false;
+                }
+            }
+
+            if (node.getDefaultValue() != null && !process(node.getDefaultValue(), null)) {
+                return false;
+            }
+
+            return true;
         }
 
         private boolean isInGroupBy(Expression expression)
