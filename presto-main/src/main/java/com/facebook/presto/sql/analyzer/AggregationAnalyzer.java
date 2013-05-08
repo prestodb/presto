@@ -16,6 +16,7 @@ import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.NegativeExpression;
+import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -34,6 +35,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
+import javax.annotation.Nullable;
 import java.util.List;
 
 import static com.facebook.presto.sql.analyzer.FieldOrExpression.expressionGetter;
@@ -43,6 +45,7 @@ import static com.facebook.presto.sql.analyzer.FieldOrExpression.isFieldReferenc
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATE_OR_GROUP_BY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_AGGREGATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_WINDOW;
+import static com.google.common.base.Predicates.contains;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.instanceOf;
 
@@ -106,7 +109,8 @@ public class AggregationAnalyzer
 
     public void analyze(Expression expression)
     {
-        if (!expression.accept(new Visitor(), null)) {
+        Visitor visitor = new Visitor();
+        if (!visitor.process(expression, null)) {
             throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, expression, "'%s' must be an aggregate expression or appear in GROUP BY clause", expression);
         }
     }
@@ -121,7 +125,7 @@ public class AggregationAnalyzer
                 @Override
                 public boolean apply(Expression input)
                 {
-                    return input.accept(Visitor.this, null);
+                    return process(input, null);
                 }
             };
         }
@@ -135,53 +139,33 @@ public class AggregationAnalyzer
         @Override
         protected Boolean visitCast(Cast node, Void context)
         {
-            if (isInGroupBy(node)) {
-                return true;
-            }
-
-            return process(node.getExpression(), null);
+            return process(node.getExpression(), context);
         }
 
         @Override
         protected Boolean visitCoalesceExpression(CoalesceExpression node, Void context)
         {
-            if (isInGroupBy(node)) {
-                return true;
-            }
-
             return Iterables.all(node.getOperands(), isConstantPredicate());
         }
 
         @Override
         protected Boolean visitNullIfExpression(NullIfExpression node, Void context)
         {
-            if (isInGroupBy(node)) {
-                return true;
-            }
-
-            return process(node.getFirst(), null) && process(node.getSecond(), null);
+            return process(node.getFirst(), context) && process(node.getSecond(), context);
         }
 
         @Override
         protected Boolean visitExtract(Extract node, Void context)
         {
-            if (isInGroupBy(node)) {
-                return true;
-            }
-
-            return process(node.getExpression(), null);
+            return process(node.getExpression(), context);
         }
 
         @Override
         protected Boolean visitBetweenPredicate(BetweenPredicate node, Void context)
         {
-            if (isInGroupBy(node)) {
-                return true;
-            }
-
-            return process(node.getMin(), null) &&
-                    process(node.getValue(), null) &&
-                    process(node.getMax(), null);
+            return process(node.getMin(), context) &&
+                    process(node.getValue(), context) &&
+                    process(node.getMax(), context);
         }
 
         @Override
@@ -193,13 +177,13 @@ public class AggregationAnalyzer
         @Override
         protected Boolean visitArithmeticExpression(ArithmeticExpression node, Void context)
         {
-            return isInGroupBy(node) || Iterables.all(ImmutableList.of(node.getLeft(), node.getRight()), isConstantPredicate());
+            return Iterables.all(ImmutableList.of(node.getLeft(), node.getRight()), isConstantPredicate());
         }
 
         @Override
         protected Boolean visitComparisonExpression(ComparisonExpression node, Void context)
         {
-            return isInGroupBy(node) || Iterables.all(ImmutableList.of(node.getLeft(), node.getRight()), isConstantPredicate());
+            return Iterables.all(ImmutableList.of(node.getLeft(), node.getRight()), isConstantPredicate());
         }
 
         @Override
@@ -239,19 +223,18 @@ public class AggregationAnalyzer
                 return true;
             }
 
-            if (node.getWindow().isPresent() && !node.getWindow().get().accept(this, null)) {
+            if (node.getWindow().isPresent() && !process(node.getWindow().get(), context)) {
                 return false;
             }
 
-            return isInGroupBy(node)
-                    || Iterables.all(node.getArguments(), isConstantPredicate());
+            return Iterables.all(node.getArguments(), isConstantPredicate());
         }
 
         @Override
         public Boolean visitWindow(Window node, Void context)
         {
             for (Expression expression : node.getPartitionBy()) {
-                if (!expression.accept(this, context)) {
+                if (!process(expression, context)) {
                     throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY,
                             expression,
                             "PARTITION BY expression '%s' must be an aggregate expression or appear in GROUP BY clause",
@@ -261,7 +244,7 @@ public class AggregationAnalyzer
 
             for (SortItem sortItem : node.getOrderBy()) {
                 Expression expression = sortItem.getSortKey();
-                if (!expression.accept(this, context)) {
+                if (!process(expression, context)) {
                     throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY,
                             expression,
                             "ORDER BY expression '%s' must be an aggregate expression or appear in GROUP BY clause",
@@ -270,7 +253,7 @@ public class AggregationAnalyzer
             }
 
             if (node.getFrame().isPresent()) {
-                node.getFrame().get().accept(this, null);
+                process(node.getFrame().get(), context);
             }
 
             return true;
@@ -281,13 +264,13 @@ public class AggregationAnalyzer
         {
             Optional<Expression> start = node.getStart().getValue();
             if (start.isPresent()) {
-                if (!start.get().accept(this, context)) {
+                if (!process(start.get(), context)) {
                     throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, start.get(), "Window frame start must be an aggregate expression or appear in GROUP BY clause");
                 }
             }
             if (node.getEnd().isPresent() && node.getEnd().get().getValue().isPresent()) {
                 Expression endValue = node.getEnd().get().getValue().get();
-                if (!endValue.accept(this, context)) {
+                if (!process(endValue, context)) {
                     throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, endValue, "Window frame end must be an aggregate expression or appear in GROUP BY clause");
                 }
             }
@@ -298,7 +281,7 @@ public class AggregationAnalyzer
         @Override
         protected Boolean visitAliasedExpression(AliasedExpression node, Void context)
         {
-            return node.getExpression().accept(this, context);
+            return process(node.getExpression(), context);
         }
 
         @Override
@@ -316,28 +299,24 @@ public class AggregationAnalyzer
         @Override
         protected Boolean visitNegativeExpression(NegativeExpression node, Void context)
         {
-            return isInGroupBy(node) || node.getValue().accept(this, null);
+            return process(node.getValue(), context);
         }
 
         @Override
         protected Boolean visitNotExpression(NotExpression node, Void context)
         {
-            return isInGroupBy(node) || node.getValue().accept(this, null);
+            return process(node.getValue(), context);
         }
 
         @Override
         protected Boolean visitLogicalBinaryExpression(LogicalBinaryExpression node, Void context)
         {
-            return isInGroupBy(node) || Iterables.all(ImmutableList.of(node.getLeft(), node.getRight()), isConstantPredicate());
+            return Iterables.all(ImmutableList.of(node.getLeft(), node.getRight()), isConstantPredicate());
         }
 
         @Override
         protected Boolean visitIfExpression(IfExpression node, Void context)
         {
-            if (isInGroupBy(node)) {
-                return true;
-            }
-
             ImmutableList.Builder<Expression> expressions = ImmutableList.<Expression>builder()
                     .add(node.getCondition())
                     .add(node.getTrueValue());
@@ -352,21 +331,17 @@ public class AggregationAnalyzer
         @Override
         protected Boolean visitSimpleCaseExpression(SimpleCaseExpression node, Void context)
         {
-            if (isInGroupBy(node)) {
-                return true;
-            }
-
-            if (!process(node.getOperand(), null)) {
+            if (!process(node.getOperand(), context)) {
                 return false;
             }
 
             for (WhenClause whenClause : node.getWhenClauses()) {
-                if (!process(whenClause.getOperand(), null) || !process(whenClause.getResult(), null)) {
+                if (!process(whenClause.getOperand(), context) || !process(whenClause.getResult(), context)) {
                     return false;
                 }
             }
 
-            if (node.getDefaultValue() != null && !process(node.getDefaultValue(), null)) {
+            if (node.getDefaultValue() != null && !process(node.getDefaultValue(), context)) {
                 return false;
             }
 
@@ -376,26 +351,27 @@ public class AggregationAnalyzer
         @Override
         protected Boolean visitSearchedCaseExpression(SearchedCaseExpression node, Void context)
         {
-            if (isInGroupBy(node)) {
-                return true;
-            }
-
             for (WhenClause whenClause : node.getWhenClauses()) {
-                if (!process(whenClause.getOperand(), null) || !process(whenClause.getResult(), null)) {
+                if (!process(whenClause.getOperand(), context) || !process(whenClause.getResult(), context)) {
                     return false;
                 }
             }
 
-            if (node.getDefaultValue() != null && !process(node.getDefaultValue(), null)) {
+            if (node.getDefaultValue() != null && !process(node.getDefaultValue(), context)) {
                 return false;
             }
 
             return true;
         }
 
-        private boolean isInGroupBy(Expression expression)
+        @Override
+        public Boolean process(Node node, @Nullable Void context)
         {
-            return Iterables.any(expressions, Predicates.<Expression>equalTo(expression));
+            if (Iterables.any(expressions, Predicates.<Node>equalTo(node))) {
+                return true;
+            }
+
+            return super.process(node, context);
         }
     }
 }
