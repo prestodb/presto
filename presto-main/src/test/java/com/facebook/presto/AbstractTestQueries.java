@@ -1042,6 +1042,13 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testCaseNoElse()
+            throws Exception
+    {
+        assertQuery("SELECT orderkey, CASE orderstatus WHEN 'O' THEN 'a' END FROM orders");
+    }
+
+    @Test
     public void testIfExpression()
             throws Exception
     {
@@ -1282,7 +1289,9 @@ public abstract class AbstractTestQueries
                             if (resultSet.wasNull()) {
                                 builder.appendNull();
                             }
-                            builder.append(Slices.wrappedBuffer(value.getBytes(UTF_8)));
+                            else {
+                                builder.append(Slices.wrappedBuffer(value.getBytes(UTF_8)));
+                            }
                             break;
                         default:
                             throw new AssertionError("unhandled type: " + type);
