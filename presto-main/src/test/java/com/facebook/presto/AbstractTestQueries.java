@@ -919,6 +919,24 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testGroupByBetween()
+            throws Exception
+    {
+        // whole expression in group by
+        // TODO: enable once we support booleans
+        // assertQuery("SELECT orderkey BETWEEN 1 AND 100 FROM orders GROUP BY orderkey BETWEEN 1 AND 100 ");
+
+        // expression in group by
+        assertQuery("SELECT CAST(orderkey BETWEEN 1 AND 100 AS BIGINT) FROM orders GROUP BY orderkey");
+
+        // min in group by
+        assertQuery("SELECT CAST(50 BETWEEN orderkey AND 100 AS BIGINT) FROM orders GROUP BY orderkey");
+
+        // max in group by
+        assertQuery("SELECT CAST(50 BETWEEN 1 AND orderkey AS BIGINT) FROM orders GROUP BY orderkey");
+    }
+
+    @Test
     public void testHaving()
             throws Exception
     {

@@ -4,6 +4,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.tree.AliasedExpression;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
+import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
@@ -169,6 +170,18 @@ public class AggregationAnalyzer
             }
 
             return process(node.getExpression(), null);
+        }
+
+        @Override
+        protected Boolean visitBetweenPredicate(BetweenPredicate node, Void context)
+        {
+            if (isInGroupBy(node)) {
+                return true;
+            }
+
+            return process(node.getMin(), null) &&
+                    process(node.getValue(), null) &&
+                    process(node.getMax(), null);
         }
 
         @Override
