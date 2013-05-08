@@ -904,6 +904,21 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testGroupByExtract()
+            throws Exception
+    {
+        // whole expression in group by
+        assertQuery("SELECT EXTRACT(YEAR FROM now()), count(*) FROM orders GROUP BY EXTRACT(YEAR FROM now())");
+
+        assertQuery(
+                "SELECT EXTRACT(YEAR FROM now()), count(*) FROM orders GROUP BY 1",
+                "SELECT EXTRACT(YEAR FROM now()), count(*) FROM orders GROUP BY EXTRACT(YEAR FROM now())");
+
+        // argument in group by
+        assertQuery("SELECT EXTRACT(YEAR FROM now()), count(*) FROM orders GROUP BY now()");
+    }
+
+    @Test
     public void testHaving()
             throws Exception
     {
