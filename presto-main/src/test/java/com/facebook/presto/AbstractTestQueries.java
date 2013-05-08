@@ -748,6 +748,108 @@ public abstract class AbstractTestQueries
                 "SELECT orderstatus, sum(totalprice) FROM orders GROUP BY orderstatus");
     }
 
+    @Test
+    public void testGroupBySearchedCase()
+            throws Exception
+    {
+        assertQuery("SELECT CASE WHEN orderstatus = 'O' THEN 'a' ELSE 'b' END, count(*)\n" +
+                "FROM orders\n" +
+                "GROUP BY CASE WHEN orderstatus = 'O' THEN 'a' ELSE 'b' END");
+
+        assertQuery(
+                "SELECT CASE WHEN orderstatus = 'O' THEN 'a' ELSE 'b' END, count(*)\n" +
+                        "FROM orders\n" +
+                        "GROUP BY 1",
+                "SELECT CASE WHEN orderstatus = 'O' THEN 'a' ELSE 'b' END, count(*)\n" +
+                        "FROM orders\n" +
+                        "GROUP BY CASE WHEN orderstatus = 'O' THEN 'a' ELSE 'b' END");
+
+    }
+
+    @Test
+    public void testGroupBySearchedCaseNoElse()
+            throws Exception
+    {
+        // whole CASE in group by clause
+        assertQuery("SELECT CASE WHEN orderstatus = 'O' THEN 'a' END, count(*)\n" +
+                "FROM orders\n" +
+                "GROUP BY CASE WHEN orderstatus = 'O' THEN 'a' END");
+
+        assertQuery(
+                "SELECT CASE WHEN orderstatus = 'O' THEN 'a' END, count(*)\n" +
+                        "FROM orders\n" +
+                        "GROUP BY 1",
+                "SELECT CASE WHEN orderstatus = 'O' THEN 'a' END, count(*)\n" +
+                        "FROM orders\n" +
+                        "GROUP BY CASE WHEN orderstatus = 'O' THEN 'a' END");
+
+        assertQuery("SELECT CASE WHEN true THEN orderstatus END, count(*)\n" +
+                "FROM orders\n" +
+                "GROUP BY orderstatus");
+    }
+
+    @Test
+    public void testGroupByCase()
+            throws Exception
+    {
+        // whole CASE in group by clause
+        assertQuery("SELECT CASE orderstatus WHEN 'O' THEN 'a' ELSE 'b' END, count(*)\n" +
+                "FROM orders\n" +
+                "GROUP BY CASE orderstatus WHEN 'O' THEN 'a' ELSE 'b' END");
+
+        assertQuery(
+                "SELECT CASE orderstatus WHEN 'O' THEN 'a' ELSE 'b' END, count(*)\n" +
+                        "FROM orders\n" +
+                        "GROUP BY 1",
+                "SELECT CASE orderstatus WHEN 'O' THEN 'a' ELSE 'b' END, count(*)\n" +
+                        "FROM orders\n" +
+                        "GROUP BY CASE orderstatus WHEN 'O' THEN 'a' ELSE 'b' END");
+
+        // operand in group by clause
+        assertQuery("SELECT CASE orderstatus WHEN 'O' THEN 'a' ELSE 'b' END, count(*)\n" +
+                "FROM orders\n" +
+                "GROUP BY orderstatus");
+
+        // condition in group by clause
+        assertQuery("SELECT CASE 'O' WHEN orderstatus THEN 'a' ELSE 'b' END, count(*)\n" +
+                "FROM orders\n" +
+                "GROUP BY orderstatus");
+
+        // 'then' in group by clause
+        assertQuery("SELECT CASE 1 WHEN 1 THEN orderstatus ELSE 'x' END, count(*)\n" +
+                "FROM orders\n" +
+                "GROUP BY orderstatus");
+
+        // 'else' in group by clause
+        assertQuery("SELECT CASE 1 WHEN 1 THEN 'x' ELSE orderstatus END, count(*)\n" +
+                "FROM orders\n" +
+                "GROUP BY orderstatus");
+    }
+
+    @Test
+    public void testGroupByCaseNoElse()
+            throws Exception
+    {
+        // whole CASE in group by clause
+        assertQuery("SELECT CASE orderstatus WHEN 'O' THEN 'a' END, count(*)\n" +
+                "FROM orders\n" +
+                "GROUP BY CASE orderstatus WHEN 'O' THEN 'a' END");
+
+        // operand in group by clause
+        assertQuery("SELECT CASE orderstatus WHEN 'O' THEN 'a' END, count(*)\n" +
+                "FROM orders\n" +
+                "GROUP BY orderstatus");
+
+        // condition in group by clause
+        assertQuery("SELECT CASE 'O' WHEN orderstatus THEN 'a' END, count(*)\n" +
+                "FROM orders\n" +
+                "GROUP BY orderstatus");
+
+        // 'then' in group by clause
+        assertQuery("SELECT CASE 1 WHEN 1 THEN orderstatus END, count(*)\n" +
+                "FROM orders\n" +
+                "GROUP BY orderstatus");
+    }
 
     @Test
     public void testHaving()
