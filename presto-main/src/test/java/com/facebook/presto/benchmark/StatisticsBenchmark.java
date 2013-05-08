@@ -1,11 +1,5 @@
 package com.facebook.presto.benchmark;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.operator.Operator;
-import com.facebook.presto.operator.OperatorStats;
-import com.facebook.presto.operator.Page;
-import com.facebook.presto.operator.PageIterator;
 import org.intellij.lang.annotations.Language;
 
 public abstract class StatisticsBenchmark
@@ -14,28 +8,6 @@ public abstract class StatisticsBenchmark
     protected StatisticsBenchmark(String benchmarkName, int warmupIterations, int measuredIterations, @Language("SQL") String query)
     {
         super(benchmarkName, warmupIterations, measuredIterations, query);
-    }
-
-    @Override
-    protected long[] execute(OperatorStats operatorStats)
-    {
-        Operator operator = createBenchmarkedOperator();
-
-        long outputRows = 0;
-        long outputBytes = 0;
-        PageIterator iterator = operator.iterator(operatorStats);
-        while (iterator.hasNext()) {
-            Page page = iterator.next();
-            BlockCursor cursor = page.getBlock(0).cursor();
-            while (cursor.advanceNextPosition()) {
-                outputRows++;
-            }
-
-            for (Block block : page.getBlocks()) {
-                outputBytes += block.getDataSize().toBytes();
-            }
-        }
-        return new long[] {outputRows, outputBytes};
     }
 
     public static void main(String ... args) throws Exception
