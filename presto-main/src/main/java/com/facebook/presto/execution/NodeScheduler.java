@@ -135,9 +135,8 @@ public class NodeScheduler
             // select 10 acceptable nodes
             List<Node> nodes = selectNodes(nodeMap.get(), split, 10);
 
-            if (nodes.isEmpty()) {
-                System.out.println("here");
-            }
+            Preconditions.checkState(!nodes.isEmpty(), "No nodes available to run query");
+
             // select the node with the smallest number of assignments
             Node chosen = Ordering.from(nodeComparator).min(nodes);
             return chosen;
