@@ -8,8 +8,11 @@ import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.util.MaterializedResult;
+import com.facebook.presto.util.MaterializedTuple;
+import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMultiset;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slices;
@@ -30,7 +33,9 @@ import java.sql.SQLException;
 import java.util.List;
 
 import static com.facebook.presto.tpch.TpchMetadata.TPCH_LINEITEM_METADATA;
+import static com.facebook.presto.tpch.TpchMetadata.TPCH_LINEITEM_NAME;
 import static com.facebook.presto.tpch.TpchMetadata.TPCH_ORDERS_METADATA;
+import static com.facebook.presto.tpch.TpchMetadata.TPCH_ORDERS_NAME;
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
@@ -38,6 +43,7 @@ import static com.facebook.presto.util.MaterializedResult.resultBuilder;
 import static com.facebook.presto.util.TestingTpchBlocksProvider.readTpchRecords;
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.Iterables.transform;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static org.testng.Assert.assertEquals;
@@ -1320,6 +1326,100 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT A.* FROM orders a");
     }
 
+    @Test
+    public void testNodeRoster()
+            throws Exception
+    {
+        List<MaterializedTuple> result = computeActual("SELECT * FROM sys.node").getMaterializedTuples();
+        assertEquals(result.size(), getNodeCount());
+    }
+
+    @Test
+    public void testDual()
+            throws Exception
+    {
+        MaterializedResult result = computeActual("SELECT * FROM dual");
+        List<MaterializedTuple> tuples = result.getMaterializedTuples();
+        assertEquals(tuples.size(), 1);
+    }
+
+    @Test
+    public void testShowTables()
+            throws Exception
+    {
+        MaterializedResult result = computeActual("SHOW TABLES");
+        ImmutableSet<String> tableNames = ImmutableSet.copyOf(transform(result.getMaterializedTuples(), onlyColumnGetter()));
+        assertEquals(tableNames, ImmutableSet.of(TPCH_ORDERS_NAME, TPCH_LINEITEM_NAME));
+    }
+
+    @Test
+    public void testShowTablesFrom()
+            throws Exception
+    {
+        MaterializedResult result = computeActual("SHOW TABLES FROM DEFAULT");
+        ImmutableSet<String> tableNames = ImmutableSet.copyOf(transform(result.getMaterializedTuples(), onlyColumnGetter()));
+        assertEquals(tableNames, ImmutableSet.of(TPCH_ORDERS_NAME, TPCH_LINEITEM_NAME));
+
+        result = computeActual("SHOW TABLES FROM TPCH.DEFAULT");
+        tableNames = ImmutableSet.copyOf(transform(result.getMaterializedTuples(), onlyColumnGetter()));
+        assertEquals(tableNames, ImmutableSet.of(TPCH_ORDERS_NAME, TPCH_LINEITEM_NAME));
+
+        result = computeActual("SHOW TABLES FROM UNKNOWN");
+        tableNames = ImmutableSet.copyOf(transform(result.getMaterializedTuples(), onlyColumnGetter()));
+        assertEquals(tableNames, ImmutableSet.of());
+    }
+
+    @Test
+    public void testShowTablesLike()
+            throws Exception
+    {
+        MaterializedResult result = computeActual("SHOW TABLES LIKE 'or%'");
+        ImmutableSet<String> tableNames = ImmutableSet.copyOf(transform(result.getMaterializedTuples(), onlyColumnGetter()));
+        assertEquals(tableNames, ImmutableSet.of(TPCH_ORDERS_NAME));
+    }
+
+    @Test
+    public void testShowColumns()
+            throws Exception
+    {
+        MaterializedResult result = computeActual("SHOW COLUMNS FROM orders");
+        ImmutableSet<String> columnNames = ImmutableSet.copyOf(transform(result.getMaterializedTuples(), new Function<MaterializedTuple, String>()
+        {
+            @Override
+            public String apply(MaterializedTuple input)
+            {
+                assertEquals(input.getFieldCount(), 4);
+                return (String) input.getField(0);
+            }
+        }));
+        assertEquals(columnNames, ImmutableSet.of("orderkey", "custkey", "orderstatus", "totalprice", "orderdate", "orderpriority", "clerk", "shippriority", "comment"));
+    }
+
+    @Test
+    public void testShowFunctions()
+            throws Exception
+    {
+        MaterializedResult result = computeActual("SHOW FUNCTIONS");
+        ImmutableSet<String> functionNames = ImmutableSet.copyOf(transform(result.getMaterializedTuples(), new Function<MaterializedTuple, String>()
+        {
+            @Override
+            public String apply(MaterializedTuple input)
+            {
+                assertEquals(input.getFieldCount(), 3);
+                return (String) input.getField(0);
+            }
+        }));
+        assertTrue(functionNames.contains("avg"), "Expected function names " + functionNames + " to contain 'avg'");
+        assertTrue(functionNames.contains("abs"), "Expected function names " + functionNames + " to contain 'abs'");
+    }
+
+    @Test
+    public void testNoFrom()
+            throws Exception
+    {
+        assertQuery("SELECT 1 + 2, 3 + 4", "SELECT 1 + 2, 3 + 4 FROM orders LIMIT 1");
+    }
+
     @BeforeClass(alwaysRun = true)
     public void setupDatabase()
             throws Exception
@@ -1372,6 +1472,8 @@ public abstract class AbstractTestQueries
         tearDownQueryFramework();
         handle.close();
     }
+
+    protected abstract int getNodeCount();
 
     protected abstract void setUpQueryFramework(String catalog, String schema)
             throws Exception;
@@ -1528,5 +1630,18 @@ public abstract class AbstractTestQueries
             }
             batch.execute();
         }
+    }
+
+    private Function<MaterializedTuple, String> onlyColumnGetter()
+    {
+        return new Function<MaterializedTuple, String>()
+        {
+            @Override
+            public String apply(MaterializedTuple input)
+            {
+                assertEquals(input.getFieldCount(), 1);
+                return (String) input.getField(0);
+            }
+        };
     }
 }
