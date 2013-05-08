@@ -6,7 +6,6 @@ import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageIterator;
-import com.facebook.presto.tpch.TpchBlocksProvider;
 
 public class SqlApproximateCountDistinctLongBenchmark
         extends AbstractSqlBenchmark
@@ -17,13 +16,13 @@ public class SqlApproximateCountDistinctLongBenchmark
     }
 
     @Override
-    protected long[] execute(TpchBlocksProvider blocksProvider)
+    protected long[] execute(OperatorStats operatorStats)
     {
-        Operator operator = createBenchmarkedOperator(blocksProvider);
+        Operator operator = createBenchmarkedOperator();
 
         long outputRows = 0;
         long outputBytes = 0;
-        PageIterator iterator = operator.iterator(new OperatorStats());
+        PageIterator iterator = operator.iterator(operatorStats);
         while (iterator.hasNext()) {
             Page page = iterator.next();
             BlockCursor cursor = page.getBlock(0).cursor();

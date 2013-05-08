@@ -4,7 +4,7 @@ import com.facebook.presto.serde.BlocksFileEncoding;
 
 import java.io.File;
 
-public interface TpchDataProvider
+public interface TpchDataFileLoader
 {
     File getDataFile(TpchTableHandle tableHandle, TpchColumnHandle columnHandle, BlocksFileEncoding encoding);
 }

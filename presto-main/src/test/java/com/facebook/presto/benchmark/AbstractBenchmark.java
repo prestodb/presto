@@ -39,12 +39,6 @@ public abstract class AbstractBenchmark
     }
 
     /**
-     * Some monitoring tools only accept one result. Return the name of the result that
-     * should be tracked.
-     */
-    protected abstract String getDefaultResult();
-
-    /**
      * Initialize any state necessary to run benchmark. This is run once at start up.
      */
     protected void setUp()

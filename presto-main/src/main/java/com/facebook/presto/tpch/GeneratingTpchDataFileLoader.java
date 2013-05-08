@@ -29,13 +29,13 @@ import static com.google.common.io.Files.newOutputStreamSupplier;
  * Extracts TPCH data into serialized column file formats.
  * It will also cache the extracted columns in the local file system to help mitigate the cost of the operation.
  */
-public class GeneratingTpchDataProvider
-        implements TpchDataProvider
+public class GeneratingTpchDataFileLoader
+        implements TpchDataFileLoader
 {
     private final TableInputSupplierFactory tableInputSupplierFactory;
     private final File cacheDirectory;
 
-    public GeneratingTpchDataProvider(TableInputSupplierFactory tableInputSupplierFactory, File cacheDirectory)
+    public GeneratingTpchDataFileLoader(TableInputSupplierFactory tableInputSupplierFactory, File cacheDirectory)
     {
         checkNotNull(tableInputSupplierFactory, "tableInputStreamProvider is null");
         checkNotNull(cacheDirectory, "cacheDirectory is null");
@@ -44,17 +44,17 @@ public class GeneratingTpchDataProvider
         this.cacheDirectory = cacheDirectory;
     }
 
-    public GeneratingTpchDataProvider(TableInputSupplierFactory tableInputSupplierFactory, String cacheDirectoryName)
+    public GeneratingTpchDataFileLoader(TableInputSupplierFactory tableInputSupplierFactory, String cacheDirectoryName)
     {
         this(tableInputSupplierFactory, new File(checkNotNull(cacheDirectoryName, "cacheDirectoryName is null")));
     }
 
-    public GeneratingTpchDataProvider(String cacheDirectoryName)
+    public GeneratingTpchDataFileLoader(String cacheDirectoryName)
     {
         this(autoSelectTableInputStreamProvider(), cacheDirectoryName);
     }
 
-    public GeneratingTpchDataProvider()
+    public GeneratingTpchDataFileLoader()
     {
         this(System.getProperty("tpchCacheDir", "/tmp/tpchdatacache"));
     }

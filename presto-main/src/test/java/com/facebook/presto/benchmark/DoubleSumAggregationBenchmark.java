@@ -12,7 +12,6 @@ import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.tree.Input;
-import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.google.common.collect.ImmutableList;
 
 import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
@@ -27,21 +26,21 @@ public class DoubleSumAggregationBenchmark
     }
 
     @Override
-    protected Operator createBenchmarkedOperator(TpchBlocksProvider blocksProvider)
+    protected Operator createBenchmarkedOperator()
     {
-        BlockIterable blockIterable = getBlockIterable(blocksProvider, "orders", "totalprice", BlocksFileEncoding.RAW);
+        BlockIterable blockIterable = getBlockIterable("orders", "totalprice", BlocksFileEncoding.RAW);
         AlignmentOperator alignmentOperator = new AlignmentOperator(blockIterable);
         return new AggregationOperator(alignmentOperator, Step.SINGLE, ImmutableList.of(aggregation(DOUBLE_SUM, new Input(0,0))));
     }
 
     @Override
-    protected long[] execute(TpchBlocksProvider blocksProvider)
+    protected long[] execute(OperatorStats operatorStats)
     {
-        Operator operator = createBenchmarkedOperator(blocksProvider);
+        Operator operator = createBenchmarkedOperator();
 
         long outputRows = 0;
         long outputBytes = 0;
-        PageIterator iterator = operator.iterator(new OperatorStats());
+        PageIterator iterator = operator.iterator(operatorStats);
         while (iterator.hasNext()) {
             Page page = iterator.next();
             BlockCursor cursor = page.getBlock(0).cursor();

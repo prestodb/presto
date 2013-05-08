@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.MockLocalStorageManager;
+import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.SourceHashProviderFactory;
 import com.facebook.presto.operator.SourceOperator;
@@ -45,6 +46,7 @@ import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.storage.MockStorageManager;
+import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.facebook.presto.tpch.TpchDataStreamProvider;
 import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tpch.TpchSplitManager;
@@ -77,6 +79,7 @@ public class LocalQueryRunner
     private final LocalStorageManager storageManager;
     private final Session session;
     private final SplitManager splitManager;
+    private boolean printPlan;
 
     public LocalQueryRunner(Metadata metadata,
             SplitManager splitManager,
@@ -91,11 +94,24 @@ public class LocalQueryRunner
         this.session = checkNotNull(session, "session is null");
     }
 
+    public LocalQueryRunner printPlan()
+    {
+        printPlan = true;
+        return this;
+    }
+
     public MaterializedResult execute(@Language("SQL") String sql)
+    {
+        return materialize(plan(sql));
+    }
+
+    public Operator plan(@Language("SQL") String sql)
     {
         Statement statement = SqlParser.createStatement(sql);
 
-        assertFormattedSql(statement);
+        if (printPlan) {
+            assertFormattedSql(statement);
+        }
 
         Analyzer analyzer = new Analyzer(session, metadata);
 
@@ -104,7 +120,9 @@ public class LocalQueryRunner
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
         PlanOptimizersFactory planOptimizersFactory = new PlanOptimizersFactory(metadata);
         Plan plan = new LogicalPlanner(session, planOptimizersFactory.get(), idAllocator, metadata, new MockPeriodicImportManager(), new MockStorageManager()).plan(analysis);
-        new PlanPrinter().print(plan.getRoot(), plan.getTypes());
+        if (printPlan) {
+            new PlanPrinter().print(plan.getRoot(), plan.getTypes());
+        }
 
         SubPlan subplan = new DistributedLogicalPlanner(metadata, idAllocator).createSubplans(plan, true);
         assertTrue(subplan.getChildren().isEmpty(), "Expected subplan to have no children");
@@ -146,7 +164,7 @@ public class LocalQueryRunner
             sourceOperator.noMoreSplits();
         }
 
-        return materialize(localExecutionPlan.getRootOperator());
+        return localExecutionPlan.getRootOperator();
     }
 
     public static LocalQueryRunner createDualLocalQueryRunner()
@@ -175,8 +193,16 @@ public class LocalQueryRunner
 
     public static LocalQueryRunner createTpchLocalQueryRunner(Session session)
     {
-        TestingTpchBlocksProvider tpchBlocksProvider = new TestingTpchBlocksProvider();
+        return createTpchLocalQueryRunner(session, new InMemoryTpchBlocksProvider());
+    }
 
+    public static LocalQueryRunner createTpchLocalQueryRunner(TpchBlocksProvider tpchBlocksProvider)
+    {
+        return createTpchLocalQueryRunner(new Session(null, TpchMetadata.TPCH_CATALOG_NAME, TpchMetadata.TPCH_SCHEMA_NAME), tpchBlocksProvider);
+    }
+
+    public static LocalQueryRunner createTpchLocalQueryRunner(Session session, TpchBlocksProvider tpchBlocksProvider)
+    {
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
 
         MetadataManager metadataManager = new MetadataManager();
@@ -211,7 +237,7 @@ public class LocalQueryRunner
             MetadataManager metadataManager,
             SplitManager splitManager,
             DataStreamManager dataStreamManager,
-            TestingTpchBlocksProvider tpchBlocksProvider)
+            TpchBlocksProvider tpchBlocksProvider)
     {
         metadataManager.addConnectorMetadata(TPCH_CATALOG_NAME, new TpchMetadata());
         splitManager.addConnectorSplitManager(new TpchSplitManager("tpch", nodeManager));
