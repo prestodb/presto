@@ -867,6 +867,25 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testGroupByCoalesce()
+            throws Exception
+    {
+        // whole COALESCE in group by
+        assertQuery("SELECT COALESCE(orderkey, custkey), count(*) FROM orders GROUP BY COALESCE(orderkey, custkey)");
+
+        assertQuery(
+                "SELECT COALESCE(orderkey, custkey), count(*) FROM orders GROUP BY 1",
+                "SELECT COALESCE(orderkey, custkey), count(*) FROM orders GROUP BY COALESCE(orderkey, custkey)"
+        );
+
+        // operands in group by
+        assertQuery("SELECT COALESCE(orderkey, 1), count(*) FROM orders GROUP BY orderkey");
+
+        // operands in group by
+        assertQuery("SELECT COALESCE(1, orderkey), count(*) FROM orders GROUP BY orderkey");
+    }
+
+    @Test
     public void testHaving()
             throws Exception
     {
