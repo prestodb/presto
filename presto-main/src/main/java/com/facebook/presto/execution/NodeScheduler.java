@@ -155,7 +155,14 @@ public class NodeScheduler
                 }
 
                 if (split.isRemotelyAccessible()) {
-                    InetAddress address = hint.toInetAddress();
+                    InetAddress address;
+                    try {
+                        address = hint.toInetAddress();
+                    }
+                    catch (UnknownHostException e) {
+                        // skip addresses that don't resolve
+                        continue;
+                    }
                     for (Node node : nodeMap.getNodesByHost().get(address)) {
                         if (chosen.add(node)) {
                             scheduleLocal.incrementAndGet();
