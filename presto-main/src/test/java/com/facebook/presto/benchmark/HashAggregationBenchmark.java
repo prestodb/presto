@@ -7,6 +7,7 @@ import com.facebook.presto.operator.Operator;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.tree.Input;
+import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
@@ -17,9 +18,9 @@ import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUB
 public class HashAggregationBenchmark
         extends AbstractOperatorBenchmark
 {
-    public HashAggregationBenchmark()
+    public HashAggregationBenchmark(TpchBlocksProvider tpchBlocksProvider)
     {
-        super("hash_agg", 5, 25);
+        super(tpchBlocksProvider, "hash_agg", 5, 25);
     }
 
     @Override
@@ -40,7 +41,7 @@ public class HashAggregationBenchmark
 
     public static void main(String[] args)
     {
-        new HashAggregationBenchmark().runBenchmark(
+        new HashAggregationBenchmark(DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(
                 new SimpleLineBenchmarkResultWriter(System.out)
         );
     }

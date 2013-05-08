@@ -40,16 +40,21 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public abstract class AbstractOperatorBenchmark
         extends AbstractBenchmark
 {
-    private static final TpchBlocksProvider TPCH_BLOCKS_PROVIDER = new DataFileTpchBlocksProvider(new CachingTpchDataFileLoader(new GeneratingTpchDataFileLoader()));
+    public static final TpchBlocksProvider DEFAULT_TPCH_BLOCKS_PROVIDER = new DataFileTpchBlocksProvider(new CachingTpchDataFileLoader(new GeneratingTpchDataFileLoader()));
 
-    protected AbstractOperatorBenchmark(String benchmarkName, int warmupIterations, int measuredIterations)
+    private final TpchBlocksProvider tpchBlocksProvider;
+
+    protected AbstractOperatorBenchmark(TpchBlocksProvider tpchBlocksProvider, String benchmarkName,
+            int warmupIterations,
+            int measuredIterations)
     {
         super(benchmarkName, warmupIterations, measuredIterations);
+        this.tpchBlocksProvider = tpchBlocksProvider;
     }
 
     protected TpchBlocksProvider getTpchBlocksProvider()
     {
-        return TPCH_BLOCKS_PROVIDER;
+        return tpchBlocksProvider;
     }
 
     protected BlockIterable getBlockIterable(String tableName, String columnName, BlocksFileEncoding columnEncoding)

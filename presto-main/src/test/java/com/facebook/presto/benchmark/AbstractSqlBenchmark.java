@@ -1,6 +1,7 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.operator.Operator;
+import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.facebook.presto.util.LocalQueryRunner;
 import org.intellij.lang.annotations.Language;
 
@@ -13,12 +14,11 @@ public abstract class AbstractSqlBenchmark
     private final String query;
     private final LocalQueryRunner tpchLocalQueryRunner;
 
-    protected AbstractSqlBenchmark(String benchmarkName, int warmupIterations, int measuredIterations, @Language("SQL") String query)
+    protected AbstractSqlBenchmark(TpchBlocksProvider tpchBlocksProvider, String benchmarkName, int warmupIterations, int measuredIterations, @Language("SQL") String query)
     {
-        super(benchmarkName, warmupIterations, measuredIterations);
+        super(tpchBlocksProvider, benchmarkName, warmupIterations, measuredIterations);
         this.query = query;
-
-        tpchLocalQueryRunner = createTpchLocalQueryRunner(getTpchBlocksProvider());
+        this.tpchLocalQueryRunner = createTpchLocalQueryRunner(getTpchBlocksProvider());
     }
 
     @Override

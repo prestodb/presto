@@ -7,6 +7,7 @@ import com.facebook.presto.operator.Operator;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.tree.Input;
+import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.google.common.collect.ImmutableList;
 
 import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
@@ -15,9 +16,9 @@ import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
 public class CountAggregationBenchmark
         extends AbstractOperatorBenchmark
 {
-    public CountAggregationBenchmark()
+    public CountAggregationBenchmark(TpchBlocksProvider tpchBlocksProvider)
     {
-        super("count_agg", 10, 100);
+        super(tpchBlocksProvider, "count_agg", 10, 100);
     }
 
     @Override
@@ -30,7 +31,7 @@ public class CountAggregationBenchmark
 
     public static void main(String[] args)
     {
-        new CountAggregationBenchmark().runBenchmark(
+        new CountAggregationBenchmark(DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(
                 new SimpleLineBenchmarkResultWriter(System.out)
         );
     }

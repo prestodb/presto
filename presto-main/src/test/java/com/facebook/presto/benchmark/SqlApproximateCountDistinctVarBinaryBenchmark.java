@@ -1,15 +1,17 @@
 package com.facebook.presto.benchmark;
 
+import com.facebook.presto.tpch.TpchBlocksProvider;
+
 public class SqlApproximateCountDistinctVarBinaryBenchmark
         extends AbstractSqlBenchmark
 {
-    public SqlApproximateCountDistinctVarBinaryBenchmark()
+    public SqlApproximateCountDistinctVarBinaryBenchmark(TpchBlocksProvider tpchBlocksProvider)
     {
-        super("sql_approx_count_distinct_varbinary", 10, 50, "select approx_distinct(orderdate) from orders");
+        super(tpchBlocksProvider, "sql_approx_count_distinct_varbinary", 10, 50, "select approx_distinct(orderdate) from orders");
     }
 
     public static void main(String[] args)
     {
-        new SqlApproximateCountDistinctVarBinaryBenchmark().runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));
+        new SqlApproximateCountDistinctVarBinaryBenchmark(DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));
     }
 }

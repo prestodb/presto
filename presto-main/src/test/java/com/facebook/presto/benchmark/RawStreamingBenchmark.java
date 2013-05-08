@@ -4,13 +4,14 @@ import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.serde.BlocksFileEncoding;
+import com.facebook.presto.tpch.TpchBlocksProvider;
 
 public class RawStreamingBenchmark
         extends AbstractOperatorBenchmark
 {
-    public RawStreamingBenchmark()
+    public RawStreamingBenchmark(TpchBlocksProvider tpchBlocksProvider)
     {
-        super("raw_stream", 10, 100);
+        super(tpchBlocksProvider, "raw_stream", 10, 100);
     }
 
     @Override
@@ -22,7 +23,7 @@ public class RawStreamingBenchmark
 
     public static void main(String[] args)
     {
-        new RawStreamingBenchmark().runBenchmark(
+        new RawStreamingBenchmark(DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(
                 new SimpleLineBenchmarkResultWriter(System.out)
         );
     }
