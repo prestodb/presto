@@ -9,6 +9,7 @@ import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CurrentTime;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.Literal;
@@ -158,6 +159,16 @@ public class AggregationAnalyzer
             }
 
             return process(node.getFirst(), null) && process(node.getSecond(), null);
+        }
+
+        @Override
+        protected Boolean visitExtract(Extract node, Void context)
+        {
+            if (isInGroupBy(node)) {
+                return true;
+            }
+
+            return process(node.getExpression(), null);
         }
 
         @Override
