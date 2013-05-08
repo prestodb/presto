@@ -32,13 +32,11 @@ import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.util.MaterializedResult;
-import com.facebook.presto.util.MaterializedTuple;
 import com.facebook.presto.util.TestingTpchBlocksProvider;
 import com.google.common.base.Function;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Closeables;
 import com.google.common.io.Files;
 import com.google.inject.Binder;
@@ -105,82 +103,20 @@ public class TestDistributedQueries
     private List<PrestoTestingServer> servers;
     private AsyncHttpClient httpClient;
     private DiscoveryTestingServer discoveryServer;
-    private List<String> loadedTableNames;
 
-    @Test
-    public void testNodeRoster()
-            throws Exception
+    @Override
+    protected int getNodeCount()
     {
-        List<MaterializedTuple> result = computeActual("SELECT * FROM sys.node").getMaterializedTuples();
-        assertEquals(result.size(), servers.size());
+        return 3;
     }
 
     @Test
-    public void testDual()
+    public void testShowPartitions()
             throws Exception
     {
-        MaterializedResult result = computeActual("SELECT * FROM dual");
-        List<MaterializedTuple> tuples = result.getMaterializedTuples();
-        assertEquals(tuples.size(), 1);
-    }
-
-    @Test
-    public void testShowTables()
-            throws Exception
-    {
-        MaterializedResult result = computeActual("SHOW TABLES");
-        ImmutableSet<String> tableNames = ImmutableSet.copyOf(transform(result.getMaterializedTuples(), new Function<MaterializedTuple, String>()
-        {
-            @Override
-            public String apply(MaterializedTuple input)
-            {
-                assertEquals(input.getFieldCount(), 1);
-                return (String) input.getField(0);
-            }
-        }));
-        assertEquals(tableNames, ImmutableSet.copyOf(loadedTableNames));
-    }
-
-    @Test
-    public void testShowColumns()
-            throws Exception
-    {
-        MaterializedResult result = computeActual("SHOW COLUMNS FROM orders");
-        ImmutableSet<String> columnNames = ImmutableSet.copyOf(transform(result.getMaterializedTuples(), new Function<MaterializedTuple, String>()
-        {
-            @Override
-            public String apply(MaterializedTuple input)
-            {
-                assertEquals(input.getFieldCount(), 4);
-                return (String) input.getField(0);
-            }
-        }));
-        assertEquals(columnNames, ImmutableSet.of("orderkey", "custkey", "orderstatus", "totalprice", "orderdate", "orderpriority", "clerk", "shippriority", "comment"));
-    }
-
-    @Test
-    public void testShowFunctions()
-            throws Exception
-    {
-        MaterializedResult result = computeActual("SHOW FUNCTIONS");
-        ImmutableSet<String> functionNames = ImmutableSet.copyOf(transform(result.getMaterializedTuples(), new Function<MaterializedTuple, String>()
-        {
-            @Override
-            public String apply(MaterializedTuple input)
-            {
-                assertEquals(input.getFieldCount(), 3);
-                return (String) input.getField(0);
-            }
-        }));
-        assertTrue(functionNames.contains("avg"), "Expected function names " + functionNames + " to contain 'avg'");
-        assertTrue(functionNames.contains("abs"), "Expected function names " + functionNames + " to contain 'abs'");
-    }
-
-    @Test
-    public void testNoFrom()
-            throws Exception
-    {
-        assertQuery("SELECT 1 + 2, 3 + 4", "SELECT 1 + 2, 3 + 4 FROM orders LIMIT 1");
+        MaterializedResult result = computeActual("SHOW PARTITIONS FROM DEFAULT.ORDERS");
+        // table is not partitioned
+        assertEquals(result.getMaterializedTuples().size(), 0);
     }
 
     @Override
@@ -214,7 +150,7 @@ public class TestDistributedQueries
 
         log.info("Loading data...");
         long startTime = System.nanoTime();
-        loadedTableNames = distributeData(catalog, schema);
+        distributeData(catalog, schema);
         log.info("Loading complete in %.2fs", Duration.nanosSince(startTime).convertTo(TimeUnit.SECONDS));
     }
 
@@ -230,12 +166,9 @@ public class TestDistributedQueries
         Closeables.closeQuietly(discoveryServer);
     }
 
-    private List<String> distributeData(String catalog, String schema)
+    private void distributeData(String catalog, String schema)
             throws Exception
     {
-//        if (true) return ImmutableList.of();
-
-        ImmutableList.Builder<String> tableNames = ImmutableList.builder();
         List<QualifiedTableName> qualifiedTableNames = coordinator.metadata.listTables(new QualifiedTablePrefix(catalog, schema));
         for (QualifiedTableName qualifiedTableName : qualifiedTableNames) {
             if (qualifiedTableName.getTableName().equalsIgnoreCase("dual")) {
@@ -246,10 +179,7 @@ public class TestDistributedQueries
                     qualifiedTableName.getTableName(),
                     qualifiedTableName));
             log.info("Imported %s rows for %s", importResult.getMaterializedTuples().get(0).getField(0), qualifiedTableName.getTableName());
-            tableNames.add(qualifiedTableName.getTableName());
         }
-
-        return tableNames.build();
     }
 
     @Override

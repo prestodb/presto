@@ -23,7 +23,7 @@ public class InMemoryNodeManager
     @Inject
     public InMemoryNodeManager()
     {
-        localNode = new Node("local", URI.create("local"));
+        localNode = new Node("local", URI.create("local://127.0.0.1"));
     }
 
     public InMemoryNodeManager(URI localUri)

@@ -92,22 +92,24 @@ public final class SqlFormatter
 
             process(node.getSelect(), indent);
 
-            append(indent, "FROM");
-            if (node.getFrom().size() > 1) {
-                builder.append('\n');
-                append(indent, "  ");
-                Iterator<Relation> relations = node.getFrom().iterator();
-                while (relations.hasNext()) {
-                    process(relations.next(), indent);
-                    if (relations.hasNext()) {
-                        builder.append('\n');
-                        append(indent, ", ");
+            if (node.getFrom() != null) {
+                append(indent, "FROM");
+                if (node.getFrom().size() > 1) {
+                    builder.append('\n');
+                    append(indent, "  ");
+                    Iterator<Relation> relations = node.getFrom().iterator();
+                    while (relations.hasNext()) {
+                        process(relations.next(), indent);
+                        if (relations.hasNext()) {
+                            builder.append('\n');
+                            append(indent, ", ");
+                        }
                     }
                 }
-            }
-            else {
-                builder.append(' ');
-                process(Iterables.getOnlyElement(node.getFrom()), indent);
+                else {
+                    builder.append(' ');
+                    process(Iterables.getOnlyElement(node.getFrom()), indent);
+                }
             }
 
             builder.append('\n');
