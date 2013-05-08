@@ -1092,6 +1092,13 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testWildcardFromSubquery()
+            throws Exception
+    {
+        assertQuery("SELECT * FROM (SELECT orderkey X FROM orders)");
+    }
+
+    @Test
     public void testCaseInsensitiveOutputAliasInOrderBy()
             throws Exception
     {

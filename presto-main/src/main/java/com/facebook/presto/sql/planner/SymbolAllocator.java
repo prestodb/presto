@@ -20,6 +20,9 @@ public class SymbolAllocator
     {
         Preconditions.checkNotNull(nameHint, "name is null");
 
+        // TODO: workaround for the fact that QualifiedName lowercases parts
+        nameHint = nameHint.toLowerCase();
+
         if (nameHint.contains("_")) {
             nameHint = nameHint.substring(0, nameHint.indexOf("_"));
         }
