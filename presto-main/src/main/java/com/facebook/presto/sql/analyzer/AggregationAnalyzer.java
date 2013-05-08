@@ -5,6 +5,7 @@ import com.facebook.presto.sql.tree.AliasedExpression;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.Cast;
+import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CurrentTime;
 import com.facebook.presto.sql.tree.Expression;
@@ -136,6 +137,16 @@ public class AggregationAnalyzer
             }
 
             return process(node.getExpression(), null);
+        }
+
+        @Override
+        protected Boolean visitCoalesceExpression(CoalesceExpression node, Void context)
+        {
+            if (isInGroupBy(node)) {
+                return true;
+            }
+
+            return Iterables.all(node.getOperands(), isConstantPredicate());
         }
 
         @Override
