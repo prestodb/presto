@@ -852,6 +852,21 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testGroupByCast()
+            throws Exception
+    {
+        // whole CAST in group by expression
+        assertQuery("SELECT CAST(orderkey AS VARCHAR), count(*) FROM orders GROUP BY CAST(orderkey AS VARCHAR)");
+
+        assertQuery(
+                "SELECT CAST(orderkey AS VARCHAR), count(*) FROM orders GROUP BY 1",
+                "SELECT CAST(orderkey AS VARCHAR), count(*) FROM orders GROUP BY CAST(orderkey AS VARCHAR)");
+
+        // argument in group by expression
+        assertQuery("SELECT CAST(orderkey AS VARCHAR), count(*) FROM orders GROUP BY orderkey");
+    }
+
+    @Test
     public void testHaving()
             throws Exception
     {

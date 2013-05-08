@@ -4,6 +4,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.tree.AliasedExpression;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
+import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CurrentTime;
 import com.facebook.presto.sql.tree.Expression;
@@ -125,6 +126,16 @@ public class AggregationAnalyzer
         protected Boolean visitExpression(Expression node, Void context)
         {
             throw new UnsupportedOperationException("aggregation analysis not yet implemented for: " + node.getClass().getName());
+        }
+
+        @Override
+        protected Boolean visitCast(Cast node, Void context)
+        {
+            if (isInGroupBy(node)) {
+                return true;
+            }
+
+            return process(node.getExpression(), null);
         }
 
         @Override
