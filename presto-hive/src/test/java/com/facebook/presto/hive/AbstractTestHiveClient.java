@@ -11,6 +11,7 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TableMetadata;
@@ -119,11 +120,20 @@ public abstract class AbstractTestHiveClient
         assertTrue(tables.contains(table));
     }
 
-    @Test(expectedExceptions = SchemaNotFoundException.class)
+    // disabled until metadata manager is updated to handle invalid catalogs and schemas
+    @Test(enabled = false, expectedExceptions = SchemaNotFoundException.class)
     public void testGetTableNamesException()
             throws Exception
     {
         metadata.listTables(INVALID_DATABASE);
+    }
+
+    @Test
+    public void testListUnknownSchema()
+    {
+        assertNull(metadata.getTableHandle(new SchemaTableName("totally_invalid_database_name", "dual")));
+        assertEquals(metadata.listTables("totally_invalid_database_name"), ImmutableList.of());
+        assertEquals(metadata.listTableColumns(new SchemaTablePrefix("totally_invalid_database_name", "dual")), ImmutableMap.of());
     }
 
     @Test
