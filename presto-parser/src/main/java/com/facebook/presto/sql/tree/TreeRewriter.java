@@ -209,7 +209,7 @@ public final class TreeRewriter<C>
         }
 
         @Override
-        public Node visitSubquery(Subquery node, Context<C> context)
+        public Node visitTableSubquery(TableSubquery node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {
                 Node result = nodeRewriter.rewriteSubquery(node, context.get(), TreeRewriter.this);
@@ -220,7 +220,7 @@ public final class TreeRewriter<C>
 
             Query child = rewrite(node.getQuery(), context.get());
             if (child != node.getQuery()) {
-                return new Subquery(child);
+                return new TableSubquery(child);
             }
 
             return node;

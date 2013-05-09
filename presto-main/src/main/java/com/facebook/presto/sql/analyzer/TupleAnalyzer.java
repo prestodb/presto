@@ -7,7 +7,6 @@ import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.sql.ExpressionFormatter;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.Symbol;
@@ -24,7 +23,7 @@ import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
-import com.facebook.presto.sql.tree.Subquery;
+import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Table;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
@@ -139,7 +138,7 @@ class TupleAnalyzer
     }
 
     @Override
-    protected TupleDescriptor visitSubquery(Subquery node, AnalysisContext context)
+    protected TupleDescriptor visitTableSubquery(TableSubquery node, AnalysisContext context)
     {
         StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, session);
         TupleDescriptor descriptor = analyzer.process(node.getQuery(), context);
