@@ -159,7 +159,7 @@ public class CachingHiveMetastore
             public Table call()
                     throws Exception
             {
-                return retry().stopOn(NoSuchObjectException.class).stopOnIllegalExceptions().run("getTable", new Callable<Table>()
+                return retry().stopOn(NoSuchObjectException.class, HiveViewNotSupportedException.class).stopOnIllegalExceptions().run("getTable", new Callable<Table>()
                 {
                     @Override
                     public Table call()
