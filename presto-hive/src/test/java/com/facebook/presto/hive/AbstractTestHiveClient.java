@@ -10,10 +10,10 @@ import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.SchemaNotFoundException;
-import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.base.Charsets;
 import com.google.common.base.Function;
@@ -21,6 +21,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
 import java.util.Collections;
@@ -30,6 +32,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Maps.uniqueIndex;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
@@ -162,8 +165,8 @@ public abstract class AbstractTestHiveClient
         assertPrimitiveField(map, "t_float", ColumnType.DOUBLE, false);
         assertPrimitiveField(map, "t_double", ColumnType.DOUBLE, false);
         assertPrimitiveField(map, "t_boolean", ColumnType.LONG, false);
-//        assertPrimitiveField(map, "t_timestamp", Type.LONG);
-//        assertPrimitiveField(map, "t_binary", Type.STRING);
+        assertPrimitiveField(map, "t_timestamp", ColumnType.LONG, false);
+//        assertPrimitiveField(map, "t_binary", ColumnType.STRING, false);
         assertPrimitiveField(map, "t_array_string", ColumnType.STRING, false); // Currently mapped as a string
         assertPrimitiveField(map, "t_map", ColumnType.STRING, false); // Currently mapped as a string
         assertPrimitiveField(map, "t_complex", ColumnType.STRING, false); // Currently mapped as a string
@@ -357,6 +360,14 @@ public abstract class AbstractTestHiveClient
                     }
                     else {
                         assertEquals(cursor.getLong(columnIndex.get("t_boolean")), rowNumber % 3, String.format("row = %s", rowNumber));
+                    }
+
+                    if (rowNumber % 17 == 0) {
+                        assertTrue(cursor.isNull(columnIndex.get("t_timestamp")));
+                    }
+                    else {
+                        long seconds = MILLISECONDS.toSeconds(new DateTime(2011, 5, 6, 7, 8, 9, 123, DateTimeZone.UTC).getMillis());
+                        assertEquals(cursor.getLong(columnIndex.get("t_timestamp")), seconds, String.format("row = %s", rowNumber));
                     }
 
                     if (rowNumber % 29 == 0) {
