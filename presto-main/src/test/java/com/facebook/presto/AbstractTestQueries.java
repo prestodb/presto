@@ -424,6 +424,13 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testGroupByWithWilcard()
+            throws Exception
+    {
+        assertQuery("SELECT * FROM (SELECT orderkey FROM orders) t GROUP BY orderkey");
+    }
+
+    @Test
     public void testCountAllWithComparison()
             throws Exception
     {
