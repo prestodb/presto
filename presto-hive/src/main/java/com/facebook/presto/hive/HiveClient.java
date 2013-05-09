@@ -88,6 +88,7 @@ import static com.facebook.presto.hive.HiveColumnHandle.hiveColumnHandle;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.HiveSplit.markAsLastSplit;
 import static com.facebook.presto.hive.HiveType.getHiveType;
+import static com.facebook.presto.hive.HiveType.getSupportedHiveType;
 import static com.facebook.presto.hive.HiveUtil.convertNativeHiveType;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
 import static com.facebook.presto.hive.UnpartitionedPartition.UNPARTITIONED_PARTITION;
@@ -283,7 +284,7 @@ public class HiveClient
             for (int i = 0; i < partitionKeys.size(); i++) {
                 FieldSchema field = partitionKeys.get(i);
 
-                HiveType hiveType = getHiveType(field.getType());
+                HiveType hiveType = getSupportedHiveType(field.getType());
                 columns.add(new HiveColumnHandle(connectorId, field.getName(), i, hiveType, -1, true));
             }
 
@@ -364,7 +365,7 @@ public class HiveClient
         for (int i = 0; i < partitionKeys.size(); i++) {
             FieldSchema field = partitionKeys.get(i);
 
-            HiveColumnHandle columnHandle = new HiveColumnHandle(connectorId, field.getName(), i, getHiveType(field.getType()), -1, true);
+            HiveColumnHandle columnHandle = new HiveColumnHandle(connectorId, field.getName(), i, getSupportedHiveType(field.getType()), -1, true);
             partitionKeysByName.put(field.getName(), columnHandle);
 
             // only add to prefix if all previous keys have a value
@@ -950,7 +951,7 @@ public class HiveClient
         for (int i = 0; i < keys.size(); i++) {
             String name = keys.get(i).getName();
             PrimitiveCategory primitiveCategory = convertNativeHiveType(keys.get(i).getType());
-            HiveType hiveType = HiveType.getSupportedHiveType(primitiveCategory);
+            HiveType hiveType = getSupportedHiveType(primitiveCategory);
             String value = values.get(i);
             checkNotNull(value, "partition key value cannot be null for field: %s", name);
             partitionKeys.add(new HivePartitionKey(name, hiveType, value));
