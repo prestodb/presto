@@ -26,6 +26,22 @@ COMMENT 'Presto test data'
 TBLPROPERTIES ('RETENTION'='-1', 'RETENTION_PLATINUM'='-1')
 ;
 
+CREATE TABLE presto_test_offline (
+  t_string STRING
+)
+COMMENT 'Presto test data'
+PARTITIONED BY (ds STRING)
+TBLPROPERTIES ('RETENTION'='-1', 'RETENTION_PLATINUM'='-1', 'PROTECT_MODE'='OFFLINE')
+;
+
+CREATE TABLE presto_test_offline_partition (
+  t_string STRING
+)
+COMMENT 'Presto test data'
+PARTITIONED BY (ds STRING)
+TBLPROPERTIES ('RETENTION'='-1', 'RETENTION_PLATINUM'='-1')
+;
+
 CREATE VIEW presto_test_view
 COMMENT 'Presto test view'
 TBLPROPERTIES ('RETENTION'='-1', 'RETENTION_PLATINUM'='-1')
@@ -101,5 +117,13 @@ SELECT
   CASE WHEN n % 19 = 0 THEN NULL ELSE 'unpartitioned' END
 , 1 + n
 FROM tmp_presto_test LIMIT 100;
+
+INSERT INTO TABLE presto_test_offline_partition PARTITION (ds='2012-12-29')
+SELECT 'test' FROM tmp_presto_test LIMIT 100;
+
+INSERT INTO TABLE presto_test_offline_partition PARTITION (ds='2012-12-30')
+SELECT 'test' FROM tmp_presto_test LIMIT 100;
+
+ALTER TABLE presto_test_offline_partition PARTITION (ds='2012-12-30') ENABLE OFFLINE;
 
 DROP TABLE tmp_presto_test;
