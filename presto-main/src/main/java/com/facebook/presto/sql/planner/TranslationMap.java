@@ -101,7 +101,14 @@ class TranslationMap
 
     public void put(Expression expression, Symbol symbol)
     {
-        expressionMappings.put(translateNamesToSymbols(expression), symbol);
+        Expression translated = translateNamesToSymbols(expression);
+        expressionMappings.put(translated, symbol);
+
+        // also update the field mappings if this expression is a simple field reference
+        if (expression instanceof QualifiedNameReference) {
+            int fieldIndex = analysis.getResolvedNames(expression).get(((QualifiedNameReference) expression).getName());
+            fieldSymbols[fieldIndex] = symbol;
+        }
     }
 
     public void put(FieldOrExpression fieldOrExpression, Symbol symbol)
