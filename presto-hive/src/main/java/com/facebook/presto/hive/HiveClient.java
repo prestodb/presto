@@ -83,6 +83,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.hive.HiveUtil.HIVE_TIMESTAMP_PARSER;
 import static com.facebook.presto.hive.HiveColumnHandle.columnMetadataGetter;
 import static com.facebook.presto.hive.HiveColumnHandle.hiveColumnHandle;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
@@ -97,6 +98,10 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.transform;
+import static java.lang.Boolean.parseBoolean;
+import static java.lang.Double.parseDouble;
+import static java.lang.Long.parseLong;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.hadoop.hive.metastore.ProtectMode.getProtectModeFromString;
 import static org.apache.hadoop.hive.metastore.Warehouse.makePartName;
 
@@ -410,14 +415,7 @@ public class HiveClient
         checkArgument(partition instanceof HivePartition, "Partition must be a hive partition");
         SchemaTableName tableName = ((HivePartition) partition).getTableName();
 
-        List<String> partitionNames = Lists.transform(partitions, new Function<Partition, String>()
-        {
-            @Override
-            public String apply(Partition input)
-            {
-                return input.getPartitionId();
-            }
-        });
+        List<String> partitionNames = Lists.transform(partitions, HiveUtil.partitionIdGetter());
 
         Table table;
         Iterable<org.apache.hadoop.hive.metastore.api.Partition> hivePartitions;
@@ -904,11 +902,41 @@ public class HiveClient
                     }
 
                     LinkedHashMap<String, String> keys = Warehouse.makeSpecFromName(partitionId);
-                    ImmutableMap.Builder<ColumnHandle, String> builder = ImmutableMap.builder();
+                    ImmutableMap.Builder<ColumnHandle, Object> builder = ImmutableMap.builder();
                     for (Entry<String, String> entry : keys.entrySet()) {
                         ColumnHandle columnHandle = columnsByName.get(entry.getKey());
                         checkArgument(columnHandle != null, "Invalid partition key %s in partition %s", entry.getKey(), partitionId);
-                        builder.put(columnHandle, entry.getValue());
+                        checkArgument(columnHandle instanceof HiveColumnHandle, "columnHandle is not an instance of HiveColumnHandle");
+                        HiveColumnHandle hiveColumnHandle = (HiveColumnHandle) columnHandle;
+
+                        String value = entry.getValue();
+                        switch (hiveColumnHandle.getType()) {
+                            case LONG:
+                                if (value.length() == 0) {
+                                    builder.put(columnHandle, 0L);
+                                }
+                                else if (hiveColumnHandle.getHiveType() == HiveType.BOOLEAN) {
+                                    builder.put(columnHandle, parseBoolean(value));
+                                }
+                                else if (hiveColumnHandle.getHiveType() == HiveType.TIMESTAMP) {
+                                    builder.put(columnHandle, MILLISECONDS.toSeconds(HIVE_TIMESTAMP_PARSER.parseMillis(value)));
+                                }
+                                else {
+                                    builder.put(columnHandle, parseLong(value));
+                                }
+                                break;
+                            case DOUBLE:
+                                if (value.length() == 0) {
+                                    builder.put(columnHandle, 0L);
+                                }
+                                else {
+                                    builder.put(columnHandle, parseDouble(value));
+                                }
+                                break;
+                            case STRING:
+                                builder.put(columnHandle, value);
+                                break;
+                        }
                     }
 
                     return new HivePartition(tableName, partitionId, builder.build());
@@ -928,7 +956,7 @@ public class HiveClient
             @Override
             public boolean apply(Partition partition)
             {
-                for (Map.Entry<ColumnHandle, String> entry : partition.getKeys().entrySet()) {
+                for (Map.Entry<ColumnHandle, Object> entry : partition.getKeys().entrySet()) {
                     Object filterValue = filters.get(entry.getKey());
                     if (filterValue != null && !entry.getValue().equals(filterValue)) {
                         return false;

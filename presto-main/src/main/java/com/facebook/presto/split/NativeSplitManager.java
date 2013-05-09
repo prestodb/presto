@@ -111,7 +111,7 @@ public class NativeSplitManager
         }
 
         @Override
-        public Map<ColumnHandle, String> getKeys()
+        public Map<ColumnHandle, Object> getKeys()
         {
             return ImmutableMap.of();
         }
