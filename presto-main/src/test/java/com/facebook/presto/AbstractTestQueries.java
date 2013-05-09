@@ -424,6 +424,13 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testGroupByWithWildcard()
+            throws Exception
+    {
+        assertQuery("SELECT * FROM (SELECT orderkey FROM orders) t GROUP BY orderkey");
+    }
+
+    @Test
     public void testCountAllWithComparison()
             throws Exception
     {
@@ -637,7 +644,7 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testWilcardFromJoin()
+    public void testWildcardFromJoin()
             throws Exception
     {
         assertQuery(
@@ -647,7 +654,7 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testQualifiedWilcardFromJoin()
+    public void testQualifiedWildcardFromJoin()
             throws Exception
     {
         assertQuery(
