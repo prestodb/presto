@@ -14,11 +14,11 @@ import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.SchemaNotFoundException;
-import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
@@ -40,6 +40,7 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.MetaStoreUtils;
+import org.apache.hadoop.hive.metastore.ProtectMode;
 import org.apache.hadoop.hive.metastore.Warehouse;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.MetaException;
@@ -95,13 +96,13 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.transform;
+import static org.apache.hadoop.hive.metastore.ProtectMode.getProtectModeFromString;
+import static org.apache.hadoop.hive.metastore.Warehouse.makePartName;
 
 @SuppressWarnings("deprecation")
 public class HiveClient
         implements ConnectorMetadata, ConnectorSplitManager, ConnectorRecordSetProvider, ConnectorHandleResolver
 {
-    public static final String HIVE_VIEWS_NOT_SUPPORTED = "Hive views are not supported";
-
     private static final Logger log = Logger.get(HiveClient.class);
 
     private final String connectorId;
@@ -148,6 +149,11 @@ public class HiveClient
         this.executor = checkNotNull(executor, "executor is null");
     }
 
+    public CachingHiveMetastore getMetastore()
+    {
+        return metastore;
+    }
+
     @Override
     public String getConnectorId()
     {
@@ -163,6 +169,7 @@ public class HiveClient
     @Override
     public HiveTableHandle getTableHandle(SchemaTableName tableName)
     {
+        checkNotNull(tableName, "tableName is null");
         try {
             metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
             return new HiveTableHandle(connectorId, tableName.getSchemaName(), tableName.getTableName());
@@ -182,6 +189,7 @@ public class HiveClient
     @Override
     public TableMetadata getTableMetadata(TableHandle tableHandle)
     {
+        checkNotNull(tableHandle, "tableHandle is null");
         SchemaTableName tableName = getTableName(tableHandle);
         return getTableMetadata(tableName);
     }
@@ -238,6 +246,8 @@ public class HiveClient
     @Override
     public ColumnHandle getColumnHandle(TableHandle tableHandle, String columnName)
     {
+        checkNotNull(tableHandle, "tableHandle is null");
+        checkNotNull(columnName, "columnName is null");
         return getColumnHandles(tableHandle).get(columnName);
     }
 
@@ -297,6 +307,7 @@ public class HiveClient
     @Override
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(SchemaTablePrefix prefix)
     {
+        checkNotNull(prefix, "prefix is null");
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
         for (SchemaTableName tableName : listTables(prefix)) {
             columns.put(tableName, getTableMetadata(tableName).getColumns());
@@ -307,6 +318,8 @@ public class HiveClient
     @Override
     public ColumnMetadata getColumnMetadata(TableHandle tableHandle, ColumnHandle columnHandle)
     {
+        checkNotNull(tableHandle, "tableHandle is null");
+        checkNotNull(columnHandle, "columnHandle is null");
         checkArgument(tableHandle instanceof HiveTableHandle, "tableHandle is not an instance of HiveTableHandle");
         checkArgument(columnHandle instanceof HiveColumnHandle, "columnHandle is not an instance of HiveColumnHandle");
         return ((HiveColumnHandle) columnHandle).getColumnMetadata();
@@ -327,11 +340,20 @@ public class HiveClient
     @Override
     public List<Partition> getPartitions(TableHandle tableHandle, Map<ColumnHandle, Object> bindings)
     {
+        checkNotNull(tableHandle, "tableHandle is null");
+        checkNotNull(bindings, "bindings is null");
         SchemaTableName tableName = getTableName(tableHandle);
 
         List<FieldSchema> partitionKeys;
         try {
-            partitionKeys = metastore.getTable(tableName.getSchemaName(), tableName.getTableName()).getPartitionKeys();
+            Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
+
+            String protectMode = table.getParameters().get(ProtectMode.PARAMETER_NAME);
+            if (protectMode != null && getProtectModeFromString(protectMode).offline) {
+                throw new TableOfflineException(tableName);
+            }
+
+            partitionKeys = table.getPartitionKeys();
         }
         catch (NoSuchObjectException e) {
             throw new TableNotFoundException(tableName);
@@ -400,7 +422,7 @@ public class HiveClient
         Iterable<org.apache.hadoop.hive.metastore.api.Partition> hivePartitions;
         try {
             table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
-            hivePartitions = getPartitions(tableName, partitionNames);
+            hivePartitions = getPartitions(table, tableName, partitionNames);
         }
         catch (NoSuchObjectException e) {
             throw new TableNotFoundException(tableName);
@@ -409,7 +431,7 @@ public class HiveClient
         return new HiveSplitIterable(connectorId, table, partitionNames, hivePartitions, maxOutstandingSplits, maxSplitIteratorThreads, hdfsEnvironment, executor, partitionBatchSize);
     }
 
-    private Iterable<org.apache.hadoop.hive.metastore.api.Partition> getPartitions(final SchemaTableName tableName, final List<String> partitionNames)
+    private Iterable<org.apache.hadoop.hive.metastore.api.Partition> getPartitions(final Table table, final SchemaTableName tableName, final List<String> partitionNames)
             throws NoSuchObjectException
     {
         if (partitionNames.equals(ImmutableList.of(UNPARTITIONED_ID))) {
@@ -427,6 +449,15 @@ public class HiveClient
                     try {
                         List<org.apache.hadoop.hive.metastore.api.Partition> partitions = metastore.getPartitionsByNames(tableName.getSchemaName(), tableName.getTableName(), partitionNameBatch);
                         checkState(partitionNameBatch.size() == partitions.size(), "expected %s partitions but found %s", partitionNameBatch.size(), partitions.size());
+
+                        // verify all partitions are online
+                        for (org.apache.hadoop.hive.metastore.api.Partition partition : partitions) {
+                            String protectMode = partition.getParameters().get(ProtectMode.PARAMETER_NAME);
+                            if (protectMode != null && getProtectModeFromString(protectMode).offline) {
+                                throw new PartitionOfflineException(tableName, makePartName(table.getPartitionKeys(), partition.getValues()));
+                            }
+                        }
+
                         return partitions;
                     }
                     catch (NoSuchObjectException | NullPointerException | IllegalStateException | IllegalArgumentException e) {
@@ -454,9 +485,9 @@ public class HiveClient
     @Override
     public RecordSet getRecordSet(Split split, List<? extends ColumnHandle> columns)
     {
-        checkArgument(split instanceof HiveSplit,
-                "expected instance of %s: %s", HiveSplit.class, split.getClass());
-        assert split instanceof HiveSplit; // IDEA-60343
+        checkNotNull(split, "split is null");
+        checkNotNull(columns, "columns is null");
+        checkArgument(split instanceof HiveSplit, "expected instance of %s: %s", HiveSplit.class, split.getClass());
 
         List<HiveColumnHandle> hiveColumns = ImmutableList.copyOf(transform(columns, hiveColumnHandle()));
         return new HiveRecordSet(hdfsEnvironment, (HiveSplit) split, hiveColumns);
