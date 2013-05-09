@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
@@ -30,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.facebook.presto.hive.HiveUtil.partitionIdGetter;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -44,9 +46,6 @@ public abstract class AbstractTestHiveClient
 {
     public static final String INVALID_DATABASE = "totally_invalid_database";
     public static final String INVALID_COLUMN = "totally_invalid_column_name";
-    public static final ColumnHandle DS_COLUMN = new HiveColumnHandle("hive", "ds", 0, HiveType.STRING, -1, true);
-    public static final ColumnHandle FILE_FORMAT_COLUMN = new HiveColumnHandle("hive", "file_format", 1, HiveType.STRING, 0, true);
-    public static final ColumnHandle DUMMY_COLUMN = new HiveColumnHandle("hive", "dummy", 2, HiveType.STRING, 0, true);
 
     public String database;
     public SchemaTableName table;
@@ -55,8 +54,14 @@ public abstract class AbstractTestHiveClient
     public SchemaTableName tableOfflinePartition;
     public SchemaTableName view;
     public SchemaTableName invalidTable;
+
     public TableHandle invalidTableHandle;
+
+    public ColumnHandle dsColumn;
+    public ColumnHandle fileFormatColumn;
+    public ColumnHandle dummyColumn;
     public ColumnHandle invalidColumnHandle;
+
     public Set<Partition> partitions;
     public Set<Partition> unpartitionedPartitions;
     public Partition invalidPartition;
@@ -65,23 +70,37 @@ public abstract class AbstractTestHiveClient
     protected ConnectorSplitManager splitManager;
     protected ConnectorRecordSetProvider recordSetProvider;
 
-    public void setDatabaseName(String databaseName)
+    // this is not a test, but IntelliJ thinks it is
+    @Test(enabled = false)
+    public void setupHive(String connectorId, String databaseName)
     {
         database = databaseName;
-        table = new SchemaTableName(database, "prestotest");
-        tableUnpartitioned = new SchemaTableName(database, "prestotest_unpartitioned");
-        tableOffline = new SchemaTableName(database, "prestotest_offline");
-        tableOfflinePartition = new SchemaTableName(database, "prestotest_offline_partition");
-        view = new SchemaTableName(database, "prestotest_view");
+        table = new SchemaTableName(database, "presto_test");
+        tableUnpartitioned = new SchemaTableName(database, "presto_test_unpartitioned");
+        tableOffline = new SchemaTableName(database, "presto_test_offline");
+        tableOfflinePartition = new SchemaTableName(database, "presto_test_offline_partition");
+        view = new SchemaTableName(database, "presto_test_view");
         invalidTable = new SchemaTableName(database, "totally_invalid_table_name");
+
         invalidTableHandle = new HiveTableHandle("hive", database, "totally_invalid_table_name");
-        invalidColumnHandle = new HiveColumnHandle("hive", INVALID_COLUMN, 0, HiveType.STRING, 0, false);
+
+        dsColumn = new HiveColumnHandle(connectorId, "ds", 0, HiveType.STRING, -1, true);
+        fileFormatColumn = new HiveColumnHandle(connectorId, "file_format", 1, HiveType.STRING, -1, true);
+        dummyColumn = new HiveColumnHandle(connectorId, "dummy", 2, HiveType.INT, -1, true);
+        invalidColumnHandle = new HiveColumnHandle(connectorId, INVALID_COLUMN, 0, HiveType.STRING, 0, false);
+
         partitions = ImmutableSet.<Partition>of(
-                new HivePartition(table, "ds=2012-12-29/file_format=rcfile/dummy=1", ImmutableMap.of(DS_COLUMN, "2012-12-29", FILE_FORMAT_COLUMN, "rcfile", DUMMY_COLUMN, "1")),
-                new HivePartition(table, "ds=2012-12-29/file_format=sequencefile/dummy=2", ImmutableMap.of(DS_COLUMN, "2012-12-29", FILE_FORMAT_COLUMN, "sequencefile", DUMMY_COLUMN, "2")),
-                new HivePartition(table, "ds=2012-12-29/file_format=textfile/dummy=3", ImmutableMap.of(DS_COLUMN, "2012-12-29", FILE_FORMAT_COLUMN, "textfile", DUMMY_COLUMN, "3")));
+                new HivePartition(table,
+                        "ds=2012-12-29/file_format=rcfile/dummy=1",
+                        ImmutableMap.<ColumnHandle, Object>of(dsColumn, "2012-12-29", fileFormatColumn, "rcfile", dummyColumn, 1L)),
+                new HivePartition(table,
+                        "ds=2012-12-29/file_format=sequencefile/dummy=2",
+                        ImmutableMap.<ColumnHandle, Object>of(dsColumn, "2012-12-29", fileFormatColumn, "sequencefile", dummyColumn, 2L)),
+                new HivePartition(table,
+                        "ds=2012-12-29/file_format=textfile/dummy=3",
+                        ImmutableMap.<ColumnHandle, Object>of(dsColumn, "2012-12-29", fileFormatColumn, "textfile", dummyColumn, 3L)));
         unpartitionedPartitions = ImmutableSet.<Partition>of(new HivePartition(tableUnpartitioned));
-        invalidPartition = new HivePartition(invalidTable, "unknown", ImmutableMap.<ColumnHandle, String>of());
+        invalidPartition = new HivePartition(invalidTable, "unknown", ImmutableMap.<ColumnHandle, Object>of());
     }
 
     @Test
@@ -113,7 +132,7 @@ public abstract class AbstractTestHiveClient
     {
         TableHandle tableHandle = metadata.getTableHandle(table);
         List<Partition> partitions = splitManager.getPartitions(tableHandle, ImmutableMap.<ColumnHandle, Object>of());
-        assertEquals(partitions, this.partitions);
+        assertExpectedPartitions(partitions);
     }
 
     @Test(expectedExceptions = TableNotFoundException.class)
@@ -129,8 +148,19 @@ public abstract class AbstractTestHiveClient
     {
         TableHandle tableHandle = metadata.getTableHandle(table);
         List<Partition> partitions = splitManager.getPartitions(tableHandle, ImmutableMap.<ColumnHandle, Object>of());
-        assertEquals(partitions.size(), 3);
+        assertExpectedPartitions(partitions);
+    }
+
+    private void assertExpectedPartitions(List<Partition> partitions)
+    {
         assertEquals(partitions, this.partitions);
+        ImmutableMap<String, Partition> actualPartitions = Maps.uniqueIndex(partitions, partitionIdGetter());
+        for (Partition expectedPartition : this.partitions) {
+            Partition actualPartition = actualPartitions.get(expectedPartition.getPartitionId());
+            assertNotNull(actualPartition, "partition " + expectedPartition.getPartitionId());
+            assertEquals(actualPartition.getPartitionId(), expectedPartition.getPartitionId());
+            assertEquals(actualPartition.getKeys(), expectedPartition.getKeys());
+        }
     }
 
     @Test

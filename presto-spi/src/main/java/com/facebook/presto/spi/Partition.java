@@ -12,5 +12,5 @@ public interface Partition
     /**
      * Gets the values associated with each partition key for this partition.
      */
-    Map<ColumnHandle, String> getKeys();
+    Map<ColumnHandle, Object> getKeys();
 }

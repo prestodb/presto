@@ -1,6 +1,8 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ColumnType;
+import com.facebook.presto.spi.Partition;
+import com.google.common.base.Function;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
@@ -9,6 +11,8 @@ import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.TextInputFormat;
 import org.apache.hadoop.util.ReflectionUtils;
+import org.joda.time.format.DateTimeFormat;
+import org.joda.time.format.DateTimeFormatter;
 
 import java.util.Properties;
 
@@ -17,6 +21,8 @@ import static org.apache.hadoop.hive.metastore.api.Constants.FILE_INPUT_FORMAT;
 
 class HiveUtil
 {
+    public static final DateTimeFormatter HIVE_TIMESTAMP_PARSER = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSSSSSS").withZoneUTC();
+
     private HiveUtil()
     {
     }
@@ -59,5 +65,17 @@ class HiveUtil
     static PrimitiveObjectInspector.PrimitiveCategory convertNativeHiveType(String type)
     {
         return PrimitiveObjectInspectorUtils.getTypeEntryFromTypeName(type).primitiveCategory;
+    }
+
+    public static Function<Partition, String> partitionIdGetter()
+    {
+        return new Function<Partition, String>()
+        {
+            @Override
+            public String apply(Partition input)
+            {
+                return input.getPartitionId();
+            }
+        };
     }
 }

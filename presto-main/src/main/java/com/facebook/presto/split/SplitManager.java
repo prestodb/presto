@@ -105,10 +105,10 @@ public class SplitManager
         for (Partition partition : partitions) {
             // translate assignments from column->value to symbol->value
             // only bind partition keys that appear in the predicate
-            Map<ColumnHandle, String> relevantFields = Maps.filterKeys(partition.getKeys(), in(columnToSymbol.keySet()));
+            Map<ColumnHandle, Object> relevantFields = Maps.filterKeys(partition.getKeys(), in(columnToSymbol.keySet()));
 
             ImmutableMap.Builder<Symbol, Object> assignments = ImmutableMap.builder();
-            for (Map.Entry<ColumnHandle, String> entry : relevantFields.entrySet()) {
+            for (Map.Entry<ColumnHandle, Object> entry : relevantFields.entrySet()) {
                 Symbol symbol = columnToSymbol.get(entry.getKey());
                 assignments.put(symbol, entry.getValue());
             }

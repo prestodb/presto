@@ -17,7 +17,7 @@ public class HivePartition
 
     private final SchemaTableName tableName;
     private final String partitionId;
-    private final Map<ColumnHandle, String> keys;
+    private final Map<ColumnHandle, Object> keys;
 
     public HivePartition(SchemaTableName tableName)
     {
@@ -26,7 +26,7 @@ public class HivePartition
         this.keys = ImmutableMap.of();
     }
 
-    public HivePartition(SchemaTableName tableName, String partitionId, Map<ColumnHandle, String> keys)
+    public HivePartition(SchemaTableName tableName, String partitionId, Map<ColumnHandle, Object> keys)
     {
         this.tableName = checkNotNull(tableName, "tableName is null");
         this.partitionId = checkNotNull(partitionId, "partitionId is null");
@@ -45,7 +45,7 @@ public class HivePartition
     }
 
     @Override
-    public Map<ColumnHandle, String> getKeys()
+    public Map<ColumnHandle, Object> getKeys()
     {
         return keys;
     }

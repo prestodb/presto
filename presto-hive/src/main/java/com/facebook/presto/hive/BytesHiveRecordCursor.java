@@ -16,8 +16,6 @@ import org.apache.hadoop.hive.serde2.lazy.LazyObject;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.mapred.RecordReader;
-import org.joda.time.format.DateTimeFormat;
-import org.joda.time.format.DateTimeFormatter;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -36,8 +34,6 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 class BytesHiveRecordCursor<K>
         implements RecordCursor
 {
-    private static final DateTimeFormatter HIVE_TIMESTAMP_PARSER = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSSSSSS").withZoneUTC();
-
     private final RecordReader<K, BytesRefArrayWritable> recordReader;
     private final K key;
     private final BytesRefArrayWritable value;
@@ -219,7 +215,7 @@ class BytesHiveRecordCursor<K>
                 }
                 else if (hiveTypes[column] == HiveType.TIMESTAMP) {
                     String value = new String(bytes, start, length);
-                    longs[column] = MILLISECONDS.toSeconds(HIVE_TIMESTAMP_PARSER.parseMillis(value));
+                    longs[column] = MILLISECONDS.toSeconds(HiveUtil.HIVE_TIMESTAMP_PARSER.parseMillis(value));
                 }
                 else {
                     longs[column] = parseLong(bytes, start, length);
