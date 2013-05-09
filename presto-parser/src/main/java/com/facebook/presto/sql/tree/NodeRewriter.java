@@ -47,7 +47,7 @@ public class NodeRewriter<C>
         return rewriteRelation(node, context, treeRewriter);
     }
 
-    public Node rewriteSubquery(Subquery node, C context, TreeRewriter<C> treeRewriter)
+    public Node rewriteSubquery(TableSubquery node, C context, TreeRewriter<C> treeRewriter)
     {
         return rewriteRelation(node, context, treeRewriter);
     }

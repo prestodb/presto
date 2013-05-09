@@ -34,9 +34,8 @@ tokens {
     ALL_COLUMNS;
     SELECT_LIST;
     SELECT_ITEM;
-    TABLE_ALIAS;
     ALIASED_COLUMNS;
-    SUBQUERY;
+    TABLE_SUBQUERY;
     TABLE;
     JOINED_TABLE;
     QUALIFIED_JOIN;
@@ -73,6 +72,7 @@ tokens {
     TABLE_ELEMENT_LIST;
     COLUMN_DEF;
     NOT_NULL;
+    ALIASED_RELATION;
 }
 
 @header {
@@ -139,7 +139,7 @@ singleExpression
     ;
 
 statement
-    : selectStmt      -> ^(QUERY selectStmt)
+    : query
     | showTablesStmt
     | showColumnsStmt
     | showPartitionsStmt
@@ -152,7 +152,11 @@ statement
     | dropAliasStmt
     ;
 
-selectStmt
+query
+    : queryExpr -> ^(QUERY queryExpr)
+    ;
+
+queryExpr
     : withClause?
       selectClause
       fromClause?
@@ -236,9 +240,26 @@ tableRef
     ;
 
 tablePrimary
-    : qname tableAlias?            -> ^(TABLE qname tableAlias?)
-    | subquery tableAlias?         -> ^(SUBQUERY subquery tableAlias?)
-    | '(' tableRef ')' tableAlias? -> ^(JOINED_TABLE tableRef tableAlias?)
+    : ( relation -> relation )
+      ( AS? ident aliasedColumns? -> ^(ALIASED_RELATION $tablePrimary ident aliasedColumns?) )?
+    ;
+
+relation
+    : table
+    | tableSubquery
+    | joinedTable
+    ;
+
+table
+    : qname -> ^(TABLE qname)
+    ;
+
+tableSubquery
+    : '(' query ')' -> ^(TABLE_SUBQUERY query)
+    ;
+
+joinedTable
+    : '(' tableRef ')' -> ^(JOINED_TABLE tableRef)
     ;
 
 joinType
@@ -251,10 +272,6 @@ joinType
 joinCriteria
     : ON expr                          -> ^(ON expr)
     | USING '(' ident (',' ident)* ')' -> ^(USING ident+)
-    ;
-
-tableAlias
-    : AS? ident aliasedColumns? -> ^(TABLE_ALIAS ident aliasedColumns?)
     ;
 
 aliasedColumns
@@ -358,7 +375,7 @@ cmpOp
     ;
 
 subquery
-    : '(' selectStmt ')' -> ^(QUERY selectStmt)
+    : '(' query ')' -> query
     ;
 
 dateValue

@@ -13,7 +13,7 @@ import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SortItem;
-import com.facebook.presto.sql.tree.Subquery;
+import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
@@ -82,7 +82,7 @@ public final class SqlFormatter
                     append(indent, query.getName());
                     appendAliasColumns(builder, query.getColumnNames());
                     builder.append(" AS ");
-                    process(new Subquery(query.getQuery()), indent);
+                    process(new TableSubquery(query.getQuery()), indent);
                     builder.append('\n');
                     if (queries.hasNext()) {
                         builder.append(", ");
@@ -224,7 +224,7 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitSubquery(Subquery node, Integer indent)
+        protected Void visitTableSubquery(TableSubquery node, Integer indent)
         {
             builder.append('(')
                     .append('\n');

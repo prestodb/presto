@@ -107,7 +107,7 @@ withList returns [List<WithQuery> value = new ArrayList<>()]
     ;
 
 withQuery returns [WithQuery value]
-    : ^(WITH_QUERY i=ident q=subquery c=aliasedColumns?) { $value = new WithQuery($i.value, $q.value, $c.value); }
+    : ^(WITH_QUERY i=ident q=query c=aliasedColumns?) { $value = new WithQuery($i.value, $q.value, $c.value); }
     ;
 
 selectClause returns [Select value]
@@ -174,38 +174,36 @@ relationList returns [List<Relation> value = new ArrayList<>()]
     ;
 
 relation returns [Relation value]
+    : relationType      { $value = $relationType.value; }
+    | aliasedRelation   { $value = $aliasedRelation.value; }
+    ;
+
+relationType returns [Relation value]
     : namedTable       { $value = $namedTable.value; }
-    | subqueryRelation { $value = $subqueryRelation.value; }
+    | tableSubquery    { $value = $tableSubquery.value; }
     | joinedTable      { $value = $joinedTable.value; }
     | joinRelation     { $value = $joinRelation.value; }
     ;
 
-namedTable returns [Relation value]
-    : ^(TABLE qname { $value = new Table($qname.value); }
-        a=aliasedRelation[$value]? { if ($a.value != null) $value = $a.value; } )
-    ;
-
-subqueryRelation returns [Relation value]
-    : ^(SUBQUERY subquery { $value = new Subquery($subquery.value); }
-        a=aliasedRelation[$value]? { if ($a.value != null) $value = $a.value; } )
+namedTable returns [Table value]
+    : ^(TABLE qname) { $value = new Table($qname.value); }
     ;
 
 joinedTable returns [Relation value]
-    : ^(JOINED_TABLE relation { $value = $relation.value; }
-        a=aliasedRelation[$value]? { if ($a.value != null) $value = $a.value; } )
-    ;
-
-aliasedRelation[Relation r] returns [AliasedRelation value]
-    : ^(TABLE_ALIAS i=ident c=aliasedColumns?) { $value = new AliasedRelation($r, $i.value, $c.value); }
-    ;
-
-aliasedColumns returns [List<String> value]
-    : ^(ALIASED_COLUMNS identList) { $value = $identList.value; }
+    : ^(JOINED_TABLE relation) { $value = $relation.value; }
     ;
 
 joinRelation returns [Join value]
     : ^(CROSS_JOIN a=relation b=relation)                               { $value = new Join(Join.Type.CROSS, $a.value, $b.value, null); }
     | ^(QUALIFIED_JOIN t=joinType c=joinCriteria a=relation b=relation) { $value = new Join($t.value, $a.value, $b.value, $c.value); }
+    ;
+
+aliasedRelation returns [AliasedRelation value]
+    : ^(ALIASED_RELATION r=relation i=ident c=aliasedColumns?) { $value = new AliasedRelation($r.value, $i.value, $c.value); }
+    ;
+
+aliasedColumns returns [List<String> value]
+    : ^(ALIASED_COLUMNS identList) { $value = $identList.value; }
     ;
 
 joinType returns [Join.Type value]
@@ -221,8 +219,8 @@ joinCriteria returns [JoinCriteria value]
     | ^(USING identList) { $value = new JoinUsing($identList.value); }
     ;
 
-subquery returns [Query value]
-    : ^(QUERY s=selectStmt) { $value = $s.value; }
+tableSubquery returns [TableSubquery value]
+    : ^(TABLE_SUBQUERY query) { $value = new TableSubquery($query.value); }
     ;
 
 expr returns [Expression value]
@@ -247,7 +245,7 @@ expr returns [Expression value]
     | ^(IN_LIST exprList)   { $value = new InListExpression($exprList.value); }
     | ^(NEGATIVE e=expr)    { $value = new NegativeExpression($e.value); }
     | caseExpression        { $value = $caseExpression.value; }
-    | subquery              { $value = new SubqueryExpression($subquery.value); }
+    | query                 { $value = new SubqueryExpression($query.value); }
     | extract               { $value = $extract.value; }
     | current_time          { $value = $current_time.value; }
     | cast                  { $value = $cast.value; }
@@ -381,7 +379,7 @@ predicate returns [Expression value]
     | ^(IS_NULL expr)                     { $value = new IsNullPredicate($expr.value); }
     | ^(IS_NOT_NULL expr)                 { $value = new IsNotNullPredicate($expr.value); }
     | ^(IN v=expr list=expr)              { $value = new InPredicate($v.value, $list.value); }
-    | ^(EXISTS q=subquery)                { $value = new ExistsPredicate($q.value); }
+    | ^(EXISTS q=query)                   { $value = new ExistsPredicate($q.value); }
     ;
 
 caseExpression returns [Expression value]
