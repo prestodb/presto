@@ -33,6 +33,8 @@ import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.log.Logger;
+import io.airlift.units.DataSize;
+import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 
 import javax.annotation.PreDestroy;
@@ -91,6 +93,7 @@ public class StatementResource
 
     private static final Duration MAX_WAIT_TIME = new Duration(1, TimeUnit.SECONDS);
     private static final Ordering<Comparable<Duration>> WAIT_ORDERING = Ordering.natural().nullsLast();
+    private static final long DESIRED_RESULT_BYTES = new DataSize(1, Unit.MEGABYTE).toBytes();
 
     private final QueryManager queryManager;
     private final AsyncHttpClient httpClient;
@@ -333,14 +336,26 @@ public class StatementResource
 
             updateExchangeClient(queryInfo.getOutputStage());
 
-            // fetch next page
-            Page page = exchangeClient.getNextPage(maxWait);
-            if (page == null) {
-                // no data this time
+            ImmutableList.Builder<RowIterable> pages = ImmutableList.builder();
+            // wait up to max wait for data to arrive; then try to return at least DESIRED_RESULT_BYTES
+            int bytes = 0;
+            while (bytes < DESIRED_RESULT_BYTES) {
+                Page page = exchangeClient.getNextPage(maxWait);
+                if (page == null) {
+                    break;
+                }
+                bytes += page.getDataSize().toBytes();
+                pages.add(new RowIterable(page));
+
+                // only wait on first call
+                maxWait = new Duration(0, TimeUnit.MILLISECONDS);
+            }
+
+            if (bytes == 0) {
                 return null;
             }
 
-            return new RowIterable(page);
+            return Iterables.concat(pages.build());
         }
 
         private static boolean isQueryStarted(QueryInfo queryInfo)
