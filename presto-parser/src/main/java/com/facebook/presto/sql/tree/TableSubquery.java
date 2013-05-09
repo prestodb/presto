@@ -2,12 +2,12 @@ package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Objects;
 
-public class Subquery
+public class TableSubquery
         extends Relation
 {
     private final Query query;
 
-    public Subquery(Query query)
+    public TableSubquery(Query query)
     {
         this.query = query;
     }
@@ -20,7 +20,7 @@ public class Subquery
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
-        return visitor.visitSubquery(this, context);
+        return visitor.visitTableSubquery(this, context);
     }
 
     @Override
@@ -41,9 +41,9 @@ public class Subquery
             return false;
         }
 
-        Subquery subquery = (Subquery) o;
+        TableSubquery tableSubquery = (TableSubquery) o;
 
-        if (!query.equals(subquery.query)) {
+        if (!query.equals(tableSubquery.query)) {
             return false;
         }
 

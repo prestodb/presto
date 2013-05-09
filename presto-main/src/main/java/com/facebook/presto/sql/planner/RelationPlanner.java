@@ -18,7 +18,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
-import com.facebook.presto.sql.tree.Subquery;
+import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Table;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -120,7 +120,7 @@ class RelationPlanner
     }
 
     @Override
-    protected RelationPlan visitSubquery(Subquery node, Void context)
+    protected RelationPlan visitTableSubquery(TableSubquery node, Void context)
     {
         return process(node.getQuery(), context);
     }

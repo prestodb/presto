@@ -214,11 +214,11 @@ public class TreePrinter
             }
 
             @Override
-            protected Void visitSubquery(Subquery node, Integer indentLevel)
+            protected Void visitTableSubquery(TableSubquery node, Integer indentLevel)
             {
                 print(indentLevel, "SubQuery");
 
-                super.visitSubquery(node, indentLevel + 1);
+                super.visitTableSubquery(node, indentLevel + 1);
 
                 return null;
             }

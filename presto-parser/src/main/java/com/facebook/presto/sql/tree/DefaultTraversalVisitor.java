@@ -298,7 +298,7 @@ public class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitSubquery(Subquery node, C context)
+    protected R visitTableSubquery(TableSubquery node, C context)
     {
         return process(node.getQuery(), context);
     }
