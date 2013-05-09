@@ -13,7 +13,6 @@ import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.Split;
@@ -83,13 +82,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.hive.HiveUtil.HIVE_TIMESTAMP_PARSER;
 import static com.facebook.presto.hive.HiveColumnHandle.columnMetadataGetter;
 import static com.facebook.presto.hive.HiveColumnHandle.hiveColumnHandle;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.HiveSplit.markAsLastSplit;
 import static com.facebook.presto.hive.HiveType.getHiveType;
 import static com.facebook.presto.hive.HiveType.getSupportedHiveType;
+import static com.facebook.presto.hive.HiveUtil.HIVE_TIMESTAMP_PARSER;
 import static com.facebook.presto.hive.HiveUtil.convertNativeHiveType;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
 import static com.facebook.presto.hive.UnpartitionedPartition.UNPARTITIONED_PARTITION;
@@ -232,7 +231,6 @@ public class HiveClient
                 }
             }
             catch (NoSuchObjectException e) {
-                throw new SchemaNotFoundException(schemaName);
             }
         }
         return tableNames.build();
@@ -316,7 +314,11 @@ public class HiveClient
         checkNotNull(prefix, "prefix is null");
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
         for (SchemaTableName tableName : listTables(prefix)) {
-            columns.put(tableName, getTableMetadata(tableName).getColumns());
+            try {
+                columns.put(tableName, getTableMetadata(tableName).getColumns());
+            }
+            catch (RuntimeException e) {
+            }
         }
         return columns.build();
     }

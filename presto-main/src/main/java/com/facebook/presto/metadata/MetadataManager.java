@@ -15,6 +15,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import javax.inject.Singleton;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -130,11 +132,14 @@ public class MetadataManager
     {
         checkNotNull(prefix, "prefix is null");
 
-        ImmutableSet.Builder<QualifiedTableName> tables = ImmutableSet.builder();
+        String schemaNameOrNull = prefix.getSchemaName().orNull();
+        LinkedHashSet<QualifiedTableName> tables = new LinkedHashSet<>();
         for (ConnectorMetadata internalSchemaMetadata : allConnectorsFor(prefix.getCatalogName())) {
-            tables.addAll(transform(internalSchemaMetadata.listTables(prefix.getSchemaName().orNull()), convertFromSchemaTableName(prefix.getCatalogName())));
+            for (QualifiedTableName tableName : transform(internalSchemaMetadata.listTables(schemaNameOrNull), convertFromSchemaTableName(prefix.getCatalogName()))) {
+                tables.add(tableName);
+            }
         }
-        return ImmutableList.copyOf(tables.build());
+        return ImmutableList.copyOf(tables);
     }
 
     @Override
@@ -151,14 +156,16 @@ public class MetadataManager
     {
         checkNotNull(prefix, "prefix is null");
 
-        ImmutableMap.Builder<QualifiedTableName, List<ColumnMetadata>> builder = ImmutableMap.builder();
+        LinkedHashMap<QualifiedTableName, List<ColumnMetadata>> tableColumns = new LinkedHashMap<>();
         for (ConnectorMetadata connectorMetadata : allConnectorsFor(prefix.getCatalogName())) {
             for (Entry<SchemaTableName, List<ColumnMetadata>> entry : connectorMetadata.listTableColumns(prefix.asSchemaTablePrefix()).entrySet()) {
                 QualifiedTableName tableName = new QualifiedTableName(prefix.getCatalogName(), entry.getKey().getSchemaName(), entry.getKey().getTableName());
-                builder.put(tableName, entry.getValue());
+                if (!tableColumns.containsKey(tableName)) {
+                    tableColumns.put(tableName, entry.getValue());
+                }
             }
         }
-        return builder.build();
+        return ImmutableMap.copyOf(tableColumns);
     }
 
     @Override
