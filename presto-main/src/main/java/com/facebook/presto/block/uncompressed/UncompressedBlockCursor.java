@@ -7,6 +7,7 @@ import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 public class UncompressedBlockCursor
         implements BlockCursor
@@ -126,7 +127,12 @@ public class UncompressedBlockCursor
     public Tuple getTuple()
     {
         checkReadablePosition();
-        return new Tuple(slice.slice(offset, size), tupleInfo);
+
+        // TODO: add Slices.copyOf() to airlift
+        Slice copy = Slices.allocate(size);
+        copy.setBytes(0, slice, offset, size);
+
+        return new Tuple(copy, tupleInfo);
     }
 
     @Override

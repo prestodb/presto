@@ -7,6 +7,7 @@ import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
@@ -121,7 +122,12 @@ public class UncompressedDoubleBlockCursor
     public Tuple getTuple()
     {
         checkReadablePosition();
-        return new Tuple(slice.slice(offset, ENTRY_SIZE), TupleInfo.SINGLE_DOUBLE);
+
+        // TODO: add Slices.copyOf() to airlift
+        Slice copy = Slices.allocate(ENTRY_SIZE);
+        copy.setBytes(0, slice, offset, ENTRY_SIZE);
+
+        return new Tuple(copy, TupleInfo.SINGLE_DOUBLE);
     }
 
     @Override
