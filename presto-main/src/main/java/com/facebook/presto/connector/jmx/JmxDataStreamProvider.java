@@ -1,7 +1,7 @@
 package com.facebook.presto.connector.jmx;
 
 import com.facebook.presto.ingest.RecordProjectOperator;
-import com.facebook.presto.metadata.InMemoryRecordSet;
+import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnType;

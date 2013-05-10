@@ -4,6 +4,7 @@ import com.facebook.presto.ingest.RecordProjectOperator;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.InMemoryRecordSet;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.io.Files;
