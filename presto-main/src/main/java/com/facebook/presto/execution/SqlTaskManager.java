@@ -163,7 +163,7 @@ public class SqlTaskManager
             return;
         }
 
-        taskExecution.recordHeartBeat();
+        taskExecution.recordHeartbeat();
         taskExecution.waitForStateChange(currentState, maxWait);
     }
 
@@ -174,7 +174,7 @@ public class SqlTaskManager
 
         TaskExecution taskExecution = tasks.get(taskId);
         if (taskExecution != null) {
-            taskExecution.recordHeartBeat();
+            taskExecution.recordHeartbeat();
             return taskExecution.getTaskInfo(full);
         }
 
@@ -219,7 +219,7 @@ public class SqlTaskManager
             }
         }
 
-        taskExecution.recordHeartBeat();
+        taskExecution.recordHeartbeat();
         taskExecution.addSources(sources);
         taskExecution.addResultQueue(outputIds);
 
@@ -237,7 +237,7 @@ public class SqlTaskManager
         if (taskExecution == null) {
             throw new NoSuchElementException("Unknown query task " + taskId);
         }
-        taskExecution.recordHeartBeat();
+        taskExecution.recordHeartbeat();
         return taskExecution.getResults(outputName, maxPageCount, maxWaitTime);
     }
 
@@ -333,17 +333,17 @@ public class SqlTaskManager
     public void failAbandonedTasks()
     {
         DateTime now = DateTime.now();
-        DateTime oldestAllowedHeartBeat = now.minus((long) clientTimeout.toMillis());
+        DateTime oldestAllowedHeartbeat = now.minus((long) clientTimeout.toMillis());
         for (TaskExecution taskExecution : tasks.values()) {
             try {
                 TaskInfo taskInfo = taskExecution.getTaskInfo(false);
                 if (taskInfo.getState().isDone()) {
                     continue;
                 }
-                DateTime lastHeartBeat = taskInfo.getStats().getLastHeartBeat();
-                if (lastHeartBeat != null && lastHeartBeat.isBefore(oldestAllowedHeartBeat)) {
+                DateTime lastHeartbeat = taskInfo.getStats().getLastHeartbeat();
+                if (lastHeartbeat != null && lastHeartbeat.isBefore(oldestAllowedHeartbeat)) {
                     log.info("Failing abandoned task %s", taskExecution.getTaskId());
-                    taskExecution.fail(new AbandonedException("Task " + taskInfo.getTaskId(), lastHeartBeat, now));
+                    taskExecution.fail(new AbandonedException("Task " + taskInfo.getTaskId(), lastHeartbeat, now));
                 }
             }
             catch (Exception e) {

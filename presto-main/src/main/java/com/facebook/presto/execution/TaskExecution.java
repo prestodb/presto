@@ -32,5 +32,5 @@ public interface TaskExecution
 
     void abortResults(String outputId);
 
-    void recordHeartBeat();
+    void recordHeartbeat();
 }

@@ -61,6 +61,7 @@ public class TaskSystemTable
 
             .column("created", LONG)
             .column("start", LONG)
+            .column("last_heartbeat", LONG)
             .column("end", LONG)
             .build();
 
@@ -129,6 +130,7 @@ public class TaskSystemTable
 
                     toTimeStamp(taskInfo.getStats().getCreateTime()),
                     toTimeStamp(taskInfo.getStats().getExecutionStartTime()),
+                    toTimeStamp(taskInfo.getStats().getLastHeartbeat()),
                     toTimeStamp(taskInfo.getStats().getEndTime()));
         }
         return table.build().cursor();
