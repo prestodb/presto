@@ -12,6 +12,7 @@ import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.Table;
+import org.weakref.jmx.Managed;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
@@ -74,7 +75,7 @@ public class CachingHiveMetastore
                 .build();
     }
 
-    // TODO: make this flushable via JMX
+    @Managed
     public void flushCache()
     {
         databaseNamesCache.invalidateAll();
