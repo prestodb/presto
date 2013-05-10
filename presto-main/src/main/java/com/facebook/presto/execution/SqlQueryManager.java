@@ -135,7 +135,7 @@ public class SqlQueryManager
             return maxWait;
         }
 
-        query.getQueryInfo().getQueryStats().recordHeartBeat();
+        query.getQueryInfo().getQueryStats().recordHeartbeat();
         return query.waitForStateChange(currentState, maxWait);
     }
 
@@ -149,7 +149,7 @@ public class SqlQueryManager
             throw new NoSuchElementException();
         }
         // todo should this be a method on QueryExecution?
-        query.getQueryInfo().getQueryStats().recordHeartBeat();
+        query.getQueryInfo().getQueryStats().recordHeartbeat();
         return query.getQueryInfo();
     }
 
@@ -254,17 +254,17 @@ public class SqlQueryManager
     public void failAbandonedQueries()
     {
         DateTime now = DateTime.now();
-        DateTime oldestAllowedHeartBeat = now.minus((long) clientTimeout.toMillis());
+        DateTime oldestAllowedHeartbeat = now.minus((long) clientTimeout.toMillis());
         for (QueryExecution queryExecution : queries.values()) {
             try {
                 QueryInfo queryInfo = queryExecution.getQueryInfo();
                 if (queryInfo.getState().isDone()) {
                     continue;
                 }
-                DateTime lastHeartBeat = queryInfo.getQueryStats().getLastHeartBeat();
-                if (lastHeartBeat != null && lastHeartBeat.isBefore(oldestAllowedHeartBeat)) {
+                DateTime lastHeartbeat = queryInfo.getQueryStats().getLastHeartbeat();
+                if (lastHeartbeat != null && lastHeartbeat.isBefore(oldestAllowedHeartbeat)) {
                     log.info("Failing abandoned query %s", queryInfo.getQueryId());
-                    queryExecution.fail(new AbandonedException("Query " + queryInfo.getQueryId(), lastHeartBeat, now));
+                    queryExecution.fail(new AbandonedException("Query " + queryInfo.getQueryId(), lastHeartbeat, now));
                 }
             }
             catch (Exception e) {

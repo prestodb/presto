@@ -31,7 +31,7 @@ public class ExecutionStats
     @GuardedBy("this")
     private DateTime executionStartTime;
     @GuardedBy("this")
-    private DateTime lastHeartBeat;
+    private DateTime lastHeartbeat;
     @GuardedBy("this")
     private DateTime endTime;
 
@@ -73,7 +73,7 @@ public class ExecutionStats
     public ExecutionStats()
     {
         createTime = DateTime.now();
-        lastHeartBeat = DateTime.now();
+        lastHeartbeat = DateTime.now();
     }
 
     public DateTime getCreateTime()
@@ -86,9 +86,9 @@ public class ExecutionStats
         return executionStartTime;
     }
 
-    public synchronized DateTime getLastHeartBeat()
+    public synchronized DateTime getLastHeartbeat()
     {
-        return lastHeartBeat;
+        return lastHeartbeat;
     }
 
     public synchronized DateTime getEndTime()
@@ -201,7 +201,7 @@ public class ExecutionStats
     {
         return new ExecutionStatsSnapshot(getCreateTime(),
                 getExecutionStartTime(),
-                getLastHeartBeat(),
+                getLastHeartbeat(),
                 getEndTime(),
                 getSplits(),
                 getQueuedSplits(),
@@ -304,9 +304,9 @@ public class ExecutionStats
         this.executionStartTime = DateTime.now();
     }
 
-    public synchronized void recordHeartBeat()
+    public synchronized void recordHeartbeat()
     {
-        this.lastHeartBeat = DateTime.now();
+        this.lastHeartbeat = DateTime.now();
     }
 
     public synchronized void recordEnd()
@@ -382,7 +382,7 @@ public class ExecutionStats
     {
         private final DateTime createTime;
         private final DateTime executionStartTime;
-        private final DateTime lastHeartBeat;
+        private final DateTime lastHeartbeat;
         private final DateTime endTime;
         private final int splits;
         private final int queuedSplits;
@@ -408,7 +408,7 @@ public class ExecutionStats
         {
             this.createTime = null;
             this.executionStartTime = null;
-            this.lastHeartBeat = null;
+            this.lastHeartbeat = null;
             this.endTime = null;
             this.splits = 0;
             this.queuedSplits = 0;
@@ -435,7 +435,7 @@ public class ExecutionStats
         public ExecutionStatsSnapshot(
                 @JsonProperty("createTime") DateTime createTime,
                 @JsonProperty("executionStartTime") DateTime executionStartTime,
-                @JsonProperty("lastHeartBeat") DateTime lastHeartBeat,
+                @JsonProperty("lastHeartbeat") DateTime lastHeartbeat,
                 @JsonProperty("endTime") DateTime endTime,
                 @JsonProperty("splits") int splits,
                 @JsonProperty("queuedSplits") int queuedSplits,
@@ -459,7 +459,7 @@ public class ExecutionStats
         {
             this.createTime = createTime;
             this.executionStartTime = executionStartTime;
-            this.lastHeartBeat = lastHeartBeat;
+            this.lastHeartbeat = lastHeartbeat;
             this.endTime = endTime;
             this.splits = splits;
             this.queuedSplits = queuedSplits;
@@ -500,9 +500,9 @@ public class ExecutionStats
         }
 
         @JsonProperty
-        public DateTime getLastHeartBeat()
+        public DateTime getLastHeartbeat()
         {
-            return lastHeartBeat;
+            return lastHeartbeat;
         }
 
         @JsonProperty

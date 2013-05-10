@@ -2,6 +2,7 @@ package com.facebook.presto.connector.system;
 
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
+import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.metadata.InMemoryRecordSet;
 import com.facebook.presto.metadata.InMemoryRecordSet.Builder;
 import com.facebook.presto.spi.ColumnType;
@@ -10,6 +11,8 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableMetadata;
 import com.google.common.collect.ImmutableList;
 import io.airlift.node.NodeInfo;
+import io.airlift.units.Duration;
+import org.joda.time.DateTime;
 
 import javax.inject.Inject;
 import java.util.List;
@@ -32,7 +35,15 @@ public class QuerySystemTable
             .column("state", STRING)
             .column("user", STRING)
             .column("query", STRING)
+
+            .column("queued_time_ms", LONG)
+            .column("analysis_time_ms", LONG)
+            .column("distributed_planning_time_ms", LONG)
+
             .column("created", LONG)
+            .column("started", LONG)
+            .column("last_heartbeat", LONG)
+            .column("end", LONG)
             .build();
 
     private final QueryManager queryManager;
@@ -68,14 +79,40 @@ public class QuerySystemTable
     {
         Builder table = InMemoryRecordSet.builder(QUERY_TABLE);
         for (QueryInfo queryInfo : queryManager.getAllQueryInfo()) {
+            QueryStats queryStats = queryInfo.getQueryStats();
             table.addRow(
                     nodeId,
                     queryInfo.getQueryId().toString(),
                     queryInfo.getState().toString(),
                     queryInfo.getSession().getUser(),
                     queryInfo.getQuery(),
-                    MILLISECONDS.toSeconds(queryInfo.getQueryStats().getCreateTime().getMillis()));
+
+                    toMillis(queryStats.getQueuedTime()),
+                    toMillis(queryStats.getAnalysisTime()),
+                    toMillis(queryStats.getDistributedPlanningTime()),
+
+                    toTimeStamp(queryStats.getCreateTime()),
+                    toTimeStamp(queryStats.getExecutionStartTime()),
+                    toTimeStamp(queryStats.getLastHeartbeat()),
+                    toTimeStamp(queryStats.getEndTime()));
         }
         return table.build().cursor();
     }
+
+    private Long toMillis(Duration duration)
+    {
+        if (duration == null) {
+            return null;
+        }
+        return (long) duration.toMillis();
+    }
+
+    private Long toTimeStamp(DateTime dateTime)
+    {
+        if (dateTime == null) {
+            return null;
+        }
+        return MILLISECONDS.toSeconds(dateTime.getMillis());
+    }
+
 }

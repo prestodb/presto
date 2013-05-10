@@ -386,9 +386,9 @@ public class SqlTaskExecution
     }
 
     @Override
-    public void recordHeartBeat()
+    public void recordHeartbeat()
     {
-        taskOutput.getStats().recordHeartBeat();
+        taskOutput.getStats().recordHeartbeat();
     }
 
     @Override

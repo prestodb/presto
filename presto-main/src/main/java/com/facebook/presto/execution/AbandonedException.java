@@ -8,8 +8,8 @@ import org.joda.time.DateTime;
 public class AbandonedException
     extends RuntimeException
 {
-    public AbandonedException(String name, DateTime lastHeartBeat, DateTime now)
+    public AbandonedException(String name, DateTime lastHeartbeat, DateTime now)
     {
-        super(String.format("%s has not been accessed since %s: currentTime %s", name, lastHeartBeat, now));
+        super(String.format("%s has not been accessed since %s: currentTime %s", name, lastHeartbeat, now));
     }
 }
