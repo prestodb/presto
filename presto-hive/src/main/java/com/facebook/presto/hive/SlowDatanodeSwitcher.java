@@ -100,6 +100,11 @@ public class SlowDatanodeSwitcher
         return names;
     }
 
+    public List<DatanodeInfo> getUnfavoredDatanodeInfo()
+    {
+        return ImmutableList.copyOf(unfavoredNodes.asMap().keySet());
+    }
+
     @Managed(description = "Byte rate distribution of reads")
     @Nested
     public Distribution2 getByteRate()

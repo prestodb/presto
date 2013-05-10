@@ -4,6 +4,8 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.connector.ConnectorManager;
+import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.connector.system.SystemTablesManager;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.Plugin;
 import com.google.common.base.Function;
@@ -45,6 +47,7 @@ public class PluginManager
 
     private final Injector injector;
     private final ConnectorManager connectorManager;
+    private final SystemTablesManager systemTablesManager;
     private final ArtifactResolver resolver;
     private final File installedPluginsDir;
     private final List<String> plugins;
@@ -57,9 +60,8 @@ public class PluginManager
             HttpServerInfo httpServerInfo,
             PluginManagerConfig config,
             ConnectorManager connectorManager,
-            ConfigurationFactory configurationFactory)
+            ConfigurationFactory configurationFactory, SystemTablesManager systemTablesManager)
     {
-        this.connectorManager = connectorManager;
         checkNotNull(injector, "injector is null");
         checkNotNull(nodeInfo, "nodeInfo is null");
         checkNotNull(httpServerInfo, "httpServerInfo is null");
@@ -81,6 +83,9 @@ public class PluginManager
         // TODO: make this work with and without HTTP and HTTPS
         optionalConfig.put("http-server.http.port", Integer.toString(httpServerInfo.getHttpUri().getPort()));
         this.optionalConfig = ImmutableMap.copyOf(optionalConfig);
+
+        this.connectorManager = checkNotNull(connectorManager, "connectorManager is null");
+        this.systemTablesManager = checkNotNull(systemTablesManager, "systemTablesManager is null");
     }
 
     public boolean arePluginsLoaded()
@@ -133,6 +138,10 @@ public class PluginManager
 
             for (ConnectorFactory connectorFactory : plugin.getServices(ConnectorFactory.class)) {
                 connectorManager.addConnectorFactory(connectorFactory);
+            }
+
+            for (SystemTable systemTable : plugin.getServices(SystemTable.class)) {
+                systemTablesManager.addTable(systemTable);
             }
         }
     }

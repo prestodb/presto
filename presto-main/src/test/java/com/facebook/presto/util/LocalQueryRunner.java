@@ -8,7 +8,7 @@ import com.facebook.presto.connector.informationSchema.InformationSchemaSplitMan
 import com.facebook.presto.connector.system.NodesSystemTable;
 import com.facebook.presto.connector.system.SystemDataStreamProvider;
 import com.facebook.presto.connector.system.SystemSplitManager;
-import com.facebook.presto.connector.system.SystemTable;
+import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.connector.system.SystemTablesManager;
 import com.facebook.presto.connector.system.SystemTablesMetadata;
 import com.facebook.presto.importer.MockPeriodicImportManager;
