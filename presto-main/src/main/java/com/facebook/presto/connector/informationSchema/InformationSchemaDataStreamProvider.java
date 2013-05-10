@@ -170,16 +170,17 @@ public class InformationSchemaDataStreamProvider
         List<Partition> partitions = splitManager.getPartitions(tableHandle.get(), Optional.<Map<ColumnHandle, Object>>absent());
 
         for (Partition partition : partitions) {
-            for (Map.Entry<ColumnHandle, String> entry : partition.getKeys().entrySet()) {
+            for (Map.Entry<ColumnHandle, Object> entry : partition.getKeys().entrySet()) {
                 ColumnHandle columnHandle = entry.getKey();
                 String columnName = columnHandles.get(columnHandle);
+                String value = entry.getValue() != null ? String.valueOf(entry.getValue()) : null;
                 table.add(table.getTupleInfo().builder()
                         .append(catalogName)
                         .append(tableName.getSchemaName())
                         .append(tableName.getTableName())
                         .append(partitionNumber)
                         .append(columnName)
-                        .append(entry.getValue())
+                        .append(value)
                         .build());
             }
             partitionNumber++;

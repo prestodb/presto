@@ -16,6 +16,7 @@ import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.RecordReader;
 
 import java.io.IOException;
+import java.sql.Timestamp;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -28,6 +29,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 class GenericHiveRecordCursor<K, V extends Writable>
         implements RecordCursor
@@ -204,6 +206,9 @@ class GenericHiveRecordCursor<K, V extends Writable>
     {
         if (value instanceof Boolean) {
             return ((boolean) value) ? 1 : 0;
+        }
+        if (value instanceof Timestamp) {
+            return MILLISECONDS.toSeconds(((Timestamp) value).getTime());
         }
         return ((Number) value).longValue();
     }
