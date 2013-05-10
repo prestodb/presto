@@ -1,7 +1,6 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.base.Objects;
 import com.google.common.base.Throwables;
 import com.google.common.cache.Cache;
@@ -160,7 +159,7 @@ public class CachingHiveMetastore
             public Table call()
                     throws Exception
             {
-                return retry().stopOn(NoSuchObjectException.class).stopOnIllegalExceptions().run("getTable", new Callable<Table>()
+                return retry().stopOn(NoSuchObjectException.class, HiveViewNotSupportedException.class).stopOnIllegalExceptions().run("getTable", new Callable<Table>()
                 {
                     @Override
                     public Table call()
@@ -169,7 +168,7 @@ public class CachingHiveMetastore
                         try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
                             Table table = client.get_table(databaseName, tableName);
                             if (table.getTableType().equals(TableType.VIRTUAL_VIEW.toString())) {
-                                throw new TableNotFoundException(new SchemaTableName(databaseName, tableName), HiveClient.HIVE_VIEWS_NOT_SUPPORTED);
+                                throw new HiveViewNotSupportedException(new SchemaTableName(databaseName, tableName));
                             }
                             return table;
                         }

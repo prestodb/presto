@@ -1,5 +1,7 @@
 package com.facebook.presto.spi;
 
+import static java.lang.String.format;
+
 public class TableNotFoundException
         extends NotFoundException
 {
@@ -7,7 +9,7 @@ public class TableNotFoundException
 
     public TableNotFoundException(SchemaTableName tableName)
     {
-        this(tableName, "Table " + tableName + " not found");
+        this(tableName, format("Table '%s' not found", tableName));
     }
 
     public TableNotFoundException(SchemaTableName tableName, String message)
@@ -21,7 +23,7 @@ public class TableNotFoundException
 
     public TableNotFoundException(SchemaTableName tableName, Throwable cause)
     {
-        this(tableName, "Table " + tableName + " not found", cause);
+        this(tableName, format("Table '%s' not found", tableName), cause);
     }
 
     public TableNotFoundException(SchemaTableName tableName, String message, Throwable cause)

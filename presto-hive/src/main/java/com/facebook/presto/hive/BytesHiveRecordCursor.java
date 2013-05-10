@@ -29,6 +29,7 @@ import static com.facebook.presto.hive.NumberParser.parseLong;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 class BytesHiveRecordCursor<K>
         implements RecordCursor
@@ -211,6 +212,10 @@ class BytesHiveRecordCursor<K>
                     else {
                         longs[column] = bool ? 1 : 0;
                     }
+                }
+                else if (hiveTypes[column] == HiveType.TIMESTAMP) {
+                    String value = new String(bytes, start, length);
+                    longs[column] = MILLISECONDS.toSeconds(HiveUtil.HIVE_TIMESTAMP_PARSER.parseMillis(value));
                 }
                 else {
                     longs[column] = parseLong(bytes, start, length);

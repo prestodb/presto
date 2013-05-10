@@ -15,6 +15,7 @@ import static org.apache.hadoop.hive.serde.Constants.MAP_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.Constants.SMALLINT_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.Constants.STRING_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.Constants.STRUCT_TYPE_NAME;
+import static org.apache.hadoop.hive.serde.Constants.TIMESTAMP_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.Constants.TINYINT_TYPE_NAME;
 import static org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector.PrimitiveCategory;
 
@@ -28,6 +29,7 @@ public enum HiveType
     FLOAT(ColumnType.DOUBLE),
     DOUBLE(ColumnType.DOUBLE),
     STRING(ColumnType.STRING),
+    TIMESTAMP(ColumnType.LONG),
     LIST(ColumnType.STRING),
     MAP(ColumnType.STRING),
     STRUCT(ColumnType.STRING);
@@ -70,10 +72,20 @@ public enum HiveType
                 return DOUBLE;
             case STRING:
                 return STRING;
+            case TIMESTAMP:
+                return TIMESTAMP;
             default:
                 return null;
         }
     }
+
+    public static HiveType getSupportedHiveType(String hiveTypeName)
+    {
+        HiveType hiveType = getHiveType(hiveTypeName);
+        checkArgument(hiveType != null, "Unknown Hive type: " + hiveTypeName);
+        return hiveType;
+    }
+
     public static HiveType getHiveType(String hiveTypeName)
     {
         switch (hiveTypeName) {
@@ -93,6 +105,8 @@ public enum HiveType
                 return DOUBLE;
             case STRING_TYPE_NAME:
                 return STRING;
+            case TIMESTAMP_TYPE_NAME:
+                return TIMESTAMP;
             case LIST_TYPE_NAME:
                 return LIST;
             case MAP_TYPE_NAME:
