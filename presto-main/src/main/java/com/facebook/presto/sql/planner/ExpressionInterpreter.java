@@ -44,9 +44,9 @@ import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
 
 import javax.annotation.Nullable;
-
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -62,6 +62,9 @@ public class ExpressionInterpreter
     private final Metadata metadata;
     private final Session session;
     private final boolean optimize;
+
+    // identity-based cache for LIKE expressions with constant pattern and escape char
+    private final IdentityHashMap<LikePredicate, Pattern> LIKE_PATTERN_CACHE = new IdentityHashMap<>();
 
     public static ExpressionInterpreter expressionInterpreter(InputResolver inputResolver, Metadata metadata, Session session)
     {
@@ -591,7 +594,7 @@ public class ExpressionInterpreter
                 type = Type.BOOLEAN;
             }
             else if (value instanceof Expression) {
-                // TODO when we know the type of this expresstion, construct new FunctionCall node with optimized arguments
+                // TODO when we know the type of this expression, construct new FunctionCall node with optimized arguments
                 return node;
             }
             else {
@@ -626,33 +629,70 @@ public class ExpressionInterpreter
         }
         String valueString = ((Slice) value).toString(UTF_8);
 
-        Object pattern = process(node.getPattern(), context);
-        if (!(pattern instanceof Slice)) {
-            return node;
+        Matcher matcher;
+        if (node.getPattern() instanceof StringLiteral && (node.getEscape() instanceof StringLiteral || node.getEscape() == null)) {
+            // fast path when we know the pattern and escape are constant
+            matcher = getConstantPattern(node).matcher(valueString);
         }
-        String patternString = ((Slice) pattern).toString(UTF_8);
-
-        char escapeChar;
-        if (node.getEscape() != null) {
-            Object escape = process(node.getEscape(), context);
-            if (!(escape instanceof Slice)) {
+        else {
+            Object pattern = process(node.getPattern(), context);
+            if (!(pattern instanceof Slice)) {
                 return node;
             }
-            String escapeString = ((Slice) escape).toString(UTF_8);
-            if (escapeString.length() == 0) {
-                // escaping disabled
-                escapeChar = (char) -1; // invalid character
-            } else if (escapeString.length() == 1) {
-                escapeChar = escapeString.charAt(0);
-            } else {
-                throw new IllegalArgumentException("escape must be empty or a single character: "  + escapeString);
+            String patternString = ((Slice) pattern).toString(UTF_8);
+
+            char escapeChar;
+            if (node.getEscape() != null) {
+                Object escape = process(node.getEscape(), context);
+                if (!(escape instanceof Slice)) {
+                    return node;
+                }
+                escapeChar = getEscapeChar((Slice) escape);
             }
-        } else {
-            escapeChar = '\\';
+            else {
+                escapeChar = '\\';
+            }
+
+            matcher = likeToPattern(patternString, escapeChar).matcher(valueString);
         }
 
-        Matcher matcher = likeToPattern(patternString, escapeChar).matcher(valueString);
         return matcher.matches();
+    }
+
+    private Pattern getConstantPattern(LikePredicate node)
+    {
+        Pattern result = LIKE_PATTERN_CACHE.get(node);
+
+        if (result == null) {
+            StringLiteral pattern = (StringLiteral) node.getPattern();
+            StringLiteral escape = (StringLiteral) node.getEscape();
+
+            char escapeChar = '\\';
+            if (escape != null) {
+                escapeChar = getEscapeChar(escape.getSlice());
+            }
+
+            result = likeToPattern(pattern.getSlice().toString(UTF_8), escapeChar);
+
+            LIKE_PATTERN_CACHE.put(node, result);
+        }
+
+        return result;
+    }
+
+    private char getEscapeChar(Slice escape)
+    {
+        char escapeChar;
+        String escapeString = escape.toString(UTF_8);
+        if (escapeString.length() == 0) {
+            // escaping disabled
+            escapeChar = (char) -1; // invalid character
+        } else if (escapeString.length() == 1) {
+            escapeChar = escapeString.charAt(0);
+        } else {
+            throw new IllegalArgumentException("escape must be empty or a single character: "  + escapeString);
+        }
+        return escapeChar;
     }
 
     public static Pattern likeToPattern(String patternString, char escapeChar)
