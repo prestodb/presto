@@ -41,13 +41,17 @@ public class HiveClientModule
         bindConfig(binder).to(HiveClientConfig.class);
 
         binder.bind(CachingHiveMetastore.class).in(Scopes.SINGLETON);
+        ExportBinder.newExporter(binder)
+                .export(CachingHiveMetastore.class)
+                .as("com.facebook.presto.hive:type=CachingHiveMetastore,name=" + connectorId);
+
         binder.bind(HiveCluster.class).to(DiscoveryLocatedHiveCluster.class).in(Scopes.SINGLETON);
         binder.bind(HiveMetastoreClientFactory.class).in(Scopes.SINGLETON);
         discoveryBinder(binder).bindSelector("hive-metastore");
 
         ExportBinder.newExporter(binder)
                 .export(SlowDatanodeSwitcher.class)
-                .withGeneratedName();
+                .as("com.facebook.presto.hive:type=SlowDatanodeSwitcher,name=" + connectorId);
     }
 
     @ForHiveClient
