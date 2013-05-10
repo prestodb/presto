@@ -42,14 +42,15 @@ import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
+import org.joni.Regex;
+import org.joni.Option;
+import org.joni.Matcher;
 
 import javax.annotation.Nullable;
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -64,7 +65,7 @@ public class ExpressionInterpreter
     private final boolean optimize;
 
     // identity-based cache for LIKE expressions with constant pattern and escape char
-    private final IdentityHashMap<LikePredicate, Pattern> LIKE_PATTERN_CACHE = new IdentityHashMap<>();
+    private final IdentityHashMap<LikePredicate, Regex> LIKE_PATTERN_CACHE = new IdentityHashMap<>();
 
     public static ExpressionInterpreter expressionInterpreter(InputResolver inputResolver, Metadata metadata, Session session)
     {
@@ -627,12 +628,12 @@ public class ExpressionInterpreter
         if (!(value instanceof Slice)) {
             return node;
         }
-        String valueString = ((Slice) value).toString(UTF_8);
+        Slice valueSlice = ((Slice) value);
 
         Matcher matcher;
         if (node.getPattern() instanceof StringLiteral && (node.getEscape() instanceof StringLiteral || node.getEscape() == null)) {
             // fast path when we know the pattern and escape are constant
-            matcher = getConstantPattern(node).matcher(valueString);
+            matcher = getConstantPattern(node).matcher(valueSlice.getBytes());
         }
         else {
             Object pattern = process(node.getPattern(), context);
@@ -653,15 +654,16 @@ public class ExpressionInterpreter
                 escapeChar = '\\';
             }
 
-            matcher = likeToPattern(patternString, escapeChar).matcher(valueString);
+            matcher = likeToPattern(patternString, escapeChar).matcher(valueSlice.getBytes());
         }
 
-        return matcher.matches();
+        int match = matcher.match(0, valueSlice.length(), Option.NONE);
+        return match != -1;
     }
 
-    private Pattern getConstantPattern(LikePredicate node)
+    private Regex getConstantPattern(LikePredicate node)
     {
-        Pattern result = LIKE_PATTERN_CACHE.get(node);
+        Regex result = LIKE_PATTERN_CACHE.get(node);
 
         if (result == null) {
             StringLiteral pattern = (StringLiteral) node.getPattern();
@@ -695,15 +697,17 @@ public class ExpressionInterpreter
         return escapeChar;
     }
 
-    public static Pattern likeToPattern(String patternString, char escapeChar)
+    public static Regex likeToPattern(String patternString, char escapeChar)
     {
         StringBuilder regex = new StringBuilder(patternString.length() * 2);
 
+        regex.append('^');
         boolean escaped = false;
         for (char currentChar : patternString.toCharArray()) {
             if (currentChar == escapeChar) {
                 escaped = true;
-            } else {
+            }
+            else {
                 switch (currentChar) {
                     case '%':
                         if (escaped) {
@@ -724,12 +728,32 @@ public class ExpressionInterpreter
                         escaped = false;
                         break;
                     default:
+                        // escape special regex characters
+                        switch (currentChar) {
+                            case '\\':
+                            case '^':
+                            case '$':
+                            case '{':
+                            case '}':
+                            case '[':
+                            case ']':
+                            case '(':
+                            case ')':
+                            case '.':
+                            case '*':
+                            case '?':
+                            case '+':
+                            case '|':
+                                regex.append('\\');
+                        }
+
+                        regex.append(currentChar);
                         escaped = false;
-                        regex.append(Pattern.quote(String.valueOf(currentChar)));
                 }
             }
         }
-        return Pattern.compile(regex.toString());
+        regex.append('$');
+        return new Regex(regex);
     }
 
     protected Object visitExtract(Extract node, Void context)
