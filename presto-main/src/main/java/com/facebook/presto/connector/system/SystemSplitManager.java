@@ -7,6 +7,7 @@ import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.Split;
+import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TableHandle;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;

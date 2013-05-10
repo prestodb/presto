@@ -1,6 +1,7 @@
 package com.facebook.presto.connector.system;
 
 import com.facebook.presto.spi.Connector;
+import com.facebook.presto.spi.SystemTable;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;

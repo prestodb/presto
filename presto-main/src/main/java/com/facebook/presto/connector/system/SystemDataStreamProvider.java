@@ -6,6 +6,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.Split;
+import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.split.ConnectorDataStreamProvider;
 import com.facebook.presto.split.MappedRecordSet;
 import com.google.common.collect.ImmutableList;

@@ -34,16 +34,18 @@ public class
 {
     private final Map<String, String> optionalConfig;
     private final ClassLoader classLoader;
+    private final SlowDatanodeSystemTable slowDatanodeSystemTable;
 
     public HiveConnectorFactory(Map<String, String> optionalConfig)
     {
-        this(optionalConfig, HiveConnectorFactory.class.getClassLoader());
+        this(optionalConfig, HiveConnectorFactory.class.getClassLoader(), null);
     }
 
-    public HiveConnectorFactory(Map<String, String> optionalConfig, ClassLoader classLoader)
+    public HiveConnectorFactory(Map<String, String> optionalConfig, ClassLoader classLoader, SlowDatanodeSystemTable slowDatanodeSystemTable)
     {
         this.optionalConfig = checkNotNull(optionalConfig, "optionalConfig is null");
         this.classLoader = checkNotNull(classLoader, "classLoader is null");
+        this.slowDatanodeSystemTable = slowDatanodeSystemTable;
     }
 
     @Override
@@ -90,6 +92,10 @@ public class
             builder.put(ConnectorRecordSetProvider.class, new ClassLoaderSafeConnectorRecordSetProvider(hiveClient, classLoader));
             builder.put(ConnectorHandleResolver.class, new ClassLoaderSafeConnectorHandleResolver(hiveClient, classLoader));
 
+            if (slowDatanodeSystemTable != null) {
+                SlowDatanodeSwitcher slowDatanodeSwitcher = injector.getInstance(SlowDatanodeSwitcher.class);
+                slowDatanodeSystemTable.addConnectorSlowDatanodeSwitcher(connectorId, slowDatanodeSwitcher);
+            }
             return new HiveConnector(builder.build());
         }
         catch (Exception e) {

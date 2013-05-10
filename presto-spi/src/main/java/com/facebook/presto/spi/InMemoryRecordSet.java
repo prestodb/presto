@@ -1,24 +1,12 @@
-package com.facebook.presto.metadata;
+package com.facebook.presto.spi;
 
-import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ColumnType;
-import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.TableMetadata;
-import com.google.common.base.Charsets;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
-
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
-
-import static com.facebook.presto.metadata.MetadataUtil.columnTypeGetter;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.collect.Iterables.transform;
 
 public class InMemoryRecordSet
         implements RecordSet
@@ -26,9 +14,9 @@ public class InMemoryRecordSet
     private final List<ColumnType> types;
     private final Iterable<? extends List<?>> records;
 
-    public InMemoryRecordSet(Iterable<ColumnType> types, Iterable<? extends List<?>> records)
+    public InMemoryRecordSet(Collection<ColumnType> types, Collection<? extends List<?>> records)
     {
-        this.types = ImmutableList.copyOf(types);
+        this.types = Collections.unmodifiableList(new ArrayList<>(types));
         this.records = records;
     }
 
@@ -81,7 +69,7 @@ public class InMemoryRecordSet
         @Override
         public long getLong(int field)
         {
-            Preconditions.checkState(record != null, "no current record");
+            checkState(record != null, "no current record");
             checkNotNull(record.get(field), "value is null");
             return (Long) record.get(field);
         }
@@ -89,7 +77,7 @@ public class InMemoryRecordSet
         @Override
         public double getDouble(int field)
         {
-            Preconditions.checkState(record != null, "no current record");
+            checkState(record != null, "no current record");
             checkNotNull(record.get(field), "value is null");
             return (Double) record.get(field);
         }
@@ -97,14 +85,14 @@ public class InMemoryRecordSet
         @Override
         public byte[] getString(int field)
         {
-            Preconditions.checkState(record != null, "no current record");
+            checkState(record != null, "no current record");
             Object value = record.get(field);
             checkNotNull(value, "value is null");
             if (value instanceof byte[]) {
                 return (byte[]) value;
             }
             if (value instanceof String) {
-                return ((String) value).getBytes(Charsets.UTF_8);
+                return ((String) value).getBytes(StandardCharsets.UTF_8);
             }
             throw new IllegalArgumentException("Field " + field + " is not a String, but is a " + value.getClass().getName());
         }
@@ -112,7 +100,7 @@ public class InMemoryRecordSet
         @Override
         public boolean isNull(int field)
         {
-            Preconditions.checkState(record != null, "no current record");
+            checkState(record != null, "no current record");
             return record.get(field) == null;
         }
 
@@ -129,10 +117,14 @@ public class InMemoryRecordSet
 
     public static Builder builder(List<ColumnMetadata> columns)
     {
-        return builder(transform(columns, columnTypeGetter()));
+        List<ColumnType> columnTypes = new ArrayList<>();
+        for (ColumnMetadata column : columns) {
+            columnTypes.add(column.getType());
+        }
+        return builder(columnTypes);
     }
 
-    public static Builder builder(Iterable<ColumnType> columnsTypes)
+    public static Builder builder(Collection<ColumnType> columnsTypes)
     {
         return new Builder(columnsTypes);
     }
@@ -140,19 +132,19 @@ public class InMemoryRecordSet
     public static class Builder
     {
         private final List<ColumnType> types;
-        private final ImmutableList.Builder<? extends List<?>> records = ImmutableList.builder();
+        private final List<List<Object>> records = new ArrayList<>();
 
-        private Builder(Iterable<ColumnType> types)
+        private Builder(Collection<ColumnType> types)
         {
             checkNotNull(types, "types is null");
-            this.types = ImmutableList.copyOf(types);
+            this.types = Collections.unmodifiableList(new ArrayList<>(types));
             checkArgument(!this.types.isEmpty(), "types is empty");
         }
 
         public Builder addRow(Object... values)
         {
             checkNotNull(values, "values is null");
-            checkArgument(values.length == types.size());
+            checkArgument(values.length == types.size(), "Expected %s values in row, but got %s values", types.size(), values.length);
             for (int i = 0; i < values.length; i++) {
                 Object value = values[i];
                 if (value == null) {
@@ -173,13 +165,34 @@ public class InMemoryRecordSet
                 }
             }
             // Immutable list does not allow nulls
-            records.add(Collections.<Object>unmodifiableList(new ArrayList<>(Arrays.asList(values))));
+            records.add(Collections.unmodifiableList(new ArrayList<>(Arrays.asList(values))));
             return this;
         }
 
         public InMemoryRecordSet build()
         {
-            return new InMemoryRecordSet(types, records.build());
+            return new InMemoryRecordSet(types, records);
         }
     }
+
+    private static void checkArgument(boolean test, String message, Object... args)
+    {
+        if (!test) {
+            throw new IllegalArgumentException(String.format(message, args));
+        }
+    }
+
+    private static void checkNotNull(Object value, String message)
+    {
+        if (value == null) {
+            throw new NullPointerException(message);
+        }
+    }
+
+    private static void checkState(boolean test, String message)
+    {
+        if (!test) {
+            throw new IllegalStateException(message);
+        }
+    }    
 }

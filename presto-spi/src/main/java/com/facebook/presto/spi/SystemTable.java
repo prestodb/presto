@@ -1,7 +1,4 @@
-package com.facebook.presto.connector.system;
-
-import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.TableMetadata;
+package com.facebook.presto.spi;
 
 public interface SystemTable
         extends RecordSet

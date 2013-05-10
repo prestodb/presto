@@ -1,5 +1,7 @@
 package com.facebook.presto.connector.system;
 
+import com.facebook.presto.spi.SystemTable;
+
 import javax.inject.Inject;
 import java.util.Set;
 
