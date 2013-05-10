@@ -334,7 +334,7 @@ public class LocalExecutionPlanner
 
             IdentityProjectionInfo mappings = computeIdentityMapping(node.getOutputSymbols(), source.getLayout(), types);
 
-            TopNOperator operator = new TopNOperator(source.getOperator(), (int) node.getCount(), keyChannel, mappings.getProjections(), ordering);
+            TopNOperator operator = new TopNOperator(source.getOperator(), (int) node.getCount(), keyChannel, mappings.getProjections(), ordering, maxOperatorMemoryUsage);
             return new PhysicalOperation(operator, mappings.getOutputLayout());
         }
 
