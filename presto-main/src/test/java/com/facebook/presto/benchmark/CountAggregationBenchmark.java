@@ -1,14 +1,9 @@
 package com.facebook.presto.benchmark;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.operator.AggregationOperator;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.Operator;
-import com.facebook.presto.operator.OperatorStats;
-import com.facebook.presto.operator.Page;
-import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.tree.Input;
@@ -21,43 +16,22 @@ import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
 public class CountAggregationBenchmark
         extends AbstractOperatorBenchmark
 {
-    public CountAggregationBenchmark()
+    public CountAggregationBenchmark(TpchBlocksProvider tpchBlocksProvider)
     {
-        super("count_agg", 10, 100);
+        super(tpchBlocksProvider, "count_agg", 10, 100);
     }
 
     @Override
-    protected Operator createBenchmarkedOperator(TpchBlocksProvider blocksProvider)
+    protected Operator createBenchmarkedOperator()
     {
-        BlockIterable blockIterable = getBlockIterable(blocksProvider, "orders", "orderkey", BlocksFileEncoding.RAW);
+        BlockIterable blockIterable = getBlockIterable("orders", "orderkey", BlocksFileEncoding.RAW);
         AlignmentOperator alignmentOperator = new AlignmentOperator(blockIterable);
         return new AggregationOperator(alignmentOperator, Step.SINGLE, ImmutableList.of(aggregation(COUNT, new Input(0, 0))));
     }
 
-    protected long[] execute(TpchBlocksProvider blocksProvider)
-    {
-        Operator operator = createBenchmarkedOperator(blocksProvider);
-
-        long outputRows = 0;
-        long outputBytes = 0;
-        PageIterator iterator = operator.iterator(new OperatorStats());
-        while (iterator.hasNext()) {
-            Page page = iterator.next();
-            BlockCursor cursor = page.getBlock(0).cursor();
-            while (cursor.advanceNextPosition()) {
-                outputRows++;
-            }
-
-            for (Block block : page.getBlocks()) {
-                outputBytes += block.getDataSize().toBytes();
-            }
-        }
-        return new long[] {outputRows, outputBytes};
-    }
-
     public static void main(String[] args)
     {
-        new CountAggregationBenchmark().runBenchmark(
+        new CountAggregationBenchmark(DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(
                 new SimpleLineBenchmarkResultWriter(System.out)
         );
     }

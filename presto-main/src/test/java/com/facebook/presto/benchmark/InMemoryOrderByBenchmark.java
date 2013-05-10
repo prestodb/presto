@@ -1,15 +1,10 @@
 package com.facebook.presto.benchmark;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.InMemoryOrderByOperator;
 import com.facebook.presto.operator.LimitOperator;
 import com.facebook.presto.operator.Operator;
-import com.facebook.presto.operator.OperatorStats;
-import com.facebook.presto.operator.Page;
-import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.tpch.TpchBlocksProvider;
 import io.airlift.units.DataSize;
@@ -23,16 +18,16 @@ public class InMemoryOrderByBenchmark
 {
     private static final int ROWS = 1_500_000;
 
-    public InMemoryOrderByBenchmark()
+    public InMemoryOrderByBenchmark(TpchBlocksProvider tpchBlocksProvider)
     {
-        super("in_memory_orderby_1.5M", 5, 10);
+        super(tpchBlocksProvider, "in_memory_orderby_1.5M", 5, 10);
     }
 
     @Override
-    protected Operator createBenchmarkedOperator(TpchBlocksProvider blocksProvider)
+    protected Operator createBenchmarkedOperator()
     {
-        BlockIterable totalPrice = getBlockIterable(blocksProvider, "orders", "totalprice", BlocksFileEncoding.RAW);
-        BlockIterable clerk = getBlockIterable(blocksProvider, "orders", "clerk", BlocksFileEncoding.RAW);
+        BlockIterable totalPrice = getBlockIterable("orders", "totalprice", BlocksFileEncoding.RAW);
+        BlockIterable clerk = getBlockIterable("orders", "clerk", BlocksFileEncoding.RAW);
         AlignmentOperator alignmentOperator = new AlignmentOperator(concat(nCopies(100, totalPrice)), concat(nCopies(100, clerk)));
 
         LimitOperator limitOperator = new LimitOperator(alignmentOperator, ROWS);
@@ -40,31 +35,9 @@ public class InMemoryOrderByBenchmark
         return orderByOperator;
     }
 
-    @Override
-    protected long[] execute(TpchBlocksProvider blocksProvider)
-    {
-        Operator operator = createBenchmarkedOperator(blocksProvider);
-
-        long outputRows = 0;
-        long outputBytes = 0;
-        PageIterator iterator = operator.iterator(new OperatorStats());
-        while (iterator.hasNext()) {
-            Page page = iterator.next();
-            BlockCursor cursor = page.getBlock(0).cursor();
-            while (cursor.advanceNextPosition()) {
-                outputRows++;
-            }
-
-            for (Block block : page.getBlocks()) {
-                outputBytes += block.getDataSize().toBytes();
-            }
-        }
-        return new long[] {outputRows, outputBytes};
-    }
-
     public static void main(String[] args)
     {
-        new InMemoryOrderByBenchmark().runBenchmark(
+        new InMemoryOrderByBenchmark(DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(
                 new SimpleLineBenchmarkResultWriter(System.out)
         );
     }

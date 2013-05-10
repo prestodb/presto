@@ -1,5 +1,13 @@
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.connector.dual.DualHandleResolver;
+import com.facebook.presto.connector.dual.DualTableHandle;
+import com.facebook.presto.connector.informationSchema.InformationSchemaHandleResolver;
+import com.facebook.presto.connector.informationSchema.InformationSchemaTableHandle;
+import com.facebook.presto.connector.system.SystemHandleResolver;
+import com.facebook.presto.connector.system.SystemTableHandle;
+import com.facebook.presto.spi.ConnectorHandleResolver;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.tpch.TpchHandleResolver;
 import com.facebook.presto.tpch.TpchTableHandle;
@@ -12,6 +20,7 @@ import com.google.inject.Injector;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import com.google.inject.Stage;
+import com.google.inject.multibindings.MapBinder;
 import io.airlift.json.JsonModule;
 import io.airlift.testing.Assertions;
 import org.testng.annotations.BeforeMethod;
@@ -26,15 +35,24 @@ import static org.testng.Assert.assertTrue;
 public class TestJsonTableHandle
 {
     private static final Map<String, Object> NATIVE_AS_MAP = ImmutableMap.<String, Object>of("type", "native",
-            "schemaName", "schema",
-            "tableName", "table",
+            "schemaName", "native_schema",
+            "tableName", "native_table",
             "tableId", 1);
 
     private static final Map<String, Object> TPCH_AS_MAP = ImmutableMap.<String, Object>of("type", "tpch",
-            "tableName", "tpchtable");
+            "tableName", "tpch_table");
 
-    private static final Map<String, Object> INTERNAL_AS_MAP = ImmutableMap.<String, Object>of("type", "internal",
-            "tableName", "thecatalog.theschema.thetable");
+    private static final Map<String, Object> SYSTEM_AS_MAP = ImmutableMap.<String, Object>of("type", "system",
+            "schemaName", "system_schema",
+            "tableName", "system_table");
+
+    private static final Map<String, Object> DUAL_AS_MAP = ImmutableMap.<String, Object>of("type", "dual",
+            "schemaName", "dual_schema");
+
+    private static final Map<String, Object> INFORMATION_SCHEMA_AS_MAP = ImmutableMap.<String, Object>of("type", "information_schema",
+            "catalogName", "information_schema_catalog",
+            "schemaName", "information_schema_schema",
+            "tableName", "information_schema_table");
 
     private ObjectMapper objectMapper;
 
@@ -48,23 +66,23 @@ public class TestJsonTableHandle
                     @Override
                     public void configure(Binder binder)
                     {
-                        binder.bind(HandleResolver.class).in(Scopes.SINGLETON);
+                        MapBinder<String, ConnectorHandleResolver> connectorHandleResolverBinder = MapBinder.newMapBinder(binder, String.class, ConnectorHandleResolver.class);
+                        connectorHandleResolverBinder.addBinding("native").to(NativeHandleResolver.class).in(Scopes.SINGLETON);
+                        connectorHandleResolverBinder.addBinding("tpch").to(TpchHandleResolver.class).in(Scopes.SINGLETON);
+                        connectorHandleResolverBinder.addBinding("system").to(SystemHandleResolver.class).in(Scopes.SINGLETON);
+                        connectorHandleResolverBinder.addBinding("dual").to(DualHandleResolver.class).in(Scopes.SINGLETON);
+                        connectorHandleResolverBinder.addBinding("information_schema").to(InformationSchemaHandleResolver.class).in(Scopes.SINGLETON);
                     }
                 });
 
         objectMapper = injector.getInstance(ObjectMapper.class);
-
-        HandleResolver handleResolver = injector.getInstance(HandleResolver.class);
-        handleResolver.addHandleResolver("native", new NativeHandleResolver());
-        handleResolver.addHandleResolver("tpch", new TpchHandleResolver());
-        handleResolver.addHandleResolver("internal", new InternalHandleResolver());
     }
 
     @Test
     public void testNativeSerialize()
             throws Exception
     {
-        NativeTableHandle nativeHandle = new NativeTableHandle("schema", "table", 1);
+        NativeTableHandle nativeHandle = new NativeTableHandle("native_schema", "native_table", 1);
 
         assertTrue(objectMapper.canSerialize(NativeTableHandle.class));
         String json = objectMapper.writeValueAsString(nativeHandle);
@@ -72,25 +90,50 @@ public class TestJsonTableHandle
     }
 
     @Test
-    public void testInternalSerialize()
-            throws Exception
-    {
-        InternalTableHandle internalHandle = new InternalTableHandle(new QualifiedTableName("thecatalog", "theschema", "thetable"));
-
-        assertTrue(objectMapper.canSerialize(InternalTableHandle.class));
-        String json = objectMapper.writeValueAsString(internalHandle);
-        testJsonEquals(json, INTERNAL_AS_MAP);
-    }
-
-    @Test
     public void testTpchSerialize()
             throws Exception
     {
-        TpchTableHandle tpchHandle = new TpchTableHandle("tpchtable");
+        TpchTableHandle tpchHandle = new TpchTableHandle("tpch_table");
 
         assertTrue(objectMapper.canSerialize(TpchTableHandle.class));
         String json = objectMapper.writeValueAsString(tpchHandle);
         testJsonEquals(json, TPCH_AS_MAP);
+    }
+
+    @Test
+    public void testSystemSerialize()
+            throws Exception
+    {
+        SystemTableHandle internalHandle = new SystemTableHandle("system_schema", "system_table");
+
+        assertTrue(objectMapper.canSerialize(SystemTableHandle.class));
+        String json = objectMapper.writeValueAsString(internalHandle);
+        testJsonEquals(json, SYSTEM_AS_MAP);
+    }
+
+    @Test
+    public void testDualSerialize()
+            throws Exception
+    {
+        DualTableHandle internalHandle = new DualTableHandle("dual_schema");
+
+        assertTrue(objectMapper.canSerialize(DualTableHandle.class));
+        String json = objectMapper.writeValueAsString(internalHandle);
+        testJsonEquals(json, DUAL_AS_MAP);
+    }
+
+    @Test
+    public void testInformationSchemaSerialize()
+            throws Exception
+    {
+        InformationSchemaTableHandle informationSchemaTableHandle = new InformationSchemaTableHandle(
+                "information_schema_catalog",
+                "information_schema_schema",
+                "information_schema_table");
+
+        assertTrue(objectMapper.canSerialize(NativeTableHandle.class));
+        String json = objectMapper.writeValueAsString(informationSchemaTableHandle);
+        testJsonEquals(json, INFORMATION_SCHEMA_AS_MAP);
     }
 
     @Test
@@ -104,19 +147,8 @@ public class TestJsonTableHandle
         NativeTableHandle nativeHandle = (NativeTableHandle) tableHandle;
 
         assertEquals(nativeHandle.getTableId(), 1);
-    }
-
-    @Test
-    public void testInternalDeserialize()
-            throws Exception
-    {
-        String json = objectMapper.writeValueAsString(INTERNAL_AS_MAP);
-
-        TableHandle tableHandle = objectMapper.readValue(json, TableHandle.class);
-        assertEquals(tableHandle.getClass(), InternalTableHandle.class);
-        InternalTableHandle internalHandle = (InternalTableHandle) tableHandle;
-
-        assertEquals(internalHandle.getTableName(), new QualifiedTableName("thecatalog", "theschema", "thetable"));
+        assertEquals(nativeHandle.getSchemaName(), "native_schema");
+        assertEquals(nativeHandle.getTableName(), "native_table");
     }
 
     @Test
@@ -129,7 +161,48 @@ public class TestJsonTableHandle
         assertEquals(tableHandle.getClass(), TpchTableHandle.class);
         TpchTableHandle tpchTableHandle = (TpchTableHandle) tableHandle;
 
-        assertEquals(tpchTableHandle.getTableName(), "tpchtable");
+        assertEquals(tpchTableHandle.getTableName(), "tpch_table");
+    }
+
+    @Test
+    public void testSystemDeserialize()
+            throws Exception
+    {
+        String json = objectMapper.writeValueAsString(SYSTEM_AS_MAP);
+
+        TableHandle tableHandle = objectMapper.readValue(json, TableHandle.class);
+        assertEquals(tableHandle.getClass(), SystemTableHandle.class);
+        SystemTableHandle systemHandle = (SystemTableHandle) tableHandle;
+
+        assertEquals(systemHandle.getSchemaTableName(), new SchemaTableName("system_schema", "system_table"));
+    }
+
+    @Test
+    public void testDualDeserialize()
+            throws Exception
+    {
+        String json = objectMapper.writeValueAsString(DUAL_AS_MAP);
+
+        TableHandle tableHandle = objectMapper.readValue(json, TableHandle.class);
+        assertEquals(tableHandle.getClass(), DualTableHandle.class);
+        DualTableHandle dualHandle = (DualTableHandle) tableHandle;
+
+        assertEquals(dualHandle.getSchemaName(), "dual_schema");
+    }
+
+    @Test
+    public void testInformationSchemaDeserialize()
+            throws Exception
+    {
+        String json = objectMapper.writeValueAsString(INFORMATION_SCHEMA_AS_MAP);
+
+        TableHandle tableHandle = objectMapper.readValue(json, TableHandle.class);
+        assertEquals(tableHandle.getClass(), InformationSchemaTableHandle.class);
+        InformationSchemaTableHandle informationSchemaHandle = (InformationSchemaTableHandle) tableHandle;
+
+        assertEquals(informationSchemaHandle.getCatalogName(), "information_schema_catalog");
+        assertEquals(informationSchemaHandle.getSchemaName(), "information_schema_schema");
+        assertEquals(informationSchemaHandle.getTableName(), "information_schema_table");
     }
 
     private void testJsonEquals(String json, Map<String, Object> expectedMap)

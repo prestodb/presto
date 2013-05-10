@@ -40,6 +40,15 @@ public class InternalTable
         return columns.get(columnName);
     }
 
+    public List<BlockIterable> getColumns(List<String> columnNames)
+    {
+        ImmutableList.Builder<BlockIterable> columns = ImmutableList.builder();
+        for (String columnName : columnNames) {
+            columns.add(getColumn(columnName));
+        }
+        return columns.build();
+    }
+
     public static Builder builder(TupleInfo tupleInfo, String firstColumnName, String... otherColumnNames)
     {
         return new Builder(tupleInfo, ImmutableList.<String>builder().add(firstColumnName).add(otherColumnNames).build());

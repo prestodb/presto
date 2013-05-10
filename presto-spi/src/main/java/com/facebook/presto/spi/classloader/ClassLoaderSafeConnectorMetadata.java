@@ -3,7 +3,7 @@ package com.facebook.presto.spi.classloader;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorMetadata;
-import com.facebook.presto.spi.SchemaTableMetadata;
+import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableHandle;
@@ -49,7 +49,7 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public SchemaTableMetadata getTableMetadata(TableHandle table)
+    public TableMetadata getTableMetadata(TableHandle table)
     {
         try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
             return delegate.getTableMetadata(table);
@@ -97,7 +97,7 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public TableHandle createTable(SchemaTableMetadata tableMetadata)
+    public TableHandle createTable(TableMetadata tableMetadata)
     {
         try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
             return delegate.createTable(tableMetadata);

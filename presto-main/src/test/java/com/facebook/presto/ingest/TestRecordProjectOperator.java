@@ -5,6 +5,7 @@ package com.facebook.presto.ingest;
 
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskOutput;
+import com.facebook.presto.metadata.InMemoryRecordSet;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.PageIterator;

@@ -39,6 +39,20 @@ public class SchemaTablePrefix
         return tableName;
     }
 
+    public boolean matches(SchemaTableName schemaTableName)
+    {
+        // null schema name matches everything
+        if (schemaName == null) {
+            return true;
+        }
+
+        if (!schemaName.equals(schemaTableName.getSchemaName())) {
+            return false;
+        }
+
+        return tableName == null || tableName.equals(schemaTableName.getTableName());
+    }
+
     @Override
     public int hashCode()
     {

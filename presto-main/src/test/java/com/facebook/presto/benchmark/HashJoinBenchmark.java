@@ -1,14 +1,10 @@
 package com.facebook.presto.benchmark;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.HashJoinOperator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
-import com.facebook.presto.operator.Page;
-import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.operator.SourceHashProvider;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.tpch.TpchBlocksProvider;
@@ -21,9 +17,9 @@ public class HashJoinBenchmark
 {
     private SourceHashProvider sourceHashProvider;
 
-    public HashJoinBenchmark()
+    public HashJoinBenchmark(TpchBlocksProvider tpchBlocksProvider)
     {
-        super("hash_join", 4, 5);
+        super(tpchBlocksProvider, "hash_join", 4, 5);
     }
 
     /*
@@ -31,19 +27,19 @@ public class HashJoinBenchmark
     from lineitem join orders using (orderkey)
      */
     @Override
-    protected Operator createBenchmarkedOperator(TpchBlocksProvider blocksProvider)
+    protected Operator createBenchmarkedOperator()
     {
         if (sourceHashProvider == null) {
-            BlockIterable orderOrderKey = getBlockIterable(blocksProvider, "orders", "orderkey", BlocksFileEncoding.RAW);
-            BlockIterable totalPrice = getBlockIterable(blocksProvider, "orders", "totalprice", BlocksFileEncoding.RAW);
+            BlockIterable orderOrderKey = getBlockIterable("orders", "orderkey", BlocksFileEncoding.RAW);
+            BlockIterable totalPrice = getBlockIterable("orders", "totalprice", BlocksFileEncoding.RAW);
             AlignmentOperator ordersTableScan = new AlignmentOperator(orderOrderKey, totalPrice);
 //            AlignmentOperator ordersTableScan = new AlignmentOperator(concat(nCopies(100, orderOrderKey)), concat(nCopies(100, totalPrice)));
 //            LimitOperator ordersLimit = new LimitOperator(ordersTableScan, 1_500_000);
             sourceHashProvider = new SourceHashProvider(ordersTableScan, 0, 1_500_000, new DataSize(100, MEGABYTE), new OperatorStats());
         }
 
-        BlockIterable lineItemOrderKey = getBlockIterable(blocksProvider, "lineitem", "orderkey", BlocksFileEncoding.RAW);
-        BlockIterable lineNumber = getBlockIterable(blocksProvider, "lineitem", "quantity", BlocksFileEncoding.RAW);
+        BlockIterable lineItemOrderKey = getBlockIterable("lineitem", "orderkey", BlocksFileEncoding.RAW);
+        BlockIterable lineNumber = getBlockIterable("lineitem", "quantity", BlocksFileEncoding.RAW);
         AlignmentOperator lineItemTableScan = new AlignmentOperator(lineItemOrderKey, lineNumber);
 //        AlignmentOperator lineItemTableScan = new AlignmentOperator(concat(nCopies(100, lineItemOrderKey)), concat(nCopies(100, lineNumber)));
 //        LimitOperator lineItemLimit = new LimitOperator(lineItemTableScan, 10_000_000);
@@ -51,31 +47,9 @@ public class HashJoinBenchmark
         return new HashJoinOperator(sourceHashProvider, lineItemTableScan, 0);
     }
 
-    @Override
-    protected long[] execute(TpchBlocksProvider blocksProvider)
-    {
-        Operator operator = createBenchmarkedOperator(blocksProvider);
-
-        long outputRows = 0;
-        long outputBytes = 0;
-        PageIterator iterator = operator.iterator(new OperatorStats());
-        while (iterator.hasNext()) {
-            Page page = iterator.next();
-            BlockCursor cursor = page.getBlock(0).cursor();
-            while (cursor.advanceNextPosition()) {
-                outputRows++;
-            }
-
-            for (Block block : page.getBlocks()) {
-                outputBytes += block.getDataSize().toBytes();
-            }
-        }
-        return new long[] {outputRows, outputBytes};
-    }
-
     public static void main(String[] args)
     {
-        new HashJoinBenchmark().runBenchmark(
+        new HashJoinBenchmark(DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(
                 new SimpleLineBenchmarkResultWriter(System.out)
         );
     }

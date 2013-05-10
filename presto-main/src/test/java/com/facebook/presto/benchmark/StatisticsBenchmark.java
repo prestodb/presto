@@ -1,125 +1,92 @@
 package com.facebook.presto.benchmark;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.operator.Operator;
-import com.facebook.presto.operator.OperatorStats;
-import com.facebook.presto.operator.Page;
-import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.tpch.TpchBlocksProvider;
-import org.intellij.lang.annotations.Language;
+
+import static com.facebook.presto.benchmark.AbstractOperatorBenchmark.DEFAULT_TPCH_BLOCKS_PROVIDER;
 
 public abstract class StatisticsBenchmark
-        extends AbstractSqlBenchmark
 {
-    protected StatisticsBenchmark(String benchmarkName, int warmupIterations, int measuredIterations, @Language("SQL") String query)
+    public static void main(String... args)
     {
-        super(benchmarkName, warmupIterations, measuredIterations, query);
-    }
-
-    @Override
-    protected long[] execute(TpchBlocksProvider blocksProvider)
-    {
-        Operator operator = createBenchmarkedOperator(blocksProvider);
-
-        long outputRows = 0;
-        long outputBytes = 0;
-        PageIterator iterator = operator.iterator(new OperatorStats());
-        while (iterator.hasNext()) {
-            Page page = iterator.next();
-            BlockCursor cursor = page.getBlock(0).cursor();
-            while (cursor.advanceNextPosition()) {
-                outputRows++;
-            }
-
-            for (Block block : page.getBlocks()) {
-                outputBytes += block.getDataSize().toBytes();
-            }
-        }
-        return new long[] {outputRows, outputBytes};
-    }
-
-    public static final void main(String ... args) throws Exception
-    {
-        new LongVarianceBenchmark().runBenchmark(new AverageBenchmarkResults());
-        new LongVariancePopBenchmark().runBenchmark(new AverageBenchmarkResults());
-        new DoubleVarianceBenchmark().runBenchmark(new AverageBenchmarkResults());
-        new DoubleVariancePopBenchmark().runBenchmark(new AverageBenchmarkResults());
-        new LongStdDevBenchmark().runBenchmark(new AverageBenchmarkResults());
-        new LongStdDevPopBenchmark().runBenchmark(new AverageBenchmarkResults());
-        new DoubleStdDevBenchmark().runBenchmark(new AverageBenchmarkResults());
-        new DoubleStdDevPopBenchmark().runBenchmark(new AverageBenchmarkResults());
+        new LongVarianceBenchmark(DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(new AverageBenchmarkResults());
+        new LongVariancePopBenchmark(DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(new AverageBenchmarkResults());
+        new DoubleVarianceBenchmark(DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(new AverageBenchmarkResults());
+        new DoubleVariancePopBenchmark(DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(new AverageBenchmarkResults());
+        new LongStdDevBenchmark(DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(new AverageBenchmarkResults());
+        new LongStdDevPopBenchmark(DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(new AverageBenchmarkResults());
+        new DoubleStdDevBenchmark(DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(new AverageBenchmarkResults());
+        new DoubleStdDevPopBenchmark(DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(new AverageBenchmarkResults());
     }
 
     public static class LongVarianceBenchmark
-            extends StatisticsBenchmark
+            extends AbstractSqlBenchmark
     {
-        public LongVarianceBenchmark()
+        public LongVarianceBenchmark(TpchBlocksProvider tpchBlocksProvider)
         {
-            super("stat_long_variance", 25, 150, "select var_samp(orderkey) from orders");
+            super(tpchBlocksProvider, "stat_long_variance", 25, 150, "select var_samp(orderkey) from orders");
         }
     }
 
     public static class LongVariancePopBenchmark
-            extends StatisticsBenchmark
+            extends AbstractSqlBenchmark
     {
-        public LongVariancePopBenchmark()
+        public LongVariancePopBenchmark(TpchBlocksProvider tpchBlocksProvider)
         {
-            super("stat_long_variance_pop", 25, 150, "select var_pop(orderkey) from orders");
+            super(tpchBlocksProvider, "stat_long_variance_pop", 25, 150, "select var_pop(orderkey) from orders");
         }
     }
 
     public static class DoubleVarianceBenchmark
-            extends StatisticsBenchmark
+            extends AbstractSqlBenchmark
     {
-        public DoubleVarianceBenchmark()
+        public DoubleVarianceBenchmark(TpchBlocksProvider tpchBlocksProvider)
         {
-            super("stat_double_variance", 25, 150, "select var_samp(totalprice) from orders");
+            super(tpchBlocksProvider, "stat_double_variance", 25, 150, "select var_samp(totalprice) from orders");
         }
     }
 
     public static class DoubleVariancePopBenchmark
-            extends StatisticsBenchmark
+            extends AbstractSqlBenchmark
     {
-        public DoubleVariancePopBenchmark()
+        public DoubleVariancePopBenchmark(TpchBlocksProvider tpchBlocksProvider)
         {
-            super("stat_double_variance_pop", 25, 150, "select var_pop(totalprice) from orders");
+            super(tpchBlocksProvider, "stat_double_variance_pop", 25, 150, "select var_pop(totalprice) from orders");
         }
     }
 
     public static class LongStdDevBenchmark
-            extends StatisticsBenchmark
+            extends AbstractSqlBenchmark
     {
-        public LongStdDevBenchmark()
+        public LongStdDevBenchmark(TpchBlocksProvider tpchBlocksProvider)
         {
-            super("stat_long_stddev", 25, 150, "select stddev_samp(orderkey) from orders");
+            super(tpchBlocksProvider, "stat_long_stddev", 25, 150, "select stddev_samp(orderkey) from orders");
         }
     }
 
     public static class LongStdDevPopBenchmark
-            extends StatisticsBenchmark
+            extends AbstractSqlBenchmark
     {
-        public LongStdDevPopBenchmark()
+        public LongStdDevPopBenchmark(TpchBlocksProvider tpchBlocksProvider)
         {
-            super("stat_long_stddev_pop", 25, 150, "select stddev_pop(orderkey) from orders");
+            super(tpchBlocksProvider, "stat_long_stddev_pop", 25, 150, "select stddev_pop(orderkey) from orders");
         }
     }
 
     public static class DoubleStdDevBenchmark
-            extends StatisticsBenchmark
+            extends AbstractSqlBenchmark
     {
-        public DoubleStdDevBenchmark()
+        public DoubleStdDevBenchmark(TpchBlocksProvider tpchBlocksProvider)
         {
-            super("stat_double_stddev", 25, 150, "select stddev_samp(totalprice) from orders");
+            super(tpchBlocksProvider, "stat_double_stddev", 25, 150, "select stddev_samp(totalprice) from orders");
         }
     }
 
     public static class DoubleStdDevPopBenchmark
-            extends StatisticsBenchmark
+            extends AbstractSqlBenchmark
     {
-        public DoubleStdDevPopBenchmark()
+        public DoubleStdDevPopBenchmark(TpchBlocksProvider tpchBlocksProvider)
         {
-            super("stat_double_stddev_pop", 25, 150, "select stddev_pop(totalprice) from orders");
+            super(tpchBlocksProvider, "stat_double_stddev_pop", 25, 150, "select stddev_pop(totalprice) from orders");
         }
     }
 }

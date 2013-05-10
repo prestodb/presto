@@ -3,7 +3,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.metadata.MetadataDao.Utils;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.SchemaTableMetadata;
+import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableHandle;
@@ -68,7 +68,7 @@ public class NativeMetadata
     }
 
     @Override
-    public SchemaTableMetadata getTableMetadata(TableHandle tableHandle)
+    public TableMetadata getTableMetadata(TableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         checkArgument(tableHandle instanceof NativeTableHandle, "tableHandle is not an instance of NativeTableHandle");
@@ -82,7 +82,7 @@ public class NativeMetadata
             return null;
         }
 
-        return new SchemaTableMetadata(tableName, columns);
+        return new TableMetadata(tableName, columns);
     }
 
     @Override
@@ -161,7 +161,7 @@ public class NativeMetadata
     }
 
     @Override
-    public TableHandle createTable(final SchemaTableMetadata tableMetadata)
+    public TableHandle createTable(final TableMetadata tableMetadata)
     {
         Long tableId = dbi.inTransaction(new TransactionCallback<Long>()
         {

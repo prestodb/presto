@@ -6,7 +6,7 @@ import com.facebook.presto.guice.TestingJmxModule;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.facebook.presto.tpch.TpchModule;
-import com.facebook.presto.util.TestingTpchBlocksProvider;
+import com.facebook.presto.util.InMemoryTpchBlocksProvider;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
@@ -68,7 +68,7 @@ public class TestingPrestoServer
                     @Override
                     public void configure(Binder binder)
                     {
-                        binder.bind(TpchBlocksProvider.class).to(TestingTpchBlocksProvider.class).in(Scopes.SINGLETON);
+                        binder.bind(TpchBlocksProvider.class).to(InMemoryTpchBlocksProvider.class).in(Scopes.SINGLETON);
                     }
                 });
 

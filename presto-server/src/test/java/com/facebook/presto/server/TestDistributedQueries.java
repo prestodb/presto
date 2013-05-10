@@ -10,18 +10,16 @@ import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
 import com.facebook.presto.connector.ConnectorManager;
+import com.facebook.presto.connector.informationSchema.InformationSchemaHandleResolver;
 import com.facebook.presto.failureDetector.FailureDetectorModule;
 import com.facebook.presto.guice.TestingJmxModule;
-import com.facebook.presto.metadata.CollocatedSplitHandleResolver;
 import com.facebook.presto.metadata.HandleJsonModule;
-import com.facebook.presto.metadata.HandleResolver;
-import com.facebook.presto.metadata.InternalHandleResolver;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NativeHandleResolver;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
-import com.facebook.presto.metadata.RemoteSplitHandleResolver;
+import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Serialization.ExpressionDeserializer;
@@ -33,14 +31,12 @@ import com.facebook.presto.tpch.TpchModule;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
+import com.facebook.presto.util.InMemoryTpchBlocksProvider;
 import com.facebook.presto.util.MaterializedResult;
-import com.facebook.presto.util.MaterializedTuple;
-import com.facebook.presto.util.TestingTpchBlocksProvider;
 import com.google.common.base.Function;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Closeables;
 import com.google.common.io.Files;
 import com.google.inject.Binder;
@@ -51,6 +47,7 @@ import com.google.inject.Module;
 import com.google.inject.Scopes;
 import com.google.inject.Stage;
 import com.google.inject.TypeLiteral;
+import com.google.inject.multibindings.MapBinder;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.discovery.DiscoveryServerModule;
@@ -106,82 +103,20 @@ public class TestDistributedQueries
     private List<PrestoTestingServer> servers;
     private AsyncHttpClient httpClient;
     private DiscoveryTestingServer discoveryServer;
-    private List<String> loadedTableNames;
 
-    @Test
-    public void testNodeRoster()
-            throws Exception
+    @Override
+    protected int getNodeCount()
     {
-        List<MaterializedTuple> result = computeActual("SELECT * FROM sys.nodes").getMaterializedTuples();
-        assertEquals(result.size(), servers.size());
+        return 3;
     }
 
     @Test
-    public void testDual()
+    public void testShowPartitions()
             throws Exception
     {
-        MaterializedResult result = computeActual("SELECT * FROM dual");
-        List<MaterializedTuple> tuples = result.getMaterializedTuples();
-        assertEquals(tuples.size(), 1);
-    }
-
-    @Test
-    public void testShowTables()
-            throws Exception
-    {
-        MaterializedResult result = computeActual("SHOW TABLES");
-        ImmutableSet<String> tableNames = ImmutableSet.copyOf(transform(result.getMaterializedTuples(), new Function<MaterializedTuple, String>()
-        {
-            @Override
-            public String apply(MaterializedTuple input)
-            {
-                assertEquals(input.getFieldCount(), 1);
-                return (String) input.getField(0);
-            }
-        }));
-        assertEquals(tableNames, ImmutableSet.copyOf(loadedTableNames));
-    }
-
-    @Test
-    public void testShowColumns()
-            throws Exception
-    {
-        MaterializedResult result = computeActual("SHOW COLUMNS FROM orders");
-        ImmutableSet<String> columnNames = ImmutableSet.copyOf(transform(result.getMaterializedTuples(), new Function<MaterializedTuple, String>()
-        {
-            @Override
-            public String apply(MaterializedTuple input)
-            {
-                assertEquals(input.getFieldCount(), 4);
-                return (String) input.getField(0);
-            }
-        }));
-        assertEquals(columnNames, ImmutableSet.of("orderkey", "custkey", "orderstatus", "totalprice", "orderdate", "orderpriority", "clerk", "shippriority", "comment"));
-    }
-
-    @Test
-    public void testShowFunctions()
-            throws Exception
-    {
-        MaterializedResult result = computeActual("SHOW FUNCTIONS");
-        ImmutableSet<String> functionNames = ImmutableSet.copyOf(transform(result.getMaterializedTuples(), new Function<MaterializedTuple, String>()
-        {
-            @Override
-            public String apply(MaterializedTuple input)
-            {
-                assertEquals(input.getFieldCount(), 3);
-                return (String) input.getField(0);
-            }
-        }));
-        assertTrue(functionNames.contains("avg"), "Expected function names " + functionNames + " to contain 'avg'");
-        assertTrue(functionNames.contains("abs"), "Expected function names " + functionNames + " to contain 'abs'");
-    }
-
-    @Test
-    public void testNoFrom()
-            throws Exception
-    {
-        assertQuery("SELECT 1 + 2, 3 + 4", "SELECT 1 + 2, 3 + 4 FROM orders LIMIT 1");
+        MaterializedResult result = computeActual("SHOW PARTITIONS FROM DEFAULT.ORDERS");
+        // table is not partitioned
+        assertEquals(result.getMaterializedTuples().size(), 0);
     }
 
     @Override
@@ -215,7 +150,7 @@ public class TestDistributedQueries
 
         log.info("Loading data...");
         long startTime = System.nanoTime();
-        loadedTableNames = distributeData(catalog, schema);
+        distributeData(catalog, schema);
         log.info("Loading complete in %.2fs", Duration.nanosSince(startTime).convertTo(TimeUnit.SECONDS));
     }
 
@@ -231,21 +166,20 @@ public class TestDistributedQueries
         Closeables.closeQuietly(discoveryServer);
     }
 
-    private List<String> distributeData(String catalog, String schema)
+    private void distributeData(String catalog, String schema)
             throws Exception
     {
-        ImmutableList.Builder<String> tableNames = ImmutableList.builder();
         List<QualifiedTableName> qualifiedTableNames = coordinator.metadata.listTables(new QualifiedTablePrefix(catalog, schema));
         for (QualifiedTableName qualifiedTableName : qualifiedTableNames) {
+            if (qualifiedTableName.getTableName().equalsIgnoreCase("dual")) {
+                continue;
+            }
             log.info("Running import for %s", qualifiedTableName.getTableName());
             MaterializedResult importResult = computeActual(format("CREATE MATERIALIZED VIEW default.default.%s AS SELECT * FROM %s",
                     qualifiedTableName.getTableName(),
                     qualifiedTableName));
             log.info("Imported %s rows for %s", importResult.getMaterializedTuples().get(0).getField(0), qualifiedTableName.getTableName());
-            tableNames.add(qualifiedTableName.getTableName());
         }
-
-        return tableNames.build();
     }
 
     @Override
@@ -398,7 +332,7 @@ public class TestDistributedQueries
                         @Override
                         public void configure(Binder binder)
                         {
-                            binder.bind(TpchBlocksProvider.class).to(TestingTpchBlocksProvider.class).in(Scopes.SINGLETON);
+                            binder.bind(TpchBlocksProvider.class).to(InMemoryTpchBlocksProvider.class).in(Scopes.SINGLETON);
                         }
                     });
 
@@ -556,18 +490,13 @@ public class TestDistributedQueries
                         JsonBinder.jsonBinder(binder).addSerializerBinding(Expression.class).to(ExpressionSerializer.class);
                         JsonBinder.jsonBinder(binder).addDeserializerBinding(Expression.class).to(ExpressionDeserializer.class);
                         JsonBinder.jsonBinder(binder).addDeserializerBinding(FunctionCall.class).to(FunctionCallDeserializer.class);
-                        binder.bind(HandleResolver.class).in(Scopes.SINGLETON);
+
+                        MapBinder<String, ConnectorHandleResolver> connectorHandleResolverBinder = MapBinder.newMapBinder(binder, String.class, ConnectorHandleResolver.class);
+                        connectorHandleResolverBinder.addBinding("information_schema").to(InformationSchemaHandleResolver.class).in(Scopes.SINGLETON);
+                        connectorHandleResolverBinder.addBinding("native").to(NativeHandleResolver.class).in(Scopes.SINGLETON);
+                        connectorHandleResolverBinder.addBinding("tpch").to(TpchHandleResolver.class).in(Scopes.SINGLETON);
                     }
                 });
-
-        HandleResolver handleResolver = injector.getInstance(HandleResolver.class);
-
-        // for not just hard code the handle resolvers
-        handleResolver.addHandleResolver("native", new NativeHandleResolver());
-        handleResolver.addHandleResolver("tpch", new TpchHandleResolver());
-        handleResolver.addHandleResolver("internal", new InternalHandleResolver());
-        handleResolver.addHandleResolver("remote", new RemoteSplitHandleResolver());
-        handleResolver.addHandleResolver("collocated", new CollocatedSplitHandleResolver());
 
         return injector.getInstance(JsonCodecFactory.class);
     }

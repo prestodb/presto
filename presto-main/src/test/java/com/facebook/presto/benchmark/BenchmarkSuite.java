@@ -1,5 +1,6 @@
 package com.facebook.presto.benchmark;
 
+import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
 import io.airlift.log.Logger;
@@ -17,50 +18,53 @@ public class BenchmarkSuite
 {
     private static final Logger LOGGER = Logger.get(BenchmarkSuite.class);
 
-    public static final List<AbstractBenchmark> BENCHMARKS = ImmutableList.<AbstractBenchmark>of(
-            new CountAggregationBenchmark(),
-            new DoubleSumAggregationBenchmark(),
-            new HashAggregationBenchmark(),
-            new PredicateFilterBenchmark(),
-            new RawStreamingBenchmark(),
-            new Top100Benchmark(),
+    public static List<AbstractBenchmark> createBenchmarks(TpchBlocksProvider tpchBlocksProvider)
+    {
+        return ImmutableList.<AbstractBenchmark>of(
+                new CountAggregationBenchmark(tpchBlocksProvider),
+                new DoubleSumAggregationBenchmark(tpchBlocksProvider),
+                new HashAggregationBenchmark(tpchBlocksProvider),
+                new PredicateFilterBenchmark(tpchBlocksProvider),
+                new RawStreamingBenchmark(tpchBlocksProvider),
+                new Top100Benchmark(tpchBlocksProvider),
 
-            // benchmarks for new non-integrated features
-            new InMemoryOrderByBenchmark(),
-            new HashBuildBenchmark(),
-            new HashJoinBenchmark(),
-            new HashBuildAndJoinBenchmark(),
+                // benchmarks for new non-integrated features
+                new InMemoryOrderByBenchmark(tpchBlocksProvider),
+                new HashBuildBenchmark(tpchBlocksProvider),
+                new HashJoinBenchmark(tpchBlocksProvider),
+                new HashBuildAndJoinBenchmark(tpchBlocksProvider),
 
-            // sql benchmarks
-            new GroupBySumWithArithmeticSqlBenchmark(),
-            new CountAggregationSqlBenchmark(),
-            new SqlDoubleSumAggregationBenchmark(),
-            new CountWithFilterSqlBenchmark(),
-            new GroupByAggregationSqlBenchmark(),
-            new PredicateFilterSqlBenchmark(),
-            new RawStreamingSqlBenchmark(),
-            new Top100SqlBenchmark(),
-            new SqlHashJoinBenchmark(),
-            new VarBinaryMaxAggregationSqlBenchmark(),
-            new SqlDistinctMultipleFields(),
-            new SqlDistinctSingleField(),
-            new SqlTpchQuery1(),
-            new SqlLikeBenchmark(),
+                // sql benchmarks
+                new GroupBySumWithArithmeticSqlBenchmark(tpchBlocksProvider),
+                new CountAggregationSqlBenchmark(tpchBlocksProvider),
+                new SqlDoubleSumAggregationBenchmark(tpchBlocksProvider),
+                new CountWithFilterSqlBenchmark(tpchBlocksProvider),
+                new GroupByAggregationSqlBenchmark(tpchBlocksProvider),
+                new PredicateFilterSqlBenchmark(tpchBlocksProvider),
+                new RawStreamingSqlBenchmark(tpchBlocksProvider),
+                new Top100SqlBenchmark(tpchBlocksProvider),
+                new SqlHashJoinBenchmark(tpchBlocksProvider),
+                new VarBinaryMaxAggregationSqlBenchmark(tpchBlocksProvider),
+                new SqlDistinctMultipleFields(tpchBlocksProvider),
+                new SqlDistinctSingleField(tpchBlocksProvider),
+                new SqlTpchQuery1(tpchBlocksProvider),
+                new SqlLikeBenchmark(tpchBlocksProvider),
 
-            // statistics benchmarks
-            new StatisticsBenchmark.LongVarianceBenchmark(),
-            new StatisticsBenchmark.LongVariancePopBenchmark(),
-            new StatisticsBenchmark.DoubleVarianceBenchmark(),
-            new StatisticsBenchmark.DoubleVariancePopBenchmark(),
-            new StatisticsBenchmark.LongStdDevBenchmark(),
-            new StatisticsBenchmark.LongStdDevPopBenchmark(),
-            new StatisticsBenchmark.DoubleStdDevBenchmark(),
-            new StatisticsBenchmark.DoubleStdDevPopBenchmark(),
+                // statistics benchmarks
+                new StatisticsBenchmark.LongVarianceBenchmark(tpchBlocksProvider),
+                new StatisticsBenchmark.LongVariancePopBenchmark(tpchBlocksProvider),
+                new StatisticsBenchmark.DoubleVarianceBenchmark(tpchBlocksProvider),
+                new StatisticsBenchmark.DoubleVariancePopBenchmark(tpchBlocksProvider),
+                new StatisticsBenchmark.LongStdDevBenchmark(tpchBlocksProvider),
+                new StatisticsBenchmark.LongStdDevPopBenchmark(tpchBlocksProvider),
+                new StatisticsBenchmark.DoubleStdDevBenchmark(tpchBlocksProvider),
+                new StatisticsBenchmark.DoubleStdDevPopBenchmark(tpchBlocksProvider),
 
-            new SqlApproximateCountDistinctLongBenchmark(),
-            new SqlApproximateCountDistinctDoubleBenchmark(),
-            new SqlApproximateCountDistinctVarBinaryBenchmark()
-    );
+                new SqlApproximateCountDistinctLongBenchmark(tpchBlocksProvider),
+                new SqlApproximateCountDistinctDoubleBenchmark(tpchBlocksProvider),
+                new SqlApproximateCountDistinctVarBinaryBenchmark(tpchBlocksProvider)
+        );
+    }
 
     private final String outputDirectory;
 
@@ -80,13 +84,15 @@ public class BenchmarkSuite
     public void runAllBenchmarks()
             throws IOException
     {
+        List<AbstractBenchmark> benchmarks = createBenchmarks(AbstractOperatorBenchmark.DEFAULT_TPCH_BLOCKS_PROVIDER);
+
         LOGGER.info("=== Pre-running all benchmarks for JVM warmup ===");
-        for (AbstractBenchmark benchmark : BENCHMARKS) {
+        for (AbstractBenchmark benchmark : benchmarks) {
             benchmark.runBenchmark();
         }
 
         LOGGER.info("=== Actually running benchmarks for metrics ===");
-        for (AbstractBenchmark benchmark : BENCHMARKS) {
+        for (AbstractBenchmark benchmark : benchmarks) {
             try (OutputStream jsonOut = new FileOutputStream(createOutputFile(String.format("%s/json/%s.json", outputDirectory, benchmark.getBenchmarkName())));
                     OutputStream jsonAvgOut = new FileOutputStream(createOutputFile(String.format("%s/json-avg/%s.json", outputDirectory, benchmark.getBenchmarkName())));
                     OutputStream csvOut = new FileOutputStream(createOutputFile(String.format("%s/csv/%s.csv", outputDirectory, benchmark.getBenchmarkName())));
