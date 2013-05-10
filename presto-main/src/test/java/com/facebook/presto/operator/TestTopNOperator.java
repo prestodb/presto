@@ -6,6 +6,7 @@ import com.facebook.presto.tuple.FieldOrderedTupleComparator;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
+import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.operator.CancelTester.assertCancel;
@@ -39,7 +40,7 @@ public class TestTopNOperator
         );
 
         TopNOperator actual = new TopNOperator(
-                source, 2, 0, ImmutableList.of(singleColumn(FIXED_INT_64, 0, 0), singleColumn(DOUBLE, 1, 0))
+                source, 2, 0, ImmutableList.of(singleColumn(FIXED_INT_64, 0, 0), singleColumn(DOUBLE, 1, 0)), new DataSize(1, DataSize.Unit.MEGABYTE)
         );
 
         Operator expected = createOperator(
@@ -79,7 +80,7 @@ public class TestTopNOperator
         );
 
         TopNOperator actual = new TopNOperator(
-                source, 3, 0, ImmutableList.of(ProjectionFunctions.concat(singleColumn(VARIABLE_BINARY, 0, 0), singleColumn(FIXED_INT_64, 0, 1)))
+                source, 3, 0, ImmutableList.of(ProjectionFunctions.concat(singleColumn(VARIABLE_BINARY, 0, 0), singleColumn(FIXED_INT_64, 0, 1))), new DataSize(1, DataSize.Unit.MEGABYTE)
         );
 
 
@@ -116,7 +117,8 @@ public class TestTopNOperator
 
         TopNOperator actual = new TopNOperator(
                 source, 2, 0, ImmutableList.of(singleColumn(FIXED_INT_64, 0, 0), singleColumn(DOUBLE, 1, 0)),
-                Ordering.from(FieldOrderedTupleComparator.INSTANCE).reverse()
+                Ordering.from(FieldOrderedTupleComparator.INSTANCE).reverse(),
+                new DataSize(1, DataSize.Unit.MEGABYTE)
         );
 
         Operator expected = createOperator(
@@ -133,7 +135,7 @@ public class TestTopNOperator
             throws Exception
     {
         BlockingOperator blockingOperator = createCancelableDataSource(new TupleInfo(FIXED_INT_64), new TupleInfo(DOUBLE));
-        Operator operator = new TopNOperator(blockingOperator, 2, 0, ImmutableList.of(singleColumn(FIXED_INT_64, 0, 0), singleColumn(DOUBLE, 1, 0)));
+        Operator operator = new TopNOperator(blockingOperator, 2, 0, ImmutableList.of(singleColumn(FIXED_INT_64, 0, 0), singleColumn(DOUBLE, 1, 0)), new DataSize(1, DataSize.Unit.MEGABYTE));
         assertCancel(operator, blockingOperator);
     }
 }
