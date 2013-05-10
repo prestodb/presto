@@ -42,14 +42,15 @@ import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
+import org.joni.Regex;
+import org.joni.Option;
+import org.joni.Matcher;
 
 import javax.annotation.Nullable;
-
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
+import java.util.IdentityHashMap;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -62,6 +63,9 @@ public class ExpressionInterpreter
     private final Metadata metadata;
     private final Session session;
     private final boolean optimize;
+
+    // identity-based cache for LIKE expressions with constant pattern and escape char
+    private final IdentityHashMap<LikePredicate, Regex> LIKE_PATTERN_CACHE = new IdentityHashMap<>();
 
     public static ExpressionInterpreter expressionInterpreter(InputResolver inputResolver, Metadata metadata, Session session)
     {
@@ -591,7 +595,7 @@ public class ExpressionInterpreter
                 type = Type.BOOLEAN;
             }
             else if (value instanceof Expression) {
-                // TODO when we know the type of this expresstion, construct new FunctionCall node with optimized arguments
+                // TODO when we know the type of this expression, construct new FunctionCall node with optimized arguments
                 return node;
             }
             else {
@@ -624,46 +628,86 @@ public class ExpressionInterpreter
         if (!(value instanceof Slice)) {
             return node;
         }
-        String valueString = ((Slice) value).toString(UTF_8);
+        Slice valueSlice = ((Slice) value);
 
-        Object pattern = process(node.getPattern(), context);
-        if (!(pattern instanceof Slice)) {
-            return node;
+        Matcher matcher;
+        if (node.getPattern() instanceof StringLiteral && (node.getEscape() instanceof StringLiteral || node.getEscape() == null)) {
+            // fast path when we know the pattern and escape are constant
+            matcher = getConstantPattern(node).matcher(valueSlice.getBytes());
         }
-        String patternString = ((Slice) pattern).toString(UTF_8);
-
-        char escapeChar;
-        if (node.getEscape() != null) {
-            Object escape = process(node.getEscape(), context);
-            if (!(escape instanceof Slice)) {
+        else {
+            Object pattern = process(node.getPattern(), context);
+            if (!(pattern instanceof Slice)) {
                 return node;
             }
-            String escapeString = ((Slice) escape).toString(UTF_8);
-            if (escapeString.length() == 0) {
-                // escaping disabled
-                escapeChar = (char) -1; // invalid character
-            } else if (escapeString.length() == 1) {
-                escapeChar = escapeString.charAt(0);
-            } else {
-                throw new IllegalArgumentException("escape must be empty or a single character: "  + escapeString);
+            String patternString = ((Slice) pattern).toString(UTF_8);
+
+            char escapeChar;
+            if (node.getEscape() != null) {
+                Object escape = process(node.getEscape(), context);
+                if (!(escape instanceof Slice)) {
+                    return node;
+                }
+                escapeChar = getEscapeChar((Slice) escape);
             }
-        } else {
-            escapeChar = '\\';
+            else {
+                escapeChar = '\\';
+            }
+
+            matcher = likeToPattern(patternString, escapeChar).matcher(valueSlice.getBytes());
         }
 
-        Matcher matcher = likeToPattern(patternString, escapeChar).matcher(valueString);
-        return matcher.matches();
+        int match = matcher.match(0, valueSlice.length(), Option.NONE);
+        return match != -1;
     }
 
-    public static Pattern likeToPattern(String patternString, char escapeChar)
+    private Regex getConstantPattern(LikePredicate node)
+    {
+        Regex result = LIKE_PATTERN_CACHE.get(node);
+
+        if (result == null) {
+            StringLiteral pattern = (StringLiteral) node.getPattern();
+            StringLiteral escape = (StringLiteral) node.getEscape();
+
+            char escapeChar = '\\';
+            if (escape != null) {
+                escapeChar = getEscapeChar(escape.getSlice());
+            }
+
+            result = likeToPattern(pattern.getSlice().toString(UTF_8), escapeChar);
+
+            LIKE_PATTERN_CACHE.put(node, result);
+        }
+
+        return result;
+    }
+
+    private char getEscapeChar(Slice escape)
+    {
+        char escapeChar;
+        String escapeString = escape.toString(UTF_8);
+        if (escapeString.length() == 0) {
+            // escaping disabled
+            escapeChar = (char) -1; // invalid character
+        } else if (escapeString.length() == 1) {
+            escapeChar = escapeString.charAt(0);
+        } else {
+            throw new IllegalArgumentException("escape must be empty or a single character: "  + escapeString);
+        }
+        return escapeChar;
+    }
+
+    public static Regex likeToPattern(String patternString, char escapeChar)
     {
         StringBuilder regex = new StringBuilder(patternString.length() * 2);
 
+        regex.append('^');
         boolean escaped = false;
         for (char currentChar : patternString.toCharArray()) {
             if (currentChar == escapeChar) {
                 escaped = true;
-            } else {
+            }
+            else {
                 switch (currentChar) {
                     case '%':
                         if (escaped) {
@@ -684,12 +728,32 @@ public class ExpressionInterpreter
                         escaped = false;
                         break;
                     default:
+                        // escape special regex characters
+                        switch (currentChar) {
+                            case '\\':
+                            case '^':
+                            case '$':
+                            case '{':
+                            case '}':
+                            case '[':
+                            case ']':
+                            case '(':
+                            case ')':
+                            case '.':
+                            case '*':
+                            case '?':
+                            case '+':
+                            case '|':
+                                regex.append('\\');
+                        }
+
+                        regex.append(currentChar);
                         escaped = false;
-                        regex.append(Pattern.quote(String.valueOf(currentChar)));
                 }
             }
         }
-        return Pattern.compile(regex.toString());
+        regex.append('$');
+        return new Regex(regex);
     }
 
     protected Object visitExtract(Extract node, Void context)
