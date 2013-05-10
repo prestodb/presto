@@ -25,6 +25,8 @@ import static com.google.common.base.Preconditions.checkState;
 public class TopNOperator
         implements Operator
 {
+    private final static int MAX_INITIAL_PRIORITY_QUEUE_SIZE = 10000;
+
     private final Operator source;
     private final int n;
     private final int keyChannelIndex;
@@ -128,7 +130,7 @@ public class TopNOperator
 
         private Iterator<KeyAndTuples> selectTopN(PageIterator iterator)
         {
-            PriorityQueue<KeyAndTuples> globalCandidates = new PriorityQueue<>(n, KeyAndTuples.keyComparator(ordering));
+            PriorityQueue<KeyAndTuples> globalCandidates = new PriorityQueue<>(Math.min(n, MAX_INITIAL_PRIORITY_QUEUE_SIZE), KeyAndTuples.keyComparator(ordering));
             try (PageIterator pageIterator = iterator) {
                 while (pageIterator.hasNext()) {
                     Page page = pageIterator.next();
@@ -145,7 +147,7 @@ public class TopNOperator
 
         private Iterable<KeyAndPosition> computePageCandidatePositions(PriorityQueue<KeyAndTuples> globalCandidates, Page page)
         {
-            PriorityQueue<KeyAndPosition> pageCandidates = new PriorityQueue<>(n, KeyAndPosition.keyComparator(ordering));
+            PriorityQueue<KeyAndPosition> pageCandidates = new PriorityQueue<>(Math.min(n, MAX_INITIAL_PRIORITY_QUEUE_SIZE), KeyAndPosition.keyComparator(ordering));
             KeyAndTuples smallestGlobalCandidate = globalCandidates.peek(); // This can be null if globalCandidates is empty
             BlockCursor cursor = page.getBlock(keyChannelIndex).cursor();
             while (cursor.advanceNextPosition()) {
