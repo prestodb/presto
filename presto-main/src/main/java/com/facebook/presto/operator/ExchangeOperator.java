@@ -154,8 +154,9 @@ public class ExchangeOperator
                         operatorStats.addCompletedPositions(page.getPositionCount());
                         return page;
                     }
-                    else if (exchangeClient.isClosed()) {
+                    else if (operatorStats.isDone() || exchangeClient.isClosed()) {
                         // buffer is empty and all clients are complete, so we are done
+                        exchangeClient.close();
                         return endOfData();
                     }
                 }
