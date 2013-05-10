@@ -485,6 +485,72 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("IF(a, 1 + 2, 3 + 4)", "IF(a, 3, 7)");
     }
 
+    @Test
+    public void testLike()
+            throws Exception
+    {
+        assertOptimizedEquals("'a' LIKE 'a'", "true");
+        assertOptimizedEquals("'' LIKE 'a'", "false");
+        assertOptimizedEquals("'abc' LIKE 'a'", "false");
+
+        assertOptimizedEquals("'a' LIKE '_'", "true");
+        assertOptimizedEquals("'' LIKE '_'", "false");
+        assertOptimizedEquals("'abc' LIKE '_'", "false");
+
+        assertOptimizedEquals("'a' LIKE '%'", "true");
+        assertOptimizedEquals("'' LIKE '%'", "true");
+        assertOptimizedEquals("'abc' LIKE '%'", "true");
+
+        assertOptimizedEquals("'abc' LIKE '___'", "true");
+        assertOptimizedEquals("'ab' LIKE '___'", "false");
+        assertOptimizedEquals("'abcd' LIKE '___'", "false");
+
+        assertOptimizedEquals("'abc' LIKE 'abc'", "true");
+        assertOptimizedEquals("'xyz' LIKE 'abc'", "false");
+        assertOptimizedEquals("'abc0' LIKE 'abc'", "false");
+        assertOptimizedEquals("'0abc' LIKE 'abc'", "false");
+
+        assertOptimizedEquals("'abc' LIKE 'abc%'", "true");
+        assertOptimizedEquals("'abc0' LIKE 'abc%'", "true");
+        assertOptimizedEquals("'0abc' LIKE 'abc%'", "false");
+
+        assertOptimizedEquals("'abc' LIKE '%abc'", "true");
+        assertOptimizedEquals("'0abc' LIKE '%abc'", "true");
+        assertOptimizedEquals("'abc0' LIKE '%abc'", "false");
+
+        assertOptimizedEquals("'abc' LIKE '%abc%'", "true");
+        assertOptimizedEquals("'0abc' LIKE '%abc%'", "true");
+        assertOptimizedEquals("'abc0' LIKE '%abc%'", "true");
+        assertOptimizedEquals("'0abc0' LIKE '%abc%'", "true");
+        assertOptimizedEquals("'xyzw' LIKE '%abc%'", "false");
+
+        assertOptimizedEquals("'abc' LIKE '%ab%c%'", "true");
+        assertOptimizedEquals("'0abc' LIKE '%ab%c%'", "true");
+        assertOptimizedEquals("'abc0' LIKE '%ab%c%'", "true");
+        assertOptimizedEquals("'0abc0' LIKE '%ab%c%'", "true");
+        assertOptimizedEquals("'ab01c' LIKE '%ab%c%'", "true");
+        assertOptimizedEquals("'0ab01c' LIKE '%ab%c%'", "true");
+        assertOptimizedEquals("'ab01c0' LIKE '%ab%c%'", "true");
+        assertOptimizedEquals("'0ab01c0' LIKE '%ab%c%'", "true");
+
+        assertOptimizedEquals("'xyzw' LIKE '%ab%c%'", "false");
+
+        // ensure regex chars are escaped
+        assertOptimizedEquals("'\' LIKE '\'", "true");
+        assertOptimizedEquals("'.*' LIKE '.*'", "true");
+        assertOptimizedEquals("'[' LIKE '['", "true");
+        assertOptimizedEquals("']' LIKE ']'", "true");
+        assertOptimizedEquals("'{' LIKE '{'", "true");
+        assertOptimizedEquals("'}' LIKE '}'", "true");
+        assertOptimizedEquals("'?' LIKE '?'", "true");
+        assertOptimizedEquals("'+' LIKE '+'", "true");
+        assertOptimizedEquals("'(' LIKE '('", "true");
+        assertOptimizedEquals("')' LIKE ')'", "true");
+        assertOptimizedEquals("'|' LIKE '|'", "true");
+        assertOptimizedEquals("'^' LIKE '^'", "true");
+        assertOptimizedEquals("'$' LIKE '$'", "true");
+    }
+
     private static void assertOptimizedEquals(@Language("SQL") String actual, @Language("SQL") String expected)
     {
         assertEquals(optimize(actual), optimize(expected));
