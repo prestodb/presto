@@ -20,7 +20,7 @@ public class QueryStats
     @GuardedBy("this")
     private DateTime executionStartTime;
     @GuardedBy("this")
-    private DateTime lastHeartBeat;
+    private DateTime lastHeartbeat;
     @GuardedBy("this")
     private DateTime endTime;
 
@@ -34,7 +34,7 @@ public class QueryStats
     public QueryStats()
     {
         createTime = DateTime.now();
-        lastHeartBeat = DateTime.now();
+        lastHeartbeat = DateTime.now();
         createNanos = System.nanoTime();
     }
 
@@ -42,7 +42,7 @@ public class QueryStats
     public QueryStats(
             @JsonProperty("createTime") DateTime createTime,
             @JsonProperty("executionStartTime") DateTime executionStartTime,
-            @JsonProperty("lastHeartBeat") DateTime lastHeartBeat,
+            @JsonProperty("lastHeartbeat") DateTime lastHeartbeat,
             @JsonProperty("endTime") DateTime endTime,
             @JsonProperty("queuedTime") Duration queuedTime,
             @JsonProperty("analysisTime") Duration analysisTime,
@@ -50,7 +50,7 @@ public class QueryStats
     {
         this.createTime = createTime;
         this.executionStartTime = executionStartTime;
-        this.lastHeartBeat = lastHeartBeat;
+        this.lastHeartbeat = lastHeartbeat;
         this.endTime = endTime;
         this.queuedTime = queuedTime;
         this.analysisTime = analysisTime;
@@ -72,9 +72,9 @@ public class QueryStats
     }
 
     @JsonProperty
-    public synchronized DateTime getLastHeartBeat()
+    public synchronized DateTime getLastHeartbeat()
     {
-        return lastHeartBeat;
+        return lastHeartbeat;
     }
 
     @JsonProperty
@@ -107,9 +107,9 @@ public class QueryStats
         queuedTime = Duration.nanosSince(createNanos);
     }
 
-    public synchronized void recordHeartBeat()
+    public synchronized void recordHeartbeat()
     {
-        this.lastHeartBeat = DateTime.now();
+        this.lastHeartbeat = DateTime.now();
     }
 
     public synchronized void recordExecutionStart()
