@@ -29,6 +29,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -417,7 +418,8 @@ public class HiveClient
         checkArgument(partition instanceof HivePartition, "Partition must be a hive partition");
         SchemaTableName tableName = ((HivePartition) partition).getTableName();
 
-        List<String> partitionNames = Lists.transform(partitions, HiveUtil.partitionIdGetter());
+        List<String> partitionNames = new ArrayList<>(Lists.transform(partitions, HiveUtil.partitionIdGetter()));
+        Collections.sort(partitionNames, Ordering.natural().reverse());
 
         Table table;
         Iterable<org.apache.hadoop.hive.metastore.api.Partition> hivePartitions;
