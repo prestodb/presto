@@ -551,6 +551,19 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("'$' LIKE '$'", "true");
     }
 
+
+    @Test
+    public void testLikeOptimization()
+            throws Exception
+    {
+        assertOptimizedEquals("unboundstring like 'abc'", "unboundstring = 'abc'");
+
+        assertOptimizedEquals("boundstring like boundpattern", "true");
+        assertOptimizedEquals("'abc' like boundpattern", "false");
+
+        assertOptimizedEquals("unboundstring like boundpattern", "unboundstring like boundpattern");
+    }
+
     private static void assertOptimizedEquals(@Language("SQL") String actual, @Language("SQL") String expected)
     {
         assertEquals(optimize(actual), optimize(expected));
@@ -584,6 +597,8 @@ public class TestExpressionInterpreter
                     case "boundtimestamp":
                         DateTime dateTime = new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC);
                         return MILLISECONDS.toSeconds(dateTime.getMillis());
+                    case "boundpattern":
+                        return Slices.wrappedBuffer("%el%".getBytes(UTF_8));
                 }
 
                 return new QualifiedNameReference(symbol.toQualifiedName());
