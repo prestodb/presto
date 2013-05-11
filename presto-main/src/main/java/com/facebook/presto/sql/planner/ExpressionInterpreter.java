@@ -38,6 +38,7 @@ import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.WhenClause;
+import com.google.common.base.Charsets;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
@@ -625,40 +626,55 @@ public class ExpressionInterpreter
     protected Object visitLikePredicate(LikePredicate node, Void context)
     {
         Object value = process(node.getValue(), context);
-        if (!(value instanceof Slice)) {
-            return node;
-        }
-        Slice valueSlice = ((Slice) value);
 
-        Matcher matcher;
-        if (node.getPattern() instanceof StringLiteral && (node.getEscape() instanceof StringLiteral || node.getEscape() == null)) {
+        if (value instanceof Slice &&
+                node.getPattern() instanceof StringLiteral &&
+                (node.getEscape() instanceof StringLiteral || node.getEscape() == null)) {
             // fast path when we know the pattern and escape are constant
-            matcher = getConstantPattern(node).matcher(valueSlice.getBytes());
+            Slice valueSlice = (Slice) value;
+            Matcher matcher = getConstantPattern(node).matcher(valueSlice.getBytes());
+            return matcher.match(0, valueSlice.length(), Option.NONE) != -1;
         }
-        else {
-            Object pattern = process(node.getPattern(), context);
-            if (!(pattern instanceof Slice)) {
-                return node;
-            }
+
+        Object pattern = process(node.getPattern(), context);
+
+        Object escape = null;
+        if (node.getEscape() != null) {
+            escape = process(node.getEscape(), context);
+        }
+
+        if (value instanceof Slice &&
+                pattern instanceof Slice &&
+                (escape == null || escape instanceof Slice)) {
+
             String patternString = ((Slice) pattern).toString(UTF_8);
 
-            char escapeChar;
-            if (node.getEscape() != null) {
-                Object escape = process(node.getEscape(), context);
-                if (!(escape instanceof Slice)) {
-                    return node;
-                }
+            char escapeChar = '\\';
+            if (escape != null) {
                 escapeChar = getEscapeChar((Slice) escape);
             }
-            else {
-                escapeChar = '\\';
-            }
 
-            matcher = likeToPattern(patternString, escapeChar).matcher(valueSlice.getBytes());
+            Regex regex = likeToPattern(patternString, escapeChar);
+
+            Slice valueSlice = (Slice) value;
+            Matcher matcher = regex.matcher(valueSlice.getBytes());
+            return matcher.match(0, valueSlice.length(), Option.NONE) != -1;
         }
 
-        int match = matcher.match(0, valueSlice.length(), Option.NONE);
-        return match != -1;
+        // if pattern is a constant without % or _ replace with a comparison
+        if (pattern instanceof Slice && escape == null) {
+            String stringPattern = ((Slice) pattern).toString(Charsets.UTF_8);
+            if (!stringPattern.contains("%") && !stringPattern.contains("_")) {
+                return new ComparisonExpression(ComparisonExpression.Type.EQUAL, toExpression(value), toExpression(pattern));
+            }
+        }
+
+        Expression escapeExpression = null;
+        if (escape != null) {
+            escapeExpression = toExpression(escape);
+        }
+
+        return new LikePredicate(toExpression(value), toExpression(pattern), escapeExpression);
     }
 
     private Regex getConstantPattern(LikePredicate node)
