@@ -6,6 +6,7 @@ import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static org.apache.hadoop.hive.serde.Constants.BIGINT_TYPE_NAME;
+import static org.apache.hadoop.hive.serde.Constants.BINARY_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.Constants.BOOLEAN_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.Constants.DOUBLE_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.Constants.FLOAT_TYPE_NAME;
@@ -30,6 +31,7 @@ public enum HiveType
     DOUBLE(ColumnType.DOUBLE),
     STRING(ColumnType.STRING),
     TIMESTAMP(ColumnType.LONG),
+    BINARY(ColumnType.STRING),
     LIST(ColumnType.STRING),
     MAP(ColumnType.STRING),
     STRUCT(ColumnType.STRING);
@@ -74,6 +76,8 @@ public enum HiveType
                 return STRING;
             case TIMESTAMP:
                 return TIMESTAMP;
+            case BINARY:
+                return BINARY;
             default:
                 return null;
         }
@@ -107,6 +111,8 @@ public enum HiveType
                 return STRING;
             case TIMESTAMP_TYPE_NAME:
                 return TIMESTAMP;
+            case BINARY_TYPE_NAME:
+                return BINARY;
             case LIST_TYPE_NAME:
                 return LIST;
             case MAP_TYPE_NAME:
