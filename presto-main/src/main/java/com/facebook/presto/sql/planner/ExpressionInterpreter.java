@@ -25,6 +25,7 @@ import com.facebook.presto.sql.tree.InputReference;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LikePredicate;
+import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NegativeExpression;
@@ -40,7 +41,9 @@ import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.google.common.base.Charsets;
 import com.google.common.base.Function;
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
 import org.joni.Regex;
@@ -50,8 +53,10 @@ import org.joni.Matcher;
 import javax.annotation.Nullable;
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Set;
 
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -67,6 +72,7 @@ public class ExpressionInterpreter
 
     // identity-based cache for LIKE expressions with constant pattern and escape char
     private final IdentityHashMap<LikePredicate, Regex> LIKE_PATTERN_CACHE = new IdentityHashMap<>();
+    private final IdentityHashMap<InListExpression, Set<Object>> IN_LIST_CACHE = new IdentityHashMap<>();
 
     public static ExpressionInterpreter expressionInterpreter(InputResolver inputResolver, Metadata metadata, Session session)
     {
@@ -280,11 +286,32 @@ public class ExpressionInterpreter
         }
         InListExpression valueList = (InListExpression) valueListExpression;
 
-        boolean hasUnresolvedValue = false;
+        Set<Object> set = IN_LIST_CACHE.get(valueList);
+
+        // We use the presence of the node in the map to indicate that we've already done
+        // the analysis below. If the value is null, it means that we can't apply the HashSet
+        // optimization
+        if (!IN_LIST_CACHE.containsKey(valueList)) {
+            if (Iterables.all(valueList.getValues(), isNonNullLiteralPredicate())) {
+                // if all elements are constant, create a set with them
+                set = new HashSet<>();
+                for (Expression expression : valueList.getValues()) {
+                    set.add(process(expression, context));
+                }
+            }
+            IN_LIST_CACHE.put(valueList, set);
+        }
+
         Object value = process(node.getValue(), context);
         if (value == null) {
             return null;
         }
+
+        if (set != null && !(value instanceof Expression)) {
+            return set.contains(value);
+        }
+
+        boolean hasUnresolvedValue = false;
         if (value instanceof Expression) {
             hasUnresolvedValue = true;
         }
@@ -904,5 +931,17 @@ public class ExpressionInterpreter
         }
 
         throw new UnsupportedOperationException("not yet implemented: " + object.getClass().getName());
+    }
+
+    private static Predicate<Expression> isNonNullLiteralPredicate()
+    {
+        return new Predicate<Expression>()
+        {
+            @Override
+            public boolean apply(@Nullable Expression input)
+            {
+                return input instanceof Literal && !(input instanceof NullLiteral);
+            }
+        };
     }
 }
