@@ -7,8 +7,10 @@ import com.facebook.presto.tuple.FieldOrderedTupleComparator;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleReadable;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
+import io.airlift.units.DataSize;
 
 import java.util.Comparator;
 import java.util.Iterator;
@@ -26,6 +28,7 @@ public class TopNOperator
         implements Operator
 {
     private final static int MAX_INITIAL_PRIORITY_QUEUE_SIZE = 10000;
+    private final static DataSize OVERHEAD_PER_TUPLE = new DataSize(100, DataSize.Unit.BYTE); // for estimating in-memory size. This is a completely arbitrary number
 
     private final Operator source;
     private final int n;
@@ -33,8 +36,9 @@ public class TopNOperator
     private final List<ProjectionFunction> projections;
     private final Ordering<TupleReadable> ordering;
     private final List<TupleInfo> tupleInfos;
+    private final DataSize maxSize;
 
-    public TopNOperator(Operator source, int n, int keyChannelIndex, List<ProjectionFunction> projections, Ordering<TupleReadable> ordering)
+    public TopNOperator(Operator source, int n, int keyChannelIndex, List<ProjectionFunction> projections, Ordering<TupleReadable> ordering, DataSize maxSize)
     {
         checkNotNull(source, "source is null");
         checkArgument(n > 0, "n must be greater than zero");
@@ -47,6 +51,7 @@ public class TopNOperator
         this.keyChannelIndex = keyChannelIndex;
         this.projections = ImmutableList.copyOf(projections);
         this.ordering = ordering;
+        this.maxSize = maxSize;
 
         ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
         for (ProjectionFunction projection : projections) {
@@ -55,9 +60,9 @@ public class TopNOperator
         this.tupleInfos = tupleInfos.build();
     }
 
-    public TopNOperator(Operator source, int n, int keyChannelIndex, List<ProjectionFunction> projections)
+    public TopNOperator(Operator source, int n, int keyChannelIndex, List<ProjectionFunction> projections, DataSize maxSize)
     {
-        this(source, n, keyChannelIndex, projections, Ordering.from(FieldOrderedTupleComparator.INSTANCE));
+        this(source, n, keyChannelIndex, projections, Ordering.from(FieldOrderedTupleComparator.INSTANCE), maxSize);
     }
 
     @Override
@@ -130,12 +135,17 @@ public class TopNOperator
 
         private Iterator<KeyAndTuples> selectTopN(PageIterator iterator)
         {
+            long currentEstimatedSize = 0;
             PriorityQueue<KeyAndTuples> globalCandidates = new PriorityQueue<>(Math.min(n, MAX_INITIAL_PRIORITY_QUEUE_SIZE), KeyAndTuples.keyComparator(ordering));
             try (PageIterator pageIterator = iterator) {
                 while (pageIterator.hasNext()) {
                     Page page = pageIterator.next();
                     Iterable<KeyAndPosition> keyAndPositions = computePageCandidatePositions(globalCandidates, page);
-                    mergeWithGlobalCandidates(globalCandidates, page, keyAndPositions);
+                    long sizeDelta = mergeWithGlobalCandidates(globalCandidates, page, keyAndPositions);
+                    currentEstimatedSize += sizeDelta;
+                    Preconditions.checkState(currentEstimatedSize + globalCandidates.size() * OVERHEAD_PER_TUPLE.toBytes() <= maxSize.toBytes(),
+                            "Query exceeded max operator memory size of %s",
+                            maxSize.convertToMostSuccinctDataSize());
                 }
             }
             ImmutableList.Builder<KeyAndTuples> minSortedGlobalCandidates = ImmutableList.builder();
@@ -165,8 +175,10 @@ public class TopNOperator
             return pageCandidates;
         }
 
-        private void mergeWithGlobalCandidates(PriorityQueue<KeyAndTuples> globalCandidates, Page page, Iterable<KeyAndPosition> pageValueAndPositions)
+        private long mergeWithGlobalCandidates(PriorityQueue<KeyAndTuples> globalCandidates, Page page, Iterable<KeyAndPosition> pageValueAndPositions)
         {
+            long sizeDelta = 0;
+
             // Sort by positions so that we can advance through the values via cursors
             List<KeyAndPosition> positionSorted = Ordering.from(KeyAndPosition.positionComparator()).sortedCopy(pageValueAndPositions);
 
@@ -180,13 +192,29 @@ public class TopNOperator
                     checkState(cursor.advanceToPosition(keyAndPosition.getPosition()));
                 }
                 if (globalCandidates.size() < n) {
-                    globalCandidates.add(new KeyAndTuples(keyAndPosition.getKey(), getTuples(keyAndPosition, cursors)));
+                    Tuple[] tuples = getTuples(keyAndPosition, cursors);
+                    for (Tuple tuple : tuples) {
+                        sizeDelta += tuple.size();
+                    }
+                    globalCandidates.add(new KeyAndTuples(keyAndPosition.getKey(), tuples));
                 }
                 else if (ordering.compare(keyAndPosition.getKey(), globalCandidates.peek().getKey()) > 0) {
-                    globalCandidates.remove();
-                    globalCandidates.add(new KeyAndTuples(keyAndPosition.getKey(), getTuples(keyAndPosition, cursors)));
+                    KeyAndTuples previous = globalCandidates.remove();
+                    for (Tuple tuple : previous.getTuples()) {
+                        sizeDelta -= tuple.size();
+                    }
+
+                    Tuple[] tuples = getTuples(keyAndPosition, cursors);
+                    globalCandidates.add(new KeyAndTuples(keyAndPosition.getKey(), tuples));
+                    for (Tuple tuple : tuples) {
+                        sizeDelta += tuple.size();
+                    }
+                    sizeDelta += keyAndPosition.getKey().size();
+
                 }
             }
+
+            return sizeDelta;
         }
 
         private Tuple[] getTuples(KeyAndPosition keyAndPosition, BlockCursor[] cursors)
