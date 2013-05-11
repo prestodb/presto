@@ -549,6 +549,13 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("'|' LIKE '|'", "true");
         assertOptimizedEquals("'^' LIKE '^'", "true");
         assertOptimizedEquals("'$' LIKE '$'", "true");
+
+
+        assertOptimizedEquals("null like '%'", "null");
+        assertOptimizedEquals("'a' like null", "null");
+        assertOptimizedEquals("'a' like '%' escape null", "null");
+
+        assertOptimizedEquals("'%' like 'z%' escape 'z'", "true");
     }
 
 
@@ -562,6 +569,8 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("'abc' like boundpattern", "false");
 
         assertOptimizedEquals("unboundstring like boundpattern", "unboundstring like boundpattern");
+
+        assertOptimizedEquals("unboundstring like unboundpattern escape unboundstring", "unboundstring like unboundpattern escape unboundstring");
     }
 
     private static void assertOptimizedEquals(@Language("SQL") String actual, @Language("SQL") String expected)

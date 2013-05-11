@@ -627,6 +627,10 @@ public class ExpressionInterpreter
     {
         Object value = process(node.getValue(), context);
 
+        if (value == null) {
+            return null;
+        }
+
         if (value instanceof Slice &&
                 node.getPattern() instanceof StringLiteral &&
                 (node.getEscape() instanceof StringLiteral || node.getEscape() == null)) {
@@ -638,9 +642,17 @@ public class ExpressionInterpreter
 
         Object pattern = process(node.getPattern(), context);
 
+        if (pattern == null) {
+            return null;
+        }
+
         Object escape = null;
         if (node.getEscape() != null) {
             escape = process(node.getEscape(), context);
+
+            if (escape == null) {
+                return null;
+            }
         }
 
         if (value instanceof Slice &&
@@ -669,12 +681,12 @@ public class ExpressionInterpreter
             }
         }
 
-        Expression escapeExpression = null;
-        if (escape != null) {
-            escapeExpression = toExpression(escape);
+        Expression optimizedEscape = null;
+        if (node.getEscape() != null) {
+            optimizedEscape = toExpression(escape);
         }
 
-        return new LikePredicate(toExpression(value), toExpression(pattern), escapeExpression);
+        return new LikePredicate(toExpression(value), toExpression(pattern), optimizedEscape);
     }
 
     private Regex getConstantPattern(LikePredicate node)
