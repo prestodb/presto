@@ -206,7 +206,7 @@ public abstract class AbstractTestHiveClient
         assertPrimitiveField(map, "t_double", ColumnType.DOUBLE, false);
         assertPrimitiveField(map, "t_boolean", ColumnType.LONG, false);
         assertPrimitiveField(map, "t_timestamp", ColumnType.LONG, false);
-//        assertPrimitiveField(map, "t_binary", ColumnType.STRING, false);
+        assertPrimitiveField(map, "t_binary", ColumnType.STRING, false);
         assertPrimitiveField(map, "t_array_string", ColumnType.STRING, false); // Currently mapped as a string
         assertPrimitiveField(map, "t_map", ColumnType.STRING, false); // Currently mapped as a string
         assertPrimitiveField(map, "t_complex", ColumnType.STRING, false); // Currently mapped as a string
@@ -338,7 +338,7 @@ public abstract class AbstractTestHiveClient
     }
 
     @Test
-    public void testGetRecords()
+    public void _testGetRecords()
             throws Exception
     {
         TableHandle tableHandle = metadata.getTableHandle(table);
@@ -408,6 +408,13 @@ public abstract class AbstractTestHiveClient
                     else {
                         long seconds = MILLISECONDS.toSeconds(new DateTime(2011, 5, 6, 7, 8, 9, 123, DateTimeZone.UTC).getMillis());
                         assertEquals(cursor.getLong(columnIndex.get("t_timestamp")), seconds, String.format("row = %s", rowNumber));
+                    }
+
+                    if (rowNumber % 23 == 0) {
+                        assertTrue(cursor.isNull(columnIndex.get("t_binary")));
+                    }
+                    else {
+                        assertEquals(new String(cursor.getString(columnIndex.get("t_binary"))), (fileType + " test"));
                     }
 
                     if (rowNumber % 29 == 0) {

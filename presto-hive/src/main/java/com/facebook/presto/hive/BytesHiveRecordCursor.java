@@ -5,6 +5,7 @@ import com.facebook.presto.spi.RecordCursor;
 import com.google.common.base.Charsets;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
+import org.apache.commons.codec.binary.Base64;
 import org.apache.hadoop.hive.metastore.MetaStoreUtils;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.SerDeUtils;
@@ -231,6 +232,12 @@ class BytesHiveRecordCursor<K>
                 break;
             case STRING:
                 strings[column] = Arrays.copyOfRange(bytes, start, start + length);
+
+                // this is unbelievably stupid but Hive base64 encodes binary data in a binary file format
+                if (hiveTypes[column] == HiveType.BINARY) {
+                    // and yes we end up with an extra copy here because the Base64 only handles whole arrays
+                    strings[column] = Base64.decodeBase64(strings[column]);
+                }
                 break;
         }
     }
