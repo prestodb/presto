@@ -49,6 +49,7 @@ public class BenchmarkSuite
                 new SqlDistinctSingleField(tpchBlocksProvider),
                 new SqlTpchQuery1(tpchBlocksProvider),
                 new SqlLikeBenchmark(tpchBlocksProvider),
+                new SqlInBenchmark(tpchBlocksProvider),
 
                 // statistics benchmarks
                 new StatisticsBenchmark.LongVarianceBenchmark(tpchBlocksProvider),
