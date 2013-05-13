@@ -182,7 +182,7 @@ public class TestDistributedQueries
     @Override
     protected MaterializedResult computeActual(@Language("SQL") String sql)
     {
-        ClientSession session = new ClientSession(coordinator.getBaseUrl(), "testuser", "default", "default", true);
+        ClientSession session = new ClientSession(coordinator.getBaseUrl(), "testuser", "test", "default", "default", true);
 
         try (StatementClient client = new StatementClient(httpClient, queryResultsCodec, session, sql)) {
             AtomicBoolean loggedUri = new AtomicBoolean(false);

@@ -20,8 +20,11 @@ public class QueryCompletionEvent
 {
     private final QueryId queryId;
     private final String user;
+    private final String source;
     private final String catalog;
     private final String schema;
+    private final String remoteClientAddress;
+    private final String userAgent;
     private final QueryState queryState;
     private final URI uri;
     private final List<String> fieldNames;
@@ -47,9 +50,9 @@ public class QueryCompletionEvent
     public QueryCompletionEvent(
             QueryId queryId,
             String user,
-            String catalog,
+            String source, String catalog,
             String schema,
-            QueryState queryState,
+            String remoteClientAddress, String userAgent, QueryState queryState,
             URI uri,
             List<String> fieldNames,
             String query,
@@ -69,8 +72,11 @@ public class QueryCompletionEvent
     {
         this.queryId = queryId;
         this.user = user;
+        this.source = source;
         this.catalog = catalog;
         this.schema = schema;
+        this.remoteClientAddress = remoteClientAddress;
+        this.userAgent = userAgent;
         this.queryState = queryState;
         this.uri = uri;
         this.fieldNames = ImmutableList.copyOf(fieldNames);
@@ -121,6 +127,12 @@ public class QueryCompletionEvent
     }
 
     @EventField
+    public String getSource()
+    {
+        return source;
+    }
+
+    @EventField
     public String getCatalog()
     {
         return catalog;
@@ -130,6 +142,18 @@ public class QueryCompletionEvent
     public String getSchema()
     {
         return schema;
+    }
+
+    @EventField
+    public String getRemoteClientAddress()
+    {
+        return remoteClientAddress;
+    }
+
+    @EventField
+    public String getUserAgent()
+    {
+        return userAgent;
     }
 
     @EventField

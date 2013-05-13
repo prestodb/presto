@@ -2,6 +2,7 @@ package com.facebook.presto.jdbc;
 
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.StatementClient;
+import com.google.common.base.Objects;
 import com.google.common.net.HostAndPort;
 
 import java.net.URI;
@@ -24,6 +25,7 @@ import java.sql.Statement;
 import java.sql.Struct;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -31,6 +33,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.facebook.presto.jdbc.Driver.DRIVER_NAME;
 import static com.facebook.presto.jdbc.Driver.DRIVER_VERSION;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.Maps.fromProperties;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilder;
 
 public class JdbcConnection
@@ -42,6 +45,7 @@ public class JdbcConnection
     private final URI uri;
     private final HostAndPort address;
     private final String user;
+    private final Map<String, String> clientInfo = new ConcurrentHashMap<>();
     private final QueryExecutor queryExecutor;
 
     JdbcConnection(URI uri, String user)
@@ -373,28 +377,36 @@ public class JdbcConnection
     public void setClientInfo(String name, String value)
             throws SQLClientInfoException
     {
-        throw new UnsupportedOperationException("setClientInfo");
+        checkNotNull(name, "name is null");
+        if (value != null) {
+            clientInfo.put(name, value);
+        }
+        else {
+            clientInfo.remove(value);
+        }
     }
 
     @Override
     public void setClientInfo(Properties properties)
             throws SQLClientInfoException
     {
-        throw new UnsupportedOperationException("setClientInfo");
+        clientInfo.putAll(fromProperties(properties));
     }
 
     @Override
     public String getClientInfo(String name)
             throws SQLException
     {
-        throw new UnsupportedOperationException("getClientInfo");
+        return clientInfo.get(name);
     }
 
     @Override
     public Properties getClientInfo()
             throws SQLException
     {
-        throw new UnsupportedOperationException("getClientInfo");
+        Properties properties = new Properties();
+        properties.putAll(clientInfo);
+        return properties;
     }
 
     @Override
@@ -479,7 +491,9 @@ public class JdbcConnection
     StatementClient startQuery(String sql)
     {
         URI uri = createHttpUri(address);
-        ClientSession session = new ClientSession(uri, user, catalog.get(), schema.get(), false);
+
+        String source = Objects.firstNonNull(clientInfo.get("ApplicationName"), "presto-jdbc");
+        ClientSession session = new ClientSession(uri, user, source, catalog.get(), schema.get(), false);
         return queryExecutor.startQuery(session, sql);
     }
 

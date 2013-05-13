@@ -21,7 +21,7 @@ public class TestLocalQueries
     @Override
     protected void setUpQueryFramework(String catalog, String schema)
     {
-        tpchLocalQueryRunner = createTpchLocalQueryRunner(new Session(null, catalog, schema));
+        tpchLocalQueryRunner = createTpchLocalQueryRunner(new Session("user", "test", catalog, schema, null, null));
 
         // dump query plan to console (for debugging)
         // tpchLocalQueryRunner.printPlan();
