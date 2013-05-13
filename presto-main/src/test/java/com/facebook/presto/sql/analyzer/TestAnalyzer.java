@@ -467,7 +467,7 @@ public class TestAnalyzer
                         new ColumnMetadata("a", ColumnType.LONG, 0, false),
                         new ColumnMetadata("b", ColumnType.LONG, 1, false))));
 
-        analyzer = new Analyzer(new Session(null, "tpch", "default"), metadata);
+        analyzer = new Analyzer(new Session("user", "test", "tpch", "default", null, null), metadata);
     }
 
     private void analyze(@Language("SQL") String query)

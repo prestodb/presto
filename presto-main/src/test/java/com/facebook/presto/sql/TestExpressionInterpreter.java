@@ -612,7 +612,7 @@ public class TestExpressionInterpreter
 
                 return new QualifiedNameReference(symbol.toQualifiedName());
             }
-        }, DUAL_METADATA_MANAGER, new Session(null, DEFAULT_CATALOG, DEFAULT_SCHEMA));
+        }, DUAL_METADATA_MANAGER, new Session("user", "test", DEFAULT_CATALOG, DEFAULT_SCHEMA, null, null));
 
         Expression parsedExpression = createExpression(expression);
 
@@ -632,7 +632,7 @@ public class TestExpressionInterpreter
             {
                 throw new UnsupportedOperationException();
             }
-        }, DUAL_METADATA_MANAGER, new Session(null, DEFAULT_CATALOG, DEFAULT_SCHEMA));
+        }, DUAL_METADATA_MANAGER, new Session("user", "test", DEFAULT_CATALOG, DEFAULT_SCHEMA, null, null));
 
         Expression parsedExpression = createExpression(expression);
 

@@ -66,6 +66,7 @@ import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
 import static com.facebook.presto.sql.parser.TreeAssertions.assertFormattedSql;
 import static com.facebook.presto.tpch.TpchMetadata.TPCH_CATALOG_NAME;
+import static com.facebook.presto.tpch.TpchMetadata.TPCH_SCHEMA_NAME;
 import static com.facebook.presto.util.MaterializedResult.materialize;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -169,7 +170,7 @@ public class LocalQueryRunner
 
     public static LocalQueryRunner createDualLocalQueryRunner()
     {
-        return createDualLocalQueryRunner(new Session(null, DEFAULT_CATALOG, DEFAULT_SCHEMA));
+        return createDualLocalQueryRunner(new Session("user", "test", DEFAULT_CATALOG, DEFAULT_SCHEMA, null, null));
     }
 
     public static LocalQueryRunner createDualLocalQueryRunner(Session session)
@@ -188,7 +189,7 @@ public class LocalQueryRunner
 
     public static LocalQueryRunner createTpchLocalQueryRunner()
     {
-        return createTpchLocalQueryRunner(new Session(null, TpchMetadata.TPCH_CATALOG_NAME, TpchMetadata.TPCH_SCHEMA_NAME));
+        return createTpchLocalQueryRunner(new Session("user", "test", TPCH_CATALOG_NAME, TPCH_SCHEMA_NAME, null, null));
     }
 
     public static LocalQueryRunner createTpchLocalQueryRunner(Session session)
@@ -198,7 +199,7 @@ public class LocalQueryRunner
 
     public static LocalQueryRunner createTpchLocalQueryRunner(TpchBlocksProvider tpchBlocksProvider)
     {
-        return createTpchLocalQueryRunner(new Session(null, TpchMetadata.TPCH_CATALOG_NAME, TpchMetadata.TPCH_SCHEMA_NAME), tpchBlocksProvider);
+        return createTpchLocalQueryRunner(new Session("user", "test", TPCH_CATALOG_NAME, TPCH_SCHEMA_NAME, null, null), tpchBlocksProvider);
     }
 
     public static LocalQueryRunner createTpchLocalQueryRunner(Session session, TpchBlocksProvider tpchBlocksProvider)

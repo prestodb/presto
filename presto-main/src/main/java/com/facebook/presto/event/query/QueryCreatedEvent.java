@@ -14,8 +14,11 @@ public class QueryCreatedEvent
 {
     private final QueryId queryId;
     private final String user;
+    private final String source;
     private final String catalog;
     private final String schema;
+    private final String remoteClientAddress;
+    private final String userAgent;
     private final URI uri;
     private final String query;
     private final DateTime createTime;
@@ -23,16 +26,19 @@ public class QueryCreatedEvent
     public QueryCreatedEvent(
             QueryId queryId,
             String user,
-            String catalog,
+            String source, String catalog,
             String schema,
-            URI uri,
+            String remoteClientAddress, String userAgent, URI uri,
             String query,
             DateTime createTime)
     {
         this.queryId = queryId;
         this.user = user;
+        this.source = source;
         this.catalog = catalog;
         this.schema = schema;
+        this.remoteClientAddress = remoteClientAddress;
+        this.userAgent = userAgent;
         this.uri = uri;
         this.query = query;
         this.createTime = createTime;
@@ -51,6 +57,12 @@ public class QueryCreatedEvent
     }
 
     @EventField
+    public String getSource()
+    {
+        return source;
+    }
+
+    @EventField
     public String getCatalog()
     {
         return catalog;
@@ -60,6 +72,18 @@ public class QueryCreatedEvent
     public String getSchema()
     {
         return schema;
+    }
+
+    @EventField
+    public String getRemoteClientAddress()
+    {
+        return remoteClientAddress;
+    }
+
+    @EventField
+    public String getUserAgent()
+    {
+        return userAgent;
     }
 
     @EventField

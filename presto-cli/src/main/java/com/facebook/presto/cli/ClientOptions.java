@@ -42,6 +42,6 @@ public class ClientOptions
 
     public ClientSession toClientSession()
     {
-        return new ClientSession(server, user, catalog, schema, debug);
+        return new ClientSession(server, user, "presto-cli", catalog, schema, debug);
     }
 }

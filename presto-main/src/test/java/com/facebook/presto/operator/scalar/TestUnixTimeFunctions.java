@@ -32,7 +32,7 @@ public class TestUnixTimeFunctions
     public void testCurrentTime()
     {
         long millis = new DateTime(2001, 1, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis();
-        Session session = new Session(null, DEFAULT_CATALOG, DEFAULT_SCHEMA, millis);
+        Session session = new Session("user", "test", DEFAULT_CATALOG, DEFAULT_SCHEMA, null, null, millis);
 
         assertEquals((long) selectSingleValue("current_timestamp", session), fromMillis(millis));
         assertEquals((long) selectSingleValue("now()", session), fromMillis(millis));

@@ -165,7 +165,7 @@ public class MockQueryManager
                     throw new IllegalStateException("Unknown task state " + outputTask.getState());
             }
             return new QueryInfo(outputTaskId.getQueryId(),
-                    new Session(null, "test_catalog", "test_schema"),
+                    new Session("user", "test", "test_catalog", "test_schema", null, null),
                     state,
                     self,
                     ImmutableList.of("out"),

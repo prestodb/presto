@@ -197,7 +197,7 @@ public class TestExchangeOperator
     {
         PlanFragment planFragment = new PlanFragment(new PlanFragmentId("32"), null, ImmutableMap.<Symbol, Type>of(), new ExchangeNode(new PlanNodeId("1"), new PlanFragmentId("22"), ImmutableList.<Symbol>of()));
 
-        Session session = new Session(null, DEFAULT_CATALOG, DEFAULT_SCHEMA);
+        Session session = new Session("user", "test", DEFAULT_CATALOG, DEFAULT_SCHEMA, null, null);
         TaskUpdateRequest updateRequest = new TaskUpdateRequest(session,
                 planFragment,
                 ImmutableList.<TaskSource>of(),

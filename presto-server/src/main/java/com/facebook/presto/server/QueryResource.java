@@ -10,6 +10,7 @@ import com.facebook.presto.execution.StageId;
 import com.facebook.presto.sql.analyzer.Session;
 
 import javax.inject.Inject;
+import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
@@ -29,11 +30,13 @@ import java.util.NoSuchElementException;
 
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 
 /**
@@ -76,8 +79,11 @@ public class QueryResource
     @Produces(MediaType.APPLICATION_JSON)
     public Response createQuery(String query,
             @HeaderParam(PRESTO_USER) String user,
+            @HeaderParam(PRESTO_SOURCE) String source,
             @HeaderParam(PRESTO_CATALOG) @DefaultValue(DEFAULT_CATALOG) String catalog,
             @HeaderParam(PRESTO_SCHEMA) @DefaultValue(DEFAULT_SCHEMA) String schema,
+            @HeaderParam(USER_AGENT) String userAgent,
+            @Context HttpServletRequest requestContext,
             @Context UriInfo uriInfo)
     {
         checkNotNull(query, "query is null");
@@ -85,7 +91,8 @@ public class QueryResource
         checkNotNull(catalog, "catalog is null");
         checkNotNull(schema, "schema is null");
 
-        QueryInfo queryInfo = queryManager.createQuery(new Session(user, catalog, schema), query);
+        String remoteUserAddress = requestContext.getRemoteAddr();
+        QueryInfo queryInfo = queryManager.createQuery(new Session(user, source, catalog, schema, remoteUserAddress, userAgent), query);
         URI pagesUri = uriBuilderFrom(uriInfo.getRequestUri()).appendPath(queryInfo.getQueryId().toString()).build();
         return Response.created(pagesUri).entity(queryInfo).build();
     }
