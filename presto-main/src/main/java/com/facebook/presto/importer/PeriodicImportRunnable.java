@@ -59,7 +59,7 @@ public class PeriodicImportRunnable
         QualifiedTableName dstTable = job.getDstTable();
         String sql = String.format("REFRESH MATERIALIZED VIEW %s", dstTable.getTableName());
 
-        ClientSession session = new ClientSession(serverUri(), "periodic-import", dstTable.getCatalogName(), dstTable.getSchemaName(), false);
+        ClientSession session = new ClientSession(serverUri(), "periodic-import", "periodic-import", dstTable.getCatalogName(), dstTable.getSchemaName(), false);
         StatementClient client = new StatementClient(httpClient, queryResultsCodec, session, sql);
 
         // don't delete this line, it is what actually pulls the data from the query...

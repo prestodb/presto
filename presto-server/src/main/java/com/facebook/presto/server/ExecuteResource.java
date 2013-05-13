@@ -26,6 +26,7 @@ import java.util.List;
 
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
 import static com.facebook.presto.server.StatementResource.assertRequest;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -60,6 +61,7 @@ public class ExecuteResource
     public Response createQuery(
             String query,
             @HeaderParam(PRESTO_USER) String user,
+            @HeaderParam(PRESTO_SOURCE) String source,
             @HeaderParam(PRESTO_CATALOG) String catalog,
             @HeaderParam(PRESTO_SCHEMA) String schema)
     {
@@ -68,7 +70,7 @@ public class ExecuteResource
         assertRequest(!isNullOrEmpty(catalog), "Catalog (%s) is empty", PRESTO_CATALOG);
         assertRequest(!isNullOrEmpty(schema), "Schema (%s) is empty", PRESTO_SCHEMA);
 
-        ClientSession session = new ClientSession(serverUri(), user, catalog, schema, false);
+        ClientSession session = new ClientSession(serverUri(), user, source, catalog, schema, false);
 
         StatementClient client = new StatementClient(httpClient, queryResultsCodec, session, query);
 

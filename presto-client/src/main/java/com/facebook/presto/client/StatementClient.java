@@ -1,6 +1,7 @@
 package com.facebook.presto.client;
 
 import com.google.common.base.Charsets;
+import com.google.common.base.Objects;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.client.FullJsonResponseHandler;
 import io.airlift.http.client.HttpStatus;
@@ -8,7 +9,6 @@ import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
 
 import javax.annotation.concurrent.ThreadSafe;
-
 import java.io.Closeable;
 import java.net.URI;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -16,6 +16,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
@@ -36,6 +37,10 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 public class StatementClient
         implements Closeable
 {
+    private static final String USER_AGENT_VALUE = StatementClient.class.getSimpleName() +
+            "/" +
+            Objects.firstNonNull(StatementClient.class.getPackage().getImplementationVersion(), "unknown");
+
     private final AsyncHttpClient httpClient;
     private final FullJsonResponseHandler<QueryResults> responseHandler;
     private final boolean debug;
@@ -70,12 +75,16 @@ public class StatementClient
         if (session.getUser() != null) {
             builder.setHeader(PrestoHeaders.PRESTO_USER, session.getUser());
         }
+        if (session.getSource() != null) {
+            builder.setHeader(PrestoHeaders.PRESTO_SOURCE, session.getSource());
+        }
         if (session.getCatalog() != null) {
             builder.setHeader(PrestoHeaders.PRESTO_CATALOG, session.getCatalog());
         }
         if (session.getSchema() != null) {
             builder.setHeader(PrestoHeaders.PRESTO_SCHEMA, session.getSchema());
         }
+        builder.setHeader(USER_AGENT, USER_AGENT_VALUE);
 
         return builder.build();
     }
@@ -129,7 +138,10 @@ public class StatementClient
             return false;
         }
 
-        Request request = prepareGet().setUri(current().getNextUri()).build();
+        Request request = prepareGet()
+                .setHeader(USER_AGENT, USER_AGENT_VALUE)
+                .setUri(current().getNextUri())
+                .build();
 
         Exception cause = null;
         long start = System.nanoTime();
@@ -178,7 +190,10 @@ public class StatementClient
             return false;
         }
 
-        Request request = prepareDelete().setUri(uri).build();
+        Request request = prepareDelete()
+                .setHeader(USER_AGENT, USER_AGENT_VALUE)
+                .setUri(uri)
+                .build();
         StatusResponse status = httpClient.execute(request, createStatusResponseHandler());
         return familyForStatusCode(status.getStatusCode()) == Family.SUCCESSFUL;
     }
@@ -189,7 +204,10 @@ public class StatementClient
         if (!closed.getAndSet(true)) {
             URI uri = currentResults.get().getNextUri();
             if (uri != null) {
-                Request request = prepareDelete().setUri(uri).build();
+                Request request = prepareDelete()
+                        .setHeader(USER_AGENT, USER_AGENT_VALUE)
+                        .setUri(uri)
+                        .build();
                 httpClient.executeAsync(request, createStatusResponseHandler());
             }
         }

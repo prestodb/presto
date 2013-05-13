@@ -13,14 +13,16 @@ public class ClientSession
 {
     private URI server;
     private String user;
+    private String source;
     private String catalog;
     private String schema;
     private boolean debug;
 
-    public ClientSession(URI server, String user, String catalog, String schema, boolean debug)
+    public ClientSession(URI server, String user, String source, String catalog, String schema, boolean debug)
     {
         this.server = checkNotNull(server, "server is null");
         this.user = user;
+        this.source = source;
         this.catalog = catalog;
         this.schema = schema;
         this.debug = debug;
@@ -44,6 +46,16 @@ public class ClientSession
     public void setUser(String user)
     {
         this.user = user;
+    }
+
+    public String getSource()
+    {
+        return source;
+    }
+
+    public void setSource(String source)
+    {
+        this.source = source;
     }
 
     public String getCatalog()

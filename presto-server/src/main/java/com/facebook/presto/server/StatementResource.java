@@ -41,6 +41,7 @@ import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
+import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
@@ -71,6 +72,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
 import static com.facebook.presto.execution.QueryInfo.queryIdGetter;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
@@ -83,6 +85,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.transform;
+import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static java.lang.String.format;
 
@@ -121,8 +124,11 @@ public class StatementResource
     public Response createQuery(
             String statement,
             @HeaderParam(PRESTO_USER) String user,
+            @HeaderParam(PRESTO_SOURCE) String source,
             @HeaderParam(PRESTO_CATALOG) String catalog,
             @HeaderParam(PRESTO_SCHEMA) String schema,
+            @HeaderParam(USER_AGENT) String userAgent,
+            @Context HttpServletRequest requestContext,
             @Context UriInfo uriInfo)
             throws InterruptedException
     {
@@ -131,7 +137,9 @@ public class StatementResource
         assertRequest(!isNullOrEmpty(catalog), "Catalog (%s) is empty", PRESTO_CATALOG);
         assertRequest(!isNullOrEmpty(schema), "Schema (%s) is empty", PRESTO_SCHEMA);
 
-        Session session = new Session(user, catalog, schema);
+        String remoteUserAddress = requestContext.getRemoteAddr();
+
+        Session session = new Session(user, source, catalog, schema, remoteUserAddress, userAgent);
         Query query = new Query(session, statement, queryManager, httpClient);
         queries.put(query.getQueryId(), query);
         return Response.ok(query.getNextResults(uriInfo, new Duration(1, TimeUnit.MILLISECONDS))).build();

@@ -141,7 +141,7 @@ public class TestInterpretedProjectionFunction
                 expression,
                 symbolToInputMappings,
                 DUAL_METADATA_MANAGER,
-                new Session(null, Session.DEFAULT_CATALOG, Session.DEFAULT_SCHEMA));
+                new Session("user", "test", Session.DEFAULT_CATALOG, Session.DEFAULT_SCHEMA, null, null));
 
         // create output
         BlockBuilder builder = new BlockBuilder(new TupleInfo(outputType.getRawType()));

@@ -177,7 +177,7 @@ public class TestInterpretedFilterFunction
     public static void assertFilter(String expression, boolean expectedValue)
     {
         Expression parsed = SqlParser.createExpression(expression);
-        Session session = new Session(null, DEFAULT_CATALOG, DEFAULT_SCHEMA);
+        Session session = new Session("user", "test", DEFAULT_CATALOG, DEFAULT_SCHEMA, null, null);
         InterpretedFilterFunction filterFunction = new InterpretedFilterFunction(parsed, ImmutableMap.<Symbol, Input>of(), DUAL_METADATA_MANAGER, session);
         boolean result = filterFunction.filter();
         assertEquals(result, expectedValue);

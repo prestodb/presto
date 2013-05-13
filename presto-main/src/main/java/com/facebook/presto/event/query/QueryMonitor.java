@@ -31,8 +31,11 @@ public class QueryMonitor
                 new QueryCreatedEvent(
                         queryInfo.getQueryId(),
                         queryInfo.getSession().getUser(),
+                        queryInfo.getSession().getSource(),
                         queryInfo.getSession().getCatalog(),
                         queryInfo.getSession().getSchema(),
+                        queryInfo.getSession().getRemoteUserAddress(),
+                        queryInfo.getSession().getUserAgent(),
                         queryInfo.getSelf(),
                         queryInfo.getQuery(),
                         queryInfo.getQueryStats().getCreateTime()
@@ -48,8 +51,11 @@ public class QueryMonitor
                     new QueryCompletionEvent(
                             queryInfo.getQueryId(),
                             queryInfo.getSession().getUser(),
+                            queryInfo.getSession().getSource(),
                             queryInfo.getSession().getCatalog(),
                             queryInfo.getSession().getSchema(),
+                            queryInfo.getSession().getRemoteUserAddress(),
+                            queryInfo.getSession().getUserAgent(),
                             queryInfo.getState(),
                             queryInfo.getSelf(),
                             queryInfo.getFieldNames(),
