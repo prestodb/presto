@@ -15,6 +15,7 @@ import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import io.airlift.slice.Slices;
 import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
@@ -1420,10 +1421,28 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT 1 + 2, 3 + 4", "SELECT 1 + 2, 3 + 4 FROM orders LIMIT 1");
     }
 
+    @Test
+    public void testTopNByMultipleFields()
+            throws Exception
+    {
+        assertQuery("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY orderkey ASC, custkey ASC LIMIT 10");
+        assertQuery("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY orderkey ASC, custkey DESC LIMIT 10");
+        assertQuery("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY orderkey DESC, custkey ASC LIMIT 10");
+        assertQuery("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY orderkey DESC, custkey DESC LIMIT 10");
+
+        // now try with order by fields swapped
+        assertQuery("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY custkey ASC, orderkey ASC LIMIT 10");
+        assertQuery("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY custkey ASC, orderkey DESC LIMIT 10");
+        assertQuery("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY custkey DESC, orderkey ASC LIMIT 10");
+        assertQuery("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY custkey DESC, orderkey DESC LIMIT 10");
+    }
+
     @BeforeClass(alwaysRun = true)
     public void setupDatabase()
             throws Exception
     {
+        Logging.initialize();
+
         handle = DBI.open("jdbc:h2:mem:test" + System.nanoTime());
 
         RecordSet ordersRecords = readTpchRecords(TPCH_ORDERS_METADATA);
