@@ -130,6 +130,7 @@ public class HiveSplit
                 .put("start", start)
                 .put("length", length)
                 .put("hosts", addresses)
+                .put("partitionId", partitionId)
                 .build();
     }
 
