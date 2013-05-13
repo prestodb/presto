@@ -50,7 +50,7 @@ public class TopNOperator
         this.n = n;
         this.keyChannelIndex = keyChannelIndex;
         this.projections = ImmutableList.copyOf(projections);
-        this.ordering = ordering;
+        this.ordering = ordering.reverse(); // the priority queue needs to sort in reverse order to be able to remove the least element in O(1)
         this.maxSize = maxSize;
 
         ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
@@ -58,11 +58,6 @@ public class TopNOperator
             tupleInfos.add(projection.getTupleInfo());
         }
         this.tupleInfos = tupleInfos.build();
-    }
-
-    public TopNOperator(Operator source, int n, int keyChannelIndex, List<ProjectionFunction> projections, DataSize maxSize)
-    {
-        this(source, n, keyChannelIndex, projections, Ordering.from(FieldOrderedTupleComparator.INSTANCE), maxSize);
     }
 
     @Override
