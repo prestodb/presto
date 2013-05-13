@@ -2,9 +2,12 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.shaded.org.apache.thrift.TException;
 import com.google.common.base.Function;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import org.apache.hadoop.hive.metastore.Warehouse;
 import org.apache.hadoop.hive.metastore.api.Database;
+import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
 import org.apache.hadoop.hive.metastore.api.Partition;
@@ -20,8 +23,8 @@ public class MockHiveMetastoreClient
     static final String TEST_DATABASE = "testdb";
     static final String BAD_DATABASE = "baddb";
     static final String TEST_TABLE = "testtbl";
-    static final String TEST_PARTITION1 = "testpartition1";
-    static final String TEST_PARTITION2 = "testpartition2";
+    static final String TEST_PARTITION1 = "key=testpartition1";
+    static final String TEST_PARTITION2 = "key=testpartition2";
 
     private final AtomicInteger accessCount = new AtomicInteger();
     private boolean throwException;
@@ -92,7 +95,7 @@ public class MockHiveMetastoreClient
         if (!dbname.equals(TEST_DATABASE) || !tbl_name.equals(TEST_TABLE)) {
             throw new NoSuchObjectException();
         }
-        return new Table(TEST_TABLE, TEST_DATABASE, "", 0, 0, 0, null, null, null, "", "", "");
+        return new Table(TEST_TABLE, TEST_DATABASE, "", 0, 0, 0, null, ImmutableList.of(new FieldSchema("key", "String", null)), null, "", "", "");
     }
 
     @Override
@@ -153,7 +156,12 @@ public class MockHiveMetastoreClient
             @Override
             public Partition apply(String name)
             {
-                return new Partition(null, TEST_DATABASE, TEST_TABLE, 0, 0, null, null);
+                try {
+                    return new Partition(ImmutableList.copyOf(Warehouse.getPartValuesFromPartName(name)), TEST_DATABASE, TEST_TABLE, 0, 0, null, null);
+                }
+                catch (MetaException e) {
+                    throw Throwables.propagate(e);
+                }
             }
         });
     }
