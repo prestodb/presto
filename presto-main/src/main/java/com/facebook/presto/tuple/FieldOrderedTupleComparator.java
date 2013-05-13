@@ -1,26 +1,41 @@
 package com.facebook.presto.tuple;
 
+import com.facebook.presto.sql.tree.SortItem;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 
 import java.util.Comparator;
+import java.util.List;
 
 /**
  * Compares two field-aligned TupleReadables field by field.
- * Ordering preference is given to fields at lower indicies.
  */
 public class FieldOrderedTupleComparator
         implements Comparator<TupleReadable>
 {
-    public static final FieldOrderedTupleComparator INSTANCE = new FieldOrderedTupleComparator();
+    private final List<Integer> sortFields;
+    private final List<SortItem.Ordering> sortOrders;
+
+    public FieldOrderedTupleComparator(List<Integer> sortFields, List<SortItem.Ordering> sortOrders)
+    {
+        Preconditions.checkNotNull(sortFields, "sortFields is null");
+        Preconditions.checkNotNull(sortOrders, "sortOrders is null");
+        Preconditions.checkArgument(sortFields.size() == sortOrders.size(), "sortFields size (%s) doesn't match sortOrders size (%s)", sortFields.size(), sortOrders.size());
+
+        this.sortFields = ImmutableList.copyOf(sortFields);
+        this.sortOrders = ImmutableList.copyOf(sortOrders);
+    }
 
     @Override
     public int compare(TupleReadable o1, TupleReadable o2)
     {
-        int fieldCount1 = o1.getTupleInfo().getFieldCount();
-        int fieldCount2 = o2.getTupleInfo().getFieldCount();
-        Preconditions.checkState(fieldCount1 == fieldCount2, "different field counts");
-        for (int field = 0; field < fieldCount1; field++) {
-            TupleInfo.Type type = o1.getTupleInfo().getTypes().get(field);
+        List<TupleInfo.Type> types = o1.getTupleInfo().getTypes();
+
+        for (int index = 0; index < sortFields.size(); index++) {
+            int field = sortFields.get(index);
+            SortItem.Ordering order = sortOrders.get(index);
+            TupleInfo.Type type = types.get(field);
+
             int comparison;
             switch (type) {
                 case FIXED_INT_64:
@@ -35,7 +50,12 @@ public class FieldOrderedTupleComparator
                 default:
                     throw new AssertionError("unimplemented type: " + type);
             }
+
             if (comparison != 0) {
+                if (order == SortItem.Ordering.DESCENDING) {
+                    return -comparison;
+                }
+
                 return comparison;
             }
         }

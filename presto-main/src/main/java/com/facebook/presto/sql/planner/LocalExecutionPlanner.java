@@ -322,19 +322,23 @@ public class LocalExecutionPlanner
 
             List<Symbol> orderBySymbols = node.getOrderBy();
 
-            Preconditions.checkArgument(orderBySymbols.size() == 1, "ORDER BY multiple fields + LIMIT not yet supported"); // TODO
+            // insert a projection to put all the sort fields in a single channel if necessary
+            source = packIfNecessary(orderBySymbols, source);
 
-            Symbol orderBySymbol = Iterables.getOnlyElement(orderBySymbols);
-            int keyChannel = source.getLayout().get(orderBySymbol).getChannel();
+            int orderByChannel = Iterables.getOnlyElement(getChannelsForSymbols(orderBySymbols, source.getLayout()));
 
-            Ordering<TupleReadable> ordering = Ordering.from(FieldOrderedTupleComparator.INSTANCE);
-            if (node.getOrderings().get(orderBySymbol) == SortItem.Ordering.ASCENDING) {
-                ordering = ordering.reverse();
+            List<Integer> sortFields = new ArrayList<>();
+            List<SortItem.Ordering> sortOrders = new ArrayList<>();
+            for (Symbol symbol : orderBySymbols) {
+                sortFields.add(source.getLayout().get(symbol).getField());
+                sortOrders.add(node.getOrderings().get(symbol));
             }
+
+            Ordering<TupleReadable> ordering = Ordering.from(new FieldOrderedTupleComparator(sortFields, sortOrders));
 
             IdentityProjectionInfo mappings = computeIdentityMapping(node.getOutputSymbols(), source.getLayout(), types);
 
-            TopNOperator operator = new TopNOperator(source.getOperator(), (int) node.getCount(), keyChannel, mappings.getProjections(), ordering, maxOperatorMemoryUsage);
+            TopNOperator operator = new TopNOperator(source.getOperator(), (int) node.getCount(), orderByChannel, mappings.getProjections(), ordering, maxOperatorMemoryUsage);
             return new PhysicalOperation(operator, mappings.getOutputLayout());
         }
 

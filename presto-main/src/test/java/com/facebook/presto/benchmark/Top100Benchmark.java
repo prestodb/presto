@@ -5,9 +5,12 @@ import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.TopNOperator;
 import com.facebook.presto.serde.BlocksFileEncoding;
+import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.tpch.TpchBlocksProvider;
+import com.facebook.presto.tuple.FieldOrderedTupleComparator;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Ordering;
 import io.airlift.units.DataSize;
 
 import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
@@ -25,7 +28,12 @@ public class Top100Benchmark
     {
         BlockIterable blockIterable = getBlockIterable("orders", "totalprice", BlocksFileEncoding.RAW);
         AlignmentOperator alignmentOperator = new AlignmentOperator(blockIterable);
-        return new TopNOperator(alignmentOperator, 100, 0, ImmutableList.of(singleColumn(TupleInfo.Type.DOUBLE, 0, 0)), new DataSize(256, DataSize.Unit.MEGABYTE));
+        return new TopNOperator(alignmentOperator,
+                100,
+                0,
+                ImmutableList.of(singleColumn(TupleInfo.Type.DOUBLE, 0, 0)),
+                Ordering.from(new FieldOrderedTupleComparator(ImmutableList.of(0), ImmutableList.of(SortItem.Ordering.DESCENDING))),
+                new DataSize(256, DataSize.Unit.MEGABYTE));
     }
 
     public static void main(String[] args)
