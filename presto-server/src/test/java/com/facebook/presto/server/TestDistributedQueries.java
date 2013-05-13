@@ -67,7 +67,6 @@ import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.JsonModule;
 import io.airlift.log.Logger;
-import io.airlift.log.Logging;
 import io.airlift.node.NodeModule;
 import io.airlift.testing.FileUtils;
 import io.airlift.tracetoken.TraceTokenModule;
@@ -123,8 +122,6 @@ public class TestDistributedQueries
     protected void setUpQueryFramework(String catalog, String schema)
             throws Exception
     {
-        Logging.initialize();
-
         try {
             discoveryServer = new DiscoveryTestingServer();
             coordinator = new PrestoTestingServer(discoveryServer.getBaseUrl());
