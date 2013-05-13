@@ -8,10 +8,13 @@ import com.google.common.base.Throwables;
 import org.apache.hadoop.hive.metastore.MetaStoreUtils;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.SerDeUtils;
+import org.apache.hadoop.hive.serde2.lazy.ByteArrayRef;
+import org.apache.hadoop.hive.serde2.lazy.LazyBinary;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
+import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.RecordReader;
 
@@ -195,7 +198,15 @@ class GenericHiveRecordCursor<K, V extends Writable>
                         doubles[outputColumnIndex] = ((Number) fieldValue).doubleValue();
                         break;
                     case STRING:
-                        strings[outputColumnIndex] = ((String) fieldValue).getBytes(Charsets.UTF_8);
+                        if (fieldValue instanceof ByteArrayRef) {
+                            // we should be able to:
+                            //   strings[outputColumnIndex] = ((ByteArrayRef) fieldValue).getData();
+                            // but the current version of Hive we are does not trim the array to the proper length
+                            BytesWritable writableObject = ((LazyBinary) fieldData).getWritableObject();
+                            strings[outputColumnIndex] = Arrays.copyOf(writableObject.getBytes(), writableObject.getLength());
+                        } else {
+                            strings[outputColumnIndex] = ((String) fieldValue).getBytes(Charsets.UTF_8);
+                        }
                         break;
                 }
             }
