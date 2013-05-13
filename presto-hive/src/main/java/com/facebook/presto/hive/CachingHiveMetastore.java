@@ -9,6 +9,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.units.Duration;
 import org.apache.hadoop.hive.metastore.TableType;
+import org.apache.hadoop.hive.metastore.Warehouse;
+import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.Table;
@@ -233,7 +235,7 @@ public class CachingHiveMetastore
         }, NoSuchObjectException.class);
     }
 
-    public List<Partition> getPartitionsByNames(final String databaseName, final String tableName, List<String> partitionNames)
+    public List<Partition> getPartitionsByNames(Table table, final String databaseName, final String tableName, List<String> partitionNames)
             throws NoSuchObjectException
     {
         // Pre-populate some results with already cached partitions
@@ -274,8 +276,15 @@ public class CachingHiveMetastore
 
             // Cache the results
             checkState(fetchedPartitions.size() == partitionsToFetch.size());
-            for (int i = 0; i < fetchedPartitions.size(); i++) {
-                partitionCache.put(HivePartitionName.partition(databaseName, tableName, partitionsToFetch.get(i)), fetchedPartitions.get(i));
+            for (Partition partition : fetchedPartitions) {
+                try {
+                    String partitionId = Warehouse.makePartName(table.getPartitionKeys(), partition.getValues());
+                    partitionCache.put(HivePartitionName.partition(databaseName, tableName, partitionId), partition);
+                }
+                catch (MetaException e) {
+                    // this should never happen
+                    throw Throwables.propagate(e);
+                }
             }
 
             // Merge the results
