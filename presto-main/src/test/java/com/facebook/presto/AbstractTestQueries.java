@@ -15,6 +15,7 @@ import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import io.airlift.slice.Slices;
 import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
@@ -1440,6 +1441,8 @@ public abstract class AbstractTestQueries
     public void setupDatabase()
             throws Exception
     {
+        Logging.initialize();
+
         handle = DBI.open("jdbc:h2:mem:test" + System.nanoTime());
 
         RecordSet ordersRecords = readTpchRecords(TPCH_ORDERS_METADATA);
