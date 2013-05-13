@@ -1,11 +1,11 @@
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.shaded.org.apache.commons.codec.binary.Base64;
 import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.RecordCursor;
 import com.google.common.base.Charsets;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
-import org.apache.commons.codec.binary.Base64;
 import org.apache.hadoop.hive.metastore.MetaStoreUtils;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.SerDeUtils;
