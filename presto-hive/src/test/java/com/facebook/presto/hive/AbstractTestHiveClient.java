@@ -338,7 +338,7 @@ public abstract class AbstractTestHiveClient
     }
 
     @Test
-    public void _testGetRecords()
+    public void testGetRecords()
             throws Exception
     {
         TableHandle tableHandle = metadata.getTableHandle(table);
