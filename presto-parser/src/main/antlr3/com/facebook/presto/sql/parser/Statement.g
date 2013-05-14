@@ -222,13 +222,13 @@ setQuant
     ;
 
 selectList
-    : '*' -> ALL_COLUMNS
-    | selectSublist (',' selectSublist)* -> ^(SELECT_LIST selectSublist+)
+    : selectSublist (',' selectSublist)* -> ^(SELECT_LIST selectSublist+)
     ;
 
 selectSublist
     : expr (AS? ident)? -> ^(SELECT_ITEM expr ident?)
     | qname '.' '*'     -> ^(ALL_COLUMNS qname)
+    | '*'               -> ALL_COLUMNS
     ;
 
 tableRef

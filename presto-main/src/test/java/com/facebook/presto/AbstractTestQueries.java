@@ -289,6 +289,20 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testMultipleWildcards()
+            throws Exception
+    {
+        assertQuery("SELECT *, 123, * FROM ORDERS");
+    }
+
+    @Test
+    public void testMixedWildcards()
+            throws Exception
+    {
+        assertQuery("SELECT *, orders.*, orderkey FROM orders");
+    }
+
+    @Test
     public void testQualifiedWildcardFromAlias()
             throws Exception
     {
