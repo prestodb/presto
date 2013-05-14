@@ -135,6 +135,8 @@ public class ServerMainModule
         binder.bind(QueryResource.class).in(Scopes.SINGLETON);
         binder.bind(StageResource.class).in(Scopes.SINGLETON);
         binder.bind(QueryManager.class).to(SqlQueryManager.class).in(Scopes.SINGLETON);
+        ExportBinder.newExporter(binder).export(QueryManager.class).withGeneratedName();
+
         bindConfig(binder).to(QueryManagerConfig.class);
 
         binder.bind(QueryIdGenerator.class).in(Scopes.SINGLETON);
