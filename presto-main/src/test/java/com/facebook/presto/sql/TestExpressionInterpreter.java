@@ -22,7 +22,11 @@ import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
 import static com.facebook.presto.sql.parser.SqlParser.createExpression;
 import static com.google.common.base.Charsets.UTF_8;
+import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 
 public class TestExpressionInterpreter
@@ -571,6 +575,69 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("unboundstring like boundpattern", "unboundstring like boundpattern");
 
         assertOptimizedEquals("unboundstring like unboundpattern escape unboundstring", "unboundstring like unboundpattern escape unboundstring");
+    }
+
+    @Test
+    public void testTimestampLiteral()
+    {
+        DateTimeZone timeZone = DateTimeZone.forOffsetHours(5);
+
+        assertOptimizedEquals("timestamp '1960-01-22 03:04:05.321'", getSeconds(new DateTime(1960, 1, 22, 3, 4, 5, 321, DateTimeZone.UTC)));
+        assertOptimizedEquals("timestamp '1960-01-22 03:04:05'", getSeconds(new DateTime(1960, 1, 22, 3, 4, 5, 0, DateTimeZone.UTC)));
+        assertOptimizedEquals("timestamp '1960-01-22 03:04'", getSeconds(new DateTime(1960, 1, 22, 3, 4, 0, 0, DateTimeZone.UTC)));
+        assertOptimizedEquals("timestamp '1960-01-22'", getSeconds(new DateTime(1960, 1, 22, 0, 0, 0, 0, DateTimeZone.UTC)));
+
+        assertOptimizedEquals("timestamp '1960-01-22 03:04:05.321Z'", getSeconds(new DateTime(1960, 1, 22, 3, 4, 5, 321, DateTimeZone.UTC)));
+        assertOptimizedEquals("timestamp '1960-01-22 03:04:05Z'", getSeconds(new DateTime(1960, 1, 22, 3, 4, 5, 0, DateTimeZone.UTC)));
+        assertOptimizedEquals("timestamp '1960-01-22 03:04Z'", getSeconds(new DateTime(1960, 1, 22, 3, 4, 0, 0, DateTimeZone.UTC)));
+
+        assertOptimizedEquals("timestamp '1960-01-22 03:04:05.321+05:00'", getSeconds(new DateTime(1960, 1, 22, 3, 4, 5, 321, timeZone)));
+        assertOptimizedEquals("timestamp '1960-01-22 03:04:05+05:00'", getSeconds(new DateTime(1960, 1, 22, 3, 4, 5, 0, timeZone)));
+        assertOptimizedEquals("timestamp '1960-01-22 03:04+05:00'", getSeconds(new DateTime(1960, 1, 22, 3, 4, 0, 0, timeZone)));
+
+        assertOptimizedEquals("timestamp '1960-01-22 03:04:05.321+05'", getSeconds(new DateTime(1960, 1, 22, 3, 4, 5, 321, timeZone)));
+        assertOptimizedEquals("timestamp '1960-01-22 03:04:05+05'", getSeconds(new DateTime(1960, 1, 22, 3, 4, 5, 0, timeZone)));
+        assertOptimizedEquals("timestamp '1960-01-22 03:04+05'", getSeconds(new DateTime(1960, 1, 22, 3, 4, 0, 0, timeZone)));
+
+        assertOptimizedEquals("timestamp '1960-01-22 03:04:05.321 Asia/Oral'", getSeconds(new DateTime(1960, 1, 22, 3, 4, 5, 321, timeZone)));
+        assertOptimizedEquals("timestamp '1960-01-22 03:04:05 Asia/Oral'", getSeconds(new DateTime(1960, 1, 22, 3, 4, 5, 0, timeZone)));
+        assertOptimizedEquals("timestamp '1960-01-22 03:04 Asia/Oral'", getSeconds(new DateTime(1960, 1, 22, 3, 4, 0, 0, timeZone)));
+    }
+
+    @Test
+    public void testIntervalLiteral()
+    {
+        assertOptimizedEquals("INTERVAL '123' DAY", String.valueOf(DAYS.toSeconds(123)));
+        assertOptimizedEquals("INTERVAL + '123' DAY", String.valueOf(DAYS.toSeconds(123)));
+        assertOptimizedEquals("INTERVAL - '123' DAY", String.valueOf(-DAYS.toSeconds(123)));
+
+        // assertOptimizedEquals("INTERVAL '123 23:58:53.456' DAY TO SECOND",
+        //        String.valueOf(DAYS.toSeconds(123) + HOURS.toSeconds(23) + MINUTES.toSeconds(59) + SECONDS.toSeconds(53)));
+
+        assertOptimizedEquals("INTERVAL '123' HOUR", String.valueOf(HOURS.toSeconds(123)));
+        assertOptimizedEquals("INTERVAL + '123' HOUR", String.valueOf(HOURS.toSeconds(123)));
+        assertOptimizedEquals("INTERVAL - '123' HOUR", String.valueOf(-HOURS.toSeconds(123)));
+
+        // assertOptimizedEquals("INTERVAL '23:59' HOUR TO MINUTE", String.valueOf(HOURS.toSeconds(23) + MINUTES.toSeconds(59)));
+
+        assertOptimizedEquals("INTERVAL '123' MINUTE", String.valueOf(MINUTES.toSeconds(123)));
+        assertOptimizedEquals("INTERVAL + '123' MINUTE", String.valueOf(MINUTES.toSeconds(123)));
+        assertOptimizedEquals("INTERVAL - '123' MINUTE", String.valueOf(-MINUTES.toSeconds(123)));
+
+        assertOptimizedEquals("INTERVAL '123' SECOND", String.valueOf(SECONDS.toSeconds(123)));
+        assertOptimizedEquals("INTERVAL + '123' SECOND", String.valueOf(SECONDS.toSeconds(123)));
+        assertOptimizedEquals("INTERVAL - '123' SECOND", String.valueOf(-SECONDS.toSeconds(123)));
+    }
+
+    @Test
+    public void testIntervalMath()
+    {
+        assertOptimizedEquals("timestamp '1960-01-22 03:04:05.321' - interval '7' day", getSeconds(new DateTime(1960, 1, 15, 3, 4, 5, 321, DateTimeZone.UTC)));
+    }
+
+    private static String getSeconds(DateTime dateTime)
+    {
+        return String.valueOf(MILLISECONDS.toSeconds(dateTime.getMillis()));
     }
 
     private static void assertOptimizedEquals(@Language("SQL") String actual, @Language("SQL") String expected)

@@ -6,16 +6,15 @@ import com.facebook.presto.sql.tree.Statement;
 import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
 import org.antlr.runtime.tree.CommonTree;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 
 import static com.facebook.presto.sql.parser.TreeAssertions.assertFormattedSql;
 import static com.facebook.presto.sql.parser.TreePrinter.treeToString;
 import static com.google.common.base.Strings.repeat;
+import static java.lang.String.format;
+import static org.testng.Assert.assertFalse;
 
 public class TestStatementBuilder
 {
@@ -64,23 +63,39 @@ public class TestStatementBuilder
         printStatement("select \"TOTALPRICE\" \"my price\" from \"ORDERS\"");
     }
 
-    @DataProvider(name = "tpch")
-    public Object[][] tpchDataProvider()
-    {
-        List<Object[]> tests = new ArrayList<>();
-        for (int i = 1; i <= 22; i++) {
-            if (i != 15) {
-                tests.add(new Object[] {i});
-            }
-        }
-        return tests.toArray(new Object[tests.size()][]);
-    }
-
-    @Test(dataProvider = "tpch")
-    public void testStatementBuilderTpch(int query)
+    @Test
+    public void testStatementBuilderTpch()
             throws Exception
     {
-        printStatement(getTpchQuery(query));
+        printTpchQuery(1, 3);
+        printTpchQuery(2, 33, "part type like", "region name");
+        printTpchQuery(3, "market segment", "2013-03-05");
+        printTpchQuery(4, "2013-03-05");
+        printTpchQuery(5, "region name", "2013-03-05");
+        printTpchQuery(6, "2013-03-05", 33, 44);
+        printTpchQuery(7, "nation name 1", "nation name 2");
+        printTpchQuery(8, "nation name", "region name", "part type");
+        printTpchQuery(9, "part name like");
+        printTpchQuery(10, "2013-03-05");
+        printTpchQuery(11, "nation name", 33);
+        printTpchQuery(12, "ship mode 1", "ship mode 2", "2013-03-05");
+        printTpchQuery(13, "comment like 1", "comment like 2");
+        printTpchQuery(14, "2013-03-05");
+        // query 15: views not supported
+        printTpchQuery(16, "part brand", "part type like", 3, 4, 5, 6, 7, 8, 9, 10);
+        printTpchQuery(17, "part brand", "part container");
+        printTpchQuery(18, 33);
+        printTpchQuery(19, "part brand 1", "part brand 2", "part brand 3", 11, 22, 33);
+        printTpchQuery(20, "part name like", "2013-03-05", "nation name");
+        printTpchQuery(21, "nation name");
+        printTpchQuery(22,
+                "phone 1",
+                "phone 2",
+                "phone 3",
+                "phone 4",
+                "phone 5",
+                "phone 6",
+                "phone 7");
     }
 
     private static void printStatement(String sql)
@@ -117,7 +132,22 @@ public class TestStatementBuilder
     private static String getTpchQuery(int q)
             throws IOException
     {
-        return fixTpchQuery(readResource("tpch/queries/" + q + ".sql"));
+        return readResource("tpch/queries/" + q + ".sql");
+    }
+
+    private static void printTpchQuery(int query, Object... values)
+            throws IOException
+    {
+        String sql = getTpchQuery(query);
+
+        for (int i = values.length - 1; i >= 0; i--) {
+            sql = sql.replaceAll(format(":%s", i + 1), String.valueOf(values[i]));
+        }
+
+        assertFalse(sql.matches("(?s).*:[0-9].*"), "Not all bind parameters were replaced: " + sql);
+
+        sql = fixTpchQuery(sql);
+        printStatement(sql);
     }
 
     private static String readResource(String name)
@@ -132,7 +162,7 @@ public class TestStatementBuilder
         s = s.replaceAll("(?m)^:[xo]$", "");
         s = s.replaceAll("(?m)^:n -1$", "");
         s = s.replaceAll("(?m)^:n ([0-9]+)$", "LIMIT $1");
-        s = s.replaceAll("([^']):([0-9]+)", "$1$2");
+        s = s.replace("day (3)", "day"); // for query 1
         return s;
     }
 }
