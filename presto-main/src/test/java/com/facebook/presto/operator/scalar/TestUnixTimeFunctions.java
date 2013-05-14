@@ -119,33 +119,6 @@ public class TestUnixTimeFunctions
     }
 
     @Test
-    public void testTimestampLiteral()
-    {
-        DateTimeZone timeZone = DateTimeZone.forOffsetHours(5);
-
-        assertFunction("timestamp '1960-01-22 03:04:05.321'", getSeconds(new DateTime(1960, 1, 22, 3, 4, 5, 321, DateTimeZone.UTC)));
-        assertFunction("timestamp '1960-01-22 03:04:05'", getSeconds(new DateTime(1960, 1, 22, 3, 4, 5, 0, DateTimeZone.UTC)));
-        assertFunction("timestamp '1960-01-22 03:04'", getSeconds(new DateTime(1960, 1, 22, 3, 4, 0, 0, DateTimeZone.UTC)));
-        assertFunction("timestamp '1960-01-22'", getSeconds(new DateTime(1960, 1, 22, 0, 0, 0, 0, DateTimeZone.UTC)));
-
-        assertFunction("timestamp '1960-01-22 03:04:05.321Z'", getSeconds(new DateTime(1960, 1, 22, 3, 4, 5, 321, DateTimeZone.UTC)));
-        assertFunction("timestamp '1960-01-22 03:04:05Z'", getSeconds(new DateTime(1960, 1, 22, 3, 4, 5, 0, DateTimeZone.UTC)));
-        assertFunction("timestamp '1960-01-22 03:04Z'", getSeconds(new DateTime(1960, 1, 22, 3, 4, 0, 0, DateTimeZone.UTC)));
-
-        assertFunction("timestamp '1960-01-22 03:04:05.321+05:00'", getSeconds(new DateTime(1960, 1, 22, 3, 4, 5, 321, timeZone)));
-        assertFunction("timestamp '1960-01-22 03:04:05+05:00'", getSeconds(new DateTime(1960, 1, 22, 3, 4, 5, 0, timeZone)));
-        assertFunction("timestamp '1960-01-22 03:04+05:00'", getSeconds(new DateTime(1960, 1, 22, 3, 4, 0, 0, timeZone)));
-
-        assertFunction("timestamp '1960-01-22 03:04:05.321+05'", getSeconds(new DateTime(1960, 1, 22, 3, 4, 5, 321, timeZone)));
-        assertFunction("timestamp '1960-01-22 03:04:05+05'", getSeconds(new DateTime(1960, 1, 22, 3, 4, 5, 0, timeZone)));
-        assertFunction("timestamp '1960-01-22 03:04+05'", getSeconds(new DateTime(1960, 1, 22, 3, 4, 0, 0, timeZone)));
-
-        assertFunction("timestamp '1960-01-22 03:04:05.321 Asia/Oral'", getSeconds(new DateTime(1960, 1, 22, 3, 4, 5, 321, timeZone)));
-        assertFunction("timestamp '1960-01-22 03:04:05 Asia/Oral'", getSeconds(new DateTime(1960, 1, 22, 3, 4, 5, 0, timeZone)));
-        assertFunction("timestamp '1960-01-22 03:04 Asia/Oral'", getSeconds(new DateTime(1960, 1, 22, 3, 4, 0, 0, timeZone)));
-    }
-
-    @Test
     public void testParseDatetime()
     {
         DateTimeZone timeZone = DateTimeZone.forOffsetHours(5);

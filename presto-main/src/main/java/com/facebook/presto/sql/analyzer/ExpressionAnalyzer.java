@@ -11,6 +11,7 @@ import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CurrentTime;
+import com.facebook.presto.sql.tree.DateLiteral;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Extract;
@@ -18,6 +19,7 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
+import com.facebook.presto.sql.tree.IntervalLiteral;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LikePredicate;
@@ -394,7 +396,21 @@ public class ExpressionAnalyzer
         }
 
         @Override
+        protected Type visitDateLiteral(DateLiteral node, Void context)
+        {
+            subExpressionTypes.put(node, Type.LONG);
+            return Type.LONG;
+        }
+
+        @Override
         protected Type visitTimestampLiteral(TimestampLiteral node, Void context)
+        {
+            subExpressionTypes.put(node, Type.LONG);
+            return Type.LONG;
+        }
+
+        @Override
+        protected Type visitIntervalLiteral(IntervalLiteral node, Void context)
         {
             subExpressionTypes.put(node, Type.LONG);
             return Type.LONG;

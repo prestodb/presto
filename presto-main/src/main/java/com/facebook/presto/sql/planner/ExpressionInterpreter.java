@@ -14,6 +14,7 @@ import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CurrentTime;
+import com.facebook.presto.sql.tree.DateLiteral;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Extract;
@@ -22,6 +23,7 @@ import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.InputReference;
+import com.facebook.presto.sql.tree.IntervalLiteral;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LikePredicate;
@@ -151,9 +153,24 @@ public class ExpressionInterpreter
     }
 
     @Override
+    protected Object visitDateLiteral(DateLiteral node, Void context)
+    {
+        return node.getUnixTime();
+    }
+
+    @Override
     protected Long visitTimestampLiteral(TimestampLiteral node, Void context)
     {
         return node.getUnixTime();
+    }
+
+    @Override
+    protected Long visitIntervalLiteral(IntervalLiteral node, Void context)
+    {
+        if (node.isYearToMonth()) {
+            throw new UnsupportedOperationException("Month based intervals not supported yet: " + node.getType());
+        }
+        return node.getSeconds();
     }
 
     @Override
