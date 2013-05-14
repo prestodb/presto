@@ -27,6 +27,8 @@ public class TestStatementBuilder
 
         printStatement("select * from foo a (x, y, z)");
 
+        printStatement("select *, 123, * from foo");
+
         printStatement("select show from foo");
         printStatement("select extract(day from x), extract(dow from x) from y");
 
