@@ -35,6 +35,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
+import io.airlift.units.DataSize;
 import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
@@ -118,6 +119,7 @@ public class HiveClient
     private final CachingHiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
     private final ExecutorService executor;
+    private final DataSize maxSplitSize;
 
     @Inject
     public HiveClient(HiveConnectorId connectorId,
@@ -130,6 +132,7 @@ public class HiveClient
                 metastore,
                 hdfsEnvironment,
                 executor,
+                hiveClientConfig.getMaxSplitSize(),
                 hiveClientConfig.getMaxOutstandingSplits(),
                 hiveClientConfig.getMaxSplitIteratorThreads(),
                 hiveClientConfig.getPartitionBatchSize());
@@ -139,12 +142,14 @@ public class HiveClient
             CachingHiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             ExecutorService executor,
+            DataSize maxSplitSize,
             int maxOutstandingSplits,
             int maxSplitIteratorThreads,
             int partitionBatchSize)
     {
         this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
 
+        this.maxSplitSize = checkNotNull(maxSplitSize, "maxSplitSize is null");
         this.maxOutstandingSplits = maxOutstandingSplits;
         this.maxSplitIteratorThreads = maxSplitIteratorThreads;
         this.partitionBatchSize = partitionBatchSize;
@@ -431,7 +436,16 @@ public class HiveClient
             throw new TableNotFoundException(tableName);
         }
 
-        return new HiveSplitIterable(connectorId, table, partitionNames, hivePartitions, maxOutstandingSplits, maxSplitIteratorThreads, hdfsEnvironment, executor, partitionBatchSize);
+        return new HiveSplitIterable(connectorId,
+                table,
+                partitionNames,
+                hivePartitions,
+                maxSplitSize,
+                maxOutstandingSplits,
+                maxSplitIteratorThreads,
+                hdfsEnvironment,
+                executor,
+                partitionBatchSize);
     }
 
     private Iterable<org.apache.hadoop.hive.metastore.api.Partition> getPartitions(final Table table, final SchemaTableName tableName, final List<String> partitionNames)
@@ -573,12 +587,14 @@ public class HiveClient
         private final HdfsEnvironment hdfsEnvironment;
         private final ExecutorService executor;
         private final ClassLoader classLoader;
+        private final DataSize maxSplitSize;
         private final int partitionBatchSize;
 
         private HiveSplitIterable(String clientId,
                 Table table,
                 Iterable<String> partitionNames,
                 Iterable<org.apache.hadoop.hive.metastore.api.Partition> partitions,
+                DataSize maxSplitSize,
                 int maxOutstandingSplits,
                 int maxThreads,
                 HdfsEnvironment hdfsEnvironment,
@@ -589,6 +605,7 @@ public class HiveClient
             this.table = table;
             this.partitionNames = partitionNames;
             this.partitions = partitions;
+            this.maxSplitSize = maxSplitSize;
             this.partitionBatchSize = partitionBatchSize;
             this.maxOutstandingSplits = maxOutstandingSplits;
             this.maxThreads = maxThreads;
@@ -734,15 +751,32 @@ public class HiveClient
             ImmutableList.Builder<HiveSplit> builder = ImmutableList.builder();
             if (splittable) {
                 for (BlockLocation blockLocation : fileBlockLocations) {
-                    builder.add(new HiveSplit(clientId,
-                            partitionName,
-                            false,
-                            file.getPath().toString(),
-                            blockLocation.getOffset(),
-                            blockLocation.getLength(),
-                            schema,
-                            partitionKeys,
-                            toHostAddress(blockLocation.getHosts())));
+                    // get the addresses for the block
+                    List<HostAddress> addresses = toHostAddress(blockLocation.getHosts());
+
+                    // divide the block into uniform chunks that are smaller than the max split size
+                    int chunks = (int) (blockLocation.getLength() / maxSplitSize.toBytes());
+                    // when block does not divide evenly into chunks, make the chunk size slightly bigger than necessary
+                    long targetChunkSize = (long) Math.ceil(blockLocation.getLength() * 1.0 / chunks);
+
+                    long chunkOffset = 0;
+                    while (chunkOffset < blockLocation.getLength()) {
+                        // adjust the actual chunk size to account for the overrun when chunks are slightly bigger than necessary (see above)
+                        long chunkLength = Math.min(targetChunkSize, blockLocation.getLength() - chunkOffset);
+
+                        builder.add(new HiveSplit(clientId,
+                                partitionName,
+                                false,
+                                file.getPath().toString(),
+                                blockLocation.getOffset() + chunkOffset,
+                                chunkLength,
+                                schema,
+                                partitionKeys,
+                                addresses));
+
+                        chunkOffset += chunkLength;
+                    }
+                    checkState(chunkOffset == blockLocation.getOffset() + blockLocation.getLength(), "Error splitting blocks");
                 }
             } else {
                 // not splittable, use the hosts from the first block

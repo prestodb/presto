@@ -33,6 +33,7 @@ public class TestHiveClient
                 new CachingHiveMetastore(new TestingHiveCluster(host, port), Duration.valueOf("1m")),
                 new HdfsEnvironment(new HdfsConfiguration(), fileSystemWrapper),
                 MoreExecutors.sameThreadExecutor(),
+                hiveClientConfig.getMaxSplitSize(),
                 100,
                 50,
                 500);
