@@ -39,6 +39,7 @@ import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
+import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.google.common.base.Charsets;
@@ -154,6 +155,12 @@ public class ExpressionInterpreter
 
     @Override
     protected Object visitDateLiteral(DateLiteral node, Void context)
+    {
+        return node.getUnixTime();
+    }
+
+    @Override
+    protected Object visitTimeLiteral(TimeLiteral node, Void context)
     {
         return node.getUnixTime();
     }
