@@ -30,6 +30,7 @@ public class TestHiveClientSplitIteratorBackPressure
                 new CachingHiveMetastore(new TestingHiveCluster(host, port), Duration.valueOf("1m")),
                 new HdfsEnvironment(),
                 MoreExecutors.sameThreadExecutor(),
+                hiveClientConfig.getMaxSplitSize(),
                 1,
                 2,
                 500);
