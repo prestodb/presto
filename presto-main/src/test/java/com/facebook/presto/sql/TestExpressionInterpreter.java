@@ -635,6 +635,13 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("timestamp '1960-01-22 03:04:05.321' - interval '7' day", getSeconds(new DateTime(1960, 1, 15, 3, 4, 5, 321, DateTimeZone.UTC)));
     }
 
+    @Test
+    public void testDateLiteral()
+    {
+        assertOptimizedEquals("DATE '1960-01-22'", getSeconds(new DateTime(1960, 1, 22, 0, 0, 0, 0, DateTimeZone.UTC)));
+        assertOptimizedEquals("DATE '2013-03-22'", getSeconds(new DateTime(2013, 3, 22, 0, 0, 0, 0, DateTimeZone.UTC)));
+    }
+
     private static String getSeconds(DateTime dateTime)
     {
         return String.valueOf(MILLISECONDS.toSeconds(dateTime.getMillis()));
