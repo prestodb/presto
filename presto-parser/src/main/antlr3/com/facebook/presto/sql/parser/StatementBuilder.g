@@ -111,8 +111,7 @@ withQuery returns [WithQuery value]
     ;
 
 selectClause returns [Select value]
-    : ^(SELECT d=distinct ALL_COLUMNS)  { $value = new Select($d.value, ImmutableList.<Expression>of(new AllColumns())); }
-    | ^(SELECT d=distinct s=selectList) { $value = new Select($d.value, $s.value); }
+    : ^(SELECT d=distinct s=selectList) { $value = new Select($d.value, $s.value); }
     ;
 
 distinct returns [boolean value]
@@ -126,8 +125,9 @@ selectList returns [List<Expression> value = new ArrayList<>()]
 
 selectItem returns [Expression value]
     : (^(SELECT_ITEM expr ident)) => ^(SELECT_ITEM e=expr i=ident)  { $value = new AliasedExpression($e.value, $i.value); }
-    | ^(SELECT_ITEM expr)            { $value = $expr.value; }
-    | ^(ALL_COLUMNS q=qname)         { $value = new AllColumns($q.value); }
+    | ^(SELECT_ITEM expr)                                           { $value = $expr.value; }
+    | (^(ALL_COLUMNS qname)) => ^(ALL_COLUMNS qname)                { $value = new AllColumns($qname.value); }
+    | ALL_COLUMNS                                                   { $value = new AllColumns(); }
     ;
 
 fromClause returns [List<Relation> value]
