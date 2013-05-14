@@ -11,9 +11,11 @@ import com.facebook.presto.util.MaterializedResult;
 import com.facebook.presto.util.MaterializedTuple;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Multimaps;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.airlift.slice.Slices;
@@ -40,8 +42,8 @@ import static com.facebook.presto.tpch.TpchMetadata.TPCH_ORDERS_NAME;
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
-import static com.facebook.presto.util.MaterializedResult.resultBuilder;
 import static com.facebook.presto.util.InMemoryTpchBlocksProvider.readTpchRecords;
+import static com.facebook.presto.util.MaterializedResult.resultBuilder;
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.transform;
@@ -1401,17 +1403,23 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         MaterializedResult result = computeActual("SHOW FUNCTIONS");
-        ImmutableSet<String> functionNames = ImmutableSet.copyOf(transform(result.getMaterializedTuples(), new Function<MaterializedTuple, String>()
+        ImmutableMultimap<String, MaterializedTuple> functions = Multimaps.index(result.getMaterializedTuples(), new Function<MaterializedTuple, String>()
         {
             @Override
             public String apply(MaterializedTuple input)
             {
-                assertEquals(input.getFieldCount(), 3);
+                assertEquals(input.getFieldCount(), 4);
                 return (String) input.getField(0);
             }
-        }));
-        assertTrue(functionNames.contains("avg"), "Expected function names " + functionNames + " to contain 'avg'");
-        assertTrue(functionNames.contains("abs"), "Expected function names " + functionNames + " to contain 'abs'");
+        });
+        assertTrue(functions.containsKey("avg"), "Expected function names " + functions + " to contain 'avg'");
+        assertEquals(functions.get("avg").asList().get(0).getField(3), "aggregate");
+        assertTrue(functions.containsKey("abs"), "Expected function names " + functions + " to contain 'abs'");
+        assertEquals(functions.get("abs").asList().get(0).getField(3), "scalar");
+        assertTrue(functions.containsKey("rand"), "Expected function names " + functions + " to contain 'rand'");
+        assertEquals(functions.get("rand").asList().get(0).getField(3), "scalar (non-deterministic)");
+        assertTrue(functions.containsKey("rank"), "Expected function names " + functions + " to contain 'rank'");
+        assertEquals(functions.get("rank").asList().get(0).getField(3), "window");
     }
 
     @Test

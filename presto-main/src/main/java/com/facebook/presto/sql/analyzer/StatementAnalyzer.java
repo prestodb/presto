@@ -213,7 +213,8 @@ class StatementAnalyzer
                 selectList(
                         aliasedName("function_name", "Function"),
                         aliasedName("return_type", "Return Type"),
-                        aliasedName("argument_types", "Argument Types")),
+                        aliasedName("argument_types", "Argument Types"),
+                        aliasedName("function_type", "Function Type")),
                 table(QualifiedName.of(TABLE_INTERNAL_FUNCTIONS.getSchemaName(), TABLE_INTERNAL_FUNCTIONS.getTableName())),
                 Optional.<Expression>absent(),
                 ImmutableList.<Expression>of(),

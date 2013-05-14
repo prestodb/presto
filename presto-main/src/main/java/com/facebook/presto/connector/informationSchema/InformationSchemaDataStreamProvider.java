@@ -148,10 +148,23 @@ public class InformationSchemaDataStreamProvider
         InternalTable.Builder table = InternalTable.builder(InformationSchemaMetadata.informationSchemaTableColumns(InformationSchemaMetadata.TABLE_INTERNAL_FUNCTIONS));
         for (FunctionInfo function : metadata.listFunctions()) {
             Iterable<String> arguments = transform(function.getArgumentTypes(), TupleInfo.Type.nameGetter());
+
+            String functionType;
+            if (function.isAggregate()) {
+                functionType = "aggregate";
+            } else if (function.isWindow()) {
+                functionType = "window";
+            } else if (function.isDeterministic()) {
+                functionType = "scalar";
+            } else {
+                functionType = "scalar (non-deterministic)";
+            }
+
             table.add(table.getTupleInfo().builder()
                     .append(function.getName().toString())
                     .append(Joiner.on(", ").join(arguments))
                     .append(function.getReturnType().getName())
+                    .append(functionType)
                     .build());
         }
         return table.build();
