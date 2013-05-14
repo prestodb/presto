@@ -2,6 +2,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockIterable;
+import com.facebook.presto.execution.SqlTaskManagerStats;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskOutput;
 import com.facebook.presto.util.Threads;
@@ -44,7 +45,7 @@ public class TestAlignmentOperator
     {
         AlignmentOperator operator = createAlignmentOperator();
 
-        TaskOutput taskOutput = new TaskOutput(new TaskId("0", "0", "0"), URI.create("unknown://unknown"), 1000, executor);
+        TaskOutput taskOutput = new TaskOutput(new TaskId("0", "0", "0"), URI.create("unknown://unknown"), 1000, executor, new SqlTaskManagerStats());
         taskOutput.addResultQueue("unknown");
         taskOutput.noMoreResultQueues();
 

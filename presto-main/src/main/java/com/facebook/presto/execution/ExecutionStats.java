@@ -28,6 +28,8 @@ public class ExecutionStats
     private static final DataSize ZERO_SIZE = new DataSize(0, DataSize.Unit.BYTE);
 
     private final DateTime createTime;
+    private final SqlTaskManagerStats taskManagerStats;
+
     @GuardedBy("this")
     private DateTime executionStartTime;
     @GuardedBy("this")
@@ -72,6 +74,13 @@ public class ExecutionStats
 
     public ExecutionStats()
     {
+        this(null);
+    }
+
+    public ExecutionStats(SqlTaskManagerStats taskManagerStats)
+    {
+        this.taskManagerStats = taskManagerStats;
+
         createTime = DateTime.now();
         lastHeartbeat = DateTime.now();
     }
@@ -227,6 +236,10 @@ public class ExecutionStats
     public void addSplits(int splits)
     {
         this.splits.addAndGet(splits);
+
+        if (taskManagerStats != null) {
+            taskManagerStats.addSplits(splits);
+        }
     }
 
     public void setExchangeStatus(List<ExchangeClientStatus> exchangeStatus)
@@ -237,21 +250,37 @@ public class ExecutionStats
     public void splitStarted()
     {
         startedSplits.incrementAndGet();
+
+        if (taskManagerStats != null) {
+            taskManagerStats.splitStarted();
+        }
     }
 
     public void splitCompleted()
     {
         completedSplits.incrementAndGet();
+
+        if (taskManagerStats != null) {
+            taskManagerStats.splitCompleted();
+        }
     }
 
     public synchronized void addSplitCpuTime(Duration duration)
     {
         splitCpuTime = new Duration(splitCpuTime.toMillis() + duration.toMillis(), TimeUnit.MILLISECONDS);
+
+        if (taskManagerStats != null) {
+            taskManagerStats.addSplitCpuTime(duration);
+        }
     }
 
     public synchronized void addSplitWallTime(Duration duration)
     {
         splitWallTime = new Duration(splitWallTime.toMillis() + duration.toMillis(), TimeUnit.MILLISECONDS);
+
+        if (taskManagerStats != null) {
+            taskManagerStats.addSplitWallTime(duration);
+        }
     }
 
     public synchronized void addSplitUserTime(Duration duration)
@@ -282,11 +311,19 @@ public class ExecutionStats
     public void addCompletedPositions(long completedPositions)
     {
         this.completedPositionCount.addAndGet(completedPositions);
+
+        if (taskManagerStats != null) {
+            taskManagerStats.addCompletedPositions(completedPositions);
+        }
     }
 
     public synchronized void addCompletedDataSize(DataSize addedDataSize)
     {
         completedDataSize = new DataSize(completedDataSize.toBytes() + addedDataSize.toBytes(), DataSize.Unit.BYTE);
+
+        if (taskManagerStats != null) {
+            taskManagerStats.addCompletedDataSize(addedDataSize);
+        }
     }
 
     public void addOutputPositions(long outputPositions)
@@ -319,11 +356,19 @@ public class ExecutionStats
     public void addTimeToFirstByte(Duration duration)
     {
         timeToFirstByte.add((long) duration.toMillis());
+
+        if (taskManagerStats != null) {
+            taskManagerStats.addTimeToFirstByte(duration);
+        }
     }
 
     public void addTimeToLastByte(Duration duration)
     {
         timeToLastByte.add((long) duration.toMillis());
+
+        if (taskManagerStats != null) {
+            taskManagerStats.addTimeToLastByte(duration);
+        }
     }
 
     public void add(ExecutionStats stats)
