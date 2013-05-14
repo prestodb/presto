@@ -28,6 +28,8 @@ import io.airlift.node.NodeInfo;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
+import org.weakref.jmx.Flatten;
+import org.weakref.jmx.Managed;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
@@ -68,6 +70,7 @@ public class SqlTaskManager
     private final DataSize maxOperatorMemoryUsage;
     private final Duration maxTaskAge;
     private final Duration clientTimeout;
+    private final SqlTaskManagerStats stats = new SqlTaskManagerStats();
 
     private final ConcurrentMap<TaskId, TaskInfo> taskInfos = new ConcurrentHashMap<>();
     private final ConcurrentMap<TaskId, TaskExecution> tasks = new ConcurrentHashMap<>();
@@ -138,6 +141,13 @@ public class SqlTaskManager
         taskMasterExecutor.shutdownNow();
         shardExecutor.shutdownNow();
         taskManagementExecutor.shutdownNow();
+    }
+
+    @Managed
+    @Flatten
+    public SqlTaskManagerStats getStats()
+    {
+        return stats;
     }
 
     @Override
@@ -213,7 +223,8 @@ public class SqlTaskManager
                         taskMasterExecutor,
                         shardExecutor,
                         maxOperatorMemoryUsage,
-                        queryMonitor
+                        queryMonitor,
+                        stats
                 );
                 tasks.put(taskId, taskExecution);
             }

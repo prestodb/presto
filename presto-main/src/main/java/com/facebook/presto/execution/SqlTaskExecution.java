@@ -101,7 +101,8 @@ public class SqlTaskExecution
             ExecutorService taskMasterExecutor,
             ListeningExecutorService shardExecutor,
             DataSize maxOperatorMemoryUsage,
-            QueryMonitor queryMonitor)
+            QueryMonitor queryMonitor,
+            SqlTaskManagerStats globalStats)
     {
         SqlTaskExecution task = new SqlTaskExecution(session,
                 nodeInfo,
@@ -116,7 +117,8 @@ public class SqlTaskExecution
                 shardExecutor,
                 maxOperatorMemoryUsage,
                 queryMonitor,
-                taskMasterExecutor);
+                taskMasterExecutor,
+                globalStats);
 
         task.start(taskMasterExecutor);
 
@@ -136,7 +138,8 @@ public class SqlTaskExecution
             ListeningExecutorService shardExecutor,
             DataSize maxOperatorMemoryUsage,
             QueryMonitor queryMonitor,
-            Executor notificationExecutor)
+            Executor notificationExecutor,
+            SqlTaskManagerStats globalStats)
     {
         Preconditions.checkNotNull(session, "session is null");
         Preconditions.checkNotNull(nodeInfo, "nodeInfo is null");
@@ -148,6 +151,7 @@ public class SqlTaskExecution
         Preconditions.checkNotNull(shardExecutor, "shardExecutor is null");
         Preconditions.checkNotNull(maxOperatorMemoryUsage, "maxOperatorMemoryUsage is null");
         Preconditions.checkNotNull(queryMonitor, "queryMonitor is null");
+        Preconditions.checkNotNull(globalStats, "globalStats is null");
 
         this.session = session;
         this.nodeInfo = nodeInfo;
@@ -162,7 +166,7 @@ public class SqlTaskExecution
         this.queryMonitor = queryMonitor;
 
         // create output buffers
-        this.taskOutput = new TaskOutput(taskId, location, pageBufferMax, notificationExecutor);
+        this.taskOutput = new TaskOutput(taskId, location, pageBufferMax, notificationExecutor, globalStats);
     }
 
     //

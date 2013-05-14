@@ -41,7 +41,7 @@ public class TaskOutput
     private final URI location;
     private final SharedBuffer<Page> sharedBuffer;
 
-    private final ExecutionStats stats = new ExecutionStats();
+    private final ExecutionStats stats;
     private final StateMachine<TaskState> taskState;
     private final AtomicLong nextTaskInfoVersion = new AtomicLong(TaskInfo.STARTING_VERSION);
 
@@ -55,7 +55,7 @@ public class TaskOutput
 
     private final Set<OperatorStats> activeSplits = Sets.newSetFromMap(new ConcurrentHashMap<OperatorStats, Boolean>());
 
-    public TaskOutput(TaskId taskId, URI location, int pageBufferMax, Executor executor)
+    public TaskOutput(TaskId taskId, URI location, int pageBufferMax, Executor executor, SqlTaskManagerStats taskManagerStats)
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(location, "location is null");
@@ -73,6 +73,8 @@ public class TaskOutput
                 log.debug("Task %s is %s", TaskOutput.this.taskId, newValue);
             }
         });
+
+        stats  = new ExecutionStats(taskManagerStats);
     }
 
     public TaskId getTaskId()
