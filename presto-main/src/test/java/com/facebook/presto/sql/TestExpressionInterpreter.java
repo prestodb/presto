@@ -18,6 +18,7 @@ import org.testng.annotations.Test;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.connector.dual.DualMetadata.DUAL_METADATA_MANAGER;
+import static com.facebook.presto.operator.scalar.FunctionAssertions.assertFunction;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
 import static com.facebook.presto.sql.parser.SqlParser.createExpression;
@@ -640,6 +641,32 @@ public class TestExpressionInterpreter
     {
         assertOptimizedEquals("DATE '1960-01-22'", getSeconds(new DateTime(1960, 1, 22, 0, 0, 0, 0, DateTimeZone.UTC)));
         assertOptimizedEquals("DATE '2013-03-22'", getSeconds(new DateTime(2013, 3, 22, 0, 0, 0, 0, DateTimeZone.UTC)));
+    }
+
+    @Test
+    public void testTimeLiteral()
+    {
+        DateTimeZone timeZone = DateTimeZone.forOffsetHours(5);
+
+        assertOptimizedEquals("time '03:04:05.321'", getSeconds(new DateTime(1970, 1, 1, 3, 4, 5, 321, DateTimeZone.UTC)));
+        assertOptimizedEquals("time '03:04:05'", getSeconds(new DateTime(1970, 1, 1, 3, 4, 5, 0, DateTimeZone.UTC)));
+        assertOptimizedEquals("time '03:04'", getSeconds(new DateTime(1970, 1, 1, 3, 4, 0, 0, DateTimeZone.UTC)));
+
+        assertOptimizedEquals("time '03:04:05.321Z'", getSeconds(new DateTime(1970, 1, 1, 3, 4, 5, 321, DateTimeZone.UTC)));
+        assertOptimizedEquals("time '03:04:05Z'", getSeconds(new DateTime(1970, 1, 1, 3, 4, 5, 0, DateTimeZone.UTC)));
+        assertOptimizedEquals("time '03:04Z'", getSeconds(new DateTime(1970, 1, 1, 3, 4, 0, 0, DateTimeZone.UTC)));
+
+        assertOptimizedEquals("time '03:04:05.321+05:00'", getSeconds(new DateTime(1970, 1, 1, 3, 4, 5, 321, timeZone)));
+        assertOptimizedEquals("time '03:04:05+05:00'", getSeconds(new DateTime(1970, 1, 1, 3, 4, 5, 0, timeZone)));
+        assertOptimizedEquals("time '03:04+05:00'", getSeconds(new DateTime(1970, 1, 1, 3, 4, 0, 0, timeZone)));
+
+        assertOptimizedEquals("time '03:04:05.321+05'", getSeconds(new DateTime(1970, 1, 1, 3, 4, 5, 321, timeZone)));
+        assertOptimizedEquals("time '03:04:05+05'", getSeconds(new DateTime(1970, 1, 1, 3, 4, 5, 0, timeZone)));
+        assertOptimizedEquals("time '03:04+05'", getSeconds(new DateTime(1970, 1, 1, 3, 4, 0, 0, timeZone)));
+
+        assertOptimizedEquals("time '03:04:05.321 Asia/Oral'", getSeconds(new DateTime(1970, 1, 1, 3, 4, 5, 321, timeZone)));
+        assertOptimizedEquals("time '03:04:05 Asia/Oral'", getSeconds(new DateTime(1970, 1, 1, 3, 4, 5, 0, timeZone)));
+        assertOptimizedEquals("time '03:04 Asia/Oral'", getSeconds(new DateTime(1970, 1, 1, 3, 4, 0, 0, timeZone)));
     }
 
     private static String getSeconds(DateTime dateTime)
