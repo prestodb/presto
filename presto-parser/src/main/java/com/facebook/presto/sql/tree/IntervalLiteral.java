@@ -14,6 +14,10 @@ public class IntervalLiteral
     private final String type;
     private final Sign sign;
 
+    private final long seconds;
+    private final long months;
+    private final boolean yearToMonth;
+
     public IntervalLiteral(String value, String type, Sign sign)
     {
         Preconditions.checkNotNull(value, "value is null");
@@ -22,6 +26,42 @@ public class IntervalLiteral
         this.value = value;
         this.type = type;
         this.sign = sign;
+
+        int signValue = (sign == Sign.POSITIVE) ? 1 : -1;
+        switch (type.toUpperCase()) {
+            case "YEAR":
+                months = signValue * Long.parseLong(value) * 12;
+                seconds = 0;
+                yearToMonth = true;
+                break;
+            case "MONTH":
+                months = signValue * Long.parseLong(value);
+                seconds = 0;
+                yearToMonth = true;
+                break;
+            case "DAY":
+                months = 0;
+                seconds = signValue * Long.parseLong(value) * 60 * 60 * 24;
+                yearToMonth = false;
+                break;
+            case "HOUR":
+                months = 0;
+                seconds = signValue * Long.parseLong(value) * 60 * 60;
+                yearToMonth = false;
+                break;
+            case "MINUTE":
+                months = 0;
+                seconds = signValue * Long.parseLong(value) * 60;
+                yearToMonth = false;
+                break;
+            case "SECOND":
+                months = 0;
+                seconds = signValue * Long.parseLong(value);
+                yearToMonth = false;
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported INTERVAL type " + type);
+        }
     }
 
     public String getValue()
@@ -37,6 +77,21 @@ public class IntervalLiteral
     public Sign getSign()
     {
         return sign;
+    }
+
+    public long getMonths()
+    {
+        return months;
+    }
+
+    public long getSeconds()
+    {
+        return seconds;
+    }
+
+    public boolean isYearToMonth()
+    {
+        return yearToMonth;
     }
 
     @Override
