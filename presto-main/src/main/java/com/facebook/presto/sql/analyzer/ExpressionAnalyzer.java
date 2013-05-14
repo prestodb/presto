@@ -36,6 +36,7 @@ import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.StringLiteral;
+import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.google.common.base.Predicate;
@@ -397,6 +398,13 @@ public class ExpressionAnalyzer
 
         @Override
         protected Type visitDateLiteral(DateLiteral node, Void context)
+        {
+            subExpressionTypes.put(node, Type.LONG);
+            return Type.LONG;
+        }
+
+        @Override
+        protected Type visitTimeLiteral(TimeLiteral node, Void context)
         {
             subExpressionTypes.put(node, Type.LONG);
             return Type.LONG;

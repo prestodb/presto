@@ -10,6 +10,7 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.With;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -164,6 +165,13 @@ public class TestSqlParser
             throws Exception
     {
         assertExpression("DATE '2012-03-22'", new DateLiteral("2012-03-22"));
+    }
+
+    @Test
+    public void testTime()
+            throws Exception
+    {
+        assertExpression("TIME '03:04:05'", new TimeLiteral("03:04:05"));
     }
 
     private static void assertStatement(String query, Statement expected)
