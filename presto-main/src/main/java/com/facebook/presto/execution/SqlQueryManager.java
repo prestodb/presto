@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
+import org.weakref.jmx.Flatten;
+import org.weakref.jmx.Managed;
 
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.ThreadSafe;
@@ -56,6 +58,8 @@ public class SqlQueryManager
     private final QueryIdGenerator queryIdGenerator;
 
     private final Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories;
+
+    private final SqlQueryManagerStats stats = new SqlQueryManagerStats();
 
     @Inject
     public SqlQueryManager(QueryManagerConfig config,
@@ -180,7 +184,10 @@ public class SqlQueryManager
             public void stateChanged(QueryState newValue)
             {
                 if (newValue.isDone()) {
-                    queryMonitor.completionEvent(queryExecution.getQueryInfo());
+                    QueryInfo info = queryExecution.getQueryInfo();
+
+                    stats.queryFinished(info);
+                    queryMonitor.completionEvent(info);
                 }
             }
         });
@@ -188,7 +195,7 @@ public class SqlQueryManager
         queries.put(queryId, queryExecution);
 
         // start the query in the background
-        queryExecutor.submit(new QueryStarter(queryExecution));
+        queryExecutor.submit(new QueryStarter(queryExecution, stats));
 
         return queryExecution.getQueryInfo();
     }
@@ -217,6 +224,13 @@ public class SqlQueryManager
         if (query != null) {
             query.cancelStage(stageId);
         }
+    }
+
+    @Managed
+    @Flatten
+    public SqlQueryManagerStats getStats()
+    {
+        return stats;
     }
 
     public void removeQuery(QueryId queryId)
@@ -289,15 +303,18 @@ public class SqlQueryManager
             implements Runnable
     {
         private final QueryExecution queryExecution;
+        private final SqlQueryManagerStats stats;
 
-        public QueryStarter(QueryExecution queryExecution)
+        public QueryStarter(QueryExecution queryExecution, SqlQueryManagerStats stats)
         {
             this.queryExecution = queryExecution;
+            this.stats = stats;
         }
 
         @Override
         public void run()
         {
+            stats.queryStarted();
             queryExecution.start();
         }
     }
