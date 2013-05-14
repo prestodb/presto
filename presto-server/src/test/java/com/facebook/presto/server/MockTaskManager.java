@@ -5,6 +5,7 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.TaskSource;
+import com.facebook.presto.execution.SqlTaskManagerStats;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.BufferResult;
 import com.facebook.presto.execution.TaskInfo;
@@ -102,7 +103,7 @@ public class MockTaskManager
         TaskOutput taskOutput = tasks.get(taskId);
         if (taskOutput == null) {
             URI location = uriBuilderFrom(httpServerInfo.getHttpUri()).appendPath("v1/task").appendPath(taskId.toString()).build();
-            taskOutput = new TaskOutput(taskId, location, pageBufferMax, executor);
+            taskOutput = new TaskOutput(taskId, location, pageBufferMax, executor, new SqlTaskManagerStats());
             tasks.put(taskId, taskOutput);
 
             List<String> data = ImmutableList.of("apple", "banana", "cherry", "date");

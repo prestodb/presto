@@ -141,6 +141,8 @@ public class ServerMainModule
 
         binder.bind(TaskResource.class).in(Scopes.SINGLETON);
         binder.bind(TaskManager.class).to(SqlTaskManager.class).in(Scopes.SINGLETON);
+        ExportBinder.newExporter(binder).export(TaskManager.class).withGeneratedName();
+
         binder.bind(ExchangeOperatorFactory.class).in(Scopes.SINGLETON);
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
 
