@@ -22,7 +22,7 @@ public class TestHiveSplit
 
         ImmutableList<HivePartitionKey> partitionKeys = ImmutableList.of(new HivePartitionKey("a", HiveType.STRING, "apple"), new HivePartitionKey("b", HiveType.LONG, "42"));
         ImmutableList<HostAddress> addresses = ImmutableList.of(HostAddress.fromParts("127.0.0.1", 44), HostAddress.fromParts("127.0.0.1", 45));
-        HiveSplit expected = new HiveSplit("clientId", "partitionId", true, "path", 42, 88, schema, partitionKeys, addresses);
+        HiveSplit expected = new HiveSplit("clientId", "db", "table", "partitionId", true, "path", 42, 88, schema, partitionKeys, addresses);
 
         String json = codec.toJson(expected);
         HiveSplit actual = codec.fromJson(json);
