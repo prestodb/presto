@@ -395,7 +395,10 @@ public class HiveClient
         // fetch the partition names
         List<String> partitionNames;
         try {
-            if (filterPrefix.isEmpty()) {
+            if (partitionKeys.isEmpty()) {
+                partitionNames = ImmutableList.of(UNPARTITIONED_ID);
+            }
+            else if (filterPrefix.isEmpty()) {
                 partitionNames = metastore.getPartitionNames(tableName.getSchemaName(), tableName.getTableName());
             }
             else {

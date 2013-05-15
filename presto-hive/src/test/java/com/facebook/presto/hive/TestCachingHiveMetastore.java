@@ -112,11 +112,11 @@ public class TestCachingHiveMetastore
         Assert.assertEquals(mockClient.getAccessCount(), 2);
     }
 
-    @Test(expectedExceptions = NoSuchObjectException.class)
+    @Test
     public void testInvalidGetPartitionNames()
             throws Exception
     {
-        metastore.getPartitionNames(BAD_DATABASE, TEST_TABLE);
+        Assert.assertEquals(metastore.getPartitionNames(BAD_DATABASE, TEST_TABLE), ImmutableList.of());
     }
 
     @Test
