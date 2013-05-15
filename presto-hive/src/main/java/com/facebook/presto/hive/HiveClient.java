@@ -765,6 +765,8 @@ public class HiveClient
                         long chunkLength = Math.min(targetChunkSize, blockLocation.getLength() - chunkOffset);
 
                         builder.add(new HiveSplit(clientId,
+                                table.getDbName(),
+                                table.getTableName(),
                                 partitionName,
                                 false,
                                 file.getPath().toString(),
@@ -781,6 +783,8 @@ public class HiveClient
             } else {
                 // not splittable, use the hosts from the first block
                 builder.add(new HiveSplit(clientId,
+                        table.getDbName(),
+                        table.getTableName(),
                         partitionName,
                         false,
                         file.getPath().toString(),
