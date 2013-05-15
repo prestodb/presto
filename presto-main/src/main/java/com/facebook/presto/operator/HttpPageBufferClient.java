@@ -5,7 +5,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.serde.PagesSerde;
 import com.google.common.base.Objects;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.net.MediaType;
 import io.airlift.http.client.AsyncHttpClient;
@@ -27,6 +26,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES_TYPE;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
@@ -71,13 +72,9 @@ public class HttpPageBufferClient
 
     public HttpPageBufferClient(AsyncHttpClient httpClient, URI location, ClientCallback clientCallback)
     {
-        Preconditions.checkNotNull(httpClient, "httpClient is null");
-        Preconditions.checkNotNull(location, "location is null");
-        Preconditions.checkNotNull(clientCallback, "clientCallback is null");
-
-        this.httpClient = httpClient;
-        this.location = location;
-        this.clientCallback = clientCallback;
+        this.httpClient = checkNotNull(httpClient, "httpClient is null");
+        this.location = checkNotNull(location, "location is null");
+        this.clientCallback = checkNotNull(clientCallback, "clientCallback is null");
     }
 
     public synchronized ExchangeClientStatus getStatus()
@@ -244,8 +241,8 @@ public class HttpPageBufferClient
                         return null;
                     }
 
-                    String contentType = response.getHeader("Content-Type");
-                    if (!MediaType.parse(contentType).is(PRESTO_PAGES_TYPE)) {
+                    String contentType = response.getHeader(CONTENT_TYPE);
+                    if (contentType == null || !MediaType.parse(contentType).is(PRESTO_PAGES_TYPE)) {
                         // this can happen when an error page is returned, but is unlikely given the above 200
                         log.debug("Expected %s response from server but got %s: uri=%s, response=%s", PRESTO_PAGES_TYPE, contentType, location, response);
                         return null;
@@ -265,9 +262,10 @@ public class HttpPageBufferClient
                     }
                 }
             }
-            catch (Exception e) {
+            catch (Throwable e) {
                 // reschedule on error
                 log.warn(e, "Error fetching pages from  %s: status: %s %s", request.getUri(), response.getStatusCode(), response.getStatusMessage());
+                Throwables.propagateIfInstanceOf(e, Error.class);
             }
             finally {
                 requestComplete();
