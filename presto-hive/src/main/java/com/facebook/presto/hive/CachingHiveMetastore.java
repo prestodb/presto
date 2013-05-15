@@ -24,7 +24,6 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 
-import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.RetryDriver.retry;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -198,11 +197,6 @@ public class CachingHiveMetastore
                     {
                         try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
                             List<String> partitionNames = client.get_partition_names(databaseName, tableName, (short) 0);
-                            if (partitionNames.isEmpty()) {
-                                // Check if the table exists
-                                getTable(databaseName, tableName);
-                                return ImmutableList.of(UNPARTITIONED_ID);
-                            }
                             return partitionNames;
                         }
                     }
