@@ -26,10 +26,14 @@ public class HiveSplit
     private final Properties schema;
     private final List<HivePartitionKey> partitionKeys;
     private final List<HostAddress> addresses;
+    private final String database;
+    private final String table;
 
     @JsonCreator
     public HiveSplit(
             @JsonProperty("clientId") String clientId,
+            @JsonProperty("database") String database,
+            @JsonProperty("table") String table,
             @JsonProperty("partitionId") String partitionId,
             @JsonProperty("lastSplit") boolean lastSplit,
             @JsonProperty("path") String path,
@@ -42,6 +46,8 @@ public class HiveSplit
         checkNotNull(clientId, "clientId is null");
         checkArgument(start >= 0, "start must be positive");
         checkArgument(length >= 0, "length must be positive");
+        checkNotNull(database, "database is null");
+        checkNotNull(table, "table is null");
         checkNotNull(partitionId, "partitionName is null");
         checkNotNull(path, "path is null");
         checkNotNull(schema, "schema is null");
@@ -49,6 +55,8 @@ public class HiveSplit
         checkNotNull(addresses, "addresses is null");
 
         this.clientId = clientId;
+        this.database = database;
+        this.table = table;
         this.partitionId = partitionId;
         this.lastSplit = lastSplit;
         this.path = path;
@@ -63,6 +71,18 @@ public class HiveSplit
     public String getClientId()
     {
         return clientId;
+    }
+
+    @JsonProperty
+    public String getDatabase()
+    {
+        return database;
+    }
+
+    @JsonProperty
+    public String getTable()
+    {
+        return table;
     }
 
     @JsonProperty
@@ -130,6 +150,8 @@ public class HiveSplit
                 .put("start", start)
                 .put("length", length)
                 .put("hosts", addresses)
+                .put("database", database)
+                .put("table", table)
                 .put("partitionId", partitionId)
                 .build();
     }
@@ -151,6 +173,8 @@ public class HiveSplit
         }
 
         return new HiveSplit(split.getClientId(),
+                split.getDatabase(),
+                split.getTable(),
                 split.getPartitionId(),
                 true,
                 split.getPath(),
