@@ -755,7 +755,7 @@ public class HiveClient
                     List<HostAddress> addresses = toHostAddress(blockLocation.getHosts());
 
                     // divide the block into uniform chunks that are smaller than the max split size
-                    int chunks = (int) (blockLocation.getLength() / maxSplitSize.toBytes());
+                    int chunks = Math.max(1, (int) (blockLocation.getLength() / maxSplitSize.toBytes()));
                     // when block does not divide evenly into chunks, make the chunk size slightly bigger than necessary
                     long targetChunkSize = (long) Math.ceil(blockLocation.getLength() * 1.0 / chunks);
 
@@ -778,7 +778,7 @@ public class HiveClient
 
                         chunkOffset += chunkLength;
                     }
-                    checkState(chunkOffset == blockLocation.getOffset() + blockLocation.getLength(), "Error splitting blocks");
+                    checkState(chunkOffset == blockLocation.getLength(), "Error splitting blocks");
                 }
             } else {
                 // not splittable, use the hosts from the first block
