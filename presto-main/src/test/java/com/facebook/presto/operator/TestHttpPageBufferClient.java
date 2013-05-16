@@ -226,7 +226,7 @@ public class TestHttpPageBufferClient
 
     private void assertStatus(HttpPageBufferClient client, URI location, String status, int pagesReceived, int requestsScheduled, int requestsCompleted, String httpRequestState)
     {
-        ExchangeClientStatus actualStatus = client.getStatus();
+        PageBufferClientStatus actualStatus = client.getStatus();
         assertEquals(actualStatus.getUri(), location);
         assertEquals(actualStatus.getState(), status, "status");
         assertEquals(actualStatus.getPagesReceived(), pagesReceived, "pagesReceived");

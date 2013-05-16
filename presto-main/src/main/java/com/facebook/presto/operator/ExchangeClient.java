@@ -22,7 +22,6 @@ import java.net.URI;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -88,27 +87,18 @@ public class ExchangeClient
         this.noMoreLocations = noMoreLocations;
     }
 
-    public synchronized int getBufferedPageCount()
+    public synchronized ExchangeClientStatus getStatus()
     {
-        int size = pageBuffer.size();
-        if (size > 0 && pageBuffer.peekLast() == NO_MORE_PAGES) {
-            size--;
+        int bufferedPages = pageBuffer.size();
+        if (bufferedPages > 0 && pageBuffer.peekLast() == NO_MORE_PAGES) {
+            bufferedPages--;
         }
-        return size;
-    }
 
-    public synchronized long getBufferBytes()
-    {
-        return bufferBytes;
-    }
-
-    public List<ExchangeClientStatus> getStatus()
-    {
-        ImmutableList.Builder<ExchangeClientStatus> exchangeStatus = ImmutableList.builder();
+        ImmutableList.Builder<PageBufferClientStatus> exchangeStatus = ImmutableList.builder();
         for (HttpPageBufferClient client : allClients.values()) {
             exchangeStatus.add(client.getStatus());
         }
-        return exchangeStatus.build();
+        return new ExchangeClientStatus(bufferBytes, averageBytesPerRequest, bufferedPages, exchangeStatus.build());
     }
 
     public synchronized void addLocation(URI location)

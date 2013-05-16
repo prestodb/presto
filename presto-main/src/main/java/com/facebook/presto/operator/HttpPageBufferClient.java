@@ -81,7 +81,7 @@ public class HttpPageBufferClient
         this.clientCallback = checkNotNull(clientCallback, "clientCallback is null");
     }
 
-    public synchronized ExchangeClientStatus getStatus()
+    public synchronized PageBufferClientStatus getStatus()
     {
         String state;
         if (closed) {
@@ -95,7 +95,7 @@ public class HttpPageBufferClient
         if (future != null) {
             httpRequestState = future.getState();
         }
-        return new ExchangeClientStatus(location, state, lastUpdate, pagesReceived.get(), requestsScheduled.get(), requestsCompleted.get(), httpRequestState);
+        return new PageBufferClientStatus(location, state, lastUpdate, pagesReceived.get(), requestsScheduled.get(), requestsCompleted.get(), httpRequestState);
     }
 
     public synchronized boolean isRunning()
