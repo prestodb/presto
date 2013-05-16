@@ -17,7 +17,7 @@ import org.joda.time.format.DateTimeFormatter;
 import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static org.apache.hadoop.hive.metastore.api.Constants.FILE_INPUT_FORMAT;
+import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 
 class HiveUtil
 {
