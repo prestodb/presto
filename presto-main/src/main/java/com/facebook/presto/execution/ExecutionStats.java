@@ -6,7 +6,6 @@ package com.facebook.presto.execution;
 import com.facebook.presto.operator.ExchangeClientStatus;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
 import io.airlift.stats.DistributionStat;
 import io.airlift.stats.DistributionStat.DistributionStatSnapshot;
 import io.airlift.units.DataSize;
@@ -15,7 +14,6 @@ import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
-import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -70,7 +68,7 @@ public class ExecutionStats
     private final AtomicLong outputPositionCount = new AtomicLong();
 
     // todo this assumes that there is only one exchange in a plan
-    private final AtomicReference<List<ExchangeClientStatus>> exchangeStatus = new AtomicReference<List<ExchangeClientStatus>>(ImmutableList.<ExchangeClientStatus>of());
+    private final AtomicReference<ExchangeClientStatus> exchangeStatus = new AtomicReference<>();
 
     public ExecutionStats()
     {
@@ -150,7 +148,7 @@ public class ExecutionStats
         return sinkBufferWaitTime;
     }
 
-    public List<ExchangeClientStatus> getExchangeStatus()
+    public ExchangeClientStatus getExchangeStatus()
     {
         return exchangeStatus.get();
     }
@@ -242,9 +240,9 @@ public class ExecutionStats
         }
     }
 
-    public void setExchangeStatus(List<ExchangeClientStatus> exchangeStatus)
+    public void setExchangeStatus(ExchangeClientStatus exchangeStatus)
     {
-        this.exchangeStatus.set(ImmutableList.copyOf(exchangeStatus));
+        this.exchangeStatus.set(exchangeStatus);
     }
 
     public void splitStarted()
@@ -440,7 +438,7 @@ public class ExecutionStats
         private final Duration sinkBufferWaitTime;
         private final DistributionStatSnapshot timeToFirstByte;
         private final DistributionStatSnapshot timeToLastByte;
-        private final List<ExchangeClientStatus> exchangeStatus;
+        private final ExchangeClientStatus exchangeStatus;
         private final Duration exchangeWaitTime;
         private final DataSize inputDataSize;
         private final long inputPositionCount;
@@ -491,7 +489,7 @@ public class ExecutionStats
                 @JsonProperty("splitCpuTime") Duration splitCpuTime,
                 @JsonProperty("splitUserTime") Duration splitUserTime,
                 @JsonProperty("sinkBufferWaitTime") Duration sinkBufferWaitTime,
-                @JsonProperty("exchangeStatus") List<ExchangeClientStatus> exchangeStatus,
+                @JsonProperty("exchangeStatus") ExchangeClientStatus exchangeStatus,
                 @JsonProperty("exchangeWaitTime") Duration exchangeWaitTime,
                 @JsonProperty("inputDataSize") DataSize inputDataSize,
                 @JsonProperty("completedDataSize") DataSize completedDataSize,
@@ -517,12 +515,7 @@ public class ExecutionStats
             this.sinkBufferWaitTime = sinkBufferWaitTime;
             this.timeToFirstByte = timeToFirstByte;
             this.timeToLastByte = timeToLastByte;
-            if (exchangeStatus != null) {
-                this.exchangeStatus = ImmutableList.copyOf(exchangeStatus);
-            }
-            else {
-                this.exchangeStatus = ImmutableList.of();
-            }
+            this.exchangeStatus = exchangeStatus;
             this.exchangeWaitTime = exchangeWaitTime;
             this.inputDataSize = inputDataSize;
             this.inputPositionCount = inputPositionCount;
@@ -623,7 +616,7 @@ public class ExecutionStats
         }
 
         @JsonProperty
-        public List<ExchangeClientStatus> getExchangeStatus()
+        public ExchangeClientStatus getExchangeStatus()
         {
             return exchangeStatus;
         }

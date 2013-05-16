@@ -1,106 +1,66 @@
-/*
- * Copyright 2004-present Facebook. All Rights Reserved.
- */
 package com.facebook.presto.operator;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Function;
 import com.google.common.base.Objects;
-import org.joda.time.DateTime;
+import com.google.common.collect.ImmutableList;
 
-import java.net.URI;
+import java.util.List;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ExchangeClientStatus
 {
-    private final URI uri;
-    private final String state;
-    private final DateTime lastUpdate;
-    private final int pagesReceived;
-    private final int requestsScheduled;
-    private final int requestsCompleted;
-    private final String httpRequestState;
+    private final long bufferedBytes;
+    private final long averageBytesPerRequest;
+    private final int bufferedPages;
+    private final List<PageBufferClientStatus> pageBufferClientStatuses;
 
     @JsonCreator
-    public ExchangeClientStatus(@JsonProperty("uri") URI uri,
-            @JsonProperty("state") String state,
-            @JsonProperty("lastUpdate") DateTime lastUpdate,
-            @JsonProperty("pagesReceived") int pagesReceived,
-            @JsonProperty("requestsScheduled") int requestsScheduled,
-            @JsonProperty("requestsCompleted") int requestsCompleted,
-            @JsonProperty("httpRequestState") String httpRequestState)
+    public ExchangeClientStatus(
+            @JsonProperty("bufferedBytes") long bufferedBytes,
+            @JsonProperty("averageBytesPerRequest") long averageBytesPerRequest,
+            @JsonProperty("bufferedPages") int bufferedPages,
+            @JsonProperty("pageBufferClientStatuses") List<PageBufferClientStatus> pageBufferClientStatuses)
     {
-        this.uri = uri;
-        this.state = state;
-        this.lastUpdate = lastUpdate;
-        this.pagesReceived = pagesReceived;
-        this.requestsScheduled = requestsScheduled;
-        this.requestsCompleted = requestsCompleted;
-        this.httpRequestState = httpRequestState;
+        this.bufferedBytes = bufferedBytes;
+        this.averageBytesPerRequest = averageBytesPerRequest;
+        this.bufferedPages = bufferedPages;
+        this.pageBufferClientStatuses = ImmutableList.copyOf(checkNotNull(pageBufferClientStatuses, "pageBufferClientStatuses is null"));
     }
 
     @JsonProperty
-    public URI getUri()
+    public long getBufferedBytes()
     {
-        return uri;
+        return bufferedBytes;
     }
 
     @JsonProperty
-    public String getState()
+    public long getAverageBytesPerRequest()
     {
-        return state;
+        return averageBytesPerRequest;
     }
 
     @JsonProperty
-    public DateTime getLastUpdate()
+    public int getBufferedPages()
     {
-        return lastUpdate;
+        return bufferedPages;
     }
 
     @JsonProperty
-    public int getPagesReceived()
+    public List<PageBufferClientStatus> getPageBufferClientStatuses()
     {
-        return pagesReceived;
-    }
-
-    @JsonProperty
-    public int getRequestsScheduled()
-    {
-        return requestsScheduled;
-    }
-
-    @JsonProperty
-    public int getRequestsCompleted()
-    {
-        return requestsCompleted;
-    }
-
-    @JsonProperty
-    public String getHttpRequestState()
-    {
-        return httpRequestState;
+        return pageBufferClientStatuses;
     }
 
     @Override
     public String toString()
     {
         return Objects.toStringHelper(this)
-                .add("uri", uri)
-                .add("state", state)
-                .add("lastUpdate", lastUpdate)
-                .add("pagesReceived", pagesReceived)
-                .add("httpRequestState", httpRequestState)
+                .add("bufferBytes", bufferedBytes)
+                .add("averageBytesPerRequest", averageBytesPerRequest)
+                .add("bufferedPages", bufferedPages)
+                .add("pageBufferClientStatuses", pageBufferClientStatuses)
                 .toString();
-    }
-
-    public static Function<ExchangeClientStatus, URI> uriGetter()
-    {
-        return new Function<ExchangeClientStatus, URI>() {
-            @Override
-            public URI apply(ExchangeClientStatus input)
-            {
-                return input.getUri();
-            }
-        };
     }
 }

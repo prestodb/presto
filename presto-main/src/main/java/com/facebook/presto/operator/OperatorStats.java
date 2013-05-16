@@ -120,7 +120,7 @@ public class OperatorStats
         taskOutput.getStats().addExchangeWaitTime(duration);
     }
 
-    public synchronized void setExchangeStatus(List<ExchangeClientStatus> exchangeStatus)
+    public synchronized void setExchangeStatus(ExchangeClientStatus exchangeStatus)
     {
         if (taskOutput == null) {
             return;
