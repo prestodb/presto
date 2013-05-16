@@ -72,8 +72,9 @@ queryExpr returns [Query value]
     ;
 
 queryBody returns [QueryBody value]
-    : querySpec              { $value = $querySpec.value; }
-    | tableSubquery          { $value = $tableSubquery.value; }
+    : querySpec             { $value = $querySpec.value; }
+    | setOp                 { $value = $setOp.value; }
+    | tableSubquery         { $value = $tableSubquery.value; }
     ;
 
 querySpec returns [QuerySpecification value]
@@ -94,6 +95,12 @@ querySpec returns [QuerySpecification value]
             Objects.firstNonNull($orderClause.value, ImmutableList.<SortItem>of()),
             Optional.fromNullable($limitClause.value));
         }
+    ;
+
+setOp returns [SetOperation value]
+    : ^(UNION q1=queryBody q2=queryBody d=distinct[true])       { $value = new Union(ImmutableList.<Relation>of($q1.value, $q2.value), $d.value); }
+    | ^(INTERSECT q1=queryBody q2=queryBody d=distinct[true])   { $value = new Intersect(ImmutableList.<Relation>of($q1.value, $q2.value), $d.value); }
+    | ^(EXCEPT q1=queryBody q2=queryBody d=distinct[true])      { $value = new Except($q1.value, $q2.value, $d.value); }
     ;
 
 restrictedSelectStmt returns [Query value]

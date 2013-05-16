@@ -158,29 +158,44 @@ query
     ;
 
 queryExpr
-    : withClause? ( selectQueryBody | relationQueryBody orderClause? limitClause? )
+    : withClause?
+      ( (orderOrLimitQuerySpec) => orderOrLimitQuerySpec
+      | queryExprBody orderClause? limitClause?
+      )
     ;
 
-selectQueryBody
+orderOrLimitQuerySpec
+    : simpleQuery (orderClause limitClause? | limitClause) -> ^(QUERY_SPEC simpleQuery orderClause? limitClause?)
+    ;
+
+queryExprBody
+    : ( queryTerm -> queryTerm )
+      ( UNION setQuant? queryTerm       -> ^(UNION $queryExprBody queryTerm setQuant?)
+      | EXCEPT setQuant? queryTerm      -> ^(EXCEPT $queryExprBody queryTerm setQuant?)
+      )*
+    ;
+
+queryTerm
+    : ( queryPrimary -> queryPrimary )
+      ( INTERSECT setQuant? queryPrimary -> ^(INTERSECT $queryTerm queryPrimary setQuant?)
+      )*
+    ;
+
+queryPrimary
+    : simpleQuerySpec
+    | tableSubquery
+    ;
+
+simpleQuerySpec
+    : simpleQuery -> ^(QUERY_SPEC simpleQuery)
+    ;
+
+simpleQuery
     : selectClause
       fromClause?
       whereClause?
       groupClause?
       havingClause?
-      orderClause?
-      limitClause?
-      -> ^(QUERY_SPEC
-            selectClause
-            fromClause?
-            whereClause?
-            groupClause?
-            havingClause?
-            orderClause?
-            limitClause?)
-    ;
-
-relationQueryBody
-    : tableSubquery
     ;
 
 restrictedSelectStmt
@@ -726,6 +741,9 @@ VIEW: 'VIEW';
 REFRESH: 'REFRESH';
 DROP: 'DROP';
 ALIAS: 'ALIAS';
+UNION: 'UNION';
+EXCEPT: 'EXCEPT';
+INTERSECT: 'INTERSECT';
 
 EQ  : '=';
 NEQ : '<>' | '!=';
