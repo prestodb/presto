@@ -10,6 +10,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.http.client.AsyncHttpClient;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -20,6 +21,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class ExchangeOperator
         implements SourceOperator
@@ -31,8 +33,7 @@ public class ExchangeOperator
     private final Set<URI> locations = new HashSet<>();
     private boolean noMoreLocations;
 
-    private final int maxBufferedPages;
-    private final int expectedPagesPerRequest;
+    private final DataSize maxBufferSize;
     private final int concurrentRequestMultiplier;
 
     @GuardedBy("this")
@@ -40,23 +41,21 @@ public class ExchangeOperator
 
     public ExchangeOperator(AsyncHttpClient httpClient, List<TupleInfo> tupleInfos, URI... locations)
     {
-        this(httpClient, tupleInfos, 10, 3, 100);
+        this(httpClient, tupleInfos, new DataSize(32, MEGABYTE), 3);
         this.locations.addAll(ImmutableList.copyOf(locations));
         noMoreSplits();
     }
 
     public ExchangeOperator(AsyncHttpClient httpClient,
             Iterable<TupleInfo> tupleInfos,
-            int maxBufferedPages,
-            int expectedPagesPerRequest,
+            DataSize maxBufferSize,
             int concurrentRequestMultiplier)
     {
         Preconditions.checkNotNull(httpClient, "httpClient is null");
         Preconditions.checkNotNull(tupleInfos, "tupleInfos is null");
 
         this.concurrentRequestMultiplier = concurrentRequestMultiplier;
-        this.maxBufferedPages = maxBufferedPages;
-        this.expectedPagesPerRequest = expectedPagesPerRequest;
+        this.maxBufferSize = maxBufferSize;
 
         this.httpClient = httpClient;
         this.tupleInfos = ImmutableList.copyOf(tupleInfos);
@@ -112,7 +111,7 @@ public class ExchangeOperator
         ExchangeClient exchangeClient;
         synchronized (this) {
             checkState(activeClient == null, "ExchangeOperator can only be used once");
-            exchangeClient = new ExchangeClient(maxBufferedPages, expectedPagesPerRequest, concurrentRequestMultiplier, httpClient, locations, noMoreLocations);
+            exchangeClient = new ExchangeClient(maxBufferSize, new DataSize(10, MEGABYTE), concurrentRequestMultiplier, httpClient, locations, noMoreLocations);
             activeClient = exchangeClient;
         }
 

@@ -34,7 +34,6 @@ import com.google.common.collect.Sets;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 
 import javax.annotation.PreDestroy;
@@ -87,6 +86,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.String.format;
 
 @Path("/v1/statement")
@@ -96,7 +96,7 @@ public class StatementResource
 
     private static final Duration MAX_WAIT_TIME = new Duration(1, TimeUnit.SECONDS);
     private static final Ordering<Comparable<Duration>> WAIT_ORDERING = Ordering.natural().nullsLast();
-    private static final long DESIRED_RESULT_BYTES = new DataSize(1, Unit.MEGABYTE).toBytes();
+    private static final long DESIRED_RESULT_BYTES = new DataSize(1, MEGABYTE).toBytes();
 
     private final QueryManager queryManager;
     private final AsyncHttpClient httpClient;
@@ -222,7 +222,7 @@ public class StatementResource
 
             QueryInfo queryInfo = queryManager.createQuery(session, query);
             queryId = queryInfo.getQueryId();
-            exchangeClient = new ExchangeClient(100, 10, 3, httpClient);
+            exchangeClient = new ExchangeClient(new DataSize(32, MEGABYTE), 3, httpClient);
         }
 
         @Override

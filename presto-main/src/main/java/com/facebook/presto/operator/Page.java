@@ -4,6 +4,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.block.Block;
+import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
@@ -54,5 +55,15 @@ public class Page
     public Block getBlock(int channel)
     {
         return blocks[channel];
+    }
+
+    @Override
+    public String toString()
+    {
+        return Objects.toStringHelper(this)
+                .add("positionCount", positionCount)
+                .add("channelCount", getChannelCount())
+                .addValue("@" +Integer.toHexString(System.identityHashCode(this)))
+                .toString();
     }
 }

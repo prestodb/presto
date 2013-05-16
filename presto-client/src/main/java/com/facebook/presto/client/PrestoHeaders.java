@@ -12,6 +12,7 @@ public final class PrestoHeaders
 
     public static final String PRESTO_CURRENT_STATE = "X-Presto-Current-State";
     public static final String PRESTO_MAX_WAIT = "X-Presto-Max-Wait";
+    public static final String PRESTO_MAX_SIZE = "X-Presto-Max-Size";
 
     public PrestoHeaders()
     {
