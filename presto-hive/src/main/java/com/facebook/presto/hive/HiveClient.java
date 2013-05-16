@@ -281,7 +281,7 @@ public class HiveClient
     private List<HiveColumnHandle> getColumnHandles(Table table)
     {
         try {
-            Deserializer deserializer = MetaStoreUtils.getDeserializer(null, MetaStoreUtils.getSchema(table));
+            Deserializer deserializer = MetaStoreUtils.getDeserializer(null, MetaStoreUtils.getTableMetadata(table));
             ObjectInspector inspector = deserializer.getObjectInspector();
             checkArgument(inspector.getCategory() == ObjectInspector.Category.STRUCT, "expected STRUCT: %s", inspector.getCategory());
             StructObjectInspector structObjectInspector = (StructObjectInspector) inspector;
@@ -1035,7 +1035,7 @@ public class HiveClient
     private static Properties getPartitionSchema(Table table, org.apache.hadoop.hive.metastore.api.Partition partition)
     {
         if (partition == UNPARTITIONED_PARTITION) {
-            return MetaStoreUtils.getSchema(table);
+            return MetaStoreUtils.getTableMetadata(table);
         }
         return MetaStoreUtils.getSchema(partition, table);
     }
