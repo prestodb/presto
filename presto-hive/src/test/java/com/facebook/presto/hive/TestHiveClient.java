@@ -28,9 +28,10 @@ public class TestHiveClient
                 new SlowDatanodeSwitcher(hiveClientConfig),
                 hiveClientConfig).get();
 
+        HiveCluster hiveCluster = new TestingHiveCluster(hiveClientConfig, host, port);
         HiveClient client = new HiveClient(
                 new HiveConnectorId(CONNECTOR_ID),
-                new CachingHiveMetastore(new TestingHiveCluster(host, port), Duration.valueOf("1m")),
+                new CachingHiveMetastore(hiveCluster, Duration.valueOf("1m")),
                 new HdfsEnvironment(new HdfsConfiguration(), fileSystemWrapper),
                 MoreExecutors.sameThreadExecutor(),
                 hiveClientConfig.getMaxSplitSize(),

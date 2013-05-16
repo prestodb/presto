@@ -25,9 +25,10 @@ public class TestHiveClientSplitIteratorBackPressure
         }
 
         // Restrict the outstanding splits to 1 and only use 2 threads per iterator
+        HiveCluster hiveCluster = new TestingHiveCluster(hiveClientConfig, host, port);
         HiveClient client = new HiveClient(
                 new HiveConnectorId(CONNECTOR_ID),
-                new CachingHiveMetastore(new TestingHiveCluster(host, port), Duration.valueOf("1m")),
+                new CachingHiveMetastore(hiveCluster, Duration.valueOf("1m")),
                 new HdfsEnvironment(),
                 MoreExecutors.sameThreadExecutor(),
                 hiveClientConfig.getMaxSplitSize(),

@@ -1,25 +1,21 @@
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.shaded.org.apache.thrift.transport.TSocket;
-import com.facebook.presto.hive.shaded.org.apache.thrift.transport.TTransport;
 import com.facebook.presto.hive.shaded.org.apache.thrift.transport.TTransportException;
 import com.google.common.base.Objects;
 import com.google.common.base.Throwables;
-import io.airlift.units.Duration;
-
-import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class TestingHiveCluster
         implements HiveCluster
 {
-    private static final Duration TIMEOUT = new Duration(10, TimeUnit.SECONDS);
+    private final HiveClientConfig config;
     private final String host;
     private final int port;
 
-    public TestingHiveCluster(String host, int port)
+    public TestingHiveCluster(HiveClientConfig config, String host, int port)
     {
+        this.config = checkNotNull(config, "config is null");
         this.host = checkNotNull(host, "host is null");
         this.port = port;
     }
@@ -28,9 +24,7 @@ public class TestingHiveCluster
     public HiveMetastoreClient createMetastoreClient()
     {
         try {
-            TTransport transport = new TSocket(host, port, (int) TIMEOUT.toMillis());
-            transport.open();
-            return new HiveMetastoreClient(transport);
+            return new HiveMetastoreClientFactory(config).create(host, port);
         }
         catch (TTransportException e) {
             throw Throwables.propagate(e);
