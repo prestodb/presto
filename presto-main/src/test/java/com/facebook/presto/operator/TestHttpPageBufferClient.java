@@ -1,7 +1,6 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.operator.HttpPageBufferClient.ClientCallback;
-import com.facebook.presto.serde.PagesSerde;
 import com.google.common.base.Function;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableListMultimap;
@@ -10,7 +9,6 @@ import io.airlift.http.client.Request;
 import io.airlift.http.client.Response;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.http.client.testing.TestingResponse;
-import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import org.testng.annotations.Test;
@@ -20,12 +18,9 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Queue;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -43,7 +38,8 @@ public class TestHttpPageBufferClient
     {
         Page expectedPage = new Page(100);
 
-        PageRequestProcessor processor = new PageRequestProcessor();
+        DataSize expectedMaxSize = new DataSize(11, Unit.MEGABYTE);
+        MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(expectedMaxSize);
 
         CyclicBarrier requestComplete = new CyclicBarrier(2);
 
@@ -51,14 +47,14 @@ public class TestHttpPageBufferClient
 
         URI location = URI.create("http://localhost:8080");
         HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
-                new DataSize(10, Unit.MEGABYTE),
+                expectedMaxSize,
                 location,
                 callback);
 
         assertStatus(client, location, "queued", 0, 0, 0, "queued");
 
         // fetch a page and verify
-        processor.addPage(expectedPage);
+        processor.addPage(location, expectedPage);
         callback.resetStats();
         client.scheduleRequest();
         requestComplete.await(1, TimeUnit.SECONDS);
@@ -80,8 +76,8 @@ public class TestHttpPageBufferClient
         assertStatus(client, location, "queued", 1, 2, 2, "queued");
 
         // fetch two more pages and verify
-        processor.addPage(expectedPage);
-        processor.addPage(expectedPage);
+        processor.addPage(location, expectedPage);
+        processor.addPage(location, expectedPage);
         callback.resetStats();
         client.scheduleRequest();
         requestComplete.await(1, TimeUnit.SECONDS);
@@ -96,7 +92,7 @@ public class TestHttpPageBufferClient
 
         // finish and verify
         callback.resetStats();
-        processor.setComplete(true);
+        processor.setComplete(location);
         client.scheduleRequest();
         requestComplete.await(1, TimeUnit.SECONDS);
 
@@ -245,49 +241,6 @@ public class TestHttpPageBufferClient
         assertEquals(actualPage.getChannelCount(), expectedPage.getChannelCount());
     }
 
-    private static class PageRequestProcessor
-            implements Function<Request, Response>
-    {
-        private final Queue<Page> pages = new LinkedBlockingQueue<>();
-        private final AtomicBoolean complete = new AtomicBoolean();
-
-        public void addPage(Page page)
-        {
-            pages.add(page);
-        }
-
-        private void setComplete(boolean complete)
-        {
-            this.complete.set(complete);
-        }
-
-        @Override
-        public Response apply(Request input)
-        {
-            if (complete.get()) {
-                return new TestingResponse(HttpStatus.GONE, ImmutableListMultimap.<String, String>of(), new byte[0]);
-            }
-
-            List<Page> responsePages = new ArrayList<>();
-            while (true) {
-                Page page = pages.poll();
-                if (page == null) {
-                    break;
-                }
-                responsePages.add(page);
-            }
-
-            if (responsePages.isEmpty()) {
-                return new TestingResponse(HttpStatus.NO_CONTENT, ImmutableListMultimap.<String, String>of(), new byte[0]);
-            }
-
-            DynamicSliceOutput sliceOutput = new DynamicSliceOutput(64);
-            PagesSerde.writePages(sliceOutput, responsePages);
-            byte[] bytes = sliceOutput.slice().getBytes();
-            return new TestingResponse(HttpStatus.OK, ImmutableListMultimap.of(CONTENT_TYPE, PRESTO_PAGES), bytes);
-        }
-    }
-
     private static class TestingClientCallback
             implements ClientCallback
     {
@@ -338,7 +291,7 @@ public class TestHttpPageBufferClient
         }
 
         @Override
-        public void bufferFinished(HttpPageBufferClient client)
+        public void clientFinished(HttpPageBufferClient client)
         {
             finishedBuffers.getAndIncrement();
             try {

@@ -15,6 +15,7 @@ import io.airlift.http.client.Response;
 import io.airlift.http.client.ResponseHandler;
 import io.airlift.log.Logger;
 import io.airlift.slice.InputStreamSliceInput;
+import io.airlift.units.DataSize;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -26,6 +27,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES_TYPE;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_SIZE;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
@@ -52,10 +54,11 @@ public class HttpPageBufferClient
 
         void requestComplete(HttpPageBufferClient client);
 
-        void bufferFinished(HttpPageBufferClient client);
+        void clientFinished(HttpPageBufferClient client);
     }
 
     private final AsyncHttpClient httpClient;
+    private final DataSize maxResponseSize;
     private final URI location;
     private final ClientCallback clientCallback;
     @GuardedBy("this")
@@ -70,9 +73,10 @@ public class HttpPageBufferClient
     private final AtomicInteger requestsScheduled = new AtomicInteger();
     private final AtomicInteger requestsCompleted = new AtomicInteger();
 
-    public HttpPageBufferClient(AsyncHttpClient httpClient, URI location, ClientCallback clientCallback)
+    public HttpPageBufferClient(AsyncHttpClient httpClient, DataSize maxResponseSize, URI location, ClientCallback clientCallback)
     {
         this.httpClient = checkNotNull(httpClient, "httpClient is null");
+        this.maxResponseSize = checkNotNull(maxResponseSize, "maxResponseSize is null");
         this.location = checkNotNull(location, "location is null");
         this.clientCallback = checkNotNull(clientCallback, "clientCallback is null");
     }
@@ -135,7 +139,7 @@ public class HttpPageBufferClient
             return;
         }
 
-        future = httpClient.executeAsync(prepareGet().setUri(location).build(), new PageResponseHandler());
+        future = httpClient.executeAsync(prepareGet().setHeader(PRESTO_MAX_SIZE, maxResponseSize.toString()).setUri(location).build(), new PageResponseHandler());
         lastUpdate = DateTime.now();
         requestsScheduled.incrementAndGet();
     }
@@ -159,7 +163,7 @@ public class HttpPageBufferClient
             lastUpdate = DateTime.now();
         }
 
-        clientCallback.bufferFinished(this);
+        clientCallback.clientFinished(this);
     }
 
     @Override

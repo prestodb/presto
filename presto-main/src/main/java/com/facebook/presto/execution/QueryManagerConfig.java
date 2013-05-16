@@ -21,8 +21,7 @@ public class QueryManagerConfig
     private Duration maxQueryAge = new Duration(15, TimeUnit.MINUTES);
     private Duration clientTimeout = new Duration(5, TimeUnit.MINUTES);
 
-    private int exchangeMaxBufferedPages = 100;
-    private int exchangeExpectedPagesPerRequest = 10;
+    private DataSize exchangeMaxBufferSize = new DataSize(32, Unit.MEGABYTE);
     private int exchangeConcurrentRequestMultiplier = 3;
 
     private int queryManagerExecutorPoolSize = 100;
@@ -121,29 +120,16 @@ public class QueryManagerConfig
         return this;
     }
 
-    @Min(1)
-    public int getExchangeMaxBufferedPages()
+    @NotNull
+    public DataSize getExchangeMaxBufferSize()
     {
-        return exchangeMaxBufferedPages;
+        return exchangeMaxBufferSize;
     }
 
-    @Config("exchange.page-buffer-max")
-    public QueryManagerConfig setExchangeMaxBufferedPages(int exchangeMaxBufferedPages)
+    @Config("exchange.page-buffer-size")
+    public QueryManagerConfig setExchangeMaxBufferSize(DataSize exchangeMaxBufferSize)
     {
-        this.exchangeMaxBufferedPages = exchangeMaxBufferedPages;
-        return this;
-    }
-
-    @Min(1)
-    public int getExchangeExpectedPagesPerRequest()
-    {
-        return exchangeExpectedPagesPerRequest;
-    }
-
-    @Config("exchange.expected-pages-per-request")
-    public QueryManagerConfig setExchangeExpectedPagesPerRequest(int exchangeExpectedPagesPerRequest)
-    {
-        this.exchangeExpectedPagesPerRequest = exchangeExpectedPagesPerRequest;
+        this.exchangeMaxBufferSize = exchangeMaxBufferSize;
         return this;
     }
 

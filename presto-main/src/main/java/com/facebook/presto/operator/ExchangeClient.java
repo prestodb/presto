@@ -10,34 +10,36 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.io.Closeables;
 import io.airlift.http.client.AsyncHttpClient;
+import io.airlift.units.DataSize;
+import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.NotThreadSafe;
+import javax.annotation.concurrent.ThreadSafe;
 import java.io.Closeable;
 import java.net.URI;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.base.Preconditions.checkState;
 
-@NotThreadSafe
+@ThreadSafe
 public class ExchangeClient
         implements Closeable
 {
     private static final Page NO_MORE_PAGES = new Page(0);
 
-    private final int maxBufferedPages;
-    private final int expectedPagesPerRequest;
+    private final long maxBufferedBytes;
+    private final DataSize maxResponseSize;
     private final int concurrentRequestMultiplier;
     private final AsyncHttpClient httpClient;
 
@@ -47,35 +49,57 @@ public class ExchangeClient
     @GuardedBy("this")
     private boolean noMoreLocations;
 
-    private final Map<URI, HttpPageBufferClient> allClients = new ConcurrentHashMap<>();
-    private final Deque<HttpPageBufferClient> queuedClients = new LinkedList<>();
-    private final Set<HttpPageBufferClient> completedClients = Sets.newSetFromMap(new ConcurrentHashMap<HttpPageBufferClient, Boolean>());
+    private final ConcurrentMap<URI, HttpPageBufferClient> allClients = new ConcurrentHashMap<>();
 
-    private final LinkedBlockingDeque<Page> pageBuffer = new LinkedBlockingDeque<>();
+    @GuardedBy("this")
+    private final Deque<HttpPageBufferClient> queuedClients = new LinkedList<>();
+
+    private final Set<HttpPageBufferClient> completedClients = Sets.newSetFromMap(new ConcurrentHashMap<HttpPageBufferClient, Boolean>());
+    public final LinkedBlockingDeque<Page> pageBuffer = new LinkedBlockingDeque<>();
+
+    @GuardedBy("this")
+    private long bufferBytes;
+    @GuardedBy("this")
+    private long successfulRequests;
+    @GuardedBy("this")
+    private long averageBytesPerRequest;
 
     private final AtomicBoolean closed = new AtomicBoolean();
 
-    public ExchangeClient(int maxBufferedPages,
-            int expectedPagesPerRequest,
+    public ExchangeClient(DataSize maxBufferedBytes,
             int concurrentRequestMultiplier,
             AsyncHttpClient httpClient)
     {
-        this(maxBufferedPages, expectedPagesPerRequest, concurrentRequestMultiplier, httpClient, ImmutableSet.<URI>of(), false);
+        this(maxBufferedBytes, new DataSize(10, Unit.MEGABYTE), concurrentRequestMultiplier, httpClient, ImmutableSet.<URI>of(), false);
     }
 
-    public ExchangeClient(int maxBufferedPages,
-            int expectedPagesPerRequest,
+    public ExchangeClient(DataSize maxBufferSize,
+            DataSize dataSize,
             int concurrentRequestMultiplier,
             AsyncHttpClient httpClient,
             Set<URI> locations,
             boolean noMoreLocations)
     {
+        this.maxBufferedBytes = maxBufferSize.toBytes();
+        this.maxResponseSize = dataSize;
         this.concurrentRequestMultiplier = concurrentRequestMultiplier;
-        this.maxBufferedPages = maxBufferedPages;
-        this.expectedPagesPerRequest = expectedPagesPerRequest;
         this.httpClient = httpClient;
         this.locations.addAll(locations);
         this.noMoreLocations = noMoreLocations;
+    }
+
+    public synchronized int getBufferedPageCount()
+    {
+        int size = pageBuffer.size();
+        if (size > 0 && pageBuffer.peekLast() == NO_MORE_PAGES) {
+            size--;
+        }
+        return size;
+    }
+
+    public synchronized long getBufferBytes()
+    {
+        return bufferBytes;
     }
 
     public List<ExchangeClientStatus> getStatus()
@@ -108,6 +132,12 @@ public class ExchangeClient
     public Page getNextPage(Duration maxWaitTime)
             throws InterruptedException
     {
+        checkState(!Thread.holdsLock(this), "Can not get next page while holding a lock on this");
+
+        if (closed.get()) {
+            return null;
+        }
+
         scheduleRequestIfNecessary();
 
         Page page = pageBuffer.poll();
@@ -127,6 +157,16 @@ public class ExchangeClient
             page = null;
         }
 
+        if (page != null) {
+            synchronized (this) {
+                bufferBytes -= page.getDataSize().toBytes();
+            }
+            if (pageBuffer.peek() == NO_MORE_PAGES) {
+                closed.set(true);
+            }
+            scheduleRequestIfNecessary();
+        }
+
         return page;
     }
 
@@ -142,17 +182,26 @@ public class ExchangeClient
         for (HttpPageBufferClient client : allClients.values()) {
             Closeables.closeQuietly(client);
         }
-        if (pageBuffer.peek() != NO_MORE_PAGES) {
+        pageBuffer.clear();
+        bufferBytes = 0;
+        if (pageBuffer.peekLast() != NO_MORE_PAGES) {
             checkState(pageBuffer.add(NO_MORE_PAGES), "Could not add no more pages marker");
         }
     }
 
     public synchronized void scheduleRequestIfNecessary()
     {
+        if (closed.get()) {
+            return;
+        }
+
         // if finished, add the end marker
         if (noMoreLocations && completedClients.size() == locations.size()) {
-            if (pageBuffer.peek() != NO_MORE_PAGES) {
+            if (pageBuffer.peekLast() != NO_MORE_PAGES) {
                 checkState(pageBuffer.add(NO_MORE_PAGES), "Could not add no more pages marker");
+            }
+            if (pageBuffer.peek() == NO_MORE_PAGES) {
+                closed.set(true);
             }
             return;
         }
@@ -160,19 +209,22 @@ public class ExchangeClient
         // add clients for new locations
         for (URI location : locations) {
             if (!allClients.containsKey(location)) {
-                HttpPageBufferClient client = new HttpPageBufferClient(httpClient, location, new ExchangeClientCallback());
+                HttpPageBufferClient client = new HttpPageBufferClient(httpClient, maxResponseSize, location, new ExchangeClientCallback());
                 allClients.put(location, client);
                 queuedClients.add(client);
             }
         }
 
-        int bufferedPages = pageBuffer.size();
-        if (bufferedPages >= maxBufferedPages) {
+        if (bufferBytes > maxBufferedBytes) {
             return;
         }
 
-        int neededPages = maxBufferedPages - bufferedPages;
-        int clientCount = (int) ((1.0 * neededPages / expectedPagesPerRequest) * concurrentRequestMultiplier);
+        long neededBytes = maxBufferedBytes - bufferBytes;
+        if (neededBytes <= 0) {
+            return;
+        }
+
+        int clientCount = (int) ((1.0 * neededBytes / averageBytesPerRequest) * concurrentRequestMultiplier);
         clientCount = Math.max(clientCount, 1);
 
         int pendingClients = allClients.size() - queuedClients.size() - completedClients.size();
@@ -186,6 +238,23 @@ public class ExchangeClient
             }
             client.scheduleRequest();
         }
+    }
+
+    private synchronized void addPage(Page page)
+    {
+        if (closed.get()) {
+            return;
+        }
+
+        pageBuffer.add(page);
+
+        bufferBytes += page.getDataSize().toBytes();
+        successfulRequests++;
+
+        // AVG_n = AVG_(n-1) * (n-1)/n + VALUE_n / n
+        averageBytesPerRequest = (long) (1.0 * averageBytesPerRequest * (successfulRequests - 1) / successfulRequests + page.getDataSize().toBytes() / successfulRequests);
+
+        scheduleRequestIfNecessary();
     }
 
     private synchronized void addClientToQueue(HttpPageBufferClient client)
@@ -203,7 +272,7 @@ public class ExchangeClient
         {
             Preconditions.checkNotNull(client, "client is null");
             Preconditions.checkNotNull(page, "page is null");
-            pageBuffer.add(page);
+            ExchangeClient.this.addPage(page);
             scheduleRequestIfNecessary();
         }
 
@@ -216,7 +285,7 @@ public class ExchangeClient
         }
 
         @Override
-        public void bufferFinished(HttpPageBufferClient client)
+        public void clientFinished(HttpPageBufferClient client)
         {
             Preconditions.checkNotNull(client, "client is null");
             completedClients.add(client);

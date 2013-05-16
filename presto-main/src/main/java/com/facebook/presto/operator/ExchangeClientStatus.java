@@ -5,6 +5,7 @@ package com.facebook.presto.operator;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import org.joda.time.DateTime;
 
@@ -90,5 +91,16 @@ public class ExchangeClientStatus
                 .add("pagesReceived", pagesReceived)
                 .add("httpRequestState", httpRequestState)
                 .toString();
+    }
+
+    public static Function<ExchangeClientStatus, URI> uriGetter()
+    {
+        return new Function<ExchangeClientStatus, URI>() {
+            @Override
+            public URI apply(ExchangeClientStatus input)
+            {
+                return input.getUri();
+            }
+        };
     }
 }
