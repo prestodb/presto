@@ -234,7 +234,7 @@ selectExpr
 
 setQuant
     : DISTINCT
-    | ALL ->
+    | ALL
     ;
 
 selectList

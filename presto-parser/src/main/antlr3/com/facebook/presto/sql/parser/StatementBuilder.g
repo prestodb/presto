@@ -131,12 +131,13 @@ withQuery returns [WithQuery value]
     ;
 
 selectClause returns [Select value]
-    : ^(SELECT d=distinct s=selectList) { $value = new Select($d.value, $s.value); }
+    : ^(SELECT d=distinct[false] s=selectList) { $value = new Select($d.value, $s.value); }
     ;
 
-distinct returns [boolean value]
-    : DISTINCT { $value = true; }
-    |          { $value = false; }
+distinct[boolean defaultValue] returns [boolean value]
+    : DISTINCT  { $value = true; }
+    | ALL       { $value = false; }
+    |           { $value = $defaultValue; }
     ;
 
 selectList returns [List<Expression> value = new ArrayList<>()]
@@ -301,7 +302,7 @@ decimal returns [String value]
     ;
 
 functionCall returns [FunctionCall value]
-    : ^(FUNCTION_CALL n=qname w=window? d=distinct a=exprList) { $value = new FunctionCall($n.value, $w.value, $d.value, $a.value); }
+    : ^(FUNCTION_CALL n=qname w=window? d=distinct[false] a=exprList) { $value = new FunctionCall($n.value, $w.value, $d.value, $a.value); }
     ;
 
 window returns [Window value]
