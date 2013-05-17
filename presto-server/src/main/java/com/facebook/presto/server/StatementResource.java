@@ -31,7 +31,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
-import io.airlift.http.client.AsyncHttpClient;
+import com.google.inject.Provider;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -99,16 +99,16 @@ public class StatementResource
     private static final long DESIRED_RESULT_BYTES = new DataSize(1, MEGABYTE).toBytes();
 
     private final QueryManager queryManager;
-    private final AsyncHttpClient httpClient;
+    private final Provider<ExchangeClient> exchangeClientProvider;
 
     private final ConcurrentMap<QueryId, Query> queries = new ConcurrentHashMap<>();
     private final ScheduledExecutorService queryPurger = Executors.newSingleThreadScheduledExecutor(threadsNamed("query-purger-%d"));
 
     @Inject
-    public StatementResource(QueryManager queryManager, @ForExecute AsyncHttpClient httpClient)
+    public StatementResource(QueryManager queryManager, Provider<ExchangeClient> exchangeClientProvider)
     {
         this.queryManager = checkNotNull(queryManager, "queryManager is null");
-        this.httpClient = checkNotNull(httpClient, "httpClient is null");
+        this.exchangeClientProvider = checkNotNull(exchangeClientProvider, "exchangeClientProvider is null");
 
         queryPurger.scheduleWithFixedDelay(new PurgeQueriesRunnable(queries.keySet(), queryManager), 200, 200, TimeUnit.MILLISECONDS);
     }
@@ -140,7 +140,8 @@ public class StatementResource
         String remoteUserAddress = requestContext.getRemoteAddr();
 
         Session session = new Session(user, source, catalog, schema, remoteUserAddress, userAgent);
-        Query query = new Query(session, statement, queryManager, httpClient);
+        ExchangeClient exchangeClient = exchangeClientProvider.get();
+        Query query = new Query(session, statement, queryManager, exchangeClient);
         queries.put(query.getQueryId(), query);
         return Response.ok(query.getNextResults(uriInfo, new Duration(1, TimeUnit.MILLISECONDS))).build();
     }
@@ -212,17 +213,18 @@ public class StatementResource
         public Query(Session session,
                 String query,
                 QueryManager queryManager,
-                AsyncHttpClient httpClient)
+                ExchangeClient exchangeClient)
         {
             checkNotNull(session, "session is null");
             checkNotNull(query, "query is null");
             checkNotNull(queryManager, "queryManager is null");
+            checkNotNull(exchangeClient, "exchangeClient is null");
 
             this.queryManager = queryManager;
 
             QueryInfo queryInfo = queryManager.createQuery(session, query);
             queryId = queryInfo.getQueryId();
-            exchangeClient = new ExchangeClient(new DataSize(32, MEGABYTE), 3, httpClient);
+            this.exchangeClient = exchangeClient;
         }
 
         @Override

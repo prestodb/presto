@@ -1,11 +1,12 @@
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.execution.ExchangeOperatorFactory;
 import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.AggregationFunctionDefinition;
 import com.facebook.presto.operator.AggregationOperator;
+import com.facebook.presto.operator.ExchangeClient;
+import com.facebook.presto.operator.ExchangeOperator;
 import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.operator.FilterFunctions;
@@ -67,6 +68,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
+import com.google.inject.Provider;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.DataSize;
 
@@ -80,7 +82,6 @@ import java.util.Set;
 import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.leftGetter;
 import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.rightGetter;
 import static com.facebook.presto.sql.tree.Input.fieldGetter;
-import static com.google.common.base.Functions.forMap;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.equalTo;
@@ -100,7 +101,7 @@ public class LocalExecutionPlanner
 
     private final DataStreamProvider dataStreamProvider;
     private final LocalStorageManager storageManager;
-    private final ExchangeOperatorFactory exchangeOperatorFactory;
+    private final Provider<ExchangeClient> exchangeClientProvider;
 
     public LocalExecutionPlanner(Session session,
             NodeInfo nodeInfo,
@@ -111,11 +112,11 @@ public class LocalExecutionPlanner
             DataSize maxOperatorMemoryUsage,
             DataStreamProvider dataStreamProvider,
             LocalStorageManager storageManager,
-            ExchangeOperatorFactory exchangeOperatorFactory)
+            Provider<ExchangeClient> exchangeClientProvider)
     {
         this.nodeInfo = checkNotNull(nodeInfo, "nodeInfo is null");
         this.dataStreamProvider = dataStreamProvider;
-        this.exchangeOperatorFactory = exchangeOperatorFactory;
+        this.exchangeClientProvider = exchangeClientProvider;
         this.session = checkNotNull(session, "session is null");
         this.operatorStats = Preconditions.checkNotNull(operatorStats, "operatorStats is null");
         this.metadata = checkNotNull(metadata, "metadata is null");
@@ -196,7 +197,7 @@ public class LocalExecutionPlanner
         {
             List<TupleInfo> tupleInfo = getSourceOperatorTupleInfos(node);
 
-            SourceOperator operator = exchangeOperatorFactory.createExchangeOperator(tupleInfo);
+            SourceOperator operator = new ExchangeOperator(exchangeClientProvider, tupleInfo);
             context.addSourceOperator(node, operator);
 
             // Fow now, we assume that remote plans always produce one symbol per channel. TODO: remove this assumption

@@ -4,14 +4,11 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.operator.HttpPageBufferClient.ClientCallback;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.io.Closeables;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 
 import javax.annotation.Nullable;
@@ -25,10 +22,13 @@ import java.util.LinkedList;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.facebook.presto.util.Threads.checkNotSameThreadExecutor;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 @ThreadSafe
@@ -41,6 +41,7 @@ public class ExchangeClient
     private final DataSize maxResponseSize;
     private final int concurrentRequestMultiplier;
     private final AsyncHttpClient httpClient;
+    private final Executor executor;
 
     @GuardedBy("this")
     private final Set<URI> locations = new HashSet<>();
@@ -66,25 +67,16 @@ public class ExchangeClient
     private final AtomicBoolean closed = new AtomicBoolean();
 
     public ExchangeClient(DataSize maxBufferedBytes,
-            int concurrentRequestMultiplier,
-            AsyncHttpClient httpClient)
-    {
-        this(maxBufferedBytes, new DataSize(10, Unit.MEGABYTE), concurrentRequestMultiplier, httpClient, ImmutableSet.<URI>of(), false);
-    }
-
-    public ExchangeClient(DataSize maxBufferSize,
-            DataSize dataSize,
+            DataSize maxResponseSize,
             int concurrentRequestMultiplier,
             AsyncHttpClient httpClient,
-            Set<URI> locations,
-            boolean noMoreLocations)
+            Executor executor)
     {
-        this.maxBufferedBytes = maxBufferSize.toBytes();
-        this.maxResponseSize = dataSize;
+        this.maxBufferedBytes = maxBufferedBytes.toBytes();
+        this.maxResponseSize = maxResponseSize;
         this.concurrentRequestMultiplier = concurrentRequestMultiplier;
         this.httpClient = httpClient;
-        this.locations.addAll(locations);
-        this.noMoreLocations = noMoreLocations;
+        this.executor = checkNotSameThreadExecutor(executor, "executor");
     }
 
     public synchronized ExchangeClientStatus getStatus()
@@ -103,7 +95,7 @@ public class ExchangeClient
 
     public synchronized void addLocation(URI location)
     {
-        Preconditions.checkNotNull(location, "location is null");
+        checkNotNull(location, "location is null");
         if (locations.contains(location)) {
             return;
         }
@@ -151,7 +143,7 @@ public class ExchangeClient
             synchronized (this) {
                 bufferBytes -= page.getDataSize().toBytes();
             }
-            if (pageBuffer.peek() == NO_MORE_PAGES) {
+            if (!closed.get() && pageBuffer.peek() == NO_MORE_PAGES) {
                 closed.set(true);
             }
             scheduleRequestIfNecessary();
@@ -190,7 +182,7 @@ public class ExchangeClient
             if (pageBuffer.peekLast() != NO_MORE_PAGES) {
                 checkState(pageBuffer.add(NO_MORE_PAGES), "Could not add no more pages marker");
             }
-            if (pageBuffer.peek() == NO_MORE_PAGES) {
+            if (!closed.get() && pageBuffer.peek() == NO_MORE_PAGES) {
                 closed.set(true);
             }
             return;
@@ -199,7 +191,7 @@ public class ExchangeClient
         // add clients for new locations
         for (URI location : locations) {
             if (!allClients.containsKey(location)) {
-                HttpPageBufferClient client = new HttpPageBufferClient(httpClient, maxResponseSize, location, new ExchangeClientCallback());
+                HttpPageBufferClient client = new HttpPageBufferClient(httpClient, maxResponseSize, location, new ExchangeClientCallback(), executor);
                 allClients.put(location, client);
                 queuedClients.add(client);
             }
@@ -247,11 +239,19 @@ public class ExchangeClient
         scheduleRequestIfNecessary();
     }
 
-    private synchronized void addClientToQueue(HttpPageBufferClient client)
+    private synchronized void requestComplete(HttpPageBufferClient client)
     {
         if (!queuedClients.contains(client)) {
             queuedClients.add(client);
         }
+        scheduleRequestIfNecessary();
+    }
+
+    private synchronized void clientFinished(HttpPageBufferClient client)
+    {
+        checkNotNull(client, "client is null");
+        completedClients.add(client);
+        scheduleRequestIfNecessary();
     }
 
     private class ExchangeClientCallback
@@ -260,8 +260,8 @@ public class ExchangeClient
         @Override
         public void addPage(HttpPageBufferClient client, Page page)
         {
-            Preconditions.checkNotNull(client, "client is null");
-            Preconditions.checkNotNull(page, "page is null");
+            checkNotNull(client, "client is null");
+            checkNotNull(page, "page is null");
             ExchangeClient.this.addPage(page);
             scheduleRequestIfNecessary();
         }
@@ -269,17 +269,14 @@ public class ExchangeClient
         @Override
         public void requestComplete(HttpPageBufferClient client)
         {
-            Preconditions.checkNotNull(client, "client is null");
-            addClientToQueue(client);
-            scheduleRequestIfNecessary();
+            checkNotNull(client, "client is null");
+            ExchangeClient.this.requestComplete(client);
         }
 
         @Override
         public void clientFinished(HttpPageBufferClient client)
         {
-            Preconditions.checkNotNull(client, "client is null");
-            completedClients.add(client);
-            scheduleRequestIfNecessary();
+            ExchangeClient.this.clientFinished(client);
         }
     }
 }

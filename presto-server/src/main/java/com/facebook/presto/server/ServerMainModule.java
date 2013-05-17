@@ -17,7 +17,6 @@ import com.facebook.presto.event.query.SplitCompletionEvent;
 import com.facebook.presto.execution.CreateAliasExecution.CreateAliasExecutionFactory;
 import com.facebook.presto.execution.DropAliasExecution.DropAliasExecutionFactory;
 import com.facebook.presto.execution.DropTableExecution.DropTableExecutionFactory;
-import com.facebook.presto.execution.ExchangeOperatorFactory;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.NodeScheduler;
 import com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
@@ -61,6 +60,8 @@ import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.ShardCleaner;
 import com.facebook.presto.metadata.ShardCleanerConfig;
 import com.facebook.presto.metadata.ShardManager;
+import com.facebook.presto.operator.ExchangeClient;
+import com.facebook.presto.operator.ExchangeClientFactory;
 import com.facebook.presto.operator.ForExchange;
 import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.spi.ConnectorFactory;
@@ -91,6 +92,7 @@ import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.storage.DatabaseStorageManager;
 import com.facebook.presto.storage.ForStorage;
 import com.facebook.presto.storage.StorageManager;
+import com.facebook.presto.util.Threads;
 import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
@@ -111,6 +113,8 @@ import javax.inject.Singleton;
 import java.io.File;
 import java.lang.annotation.Annotation;
 import java.util.List;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 import static com.facebook.presto.guice.ConditionalModule.installIfPropertyEquals;
 import static com.facebook.presto.guice.DbiProvider.bindDbiToDataSource;
@@ -145,7 +149,8 @@ public class ServerMainModule
         binder.bind(TaskManager.class).to(SqlTaskManager.class).in(Scopes.SINGLETON);
         ExportBinder.newExporter(binder).export(TaskManager.class).withGeneratedName();
 
-        binder.bind(ExchangeOperatorFactory.class).in(Scopes.SINGLETON);
+        // create one exchange client for each usage
+        binder.bind(ExchangeClient.class).toProvider(ExchangeClientFactory.class).in(Scopes.NO_SCOPE);
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
 
         binder.bind(PagesMapper.class).in(Scopes.SINGLETON);
@@ -284,6 +289,14 @@ public class ServerMainModule
         binder.bind(NodeResource.class).in(Scopes.SINGLETON);
 
         binder.bind(StorageManager.class).to(DatabaseStorageManager.class).in(Scopes.SINGLETON);
+    }
+
+    @Provides
+    @Singleton
+    @ForExchange
+    public Executor createExchangeExecutor()
+    {
+        return Executors.newCachedThreadPool(Threads.daemonThreadsNamed("exchange-callback-%s"));
     }
 
     @Provides

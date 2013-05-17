@@ -11,6 +11,8 @@ import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.http.client.testing.TestingResponse;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import javax.annotation.Nullable;
@@ -20,6 +22,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -32,6 +35,23 @@ import static org.testng.Assert.assertEquals;
 
 public class TestHttpPageBufferClient
 {
+    private ExecutorService executor;
+
+    @BeforeClass
+    public void setUp()
+    {
+        executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
+    }
+
+    @AfterClass
+    public void tearDown()
+    {
+        if (executor != null) {
+            executor.shutdownNow();
+            executor = null;
+        }
+    }
+
     @Test
     public void testHappyPath()
             throws Exception
@@ -46,10 +66,11 @@ public class TestHttpPageBufferClient
         TestingClientCallback callback = new TestingClientCallback(requestComplete);
 
         URI location = URI.create("http://localhost:8080");
-        HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
+        HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, executor),
                 expectedMaxSize,
                 location,
-                callback);
+                callback,
+                executor);
 
         assertStatus(client, location, "queued", 0, 0, 0, "queued");
 
@@ -115,10 +136,11 @@ public class TestHttpPageBufferClient
         TestingClientCallback callback = new TestingClientCallback(requestComplete);
 
         URI location = URI.create("http://localhost:8080");
-        HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
+        HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, executor),
                 new DataSize(10, Unit.MEGABYTE),
                 location,
-                callback);
+                callback,
+                executor);
 
         assertStatus(client, location, "queued", 0, 0, 0, "queued");
 
@@ -147,10 +169,11 @@ public class TestHttpPageBufferClient
         TestingClientCallback callback = new TestingClientCallback(requestComplete);
 
         URI location = URI.create("http://localhost:8080");
-        HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
+        HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, executor),
                 new DataSize(10, Unit.MEGABYTE),
                 location,
-                callback);
+                callback,
+                executor);
 
         assertStatus(client, location, "queued", 0, 0, 0, "queued");
 
@@ -201,10 +224,11 @@ public class TestHttpPageBufferClient
         TestingClientCallback callback = new TestingClientCallback(requestComplete);
 
         URI location = URI.create("http://localhost:8080");
-        HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
+        HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, executor),
                 new DataSize(10, Unit.MEGABYTE),
                 location,
-                callback);
+                callback,
+                executor);
 
         assertStatus(client, location, "queued", 0, 0, 0, "queued");
 
@@ -222,6 +246,39 @@ public class TestHttpPageBufferClient
         catch (BrokenBarrierException ignored) {
         }
         assertStatus(client, location, "closed", 0, 1, 1, "queued");
+    }
+
+    @Test
+    public void testExceptionFromResponseHandler()
+            throws Exception
+    {
+        Function<Request, Response> processor = new Function<Request, Response>() {
+            @Override
+            public Response apply(Request input)
+            {
+                throw new RuntimeException("Foo");
+            }
+        };
+
+        CyclicBarrier requestComplete = new CyclicBarrier(2);
+        TestingClientCallback callback = new TestingClientCallback(requestComplete);
+
+        URI location = URI.create("http://localhost:8080");
+        HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, executor),
+                new DataSize(10, Unit.MEGABYTE),
+                location,
+                callback,
+                executor);
+
+        assertStatus(client, location, "queued", 0, 0, 0, "queued");
+
+        // request processor will throw exception, verify the request is marked a completed
+        client.scheduleRequest();
+        requestComplete.await(1, TimeUnit.HOURS);
+        assertEquals(callback.getPages().size(), 0);
+        assertEquals(callback.getCompletedRequests(), 1);
+        assertEquals(callback.getFinishedBuffers(), 0);
+        assertStatus(client, location, "queued", 0, 1, 1, "queued");
     }
 
     private void assertStatus(HttpPageBufferClient client, URI location, String status, int pagesReceived, int requestsScheduled, int requestsCompleted, String httpRequestState)
