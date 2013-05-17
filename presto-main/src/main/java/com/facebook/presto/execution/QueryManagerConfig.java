@@ -17,7 +17,7 @@ public class QueryManagerConfig
     private DataSize maxOperatorMemoryUsage = new DataSize(256, Unit.MEGABYTE);
     private int maxPendingSplitsPerNode = 100;
     private int maxShardProcessorThreads = Runtime.getRuntime().availableProcessors() * 4;
-    private Integer sinkMaxBufferedPages;
+    private int sinkMaxBufferedPages = 10;
     private Duration maxQueryAge = new Duration(15, TimeUnit.MINUTES);
     private Duration clientTimeout = new Duration(5, TimeUnit.MINUTES);
 
@@ -81,13 +81,14 @@ public class QueryManagerConfig
         return this;
     }
 
-    public Integer getSinkMaxBufferedPages()
+    @Min(1)
+    public int getSinkMaxBufferedPages()
     {
         return sinkMaxBufferedPages;
     }
 
     @Config("sink.page-buffer-max")
-    public QueryManagerConfig setSinkMaxBufferedPages(Integer sinkMaxBufferedPages)
+    public QueryManagerConfig setSinkMaxBufferedPages(int sinkMaxBufferedPages)
     {
         this.sinkMaxBufferedPages = sinkMaxBufferedPages;
         return this;

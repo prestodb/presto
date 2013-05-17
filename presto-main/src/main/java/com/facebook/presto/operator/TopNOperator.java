@@ -1,9 +1,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.tuple.FieldOrderedTupleComparator;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleReadable;
@@ -86,7 +84,7 @@ public class TopNOperator
 
         private TopNIterator(Operator source, OperatorStats operatorStats)
         {
-            super(source.getTupleInfos());
+            super(tupleInfos);
             this.source = source.iterator(operatorStats);
         }
 
@@ -101,24 +99,15 @@ public class TopNOperator
                 return endOfData();
             }
 
-            BlockBuilder[] outputs = new BlockBuilder[projections.size()];
-            for (int i = 0; i < outputs.length; i++) {
-                outputs[i] = new BlockBuilder(projections.get(i).getTupleInfo());
-            }
-
-            while (!isFull(outputs) && outputIterator.hasNext()) {
+            PageBuilder pageBuilder = new PageBuilder(getTupleInfos());
+            while (!pageBuilder.isFull() && outputIterator.hasNext()) {
                 KeyAndTuples next = outputIterator.next();
                 for (int i = 0; i < projections.size(); i++) {
-                    projections.get(i).project(next.getTuples(), outputs[i]);
+                    projections.get(i).project(next.getTuples(), pageBuilder.getBlockBuilder(i));
                 }
             }
 
-            Block[] blocks = new Block[projections.size()];
-            for (int i = 0; i < blocks.length; i++) {
-                blocks[i] = outputs[i].build();
-            }
-
-            Page page = new Page(blocks);
+            Page page = pageBuilder.build();
             return page;
         }
 
@@ -221,16 +210,6 @@ public class TopNOperator
                 tuples[channel] = (channel == keyChannelIndex) ? keyAndPosition.getKey() : cursors[channel].getTuple();
             }
             return tuples;
-        }
-
-        private boolean isFull(BlockBuilder... outputs)
-        {
-            for (BlockBuilder output : outputs) {
-                if (output.isFull()) {
-                    return true;
-                }
-            }
-            return false;
         }
     }
 
