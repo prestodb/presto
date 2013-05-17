@@ -11,6 +11,7 @@ import com.facebook.presto.execution.ExecutionStats.ExecutionStatsSnapshot;
 import com.facebook.presto.execution.SharedBuffer.QueueState;
 import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.OperatorStats.SplitExecutionStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.split.DataStreamProvider;
@@ -23,6 +24,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.inject.Provider;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.DataSize;
@@ -63,7 +65,7 @@ public class SqlTaskManager
     private final Metadata metadata;
     private final LocalStorageManager storageManager;
     private final DataStreamProvider dataStreamProvider;
-    private final ExchangeOperatorFactory exchangeOperatorFactory;
+    private final Provider<ExchangeClient> exchangeClientProvider;
     private final NodeInfo nodeInfo;
     private final LocationFactory locationFactory;
     private final QueryMonitor queryMonitor;
@@ -80,7 +82,7 @@ public class SqlTaskManager
             Metadata metadata,
             LocalStorageManager storageManager,
             DataStreamProvider dataStreamProvider,
-            ExchangeOperatorFactory exchangeOperatorFactory,
+            Provider<ExchangeClient> exchangeClientProvider,
             NodeInfo nodeInfo,
             LocationFactory locationFactory,
             QueryMonitor queryMonitor,
@@ -89,7 +91,7 @@ public class SqlTaskManager
         Preconditions.checkNotNull(metadata, "metadata is null");
         Preconditions.checkNotNull(storageManager, "storageManager is null");
         Preconditions.checkNotNull(dataStreamProvider, "dataStreamProvider is null");
-        Preconditions.checkNotNull(exchangeOperatorFactory, "exchangeOperatorFactory is null");
+        Preconditions.checkNotNull(exchangeClientProvider, "exchangeClientProvider is null");
         Preconditions.checkNotNull(nodeInfo, "nodeInfo is null");
         Preconditions.checkNotNull(locationFactory, "locationFactory is null");
         Preconditions.checkNotNull(queryMonitor, "queryMonitor is null");
@@ -98,7 +100,7 @@ public class SqlTaskManager
         this.metadata = metadata;
         this.storageManager = storageManager;
         this.dataStreamProvider = dataStreamProvider;
-        this.exchangeOperatorFactory = exchangeOperatorFactory;
+        this.exchangeClientProvider = exchangeClientProvider;
         this.nodeInfo = nodeInfo;
         this.locationFactory = locationFactory;
         this.queryMonitor = queryMonitor;
@@ -217,7 +219,7 @@ public class SqlTaskManager
                         fragment,
                         pageBufferMax,
                         dataStreamProvider,
-                        exchangeOperatorFactory,
+                        exchangeClientProvider,
                         metadata,
                         storageManager,
                         taskMasterExecutor,

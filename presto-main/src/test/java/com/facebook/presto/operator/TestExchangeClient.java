@@ -2,15 +2,17 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.block.BlockAssertions;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Uninterruptibles;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.operator.PageBufferClientStatus.uriGetter;
@@ -24,11 +26,29 @@ import static org.testng.Assert.assertTrue;
 
 public class TestExchangeClient
 {
+    private ExecutorService executor;
+
+    @BeforeClass
+    public void setUp()
+    {
+        executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
+    }
+
+    @AfterClass
+    public void tearDown()
+    {
+        if (executor != null) {
+            executor.shutdownNow();
+            executor = null;
+        }
+    }
+
     @Test
     public void testHappyPath()
             throws Exception
     {
-        MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(new DataSize(10, Unit.MEGABYTE));
+        DataSize maxResponseSize = new DataSize(10, Unit.MEGABYTE);
+        MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
 
         URI location = URI.create("http://localhost:8080");
         processor.addPage(location, createPage(1));
@@ -37,11 +57,13 @@ public class TestExchangeClient
         processor.setComplete(location);
 
         ExchangeClient exchangeClient = new ExchangeClient(new DataSize(32, Unit.MEGABYTE),
-                new DataSize(10, Unit.MEGABYTE), 1,
-                new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
-                ImmutableSet.of(location),
-                true);
+                maxResponseSize,
+                1,
+                new TestingHttpClient(processor, executor),
+                executor);
 
+        exchangeClient.addLocation(location);
+        exchangeClient.noMoreLocations();
 
         assertEquals(exchangeClient.isClosed(), false);
         assertPageEquals(exchangeClient.getNextPage(new Duration(1, TimeUnit.SECONDS)), createPage(1));
@@ -65,13 +87,14 @@ public class TestExchangeClient
     public void testAddLocation()
             throws Exception
     {
-        MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(new DataSize(10, Unit.MEGABYTE));
+        DataSize maxResponseSize = new DataSize(10, Unit.MEGABYTE);
+        MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
 
         ExchangeClient exchangeClient = new ExchangeClient(new DataSize(32, Unit.MEGABYTE),
-                new DataSize(10, Unit.MEGABYTE), 1,
+                maxResponseSize,
+                1,
                 new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
-                ImmutableSet.<URI>of(),
-                false);
+                executor);
 
         URI location1 = URI.create("http://localhost:8081");
         processor.addPage(location1, createPage(1));
@@ -119,16 +142,18 @@ public class TestExchangeClient
     public void testBufferLimit()
             throws Exception
     {
-        MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(new DataSize(1, Unit.BYTE));
-
-        URI location = URI.create("http://localhost:8080");
+        DataSize maxResponseSize = new DataSize(1, Unit.BYTE);
+        MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
 
         ExchangeClient exchangeClient = new ExchangeClient(new DataSize(1, Unit.BYTE),
-                new DataSize(1, Unit.BYTE),
+                maxResponseSize,
                 1,
                 new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
-                ImmutableSet.of(location),
-                true);
+                executor);
+
+        URI location = URI.create("http://localhost:8080");
+        exchangeClient.addLocation(location);
+        exchangeClient.noMoreLocations();
         assertEquals(exchangeClient.isClosed(), false);
 
         // add a pages
@@ -187,7 +212,8 @@ public class TestExchangeClient
     public void testClose()
             throws Exception
     {
-        MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(new DataSize(1, Unit.BYTE));
+        DataSize maxResponseSize = new DataSize(1, Unit.BYTE);
+        MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
 
         URI location = URI.create("http://localhost:8080");
         processor.addPage(location, createPage(1));
@@ -195,10 +221,11 @@ public class TestExchangeClient
         processor.addPage(location, createPage(3));
 
         ExchangeClient exchangeClient = new ExchangeClient(new DataSize(1, Unit.BYTE),
-                new DataSize(1, Unit.BYTE), 1,
+                maxResponseSize, 1,
                 new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
-                ImmutableSet.of(location),
-                true);
+                executor);
+        exchangeClient.addLocation(location);
+        exchangeClient.noMoreLocations();
 
         // fetch a page
         assertEquals(exchangeClient.isClosed(), false);

@@ -12,14 +12,16 @@ import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.NodeManager;
+import com.facebook.presto.operator.ExchangeClientFactory;
 import com.facebook.presto.operator.ExchangeOperator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageIterator;
+import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -45,8 +47,10 @@ import io.airlift.http.server.testing.TestingHttpServerModule;
 import io.airlift.jaxrs.JaxrsModule;
 import io.airlift.json.JsonModule;
 import io.airlift.node.testing.TestingNodeModule;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
+import io.airlift.units.DataSize;
+import io.airlift.units.DataSize.Unit;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import javax.ws.rs.core.HttpHeaders;
@@ -54,14 +58,18 @@ import javax.ws.rs.core.MediaType;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.server.MockQueryManager.TUPLE_INFOS;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
+import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.json.JsonCodec.jsonCodec;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -69,12 +77,14 @@ import static org.testng.Assert.assertTrue;
 public class TestExchangeOperator
 {
     private final List<LifeCycleManager> lifeCycleManagers = new ArrayList<>();
+    private ExchangeClientFactory exchangeClientFactory;
+    private ExecutorService executor;
     private AsyncHttpClient httpClient;
     private TestingHttpServer server1;
     private TestingHttpServer server2;
     private TestingHttpServer server3;
 
-    @BeforeMethod
+    @BeforeClass
     public void setup()
             throws Exception
     {
@@ -83,6 +93,8 @@ public class TestExchangeOperator
             server2 = createServer();
             server3 = createServer();
             httpClient = new StandaloneNettyAsyncHttpClient("test");
+            executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
+            exchangeClientFactory = new ExchangeClientFactory(new DataSize(32, Unit.MEGABYTE), new DataSize(10, Unit.MEGABYTE), 3, httpClient, executor);
         }
         catch (Throwable e) {
             teardown();
@@ -126,7 +138,7 @@ public class TestExchangeOperator
         return injector.getInstance(TestingHttpServer.class);
     }
 
-    @AfterMethod
+    @AfterClass
     public void teardown()
             throws Exception
     {
@@ -136,18 +148,22 @@ public class TestExchangeOperator
         if (httpClient != null) {
             httpClient.close();
         }
+        if (executor != null) {
+            executor.shutdownNow();
+            executor = null;
+        }
     }
 
     @Test
     public void testQuery()
             throws Exception
     {
-        ExchangeOperator operator = new ExchangeOperator(httpClient,
-                TUPLE_INFOS,
-                scheduleTask(server1),
-                scheduleTask(server2),
-                scheduleTask(server3)
-        );
+        ExchangeOperator operator = new ExchangeOperator(exchangeClientFactory, TUPLE_INFOS);
+
+        operator.addSplit(new RemoteSplit(scheduleTask(server1), TUPLE_INFOS));
+        operator.addSplit(new RemoteSplit(scheduleTask(server2), TUPLE_INFOS));
+        operator.addSplit(new RemoteSplit(scheduleTask(server3), TUPLE_INFOS));
+        operator.noMoreSplits();
 
         int count = 0;
         PageIterator iterator = operator.iterator(new OperatorStats());
@@ -165,12 +181,12 @@ public class TestExchangeOperator
     public void testCancel()
             throws Exception
     {
-        ExchangeOperator operator = new ExchangeOperator(httpClient,
-                TUPLE_INFOS,
-                scheduleTask(server1),
-                scheduleTask(server2),
-                scheduleTask(server3)
-        );
+        ExchangeOperator operator = new ExchangeOperator(exchangeClientFactory, TUPLE_INFOS);
+
+        operator.addSplit(new RemoteSplit(scheduleTask(server1), TUPLE_INFOS));
+        operator.addSplit(new RemoteSplit(scheduleTask(server2), TUPLE_INFOS));
+        operator.addSplit(new RemoteSplit(scheduleTask(server3), TUPLE_INFOS));
+        operator.noMoreSplits();
 
         int count = 0;
 
@@ -203,8 +219,9 @@ public class TestExchangeOperator
                 ImmutableList.<TaskSource>of(),
                 new OutputBuffers(ImmutableSet.of("out"), true));
 
+        String taskId = "query.stage." + httpServer.getPort() + "_" + ThreadLocalRandom.current().nextInt(Integer.MAX_VALUE);
         Request request = preparePost()
-                .setUri(httpServer.getBaseUrl().resolve("/v1/task/query.stage." + httpServer.getPort()))
+                .setUri(httpServer.getBaseUrl().resolve("/v1/task/" + taskId))
                 .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON)
                 .setBodyGenerator(jsonBodyGenerator(jsonCodec(TaskUpdateRequest.class), updateRequest))
                 .build();
