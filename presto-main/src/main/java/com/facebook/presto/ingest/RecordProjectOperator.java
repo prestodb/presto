@@ -3,12 +3,12 @@
  */
 package com.facebook.presto.ingest;
 
-import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.operator.AbstractPageIterator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.RecordCursor;
@@ -80,18 +80,14 @@ public class RecordProjectOperator
                 return endOfData();
             }
 
-            // todo convert this code to page builder
-            BlockBuilder[] outputs = new BlockBuilder[getChannelCount()];
-            for (int i = 0; i < outputs.length; i++) {
-                outputs[i] = new BlockBuilder(getTupleInfos().get(i));
-            }
-
-            while (!isFull(outputs) && cursor.advanceNextPosition()) {
+            PageBuilder pageBuilder = new PageBuilder(getTupleInfos());
+            while (!pageBuilder.isFull() && cursor.advanceNextPosition()) {
                 for (int column = 0; column < super.getChannelCount(); column++) {
-                    BlockBuilder output = outputs[column];
+                    BlockBuilder output = pageBuilder.getBlockBuilder(column);
                     if (cursor.isNull(column)) {
                         output.appendNull();
-                    } else {
+                    }
+                    else {
                         switch (getTupleInfos().get(column).getTypes().get(0)) {
                             case FIXED_INT_64:
                                 output.append(cursor.getLong(column));
@@ -114,16 +110,11 @@ public class RecordProjectOperator
                 currentCompletedSize = completedDataSize;
             }
 
-            if (outputs[0].isEmpty()) {
+            if (pageBuilder.isEmpty()) {
                 return endOfData();
             }
 
-            Block[] blocks = new Block[getChannelCount()];
-            for (int i = 0; i < blocks.length; i++) {
-                blocks[i] = outputs[i].build();
-            }
-
-            Page page = new Page(blocks);
+            Page page = pageBuilder.build();
             operatorStats.addCompletedPositions(page.getPositionCount());
             return page;
         }
