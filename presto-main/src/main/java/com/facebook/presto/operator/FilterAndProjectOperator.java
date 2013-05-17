@@ -4,7 +4,6 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
@@ -73,30 +72,18 @@ public class FilterAndProjectOperator implements Operator
 
         protected Page computeNext()
         {
-            // todo convert to PageBuilder
-            BlockBuilder[] outputs = new BlockBuilder[projections.size()];
-            for (int i = 0; i < outputs.length; i++) {
-                outputs[i] = new BlockBuilder(projections.get(i).getTupleInfo());
-
-            }
-
-            int outputCount = 0;
-            while (!isFull(outputs) && pageIterator.hasNext()) {
+            PageBuilder pageBuilder = new PageBuilder(getTupleInfos());
+            while (!pageBuilder.isFull() && pageIterator.hasNext()) {
                 Page page = pageIterator.next();
                 Block[] blocks = page.getBlocks();
-                outputCount += filterAndProjectRowOriented(blocks, outputs);
+                filterAndProjectRowOriented(blocks, pageBuilder);
             }
 
-            if (outputCount == 0) {
+            if (pageBuilder.isEmpty()) {
                 return endOfData();
             }
 
-            Block[] blocks = new Block[projections.size()];
-            for (int i = 0; i < blocks.length; i++) {
-                blocks[i] = outputs[i].build();
-            }
-
-            Page page = new Page(outputCount, blocks);
+            Page page = pageBuilder.build();
             return page;
         }
 
@@ -106,17 +93,7 @@ public class FilterAndProjectOperator implements Operator
             pageIterator.close();
         }
 
-        private boolean isFull(BlockBuilder... outputs)
-        {
-            for (BlockBuilder output : outputs) {
-                if (output.isFull()) {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        private int filterAndProjectRowOriented(Block[] blocks, BlockBuilder[] outputs)
+        private void filterAndProjectRowOriented(Block[] blocks, PageBuilder pageBuilder)
         {
             int rows = blocks[0].getPositionCount();
 
@@ -125,25 +102,23 @@ public class FilterAndProjectOperator implements Operator
                 cursors[i] = blocks[i].cursor();
             }
 
-            int outputCount = 0;
             for (int position = 0; position < rows; position++) {
                 for (BlockCursor cursor : cursors) {
                     checkState(cursor.advanceNextPosition());
                 }
 
                 if (filterFunction.filter(cursors)) {
+                    pageBuilder.declarePosition();
                     for (int i = 0; i < projections.size(); i++) {
-                        projections.get(i).project(cursors, outputs[i]);
+                        // todo: if the projection function increases the size of the data significantly, this could cause the servers to OOM
+                        projections.get(i).project(cursors, pageBuilder.getBlockBuilder(i));
                     }
-                    ++outputCount;
                 }
             }
 
             for (BlockCursor cursor : cursors) {
                 checkState(!cursor.advanceNextPosition());
             }
-
-            return outputCount;
         }
     }
 }

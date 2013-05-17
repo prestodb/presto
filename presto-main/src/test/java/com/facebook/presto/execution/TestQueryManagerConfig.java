@@ -26,7 +26,7 @@ public class TestQueryManagerConfig
                 .setExchangeExpectedPagesPerRequest(10)
                 .setExchangeConcurrentRequestMultiplier(3)
                 .setQueryManagerExecutorPoolSize(100)
-                .setSinkMaxBufferedPages(null)
+                .setSinkMaxBufferedPages(10)
                 .setRemoteTaskMaxConsecutiveErrorCount(10)
                 .setRemoteTaskMinErrorDuration(new Duration(2, TimeUnit.MINUTES)));
     }
