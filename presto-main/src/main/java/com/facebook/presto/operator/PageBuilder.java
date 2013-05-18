@@ -29,7 +29,10 @@ public class PageBuilder
 
     public PageBuilder(List<TupleInfo> tupleInfos, DataSize maxSize)
     {
-        int bytesPerColumn = (int) (maxSize.toBytes() / tupleInfos.size());
+        int bytesPerColumn = 0;
+        if (!tupleInfos.isEmpty()) {
+            bytesPerColumn = (int) (maxSize.toBytes() / tupleInfos.size());
+        }
 
         blockBuilders = new BlockBuilder[tupleInfos.size()];
         for (int i = 0; i < blockBuilders.length; i++) {
