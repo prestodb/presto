@@ -29,9 +29,11 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
+import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
+import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.util.IterableTransformer;
@@ -50,10 +52,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.facebook.presto.sql.analyzer.Field.typeGetter;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDINAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_COLUMN_ALIASES;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_SET_COLUMN_TYPES;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATE_OR_GROUP_BY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_WINDOW_FUNCTION;
@@ -66,6 +70,8 @@ import static com.facebook.presto.sql.tree.AliasedExpression.aliasGetter;
 import static com.facebook.presto.sql.tree.FunctionCall.distinctPredicate;
 import static com.google.common.base.Functions.compose;
 import static com.google.common.base.Predicates.instanceOf;
+import static com.google.common.collect.Iterables.elementsEqual;
+import static com.google.common.collect.Iterables.transform;
 
 class TupleAnalyzer
         extends DefaultTraversalVisitor<TupleDescriptor, AnalysisContext>
@@ -198,6 +204,31 @@ class TupleAnalyzer
         analysis.setOutputDescriptor(node, descriptor);
 
         return descriptor;
+    }
+
+    @Override
+    protected TupleDescriptor visitUnion(Union node, AnalysisContext context)
+    {
+        Preconditions.checkState(node.getRelations().size() >= 2);
+
+        TupleAnalyzer analyzer = new TupleAnalyzer(analysis, session, metadata);
+
+        TupleDescriptor outputDescriptor = null;
+        for (Relation relation : node.getRelations()) {
+            TupleDescriptor descriptor = analyzer.process(relation, context);
+            if (outputDescriptor == null) {
+                // Use the first descriptor as the output descriptor for the UNION
+                outputDescriptor = descriptor;
+            }
+            else {
+                if (!elementsEqual(transform(outputDescriptor.getFields(), typeGetter()), transform(descriptor.getFields(), typeGetter()))) {
+                    throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES, node, "Union query terms have mismatched columns");
+                }
+            }
+        }
+
+        analysis.setOutputDescriptor(node, outputDescriptor);
+        return outputDescriptor;
     }
 
     @Override

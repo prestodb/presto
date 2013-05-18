@@ -66,4 +66,9 @@ public class PlanNodeRewriter<C>
     {
         return rewriteNode(node, context, planRewriter);
     }
+
+    public PlanNode rewriteUnion(UnionNode node, C context, PlanRewriter<C> planRewriter)
+    {
+        return rewriteNode(node, context, planRewriter);
+    }
 }

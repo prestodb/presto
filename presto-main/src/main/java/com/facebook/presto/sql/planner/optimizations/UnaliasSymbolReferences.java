@@ -17,6 +17,7 @@ import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
+import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -218,6 +219,16 @@ public class UnaliasSymbolReferences
             PlanNode right = planRewriter.rewrite(node.getRight(), context);
 
             return new JoinNode(node.getId(), left, right, canonicalizeJoinCriteria(node.getCriteria()));
+        }
+
+        @Override
+        public PlanNode rewriteUnion(UnionNode node, Void context, PlanRewriter<Void> planRewriter)
+        {
+            ImmutableList.Builder<PlanNode> rewrittenSources = ImmutableList.builder();
+            for (PlanNode source : node.getSources()) {
+                rewrittenSources.add(planRewriter.rewrite(source, context));
+            }
+            return new UnionNode(node.getId(), rewrittenSources.build(), node.getOutputSymbols());
         }
 
         private void map(Symbol symbol, Symbol canonical)

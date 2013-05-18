@@ -1,6 +1,5 @@
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.sql.planner.plan.TableWriterNode;
 
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
@@ -14,7 +13,9 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
+import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.collect.ImmutableSet;
 
@@ -163,6 +164,15 @@ public class SymbolExtractor
         }
 
         @Override
+        public Void visitUnion(UnionNode node, Void context)
+        {
+            for (PlanNode subPlanNode : node.getSources()) {
+                subPlanNode.accept(this, context);
+            }
+
+            return null;
+        }
+
         protected Void visitPlan(PlanNode node, Void context)
         {
             throw new UnsupportedOperationException("not yet implemented");
