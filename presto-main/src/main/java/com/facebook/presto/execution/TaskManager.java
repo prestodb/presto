@@ -5,7 +5,6 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.TaskSource;
-import com.facebook.presto.operator.Page;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.PlanFragment;
 import io.airlift.units.Duration;
@@ -23,7 +22,7 @@ public interface TaskManager
 
     TaskInfo updateTask(Session session, TaskId taskId, PlanFragment fragment, List<TaskSource> sources, OutputBuffers outputIds);
 
-    BufferResult<Page> getTaskResults(TaskId taskId, String outputName, int maxPageCount, Duration maxWaitTime)
+    BufferResult getTaskResults(TaskId taskId, String outputName, int maxPageCount, Duration maxWaitTime)
             throws InterruptedException;
 
     TaskInfo abortTaskResults(TaskId taskId, String outputId);

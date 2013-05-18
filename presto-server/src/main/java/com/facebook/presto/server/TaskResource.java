@@ -142,7 +142,7 @@ public class TaskResource
 
         // todo we need a much better way to determine if a task is unknown (e.g. not scheduled yet), done, or there is current no more data
         try {
-            BufferResult<Page> result = taskManager.getTaskResults(taskId, outputId, DEFAULT_MAX_PAGE_COUNT, DEFAULT_MAX_WAIT_TIME);
+            BufferResult result = taskManager.getTaskResults(taskId, outputId, DEFAULT_MAX_PAGE_COUNT, DEFAULT_MAX_WAIT_TIME);
             if (!result.isEmpty()) {
                 GenericEntity<?> entity = new GenericEntity<>(result.getElements(), new TypeToken<List<Page>>() {}.getType());
                 return Response.ok(entity).build();

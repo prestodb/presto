@@ -13,7 +13,6 @@ import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.OperatorStats.SplitExecutionStats;
-import com.facebook.presto.operator.Page;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -57,7 +56,7 @@ public class SqlTaskManager
 {
     private static final Logger log = Logger.get(SqlTaskManager.class);
 
-    private final int pageBufferMax;
+    private final DataSize maxBufferSize;
 
     private final ExecutorService taskMasterExecutor;
     private final ListeningExecutorService shardExecutor;
@@ -104,7 +103,7 @@ public class SqlTaskManager
         this.nodeInfo = nodeInfo;
         this.locationFactory = locationFactory;
         this.queryMonitor = queryMonitor;
-        this.pageBufferMax = config.getSinkMaxBufferedPages();
+        this.maxBufferSize = config.getSinkMaxBufferSize();
         this.maxOperatorMemoryUsage = config.getMaxOperatorMemoryUsage();
         // Just to be nice, allow tasks to live an extra 30 seconds so queries will be removed first
         this.maxTaskAge = new Duration(config.getMaxQueryAge().toMillis() + SECONDS.toMillis(30), MILLISECONDS);
@@ -217,7 +216,7 @@ public class SqlTaskManager
                         taskId,
                         location,
                         fragment,
-                        pageBufferMax,
+                        maxBufferSize,
                         dataStreamProvider,
                         exchangeClientProvider,
                         metadata,
@@ -240,7 +239,7 @@ public class SqlTaskManager
     }
 
     @Override
-    public BufferResult<Page> getTaskResults(TaskId taskId, String outputName, int maxPageCount, Duration maxWaitTime)
+    public BufferResult getTaskResults(TaskId taskId, String outputName, int maxPageCount, Duration maxWaitTime)
             throws InterruptedException
     {
         Preconditions.checkNotNull(taskId, "taskId is null");

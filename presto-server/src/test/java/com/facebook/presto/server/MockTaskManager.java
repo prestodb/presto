@@ -21,6 +21,8 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import io.airlift.http.server.HttpServerInfo;
+import io.airlift.units.DataSize;
+import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 
 import javax.inject.Inject;
@@ -42,7 +44,7 @@ public class MockTaskManager
     private final Executor executor = Executors.newCachedThreadPool(Threads.daemonThreadsNamed("test-%d"));
 
     private final HttpServerInfo httpServerInfo;
-    private final int pageBufferMax;
+    private final DataSize maxBufferSize;
     private final int initialPages;
 
     private final ConcurrentMap<TaskId, TaskOutput> tasks = new ConcurrentHashMap<>();
@@ -50,17 +52,17 @@ public class MockTaskManager
     @Inject
     public MockTaskManager(HttpServerInfo httpServerInfo)
     {
-        this(httpServerInfo, 20, 12);
+        this(httpServerInfo, new DataSize(100, Unit.MEGABYTE), 12);
     }
 
-    public MockTaskManager(HttpServerInfo httpServerInfo, int pageBufferMax, int initialPages)
+    public MockTaskManager(HttpServerInfo httpServerInfo, DataSize maxBufferSize, int initialPages)
     {
         Preconditions.checkNotNull(httpServerInfo, "httpServerInfo is null");
-        Preconditions.checkArgument(pageBufferMax > 0, "pageBufferMax must be at least 1");
+        Preconditions.checkArgument(maxBufferSize.toBytes() > 0, "pageBufferMax must be at least 1");
         Preconditions.checkArgument(initialPages >= 0, "initialPages is negative");
-        Preconditions.checkArgument(initialPages <= pageBufferMax, "initialPages is greater than pageBufferMax");
+        Preconditions.checkArgument(initialPages <= maxBufferSize.toBytes(), "initialPages is greater than maxBufferSize");
         this.httpServerInfo = httpServerInfo;
-        this.pageBufferMax = pageBufferMax;
+        this.maxBufferSize = maxBufferSize;
         this.initialPages = initialPages;
     }
 
@@ -103,7 +105,7 @@ public class MockTaskManager
         TaskOutput taskOutput = tasks.get(taskId);
         if (taskOutput == null) {
             URI location = uriBuilderFrom(httpServerInfo.getHttpUri()).appendPath("v1/task").appendPath(taskId.toString()).build();
-            taskOutput = new TaskOutput(taskId, location, pageBufferMax, executor, new SqlTaskManagerStats());
+            taskOutput = new TaskOutput(taskId, location, maxBufferSize, executor, new SqlTaskManagerStats());
             tasks.put(taskId, taskOutput);
 
             List<String> data = ImmutableList.of("apple", "banana", "cherry", "date");
@@ -132,7 +134,7 @@ public class MockTaskManager
     }
 
     @Override
-    public BufferResult<Page> getTaskResults(TaskId taskId, String outputId, int maxPageCount, Duration maxWaitTime)
+    public BufferResult getTaskResults(TaskId taskId, String outputId, int maxPageCount, Duration maxWaitTime)
             throws InterruptedException
     {
         Preconditions.checkNotNull(taskId, "taskId is null");

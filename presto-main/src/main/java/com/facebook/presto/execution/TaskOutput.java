@@ -14,6 +14,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.airlift.log.Logger;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -39,7 +40,7 @@ public class TaskOutput
 
     private final TaskId taskId;
     private final URI location;
-    private final SharedBuffer<Page> sharedBuffer;
+    private final SharedBuffer sharedBuffer;
 
     private final ExecutionStats stats;
     private final StateMachine<TaskState> taskState;
@@ -55,16 +56,16 @@ public class TaskOutput
 
     private final Set<OperatorStats> activeSplits = Sets.newSetFromMap(new ConcurrentHashMap<OperatorStats, Boolean>());
 
-    public TaskOutput(TaskId taskId, URI location, int pageBufferMax, Executor executor, SqlTaskManagerStats taskManagerStats)
+    public TaskOutput(TaskId taskId, URI location, DataSize maxBufferSize, Executor executor, SqlTaskManagerStats taskManagerStats)
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(location, "location is null");
-        Preconditions.checkArgument(pageBufferMax > 0, "pageBufferMax must be at least 1");
+        Preconditions.checkArgument(maxBufferSize.toBytes() > 0, "maxBufferSize must be at least 1");
         Preconditions.checkNotNull(executor, "executor is null");
 
         this.taskId = taskId;
         this.location = location;
-        sharedBuffer = new SharedBuffer<>(pageBufferMax);
+        sharedBuffer = new SharedBuffer(maxBufferSize);
         taskState = new StateMachine<>("task " + taskId, executor, TaskState.RUNNING);
         taskState.addStateChangeListener(new StateChangeListener<TaskState>() {
             @Override
@@ -143,7 +144,7 @@ public class TaskOutput
         return ImmutableSet.copyOf(noMoreSplits);
     }
 
-    public BufferResult<Page> getResults(String outputId, int maxPageCount, Duration maxWait)
+    public BufferResult getResults(String outputId, int maxPageCount, Duration maxWait)
             throws InterruptedException
     {
         return sharedBuffer.get(outputId, maxPageCount, maxWait);
