@@ -269,9 +269,11 @@ public class SqlStageExecution
         for (PlanNode planNode : fragment.getSources()) {
             if (planNode instanceof ExchangeNode) {
                 ExchangeNode exchangeNode = (ExchangeNode) planNode;
-                StageExecutionNode subStage = subStages.get(exchangeNode.getSourceFragmentId());
-                Preconditions.checkState(subStage != null, "Unknown sub stage %s, known stages %s", exchangeNode.getSourceFragmentId(), subStages.keySet());
-                exchangeLocations.putAll(exchangeNode.getId(), subStage.getTaskLocations());
+                for (PlanFragmentId planFragmentId : exchangeNode.getSourceFragmentIds()) {
+                    StageExecutionNode subStage = subStages.get(planFragmentId);
+                    Preconditions.checkState(subStage != null, "Unknown sub stage %s, known stages %s", planFragmentId, subStages.keySet());
+                    exchangeLocations.putAll(exchangeNode.getId(), subStage.getTaskLocations());
+                }
             }
         }
         return exchangeLocations.build();

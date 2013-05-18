@@ -236,7 +236,7 @@ public class PlanPrinter
         @Override
         public Void visitExchange(ExchangeNode node, Integer indent)
         {
-            print(indent, "- Exchange[%s] => [%s]", node.getSourceFragmentId(), formatOutputs(node.getOutputSymbols()));
+            print(indent, "- Exchange[%s] => [%s]", node.getSourceFragmentIds(), formatOutputs(node.getOutputSymbols()));
 
             return processChildren(node, indent + 1);
         }
