@@ -308,6 +308,15 @@ public class DefaultTraversalVisitor<R, C>
     }
 
     @Override
+    protected R visitUnion(Union node, C context)
+    {
+        for (Relation relation : node.getRelations()) {
+            process(relation, context);
+        }
+        return null;
+    }
+
+    @Override
     protected R visitTableSubquery(TableSubquery node, C context)
     {
         return process(node.getQuery(), context);

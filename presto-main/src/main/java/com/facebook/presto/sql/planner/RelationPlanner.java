@@ -1,5 +1,6 @@
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.TableHandle;
@@ -9,18 +10,24 @@ import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.FieldOrExpression;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.TupleDescriptor;
+import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
+import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
+import com.facebook.presto.sql.tree.Union;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -30,6 +37,7 @@ import java.util.List;
 
 import static com.facebook.presto.sql.analyzer.EquiJoinClause.leftGetter;
 import static com.facebook.presto.sql.analyzer.EquiJoinClause.rightGetter;
+import static com.google.common.base.Preconditions.checkArgument;
 
 class RelationPlanner
         extends DefaultTraversalVisitor<RelationPlan, Void>
@@ -152,6 +160,33 @@ class RelationPlanner
         return new RelationPlan(subPlan.getRoot(), analysis.getOutputDescriptor(node), outputSymbols.build());
     }
 
+    @Override
+    protected RelationPlan visitUnion(Union node, Void context)
+    {
+        checkArgument(!node.getRelations().isEmpty(), "No relations specified for UNION");
+
+        List<Symbol> outputSymbols = null;
+        ImmutableList.Builder<PlanNode> builder = ImmutableList.builder();
+        for (Relation relation : node.getRelations()) {
+            RelationPlan relationPlan = process(relation, context);
+            if (outputSymbols == null) {
+                // Use the first Relation to extract the new output symbols
+                ImmutableList.Builder<Symbol> symbolsBuilder = ImmutableList.builder();
+                for (Symbol symbol : relationPlan.getOutputSymbols()) {
+                    symbolsBuilder.add(symbolAllocator.newSymbol(symbol.getName(), symbolAllocator.getTypes().get(symbol)));
+                }
+                outputSymbols = symbolsBuilder.build();
+            }
+            builder.add(relationPlan.getRoot());
+        }
+
+        PlanNode planNode = new UnionNode(idAllocator.getNextId(), builder.build(), outputSymbols);
+        if (node.isDistinct()) {
+            planNode = distinct(planNode);
+        }
+        return new RelationPlan(planNode, analysis.getOutputDescriptor(node), outputSymbols);
+    }
+
     private PlanBuilder appendProjections(RelationPlan subPlan, Iterable<Expression> expressions)
     {
         TranslationMap translations = new TranslationMap(subPlan, analysis);
@@ -176,5 +211,14 @@ class RelationPlanner
         }
 
         return new PlanBuilder(translations, new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), projections.build()));
+    }
+
+    private PlanNode distinct(PlanNode node)
+    {
+        return new AggregationNode(idAllocator.getNextId(),
+                node,
+                node.getOutputSymbols(),
+                ImmutableMap.<Symbol, FunctionCall>of(),
+                ImmutableMap.<Symbol, FunctionHandle>of());
     }
 }

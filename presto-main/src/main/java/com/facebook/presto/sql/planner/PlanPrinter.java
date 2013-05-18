@@ -16,6 +16,7 @@ import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
+import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
@@ -245,6 +246,14 @@ public class PlanPrinter
         public Void visitSink(SinkNode node, Integer indent)
         {
             print(indent, "- Sink[%s] => [%s]", node.getId(), formatOutputs(node.getOutputSymbols()));
+
+            return processChildren(node, indent + 1);
+        }
+
+        @Override
+        public Void visitUnion(UnionNode node, Integer indent)
+        {
+            print(indent, "- Union => [%s]", formatOutputs(node.getOutputSymbols()));
 
             return processChildren(node, indent + 1);
         }

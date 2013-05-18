@@ -19,13 +19,17 @@ import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
+import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -245,6 +249,31 @@ public class PruneUnreferencedOutputs
                     node.getTable(),
                     node.getColumns(),
                     node.getOutput());
+        }
+
+        @Override
+        public PlanNode rewriteUnion(UnionNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
+        {
+            List<Integer> expectedFields = new ArrayList<>();
+            ImmutableList.Builder<Symbol> outputSymbols = ImmutableList.builder();
+            for (int i = 0; i < node.getOutputSymbols().size(); i++) {
+                Symbol symbol = node.getOutputSymbols().get(i);
+                if (expectedOutputs.contains(symbol)) {
+                    expectedFields.add(i);
+                    outputSymbols.add(symbol);
+                }
+            }
+
+            ImmutableList.Builder<PlanNode> rewrittenSubPlans = ImmutableList.builder();
+            for (PlanNode subPlan : node.getSources()) {
+                ImmutableSet.Builder<Symbol> expectedInputSymbols = ImmutableSet.builder();
+                for (Integer expectedField : expectedFields) {
+                    expectedInputSymbols.add(subPlan.getOutputSymbols().get(expectedField));
+                }
+                rewrittenSubPlans.add(planRewriter.rewrite(subPlan, expectedInputSymbols.build()));
+            }
+
+            return new UnionNode(node.getId(), rewrittenSubPlans.build(), outputSymbols.build());
         }
     }
 }

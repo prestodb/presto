@@ -65,6 +65,18 @@ public class Field
         return type;
     }
 
+    public static Function<Field, Type> typeGetter()
+    {
+        return new Function<Field, Type>()
+        {
+            @Override
+            public Type apply(Field field)
+            {
+                return field.getType();
+            }
+        };
+    }
+
     public boolean matchesPrefix(Optional<QualifiedName> prefix)
     {
         return !prefix.isPresent() || relationAlias.isPresent() && relationAlias.get().hasSuffix(prefix.get());

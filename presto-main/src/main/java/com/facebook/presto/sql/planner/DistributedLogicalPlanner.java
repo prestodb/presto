@@ -19,6 +19,7 @@ import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
+import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -274,7 +275,7 @@ public class DistributedLogicalPlanner
                         intermediateOutput);
 
                 subPlanBuilder.setRoot(writer)
-                    .setPartitionedSource(node.getId());
+                        .setPartitionedSource(node.getId());
 
                 FunctionCall aggregate = new FunctionCall(sum.getName(),
                         ImmutableList.<Expression>of(new QualifiedNameReference(intermediateOutput.toQualifiedName())));
@@ -300,7 +301,7 @@ public class DistributedLogicalPlanner
                 ExchangeNode exchange = new ExchangeNode(idAllocator.getNextId(), right.getId(), right.getRoot().getOutputSymbols());
                 JoinNode join = new JoinNode(node.getId(), left.getRoot(), exchange, node.getCriteria());
                 left.setRoot(join)
-                    .addChild(right.build());
+                        .addChild(right.build());
 
                 return left;
             }
@@ -309,6 +310,28 @@ public class DistributedLogicalPlanner
                 return newSubPlan(join)
                         .setPartitionedSource(null)
                         .setChildren(Iterables.concat(left.getChildren(), right.getChildren()));
+            }
+        }
+
+        @Override
+        public SubPlanBuilder visitUnion(UnionNode node, Void context)
+        {
+            if (createSingleNodePlan) {
+                // TODO: Make this work for single node execution
+                throw new UnsupportedOperationException();
+            }
+            else {
+                ImmutableList.Builder<SubPlan> subPlanBuilder = ImmutableList.builder();
+                ImmutableList.Builder<PlanFragmentId> fragmentIdBuilder = ImmutableList.builder();
+                for (PlanNode planNode : node.getSources()) {
+                    SubPlanBuilder current = planNode.accept(this, context);
+                    current.setRoot(new SinkNode(idAllocator.getNextId(), current.getRoot()));
+                    fragmentIdBuilder.add(current.getId());
+                    subPlanBuilder.add(current.build());
+                }
+                return newSubPlan(new ExchangeNode(idAllocator.getNextId(), fragmentIdBuilder.build(), node.getOutputSymbols()))
+                        .setPartitionedSource(null)
+                        .setChildren(subPlanBuilder.build());
             }
         }
 
