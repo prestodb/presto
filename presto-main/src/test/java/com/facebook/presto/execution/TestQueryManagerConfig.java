@@ -25,7 +25,7 @@ public class TestQueryManagerConfig
                 .setExchangeMaxBufferSize(new DataSize(32, Unit.MEGABYTE))
                 .setExchangeConcurrentRequestMultiplier(3)
                 .setQueryManagerExecutorPoolSize(100)
-                .setSinkMaxBufferedPages(10)
+                .setSinkMaxBufferSize(new DataSize(32, Unit.MEGABYTE))
                 .setRemoteTaskMaxConsecutiveErrorCount(10)
                 .setRemoteTaskMinErrorDuration(new Duration(2, TimeUnit.MINUTES)));
     }
@@ -41,8 +41,8 @@ public class TestQueryManagerConfig
                 .put("query.max-age", "30s")
                 .put("query.max-pending-splits-per-node", "33")
                 .put("query.manager-executor-pool-size", "11")
-                .put("sink.page-buffer-max", "999")
-                .put("exchange.page-buffer-size", "1GB")
+                .put("sink.max-buffer-size", "42MB")
+                .put("exchange.max-buffer-size", "1GB")
                 .put("exchange.concurrent-request-multiplier", "13")
                 .put("query.remote-task.max-consecutive-error-count", "300")
                 .put("query.remote-task.min-error-duration", "30s")
@@ -58,7 +58,7 @@ public class TestQueryManagerConfig
                 .setExchangeMaxBufferSize(new DataSize(1, Unit.GIGABYTE))
                 .setExchangeConcurrentRequestMultiplier(13)
                 .setQueryManagerExecutorPoolSize(11)
-                .setSinkMaxBufferedPages(999)
+                .setSinkMaxBufferSize(new DataSize(42, Unit.MEGABYTE))
                 .setRemoteTaskMaxConsecutiveErrorCount(300)
                 .setRemoteTaskMinErrorDuration(new Duration(30, TimeUnit.SECONDS));
 

@@ -3,12 +3,14 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.operator.Page;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -21,7 +23,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.SortedSet;
 import java.util.TreeSet;
-import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -30,7 +31,7 @@ import static com.facebook.presto.execution.BufferResult.emptyResults;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @ThreadSafe
-public class SharedBuffer<T>
+public class SharedBuffer
 {
     public static enum QueueState
     {
@@ -43,13 +44,18 @@ public class SharedBuffer<T>
          */
         NO_MORE_QUEUES,
         /**
-         * No more queues can be added and all elements have been consumed.
+         * No more queues can be added and all pages have been consumed.
          */
         FINISHED
     }
 
+    private final long maxBufferedBytes;
+
     @GuardedBy("this")
-    private final LinkedList<T> masterQueue;
+    private long bufferedBytes;
+
+    @GuardedBy("this")
+    private final LinkedList<Page> masterQueue = new LinkedList<>();
     @GuardedBy("this")
     private long masterSequenceId;
     @GuardedBy("this")
@@ -62,17 +68,14 @@ public class SharedBuffer<T>
     private final AtomicLong pagesAdded = new AtomicLong();
 
     /**
-     * If true, no more elements can be added to the queue.
+     * If true, no more pages can be added to the queue.
      */
     private final AtomicBoolean closed = new AtomicBoolean();
 
-    private final Semaphore notFull;
-
-    public SharedBuffer(int capacity)
+    public SharedBuffer(DataSize maxBufferSize)
     {
-        Preconditions.checkArgument(capacity > 0, "Capacity must be at least 1");
-        masterQueue = new LinkedList<>();
-        notFull = new Semaphore(capacity);
+        Preconditions.checkArgument(maxBufferSize.toBytes() > 0, "maxBufferSize must be at least 1");
+        this.maxBufferedBytes = maxBufferSize.toBytes();
     }
 
     public synchronized boolean isFinished()
@@ -84,7 +87,7 @@ public class SharedBuffer<T>
     {
         ImmutableList.Builder<BufferInfo> infos = ImmutableList.builder();
         for (NamedQueue namedQueue : namedQueues.values()) {
-            infos.add(new BufferInfo(namedQueue.getQueueId(), namedQueue.isFinished(), namedQueue.size(), namedQueue.elementsRemoved()));
+            infos.add(new BufferInfo(namedQueue.getQueueId(), namedQueue.isFinished(), namedQueue.size(), namedQueue.pagesRemoved()));
         }
         return new SharedBufferInfo(state, pagesAdded.get(), infos.build());
     }
@@ -115,56 +118,50 @@ public class SharedBuffer<T>
         updateState();
     }
 
-    public boolean add(T element)
+    public synchronized boolean add(Page page)
             throws InterruptedException
     {
-        Preconditions.checkNotNull(element, "element is null");
+        Preconditions.checkNotNull(page, "page is null");
 
-        // acquire write permit
-        while (!closed.get() && !notFull.tryAcquire(1, TimeUnit.SECONDS)) {
+        // wait for room in the buffer
+        while (!closed.get() && bufferedBytes >= maxBufferedBytes) {
+            TimeUnit.SECONDS.timedWait(this, 1);
         }
-
-        return addInternal(element);
-    }
-
-    public boolean offer(T element)
-            throws InterruptedException
-    {
-        Preconditions.checkNotNull(element, "element is null");
 
         if (closed.get()) {
             return false;
         }
 
-        // acquire write permit
-        if (!notFull.tryAcquire()) {
-            return false;
-        }
-
-        return addInternal(element);
-    }
-
-    private synchronized boolean addInternal(T element)
-    {
-        // don't throw an exception if the queue was closed as the caller may not be aware of this
-        if (closed.get()) {
-            // release an additional thread blocked in the code above
-            // all blocked threads will be release due to the chain reaction
-            notFull.release();
-            return false;
-        }
-
-        // add element
-        masterQueue.add(element);
-        pagesAdded.incrementAndGet();
-
-        // notify consumers an element has arrived
-        this.notifyAll();
-
+        addInternal(page);
         return true;
     }
 
-    public synchronized BufferResult<T> get(String outputId, int maxCount, Duration maxWait)
+    public synchronized boolean offer(Page page)
+            throws InterruptedException
+    {
+        Preconditions.checkNotNull(page, "page is null");
+
+        // is there room in the buffer
+        if (closed.get() || bufferedBytes >= maxBufferedBytes) {
+            return false;
+        }
+
+        addInternal(page);
+        return true;
+    }
+
+    private synchronized void addInternal(Page page)
+    {
+        // add page
+        masterQueue.add(page);
+        pagesAdded.incrementAndGet();
+        bufferedBytes += page.getDataSize().toBytes();
+
+        // notify consumers an page has arrived
+        this.notifyAll();
+    }
+
+    public synchronized BufferResult get(String outputId, int maxCount, Duration maxWait)
             throws InterruptedException
     {
         Preconditions.checkNotNull(outputId, "outputId is null");
@@ -179,7 +176,7 @@ public class SharedBuffer<T>
             return emptyResults(true);
         }
 
-        // wait for elements to arrive
+        // wait for pages to arrive
         if (namedQueue.isEmpty()) {
             long remainingNanos = (long) maxWait.convertTo(NANOSECONDS);
             long end = System.nanoTime() + remainingNanos;
@@ -190,13 +187,13 @@ public class SharedBuffer<T>
             }
         }
 
-        // remove queue from set before calling getElements because getElements changes
+        // remove queue from set before calling getPages because getPages changes
         // the sequence number of the queue which is used for identity comparison in the
         // sorted set
         openQueuesBySequenceId.remove(namedQueue);
 
-        // get the elements
-        BufferResult<T> results = namedQueue.getElements(maxCount);
+        // get the pages
+        BufferResult results = namedQueue.getPages(maxCount);
 
         // only add back the queue if it is still open
         if (!closed.get() || !results.isBufferClosed()) {
@@ -241,16 +238,17 @@ public class SharedBuffer<T>
             long oldMasterSequenceId = masterSequenceId;
             masterSequenceId = openQueuesBySequenceId.iterator().next().getSequenceId();
 
-            // drop consumed elements
-            int elementsToRemove = Ints.checkedCast(masterSequenceId - oldMasterSequenceId);
-            Preconditions.checkState(elementsToRemove >= 0,
+            // drop consumed pages
+            int pagesToRemove = Ints.checkedCast(masterSequenceId - oldMasterSequenceId);
+            Preconditions.checkState(pagesToRemove >= 0,
                     "Master sequence id moved backwards: oldMasterSequenceId=%s, newMasterSequenceId=%s",
                     oldMasterSequenceId,
                     masterSequenceId);
-            for (int i = 0; i < elementsToRemove; i++) {
-                masterQueue.removeFirst();
+
+            for (int i = 0; i < pagesToRemove; i++) {
+                Page page = masterQueue.removeFirst();
+                bufferedBytes -= page.getDataSize().toBytes();
             }
-            notFull.release(elementsToRemove);
         }
 
         if (state == QueueState.NO_MORE_QUEUES && closed.get() && openQueuesBySequenceId.isEmpty()) {
@@ -283,11 +281,9 @@ public class SharedBuffer<T>
         }
         openQueuesBySequenceId.clear();
 
-        // wake up any blocked writers
-        notFull.release(masterQueue.size());
-
         // clear the buffer
         masterQueue.clear();
+        bufferedBytes = 0;
 
         // notify readers that the buffer has been destroyed
         this.notifyAll();
@@ -338,7 +334,7 @@ public class SharedBuffer<T>
             return sequenceId;
         }
 
-        public long elementsRemoved()
+        public long pagesRemoved()
         {
             return getSequenceId();
         }
@@ -358,7 +354,7 @@ public class SharedBuffer<T>
             return masterQueue.size() - listOffset;
         }
 
-        public BufferResult<T> getElements(int maxElementCount)
+        public BufferResult getPages(int maxPageCount)
         {
             Preconditions.checkState(Thread.holdsLock(SharedBuffer.this), "Thread must hold a lock on the %s", SharedBuffer.class.getSimpleName());
 
@@ -371,9 +367,9 @@ public class SharedBuffer<T>
                 return emptyResults(false);
             }
 
-            List<T> elements = masterQueue.subList(listOffset, Math.min(listOffset + maxElementCount, masterQueue.size()));
-            sequenceId += elements.size();
-            return new BufferResult<>(false, ImmutableList.copyOf(elements));
+            List<Page> pages = masterQueue.subList(listOffset, Math.min(listOffset + maxPageCount, masterQueue.size()));
+            sequenceId += pages.size();
+            return new BufferResult(false, ImmutableList.copyOf(pages));
         }
 
         @Override

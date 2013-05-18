@@ -92,7 +92,7 @@ public class SqlTaskExecution
             TaskId taskId,
             URI location,
             PlanFragment fragment,
-            int pageBufferMax,
+            DataSize maxBufferSize,
             DataStreamProvider dataStreamProvider,
             Provider<ExchangeClient> exchangeClientProvider,
             Metadata metadata,
@@ -108,7 +108,7 @@ public class SqlTaskExecution
                 taskId,
                 location,
                 fragment,
-                pageBufferMax,
+                maxBufferSize,
                 dataStreamProvider,
                 exchangeClientProvider,
                 metadata,
@@ -129,7 +129,7 @@ public class SqlTaskExecution
             TaskId taskId,
             URI location,
             PlanFragment fragment,
-            int pageBufferMax,
+            DataSize maxBufferSize,
             DataStreamProvider dataStreamProvider,
             Provider<ExchangeClient> exchangeClientProvider,
             Metadata metadata,
@@ -144,7 +144,7 @@ public class SqlTaskExecution
         Preconditions.checkNotNull(nodeInfo, "nodeInfo is null");
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(fragment, "fragment is null");
-        Preconditions.checkArgument(pageBufferMax > 0, "pageBufferMax must be at least 1");
+        Preconditions.checkArgument(maxBufferSize.toBytes() > 0, "maxBufferSize must be at least 1");
         Preconditions.checkNotNull(metadata, "metadata is null");
         Preconditions.checkNotNull(storageManager, "storageManager is null");
         Preconditions.checkNotNull(shardExecutor, "shardExecutor is null");
@@ -165,7 +165,7 @@ public class SqlTaskExecution
         this.queryMonitor = queryMonitor;
 
         // create output buffers
-        this.taskOutput = new TaskOutput(taskId, location, pageBufferMax, notificationExecutor, globalStats);
+        this.taskOutput = new TaskOutput(taskId, location, maxBufferSize, notificationExecutor, globalStats);
     }
 
     //
@@ -376,7 +376,7 @@ public class SqlTaskExecution
     }
 
     @Override
-    public BufferResult<Page> getResults(String outputId, int maxPageCount, Duration maxWait)
+    public BufferResult getResults(String outputId, int maxPageCount, Duration maxWait)
             throws InterruptedException
     {
         return taskOutput.getResults(outputId, maxPageCount, maxWait);
