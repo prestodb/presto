@@ -266,8 +266,10 @@ public final class GraphvizPrinter
         @Override
         public Void visitExchange(ExchangeNode node, Void context)
         {
-            PlanFragment target = fragmentsById.get(node.getSourceFragmentId());
-            printEdge(node, target.getRoot());
+            for (PlanFragmentId planFragmentId : node.getSourceFragmentIds()) {
+                PlanFragment target = fragmentsById.get(planFragmentId);
+                printEdge(node, target.getRoot());
+            }
 
             return null;
         }

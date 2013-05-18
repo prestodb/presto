@@ -187,7 +187,9 @@ public class DistributedExecutionPlanner
         @Override
         public NodeSplits visitExchange(ExchangeNode node, VisitorContext context)
         {
-            inheritedPredicatesBySourceFragmentId.put(node.getSourceFragmentId(), context.getInheritedPredicate());
+            for (PlanFragmentId planFragmentId : node.getSourceFragmentIds()) {
+                inheritedPredicatesBySourceFragmentId.put(planFragmentId, context.getInheritedPredicate());
+            }
 
             // exchange node does not have splits
             return new NodeSplits(node.getId());

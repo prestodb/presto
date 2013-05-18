@@ -8,27 +8,31 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.Immutable;
-
 import java.util.List;
 
 @Immutable
 public class ExchangeNode
         extends PlanNode
 {
-    private final PlanFragmentId sourceFragmentId;
+    private final List<PlanFragmentId> sourceFragmentIds;
     private final List<Symbol> outputs;
 
     @JsonCreator
     public ExchangeNode(@JsonProperty("id") PlanNodeId id,
-            @JsonProperty("sourceFragmentId") PlanFragmentId sourceFragmentId,
+            @JsonProperty("sourceFragmentIds") List<PlanFragmentId> sourceFragmentIds,
             @JsonProperty("outputs") List<Symbol> outputs)
     {
         super(id);
 
         Preconditions.checkNotNull(outputs, "outputs is null");
 
-        this.sourceFragmentId = sourceFragmentId;
+        this.sourceFragmentIds = sourceFragmentIds;
         this.outputs = ImmutableList.copyOf(outputs);
+    }
+
+    public ExchangeNode(PlanNodeId id, PlanFragmentId sourceFragmentId, List<Symbol> outputs)
+    {
+        this(id, ImmutableList.of(sourceFragmentId), outputs);
     }
 
     @Override
@@ -43,10 +47,10 @@ public class ExchangeNode
         return outputs;
     }
 
-    @JsonProperty("sourceFragmentId")
-    public PlanFragmentId getSourceFragmentId()
+    @JsonProperty("sourceFragmentIds")
+    public List<PlanFragmentId> getSourceFragmentIds()
     {
-        return sourceFragmentId;
+        return sourceFragmentIds;
     }
 
     @Override
@@ -55,14 +59,14 @@ public class ExchangeNode
         return visitor.visitExchange(this, context);
     }
 
-    public static Function<ExchangeNode, PlanFragmentId> sourceFragmentIdGetter()
+    public static Function<ExchangeNode, List<PlanFragmentId>> sourceFragmentIdsGetter()
     {
-        return new Function<ExchangeNode, PlanFragmentId>()
+        return new Function<ExchangeNode, List<PlanFragmentId>>()
         {
             @Override
-            public PlanFragmentId apply(ExchangeNode input)
+            public List<PlanFragmentId> apply(ExchangeNode input)
             {
-                return input.getSourceFragmentId();
+                return input.getSourceFragmentIds();
             }
         };
     }
