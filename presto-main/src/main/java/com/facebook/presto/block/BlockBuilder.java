@@ -51,6 +51,11 @@ public class BlockBuilder
         tupleBuilder = tupleInfo.builder(this.sliceOutput);
     }
 
+    public TupleInfo getTupleInfo()
+    {
+        return tupleInfo;
+    }
+
     public boolean isEmpty()
     {
         checkState(!tupleBuilder.isPartial(), "Tuple is not complete");

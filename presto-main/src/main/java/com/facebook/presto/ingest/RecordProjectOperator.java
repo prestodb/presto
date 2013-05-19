@@ -64,6 +64,7 @@ public class RecordProjectOperator
         private final RecordCursor cursor;
         private final OperatorStats operatorStats;
         private long currentCompletedSize;
+        private final PageBuilder pageBuilder;
 
         public RecordProjectionOperator(RecordCursor cursor, List<TupleInfo> tupleInfos, OperatorStats operatorStats)
         {
@@ -72,6 +73,7 @@ public class RecordProjectOperator
             this.cursor = cursor;
             this.operatorStats = operatorStats;
             operatorStats.addDeclaredSize(cursor.getTotalBytes());
+            pageBuilder = new PageBuilder(getTupleInfos());
         }
 
         protected Page computeNext()
@@ -80,7 +82,7 @@ public class RecordProjectOperator
                 return endOfData();
             }
 
-            PageBuilder pageBuilder = new PageBuilder(getTupleInfos());
+            pageBuilder.reset();
             while (!pageBuilder.isFull() && cursor.advanceNextPosition()) {
                 for (int column = 0; column < super.getChannelCount(); column++) {
                     BlockBuilder output = pageBuilder.getBlockBuilder(column);
