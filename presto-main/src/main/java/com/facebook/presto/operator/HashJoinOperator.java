@@ -63,6 +63,7 @@ public class HashJoinOperator
         private SourceHash hash;
 
         private final BlockCursor[] cursors;
+        private final PageBuilder pageBuilder;
         private int joinPosition = -1;
 
         private HashJoinIterator(List<TupleInfo> tupleInfos, Operator probeSource, int probeJoinChannel, SourceHashProvider sourceHashProvider, OperatorStats operatorStats)
@@ -75,6 +76,7 @@ public class HashJoinOperator
             this.probeJoinChannel = probeJoinChannel;
 
             this.cursors = new BlockCursor[probeSource.getChannelCount()];
+            this.pageBuilder = new PageBuilder(getTupleInfos());
         }
 
         protected Page computeNext()
@@ -83,10 +85,8 @@ public class HashJoinOperator
                 hash = sourceHashProvider.get();
             }
 
-            // create output
-            PageBuilder pageBuilder = new PageBuilder(getTupleInfos());
-
             // join probe pages with the hash
+            pageBuilder.reset();
             while (joinCurrentPosition(pageBuilder)) {
                 // advance cursors (only if we have initialized the cursors)
                 if (cursors[0] == null || !advanceNextPosition()) {

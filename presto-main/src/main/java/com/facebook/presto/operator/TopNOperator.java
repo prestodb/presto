@@ -25,8 +25,8 @@ import static com.google.common.base.Preconditions.checkState;
 public class TopNOperator
         implements Operator
 {
-    private final static int MAX_INITIAL_PRIORITY_QUEUE_SIZE = 10000;
-    private final static DataSize OVERHEAD_PER_TUPLE = new DataSize(100, DataSize.Unit.BYTE); // for estimating in-memory size. This is a completely arbitrary number
+    private static final int MAX_INITIAL_PRIORITY_QUEUE_SIZE = 10000;
+    private static final DataSize OVERHEAD_PER_TUPLE = new DataSize(100, DataSize.Unit.BYTE); // for estimating in-memory size. This is a completely arbitrary number
 
     private final Operator source;
     private final int n;
@@ -79,13 +79,15 @@ public class TopNOperator
     private class TopNIterator
             extends AbstractPageIterator
     {
+        private final PageIterator source;
+        private final PageBuilder pageBuilder;
         private Iterator<KeyAndTuples> outputIterator;
-        private PageIterator source;
 
         private TopNIterator(Operator source, OperatorStats operatorStats)
         {
             super(tupleInfos);
             this.source = source.iterator(operatorStats);
+            this.pageBuilder = new PageBuilder(getTupleInfos());
         }
 
         @Override
@@ -99,7 +101,7 @@ public class TopNOperator
                 return endOfData();
             }
 
-            PageBuilder pageBuilder = new PageBuilder(getTupleInfos());
+            pageBuilder.reset();
             while (!pageBuilder.isFull() && outputIterator.hasNext()) {
                 KeyAndTuples next = outputIterator.next();
                 for (int i = 0; i < projections.size(); i++) {

@@ -16,10 +16,11 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public class PageBuilder
 {
-    public static final DataSize DEFAULT_MAX_PAGE_SIZE = new DataSize(1, Unit.MEGABYTE);
+    public static final DataSize DEFAULT_MAX_PAGE_SIZE = new DataSize(4, Unit.MEGABYTE);
 
     private final BlockBuilder[] blockBuilders;
     private final long maxSizeInBytes;
+    private final int maxBlockSize;
     private int declaredPositions;
 
     public PageBuilder(List<TupleInfo> tupleInfos)
@@ -29,16 +30,31 @@ public class PageBuilder
 
     public PageBuilder(List<TupleInfo> tupleInfos, DataSize maxSize)
     {
-        int bytesPerColumn = 0;
         if (!tupleInfos.isEmpty()) {
-            bytesPerColumn = (int) (maxSize.toBytes() / tupleInfos.size());
+            maxBlockSize = (int) (maxSize.toBytes() / tupleInfos.size());
+        } else {
+            maxBlockSize = 0;
         }
 
         blockBuilders = new BlockBuilder[tupleInfos.size()];
         for (int i = 0; i < blockBuilders.length; i++) {
-            blockBuilders[i] = new BlockBuilder(tupleInfos.get(i), bytesPerColumn, new DynamicSliceOutput((int) (bytesPerColumn * 1.5)));
+            blockBuilders[i] = new BlockBuilder(tupleInfos.get(i), maxBlockSize, new DynamicSliceOutput((int) (maxBlockSize * 1.5)));
         }
         this.maxSizeInBytes = checkNotNull(maxSize, "maxSize is null").toBytes();
+    }
+
+    public void reset()
+    {
+        declaredPositions = 0;
+        if (isEmpty()) {
+            return;
+        }
+
+        for (int i = 0; i < blockBuilders.length; i++) {
+            BlockBuilder blockBuilder = blockBuilders[i];
+            int estimatedSize = (int) (blockBuilder.size() * 1.5);
+            blockBuilders[i] = new BlockBuilder(blockBuilder.getTupleInfo(), maxBlockSize, new DynamicSliceOutput(estimatedSize));
+        }
     }
 
     public BlockBuilder getBlockBuilder(int channel)
