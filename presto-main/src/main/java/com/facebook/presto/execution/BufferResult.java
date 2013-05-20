@@ -13,23 +13,30 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public class BufferResult
 {
-    public static BufferResult emptyResults(boolean bufferClosed)
+    public static BufferResult emptyResults(long endSequenceId, boolean bufferClosed)
     {
-        return new BufferResult(bufferClosed, ImmutableList.<Page>of());
+        return new BufferResult(endSequenceId, bufferClosed, ImmutableList.<Page>of());
     }
 
-    public static BufferResult bufferResult(Page firstElement, Page... otherElements)
+    public static BufferResult bufferResult(long startingSequenceId, Page firstElement, Page... otherElements)
     {
-        return new BufferResult(false, ImmutableList.<Page>builder().add(firstElement).add(otherElements).build());
+        return new BufferResult(startingSequenceId, false, ImmutableList.<Page>builder().add(firstElement).add(otherElements).build());
     }
 
+    private final long startingSequenceId;
     private final boolean bufferClosed;
     private final List<Page> elements;
 
-    public BufferResult(boolean bufferClosed, List<Page> elements)
+    public BufferResult(long startingSequenceId, boolean bufferClosed, List<Page> elements)
     {
+        this.startingSequenceId = startingSequenceId;
         this.bufferClosed = bufferClosed;
         this.elements = ImmutableList.copyOf(checkNotNull(elements, "pages is null"));
+    }
+
+    public long getStartingSequenceId()
+    {
+        return startingSequenceId;
     }
 
     public boolean isBufferClosed()

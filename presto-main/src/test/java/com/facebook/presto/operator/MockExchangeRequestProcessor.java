@@ -21,6 +21,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_SEQUENCE_ID;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static org.testng.Assert.assertEquals;
@@ -32,6 +33,7 @@ public class MockExchangeRequestProcessor
     private final ConcurrentMap<URI, BlockingQueue<Page>> pagesByLocation = new ConcurrentHashMap<>();
     private final ConcurrentMap<URI, Boolean> completeByLocation = new ConcurrentHashMap<>();
     private final DataSize expectedMaxSize;
+    private final ConcurrentMap<URI, Long> sequenceIdByLocation = new ConcurrentHashMap<>();
 
     public MockExchangeRequestProcessor(DataSize expectedMaxSize)
     {
@@ -46,6 +48,7 @@ public class MockExchangeRequestProcessor
             queue = new LinkedBlockingQueue<>();
             BlockingQueue<Page> existingValue = pagesByLocation.putIfAbsent(location, queue);
             queue = (existingValue != null ? existingValue : queue);
+            sequenceIdByLocation.put(location, 0L);
         }
         queue.add(page);
     }
@@ -64,8 +67,12 @@ public class MockExchangeRequestProcessor
 
         // verify we got a data size and it parses correctly
         assertTrue(!request.getHeaders().get(PrestoHeaders.PRESTO_MAX_SIZE).isEmpty());
-        DataSize maxSize = DataSize.valueOf(request.getHeaders().get(PrestoHeaders.PRESTO_MAX_SIZE).get(0));
+        DataSize maxSize = DataSize.valueOf(request.getHeader(PrestoHeaders.PRESTO_MAX_SIZE));
         assertEquals(maxSize, expectedMaxSize);
+
+        // get page sequence id
+        assertTrue(!request.getHeaders().get(PRESTO_PAGE_SEQUENCE_ID).isEmpty());
+        long pageSequenceId = Long.parseLong(request.getHeader(PRESTO_PAGE_SEQUENCE_ID));
 
         URI location = request.getUri();
         BlockingQueue<Page> pages = pagesByLocation.get(location);
@@ -77,6 +84,9 @@ public class MockExchangeRequestProcessor
         if (pages == null) {
             return new TestingResponse(HttpStatus.NO_CONTENT, ImmutableListMultimap.<String, String>of(), new byte[0]);
         }
+
+        long sequenceId = sequenceIdByLocation.get(location);
+        assertEquals(pageSequenceId, sequenceId, "sequenceId");
 
         // wait for a single page to arrive
         Page page = null;
@@ -105,9 +115,17 @@ public class MockExchangeRequestProcessor
             responseSize += page.getDataSize().toBytes();
         }
 
+        // update sequence id
+        sequenceIdByLocation.put(location, sequenceId + responsePages.size());
+
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(64);
         PagesSerde.writePages(sliceOutput, responsePages);
         byte[] bytes = sliceOutput.slice().getBytes();
-        return new TestingResponse(HttpStatus.OK, ImmutableListMultimap.of(CONTENT_TYPE, PRESTO_PAGES), bytes);
+        return new TestingResponse(HttpStatus.OK,
+                ImmutableListMultimap.of(
+                        CONTENT_TYPE, PRESTO_PAGES,
+                        PRESTO_PAGE_SEQUENCE_ID, String.valueOf(sequenceId)
+                ),
+                bytes);
     }
 }

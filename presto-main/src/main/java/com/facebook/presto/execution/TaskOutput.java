@@ -144,10 +144,10 @@ public class TaskOutput
         return ImmutableSet.copyOf(noMoreSplits);
     }
 
-    public BufferResult getResults(String outputId, int maxPageCount, Duration maxWait)
+    public BufferResult getResults(String outputId, long startingSequenceId, int maxPageCount, Duration maxWait)
             throws InterruptedException
     {
-        return sharedBuffer.get(outputId, maxPageCount, maxWait);
+        return sharedBuffer.get(outputId, startingSequenceId, maxPageCount, maxWait);
     }
 
     public void abortResults(String outputId)

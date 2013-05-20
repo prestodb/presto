@@ -239,7 +239,7 @@ public class SqlTaskManager
     }
 
     @Override
-    public BufferResult getTaskResults(TaskId taskId, String outputName, int maxPageCount, Duration maxWaitTime)
+    public BufferResult getTaskResults(TaskId taskId, String outputName, long startingSequenceId, int maxPageCount, Duration maxWaitTime)
             throws InterruptedException
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
@@ -250,7 +250,7 @@ public class SqlTaskManager
             throw new NoSuchElementException("Unknown query task " + taskId);
         }
         taskExecution.recordHeartbeat();
-        return taskExecution.getResults(outputName, maxPageCount, maxWaitTime);
+        return taskExecution.getResults(outputName, startingSequenceId, maxPageCount, maxWaitTime);
     }
 
     @Override
