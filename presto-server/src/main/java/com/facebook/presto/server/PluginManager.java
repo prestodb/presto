@@ -219,7 +219,7 @@ public class PluginManager
         return new SimpleChildFirstClassLoader(urls,
                 getClass().getClassLoader(),
                 ImmutableList.of("org.slf4j"),
-                ImmutableList.of("com.facebook.presto"));
+                ImmutableList.of("com.facebook.presto", "com.fasterxml.jackson"));
     }
 
     private List<File> listFiles(File installedPluginsDir)
