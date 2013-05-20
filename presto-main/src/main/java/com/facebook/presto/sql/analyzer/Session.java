@@ -52,6 +52,7 @@ public class Session
         return user;
     }
 
+    @JsonProperty
     public String getSource()
     {
         return source;
