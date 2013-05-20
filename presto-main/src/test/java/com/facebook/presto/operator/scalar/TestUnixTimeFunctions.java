@@ -138,6 +138,61 @@ public class TestUnixTimeFunctions
         assertFunction("formatDatetime(" + seconds + ", 'YYYY/MM/DD HH:mm ZZZZ')", "2001/01/22 03:04 UTC");
     }
 
+    @Test
+    public void testDateFormat()
+    {
+        DateTime dateTime = new DateTime(2001, 1, 9, 13, 4, 5, 0, DateTimeZone.UTC);
+        long seconds = getSeconds(dateTime);
+
+        assertFunction("date_format(" + seconds + ", '%a')", "Tue");
+        assertFunction("date_format(" + seconds + ", '%b')", "Jan");
+        assertFunction("date_format(" + seconds + ", '%c')", "1");
+        assertFunction("date_format(" + seconds + ", '%d')", "09");
+        assertFunction("date_format(" + seconds + ", '%e')", "9");
+        assertFunction("date_format(" + seconds + ", '%f')", "000000");
+        assertFunction("date_format(" + seconds + ", '%H')", "13");
+        assertFunction("date_format(" + seconds + ", '%h')", "01");
+        assertFunction("date_format(" + seconds + ", '%I')", "01");
+        assertFunction("date_format(" + seconds + ", '%i')", "04");
+        assertFunction("date_format(" + seconds + ", '%j')", "009");
+        assertFunction("date_format(" + seconds + ", '%k')", "13");
+        assertFunction("date_format(" + seconds + ", '%l')", "1");
+        assertFunction("date_format(" + seconds + ", '%M')", "January");
+        assertFunction("date_format(" + seconds + ", '%m')", "01");
+        assertFunction("date_format(" + seconds + ", '%p')", "PM");
+        assertFunction("date_format(" + seconds + ", '%r')", "01:04:05 PM");
+        assertFunction("date_format(" + seconds + ", '%S')", "05");
+        assertFunction("date_format(" + seconds + ", '%s')", "05");
+        assertFunction("date_format(" + seconds + ", '%T')", "13:04:05");
+        assertFunction("date_format(" + seconds + ", '%v')", "02");
+        assertFunction("date_format(" + seconds + ", '%W')", "Tuesday");
+        assertFunction("date_format(" + seconds + ", '%w')", "2");
+        assertFunction("date_format(" + seconds + ", '%Y')", "2001");
+        assertFunction("date_format(" + seconds + ", '%y')", "01");
+        assertFunction("date_format(" + seconds + ", '%%')", "%");
+        assertFunction("date_format(" + seconds + ", 'foo')", "foo");
+        assertFunction("date_format(" + seconds + ", '%g')", "g");
+        assertFunction("date_format(" + seconds + ", '%4')", "4");
+    }
+
+    @Test
+    public void testDateParse()
+    {
+        assertFunction("date_parse('2013', '%Y')", getSeconds(new DateTime(2013, 1, 1, 0, 0, 0, 0, DateTimeZone.UTC)));
+        assertFunction("date_parse('2013-05', '%Y-%m')", getSeconds(new DateTime(2013, 5, 1, 0, 0, 0, 0, DateTimeZone.UTC)));
+        assertFunction("date_parse('2013-05-17', '%Y-%m-%d')", getSeconds(new DateTime(2013, 5, 17, 0, 0, 0, 0, DateTimeZone.UTC)));
+        assertFunction("date_parse('2013-05-17 12:35:10', '%Y-%m-%d %h:%i:%s')", getSeconds(new DateTime(2013, 5, 17, 0, 35, 10, 0, DateTimeZone.UTC)));
+        assertFunction("date_parse('2013-05-17 12:35:10 PM', '%Y-%m-%d %h:%i:%s %p')", getSeconds(new DateTime(2013, 5, 17, 12, 35, 10, 0, DateTimeZone.UTC)));
+        assertFunction("date_parse('2013-05-17 12:35:10 AM', '%Y-%m-%d %h:%i:%s %p')", getSeconds(new DateTime(2013, 5, 17, 0, 35, 10, 0, DateTimeZone.UTC)));
+
+        assertFunction("date_parse('2013-05-17 00:35:10', '%Y-%m-%d %H:%i:%s')", getSeconds(new DateTime(2013, 5, 17, 0, 35, 10, 0, DateTimeZone.UTC)));
+        assertFunction("date_parse('2013-05-17 23:35:10', '%Y-%m-%d %H:%i:%s')", getSeconds(new DateTime(2013, 5, 17, 23, 35, 10, 0, DateTimeZone.UTC)));
+        assertFunction("date_parse('abc 2013-05-17 fff 23:35:10 xyz', 'abc %Y-%m-%d fff %H:%i:%s xyz')", getSeconds(new DateTime(2013, 5, 17, 23, 35, 10, 0, DateTimeZone.UTC)));
+
+        assertFunction("date_parse('2013 14', '%Y %y')", getSeconds(new DateTime(2014, 1, 1, 0, 0, 0, 0, DateTimeZone.UTC)));
+    }
+
+
     private static long getSeconds(DateTime dateTime)
     {
         return MILLISECONDS.toSeconds(dateTime.getMillis());

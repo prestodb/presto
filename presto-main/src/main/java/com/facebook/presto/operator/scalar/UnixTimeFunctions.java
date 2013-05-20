@@ -4,6 +4,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.util.ThreadLocalCache;
 import com.google.common.base.Charsets;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
@@ -13,12 +14,22 @@ import org.joda.time.DateTimeZone;
 import org.joda.time.chrono.ISOChronology;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
+import org.joda.time.format.DateTimeFormatterBuilder;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class UnixTimeFunctions
 {
+    private static final ThreadLocalCache<Slice, DateTimeFormatter> DATETIME_FORMATTER_CACHE = new ThreadLocalCache<Slice, DateTimeFormatter>(100)
+    {
+        @Override
+        protected DateTimeFormatter load(Slice format)
+        {
+            return createDateTimeFormatter(format);
+        }
+    };
+
     private static final ISOChronology UTC_CHRONOLOGY = ISOChronology.getInstance(DateTimeZone.UTC);
     private static final DateTimeField SECOND_OF_MINUTE = UTC_CHRONOLOGY.secondOfMinute();
     private static final DateTimeField MINUTE_OF_HOUR = UTC_CHRONOLOGY.minuteOfHour();
@@ -111,6 +122,7 @@ public class UnixTimeFunctions
     }
 
     @ScalarFunction(alias = "parse_datetime")
+    @Deprecated
     public static long parseDatetime(Slice datetime, Slice formatString)
     {
         String pattern = formatString.toString(Charsets.UTF_8);
@@ -121,6 +133,7 @@ public class UnixTimeFunctions
     }
 
     @ScalarFunction(alias = "format_datetime")
+    @Deprecated
     public static Slice formatDatetime(long unixTime, Slice formatString)
     {
         String pattern = formatString.toString(Charsets.UTF_8);
@@ -128,6 +141,20 @@ public class UnixTimeFunctions
 
         String datetimeString = formatter.print(toMillis(unixTime));
         return Slices.wrappedBuffer(datetimeString.getBytes(Charsets.UTF_8));
+    }
+
+    @ScalarFunction(alias = {"date_format"})
+    public static Slice dateFormat(long unixTime, Slice formatString)
+    {
+        DateTimeFormatter formatter = DATETIME_FORMATTER_CACHE.get(formatString);
+        return Slices.copiedBuffer(formatter.print(toMillis(unixTime)), Charsets.UTF_8);
+    }
+
+    @ScalarFunction(alias = {"date_parse"})
+    public static long dateParse(Slice dateTime, Slice formatString)
+    {
+        DateTimeFormatter formatter = DATETIME_FORMATTER_CACHE.get(formatString);
+        return fromMillis(formatter.parseMillis(dateTime.toString(Charsets.UTF_8)));
     }
 
     @ScalarFunction
@@ -204,5 +231,124 @@ public class UnixTimeFunctions
     private static long fromMillis(long millis)
     {
         return MILLISECONDS.toSeconds(millis);
+    }
+
+    private static DateTimeFormatter createDateTimeFormatter(Slice format)
+    {
+        DateTimeFormatterBuilder builder = new DateTimeFormatterBuilder();
+
+        String formatString = format.toString(Charsets.UTF_8);
+        boolean escaped = false;
+        for (int i = 0; i < format.length(); i++) {
+            char character = formatString.charAt(i);
+
+            if (escaped) {
+                switch (character) {
+                    case 'a': // %a Abbreviated weekday name (Sun..Sat)
+                        builder.appendDayOfWeekShortText();
+                        break;
+                    case 'b': // %b Abbreviated month name (Jan..Dec)
+                        builder.appendMonthOfYearShortText();
+                        break;
+                    case 'c': // %c Month, numeric (0..12)
+                        builder.appendMonthOfYear(1);
+                        break;
+                    case 'd': // %d Day of the month, numeric (00..31)
+                        builder.appendDayOfMonth(2);
+                        break;
+                    case 'e': // %e Day of the month, numeric (0..31)
+                        builder.appendDayOfMonth(1);
+                        break;
+                    case 'f': // %f Microseconds (000000..999999)
+                        builder.appendMillisOfSecond(6);
+                        break;
+                    case 'H': // %H Hour (00..23)
+                        builder.appendHourOfDay(2);
+                        break;
+                    case 'h': // %h Hour (01..12)
+                    case 'I': // %I Hour (01..12)
+                        builder.appendClockhourOfHalfday(2);
+                        break;
+                    case 'i': // %i Minutes, numeric (00..59)
+                        builder.appendMinuteOfHour(2);
+                        break;
+                    case 'j': // %j Day of year (001..366)
+                        builder.appendDayOfYear(3);
+                        break;
+                    case 'k': // %k Hour (0..23)
+                        builder.appendClockhourOfDay(1);
+                        break;
+                    case 'l': // %l Hour (1..12)
+                        builder.appendClockhourOfHalfday(1);
+                        break;
+                    case 'M': // %M Month name (January..December)
+                        builder.appendMonthOfYearText();
+                        break;
+                    case 'm': // %m Month, numeric (00..12)
+                        builder.appendMonthOfYear(2);
+                        break;
+                    case 'p': // %p AM or PM
+                        builder.appendHalfdayOfDayText();
+                        break;
+                    case 'r': // %r Time, 12-hour (hh:mm:ss followed by AM or PM)
+                        builder.appendClockhourOfHalfday(2)
+                                .appendLiteral(':')
+                                .appendMinuteOfHour(2)
+                                .appendLiteral(':')
+                                .appendSecondOfMinute(2)
+                                .appendLiteral(' ')
+                                .appendHalfdayOfDayText();
+                        break;
+                    case 'S': // %S Seconds (00..59)
+                    case 's': // %s Seconds (00..59)
+                        builder.appendSecondOfMinute(2);
+                        break;
+                    case 'T': // %T Time, 24-hour (hh:mm:ss)
+                        builder.appendHourOfDay(2)
+                                .appendLiteral(':')
+                                .appendMinuteOfHour(2)
+                                .appendLiteral(':')
+                                .appendSecondOfMinute(2);
+                        break;
+                    case 'v': // %v Week (01..53), where Monday is the first day of the week; used with %x
+                        builder.appendWeekOfWeekyear(2);
+                        break;
+                    case 'W': // %W Weekday name (Sunday..Saturday)
+                        builder.appendDayOfWeekText();
+                        break;
+                    case 'w': // %w Day of the week (0=Sunday..6=Saturday)
+                        builder.appendDayOfWeek(1);
+                        break;
+                    case 'Y': // %Y Year, numeric, four digits
+                        builder.appendYear(4, 4);
+                        break;
+                    case 'y': // %y Year, numeric (two digits)
+                        builder.appendYearOfCentury(2, 2);
+                        break;
+                    case 'U': // %U Week (00..53), where Sunday is the first day of the week
+                    case 'u': // %u Week (00..53), where Monday is the first day of the week
+                    case 'V': // %V Week (01..53), where Sunday is the first day of the week; used with %X
+                    case 'X': // %X Year for the week where Sunday is the first day of the week, numeric, four digits; used with %V
+                    case 'x': // %x Year for the week, where Monday is the first day of the week, numeric, four digits; used with %v
+                    case 'D': // %D Day of the month with English suffix (0th, 1st, 2nd, 3rd, …)
+                        throw new UnsupportedOperationException(String.format("%%%s not supported in date format string", character));
+                    case '%': // %% A literal “%” character
+                        builder.appendLiteral('%');
+                        break;
+                    default: // %<x> The literal character represented by <x>
+                        builder.appendLiteral(character);
+                        break;
+                }
+                escaped = false;
+            }
+            else if (character == '%') {
+                escaped = true;
+            }
+            else {
+                builder.appendLiteral(character);
+            }
+        }
+
+        return builder.toFormatter().withZoneUTC();
     }
 }
