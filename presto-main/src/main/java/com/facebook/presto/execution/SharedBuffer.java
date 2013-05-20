@@ -4,6 +4,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.operator.Page;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ComparisonChain;
@@ -161,7 +162,40 @@ public class SharedBuffer
         this.notifyAll();
     }
 
-    public synchronized BufferResult get(String outputId, int maxCount, Duration maxWait)
+    @VisibleForTesting
+    public synchronized void acknowledge(String outputId, long sequenceId)
+    {
+        Preconditions.checkNotNull(outputId, "outputId is null");
+
+        NamedQueue namedQueue = namedQueues.get(outputId);
+        if (namedQueue == null) {
+            throw new NoSuchBufferException(outputId, namedQueues.keySet());
+        }
+
+        if (state == QueueState.FINISHED) {
+            return;
+        }
+
+        // remove queue from set before calling getPages because getPages changes
+        // the sequence number of the queue which is used for identity comparison in the
+        // sorted set
+        openQueuesBySequenceId.remove(namedQueue);
+
+        // acknowledge the pages
+        namedQueue.acknowledge(sequenceId);
+
+        // only add back the queue if it is still open
+        if (!closed.get()) {
+            openQueuesBySequenceId.add(namedQueue);
+        }
+        else {
+            namedQueue.setFinished();
+        }
+
+        updateState();
+    }
+
+    public synchronized BufferResult get(String outputId, long startingSequenceId, int maxCount, Duration maxWait)
             throws InterruptedException
     {
         Preconditions.checkNotNull(outputId, "outputId is null");
@@ -173,7 +207,7 @@ public class SharedBuffer
         }
 
         if (state == QueueState.FINISHED) {
-            return emptyResults(true);
+            return emptyResults(namedQueue.getSequenceId(), true);
         }
 
         // wait for pages to arrive
@@ -193,12 +227,13 @@ public class SharedBuffer
         openQueuesBySequenceId.remove(namedQueue);
 
         // get the pages
-        BufferResult results = namedQueue.getPages(maxCount);
+        BufferResult results = namedQueue.getPages(startingSequenceId, maxCount);
 
         // only add back the queue if it is still open
         if (!closed.get() || !results.isBufferClosed()) {
             openQueuesBySequenceId.add(namedQueue);
-        } else {
+        }
+        else {
             namedQueue.setFinished();
         }
 
@@ -354,22 +389,30 @@ public class SharedBuffer
             return masterQueue.size() - listOffset;
         }
 
-        public BufferResult getPages(int maxPageCount)
+        public void acknowledge(long sequenceId)
+        {
+            if (this.sequenceId < sequenceId) {
+                this.sequenceId = sequenceId;
+            }
+        }
+
+        public BufferResult getPages(long startingSequenceId, int maxPageCount)
         {
             Preconditions.checkState(Thread.holdsLock(SharedBuffer.this), "Thread must hold a lock on the %s", SharedBuffer.class.getSimpleName());
 
+            acknowledge(startingSequenceId);
+
             if (finished) {
-                return emptyResults(true);
+                return emptyResults(sequenceId, true);
             }
 
             int listOffset = Ints.checkedCast(sequenceId - masterSequenceId);
             if (listOffset >= masterQueue.size()) {
-                return emptyResults(false);
+                return emptyResults(sequenceId, false);
             }
 
             List<Page> pages = masterQueue.subList(listOffset, Math.min(listOffset + maxPageCount, masterQueue.size()));
-            sequenceId += pages.size();
-            return new BufferResult(false, ImmutableList.copyOf(pages));
+            return new BufferResult(startingSequenceId, false, ImmutableList.copyOf(pages));
         }
 
         @Override

@@ -22,7 +22,7 @@ public interface TaskManager
 
     TaskInfo updateTask(Session session, TaskId taskId, PlanFragment fragment, List<TaskSource> sources, OutputBuffers outputIds);
 
-    BufferResult getTaskResults(TaskId taskId, String outputName, int maxPageCount, Duration maxWaitTime)
+    BufferResult getTaskResults(TaskId taskId, String outputName, long startingSequenceId, int maxPageCount, Duration maxWaitTime)
             throws InterruptedException;
 
     TaskInfo abortTaskResults(TaskId taskId, String outputId);

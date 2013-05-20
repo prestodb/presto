@@ -376,10 +376,10 @@ public class SqlTaskExecution
     }
 
     @Override
-    public BufferResult getResults(String outputId, int maxPageCount, Duration maxWait)
+    public BufferResult getResults(String outputId, long startingSequenceId, int maxPageCount, Duration maxWait)
             throws InterruptedException
     {
-        return taskOutput.getResults(outputId, maxPageCount, maxWait);
+        return taskOutput.getResults(outputId, startingSequenceId, maxPageCount, maxWait);
     }
 
     @Override

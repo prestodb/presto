@@ -77,11 +77,14 @@ public class TestSharedBuffer
         assertQueueState(sharedBuffer, "first", 3, 0);
 
         // get the three elements
-        assertBufferResultEquals(sharedBuffer.get("first", 10, NO_WAIT), bufferResult(createPage(0), createPage(1), createPage(2)));
-        assertQueueState(sharedBuffer, "first", 0, 3);
+        assertBufferResultEquals(sharedBuffer.get("first", 0, 10, NO_WAIT), bufferResult(0, createPage(0), createPage(1), createPage(2)));
+        // pages not acknowledged yet so state is the same
+        assertQueueState(sharedBuffer, "first", 3, 0);
 
-        // try to get some more pages
-        assertBufferResultEquals(sharedBuffer.get("first", 10, NO_WAIT), emptyResults(false));
+        // try to get some more pages (acknowledge first three pages)
+        assertBufferResultEquals(sharedBuffer.get("first", 3, 10, NO_WAIT), emptyResults(3, false));
+        // pages now acknowledged
+        assertQueueState(sharedBuffer, "first", 0, 3);
 
         // fill the buffer (we already added 3 pages)
         for (int i = 3; i < 10; i++) {
@@ -93,8 +96,9 @@ public class TestSharedBuffer
         assertFalse(sharedBuffer.offer(createPage(99)));
 
         // remove a page
-        assertBufferResultEquals(sharedBuffer.get("first", 1, NO_WAIT), bufferResult(createPage(3)));
-        assertQueueState(sharedBuffer, "first", 6, 4);
+        assertBufferResultEquals(sharedBuffer.get("first", 3, 1, NO_WAIT), bufferResult(3, createPage(3)));
+        // page not acknowledged yet so state is the same
+        assertQueueState(sharedBuffer, "first", 7, 3);
 
         // try to add one more page, which should fail
         assertFalse(sharedBuffer.offer(createPage(99)));
@@ -103,7 +107,7 @@ public class TestSharedBuffer
         // add another buffer and verify it sees all pages
         sharedBuffer.addQueue("second");
         assertQueueState(sharedBuffer, "second", 10, 0);
-        assertBufferResultEquals(sharedBuffer.get("second", 10, NO_WAIT), bufferResult(createPage(0),
+        assertBufferResultEquals(sharedBuffer.get("second", 0, 10, NO_WAIT), bufferResult(0, createPage(0),
                 createPage(1),
                 createPage(2),
                 createPage(3),
@@ -113,69 +117,115 @@ public class TestSharedBuffer
                 createPage(7),
                 createPage(8),
                 createPage(9)));
+        // page not acknowledged yet so state is the same
+        assertQueueState(sharedBuffer, "second", 10, 0);
+         // acknowledge the 10 pages
+        assertBufferResultEquals(sharedBuffer.get("second", 10, 10, NO_WAIT), emptyResults(10, false));
         assertQueueState(sharedBuffer, "second", 0, 10);
 
         //
         // tell shared buffer there will be no more queues
         sharedBuffer.noMoreQueues();
 
-        // since both queues consumed the first four pages, we should be able to add 4 more pages
-        for (int i = 10; i < 14; i++) {
+        // since both queues consumed the first three pages, we should be able to add 3 more pages
+        // although the first queue fetched the 4th page, the page has not been acknowledged yet
+        for (int i = 10; i < 13; i++) {
             assertTrue(sharedBuffer.offer(createPage(i)));
         }
         assertFalse(sharedBuffer.offer(createPage(99)));
-        assertQueueState(sharedBuffer, "first", 10, 4);
-        assertQueueState(sharedBuffer, "second", 4, 10);
+        assertQueueState(sharedBuffer, "first", 10, 3);
+        assertQueueState(sharedBuffer, "second", 3, 10);
 
         // remove a page from the first queue
-        assertBufferResultEquals(sharedBuffer.get("first", 1, NO_WAIT), bufferResult(createPage(4)));
-        assertQueueState(sharedBuffer, "first", 9, 5);
-        assertQueueState(sharedBuffer, "second", 4, 10);
+        assertBufferResultEquals(sharedBuffer.get("first", 4, 1, NO_WAIT), bufferResult(4, createPage(4)));
+        assertQueueState(sharedBuffer, "first", 9, 4);
+        assertQueueState(sharedBuffer, "second", 3, 10);
 
         // try to add one more page, which should work since the first queue is the largest queue
-        assertTrue(sharedBuffer.offer(createPage(14)));
+        assertTrue(sharedBuffer.offer(createPage(13)));
         assertFalse(sharedBuffer.offer(createPage(99)));
-        assertQueueState(sharedBuffer, "first", 10, 5);
-        assertQueueState(sharedBuffer, "second", 5, 10);
+        assertQueueState(sharedBuffer, "first", 10, 4);
+        assertQueueState(sharedBuffer, "second", 4, 10);
 
         //
         // finish the buffer
         assertFalse(sharedBuffer.isFinished());
         sharedBuffer.finish();
-        assertQueueState(sharedBuffer, "first", 10, 5);
-        assertQueueState(sharedBuffer, "second", 5, 10);
+        assertQueueState(sharedBuffer, "first", 10, 4);
+        assertQueueState(sharedBuffer, "second", 4, 10);
 
         // not fully finished until all pages are consumed
         assertFalse(sharedBuffer.isFinished());
 
         // remove a page, not finished
-        assertBufferResultEquals(sharedBuffer.get("first", 1, NO_WAIT), bufferResult(createPage(5)));
-        assertQueueState(sharedBuffer, "first", 9, 6);
-        assertQueueState(sharedBuffer, "second", 5, 10);
+        assertBufferResultEquals(sharedBuffer.get("first", 5, 1, NO_WAIT), bufferResult(5, createPage(5)));
+        assertQueueState(sharedBuffer, "first", 9, 5);
+        assertQueueState(sharedBuffer, "second", 4, 10);
         assertFalse(sharedBuffer.isFinished());
 
         // remove all remaining pages from first queue, should not be finished
-        assertBufferResultEquals(sharedBuffer.get("first", 10, NO_WAIT), bufferResult(createPage(6),
+        BufferResult x = sharedBuffer.get("first", 6, 10, NO_WAIT);
+        assertBufferResultEquals(x, bufferResult(6, createPage(6),
                 createPage(7),
                 createPage(8),
                 createPage(9),
                 createPage(10),
                 createPage(11),
                 createPage(12),
-                createPage(13),
-                createPage(14)));
-        assertQueueClosed(sharedBuffer, "first", 15);
-        assertQueueState(sharedBuffer, "second", 5, 10);
+                createPage(13)));
+        assertQueueState(sharedBuffer, "first", 8, 6);
+        assertBufferResultEquals(sharedBuffer.get("first", 14, 10, NO_WAIT), emptyResults(14, false));
+        assertQueueClosed(sharedBuffer, "first", 14);
+        assertQueueState(sharedBuffer, "second", 4, 10);
         assertFalse(sharedBuffer.isFinished());
 
         // remove all remaining pages from second queue, should be finished
-        assertBufferResultEquals(sharedBuffer.get("second", 10, NO_WAIT), bufferResult(createPage(10), createPage(11), createPage(12), createPage(13), createPage(14)));
-        assertQueueClosed(sharedBuffer, "first", 15);
-        assertQueueClosed(sharedBuffer, "second", 15);
+        assertBufferResultEquals(sharedBuffer.get("second", 10, 10, NO_WAIT), bufferResult(10, createPage(10),
+                createPage(11),
+                createPage(12),
+                createPage(13)));
+        assertQueueState(sharedBuffer, "second", 4, 10);
+        assertBufferResultEquals(sharedBuffer.get("second", 14, 10, NO_WAIT), emptyResults(14, false));
+        assertQueueClosed(sharedBuffer, "first", 14);
+        assertQueueClosed(sharedBuffer, "second", 14);
         assertFinished(sharedBuffer);
 
-        assertBufferResultEquals(sharedBuffer.get("first", 10, NO_WAIT), emptyResults(true));
-        assertBufferResultEquals(sharedBuffer.get("second", 10, NO_WAIT), emptyResults(true));
+        assertBufferResultEquals(sharedBuffer.get("first", 14, 10, NO_WAIT), emptyResults(14, true));
+        assertBufferResultEquals(sharedBuffer.get("second", 14, 10, NO_WAIT), emptyResults(14, true));
+    }
+
+    @Test
+    public void testDuplicateRequests()
+            throws Exception
+    {
+        SharedBuffer sharedBuffer = new SharedBuffer(sizeOfPages(10));
+
+        // add three items
+        for (int i = 0; i < 3; i++) {
+            assertTrue(sharedBuffer.offer(createPage(i)));
+        }
+
+        // add a queue
+        sharedBuffer.addQueue("first");
+        assertQueueState(sharedBuffer, "first", 3, 0);
+
+        // get the three elements
+        assertBufferResultEquals(sharedBuffer.get("first", 0, 10, NO_WAIT), bufferResult(0, createPage(0), createPage(1), createPage(2)));
+        // pages not acknowledged yet so state is the same
+        assertQueueState(sharedBuffer, "first", 3, 0);
+
+        // get the three elements again
+        assertBufferResultEquals(sharedBuffer.get("first", 0, 10, NO_WAIT), bufferResult(0, createPage(0), createPage(1), createPage(2)));
+        // pages not acknowledged yet so state is the same
+        assertQueueState(sharedBuffer, "first", 3, 0);
+
+        // acknowledge the pages
+        sharedBuffer.acknowledge("first", 3);
+
+        // attempt to get the three elements again
+        assertBufferResultEquals(sharedBuffer.get("first", 0, 10, NO_WAIT), emptyResults(3, false));
+        // pages not acknowledged yet so state is the same
+        assertQueueState(sharedBuffer, "first", 0, 3);
     }
 
     @Test
@@ -237,7 +287,7 @@ public class TestSharedBuffer
 
         // verify operations on unknown queue throw an exception
         try {
-            sharedBuffer.get("unknown", 1, NO_WAIT);
+            sharedBuffer.get("unknown", 0, 1, NO_WAIT);
             fail("Expected NoSuchBufferException from operation on unknown queue");
         }
         catch (NoSuchBufferException expected) {
@@ -249,7 +299,7 @@ public class TestSharedBuffer
         // finish buffer and try operations again
         sharedBuffer.finish();
         try {
-            sharedBuffer.get("unknown", 1, NO_WAIT);
+            sharedBuffer.get("unknown", 0, 1, NO_WAIT);
             fail("Expected NoSuchBufferException from operation on unknown queue");
         }
         catch (NoSuchBufferException expected) {
@@ -261,7 +311,7 @@ public class TestSharedBuffer
         // set no more queues and try operations again
         sharedBuffer.noMoreQueues();
         try {
-            sharedBuffer.get("unknown", 1, NO_WAIT);
+            sharedBuffer.get("unknown", 0, 1, NO_WAIT);
             fail("Expected NoSuchBufferException from operation on unknown queue");
         }
         catch (NoSuchBufferException expected) {
@@ -274,7 +324,7 @@ public class TestSharedBuffer
         // destroy and try operations again
         sharedBuffer.destroy();
         try {
-            sharedBuffer.get("unknown", 1, NO_WAIT);
+            sharedBuffer.get("unknown", 0, 1, NO_WAIT);
             fail("Expected NoSuchBufferException from operation on unknown queue");
         }
         catch (NoSuchBufferException expected) {
@@ -314,18 +364,18 @@ public class TestSharedBuffer
         sharedBuffer.finish();
 
         sharedBuffer.addQueue("first");
-        assertBufferResultEquals(sharedBuffer.get("first", 1, NO_WAIT), bufferResult(createPage(0)));
+        assertBufferResultEquals(sharedBuffer.get("first", 0, 1, NO_WAIT), bufferResult(0, createPage(0)));
         sharedBuffer.abort("first");
-        assertQueueClosed(sharedBuffer, "first", 1);
-        assertBufferResultEquals(sharedBuffer.get("first", 1, NO_WAIT), emptyResults(true));
+        assertQueueClosed(sharedBuffer, "first", 0);
+        assertBufferResultEquals(sharedBuffer.get("first", 1, 1, NO_WAIT), emptyResults(1, true));
 
         sharedBuffer.addQueue("second");
         sharedBuffer.noMoreQueues();
-        assertBufferResultEquals(sharedBuffer.get("second", 1, NO_WAIT), bufferResult(createPage(0)));
+        assertBufferResultEquals(sharedBuffer.get("second", 0, 1, NO_WAIT), bufferResult(0, createPage(0)));
         sharedBuffer.abort("second");
-        assertQueueClosed(sharedBuffer, "second", 1);
+        assertQueueClosed(sharedBuffer, "second", 0);
         assertFinished(sharedBuffer);
-        assertBufferResultEquals(sharedBuffer.get("second", 1, NO_WAIT), emptyResults(true));
+        assertBufferResultEquals(sharedBuffer.get("second", 1, 1, NO_WAIT), emptyResults(0, true));
     }
 
     @Test
@@ -354,7 +404,7 @@ public class TestSharedBuffer
         ExecutorService executor = Executors.newCachedThreadPool();
 
         // exec thread to get two pages
-        GetPagesJob getPagesJob = new GetPagesJob(sharedBuffer, 2, 1);
+        GetPagesJob getPagesJob = new GetPagesJob(sharedBuffer, 0, 2, 1);
         executor.submit(getPagesJob);
         getPagesJob.waitForStarted();
 
@@ -389,7 +439,7 @@ public class TestSharedBuffer
         ExecutorService executor = Executors.newCachedThreadPool();
 
         // exec thread to get two pages
-        GetPagesJob getPagesJob = new GetPagesJob(sharedBuffer, 2, 1);
+        GetPagesJob getPagesJob = new GetPagesJob(sharedBuffer, 0, 2, 1);
         executor.submit(getPagesJob);
         getPagesJob.waitForStarted();
 
@@ -438,7 +488,8 @@ public class TestSharedBuffer
         addPagesJob.assertBlockedWithCount(2);
 
         // get one page
-        assertEquals(sharedBuffer.get("queue", 1, MAX_WAIT).size(), 1);
+        assertEquals(sharedBuffer.get("queue", 0, 1, MAX_WAIT).size(), 1);
+        sharedBuffer.acknowledge("queue", 1);
 
         // "verify" thread is blocked again with one remaining page
         addPagesJob.assertBlockedWithCount(1);
@@ -451,7 +502,8 @@ public class TestSharedBuffer
         addPagesJob.waitForFinished();
 
         // get the last 5 page
-        assertEquals(sharedBuffer.get("queue", 100, MAX_WAIT).size(), 5);
+        assertEquals(sharedBuffer.get("queue", 1, 100, MAX_WAIT).size(), 5);
+        sharedBuffer.acknowledge("queue", 5);
 
         // verify finished
         assertFinished(sharedBuffer);
@@ -468,7 +520,7 @@ public class TestSharedBuffer
         ExecutorService executor = Executors.newCachedThreadPool();
 
         // exec thread to get two pages
-        GetPagesJob getPagesJob = new GetPagesJob(sharedBuffer, 2, 1);
+        GetPagesJob getPagesJob = new GetPagesJob(sharedBuffer, 0, 2, 1);
         executor.submit(getPagesJob);
         getPagesJob.waitForStarted();
 
@@ -517,7 +569,8 @@ public class TestSharedBuffer
         addPagesJob.assertBlockedWithCount(2);
 
         // get one page
-        assertEquals(sharedBuffer.get("queue", 1, MAX_WAIT).size(), 1);
+        assertEquals(sharedBuffer.get("queue", 0, 1, MAX_WAIT).size(), 1);
+        sharedBuffer.acknowledge("queue", 1);
 
         // "verify" thread is blocked again with one remaining page
         addPagesJob.assertBlockedWithCount(1);
@@ -563,6 +616,7 @@ public class TestSharedBuffer
     private void assertBufferResultEquals(BufferResult actual, BufferResult expected)
     {
         assertEquals(actual.getElements().size(), expected.getElements().size());
+        assertEquals(actual.getStartingSequenceId(), expected.getStartingSequenceId());
         for (int i = 0; i < actual.getElements().size(); i++) {
             Page actualPage = actual.getElements().get(i);
             Page expectedPage = expected.getElements().get(i);
@@ -580,6 +634,7 @@ public class TestSharedBuffer
         private final SharedBuffer sharedBuffer;
         private final int pagesToGet;
         private final int batchSize;
+        private long sequenceId;
 
         private final AtomicReference<FailedQueryException> failedQueryException = new AtomicReference<>();
 
@@ -587,9 +642,10 @@ public class TestSharedBuffer
         private final CountDownLatch started = new CountDownLatch(1);
         private final CountDownLatch finished = new CountDownLatch(1);
 
-        private GetPagesJob(SharedBuffer sharedBuffer, int pagesToGet, int batchSize)
+        private GetPagesJob(SharedBuffer sharedBuffer, long startingSequenceId, int pagesToGet, int batchSize)
         {
             this.sharedBuffer = sharedBuffer;
+            this.sequenceId = startingSequenceId;
             this.pagesToGet = pagesToGet;
             this.batchSize = batchSize;
         }
@@ -646,9 +702,11 @@ public class TestSharedBuffer
             try {
                 while (elements.size() < pagesToGet) {
                     try {
-                        BufferResult result = sharedBuffer.get("queue", batchSize, MAX_WAIT);
+                        BufferResult result = sharedBuffer.get("queue", sequenceId, batchSize, MAX_WAIT);
                         assertTrue(!result.isEmpty());
                         this.elements.addAll(result.getElements());
+                        sequenceId = result.getStartingSequenceId() + result.getElements().size();
+                        sharedBuffer.acknowledge("queue", sequenceId);
                     }
                     catch (FailedQueryException e) {
                         failedQueryException.set(e);
