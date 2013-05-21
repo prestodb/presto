@@ -32,11 +32,6 @@ public class HdfsConfiguration
         }
     };
 
-    public HdfsConfiguration()
-    {
-        this(new HiveClientConfig());
-    }
-
     @Inject
     public HdfsConfiguration(HiveClientConfig hiveClientConfig)
     {

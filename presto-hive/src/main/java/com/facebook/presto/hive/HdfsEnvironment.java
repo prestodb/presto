@@ -18,12 +18,6 @@ public class HdfsEnvironment
         this.fileSystemWrapper = checkNotNull(fileSystemWrapper, "fileSystemWrapper is null");
     }
 
-    public HdfsEnvironment()
-    {
-        this.hdfsConfiguration = new HdfsConfiguration();
-        this.fileSystemWrapper = FileSystemWrapper.identity();
-    }
-
     public Configuration getConfiguration()
     {
         return hdfsConfiguration.getConfiguration();
