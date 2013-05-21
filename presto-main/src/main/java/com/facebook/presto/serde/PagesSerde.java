@@ -48,6 +48,7 @@ public final class PagesSerde
                     }
                 }
 
+                sliceOutput.writeInt(page.getPositionCount());
                 Block[] blocks = page.getBlocks();
                 for (int i = 0; i < blocks.length; i++) {
                     blockEncodings[i].writeBlock(sliceOutput, blocks[i]);
@@ -125,11 +126,12 @@ public final class PagesSerde
                 return endOfData();
             }
 
+            int positions = sliceInput.readInt();
             Block[] blocks = new Block[blockEncodings.length];
             for (int i = 0; i < blocks.length; i++) {
                 blocks[i] = blockEncodings[i].readBlock(sliceInput);
             }
-            Page page = new Page(blocks);
+            Page page = new Page(positions, blocks);
             return page;
         }
     }

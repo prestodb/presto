@@ -9,6 +9,7 @@ import com.facebook.presto.TaskSource;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.OutputProducingOperator;
@@ -32,7 +33,7 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFutureTask;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import io.airlift.log.Logger;
+import com.google.inject.Provider;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -60,12 +61,10 @@ import static java.lang.Math.max;
 public class SqlTaskExecution
         implements TaskExecution
 {
-    private static final Logger log = Logger.get(SqlTaskExecution.class);
-
     private final TaskId taskId;
     private final TaskOutput taskOutput;
     private final DataStreamProvider dataStreamProvider;
-    private final ExchangeOperatorFactory exchangeOperatorFactory;
+    private final Provider<ExchangeClient> exchangeClientProvider;
     private final ListeningExecutorService shardExecutor;
     private final PlanFragment fragment;
     private final Metadata metadata;
@@ -93,9 +92,9 @@ public class SqlTaskExecution
             TaskId taskId,
             URI location,
             PlanFragment fragment,
-            int pageBufferMax,
+            DataSize maxBufferSize,
             DataStreamProvider dataStreamProvider,
-            ExchangeOperatorFactory exchangeOperatorFactory,
+            Provider<ExchangeClient> exchangeClientProvider,
             Metadata metadata,
             LocalStorageManager storageManager,
             ExecutorService taskMasterExecutor,
@@ -109,9 +108,9 @@ public class SqlTaskExecution
                 taskId,
                 location,
                 fragment,
-                pageBufferMax,
+                maxBufferSize,
                 dataStreamProvider,
-                exchangeOperatorFactory,
+                exchangeClientProvider,
                 metadata,
                 storageManager,
                 shardExecutor,
@@ -130,9 +129,9 @@ public class SqlTaskExecution
             TaskId taskId,
             URI location,
             PlanFragment fragment,
-            int pageBufferMax,
+            DataSize maxBufferSize,
             DataStreamProvider dataStreamProvider,
-            ExchangeOperatorFactory exchangeOperatorFactory,
+            Provider<ExchangeClient> exchangeClientProvider,
             Metadata metadata,
             LocalStorageManager storageManager,
             ListeningExecutorService shardExecutor,
@@ -145,7 +144,7 @@ public class SqlTaskExecution
         Preconditions.checkNotNull(nodeInfo, "nodeInfo is null");
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(fragment, "fragment is null");
-        Preconditions.checkArgument(pageBufferMax > 0, "pageBufferMax must be at least 1");
+        Preconditions.checkArgument(maxBufferSize.toBytes() > 0, "maxBufferSize must be at least 1");
         Preconditions.checkNotNull(metadata, "metadata is null");
         Preconditions.checkNotNull(storageManager, "storageManager is null");
         Preconditions.checkNotNull(shardExecutor, "shardExecutor is null");
@@ -158,7 +157,7 @@ public class SqlTaskExecution
         this.taskId = taskId;
         this.fragment = fragment;
         this.dataStreamProvider = dataStreamProvider;
-        this.exchangeOperatorFactory = exchangeOperatorFactory;
+        this.exchangeClientProvider = exchangeClientProvider;
         this.shardExecutor = shardExecutor;
         this.metadata = metadata;
         this.storageManager = storageManager;
@@ -166,7 +165,7 @@ public class SqlTaskExecution
         this.queryMonitor = queryMonitor;
 
         // create output buffers
-        this.taskOutput = new TaskOutput(taskId, location, pageBufferMax, notificationExecutor, globalStats);
+        this.taskOutput = new TaskOutput(taskId, location, maxBufferSize, notificationExecutor, globalStats);
     }
 
     //
@@ -271,7 +270,7 @@ public class SqlTaskExecution
                 maxOperatorMemoryUsage,
                 storageManager,
                 dataStreamProvider,
-                exchangeOperatorFactory,
+                exchangeClientProvider,
                 queryMonitor);
 
         // TableScanOperator requires partitioned split to be added before task is started
@@ -377,10 +376,10 @@ public class SqlTaskExecution
     }
 
     @Override
-    public BufferResult<Page> getResults(String outputId, int maxPageCount, Duration maxWait)
+    public BufferResult getResults(String outputId, long startingSequenceId, int maxPageCount, Duration maxWait)
             throws InterruptedException
     {
-        return taskOutput.getResults(outputId, maxPageCount, maxWait);
+        return taskOutput.getResults(outputId, startingSequenceId, maxPageCount, maxWait);
     }
 
     @Override
@@ -459,7 +458,7 @@ public class SqlTaskExecution
                 DataSize maxOperatorMemoryUsage,
                 LocalStorageManager storageManager,
                 DataStreamProvider dataStreamProvider,
-                ExchangeOperatorFactory exchangeOperatorFactory,
+                Provider<ExchangeClient> exchangeClientProvider,
                 QueryMonitor queryMonitor)
         {
             this.taskOutput = taskOutput;
@@ -476,7 +475,7 @@ public class SqlTaskExecution
                     maxOperatorMemoryUsage,
                     dataStreamProvider,
                     storageManager,
-                    exchangeOperatorFactory);
+                    exchangeClientProvider);
 
             LocalExecutionPlan localExecutionPlan = planner.plan(fragment.getRoot());
             operator = localExecutionPlan.getRootOperator();

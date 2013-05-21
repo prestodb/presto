@@ -100,6 +100,7 @@ public class InMemoryWindowOperator
         private final boolean[] sortOrder;
         private final int expectedPositions;
         private final DataSize maxSize;
+        private final PageBuilder pageBuilder;
         private PagesIndex pageIndex;
         private int currentPosition;
         private IntComparator partitionComparator;
@@ -131,6 +132,7 @@ public class InMemoryWindowOperator
             this.sortOrder = sortOrder;
             this.expectedPositions = expectedPositions;
             this.maxSize = maxSize;
+            this.pageBuilder = new PageBuilder(getTupleInfos());
         }
 
         @Override
@@ -164,7 +166,7 @@ public class InMemoryWindowOperator
             }
 
             // iterate through the positions sequentially until we have one full page
-            PageBuilder pageBuilder = new PageBuilder(getTupleInfos());
+            pageBuilder.reset();
             while ((!pageBuilder.isFull()) && (currentPosition < pageIndex.getPositionCount())) {
                 // check for new partition
                 boolean newPartition = (currentPosition == 0) || (currentPosition == partitionEnd);

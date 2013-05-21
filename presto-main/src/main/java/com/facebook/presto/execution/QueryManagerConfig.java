@@ -17,12 +17,11 @@ public class QueryManagerConfig
     private DataSize maxOperatorMemoryUsage = new DataSize(256, Unit.MEGABYTE);
     private int maxPendingSplitsPerNode = 100;
     private int maxShardProcessorThreads = Runtime.getRuntime().availableProcessors() * 4;
-    private int sinkMaxBufferedPages = 10;
+    private DataSize sinkMaxBufferSize = new DataSize(32, Unit.MEGABYTE);
     private Duration maxQueryAge = new Duration(15, TimeUnit.MINUTES);
     private Duration clientTimeout = new Duration(5, TimeUnit.MINUTES);
 
-    private int exchangeMaxBufferedPages = 100;
-    private int exchangeExpectedPagesPerRequest = 10;
+    private DataSize exchangeMaxBufferSize = new DataSize(32, Unit.MEGABYTE);
     private int exchangeConcurrentRequestMultiplier = 3;
 
     private int queryManagerExecutorPoolSize = 100;
@@ -81,16 +80,16 @@ public class QueryManagerConfig
         return this;
     }
 
-    @Min(1)
-    public int getSinkMaxBufferedPages()
+    @NotNull
+    public DataSize getSinkMaxBufferSize()
     {
-        return sinkMaxBufferedPages;
+        return sinkMaxBufferSize;
     }
 
-    @Config("sink.page-buffer-max")
-    public QueryManagerConfig setSinkMaxBufferedPages(int sinkMaxBufferedPages)
+    @Config("sink.max-buffer-size")
+    public QueryManagerConfig setSinkMaxBufferSize(DataSize sinkMaxBufferSize)
     {
-        this.sinkMaxBufferedPages = sinkMaxBufferedPages;
+        this.sinkMaxBufferSize = sinkMaxBufferSize;
         return this;
     }
 
@@ -121,29 +120,16 @@ public class QueryManagerConfig
         return this;
     }
 
-    @Min(1)
-    public int getExchangeMaxBufferedPages()
+    @NotNull
+    public DataSize getExchangeMaxBufferSize()
     {
-        return exchangeMaxBufferedPages;
+        return exchangeMaxBufferSize;
     }
 
-    @Config("exchange.page-buffer-max")
-    public QueryManagerConfig setExchangeMaxBufferedPages(int exchangeMaxBufferedPages)
+    @Config("exchange.max-buffer-size")
+    public QueryManagerConfig setExchangeMaxBufferSize(DataSize exchangeMaxBufferSize)
     {
-        this.exchangeMaxBufferedPages = exchangeMaxBufferedPages;
-        return this;
-    }
-
-    @Min(1)
-    public int getExchangeExpectedPagesPerRequest()
-    {
-        return exchangeExpectedPagesPerRequest;
-    }
-
-    @Config("exchange.expected-pages-per-request")
-    public QueryManagerConfig setExchangeExpectedPagesPerRequest(int exchangeExpectedPagesPerRequest)
-    {
-        this.exchangeExpectedPagesPerRequest = exchangeExpectedPagesPerRequest;
+        this.exchangeMaxBufferSize = exchangeMaxBufferSize;
         return this;
     }
 

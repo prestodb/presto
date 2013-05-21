@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.operator.Page;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 
@@ -10,26 +11,32 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class BufferResult<T>
+public class BufferResult
 {
-    public static <T> BufferResult<T> emptyResults(boolean bufferClosed)
+    public static BufferResult emptyResults(long endSequenceId, boolean bufferClosed)
     {
-        return new BufferResult<>(bufferClosed, ImmutableList.<T>of());
+        return new BufferResult(endSequenceId, bufferClosed, ImmutableList.<Page>of());
     }
 
-    @SafeVarargs
-    public static <T> BufferResult<T> bufferResult(T firstElement, T... otherElements)
+    public static BufferResult bufferResult(long startingSequenceId, Page firstElement, Page... otherElements)
     {
-        return new BufferResult<>(false, ImmutableList.<T>builder().add(firstElement).add(otherElements).build());
+        return new BufferResult(startingSequenceId, false, ImmutableList.<Page>builder().add(firstElement).add(otherElements).build());
     }
 
+    private final long startingSequenceId;
     private final boolean bufferClosed;
-    private final List<T> elements;
+    private final List<Page> elements;
 
-    public BufferResult(boolean bufferClosed, List<T> elements)
+    public BufferResult(long startingSequenceId, boolean bufferClosed, List<Page> elements)
     {
+        this.startingSequenceId = startingSequenceId;
         this.bufferClosed = bufferClosed;
         this.elements = ImmutableList.copyOf(checkNotNull(elements, "pages is null"));
+    }
+
+    public long getStartingSequenceId()
+    {
+        return startingSequenceId;
     }
 
     public boolean isBufferClosed()
@@ -37,7 +44,7 @@ public class BufferResult<T>
         return bufferClosed;
     }
 
-    public List<T> getElements()
+    public List<Page> getElements()
     {
         return elements;
     }
@@ -67,7 +74,7 @@ public class BufferResult<T>
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final BufferResult<?> other = (BufferResult<?>) obj;
+        final BufferResult other = (BufferResult) obj;
         return Objects.equal(this.bufferClosed, other.bufferClosed) && Objects.equal(this.elements, other.elements);
     }
 

@@ -11,8 +11,8 @@ import com.facebook.presto.execution.ExecutionStats.ExecutionStatsSnapshot;
 import com.facebook.presto.execution.SharedBuffer.QueueState;
 import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.OperatorStats.SplitExecutionStats;
-import com.facebook.presto.operator.Page;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.inject.Provider;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.DataSize;
@@ -55,7 +56,7 @@ public class SqlTaskManager
 {
     private static final Logger log = Logger.get(SqlTaskManager.class);
 
-    private final int pageBufferMax;
+    private final DataSize maxBufferSize;
 
     private final ExecutorService taskMasterExecutor;
     private final ListeningExecutorService shardExecutor;
@@ -63,7 +64,7 @@ public class SqlTaskManager
     private final Metadata metadata;
     private final LocalStorageManager storageManager;
     private final DataStreamProvider dataStreamProvider;
-    private final ExchangeOperatorFactory exchangeOperatorFactory;
+    private final Provider<ExchangeClient> exchangeClientProvider;
     private final NodeInfo nodeInfo;
     private final LocationFactory locationFactory;
     private final QueryMonitor queryMonitor;
@@ -80,7 +81,7 @@ public class SqlTaskManager
             Metadata metadata,
             LocalStorageManager storageManager,
             DataStreamProvider dataStreamProvider,
-            ExchangeOperatorFactory exchangeOperatorFactory,
+            Provider<ExchangeClient> exchangeClientProvider,
             NodeInfo nodeInfo,
             LocationFactory locationFactory,
             QueryMonitor queryMonitor,
@@ -89,7 +90,7 @@ public class SqlTaskManager
         Preconditions.checkNotNull(metadata, "metadata is null");
         Preconditions.checkNotNull(storageManager, "storageManager is null");
         Preconditions.checkNotNull(dataStreamProvider, "dataStreamProvider is null");
-        Preconditions.checkNotNull(exchangeOperatorFactory, "exchangeOperatorFactory is null");
+        Preconditions.checkNotNull(exchangeClientProvider, "exchangeClientProvider is null");
         Preconditions.checkNotNull(nodeInfo, "nodeInfo is null");
         Preconditions.checkNotNull(locationFactory, "locationFactory is null");
         Preconditions.checkNotNull(queryMonitor, "queryMonitor is null");
@@ -98,11 +99,11 @@ public class SqlTaskManager
         this.metadata = metadata;
         this.storageManager = storageManager;
         this.dataStreamProvider = dataStreamProvider;
-        this.exchangeOperatorFactory = exchangeOperatorFactory;
+        this.exchangeClientProvider = exchangeClientProvider;
         this.nodeInfo = nodeInfo;
         this.locationFactory = locationFactory;
         this.queryMonitor = queryMonitor;
-        this.pageBufferMax = config.getSinkMaxBufferedPages();
+        this.maxBufferSize = config.getSinkMaxBufferSize();
         this.maxOperatorMemoryUsage = config.getMaxOperatorMemoryUsage();
         // Just to be nice, allow tasks to live an extra 30 seconds so queries will be removed first
         this.maxTaskAge = new Duration(config.getMaxQueryAge().toMillis() + SECONDS.toMillis(30), MILLISECONDS);
@@ -215,9 +216,9 @@ public class SqlTaskManager
                         taskId,
                         location,
                         fragment,
-                        pageBufferMax,
+                        maxBufferSize,
                         dataStreamProvider,
-                        exchangeOperatorFactory,
+                        exchangeClientProvider,
                         metadata,
                         storageManager,
                         taskMasterExecutor,
@@ -238,7 +239,7 @@ public class SqlTaskManager
     }
 
     @Override
-    public BufferResult<Page> getTaskResults(TaskId taskId, String outputName, int maxPageCount, Duration maxWaitTime)
+    public BufferResult getTaskResults(TaskId taskId, String outputName, long startingSequenceId, int maxPageCount, Duration maxWaitTime)
             throws InterruptedException
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
@@ -249,7 +250,7 @@ public class SqlTaskManager
             throw new NoSuchElementException("Unknown query task " + taskId);
         }
         taskExecution.recordHeartbeat();
-        return taskExecution.getResults(outputName, maxPageCount, maxWaitTime);
+        return taskExecution.getResults(outputName, startingSequenceId, maxPageCount, maxWaitTime);
     }
 
     @Override

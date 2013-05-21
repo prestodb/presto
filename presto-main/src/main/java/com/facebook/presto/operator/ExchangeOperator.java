@@ -9,7 +9,7 @@ import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import io.airlift.http.client.AsyncHttpClient;
+import com.google.inject.Provider;
 import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 public class ExchangeOperator
@@ -26,40 +27,20 @@ public class ExchangeOperator
 {
     private static final Duration WAIT_TIME = new Duration(10, TimeUnit.MILLISECONDS);
 
-    private final AsyncHttpClient httpClient;
     private final List<TupleInfo> tupleInfos;
     private final Set<URI> locations = new HashSet<>();
+    private final Provider<ExchangeClient> exchangeClientProvider;
     private boolean noMoreLocations;
-
-    private final int maxBufferedPages;
-    private final int expectedPagesPerRequest;
-    private final int concurrentRequestMultiplier;
 
     @GuardedBy("this")
     private ExchangeClient activeClient;
 
-    public ExchangeOperator(AsyncHttpClient httpClient, List<TupleInfo> tupleInfos, URI... locations)
+    public ExchangeOperator(Provider<ExchangeClient> exchangeClientProvider, Iterable<TupleInfo> tupleInfos)
     {
-        this(httpClient, tupleInfos, 10, 3, 100);
-        this.locations.addAll(ImmutableList.copyOf(locations));
-        noMoreSplits();
-    }
+        this.exchangeClientProvider = checkNotNull(exchangeClientProvider, "exchangeClientProvider is null");
 
-    public ExchangeOperator(AsyncHttpClient httpClient,
-            Iterable<TupleInfo> tupleInfos,
-            int maxBufferedPages,
-            int expectedPagesPerRequest,
-            int concurrentRequestMultiplier)
-    {
-        Preconditions.checkNotNull(httpClient, "httpClient is null");
-        Preconditions.checkNotNull(tupleInfos, "tupleInfos is null");
 
-        this.concurrentRequestMultiplier = concurrentRequestMultiplier;
-        this.maxBufferedPages = maxBufferedPages;
-        this.expectedPagesPerRequest = expectedPagesPerRequest;
-
-        this.httpClient = httpClient;
-        this.tupleInfos = ImmutableList.copyOf(tupleInfos);
+        this.tupleInfos = ImmutableList.copyOf(checkNotNull(tupleInfos, "tupleInfos is null"));
     }
 
     @Override
@@ -67,7 +48,7 @@ public class ExchangeOperator
     {
         URI location;
         synchronized (this) {
-            Preconditions.checkNotNull(split, "split is null");
+            checkNotNull(split, "split is null");
             Preconditions.checkArgument(split instanceof RemoteSplit, "split is not a remote split");
             checkState(!noMoreLocations, "No more splits already set");
             location = ((RemoteSplit) split).getLocation();
@@ -112,7 +93,13 @@ public class ExchangeOperator
         ExchangeClient exchangeClient;
         synchronized (this) {
             checkState(activeClient == null, "ExchangeOperator can only be used once");
-            exchangeClient = new ExchangeClient(maxBufferedPages, expectedPagesPerRequest, concurrentRequestMultiplier, httpClient, locations, noMoreLocations);
+            exchangeClient = exchangeClientProvider.get();
+            for (URI location : locations) {
+                exchangeClient.addLocation(location);
+            }
+            if (noMoreLocations) {
+                exchangeClient.noMoreLocations();
+            }
             activeClient = exchangeClient;
         }
 

@@ -61,6 +61,7 @@ public class FilterAndProjectOperator implements Operator
         private final PageIterator pageIterator;
         private final FilterFunction filterFunction;
         private final List<ProjectionFunction> projections;
+        private final PageBuilder pageBuilder;
 
         public FilterAndProjectIterator(PageIterator pageIterator, FilterFunction filterFunction, List<ProjectionFunction> projections)
         {
@@ -68,11 +69,12 @@ public class FilterAndProjectOperator implements Operator
             this.pageIterator = pageIterator;
             this.filterFunction = filterFunction;
             this.projections = projections;
+            this.pageBuilder = new PageBuilder(getTupleInfos());
         }
 
         protected Page computeNext()
         {
-            PageBuilder pageBuilder = new PageBuilder(getTupleInfos());
+            pageBuilder.reset();
             while (!pageBuilder.isFull() && pageIterator.hasNext()) {
                 Page page = pageIterator.next();
                 Block[] blocks = page.getBlocks();

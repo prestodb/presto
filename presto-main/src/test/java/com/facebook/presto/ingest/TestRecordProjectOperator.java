@@ -12,6 +12,8 @@ import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.util.Threads;
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.DataSize;
+import io.airlift.units.DataSize.Unit;
 import org.testng.annotations.Test;
 
 import java.net.URI;
@@ -61,7 +63,7 @@ public class TestRecordProjectOperator
 
         RecordProjectOperator operator = new RecordProjectOperator(records);
 
-        TaskOutput taskOutput = new TaskOutput(new TaskId("0", "0", "0"), URI.create("unknown://unknown"), 1000, executor, new SqlTaskManagerStats());
+        TaskOutput taskOutput = new TaskOutput(new TaskId("0", "0", "0"), URI.create("unknown://unknown"), new DataSize(100, Unit.MEGABYTE), executor, new SqlTaskManagerStats());
         taskOutput.addResultQueue("unknown");
         taskOutput.noMoreResultQueues();
 

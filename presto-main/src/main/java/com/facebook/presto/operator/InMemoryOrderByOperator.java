@@ -72,12 +72,12 @@ public class InMemoryOrderByOperator
             extends AbstractPageIterator
     {
         private final int orderByChannel;
-        private final List<TupleInfo> tupleInfos;
         private final int[] outputChannels;
         private final int expectedPositions;
         private final int[] sortFields;
         private final boolean[] sortOrder;
         private final DataSize maxSize;
+        private final PageBuilder pageBuilder;
         private PagesIndex pageIndex;
         private int currentPosition;
         private PageIterator source;
@@ -95,13 +95,13 @@ public class InMemoryOrderByOperator
             super(source.getTupleInfos());
             this.orderByChannel = orderByChannel;
 
-            this.tupleInfos = tupleInfos;
             this.outputChannels = outputChannels;
             this.source = source.iterator(operatorStats);
             this.expectedPositions = expectedPositions;
             this.sortFields = sortFields;
             this.sortOrder = sortOrder;
             this.maxSize = maxSize;
+            this.pageBuilder = new PageBuilder(tupleInfos);
         }
 
         @Override
@@ -120,7 +120,7 @@ public class InMemoryOrderByOperator
             }
 
             // iterate through the positions sequentially until we have one full page
-            PageBuilder pageBuilder = new PageBuilder(tupleInfos);
+            pageBuilder.reset();
             while (!pageBuilder.isFull() && currentPosition < pageIndex.getPositionCount()) {
                 for (int i = 0; i < outputChannels.length; i++) {
                     pageIndex.appendTupleTo(outputChannels[i], currentPosition, pageBuilder.getBlockBuilder(i));
