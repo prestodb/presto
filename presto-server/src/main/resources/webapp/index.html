@@ -75,7 +75,7 @@ function renderDoneQueries(queries)
 {
     var tbody = d3.select("#done").select("tbody");
 
-    queries = queries.sort(function (a, b) { return d3.ascending(a.queryStats.createTime, b.queryStats.createTime); });
+    queries = queries.sort(function (a, b) { return d3.descending(a.queryStats.createTime, b.queryStats.createTime); });
 
     var rows = tbody.selectAll("tr")
             .data(queries, function (query) { return query.queryId; });
@@ -133,7 +133,7 @@ function renderRunningQueries(queries)
 {
     var tbody = d3.select("#running").select("tbody");
 
-    queries = queries.sort(function (a, b) { return d3.ascending(a.queryStats.createTime, b.queryStats.createTime); });
+    queries = queries.sort(function (a, b) { return d3.descending(a.queryStats.createTime, b.queryStats.createTime); });
 
     var rows = tbody.selectAll("tr")
             .data(queries, function (query) { return query.queryId; })
