@@ -89,6 +89,7 @@ public class QueryMonitor
                             taskInfo.getTaskId().getQueryId(),
                             taskInfo.getTaskId().getStageId(),
                             taskInfo.getTaskId(),
+                            splitExecutionStats.getQueuedTime(),
                             splitExecutionStats.getExecutionStartTime(),
                             splitExecutionStats.getTimeToFirstByte(),
                             splitExecutionStats.getTimeToLastByte(),
