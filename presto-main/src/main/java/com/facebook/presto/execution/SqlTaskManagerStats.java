@@ -19,6 +19,8 @@ public class SqlTaskManagerStats
     private final CounterStat splitWallTime = new CounterStat();
     private final CounterStat splitCpuTime = new CounterStat();
 
+    private final DistributionStat splitQueuedTime = new DistributionStat();
+
     private final DistributionStat timeToFirstByte = new DistributionStat();
     private final DistributionStat timeToLastByte = new DistributionStat();
 
@@ -80,6 +82,13 @@ public class SqlTaskManagerStats
 
     @Managed
     @Nested
+    public DistributionStat getSplitQueuedTime()
+    {
+        return splitQueuedTime;
+    }
+
+    @Managed
+    @Nested
     public DistributionStat getTimeToLastByte()
     {
         return timeToLastByte;
@@ -124,6 +133,11 @@ public class SqlTaskManagerStats
     public void addCompletedDataSize(DataSize addedDataSize)
     {
         completedBytes.update(addedDataSize.toBytes());
+    }
+
+    public void addSplitQueuedTime(Duration duration)
+    {
+        splitQueuedTime.add((long) duration.toMillis());
     }
 
     public void addTimeToFirstByte(Duration duration)

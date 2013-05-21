@@ -57,6 +57,8 @@ public class ExecutionStats
     @GuardedBy("this")
     private DataSize completedDataSize = ZERO_SIZE;
 
+    private final DistributionStat splitQueuedTime = new DistributionStat();
+
     private final DistributionStat timeToFirstByte = new DistributionStat();
     private final DistributionStat timeToLastByte = new DistributionStat();
 
@@ -188,6 +190,14 @@ public class ExecutionStats
         return outputPositionCount.get();
     }
 
+    public DistributionStatSnapshot getSplitQueuedTime()
+    {
+        if (splitQueuedTime.getAllTime().getCount() == 0) {
+            return null;
+        }
+        return splitQueuedTime.snapshot();
+    }
+
     public DistributionStatSnapshot getTimeToFirstByte()
     {
         if (timeToLastByte.getAllTime().getCount() == 0) {
@@ -227,6 +237,7 @@ public class ExecutionStats
                 getCompletedPositionCount(),
                 getOutputDataSize(),
                 getOutputPositionCount(),
+                full ? getSplitQueuedTime() : null,
                 full ? getTimeToFirstByte() : null,
                 full ? getTimeToLastByte() : null);
     }
@@ -334,9 +345,17 @@ public class ExecutionStats
         outputDataSize = new DataSize(outputDataSize.toBytes() + addedDataSize.toBytes(), DataSize.Unit.BYTE);
     }
 
-    public synchronized void recordExecutionStart()
+    public synchronized void recordSplitExecutionStart(Duration splitQueuedTime)
     {
-        this.executionStartTime = DateTime.now();
+        if (executionStartTime == null) {
+            this.executionStartTime = DateTime.now();
+        }
+
+        this.splitQueuedTime.add((long) splitQueuedTime.toMillis());
+
+        if (taskManagerStats != null) {
+            taskManagerStats.addSplitQueuedTime(splitQueuedTime);
+        }
     }
 
     public synchronized void recordHeartbeat()
@@ -436,6 +455,7 @@ public class ExecutionStats
         private final Duration splitCpuTime;
         private final Duration splitUserTime;
         private final Duration sinkBufferWaitTime;
+        private final DistributionStatSnapshot splitQueuedTime;
         private final DistributionStatSnapshot timeToFirstByte;
         private final DistributionStatSnapshot timeToLastByte;
         private final ExchangeClientStatus exchangeStatus;
@@ -462,6 +482,7 @@ public class ExecutionStats
             this.splitCpuTime = null;
             this.splitUserTime = null;
             this.sinkBufferWaitTime = null;
+            this.splitQueuedTime = null;
             this.timeToFirstByte = null;
             this.timeToLastByte = null;
             this.exchangeStatus = null;
@@ -497,6 +518,7 @@ public class ExecutionStats
                 @JsonProperty("completedPositionCount") long completedPositionCount,
                 @JsonProperty("outputDataSize") DataSize outputDataSize,
                 @JsonProperty("outputPositionCount") long outputPositionCount,
+                @JsonProperty("splitQueuedTime") DistributionStatSnapshot splitQueuedTime,
                 @JsonProperty("timeToFirstByte") DistributionStatSnapshot timeToFirstByte,
                 @JsonProperty("timeToLastByte") DistributionStatSnapshot timeToLastByte)
         {
@@ -513,6 +535,7 @@ public class ExecutionStats
             this.splitCpuTime = splitCpuTime;
             this.splitUserTime = splitUserTime;
             this.sinkBufferWaitTime = sinkBufferWaitTime;
+            this.splitQueuedTime = splitQueuedTime;
             this.timeToFirstByte = timeToFirstByte;
             this.timeToLastByte = timeToLastByte;
             this.exchangeStatus = exchangeStatus;
@@ -601,6 +624,12 @@ public class ExecutionStats
         public Duration getSinkBufferWaitTime()
         {
             return sinkBufferWaitTime;
+        }
+
+        @JsonProperty
+        public DistributionStatSnapshot getSplitQueuedTime()
+        {
+            return splitQueuedTime;
         }
 
         @JsonProperty

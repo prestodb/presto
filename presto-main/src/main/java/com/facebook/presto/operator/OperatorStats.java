@@ -22,6 +22,7 @@ import org.joda.time.DateTime;
 import javax.annotation.concurrent.ThreadSafe;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -29,6 +30,8 @@ import java.util.concurrent.atomic.AtomicReference;
 @ThreadSafe
 public class OperatorStats
 {
+    private final long createTime = System.nanoTime();
+
     private final TaskOutput taskOutput;
 
     private final List<Object> splitInfo = new CopyOnWriteArrayList<>();
@@ -141,8 +144,10 @@ public class OperatorStats
             return;
         }
 
+        Duration queuedTime = new Duration(startTime.get() - createTime, TimeUnit.NANOSECONDS);
+
         taskOutput.addActiveSplit(this);
-        taskOutput.getStats().recordExecutionStart();
+        taskOutput.getStats().recordSplitExecutionStart(queuedTime);
         taskOutput.getStats().splitStarted();
     }
 
@@ -176,7 +181,10 @@ public class OperatorStats
             user = cpuDuration.getUser();
         }
 
-        return new SplitExecutionStats(executionStartTime.get(),
+        Duration queuedTime = startTime.get() == 0 ? Duration.nanosSince(createTime) : new Duration(startTime.get() - createTime, TimeUnit.NANOSECONDS);
+
+        return new SplitExecutionStats(queuedTime,
+                executionStartTime.get(),
                 timeToFirstByte.get(),
                 timeToLastByte.get(),
                 completedDataSize.snapshot(),
@@ -206,6 +214,7 @@ public class OperatorStats
 
     public static class SplitExecutionStats
     {
+        private final Duration queuedTime;
         private final DateTime executionStartTime;
 
         private final Duration timeToFirstByte;
@@ -222,6 +231,7 @@ public class OperatorStats
 
         @JsonCreator
         public SplitExecutionStats(
+                @JsonProperty("queuedTime") Duration queuedTime,
                 @JsonProperty("executionStartTime") DateTime executionStartTime,
                 @JsonProperty("timeToFirstByte") Duration timeToFirstByte,
                 @JsonProperty("timeToLastByte") Duration timeToLastByte,
@@ -232,6 +242,7 @@ public class OperatorStats
                 @JsonProperty("user") Duration user,
                 @JsonProperty("splitInfo") List<Object> splitInfo)
         {
+            this.queuedTime = queuedTime;
             this.executionStartTime = executionStartTime;
             this.timeToFirstByte = timeToFirstByte;
             this.timeToLastByte = timeToLastByte;
@@ -241,6 +252,12 @@ public class OperatorStats
             this.cpu = cpu;
             this.user = user;
             this.splitInfo = ImmutableList.copyOf(splitInfo);
+        }
+
+        @JsonProperty
+        public Duration getQueuedTime()
+        {
+            return queuedTime;
         }
 
         @JsonProperty
