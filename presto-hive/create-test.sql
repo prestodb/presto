@@ -48,9 +48,22 @@ TBLPROPERTIES ('RETENTION'='-1', 'RETENTION_PLATINUM'='-1')
 AS SELECT * FROM presto_test_unpartitioned
 ;
 
+DROP TABLE IF EXISTS tmp_presto_test_load;
+CREATE TABLE tmp_presto_test_load (word STRING) STORED AS TEXTFILE;
+LOAD DATA LOCAL INPATH '/usr/share/dict/words'
+INTO TABLE tmp_presto_test_load
+;
+
 DROP TABLE IF EXISTS tmp_presto_test;
-CREATE TABLE tmp_presto_test AS
-SELECT fb_number_rows() n FROM src LIMIT 100;
+CREATE TABLE tmp_presto_test (n INT);
+INSERT OVERWRITE TABLE tmp_presto_test
+SELECT TRANSFORM(word)
+USING 'awk "BEGIN { n = 0 } { print ++n }"' AS n
+FROM tmp_presto_test_load
+LIMIT 100
+;
+
+DROP TABLE tmp_presto_test_load;
 
 ALTER TABLE presto_test SET FILEFORMAT RCFILE;
 ALTER TABLE presto_test SET SERDE 'org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe';
