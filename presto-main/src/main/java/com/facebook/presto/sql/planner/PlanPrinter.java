@@ -7,6 +7,7 @@ import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
+import com.facebook.presto.sql.planner.plan.LocalUnionNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
@@ -254,6 +255,14 @@ public class PlanPrinter
         public Void visitUnion(UnionNode node, Integer indent)
         {
             print(indent, "- Union => [%s]", formatOutputs(node.getOutputSymbols()));
+
+            return processChildren(node, indent + 1);
+        }
+
+        @Override
+        public Void visitLocalUnion(LocalUnionNode node, Integer indent)
+        {
+            print(indent, "- LocalUnion => [%s]", formatOutputs(node.getOutputSymbols()));
 
             return processChildren(node, indent + 1);
         }

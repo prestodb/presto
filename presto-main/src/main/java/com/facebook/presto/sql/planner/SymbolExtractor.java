@@ -1,11 +1,11 @@
 package com.facebook.presto.sql.planner;
 
-
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
+import com.facebook.presto.sql.planner.plan.LocalUnionNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
@@ -173,6 +173,17 @@ public class SymbolExtractor
             return null;
         }
 
+        @Override
+        public Void visitLocalUnion(LocalUnionNode node, Void context)
+        {
+            for (PlanNode subPlanNode : node.getSources()) {
+                subPlanNode.accept(this, context);
+            }
+
+            return null;
+        }
+
+        @Override
         protected Void visitPlan(PlanNode node, Void context)
         {
             throw new UnsupportedOperationException("not yet implemented");

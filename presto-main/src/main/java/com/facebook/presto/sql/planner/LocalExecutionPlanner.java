@@ -15,6 +15,7 @@ import com.facebook.presto.operator.HashJoinOperator;
 import com.facebook.presto.operator.InMemoryOrderByOperator;
 import com.facebook.presto.operator.InMemoryWindowOperator;
 import com.facebook.presto.operator.LimitOperator;
+import com.facebook.presto.operator.LocalUnionOperator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.OutputProducingOperator;
@@ -36,6 +37,7 @@ import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
+import com.facebook.presto.sql.planner.plan.LocalUnionNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -187,7 +189,7 @@ public class LocalExecutionPlanner
         {
             return outputOperators;
         }
-}
+    }
 
     private class Visitor
             extends PlanVisitor<LocalExecutionPlanContext, PhysicalOperation>
@@ -537,6 +539,26 @@ public class LocalExecutionPlanner
 
             return new PhysicalOperation(operator,
                     ImmutableMap.of(outputSymbol, new Input(0, 0)));
+        }
+
+        @Override
+        public PhysicalOperation visitLocalUnion(LocalUnionNode node, LocalExecutionPlanContext context)
+        {
+
+            ImmutableList.Builder<Operator> operatorBuilder = ImmutableList.builder();
+            for (PlanNode subPlanNode : node.getSources()) {
+                operatorBuilder.add(subPlanNode.accept(this, context).getOperator());
+            }
+
+            // Fow now, we assume that subplans always produce one symbol per channel. TODO: remove this assumption
+            Map<Symbol, Input> outputMappings = new HashMap<>();
+            int channel = 0;
+            for (Symbol symbol : node.getOutputSymbols()) {
+                outputMappings.put(symbol, new Input(channel, 0)); // one symbol per channel
+                channel++;
+            }
+
+            return new PhysicalOperation(new LocalUnionOperator(operatorBuilder.build()), outputMappings);
         }
 
         @Override
