@@ -1487,6 +1487,41 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY custkey DESC, orderkey DESC LIMIT 10");
     }
 
+    @Test
+    public void testUnion()
+            throws Exception
+    {
+        assertQuery("SELECT orderkey FROM orders UNION SELECT custkey FROM orders");
+    }
+
+    @Test
+    public void testUnionDistinct()
+            throws Exception
+    {
+        assertQuery("SELECT orderkey FROM orders UNION DISTINCT SELECT custkey FROM orders");
+    }
+
+    @Test
+    public void testUnionAll()
+            throws Exception
+    {
+        assertQuery("SELECT orderkey FROM orders UNION ALL SELECT custkey FROM orders");
+    }
+
+    @Test
+    public void testChainedUnionsWithOrder()
+            throws Exception
+    {
+        assertQuery("SELECT orderkey FROM orders UNION (SELECT custkey FROM orders UNION SELECT linenumber FROM lineitem) UNION ALL SELECT orderkey FROM lineitem ORDER BY orderkey");
+    }
+
+    @Test
+    public void testSubqueryUnion()
+            throws Exception
+    {
+        assertQuery("SELECT * FROM (SELECT orderkey FROM orders UNION SELECT custkey FROM orders UNION SELECT orderkey FROM orders) ORDER BY orderkey LIMIT 1000");
+    }
+
     @BeforeClass(alwaysRun = true)
     public void setupDatabase()
             throws Exception
