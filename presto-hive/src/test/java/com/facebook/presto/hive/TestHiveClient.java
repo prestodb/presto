@@ -32,7 +32,7 @@ public class TestHiveClient
         HiveClient client = new HiveClient(
                 new HiveConnectorId(CONNECTOR_ID),
                 new CachingHiveMetastore(hiveCluster, Duration.valueOf("1m")),
-                new HdfsEnvironment(new HdfsConfiguration(), fileSystemWrapper),
+                new HdfsEnvironment(new HdfsConfiguration(hiveClientConfig), fileSystemWrapper),
                 MoreExecutors.sameThreadExecutor(),
                 hiveClientConfig.getMaxSplitSize(),
                 100,
