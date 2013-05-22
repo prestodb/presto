@@ -355,7 +355,7 @@ public class HttpPageBufferClient
 
             // if sequenceId is after the end of this response, return and empty list
             int startOffset = Ints.saturatedCast(sequenceId - startingSequenceId);
-            if (startOffset > pages.size()) {
+            if (startOffset >= pages.size()) {
                 // most likely a duplicate of an old request
                 return ImmutableList.of();
             }
