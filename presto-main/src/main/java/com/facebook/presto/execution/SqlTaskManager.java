@@ -291,7 +291,7 @@ public class SqlTaskManager
                         Long.MAX_VALUE,
                         TaskState.CANCELED,
                         URI.create("unknown"),
-                        new SharedBufferInfo(QueueState.FINISHED, 0, ImmutableList.<BufferInfo>of()),
+                        new SharedBufferInfo(QueueState.FINISHED, 0, 0, ImmutableList.<BufferInfo>of()),
                         ImmutableSet.<PlanNodeId>of(),
                         new ExecutionStatsSnapshot(),
                         ImmutableList.<SplitExecutionStats>of(),
