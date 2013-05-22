@@ -200,7 +200,7 @@ public class HttpRemoteTask
                 TaskInfo.MIN_VERSION,
                 TaskState.PLANNED,
                 location,
-                new SharedBufferInfo(QueueState.OPEN, 0, bufferStates),
+                new SharedBufferInfo(QueueState.OPEN, 0, 0, bufferStates),
                 ImmutableSet.<PlanNodeId>of(),
                 new ExecutionStatsSnapshot(),
                 ImmutableList.<SplitExecutionStats>of(),
