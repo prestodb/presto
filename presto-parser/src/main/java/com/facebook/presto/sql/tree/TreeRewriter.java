@@ -183,6 +183,13 @@ public final class TreeRewriter<C>
         @Override
         protected Node visitQuerySpecification(QuerySpecification node, Context<C> context)
         {
+            if (!context.isDefaultRewrite()) {
+                Node result = nodeRewriter.rewriteQuerySpecification(node, context.get(), TreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
             Select select = rewrite(node.getSelect(), context.get());
 
             ImmutableList.Builder<Relation> from = ImmutableList.builder();
@@ -234,7 +241,7 @@ public final class TreeRewriter<C>
         public Node visitTableSubquery(TableSubquery node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {
-                Node result = nodeRewriter.rewriteSubquery(node, context.get(), TreeRewriter.this);
+                Node result = nodeRewriter.rewriteTableSubquery(node, context.get(), TreeRewriter.this);
                 if (result != null) {
                     return result;
                 }
