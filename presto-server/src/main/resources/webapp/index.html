@@ -75,8 +75,6 @@ function renderDoneQueries(queries)
 {
     var tbody = d3.select("#done").select("tbody");
 
-    queries = queries.sort(function (a, b) { return d3.descending(a.queryStats.createTime, b.queryStats.createTime); });
-
     var rows = tbody.selectAll("tr")
             .data(queries, function (query) { return query.queryId; });
 
@@ -127,13 +125,13 @@ function renderDoneQueries(queries)
                       return d;
                   });
 
+    tbody.selectAll("tr")
+            .sort(function (a, b) { return d3.descending(a.queryStats.endTime, b.queryStats.endTime); });
 }
 
 function renderRunningQueries(queries)
 {
     var tbody = d3.select("#running").select("tbody");
-
-    queries = queries.sort(function (a, b) { return d3.descending(a.queryStats.createTime, b.queryStats.createTime); });
 
     var rows = tbody.selectAll("tr")
             .data(queries, function (query) { return query.queryId; })
@@ -178,6 +176,9 @@ function renderRunningQueries(queries)
     cells.enter()
             .append("td")
             .text(function (d) { return d; });
+
+    tbody.selectAll("tr")
+            .sort(function (a, b) { return d3.descending(a.queryStats.createTime, b.queryStats.createTime); });
 }
 
 function allStages(stage)
