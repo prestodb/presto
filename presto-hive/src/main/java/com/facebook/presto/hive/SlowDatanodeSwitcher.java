@@ -25,11 +25,11 @@ import org.weakref.jmx.Nested;
 
 import javax.annotation.concurrent.NotThreadSafe;
 import javax.inject.Inject;
+
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -269,13 +269,6 @@ public class SlowDatanodeSwitcher
                 throws IOException
         {
             ((PositionedReadable) in).readFully(position, buffer, 0, buffer.length);
-        }
-
-        @Override
-        public List<ByteBuffer> readFullyScatterGather(long position, int length)
-                throws IOException
-        {
-            return ((PositionedReadable) in).readFullyScatterGather(position, length);
         }
 
         @Override

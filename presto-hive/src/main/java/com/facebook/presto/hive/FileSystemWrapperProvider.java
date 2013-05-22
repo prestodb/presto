@@ -3,7 +3,6 @@ package com.facebook.presto.hive;
 import com.google.common.base.Functions;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.LocatedFileStatus;
 
 import javax.inject.Inject;
 import javax.inject.Provider;
@@ -31,7 +30,7 @@ public class FileSystemWrapperProvider
         return new FileSystemWrapper(
                 slowDatanodeSwitcherEnabled && SlowDatanodeSwitcher.isSupported() ? slowDatanodeSwitcher.createFileSystemWrapper() : Functions.<FileSystem>identity(),
                 fileSystemCache.createPathWrapper(),
-                Functions.<FileStatus>identity(),
-                Functions.<LocatedFileStatus>identity());
+                Functions.<FileStatus>identity()
+        );
     }
 }

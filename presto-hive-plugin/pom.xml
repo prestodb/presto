@@ -18,6 +18,12 @@
             <artifactId>presto-hive</artifactId>
             <scope>runtime</scope>
         </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto.hadoop</groupId>
+            <artifactId>hadoop-cdh4</artifactId>
+            <scope>runtime</scope>
+        </dependency>
     </dependencies>
 
     <build>

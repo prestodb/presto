@@ -149,9 +149,15 @@
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.presto</groupId>
-                <artifactId>hive-presto-shaded</artifactId>
-                <version>0.5</version>
+                <groupId>com.facebook.presto.hadoop</groupId>
+                <artifactId>hadoop-cdh4</artifactId>
+                <version>0.1-SNAPSHOT</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto.hive</groupId>
+                <artifactId>hive-apache</artifactId>
+                <version>0.1-SNAPSHOT</version>
             </dependency>
 
             <dependency>

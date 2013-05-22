@@ -5,12 +5,9 @@ import com.google.common.base.Functions;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.PathFilter;
-import org.apache.hadoop.fs.RemoteIterator;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 
 /**
@@ -29,19 +26,17 @@ public class FileSystemWrapper
     private final Function<FileSystem, FileSystem> fileSystemFunction;
     private final Function<Path, Path> pathFunction;
     private final Function<FileStatus, FileStatus> fileStatusFunction;
-    private final Function<LocatedFileStatus, LocatedFileStatus> locatedFileStatusFunction;
 
-    public FileSystemWrapper(Function<FileSystem, FileSystem> fileSystemFunction, Function<Path, Path> pathFunction, Function<FileStatus, FileStatus> fileStatusFunction, Function<LocatedFileStatus, LocatedFileStatus> locatedFileStatusFunction)
+    public FileSystemWrapper(Function<FileSystem, FileSystem> fileSystemFunction, Function<Path, Path> pathFunction, Function<FileStatus, FileStatus> fileStatusFunction)
     {
         this.fileSystemFunction = fileSystemFunction;
         this.pathFunction = pathFunction;
         this.fileStatusFunction = fileStatusFunction;
-        this.locatedFileStatusFunction = locatedFileStatusFunction;
     }
 
     public static FileSystemWrapper identity()
     {
-        return new FileSystemWrapper(Functions.<FileSystem>identity(), Functions.<Path>identity(), Functions.<FileStatus>identity(), Functions.<LocatedFileStatus>identity());
+        return new FileSystemWrapper(Functions.<FileSystem>identity(), Functions.<Path>identity(), Functions.<FileStatus>identity());
     }
 
     public FileSystem wrap(FileSystem fileSystem)
@@ -57,12 +52,6 @@ public class FileSystemWrapper
     public FileStatus wrap(FileStatus fileStatus)
     {
         return wrapFileStatus(fileStatusFunction.apply(fileStatus));
-    }
-
-    public LocatedFileStatus wrap(LocatedFileStatus locatedFileStatus)
-            throws IOException
-    {
-        return wrapLocatedFileStatus(locatedFileStatusFunction.apply(locatedFileStatus));
     }
 
     private Path wrapPath(Path path)
@@ -108,19 +97,6 @@ public class FileSystemWrapper
         };
     }
 
-    private LocatedFileStatus wrapLocatedFileStatus(LocatedFileStatus locatedFileStatus)
-            throws IOException
-    {
-        return new ForwardingLocatedFileStatus(locatedFileStatus)
-        {
-            @Override
-            public Path getPath()
-            {
-                return wrap(super.getPath());
-            }
-        };
-    }
-
     private FileSystem wrapFileSystem(FileSystem fileSystem)
     {
         return new ForwardingFileSystem(fileSystem) {
@@ -147,48 +123,6 @@ public class FileSystemWrapper
                     throws IOException
             {
                 return wrapFileStatuses(super.listStatus(f));
-            }
-
-            @Override
-            public RemoteIterator<LocatedFileStatus> listLocatedStatus(Path f)
-                    throws FileNotFoundException, IOException
-            {
-                return new ForwardingRemoteIterator<LocatedFileStatus>(super.listLocatedStatus(f)) {
-                    @Override
-                    public LocatedFileStatus next()
-                            throws IOException
-                    {
-                        return wrap(super.next());
-                    }
-                };
-            }
-
-            @Override
-            public RemoteIterator<LocatedFileStatus> listLocatedStatus(Path f, PathFilter filter)
-                    throws FileNotFoundException, IOException
-            {
-                return new ForwardingRemoteIterator<LocatedFileStatus>(super.listLocatedStatus(f, filter)) {
-                    @Override
-                    public LocatedFileStatus next()
-                            throws IOException
-                    {
-                        return wrap(super.next());
-                    }
-                };
-            }
-
-            @Override
-            public RemoteIterator<Path> listCorruptFileBlocks(Path path)
-                    throws IOException
-            {
-                return new ForwardingRemoteIterator<Path>(super.listCorruptFileBlocks(path)) {
-                    @Override
-                    public Path next()
-                            throws IOException
-                    {
-                        return wrap(super.next());
-                    }
-                };
             }
 
             @Override
@@ -230,12 +164,6 @@ public class FileSystemWrapper
             public Path getHomeDirectory()
             {
                 return wrap(super.getHomeDirectory());
-            }
-
-            @Override
-            public Path getHomeDirectory(String userName)
-            {
-                return wrap(super.getHomeDirectory(userName));
             }
 
             @Override

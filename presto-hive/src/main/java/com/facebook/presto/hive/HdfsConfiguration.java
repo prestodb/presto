@@ -85,6 +85,11 @@ public class HdfsConfiguration
             // dfs client expects an empty list as an indication that the host->switch mapping for the given names are not known
             return ImmutableList.of();
         }
-    }
 
+        @Override
+        public void reloadCachedMappings()
+        {
+            // no-op
+        }
+    }
 }
