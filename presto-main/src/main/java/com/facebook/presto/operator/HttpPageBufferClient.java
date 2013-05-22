@@ -14,6 +14,7 @@ import com.google.common.util.concurrent.Futures;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.client.AsyncHttpClient.AsyncHttpResponseFuture;
 import io.airlift.http.client.HttpStatus;
+import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.Response;
 import io.airlift.http.client.ResponseHandler;
@@ -152,10 +153,10 @@ public class HttpPageBufferClient
             return;
         }
 
+        URI uri = HttpUriBuilder.uriBuilderFrom(location).appendPath(String.valueOf(sequenceId)).build();
         future = httpClient.executeAsync(prepareGet()
                 .setHeader(PRESTO_MAX_SIZE, maxResponseSize.toString())
-                .setHeader(PRESTO_PAGE_SEQUENCE_ID, String.valueOf(getSequenceId()))
-                .setUri(location).build(), new PageResponseHandler());
+                .setUri(uri).build(), new PageResponseHandler());
 
         Futures.addCallback(future, new FutureCallback<PagesResponse>()
         {
@@ -276,17 +277,16 @@ public class HttpPageBufferClient
         @Override
         public PagesResponse handle(Request request, Response response)
         {
-            // job is finished when we get a GONE response
-            if (response.getStatusCode() == HttpStatus.GONE.code()) {
-                String pageSequenceId = request.getHeader(PRESTO_PAGE_SEQUENCE_ID);
-                return PagesResponse.createClosedResponse(Integer.parseInt(pageSequenceId));
-            }
-
             String sequenceIdHeader = response.getHeader(PRESTO_PAGE_SEQUENCE_ID);
             if (sequenceIdHeader == null) {
                 throw new IllegalStateException("Expected " + PRESTO_PAGE_SEQUENCE_ID + " header");
             }
             long startingSequenceId = Long.parseLong(sequenceIdHeader);
+
+            // job is finished when we get a GONE response
+            if (response.getStatusCode() == HttpStatus.GONE.code()) {
+                return PagesResponse.createClosedResponse(startingSequenceId);
+            }
 
             // no content means no content was created within the wait period, but query is still ok
             if (response.getStatusCode() == HttpStatus.NO_CONTENT.code()) {

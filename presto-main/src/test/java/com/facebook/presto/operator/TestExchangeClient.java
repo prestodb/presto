@@ -96,7 +96,7 @@ public class TestExchangeClient
                 new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
                 executor);
 
-        URI location1 = URI.create("http://localhost:8081");
+        URI location1 = URI.create("http://localhost:8081/foo");
         processor.addPage(location1, createPage(1));
         processor.addPage(location1, createPage(2));
         processor.addPage(location1, createPage(3));
@@ -113,7 +113,7 @@ public class TestExchangeClient
         assertNull(exchangeClient.getNextPage(new Duration(10, TimeUnit.MILLISECONDS)));
         assertEquals(exchangeClient.isClosed(), false);
 
-        URI location2 = URI.create("http://localhost:8082");
+        URI location2 = URI.create("http://localhost:8082/bar");
         processor.addPage(location2, createPage(4));
         processor.addPage(location2, createPage(5));
         processor.addPage(location2, createPage(6));
