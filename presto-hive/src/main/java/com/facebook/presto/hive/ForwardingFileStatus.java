@@ -2,7 +2,6 @@ package com.facebook.presto.hive;
 
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.fs.FileStatus;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
 
@@ -24,12 +23,6 @@ public abstract class ForwardingFileStatus
     public long getLen()
     {
         return fileStatus.getLen();
-    }
-
-    @Override
-    public long getChildrenCount()
-    {
-        return fileStatus.getChildrenCount();
     }
 
     @Override
@@ -87,12 +80,6 @@ public abstract class ForwardingFileStatus
     }
 
     @Override
-    public void makeQualified(FileSystem fs)
-    {
-        fileStatus.makeQualified(fs);
-    }
-
-    @Override
     public void write(DataOutput out)
             throws IOException
     {
@@ -104,12 +91,6 @@ public abstract class ForwardingFileStatus
             throws IOException
     {
         fileStatus.readFields(in);
-    }
-
-    @Override
-    public boolean compareFull(Object o, boolean closedFile)
-    {
-        return fileStatus.compareFull(o, closedFile);
     }
 
     @Override

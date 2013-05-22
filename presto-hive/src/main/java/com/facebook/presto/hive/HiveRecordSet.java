@@ -1,5 +1,6 @@
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hadoop.HadoopNative;
 import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;

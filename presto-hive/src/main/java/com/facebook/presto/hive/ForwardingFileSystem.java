@@ -9,15 +9,11 @@ import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileChecksum;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.LocatedFileStatus;
-import org.apache.hadoop.fs.OpenFileInfo;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.PathFilter;
-import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.util.Progressable;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URI;
 
@@ -148,20 +144,6 @@ public abstract class ForwardingFileSystem
     }
 
     @Override
-    public FSDataOutputStream create(Path f, FsPermission permission, boolean overwrite, int bufferSize, short replication, long blockSize, int bytesPerChecksum, Progressable progress)
-            throws IOException
-    {
-        return fileSystem.create(f, permission, overwrite, bufferSize, replication, blockSize, bytesPerChecksum, progress);
-    }
-
-    @Override
-    public FSDataOutputStream create(Path f, FsPermission permission, boolean overwrite, int bufferSize, short replication, long blockSize, int bytesPerChecksum, Progressable progress, boolean forceSync)
-            throws IOException
-    {
-        return fileSystem.create(f, permission, overwrite, bufferSize, replication, blockSize, bytesPerChecksum, progress, forceSync);
-    }
-
-    @Override
     @Deprecated
     public FSDataOutputStream createNonRecursive(Path f, boolean overwrite, int bufferSize, short replication, long blockSize, Progressable progress)
             throws IOException
@@ -175,14 +157,6 @@ public abstract class ForwardingFileSystem
             throws IOException
     {
         return fileSystem.createNonRecursive(f, permission, overwrite, bufferSize, replication, blockSize, progress);
-    }
-
-    @Override
-    @Deprecated
-    public FSDataOutputStream createNonRecursive(Path f, FsPermission permission, boolean overwrite, int bufferSize, short replication, long blockSize, Progressable progress, boolean forceSync, boolean doParallelWrites)
-            throws IOException
-    {
-        return fileSystem.createNonRecursive(f, permission, overwrite, bufferSize, replication, blockSize, progress, forceSync, doParallelWrites);
     }
 
     @Override
@@ -229,20 +203,6 @@ public abstract class ForwardingFileSystem
     }
 
     @Override
-    public boolean hardLink(Path src, Path dst)
-            throws IOException
-    {
-        return fileSystem.hardLink(src, dst);
-    }
-
-    @Override
-    public String[] getHardLinkedFiles(Path src)
-            throws IOException
-    {
-        return fileSystem.getHardLinkedFiles(src);
-    }
-
-    @Override
     public boolean rename(Path src, Path dst)
             throws IOException
     {
@@ -262,20 +222,6 @@ public abstract class ForwardingFileSystem
             throws IOException
     {
         return fileSystem.delete(f, recursive);
-    }
-
-    @Override
-    public boolean delete(Path f, boolean recursive, boolean skipTrash)
-            throws IOException
-    {
-        return fileSystem.delete(f, recursive, skipTrash);
-    }
-
-    @Override
-    public boolean undelete(Path f, String userName)
-            throws IOException
-    {
-        return fileSystem.undelete(f, userName);
     }
 
     @Override
@@ -330,27 +276,6 @@ public abstract class ForwardingFileSystem
     }
 
     @Override
-    public RemoteIterator<LocatedFileStatus> listLocatedStatus(Path f)
-            throws FileNotFoundException, IOException
-    {
-        return fileSystem.listLocatedStatus(f);
-    }
-
-    @Override
-    public RemoteIterator<LocatedFileStatus> listLocatedStatus(Path f, PathFilter filter)
-            throws FileNotFoundException, IOException
-    {
-        return fileSystem.listLocatedStatus(f, filter);
-    }
-
-    @Override
-    public RemoteIterator<Path> listCorruptFileBlocks(Path path)
-            throws IOException
-    {
-        return fileSystem.listCorruptFileBlocks(path);
-    }
-
-    @Override
     public FileStatus[] listStatus(Path f, PathFilter filter)
             throws IOException
     {
@@ -389,12 +314,6 @@ public abstract class ForwardingFileSystem
     public Path getHomeDirectory()
     {
         return fileSystem.getHomeDirectory();
-    }
-
-    @Override
-    public Path getHomeDirectory(String userName)
-    {
-        return fileSystem.getHomeDirectory(userName);
     }
 
     @Override
@@ -462,25 +381,11 @@ public abstract class ForwardingFileSystem
     }
 
     @Override
-    public void copyFromLocalFile(boolean delSrc, boolean overwrite, boolean validate, Path[] srcs, Path dst)
-            throws IOException
-    {
-        fileSystem.copyFromLocalFile(delSrc, overwrite, validate, srcs, dst);
-    }
-
-    @Override
     @Deprecated
     public void copyFromLocalFile(boolean delSrc, boolean overwrite, Path src, Path dst)
             throws IOException
     {
         fileSystem.copyFromLocalFile(delSrc, overwrite, src, dst);
-    }
-
-    @Override
-    public void copyFromLocalFile(boolean delSrc, boolean overwrite, boolean validate, Path src, Path dst)
-            throws IOException
-    {
-        fileSystem.copyFromLocalFile(delSrc, overwrite, validate, src, dst);
     }
 
     @Override
@@ -507,13 +412,6 @@ public abstract class ForwardingFileSystem
     }
 
     @Override
-    public void copyToLocalFile(boolean delSrc, boolean validate, Path src, Path dst)
-            throws IOException
-    {
-        fileSystem.copyToLocalFile(delSrc, validate, src, dst);
-    }
-
-    @Override
     public Path startLocalOutput(Path fsOutputFile, Path tmpLocalFile)
             throws IOException
     {
@@ -532,13 +430,6 @@ public abstract class ForwardingFileSystem
             throws IOException
     {
         fileSystem.close();
-    }
-
-    @Override
-    public OpenFileInfo[] iterativeGetOpenFiles(Path prefix, int millis, String start)
-            throws IOException
-    {
-        return fileSystem.iterativeGetOpenFiles(prefix, millis, start);
     }
 
     @Override
@@ -583,22 +474,9 @@ public abstract class ForwardingFileSystem
     }
 
     @Override
-    public int getFileCrc(Path f)
-            throws IOException
-    {
-        return fileSystem.getFileCrc(f);
-    }
-
-    @Override
     public void setVerifyChecksum(boolean verifyChecksum)
     {
         fileSystem.setVerifyChecksum(verifyChecksum);
-    }
-
-    @Override
-    public void clearOsBuffer(boolean clearOsBuffer)
-    {
-        fileSystem.clearOsBuffer(clearOsBuffer);
     }
 
     @Override
