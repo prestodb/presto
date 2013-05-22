@@ -14,13 +14,19 @@ import java.util.List;
 public class SharedBufferInfo
 {
     private final QueueState state;
+    private final long masterSequenceId;
     private final long pagesAdded;
     private final List<BufferInfo> buffers;
 
     @JsonCreator
-    public SharedBufferInfo(@JsonProperty("state") QueueState state, @JsonProperty("pagesAdded") long pagesAdded, @JsonProperty("buffers") List<BufferInfo> buffers)
+    public SharedBufferInfo(
+            @JsonProperty("state") QueueState state,
+            @JsonProperty("masterSequenceId") long masterSequenceId,
+            @JsonProperty("pagesAdded") long pagesAdded,
+            @JsonProperty("buffers") List<BufferInfo> buffers)
     {
         this.state = state;
+        this.masterSequenceId = masterSequenceId;
         this.pagesAdded = pagesAdded;
         this.buffers = ImmutableList.copyOf(buffers);
     }
@@ -29,6 +35,12 @@ public class SharedBufferInfo
     public QueueState getState()
     {
         return state;
+    }
+
+    @JsonProperty
+    public long getMasterSequenceId()
+    {
+        return masterSequenceId;
     }
 
     @JsonProperty
@@ -46,7 +58,7 @@ public class SharedBufferInfo
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(state, pagesAdded, buffers);
+        return Objects.hashCode(state, pagesAdded, buffers, masterSequenceId);
     }
 
     @Override
@@ -61,7 +73,8 @@ public class SharedBufferInfo
         final SharedBufferInfo other = (SharedBufferInfo) obj;
         return Objects.equal(this.state, other.state) &&
                 Objects.equal(this.pagesAdded, other.pagesAdded) &&
-                Objects.equal(this.buffers, other.buffers);
+                Objects.equal(this.buffers, other.buffers) &&
+                Objects.equal(this.masterSequenceId, other.masterSequenceId);
     }
 
     @Override
@@ -71,6 +84,7 @@ public class SharedBufferInfo
                 .add("state", state)
                 .add("pagesAdded", pagesAdded)
                 .add("buffers", buffers)
+                .add("masterSequenceId", masterSequenceId)
                 .toString();
     }
 }

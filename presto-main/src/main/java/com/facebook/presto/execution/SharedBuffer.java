@@ -90,7 +90,7 @@ public class SharedBuffer
         for (NamedQueue namedQueue : namedQueues.values()) {
             infos.add(new BufferInfo(namedQueue.getQueueId(), namedQueue.isFinished(), namedQueue.size(), namedQueue.pagesRemoved()));
         }
-        return new SharedBufferInfo(state, pagesAdded.get(), infos.build());
+        return new SharedBufferInfo(state, masterSequenceId, pagesAdded.get(), infos.build());
     }
 
     public synchronized void addQueue(String queueId)
