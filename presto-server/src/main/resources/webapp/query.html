@@ -73,6 +73,10 @@
 
         <dt>Schema</dt>
         <dd id="sessionSchema"></dd>
+
+        <dt>Raw</dt>
+        <dd><a id="rawJson"></a></dd>
+
     </dl>
 
     <h2>Stages</h2>
@@ -114,6 +118,9 @@ d3.json('/v1/query/' + window.location.search.substring(1), function (query) {
     d3.select('#sessionSource').text(query.session.source);
     d3.select('#sessionCatalog').text(query.session.catalog);
     d3.select('#sessionSchema').text(query.session.schema);
+
+    d3.select('#rawJson').text(window.location.origin + "/v1/query/" + query.queryId + "?pretty");
+    d3.select('#rawJson').attr("href", window.location.origin + "/v1/query/" + query.queryId + "?pretty");
 
     hljs.initHighlighting();
 
