@@ -133,11 +133,11 @@ public class TaskResource
     private final RateLimiter limiter = RateLimiter.create(0.2);
 
     @GET
-    @Path("{taskId}/results/{outputId}")
+    @Path("{taskId}/results/{outputId}/{pageSequenceId}")
     @Produces(PrestoMediaTypes.PRESTO_PAGES)
     public Response getResults(@PathParam("taskId") TaskId taskId,
             @PathParam("outputId") String outputId,
-            @HeaderParam(PRESTO_PAGE_SEQUENCE_ID) long pageSequenceId)
+            @PathParam("pageSequenceId") long pageSequenceId)
             throws InterruptedException
     {
         checkNotNull(taskId, "taskId is null");
@@ -149,9 +149,11 @@ public class TaskResource
             if (!result.isEmpty()) {
                 GenericEntity<?> entity = new GenericEntity<>(result.getElements(), new TypeToken<List<Page>>() {}.getType());
                 return Response.ok(entity).header(PRESTO_PAGE_SEQUENCE_ID, result.getStartingSequenceId()).build();
-            } else if (result.isBufferClosed() || isDone(taskId)) {
-                return Response.status(Status.GONE).header(PRESTO_PAGE_SEQUENCE_ID, result.getElements()).build();
-            } else {
+            }
+            else if (result.isBufferClosed() || isDone(taskId)) {
+                return Response.status(Status.GONE).header(PRESTO_PAGE_SEQUENCE_ID, result.getStartingSequenceId()).build();
+            }
+            else {
                 return Response.status(Status.NO_CONTENT).header(PRESTO_PAGE_SEQUENCE_ID, result.getStartingSequenceId()).build();
             }
         }

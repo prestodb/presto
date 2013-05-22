@@ -70,23 +70,21 @@ public class MockExchangeRequestProcessor
         DataSize maxSize = DataSize.valueOf(request.getHeader(PrestoHeaders.PRESTO_MAX_SIZE));
         assertEquals(maxSize, expectedMaxSize);
 
-        // get page sequence id
-        assertTrue(!request.getHeaders().get(PRESTO_PAGE_SEQUENCE_ID).isEmpty());
-        long pageSequenceId = Long.parseLong(request.getHeader(PRESTO_PAGE_SEQUENCE_ID));
+        RequestLocation requestLocation = new RequestLocation(request.getUri());
+        URI location = requestLocation.getLocation();
 
-        URI location = request.getUri();
         BlockingQueue<Page> pages = pagesByLocation.get(location);
+        long sequenceId = sequenceIdByLocation.get(location);
         // if location is complete return GONE
         if (completeByLocation.get(location) == Boolean.TRUE && (pages == null || pages.isEmpty())) {
-            return new TestingResponse(HttpStatus.GONE, ImmutableListMultimap.<String, String>of(), new byte[0]);
+            return new TestingResponse(HttpStatus.GONE, ImmutableListMultimap.of(PRESTO_PAGE_SEQUENCE_ID, String.valueOf(sequenceId)), new byte[0]);
         }
         // if no pages, return NO CONTENT
         if (pages == null) {
-            return new TestingResponse(HttpStatus.NO_CONTENT, ImmutableListMultimap.<String, String>of(), new byte[0]);
+            return new TestingResponse(HttpStatus.NO_CONTENT, ImmutableListMultimap.of(PRESTO_PAGE_SEQUENCE_ID, String.valueOf(sequenceId)), new byte[0]);
         }
 
-        long sequenceId = sequenceIdByLocation.get(location);
-        assertEquals(pageSequenceId, sequenceId, "sequenceId");
+        assertEquals(requestLocation.getSequenceId(), sequenceId, "sequenceId");
 
         // wait for a single page to arrive
         Page page = null;
@@ -99,7 +97,7 @@ public class MockExchangeRequestProcessor
 
         // if no page, return NO CONTENT
         if (page == null) {
-            return new TestingResponse(HttpStatus.NO_CONTENT, ImmutableListMultimap.<String, String>of(), new byte[0]);
+            return new TestingResponse(HttpStatus.NO_CONTENT, ImmutableListMultimap.of(PRESTO_PAGE_SEQUENCE_ID, String.valueOf(sequenceId)), new byte[0]);
         }
 
         // add pages up to the size limit
@@ -127,5 +125,29 @@ public class MockExchangeRequestProcessor
                         PRESTO_PAGE_SEQUENCE_ID, String.valueOf(sequenceId)
                 ),
                 bytes);
+    }
+
+    private class RequestLocation
+    {
+        private final URI location;
+        private final long sequenceId;
+
+        public RequestLocation(URI uri)
+        {
+            String string = uri.toString();
+            int index = string.lastIndexOf('/');
+            location = URI.create(string.substring(0, index));
+            sequenceId = Long.parseLong(string.substring(index + 1));
+        }
+
+        public URI getLocation()
+        {
+            return location;
+        }
+
+        public long getSequenceId()
+        {
+            return sequenceId;
+        }
     }
 }
