@@ -55,20 +55,37 @@ statement returns [Statement value]
     ;
 
 query returns [Query value]
-    : ^(QUERY selectStmt) { $value = $selectStmt.value; }
+    : ^(QUERY queryExpr) { $value = $queryExpr.value; }
     ;
 
-selectStmt returns [Query value]
+queryExpr returns [Query value]
     : withClause?
-      selectClause
-      fromClause?
-      whereClause?
-      groupClause?
-      havingClause?
+      queryBody
       orderClause?
       limitClause?
         { $value = new Query(
             Optional.fromNullable($withClause.value),
+            $queryBody.value,
+            Objects.firstNonNull($orderClause.value, ImmutableList.<SortItem>of()),
+            Optional.fromNullable($limitClause.value));
+        }
+    ;
+
+queryBody returns [QueryBody value]
+    : querySpec              { $value = $querySpec.value; }
+    | tableSubquery          { $value = $tableSubquery.value; }
+    ;
+
+querySpec returns [QuerySpecification value]
+    : ^(QUERY_SPEC
+        selectClause
+        fromClause?
+        whereClause?
+        groupClause?
+        havingClause?
+        orderClause?
+        limitClause?)
+        { $value = new QuerySpecification(
             $selectClause.value,
             $fromClause.value,
             Optional.fromNullable($whereClause.value),
@@ -83,11 +100,14 @@ restrictedSelectStmt returns [Query value]
     : selectClause fromClause
         { $value = new Query(
             Optional.<With>absent(),
-            $selectClause.value,
-            $fromClause.value,
-            Optional.<Expression>absent(),
-            ImmutableList.<Expression>of(),
-            Optional.<Expression>absent(),
+            new QuerySpecification(
+                $selectClause.value,
+                $fromClause.value,
+                Optional.<Expression>absent(),
+                ImmutableList.<Expression>of(),
+                Optional.<Expression>absent(),
+                ImmutableList.<SortItem>of(),
+                Optional.<String>absent()),
             ImmutableList.<SortItem>of(),
             Optional.<String>absent());
         }

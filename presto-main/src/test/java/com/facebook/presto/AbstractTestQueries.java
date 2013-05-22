@@ -1344,6 +1344,34 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testSubqueryBody()
+            throws Exception
+    {
+        assertQuery("(SELECT orderkey, custkey FROM ORDERS)");
+    }
+
+    @Test
+    public void testSubqueryBodyOrderLimit()
+            throws Exception
+    {
+        assertQuery("(SELECT orderkey AS a, custkey AS b FROM ORDERS) ORDER BY a LIMIT 1");
+    }
+
+    @Test
+    public void testSubqueryBodyProjectedOrderby()
+            throws Exception
+    {
+        assertQuery("(SELECT orderkey, custkey FROM ORDERS) ORDER BY orderkey * -1");
+    }
+
+    @Test
+    public void testSubqueryBodyDoubleOrderby()
+            throws Exception
+    {
+        assertQuery("(SELECT orderkey, custkey FROM ORDERS ORDER BY custkey) ORDER BY orderkey");
+    }
+
+    @Test
     public void testNodeRoster()
             throws Exception
     {

@@ -19,7 +19,6 @@ public abstract class AstVisitor<R, C>
         return visitNode(node, context);
     }
 
-
     protected R visitCurrentTime(CurrentTime node, C context)
     {
         return visitExpression(node, context);
@@ -118,6 +117,16 @@ public abstract class AstVisitor<R, C>
     protected R visitRelation(Relation node, C context)
     {
         return visitNode(node, context);
+    }
+
+    protected R visitQueryBody(QueryBody node, C context)
+    {
+        return visitRelation(node, context);
+    }
+
+    protected R visitQuerySpecification(QuerySpecification node, C context)
+    {
+        return visitQueryBody(node, context);
     }
 
     protected R visitTimestampLiteral(TimestampLiteral node, C context)
@@ -252,7 +261,7 @@ public abstract class AstVisitor<R, C>
 
     protected R visitTableSubquery(TableSubquery node, C context)
     {
-        return visitRelation(node, context);
+        return visitQueryBody(node, context);
     }
 
     protected R visitAliasedRelation(AliasedRelation node, C context)
