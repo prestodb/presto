@@ -9,6 +9,7 @@ import com.facebook.presto.sql.planner.optimizations.CoalesceLimits;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PruneRedundantProjections;
 import com.facebook.presto.sql.planner.optimizations.PruneUnreferencedOutputs;
+import com.facebook.presto.sql.planner.optimizations.SetFlatteningOptimizer;
 import com.facebook.presto.sql.planner.optimizations.SimplifyExpressions;
 import com.facebook.presto.sql.planner.optimizations.TableAliasSelector;
 import com.facebook.presto.sql.planner.optimizations.UnaliasSymbolReferences;
@@ -16,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 
 import javax.inject.Provider;
-
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -38,7 +38,8 @@ public class PlanOptimizersFactory implements Provider<List<PlanOptimizer>>
                 new PruneUnreferencedOutputs(),
                 new UnaliasSymbolReferences(),
                 new PruneRedundantProjections(),
-                new CoalesceLimits());
+                new CoalesceLimits(),
+                new SetFlatteningOptimizer());
 
         this.optimizers = builder.build();
     }
