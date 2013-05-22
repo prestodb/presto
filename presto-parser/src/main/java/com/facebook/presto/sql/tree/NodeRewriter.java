@@ -37,6 +37,11 @@ public class NodeRewriter<C>
         return rewriteNode(node, context, treeRewriter);
     }
 
+    public Node rewriteQueryBody(QueryBody node, C context, TreeRewriter<C> treeRewriter)
+    {
+        return rewriteRelation(node, context, treeRewriter);
+    }
+
     public Node rewriteTable(Table node, C context, TreeRewriter<C> treeRewriter)
     {
         return rewriteRelation(node, context, treeRewriter);
@@ -47,9 +52,14 @@ public class NodeRewriter<C>
         return rewriteRelation(node, context, treeRewriter);
     }
 
-    public Node rewriteSubquery(TableSubquery node, C context, TreeRewriter<C> treeRewriter)
+    public Node rewriteTableSubquery(TableSubquery node, C context, TreeRewriter<C> treeRewriter)
     {
-        return rewriteRelation(node, context, treeRewriter);
+        return rewriteQueryBody(node, context, treeRewriter);
+    }
+
+    public Node rewriteQuerySpecification(QuerySpecification node, C context, TreeRewriter<C> treeRewriter)
+    {
+        return rewriteQueryBody(node, context, treeRewriter);
     }
 
     public Node rewriteExpression(Expression node, C context, TreeRewriter<C> treeRewriter)
