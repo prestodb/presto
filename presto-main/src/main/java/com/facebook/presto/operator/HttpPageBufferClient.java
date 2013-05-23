@@ -153,7 +153,7 @@ public class HttpPageBufferClient
             return;
         }
 
-        URI uri = HttpUriBuilder.uriBuilderFrom(location).appendPath(String.valueOf(sequenceId)).build();
+        final URI uri = HttpUriBuilder.uriBuilderFrom(location).appendPath(String.valueOf(sequenceId)).build();
         future = httpClient.executeAsync(prepareGet()
                 .setHeader(PRESTO_MAX_SIZE, maxResponseSize.toString())
                 .setUri(uri).build(), new PageResponseHandler());
@@ -202,6 +202,8 @@ public class HttpPageBufferClient
             @Override
             public void onFailure(Throwable t)
             {
+                log.debug("Request to %s failed %s", uri, t);
+
                 if (Thread.holdsLock(HttpPageBufferClient.this)) {
                     log.error("Can not handle callback while holding a lock on this");
                 }
@@ -367,6 +369,16 @@ public class HttpPageBufferClient
         public boolean isClientClosed()
         {
             return clientClosed;
+        }
+
+        @Override
+        public String toString()
+        {
+            return Objects.toStringHelper(this)
+                    .add("startingSequenceId", startingSequenceId)
+                    .add("pages.size()", pages.size())
+                    .add("clientClosed", clientClosed)
+                    .toString();
         }
     }
 }

@@ -134,7 +134,7 @@ public class MockTaskManager
     }
 
     @Override
-    public BufferResult getTaskResults(TaskId taskId, String outputId, long startingSequenceId, int maxPageCount, Duration maxWaitTime)
+    public BufferResult getTaskResults(TaskId taskId, String outputId, long startingSequenceId, DataSize maxSize, Duration maxWaitTime)
             throws InterruptedException
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
@@ -147,7 +147,7 @@ public class MockTaskManager
                 throw new NoSuchElementException();
             }
         }
-        return taskOutput.getResults(outputId, startingSequenceId, maxPageCount, maxWaitTime);
+        return taskOutput.getResults(outputId, startingSequenceId, maxSize, maxWaitTime);
     }
 
     @Override
