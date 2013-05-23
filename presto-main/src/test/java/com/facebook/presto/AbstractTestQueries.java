@@ -1522,6 +1522,35 @@ public abstract class AbstractTestQueries
         assertQueryOrdered("SELECT * FROM (SELECT orderkey FROM orders UNION SELECT custkey FROM orders UNION SELECT orderkey FROM orders) ORDER BY orderkey LIMIT 1000");
     }
 
+    @Test
+    public void testTableQuery()
+            throws Exception
+    {
+        assertQuery("TABLE orders", "SELECT * FROM orders");
+    }
+
+    @Test
+    public void testTableQueryOrderLimit()
+            throws Exception
+    {
+        assertQuery("TABLE orders ORDER BY orderkey LIMIT 10", "SELECT * FROM orders ORDER BY orderkey LIMIT 10", true);
+    }
+
+    @Test
+    public void testTableQueryInUnion()
+            throws Exception
+    {
+        assertQuery("(SELECT * FROM orders ORDER BY orderkey LIMIT 10) UNION ALL TABLE orders", "(SELECT * FROM orders ORDER BY orderkey LIMIT 10) UNION ALL SELECT * FROM orders");
+    }
+
+
+    @Test
+    public void testTableAsSubquery()
+            throws Exception
+    {
+        assertQuery("(TABLE orders) ORDER BY orderkey", "(SELECT * FROM orders) ORDER BY orderkey", true);
+    }
+
     @BeforeClass(alwaysRun = true)
     public void setupDatabase()
             throws Exception

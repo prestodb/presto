@@ -266,7 +266,7 @@ public abstract class AstVisitor<R, C>
 
     protected R visitTable(Table node, C context)
     {
-        return visitRelation(node, context);
+        return visitQueryBody(node, context);
     }
 
     protected R visitTableSubquery(TableSubquery node, C context)

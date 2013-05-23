@@ -184,10 +184,15 @@ queryTerm
 queryPrimary
     : simpleQuerySpec
     | tableSubquery
+    | explicitTable
     ;
 
 simpleQuerySpec
     : simpleQuery -> ^(QUERY_SPEC simpleQuery)
+    ;
+
+explicitTable
+    : TABLE table -> table
     ;
 
 simpleQuery
