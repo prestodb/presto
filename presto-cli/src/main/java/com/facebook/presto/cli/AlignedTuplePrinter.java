@@ -64,7 +64,7 @@ public class AlignedTuplePrinter
 
             for (int i = 0; i < columns; i++) {
                 if (i > 0) {
-                    writer.append('|');
+                    writer.append('\u2502');
                 }
                 String name = fieldNames.get(i);
                 writer.append(center(name, maxWidth[i], 1));
@@ -73,9 +73,9 @@ public class AlignedTuplePrinter
 
             for (int i = 0; i < columns; i++) {
                 if (i > 0) {
-                    writer.append('+');
+                    writer.append('\u253c');
                 }
-                writer.append(repeat("-", maxWidth[i] + 2));
+                writer.append(repeat("\u2500", maxWidth[i] + 2));
             }
             writer.append('\n');
         }
@@ -93,7 +93,7 @@ public class AlignedTuplePrinter
             for (int line = 0; line < maxLines; line++) {
                 for (int column = 0; column < columns; column++) {
                     if (column > 0) {
-                        writer.append('|');
+                        writer.append('\u2502');
                     }
                     String s = "";
                     if (columnLines.get(column).size() > line) {
