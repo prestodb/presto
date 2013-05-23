@@ -83,6 +83,14 @@
             <artifactId>jline</artifactId>
         </dependency>
 
+        <!-- we need this dependency here, but jline bundles jansi without shading the classes :/
+        <dependency>
+            <groupId>org.fusesource.jansi</groupId>
+            <artifactId>jansi</artifactId>
+            <version>1.7</version>
+        </dependency>
+        -->
+
         <dependency>
             <groupId>net.sf.opencsv</groupId>
             <artifactId>opencsv</artifactId>
