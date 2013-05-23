@@ -239,18 +239,20 @@ public class SqlTaskManager
     }
 
     @Override
-    public BufferResult getTaskResults(TaskId taskId, String outputName, long startingSequenceId, int maxPageCount, Duration maxWaitTime)
+    public BufferResult getTaskResults(TaskId taskId, String outputName, long startingSequenceId, DataSize maxSize, Duration maxWaitTime)
             throws InterruptedException
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(outputName, "outputName is null");
+        Preconditions.checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
+        Preconditions.checkNotNull(maxWaitTime, "maxWaitTime is null");
 
         TaskExecution taskExecution = tasks.get(taskId);
         if (taskExecution == null) {
             throw new NoSuchElementException("Unknown query task " + taskId);
         }
         taskExecution.recordHeartbeat();
-        return taskExecution.getResults(outputName, startingSequenceId, maxPageCount, maxWaitTime);
+        return taskExecution.getResults(outputName, startingSequenceId, maxSize, maxWaitTime);
     }
 
     @Override

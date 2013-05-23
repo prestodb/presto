@@ -113,7 +113,7 @@ public class TestQueryResourceServer
         }
     }
 
-    @Test
+    @Test(enabled = false)
     public void testQuery()
             throws Exception
     {

@@ -376,10 +376,14 @@ public class SqlTaskExecution
     }
 
     @Override
-    public BufferResult getResults(String outputId, long startingSequenceId, int maxPageCount, Duration maxWait)
+    public BufferResult getResults(String outputId, long startingSequenceId, DataSize maxSize, Duration maxWait)
             throws InterruptedException
     {
-        return taskOutput.getResults(outputId, startingSequenceId, maxPageCount, maxWait);
+        Preconditions.checkNotNull(outputId, "outputId is null");
+        Preconditions.checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
+        Preconditions.checkNotNull(maxWait, "maxWait is null");
+
+        return taskOutput.getResults(outputId, startingSequenceId, maxSize, maxWait);
     }
 
     @Override
