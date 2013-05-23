@@ -44,7 +44,7 @@ public class NodeRewriter<C>
 
     public Node rewriteTable(Table node, C context, TreeRewriter<C> treeRewriter)
     {
-        return rewriteRelation(node, context, treeRewriter);
+        return rewriteQueryBody(node, context, treeRewriter);
     }
 
     public Node rewriteAliasedRelation(AliasedRelation node, C context, TreeRewriter<C> treeRewriter)

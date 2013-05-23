@@ -75,6 +75,7 @@ queryBody returns [QueryBody value]
     : querySpec             { $value = $querySpec.value; }
     | setOp                 { $value = $setOp.value; }
     | tableSubquery         { $value = $tableSubquery.value; }
+    | namedTable            { $value = $namedTable.value; }
     ;
 
 querySpec returns [QuerySpecification value]
