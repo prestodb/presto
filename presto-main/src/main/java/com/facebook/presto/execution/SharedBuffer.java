@@ -17,6 +17,7 @@ import io.airlift.units.Duration;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.NotThreadSafe;
 import javax.annotation.concurrent.ThreadSafe;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -195,10 +196,11 @@ public class SharedBuffer
         updateState();
     }
 
-    public synchronized BufferResult get(String outputId, long startingSequenceId, int maxCount, Duration maxWait)
+    public synchronized BufferResult get(String outputId, long startingSequenceId, DataSize maxSize, Duration maxWait)
             throws InterruptedException
     {
         Preconditions.checkNotNull(outputId, "outputId is null");
+        Preconditions.checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
         Preconditions.checkNotNull(maxWait, "maxWait is null");
 
         NamedQueue namedQueue = namedQueues.get(outputId);
@@ -227,7 +229,7 @@ public class SharedBuffer
         openQueuesBySequenceId.remove(namedQueue);
 
         // get the pages
-        BufferResult results = namedQueue.getPages(startingSequenceId, maxCount);
+        BufferResult results = namedQueue.getPages(startingSequenceId, maxSize);
 
         // only add back the queue if it is still open
         if (!closed.get() || !results.isBufferClosed()) {
@@ -396,9 +398,10 @@ public class SharedBuffer
             }
         }
 
-        public BufferResult getPages(long startingSequenceId, int maxPageCount)
+        public BufferResult getPages(long startingSequenceId, DataSize maxSize)
         {
             Preconditions.checkState(Thread.holdsLock(SharedBuffer.this), "Thread must hold a lock on the %s", SharedBuffer.class.getSimpleName());
+            Preconditions.checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
 
             acknowledge(startingSequenceId);
 
@@ -411,7 +414,20 @@ public class SharedBuffer
                 return emptyResults(sequenceId, false);
             }
 
-            List<Page> pages = masterQueue.subList(listOffset, Math.min(listOffset + maxPageCount, masterQueue.size()));
+            long maxBytes = maxSize.toBytes();
+
+            List<Page> pages = new ArrayList<>();
+            long bytes = 0;
+            while (listOffset < masterQueue.size()) {
+                Page page = masterQueue.get(listOffset++);
+                bytes += page.getDataSize().toBytes();
+                // break (and don't add) if this page would exceed the limit
+                if (!pages.isEmpty() && bytes > maxBytes) {
+                    break;
+                }
+                pages.add(page);
+            }
+
             return new BufferResult(startingSequenceId, false, ImmutableList.copyOf(pages));
         }
 

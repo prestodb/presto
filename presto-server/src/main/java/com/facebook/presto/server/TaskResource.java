@@ -15,6 +15,8 @@ import com.google.common.base.Throwables;
 import com.google.common.reflect.TypeToken;
 import com.google.common.util.concurrent.RateLimiter;
 import io.airlift.log.Logger;
+import io.airlift.units.DataSize;
+import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 
 import javax.inject.Inject;
@@ -47,7 +49,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 @Path("/v1/task")
 public class TaskResource
 {
-    private static final int DEFAULT_MAX_PAGE_COUNT = 10;
+    private static final DataSize DEFAULT_MAX_SIZE = new DataSize(10, Unit.MEGABYTE);
     private static final Duration DEFAULT_MAX_WAIT_TIME = new Duration(1, SECONDS);
 
     private final TaskManager taskManager;
@@ -145,7 +147,7 @@ public class TaskResource
 
         // todo we need a much better way to determine if a task is unknown (e.g. not scheduled yet), done, or there is current no more data
         try {
-            BufferResult result = taskManager.getTaskResults(taskId, outputId, pageSequenceId, DEFAULT_MAX_PAGE_COUNT, DEFAULT_MAX_WAIT_TIME);
+            BufferResult result = taskManager.getTaskResults(taskId, outputId, pageSequenceId, DEFAULT_MAX_SIZE, DEFAULT_MAX_WAIT_TIME);
             if (!result.isEmpty()) {
                 GenericEntity<?> entity = new GenericEntity<>(result.getElements(), new TypeToken<List<Page>>() {}.getType());
                 return Response.ok(entity).header(PRESTO_PAGE_SEQUENCE_ID, result.getStartingSequenceId()).build();

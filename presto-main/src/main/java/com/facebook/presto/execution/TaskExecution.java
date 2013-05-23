@@ -5,6 +5,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.TaskSource;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import java.util.List;
@@ -26,7 +27,7 @@ public interface TaskExecution
 
     void fail(Throwable cause);
 
-    BufferResult getResults(String outputId, long startingSequenceId, int maxPageCount, Duration maxWait)
+    BufferResult getResults(String outputId, long startingSequenceId, DataSize maxSize, Duration maxWait)
             throws InterruptedException;
 
     void abortResults(String outputId);
