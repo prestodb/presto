@@ -29,7 +29,7 @@ public class TestHiveClientSplitIteratorBackPressure
         HiveClient client = new HiveClient(
                 new HiveConnectorId(CONNECTOR_ID),
                 new CachingHiveMetastore(hiveCluster, Duration.valueOf("1m")),
-                new HdfsEnvironment(),
+                new HdfsEnvironment(new HdfsConfiguration(hiveClientConfig), FileSystemWrapper.identity()),
                 MoreExecutors.sameThreadExecutor(),
                 hiveClientConfig.getMaxSplitSize(),
                 1,
