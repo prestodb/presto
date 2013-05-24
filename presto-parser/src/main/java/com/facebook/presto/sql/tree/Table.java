@@ -3,7 +3,7 @@ package com.facebook.presto.sql.tree;
 import com.google.common.base.Objects;
 
 public class Table
-        extends Relation
+        extends QueryBody
 {
     private final QualifiedName name;
 

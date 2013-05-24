@@ -175,14 +175,14 @@ public abstract class AbstractTestQueries
     public void testDistinctWithOrderBy()
             throws Exception
     {
-        assertQuery("SELECT DISTINCT custkey FROM orders ORDER BY custkey LIMIT 10");
+        assertQueryOrdered("SELECT DISTINCT custkey FROM orders ORDER BY custkey LIMIT 10");
     }
 
     @Test(expectedExceptions = Exception.class, expectedExceptionsMessageRegExp = "For SELECT DISTINCT, ORDER BY expressions must appear in select list")
     public void testDistinctWithOrderByNotInSelect()
             throws Exception
     {
-        assertQuery("SELECT DISTINCT custkey FROM orders ORDER BY orderkey LIMIT 10");
+        assertQueryOrdered("SELECT DISTINCT custkey FROM orders ORDER BY orderkey LIMIT 10");
     }
 
     @Test
@@ -738,7 +738,7 @@ public abstract class AbstractTestQueries
     public void testOrderByMultipleFields()
             throws Exception
     {
-        assertQuery("SELECT orderkey, orderstatus FROM orders ORDER BY custkey DESC, orderstatus");
+        assertQueryOrdered("SELECT custkey, orderstatus FROM orders ORDER BY custkey DESC, orderstatus");
     }
 
     @Test
@@ -1326,7 +1326,7 @@ public abstract class AbstractTestQueries
     public void testCaseInsensitiveOutputAliasInOrderBy()
             throws Exception
     {
-        assertQuery("SELECT orderkey X FROM orders ORDER BY x");
+        assertQueryOrdered("SELECT orderkey X FROM orders ORDER BY x");
     }
 
     @Test
@@ -1354,21 +1354,21 @@ public abstract class AbstractTestQueries
     public void testSubqueryBodyOrderLimit()
             throws Exception
     {
-        assertQuery("(SELECT orderkey AS a, custkey AS b FROM ORDERS) ORDER BY a LIMIT 1");
+        assertQueryOrdered("(SELECT orderkey AS a, custkey AS b FROM ORDERS) ORDER BY a LIMIT 1");
     }
 
     @Test
     public void testSubqueryBodyProjectedOrderby()
             throws Exception
     {
-        assertQuery("(SELECT orderkey, custkey FROM ORDERS) ORDER BY orderkey * -1");
+        assertQueryOrdered("(SELECT orderkey, custkey FROM ORDERS) ORDER BY orderkey * -1");
     }
 
     @Test
     public void testSubqueryBodyDoubleOrderby()
             throws Exception
     {
-        assertQuery("(SELECT orderkey, custkey FROM ORDERS ORDER BY custkey) ORDER BY orderkey");
+        assertQueryOrdered("(SELECT orderkey, custkey FROM ORDERS ORDER BY custkey) ORDER BY orderkey");
     }
 
     @Test
@@ -1475,16 +1475,80 @@ public abstract class AbstractTestQueries
     public void testTopNByMultipleFields()
             throws Exception
     {
-        assertQuery("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY orderkey ASC, custkey ASC LIMIT 10");
-        assertQuery("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY orderkey ASC, custkey DESC LIMIT 10");
-        assertQuery("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY orderkey DESC, custkey ASC LIMIT 10");
-        assertQuery("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY orderkey DESC, custkey DESC LIMIT 10");
+        assertQueryOrdered("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY orderkey ASC, custkey ASC LIMIT 10");
+        assertQueryOrdered("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY orderkey ASC, custkey DESC LIMIT 10");
+        assertQueryOrdered("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY orderkey DESC, custkey ASC LIMIT 10");
+        assertQueryOrdered("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY orderkey DESC, custkey DESC LIMIT 10");
 
         // now try with order by fields swapped
-        assertQuery("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY custkey ASC, orderkey ASC LIMIT 10");
-        assertQuery("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY custkey ASC, orderkey DESC LIMIT 10");
-        assertQuery("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY custkey DESC, orderkey ASC LIMIT 10");
-        assertQuery("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY custkey DESC, orderkey DESC LIMIT 10");
+        assertQueryOrdered("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY custkey ASC, orderkey ASC LIMIT 10");
+        assertQueryOrdered("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY custkey ASC, orderkey DESC LIMIT 10");
+        assertQueryOrdered("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY custkey DESC, orderkey ASC LIMIT 10");
+        assertQueryOrdered("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY custkey DESC, orderkey DESC LIMIT 10");
+    }
+
+    @Test
+    public void testUnion()
+            throws Exception
+    {
+        assertQuery("SELECT orderkey FROM orders UNION SELECT custkey FROM orders");
+    }
+
+    @Test
+    public void testUnionDistinct()
+            throws Exception
+    {
+        assertQuery("SELECT orderkey FROM orders UNION DISTINCT SELECT custkey FROM orders");
+    }
+
+    @Test
+    public void testUnionAll()
+            throws Exception
+    {
+        assertQuery("SELECT orderkey FROM orders UNION ALL SELECT custkey FROM orders");
+    }
+
+    @Test
+    public void testChainedUnionsWithOrder()
+            throws Exception
+    {
+        assertQueryOrdered("SELECT orderkey FROM orders UNION (SELECT custkey FROM orders UNION SELECT linenumber FROM lineitem) UNION ALL SELECT orderkey FROM lineitem ORDER BY orderkey");
+    }
+
+    @Test
+    public void testSubqueryUnion()
+            throws Exception
+    {
+        assertQueryOrdered("SELECT * FROM (SELECT orderkey FROM orders UNION SELECT custkey FROM orders UNION SELECT orderkey FROM orders) ORDER BY orderkey LIMIT 1000");
+    }
+
+    @Test
+    public void testTableQuery()
+            throws Exception
+    {
+        assertQuery("TABLE orders", "SELECT * FROM orders");
+    }
+
+    @Test
+    public void testTableQueryOrderLimit()
+            throws Exception
+    {
+        assertQuery("TABLE orders ORDER BY orderkey LIMIT 10", "SELECT * FROM orders ORDER BY orderkey LIMIT 10", true);
+    }
+
+    @Test
+    public void testTableQueryInUnion()
+            throws Exception
+    {
+        assertQuery("(SELECT * FROM orders ORDER BY orderkey LIMIT 10) UNION ALL TABLE orders", "(SELECT * FROM orders ORDER BY orderkey LIMIT 10) UNION ALL SELECT * FROM orders");
+    }
+
+
+    @Test
+    public void testTableAsSubquery()
+            throws Exception
+    {
+        assertQuery("(TABLE orders) ORDER BY orderkey", "(SELECT * FROM orders) ORDER BY orderkey", true);
     }
 
     @BeforeClass(alwaysRun = true)

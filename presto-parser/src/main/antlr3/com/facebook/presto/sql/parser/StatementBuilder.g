@@ -72,8 +72,10 @@ queryExpr returns [Query value]
     ;
 
 queryBody returns [QueryBody value]
-    : querySpec              { $value = $querySpec.value; }
-    | tableSubquery          { $value = $tableSubquery.value; }
+    : querySpec             { $value = $querySpec.value; }
+    | setOperation          { $value = $setOperation.value; }
+    | tableSubquery         { $value = $tableSubquery.value; }
+    | namedTable            { $value = $namedTable.value; }
     ;
 
 querySpec returns [QuerySpecification value]
@@ -94,6 +96,12 @@ querySpec returns [QuerySpecification value]
             Objects.firstNonNull($orderClause.value, ImmutableList.<SortItem>of()),
             Optional.fromNullable($limitClause.value));
         }
+    ;
+
+setOperation returns [SetOperation value]
+    : ^(UNION q1=queryBody q2=queryBody d=distinct[true])       { $value = new Union(ImmutableList.<Relation>of($q1.value, $q2.value), $d.value); }
+    | ^(INTERSECT q1=queryBody q2=queryBody d=distinct[true])   { $value = new Intersect(ImmutableList.<Relation>of($q1.value, $q2.value), $d.value); }
+    | ^(EXCEPT q1=queryBody q2=queryBody d=distinct[true])      { $value = new Except($q1.value, $q2.value, $d.value); }
     ;
 
 restrictedSelectStmt returns [Query value]
@@ -131,12 +139,13 @@ withQuery returns [WithQuery value]
     ;
 
 selectClause returns [Select value]
-    : ^(SELECT d=distinct s=selectList) { $value = new Select($d.value, $s.value); }
+    : ^(SELECT d=distinct[false] s=selectList) { $value = new Select($d.value, $s.value); }
     ;
 
-distinct returns [boolean value]
-    : DISTINCT { $value = true; }
-    |          { $value = false; }
+distinct[boolean defaultValue] returns [boolean value]
+    : DISTINCT  { $value = true; }
+    | ALL       { $value = false; }
+    |           { $value = $defaultValue; }
     ;
 
 selectList returns [List<Expression> value = new ArrayList<>()]
@@ -301,7 +310,7 @@ decimal returns [String value]
     ;
 
 functionCall returns [FunctionCall value]
-    : ^(FUNCTION_CALL n=qname w=window? d=distinct a=exprList) { $value = new FunctionCall($n.value, $w.value, $d.value, $a.value); }
+    : ^(FUNCTION_CALL n=qname w=window? d=distinct[false] a=exprList) { $value = new FunctionCall($n.value, $w.value, $d.value, $a.value); }
     ;
 
 window returns [Window value]

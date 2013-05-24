@@ -15,6 +15,7 @@ import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
+import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -215,6 +216,19 @@ public class PlanSanityChecker
         {
             PlanNode source = node.getSource();
             source.accept(this, context); // visit child
+
+            verifyUniqueId(node);
+
+            return null;
+        }
+
+        @Override
+        public Void visitUnion(UnionNode node, Void context)
+        {
+            for (PlanNode planNode : node.getSources()) {
+                Preconditions.checkArgument(planNode.getOutputSymbols().size() == node.getOutputSymbols().size(), "Each UNION query must have the same number of columns");
+                planNode.accept(this, context); // visit child
+            }
 
             verifyUniqueId(node);
 

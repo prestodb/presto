@@ -1,6 +1,7 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.google.common.base.Function;
+import com.google.common.collect.ImmutableList;
 
 public final class PlanRewriter<C>
 {
@@ -279,6 +280,33 @@ public final class PlanRewriter<C>
 
             if (source != node.getSource()) {
                 return new SortNode(node.getId(), source, node.getOrderBy(), node.getOrderings());
+            }
+
+            return node;
+        }
+
+        @Override
+        public PlanNode visitUnion(UnionNode node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                PlanNode result = nodeRewriter.rewriteUnion(node, context.get(), PlanRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            boolean modified = false;
+            ImmutableList.Builder<PlanNode> builder = ImmutableList.builder();
+            for (PlanNode subPlan : node.getSources()) {
+                PlanNode rewriteSubPlan = rewrite(subPlan, context.get());
+                if (rewriteSubPlan != subPlan) {
+                    modified = true;
+                }
+                builder.add(rewriteSubPlan);
+            }
+
+            if (modified) {
+                return new UnionNode(node.getId(), builder.build(), node.getOutputSymbols());
             }
 
             return node;
