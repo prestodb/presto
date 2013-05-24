@@ -6,6 +6,7 @@ import com.facebook.presto.operator.aggregation.DoubleStdDevAggregation;
 import com.facebook.presto.operator.aggregation.DoubleVarianceAggregation;
 import com.facebook.presto.operator.aggregation.LongStdDevAggregation;
 import com.facebook.presto.operator.aggregation.LongVarianceAggregation;
+import com.facebook.presto.operator.scalar.ColorFunctions;
 import com.facebook.presto.operator.scalar.JsonFunctions;
 import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.operator.scalar.ScalarFunction;
@@ -110,6 +111,7 @@ public class FunctionRegistry
                 .scalar(MathFunctions.class)
                 .scalar(UnixTimeFunctions.class)
                 .scalar(JsonFunctions.class)
+                .scalar(ColorFunctions.class)
                 .build();
 
         functionsByName = Multimaps.index(functions, FunctionInfo.nameGetter());
