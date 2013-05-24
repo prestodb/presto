@@ -37,7 +37,6 @@ public class HttpLocationFactory
     }
 
     @Override
-
     public URI createQueryLocation(QueryId queryId)
     {
         Preconditions.checkNotNull(queryId, "queryId is null");
