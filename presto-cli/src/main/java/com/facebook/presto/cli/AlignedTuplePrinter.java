@@ -2,6 +2,7 @@ package com.facebook.presto.cli;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import org.fusesource.jansi.AnsiString;
 
 import java.io.IOException;
 import java.io.Writer;
@@ -63,7 +64,7 @@ public class AlignedTuplePrinter
 
             for (int i = 0; i < columns; i++) {
                 if (i > 0) {
-                    writer.append('|');
+                    writer.append('\u2502');
                 }
                 String name = fieldNames.get(i);
                 writer.append(center(name, maxWidth[i], 1));
@@ -72,9 +73,9 @@ public class AlignedTuplePrinter
 
             for (int i = 0; i < columns; i++) {
                 if (i > 0) {
-                    writer.append('+');
+                    writer.append('\u253c');
                 }
-                writer.append(repeat("-", maxWidth[i] + 2));
+                writer.append(repeat("\u2500", maxWidth[i] + 2));
             }
             writer.append('\n');
         }
@@ -92,7 +93,7 @@ public class AlignedTuplePrinter
             for (int line = 0; line < maxLines; line++) {
                 for (int column = 0; column < columns; column++) {
                     if (column > 0) {
-                        writer.append('|');
+                        writer.append('\u2502');
                     }
                     String s = "";
                     if (columnLines.get(column).size() > line) {
@@ -119,16 +120,19 @@ public class AlignedTuplePrinter
 
     private static String center(String s, int maxWidth, int padding)
     {
-        checkState(s.length() <= maxWidth, "string length is greater than max width");
-        int left = (maxWidth - s.length()) / 2;
-        int right = maxWidth - (left + s.length());
+        AnsiString ansiString = new AnsiString(s);
+
+        checkState(ansiString.length() <= maxWidth, "string length is greater than max width");
+        int left = (maxWidth - ansiString.length()) / 2;
+        int right = maxWidth - (left + ansiString.length());
         return repeat(" ", left + padding) + s + repeat(" ", right + padding);
     }
 
     private static String align(String s, int maxWidth, int padding, boolean right)
     {
-        checkState(s.length() <= maxWidth, "string length is greater than max width");
-        String large = repeat(" ", (maxWidth - s.length()) + padding);
+        AnsiString ansiString = new AnsiString(s);
+        checkState(ansiString.length() <= maxWidth, "string length is greater than max width");
+        String large = repeat(" ", (maxWidth - ansiString.length()) + padding);
         String small = repeat(" ", padding);
         return right ? (large + s + small) : (small + s + large);
     }
@@ -137,7 +141,7 @@ public class AlignedTuplePrinter
     {
         int n = 0;
         for (String line : LINE_SPLITTER.split(s)) {
-            n = max(n, line.length());
+            n = max(n, new AnsiString(line).length());
         }
         return n;
     }
