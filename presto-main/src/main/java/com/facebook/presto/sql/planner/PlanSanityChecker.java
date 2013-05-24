@@ -226,6 +226,7 @@ public class PlanSanityChecker
         public Void visitUnion(UnionNode node, Void context)
         {
             for (PlanNode planNode : node.getSources()) {
+                Preconditions.checkArgument(planNode.getOutputSymbols().size() == node.getOutputSymbols().size(), "Each UNION query must have the same number of columns");
                 planNode.accept(this, context); // visit child
             }
 

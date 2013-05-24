@@ -1,6 +1,8 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
@@ -12,7 +14,9 @@ public class Intersect
 
     public Intersect(List<Relation> relations, boolean distinct)
     {
-        this.relations = relations;
+        Preconditions.checkNotNull(relations, "relations is null");
+
+        this.relations = ImmutableList.copyOf(relations);
         this.distinct = distinct;
     }
 
@@ -29,7 +33,7 @@ public class Intersect
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException("INTERSECT not yet implemented");
     }
 
     @Override
@@ -42,25 +46,17 @@ public class Intersect
     }
 
     @Override
-    public boolean equals(Object o)
+    public boolean equals(Object obj)
     {
-        if (this == o) {
+        if (this == obj) {
             return true;
         }
-        if (o == null || getClass() != o.getClass()) {
+        if ((obj == null) || (getClass() != obj.getClass())) {
             return false;
         }
-
-        Intersect intersect = (Intersect) o;
-
-        if (!relations.equals(intersect.relations)) {
-            return false;
-        }
-        if (distinct != intersect.distinct) {
-            return false;
-        }
-
-        return true;
+        Intersect o = (Intersect) obj;
+        return Objects.equal(relations, o.relations) &&
+                Objects.equal(distinct, o.distinct);
     }
 
     @Override

@@ -3,6 +3,7 @@ package com.facebook.presto.sql.planner.plan;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.Immutable;
 import java.util.List;
@@ -28,12 +29,12 @@ public class UnionNode
         checkArgument(!sources.isEmpty(), "Must have at least one source");
         checkNotNull(outputSymbols, "outputSymbols is null");
 
-        for (PlanNode source : sources) {
-            checkArgument(source.getOutputSymbols().size() == outputSymbols.size(), "Must have same number of output symbols as sources");
-        }
+        this.sources = ImmutableList.copyOf(sources);
+        this.outputSymbols = ImmutableList.copyOf(outputSymbols);
 
-        this.sources = sources;
-        this.outputSymbols = outputSymbols;
+        for (PlanNode source : this.sources) {
+            checkArgument(source.getOutputSymbols().size() == this.outputSymbols.size(), "Must have same number of output symbols as sources");
+        }
     }
 
     @Override

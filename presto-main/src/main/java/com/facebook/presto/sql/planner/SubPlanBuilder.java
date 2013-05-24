@@ -66,6 +66,12 @@ public class SubPlanBuilder
         return this;
     }
 
+    public SubPlanBuilder setUnpartitionedSource()
+    {
+        this.partitionedSource = null;
+        return this;
+    }
+
     public List<SubPlan> getChildren()
     {
         return children;
