@@ -129,6 +129,40 @@ public class ColorFunctions
         return render(Slices.copiedBuffer(Double.toString(value), Charsets.UTF_8), color);
     }
 
+    @ScalarFunction
+    public static Slice bar(double percent, long width)
+    {
+        return bar(percent, width, rgb(255, 0, 0), rgb(0, 255, 0));
+    }
+
+    @ScalarFunction
+    public static Slice bar(double percent, long width, long lowColor, long highColor)
+    {
+        long count = (int) (percent * width);
+        count = Math.min(width, count);
+        count = Math.max(0, count);
+
+        StringBuilder builder = new StringBuilder();
+
+        for (int i = 0; i < count; i++) {
+            float fraction = (float) (i * 1.0 / (width - 1));
+
+            int color = interpolate(fraction, lowColor, highColor);
+
+            builder.append(ansiColorEscape(color))
+                    .append('\u2588');
+
+        }
+        // reset
+        builder.append(ANSI_RESET);
+
+        // pad to force column to be the requested width
+        for (long i = count; i < width; ++i) {
+            builder.append(' ');
+        }
+
+        return Slices.copiedBuffer(builder.toString(), Charsets.UTF_8);
+    }
 
     private static int interpolate(float fraction, long lowRgb, long highRgb)
     {
