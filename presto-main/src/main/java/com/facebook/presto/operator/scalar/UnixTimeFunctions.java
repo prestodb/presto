@@ -233,7 +233,7 @@ public class UnixTimeFunctions
         return MILLISECONDS.toSeconds(millis);
     }
 
-    private static DateTimeFormatter createDateTimeFormatter(Slice format)
+    public static DateTimeFormatter createDateTimeFormatter(Slice format)
     {
         DateTimeFormatterBuilder builder = new DateTimeFormatterBuilder();
 
@@ -349,6 +349,6 @@ public class UnixTimeFunctions
             }
         }
 
-        return builder.toFormatter().withZoneUTC();
+        return builder.toFormatter();
     }
 }
