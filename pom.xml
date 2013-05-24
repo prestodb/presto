@@ -151,13 +151,13 @@
             <dependency>
                 <groupId>com.facebook.presto.hadoop</groupId>
                 <artifactId>hadoop-cdh4</artifactId>
-                <version>0.1-SNAPSHOT</version>
+                <version>0.1</version>
             </dependency>
 
             <dependency>
                 <groupId>com.facebook.presto.hive</groupId>
                 <artifactId>hive-apache</artifactId>
-                <version>0.1-SNAPSHOT</version>
+                <version>0.1</version>
             </dependency>
 
             <dependency>
