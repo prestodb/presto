@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Chars;
 import com.google.common.util.concurrent.Uninterruptibles;
@@ -14,6 +15,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class QueryIdGenerator
 {
@@ -23,11 +25,14 @@ public class QueryIdGenerator
         checkState(ImmutableSet.copyOf(Chars.asList(BASE_32)).size() == 32);
     }
 
-    private static final DateTimeFormatter TIMESTAMP_FORMAT = DateTimeFormat.forPattern("yyyyMMdd_hhmmss").withZoneUTC();
+    private static final DateTimeFormatter TIMESTAMP_FORMAT = DateTimeFormat.forPattern("YYYYMMdd_HHmmss").withZoneUTC();
     private static final long BASE_SYSTEM_TIME_MILLIS = System.currentTimeMillis();
     private static final long BASE_NANO_TIME = System.nanoTime();
 
-    private final String coordinatorId;
+    @VisibleForTesting
+    protected final String coordinatorId;
+    @GuardedBy("this")
+    private long lastTimeInDays;
     @GuardedBy("this")
     private long lastTimeInSeconds;
     @GuardedBy("this")
@@ -44,30 +49,43 @@ public class QueryIdGenerator
         this.coordinatorId = coordinatorId.toString();
     }
 
+    /**
+     * Generate next queryId using the following format:
+     *   YYYYMMdd_HHmmss_index_coordId
+     *
+     * Index rolls at the start of every day or when it reaches 99,999, and the
+     * coordId is a randomly generated when this instance is created.
+     */
     public synchronized QueryId createNextQueryId()
     {
-        // only generate 1000 ids per second
-        if (counter > 999) {
-            // this will never happen so just be safe
-            while (now() / 1000 <= lastTimeInSeconds) {
+        // only generate 100,000 ids per day
+        if (counter > 99_999) {
+            // wait for the second to rollover
+            while (MILLISECONDS.toSeconds(nowInMillis()) == lastTimeInSeconds) {
                 Uninterruptibles.sleepUninterruptibly(1, TimeUnit.SECONDS);
             }
-        }
-
-        // if it has been a second since the last id was generated, generate a new timestamp and reset the counter
-        long now = now();
-        if (now / 1000 != lastTimeInSeconds) {
-            // generate new timestamp
-            lastTimeInSeconds = now / 1000;
-            lastTimestamp = TIMESTAMP_FORMAT.print(now);
             counter = 0;
         }
 
-        // yyMMddhhmmssIIICCC
-        return new QueryId(String.format("%s_%03d_%s", lastTimestamp, counter++, coordinatorId));
+        // if it has been a second since the last id was generated, generate a new timestamp
+        long now = nowInMillis();
+        if (MILLISECONDS.toSeconds(now) != lastTimeInSeconds) {
+            // generate new timestamp
+            lastTimeInSeconds = MILLISECONDS.toSeconds(now);
+            lastTimestamp = TIMESTAMP_FORMAT.print(now);
+
+            // if the day has rolled over, restart the counter
+            if (MILLISECONDS.toDays(now) != lastTimeInDays) {
+                lastTimeInDays = MILLISECONDS.toDays(now);
+                counter = 0;
+            }
+        }
+
+        return new QueryId(String.format("%s_%05d_%s", lastTimestamp, counter++, coordinatorId));
     }
 
-    private long now()
+    @VisibleForTesting
+    protected long nowInMillis()
     {
         // avoid problems with the clock moving backwards
         return BASE_SYSTEM_TIME_MILLIS + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - BASE_NANO_TIME);
