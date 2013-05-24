@@ -48,8 +48,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.util.Threads.threadsNamed;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class SqlTaskManager
         implements TaskManager
@@ -69,7 +67,7 @@ public class SqlTaskManager
     private final LocationFactory locationFactory;
     private final QueryMonitor queryMonitor;
     private final DataSize maxOperatorMemoryUsage;
-    private final Duration maxTaskAge;
+    private final Duration infoCacheTime;
     private final Duration clientTimeout;
     private final SqlTaskManagerStats stats = new SqlTaskManagerStats();
 
@@ -105,8 +103,7 @@ public class SqlTaskManager
         this.queryMonitor = queryMonitor;
         this.maxBufferSize = config.getSinkMaxBufferSize();
         this.maxOperatorMemoryUsage = config.getMaxOperatorMemoryUsage();
-        // Just to be nice, allow tasks to live an extra 30 seconds so queries will be removed first
-        this.maxTaskAge = new Duration(config.getMaxQueryAge().toMillis() + SECONDS.toMillis(30), MILLISECONDS);
+        this.infoCacheTime = config.getInfoMaxAge();
         this.clientTimeout = config.getClientTimeout();
 
         // we have an unlimited number of task master threads
@@ -156,7 +153,7 @@ public class SqlTaskManager
     {
         Map<TaskId, TaskInfo> taskInfos = new HashMap<>();
         for (TaskExecution taskExecution : tasks.values()) {
-            taskInfos.put(taskExecution.getTaskId(), taskExecution.getTaskInfo(full));
+            taskInfos.put(taskExecution.getTaskId(), getTaskInfo(taskExecution, full));
         }
         taskInfos.putAll(this.taskInfos);
         return ImmutableList.copyOf(taskInfos.values());
@@ -186,12 +183,25 @@ public class SqlTaskManager
         TaskExecution taskExecution = tasks.get(taskId);
         if (taskExecution != null) {
             taskExecution.recordHeartbeat();
-            return taskExecution.getTaskInfo(full);
+            return getTaskInfo(taskExecution, full);
         }
 
         TaskInfo taskInfo = taskInfos.get(taskId);
         if (taskInfo == null) {
             throw new NoSuchElementException("Unknown query task " + taskId);
+        }
+        return taskInfo;
+    }
+
+    private TaskInfo getTaskInfo(TaskExecution taskExecution, boolean full)
+    {
+        TaskInfo taskInfo = taskExecution.getTaskInfo(full);
+        if (taskInfo.getState().isDone()) {
+            // cache task info
+            taskInfos.putIfAbsent(taskInfo.getTaskId(), taskInfo);
+
+            // remove task (after caching the task info)
+            tasks.remove(taskInfo.getTaskId());
         }
         return taskInfo;
     }
@@ -235,7 +245,7 @@ public class SqlTaskManager
         taskExecution.addSources(sources);
         taskExecution.addResultQueue(outputIds);
 
-        return taskExecution.getTaskInfo(false);
+        return getTaskInfo(taskExecution, false);
     }
 
     @Override
@@ -275,7 +285,7 @@ public class SqlTaskManager
         log.debug("Aborting task %s output %s", taskId, outputId);
         taskExecution.abortResults(outputId);
 
-        return taskExecution.getTaskInfo(false);
+        return getTaskInfo(taskExecution, false);
     }
 
     @Override
@@ -310,36 +320,21 @@ public class SqlTaskManager
         // make sure task is finished
         taskExecution.cancel();
 
-        // cache task info
-        TaskInfo taskInfo = taskExecution.getTaskInfo(false);
-        taskInfos.putIfAbsent(taskId, taskInfo);
-
-        // remove task (after caching the task info)
-        tasks.remove(taskId);
-
-        return taskInfo;
+        return getTaskInfo(taskExecution, false);
     }
 
     public void removeOldTasks()
     {
-        DateTime oldestAllowedTask = DateTime.now().minus((long) maxTaskAge.toMillis());
-        for (TaskExecution taskExecution : tasks.values()) {
+        DateTime oldestAllowedTask = DateTime.now().minus((long) infoCacheTime.toMillis());
+        for (TaskInfo taskInfo : taskInfos.values()) {
             try {
-                TaskInfo taskInfo = taskExecution.getTaskInfo(false);
-
-                // drop references to completed task objects
-                if (taskInfo.getState().isDone()) {
-                    // assure task is completed and cache final results
-                    cancelTask(taskExecution.getTaskId());
-                }
-
                 DateTime endTime = taskInfo.getStats().getEndTime();
                 if (endTime != null && endTime.isBefore(oldestAllowedTask)) {
-                    taskInfos.remove(taskExecution.getTaskId());
+                    taskInfos.remove(taskInfo.getTaskId());
                 }
             }
             catch (Exception e) {
-                log.warn(e, "Error while inspecting age of task %s", taskExecution.getTaskId());
+                log.warn(e, "Error while inspecting age of complete task %s", taskInfo.getTaskId());
             }
         }
     }
@@ -358,6 +353,9 @@ public class SqlTaskManager
                 if (lastHeartbeat != null && lastHeartbeat.isBefore(oldestAllowedHeartbeat)) {
                     log.info("Failing abandoned task %s", taskExecution.getTaskId());
                     taskExecution.fail(new AbandonedException("Task " + taskInfo.getTaskId(), lastHeartbeat, now));
+
+                    // trigger caching
+                    getTaskInfo(taskExecution, false);
                 }
             }
             catch (Exception e) {
