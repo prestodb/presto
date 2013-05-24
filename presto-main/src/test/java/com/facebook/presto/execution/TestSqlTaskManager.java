@@ -40,10 +40,12 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.net.URI;
+import java.util.NoSuchElementException;
 import java.util.concurrent.TimeUnit;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.fail;
 
 public class TestSqlTaskManager
 {
@@ -192,6 +194,42 @@ public class TestSqlTaskManager
 
         taskInfo = sqlTaskManager.getTaskInfo(taskInfo.getTaskId(), false);
         assertEquals(taskInfo.getState(), TaskState.FINISHED);
+    }
+
+    @Test
+    public void testRemoveOldTasks()
+            throws Exception
+    {
+        sqlTaskManager = new SqlTaskManager(new MetadataManager(),
+                new MockLocalStorageManager(new File("target/temp")),
+                new DataStreamManager(),
+                new MockExchangeClientProvider(),
+                new NodeInfo("test"),
+                new MockLocationFactory(),
+                new QueryMonitor(new ObjectMapperProvider().get(), new NullEventClient()),
+                new QueryManagerConfig().setInfoMaxAge(new Duration(5, TimeUnit.MILLISECONDS)));
+
+        TaskInfo taskInfo = sqlTaskManager.updateTask(session,
+                taskId,
+                testFragment,
+                ImmutableList.<TaskSource>of(),
+                new OutputBuffers(ImmutableSet.<String>of(), false));
+        assertEquals(taskInfo.getState(), TaskState.RUNNING);
+
+        taskInfo = sqlTaskManager.cancelTask(taskId);
+        assertEquals(taskInfo.getState(), TaskState.CANCELED);
+
+        taskInfo = sqlTaskManager.getTaskInfo(taskInfo.getTaskId(), false);
+        assertEquals(taskInfo.getState(), TaskState.CANCELED);
+
+        Thread.sleep(100);
+        sqlTaskManager.removeOldTasks();
+        try {
+            sqlTaskManager.getTaskInfo(taskInfo.getTaskId(), false);
+            fail("Expected NoSuchElementException");
+        }
+        catch (NoSuchElementException expected) {
+        }
     }
 
     private static class MockExchangeClientProvider

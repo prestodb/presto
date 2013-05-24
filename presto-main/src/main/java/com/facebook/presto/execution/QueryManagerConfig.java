@@ -20,6 +20,7 @@ public class QueryManagerConfig
     private DataSize sinkMaxBufferSize = new DataSize(32, Unit.MEGABYTE);
     private Duration maxQueryAge = new Duration(15, TimeUnit.MINUTES);
     private Duration clientTimeout = new Duration(5, TimeUnit.MINUTES);
+    private Duration infoMaxAge = new Duration(15, TimeUnit.MINUTES);
 
     private DataSize exchangeMaxBufferSize = new DataSize(32, Unit.MEGABYTE);
     private int exchangeConcurrentRequestMultiplier = 3;
@@ -117,6 +118,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setClientTimeout(Duration clientTimeout)
     {
         this.clientTimeout = clientTimeout;
+        return this;
+    }
+
+    @NotNull
+    public Duration getInfoMaxAge()
+    {
+        return infoMaxAge;
+    }
+
+    @Config("query.info.max-age")
+    public QueryManagerConfig setInfoMaxAge(Duration infoMaxAge)
+    {
+        this.infoMaxAge = infoMaxAge;
         return this;
     }
 
