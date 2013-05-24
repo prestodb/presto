@@ -73,7 +73,7 @@ queryExpr returns [Query value]
 
 queryBody returns [QueryBody value]
     : querySpec             { $value = $querySpec.value; }
-    | setOp                 { $value = $setOp.value; }
+    | setOperation          { $value = $setOperation.value; }
     | tableSubquery         { $value = $tableSubquery.value; }
     | namedTable            { $value = $namedTable.value; }
     ;
@@ -98,7 +98,7 @@ querySpec returns [QuerySpecification value]
         }
     ;
 
-setOp returns [SetOperation value]
+setOperation returns [SetOperation value]
     : ^(UNION q1=queryBody q2=queryBody d=distinct[true])       { $value = new Union(ImmutableList.<Relation>of($q1.value, $q2.value), $d.value); }
     | ^(INTERSECT q1=queryBody q2=queryBody d=distinct[true])   { $value = new Intersect(ImmutableList.<Relation>of($q1.value, $q2.value), $d.value); }
     | ^(EXCEPT q1=queryBody q2=queryBody d=distinct[true])      { $value = new Except($q1.value, $q2.value, $d.value); }

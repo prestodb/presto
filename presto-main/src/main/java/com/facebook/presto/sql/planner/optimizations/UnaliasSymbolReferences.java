@@ -228,7 +228,7 @@ public class UnaliasSymbolReferences
             for (PlanNode source : node.getSources()) {
                 rewrittenSources.add(planRewriter.rewrite(source, context));
             }
-            return new UnionNode(node.getId(), rewrittenSources.build(), node.getOutputSymbols());
+            return new UnionNode(node.getId(), rewrittenSources.build(), canonicalize(node.getOutputSymbols()));
         }
 
         private void map(Symbol symbol, Symbol canonical)

@@ -177,18 +177,13 @@ queryExprBody
 
 queryTerm
     : ( queryPrimary -> queryPrimary )
-      ( INTERSECT setQuant? queryPrimary -> ^(INTERSECT $queryTerm queryPrimary setQuant?)
-      )*
+      ( INTERSECT setQuant? queryPrimary -> ^(INTERSECT $queryTerm queryPrimary setQuant?) )*
     ;
 
 queryPrimary
-    : simpleQuerySpec
+    : simpleQuery -> ^(QUERY_SPEC simpleQuery)
     | tableSubquery
     | explicitTable
-    ;
-
-simpleQuerySpec
-    : simpleQuery -> ^(QUERY_SPEC simpleQuery)
     ;
 
 explicitTable

@@ -213,17 +213,13 @@ class TupleAnalyzer
 
         TupleAnalyzer analyzer = new TupleAnalyzer(analysis, session, metadata);
 
-        TupleDescriptor outputDescriptor = null;
-        for (Relation relation : node.getRelations()) {
+        // Use the first descriptor as the output descriptor for the UNION
+        TupleDescriptor outputDescriptor = analyzer.process(node.getRelations().get(0), context);
+
+        for (Relation relation : Iterables.skip(node.getRelations(), 1)) {
             TupleDescriptor descriptor = analyzer.process(relation, context);
-            if (outputDescriptor == null) {
-                // Use the first descriptor as the output descriptor for the UNION
-                outputDescriptor = descriptor;
-            }
-            else {
-                if (!elementsEqual(transform(outputDescriptor.getFields(), typeGetter()), transform(descriptor.getFields(), typeGetter()))) {
-                    throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES, node, "Union query terms have mismatched columns");
-                }
+            if (!elementsEqual(transform(outputDescriptor.getFields(), typeGetter()), transform(descriptor.getFields(), typeGetter()))) {
+                throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES, node, "Union query terms have mismatched columns");
             }
         }
 

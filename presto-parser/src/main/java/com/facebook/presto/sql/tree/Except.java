@@ -1,9 +1,10 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Preconditions;
 
 public class Except
-    extends SetOperation
+        extends SetOperation
 {
     private final Relation left;
     private final Relation right;
@@ -11,6 +12,9 @@ public class Except
 
     public Except(Relation left, Relation right, boolean distinct)
     {
+        Preconditions.checkNotNull(left, "left is null");
+        Preconditions.checkNotNull(right, "right is null");
+
         this.left = left;
         this.right = right;
         this.distinct = distinct;
@@ -34,7 +38,7 @@ public class Except
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException("EXCEPT not yet supported");
     }
 
     @Override
@@ -48,28 +52,18 @@ public class Except
     }
 
     @Override
-    public boolean equals(Object o)
+    public boolean equals(Object obj)
     {
-        if (this == o) {
+        if (this == obj) {
             return true;
         }
-        if (o == null || getClass() != o.getClass()) {
+        if ((obj == null) || (getClass() != obj.getClass())) {
             return false;
         }
-
-        Except except = (Except) o;
-
-        if (!left.equals(except.left)) {
-            return false;
-        }
-        if (!right.equals(except.right)) {
-            return false;
-        }
-        if (distinct != except.distinct) {
-            return false;
-        }
-
-        return true;
+        Except o = (Except) obj;
+        return Objects.equal(left, o.left) &&
+                Objects.equal(right, o.right) &&
+                Objects.equal(distinct, o.distinct);
     }
 
     @Override

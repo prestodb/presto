@@ -184,7 +184,7 @@ class RelationPlanner
         if (node.isDistinct()) {
             planNode = distinct(planNode);
         }
-        return new RelationPlan(planNode, analysis.getOutputDescriptor(node), outputSymbols);
+        return new RelationPlan(planNode, analysis.getOutputDescriptor(node), planNode.getOutputSymbols());
     }
 
     private PlanBuilder appendProjections(RelationPlan subPlan, Iterable<Expression> expressions)
