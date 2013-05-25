@@ -22,6 +22,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolToInputRewriter;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
+import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
@@ -336,6 +337,32 @@ public class ExpressionCompiler
             }
 
             return typedByteCodeNode(block, nodeType);
+        }
+
+        @Override
+        public TypedByteCodeNode visitCast(Cast node, CompilerContext context)
+        {
+            TypedByteCodeNode value = process(node.getExpression(), context);
+
+            Block block = new Block(context);
+            block.append(value.node);
+
+            switch (node.getType()) {
+                case "BOOLEAN":
+                    block.invokeStatic(Operations.class, "castToBoolean", boolean.class, value.type);
+                    return typedByteCodeNode(block, boolean.class);
+                case "BIGINT":
+                    block.invokeStatic(Operations.class, "castToLong", long.class, value.type);
+                    return typedByteCodeNode(block, long.class);
+                case "DOUBLE":
+                    block.invokeStatic(Operations.class, "castToDouble", double.class, value.type);
+                    return typedByteCodeNode(block, double.class);
+                case "VARCHAR":
+                    block.invokeStatic(Operations.class, "castToString", String.class, value.type);
+                    return typedByteCodeNode(block, String.class);
+            }
+            throw new UnsupportedOperationException("Unsupported type: " + node.getType());
+
         }
 
         @Override
