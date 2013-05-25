@@ -38,7 +38,7 @@ public class Except
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
-        throw new UnsupportedOperationException("EXCEPT not yet supported");
+        return visitor.visitExcept(this, context);
     }
 
     @Override

@@ -52,6 +52,11 @@ public class NodeRewriter<C>
         return rewriteRelation(node, context, treeRewriter);
     }
 
+    public Node rewriteJoin(Join node, C context, TreeRewriter<C> treeRewriter)
+    {
+        return rewriteRelation(node, context, treeRewriter);
+    }
+
     public Node rewriteTableSubquery(TableSubquery node, C context, TreeRewriter<C> treeRewriter)
     {
         return rewriteQueryBody(node, context, treeRewriter);
@@ -60,6 +65,26 @@ public class NodeRewriter<C>
     public Node rewriteQuerySpecification(QuerySpecification node, C context, TreeRewriter<C> treeRewriter)
     {
         return rewriteQueryBody(node, context, treeRewriter);
+    }
+
+    public Node rewriteSetOperation(SetOperation node, C context, TreeRewriter<C> treeRewriter)
+    {
+        return rewriteQueryBody(node, context, treeRewriter);
+    }
+
+    public Node rewriteUnion(Union node, C context, TreeRewriter<C> treeRewriter)
+    {
+        return rewriteSetOperation(node, context, treeRewriter);
+    }
+
+    public Node rewriteIntersect(Intersect node, C context, TreeRewriter<C> treeRewriter)
+    {
+        return rewriteSetOperation(node, context, treeRewriter);
+    }
+
+    public Node rewriteExcept(Except node, C context, TreeRewriter<C> treeRewriter)
+    {
+        return rewriteSetOperation(node, context, treeRewriter);
     }
 
     public Node rewriteExpression(Expression node, C context, TreeRewriter<C> treeRewriter)

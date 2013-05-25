@@ -246,6 +246,7 @@ public final class PlanRewriter<C>
 
             return node;
         }
+
         @Override
         public PlanNode visitJoin(JoinNode node, Context<C> context)
         {

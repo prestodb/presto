@@ -17,8 +17,10 @@ import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
+import com.facebook.presto.sql.tree.Except;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.Intersect;
 import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.JoinCriteria;
 import com.facebook.presto.sql.tree.JoinOn;
@@ -225,6 +227,18 @@ class TupleAnalyzer
 
         analysis.setOutputDescriptor(node, outputDescriptor);
         return outputDescriptor;
+    }
+
+    @Override
+    protected TupleDescriptor visitIntersect(Intersect node, AnalysisContext context)
+    {
+        throw new SemanticException(NOT_SUPPORTED, node, "INTERSECT not yet implemented");
+    }
+
+    @Override
+    protected TupleDescriptor visitExcept(Except node, AnalysisContext context)
+    {
+        throw new SemanticException(NOT_SUPPORTED, node, "EXCEPT not yet implemented");
     }
 
     @Override

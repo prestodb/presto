@@ -139,6 +139,16 @@ public abstract class AstVisitor<R, C>
         return visitSetOperation(node, context);
     }
 
+    protected R visitIntersect(Intersect node, C context)
+    {
+        return visitSetOperation(node, context);
+    }
+
+    protected R visitExcept(Except node, C context)
+    {
+        return visitSetOperation(node, context);
+    }
+
     protected R visitTimestampLiteral(TimestampLiteral node, C context)
     {
         return visitLiteral(node, context);
