@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.facebook.presto.operator.scalar.MathFunctions;
 import com.google.common.base.Charsets;
 import io.airlift.slice.Slice;
 
@@ -191,5 +192,91 @@ public final class Operations
     public static String toString(Slice slice)
     {
         return slice.toString(Charsets.UTF_8);
+    }
+
+    public static boolean castToBoolean(boolean value)
+    {
+        return value;
+    }
+
+    public static boolean castToBoolean(long value)
+    {
+        return value != 0;
+    }
+
+    public static boolean castToBoolean(double value)
+    {
+        return value != 0;
+    }
+
+    public static boolean castToBoolean(String value)
+    {
+        if (value.equals("t") || value.equals("true") || value.equals("1")) {
+            return true;
+        }
+        if (value.equals("f") || value.equals("false") || value.equals("0")) {
+            return false;
+        }
+        throw new IllegalArgumentException(String.format("Cannot cast %s to BOOLEAN", value.getClass().getSimpleName()));
+    }
+
+    public static long castToLong(boolean value)
+    {
+        return value ? 1 : 0;
+    }
+
+    public static long castToLong(long value)
+    {
+        return value;
+    }
+
+    public static long castToLong(double value)
+    {
+        return (long) MathFunctions.round(value);
+    }
+
+    public static long castToLong(String value)
+    {
+        return Long.parseLong(value);
+    }
+
+    public static double castToDouble(boolean value)
+    {
+        return value ? 1 : 0;
+    }
+
+    public static double castToDouble(long value)
+    {
+        return value;
+    }
+
+    public static double castToDouble(double value)
+    {
+        return value;
+    }
+
+    public static double castToDouble(String value)
+    {
+        return Double.parseDouble(value);
+    }
+
+    public static String castToString(boolean value)
+    {
+        return value ? "true" : "false";
+    }
+
+    public static String castToString(long value)
+    {
+        return String.valueOf(value);
+    }
+
+    public static String castToString(double value)
+    {
+        return String.valueOf(value);
+    }
+
+    public static String castToString(String value)
+    {
+        return value;
     }
 }
