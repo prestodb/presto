@@ -1586,6 +1586,29 @@ public abstract class AbstractTestQueries
         assertQuery("(TABLE orders) ORDER BY orderkey", "(SELECT * FROM orders) ORDER BY orderkey", true);
     }
 
+    @Test
+    public void testLimitPushDown()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual(
+                "(TABLE orders ORDER BY orderkey) UNION ALL " +
+                        "SELECT * FROM orders WHERE orderstatus = 'F' UNION ALL " +
+                        "(TABLE orders ORDER BY orderkey LIMIT 20) UNION ALL " +
+                        "(TABLE orders LIMIT 5) UNION ALL " +
+                        "TABLE orders LIMIT 10");
+        MaterializedResult all = computeExpected("SELECT * FROM ORDERS", actual.getTupleInfo());
+
+        assertEquals(actual.getMaterializedTuples().size(), 10);
+        assertTrue(all.getMaterializedTuples().containsAll(actual.getMaterializedTuples()));
+    }
+
+    @Test
+    public void testOrderLimitCompaction()
+            throws Exception
+    {
+        assertQueryOrdered("SELECT * FROM (SELECT * FROM orders ORDER BY orderkey) LIMIT 10");
+    }
+
     @BeforeClass(alwaysRun = true)
     public void setupDatabase()
             throws Exception
