@@ -16,7 +16,7 @@ import static com.google.common.base.Functions.forMap;
 
 @Immutable
 public class OutputNode
-    extends PlanNode
+        extends PlanNode
 {
     private final PlanNode source;
     private final List<String> columnNames;

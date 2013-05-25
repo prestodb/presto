@@ -8,8 +8,8 @@ import com.facebook.presto.metadata.NativeTableHandle;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.Session;
@@ -88,7 +88,7 @@ public class LogicalPlanner
         PlanSanityChecker.validate(root);
 
         for (PlanOptimizer optimizer : planOptimizers) {
-            root = optimizer.optimize(root, session, symbolAllocator.getTypes());
+            root = optimizer.optimize(root, session, symbolAllocator.getTypes(), idAllocator);
         }
 
         // make sure we produce a valid plan after optimizations run. This is mainly to catch programming errors
