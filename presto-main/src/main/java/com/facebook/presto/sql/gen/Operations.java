@@ -129,6 +129,11 @@ public final class Operations
         return left >= right;
     }
 
+    public static boolean between(long value, long min, long max)
+    {
+        return min <= value && value <= max;
+    }
+
     public static boolean equal(double left, double right)
     {
         return left == right;
@@ -159,6 +164,11 @@ public final class Operations
         return left >= right;
     }
 
+    public static boolean between(double value, double min, double max)
+    {
+        return min <= value && value <= max;
+    }
+
     public static boolean equal(String left, String right)
     {
         return left.equals(right);
@@ -187,6 +197,11 @@ public final class Operations
     public static boolean greaterThanOrEqual(String left, String right)
     {
         return left.compareTo(right) >= 0;
+    }
+
+    public static boolean between(String value, String min, String max)
+    {
+        return min.compareTo(value) <= 0 && value.compareTo(max) <= 0;
     }
 
     public static String toString(Slice slice)
