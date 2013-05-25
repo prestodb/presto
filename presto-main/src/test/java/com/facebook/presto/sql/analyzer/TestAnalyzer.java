@@ -18,6 +18,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CANNOT_HAVE_AGG
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDINAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_COLUMN_ALIASES;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_SET_COLUMN_TYPES;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATE_OR_GROUP_BY;
@@ -439,6 +440,26 @@ public class TestAnalyzer
         assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT CASE WHEN true THEN a ELSE 0 END, count(*) FROM t1");
         assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT CASE WHEN true THEN 0 ELSE a END, count(*) FROM t1");
     }
+
+    @Test
+    public void testMismatchedUnionQueries()
+            throws Exception
+    {
+        assertFails(MISMATCHED_SET_COLUMN_TYPES, "SELECT 1 UNION SELECT 'a'");
+        assertFails(MISMATCHED_SET_COLUMN_TYPES, "SELECT a FROM t1 UNION SELECT 'a'");
+        assertFails(MISMATCHED_SET_COLUMN_TYPES, "(SELECT 1) UNION SELECT 'a'");
+        assertFails(MISMATCHED_SET_COLUMN_TYPES, "SELECT 1, 2 UNION SELECT 1");
+        assertFails(MISMATCHED_SET_COLUMN_TYPES, "SELECT 'a' UNION SELECT 'b', 'c'");
+        assertFails(MISMATCHED_SET_COLUMN_TYPES, "TABLE t2 UNION SELECT 'a'");
+    }
+
+    @Test
+    public void testUnionUnmatchedOrderByAttribute()
+            throws Exception
+    {
+        assertFails(MISSING_ATTRIBUTE, "TABLE t2 UNION ALL SELECT c, d FROM t1 ORDER BY c");
+    }
+
 
     @BeforeMethod(alwaysRun = true)
     public void setup()

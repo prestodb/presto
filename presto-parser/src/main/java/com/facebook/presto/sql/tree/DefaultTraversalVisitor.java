@@ -317,6 +317,23 @@ public class DefaultTraversalVisitor<R, C>
     }
 
     @Override
+    protected R visitIntersect(Intersect node, C context)
+    {
+        for (Relation relation : node.getRelations()) {
+            process(relation, context);
+        }
+        return null;
+    }
+
+    @Override
+    protected R visitExcept(Except node, C context)
+    {
+        process(node.getLeft(), context);
+        process(node.getRight(), context);
+        return null;
+    }
+
+    @Override
     protected R visitTableSubquery(TableSubquery node, C context)
     {
         return process(node.getQuery(), context);

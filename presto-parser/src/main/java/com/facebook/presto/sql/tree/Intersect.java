@@ -33,7 +33,7 @@ public class Intersect
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
-        throw new UnsupportedOperationException("INTERSECT not yet implemented");
+        return visitor.visitIntersect(this, context);
     }
 
     @Override
