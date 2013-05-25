@@ -22,6 +22,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolToInputRewriter;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
+import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
@@ -601,6 +602,46 @@ public class ExpressionCompiler
             }
             else {
                 throw new UnsupportedOperationException(String.format("not yet implemented: %s(%s, %s)", node.getType(), left.type, right.type));
+            }
+            return typedByteCodeNode(block, boolean.class);
+        }
+
+        @Override
+        protected TypedByteCodeNode visitBetweenPredicate(BetweenPredicate node, CompilerContext context)
+        {
+            TypedByteCodeNode value = process(node.getValue(), context);
+            TypedByteCodeNode min = process(node.getMin(), context);
+            TypedByteCodeNode max = process(node.getMax(), context);
+
+            Block block = new Block(context);
+            if (value.type == long.class) {
+                block.append(value.node)
+                        .append(min.node)
+                        .append(max.node)
+                        .invokeStatic(Operations.class, "between", boolean.class, long.class, long.class, long.class);
+            }
+            else if (value.type == double.class) {
+                block.append(value.node);
+
+                block.append(min.node);
+                if (min.type == long.class) {
+                    block.append(L2D);
+                }
+
+                block.append(max.node);
+                if (max.type == long.class) {
+                    block.append(L2D);
+                }
+                block.invokeStatic(Operations.class, "between", boolean.class, double.class, double.class, double.class);
+            }
+            else if (value.type == String.class) {
+                block.append(value.node)
+                        .append(min.node)
+                        .append(max.node)
+                        .invokeStatic(Operations.class, "between", boolean.class, String.class, String.class, String.class);
+            }
+            else {
+                throw new UnsupportedOperationException(String.format("Between not supported for type %s", value.type));
             }
             return typedByteCodeNode(block, boolean.class);
         }
