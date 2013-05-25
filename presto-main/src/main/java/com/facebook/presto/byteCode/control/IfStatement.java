@@ -26,16 +26,16 @@ public class IfStatement implements FlowControl
     {
         private final CompilerContext context;
 
-        private Block condition;
-        private Block ifTrue;
-        private Block ifFalse;
+        private ByteCodeNode condition;
+        private ByteCodeNode ifTrue;
+        private ByteCodeNode ifFalse;
 
         public IfStatementBuilder(CompilerContext context)
         {
             this.context = context;
         }
 
-        public IfStatementBuilder condition(Block condition)
+        public IfStatementBuilder condition(ByteCodeNode condition)
         {
             this.condition = condition;
             return this;
@@ -47,9 +47,10 @@ public class IfStatement implements FlowControl
             return this;
         }
 
-        public void ifTrue(Block ifTrue)
+        public IfStatementBuilder ifTrue(ByteCodeNode ifTrue)
         {
             this.ifTrue = ifTrue;
+            return this;
         }
 
         public IfStatementBuilder ifTrue(ByteCodeNodeFactory ifTrue)
@@ -58,9 +59,10 @@ public class IfStatement implements FlowControl
             return this;
         }
 
-        public void ifFalse(Block ifFalse)
+        public IfStatementBuilder ifFalse(ByteCodeNode ifFalse)
         {
             this.ifFalse = ifFalse;
+            return this;
         }
 
         public IfStatementBuilder ifFalse(ByteCodeNodeFactory ifFalse)
@@ -77,14 +79,14 @@ public class IfStatement implements FlowControl
     }
 
     private final CompilerContext context;
-    private final Block condition;
-    private final Block ifTrue;
-    private final Block ifFalse;
+    private final ByteCodeNode condition;
+    private final ByteCodeNode ifTrue;
+    private final ByteCodeNode ifFalse;
 
     private final LabelNode falseLabel = new LabelNode("false");
     private final LabelNode outLabel = new LabelNode("out");
 
-    private IfStatement(CompilerContext context, Block condition, Block ifTrue, Block ifFalse)
+    public IfStatement(CompilerContext context, ByteCodeNode condition, ByteCodeNode ifTrue, ByteCodeNode ifFalse)
     {
         this.context = context;
         this.condition = condition;
@@ -92,17 +94,17 @@ public class IfStatement implements FlowControl
         this.ifFalse = ifFalse;
     }
 
-    public Block getCondition()
+    public ByteCodeNode getCondition()
     {
         return condition;
     }
 
-    public Block getIfTrue()
+    public ByteCodeNode getIfTrue()
     {
         return ifTrue;
     }
 
-    public Block getIfFalse()
+    public ByteCodeNode getIfFalse()
     {
         return ifFalse;
     }
@@ -133,10 +135,10 @@ public class IfStatement implements FlowControl
     public List<ByteCodeNode> getChildNodes()
     {
         if (ifFalse == null) {
-            return ImmutableList.<ByteCodeNode>of(condition, ifTrue);
+            return ImmutableList.of(condition, ifTrue);
         }
         else {
-            return ImmutableList.<ByteCodeNode>of(condition, ifTrue, ifFalse);
+            return ImmutableList.of(condition, ifTrue, ifFalse);
         }
     }
 

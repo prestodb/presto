@@ -241,10 +241,10 @@ public class DumpByteCodeVisitor extends ByteCodeVisitor<Void>
     {
         printLine("if {");
         indentLevel++;
-        visitBlock(ifStatement, ifStatement.getCondition());
-        visitBlock(ifStatement, ifStatement.getIfTrue());
+        ifStatement.getCondition().accept(ifStatement, this);
+        ifStatement.getIfTrue().accept(ifStatement, this);
         if (ifStatement.getIfFalse() != null) {
-            visitBlock(ifStatement, ifStatement.getIfFalse());
+            ifStatement.getIfFalse().accept(ifStatement, this);
         }
         indentLevel--;
         printLine("}");

@@ -15,6 +15,7 @@ import com.facebook.presto.byteCode.MethodDefinition;
 import com.facebook.presto.byteCode.NamedParameterDefinition;
 import com.facebook.presto.byteCode.ParameterizedType;
 import com.facebook.presto.byteCode.SmartClassWriter;
+import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.sql.analyzer.Session;
@@ -27,6 +28,7 @@ import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.sql.tree.InputReference;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
@@ -644,6 +646,21 @@ public class ExpressionCompiler
                 throw new UnsupportedOperationException(String.format("Between not supported for type %s", value.type));
             }
             return typedByteCodeNode(block, boolean.class);
+        }
+
+        @Override
+        protected TypedByteCodeNode visitIfExpression(IfExpression node, CompilerContext context)
+        {
+            TypedByteCodeNode condition = process(node.getCondition(), context);
+            Preconditions.checkState(condition.type == boolean.class);
+            TypedByteCodeNode trueValue = process(node.getTrueValue(), context);
+            TypedByteCodeNode falseValue;
+            if (node.getFalseValue().isPresent()) {
+                falseValue = process(node.getFalseValue().get(), context);
+            } else {
+                throw new UnsupportedOperationException(String.format("If with no else is not supported yet"));
+            }
+            return typedByteCodeNode(new IfStatement(context, condition.node, trueValue.node, falseValue.node), trueValue.type);
         }
 
         @Override
