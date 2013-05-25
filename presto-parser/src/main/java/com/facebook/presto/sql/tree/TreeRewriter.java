@@ -817,6 +817,109 @@ public final class TreeRewriter<C>
 
             return node;
         }
+
+        @Override
+        public Node visitJoin(Join node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Node result = nodeRewriter.rewriteJoin(node, context.get(), TreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Relation left = rewrite(node.getLeft(), context.get());
+            Relation right = rewrite(node.getRight(), context.get());
+
+            JoinCriteria joinCriteria = node.getCriteria();
+            if (node.getCriteria() instanceof JoinOn) {
+                JoinOn criteria = (JoinOn) node.getCriteria();
+                Expression expression = rewrite(criteria.getExpression(), context.get());
+                if (criteria.getExpression() != expression) {
+                    joinCriteria = new JoinOn(expression);
+                }
+            }
+
+            if (node.getLeft() != left || node.getRight() != right || node.getCriteria() != joinCriteria) {
+                return new Join(node.getType(), left, right, joinCriteria);
+            }
+
+            return node;
+        }
+
+        @Override
+        public Node visitUnion(Union node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Node result = nodeRewriter.rewriteUnion(node, context.get(), TreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            boolean modified = false;
+            ImmutableList.Builder<Relation> builder = ImmutableList.builder();
+            for (Relation relation : node.getRelations()) {
+                Relation rewrittenRelation = rewrite(relation, context.get());
+                if (rewrittenRelation != relation) {
+                    modified = true;
+                }
+                builder.add(rewrittenRelation);
+            }
+
+            if (modified) {
+                return new Union(builder.build(), node.isDistinct());
+            }
+
+            return node;
+        }
+
+        @Override
+        public Node visitIntersect(Intersect node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Node result = nodeRewriter.rewriteIntersect(node, context.get(), TreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            boolean modified = false;
+            ImmutableList.Builder<Relation> builder = ImmutableList.builder();
+            for (Relation relation : node.getRelations()) {
+                Relation rewrittenRelation = rewrite(relation, context.get());
+                if (rewrittenRelation != relation) {
+                    modified = true;
+                }
+                builder.add(rewrittenRelation);
+            }
+
+            if (modified) {
+                return new Intersect(builder.build(), node.isDistinct());
+            }
+
+            return node;
+        }
+
+        @Override
+        public Node visitExcept(Except node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Node result = nodeRewriter.rewriteExcept(node, context.get(), TreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Relation left = rewrite(node.getLeft(), context.get());
+            Relation right = rewrite(node.getRight(), context.get());
+
+            if (node.getLeft() != left || node.getRight() != right) {
+                return new Except(left, right, node.isDistinct());
+            }
+
+            return node;
+        }
     }
 
     public static class Context<C>
