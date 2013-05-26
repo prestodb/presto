@@ -15,6 +15,7 @@ import com.facebook.presto.byteCode.MethodDefinition;
 import com.facebook.presto.byteCode.NamedParameterDefinition;
 import com.facebook.presto.byteCode.ParameterizedType;
 import com.facebook.presto.byteCode.SmartClassWriter;
+import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.operator.ProjectionFunction;
@@ -36,6 +37,7 @@ import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NegativeExpression;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
+import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.TreeRewriter;
 import com.facebook.presto.sql.tree.WhenClause;
@@ -685,6 +687,42 @@ public class ExpressionCompiler
             }
 
             return elseValue;
+        }
+
+        @Override
+        protected TypedByteCodeNode visitSimpleCaseExpression(SimpleCaseExpression node, CompilerContext context)
+        {
+            TypedByteCodeNode value = process(node.getOperand(), context);
+            Variable tempVariable = context.createTempVariable(value.type);
+            Block block = new Block(context).append(value.node).storeVariable(tempVariable.getLocalVariableDefinition());
+
+            Expression defaultValue = node.getDefaultValue();
+            if (defaultValue == null) {
+                throw new UnsupportedOperationException(String.format("Case with no default is not supported yet"));
+            }
+
+            TypedByteCodeNode elseValue = process(defaultValue, context);
+            elseValue = typedByteCodeNode(new Block(context).append(elseValue.node), elseValue.type);
+
+            for (WhenClause whenClause : Lists.reverse(new ArrayList<>(node.getWhenClauses()))) {
+                Block condition = new Block(context);
+                condition.loadVariable(tempVariable.getLocalVariableDefinition());
+
+                TypedByteCodeNode operand = process(whenClause.getOperand(), context);
+                condition.append(operand.node);
+                if (value.type == double.class && operand.type == long.class) {
+                    condition.append(L2D);
+                }
+                condition.invokeStatic(Operations.class, "equal", boolean.class, value.type, value.type);
+
+                TypedByteCodeNode trueValue = process(whenClause.getResult(), context);
+                Block trueBlock = new Block(context);
+                trueBlock.append(trueValue.node);
+
+                elseValue = typedByteCodeNode(new IfStatement(context, condition, trueBlock, elseValue.node), trueValue.type);
+            }
+
+            return typedByteCodeNode(block.append(elseValue.node), elseValue.type);
         }
 
         @Override
