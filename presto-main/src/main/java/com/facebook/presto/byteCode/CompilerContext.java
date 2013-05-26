@@ -13,6 +13,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
+import static com.facebook.presto.byteCode.ParameterizedType.type;
+
 public class CompilerContext
 {
     private final VariableFactory variableFactory;
@@ -42,6 +44,19 @@ public class CompilerContext
         this.variableFactory = variableFactory;
     }
 
+    public Variable createTempVariable(Class<?> type)
+    {
+        Variable variable;
+
+        // reserve a slot for this variable
+        LocalVariableDefinition variableDefinition = new LocalVariableDefinition("temp_" + nextSlot, nextSlot, type(type));
+        nextSlot += Type.getType(type(type).getType()).getSize();
+
+        variable = variableFactory.createVariable(this, variableDefinition.getName(), variableDefinition);
+
+        return variable;
+    }
+
     public Variable getVariable(String name)
     {
         Variable variable = variables.get(name);
@@ -50,7 +65,7 @@ public class CompilerContext
         }
 
         // reserve a slot for this variable
-        ParameterizedType type = ParameterizedType.type(Object.class);
+        ParameterizedType type = type(Object.class);
         LocalVariableDefinition variableDefinition = new LocalVariableDefinition(name, nextSlot, type);
         nextSlot += Type.getType(type.getType()).getSize();
 
