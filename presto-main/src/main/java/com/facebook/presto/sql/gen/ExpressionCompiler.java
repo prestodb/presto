@@ -35,8 +35,10 @@ import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NegativeExpression;
 import com.facebook.presto.sql.tree.NotExpression;
+import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.TreeRewriter;
+import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.tuple.TupleReadable;
@@ -45,9 +47,11 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMap.Builder;
+import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
 import org.objectweb.asm.ClassWriter;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -661,6 +665,26 @@ public class ExpressionCompiler
                 throw new UnsupportedOperationException(String.format("If with no else is not supported yet"));
             }
             return typedByteCodeNode(new IfStatement(context, condition.node, trueValue.node, falseValue.node), trueValue.type);
+        }
+
+        @Override
+        protected TypedByteCodeNode visitSearchedCaseExpression(SearchedCaseExpression node, CompilerContext context)
+        {
+            Expression defaultValue = node.getDefaultValue();
+            if (defaultValue == null) {
+                throw new UnsupportedOperationException(String.format("Case with no default is not supported yet"));
+            }
+
+            TypedByteCodeNode elseValue = process(defaultValue, context);
+            for (WhenClause whenClause : Lists.reverse(new ArrayList<>(node.getWhenClauses()))) {
+                TypedByteCodeNode condition = process(whenClause.getOperand(), context);
+                Preconditions.checkState(condition.type == boolean.class);
+                TypedByteCodeNode trueValue = process(whenClause.getResult(), context);
+
+                elseValue = typedByteCodeNode(new IfStatement(context, condition.node, trueValue.node, elseValue.node), trueValue.type);
+            }
+
+            return elseValue;
         }
 
         @Override
