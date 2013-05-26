@@ -563,9 +563,31 @@ public class Block implements ByteCodeNode
         return this;
     }
 
+    public Block dup(Class<?> type)
+    {
+        if (type == long.class || type == double.class) {
+            nodes.add(OpCodes.DUP2);
+        }
+        else {
+            nodes.add(OpCodes.DUP);
+        }
+        return this;
+    }
+
     public Block pop()
     {
         nodes.add(OpCodes.POP);
+        return this;
+    }
+
+    public Block pop(Class<?> type)
+    {
+        if (type == long.class || type == double.class) {
+            nodes.add(OpCodes.POP2);
+        }
+        else {
+            nodes.add(OpCodes.POP);
+        }
         return this;
     }
 
