@@ -28,6 +28,7 @@ import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
+import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
@@ -820,6 +821,35 @@ public class ExpressionCompiler
                     .visitLabel(end);
 
             return typedByteCodeNode(block, first.type);
+        }
+
+        @Override
+        protected TypedByteCodeNode visitCoalesceExpression(CoalesceExpression node, CompilerContext context)
+        {
+            List<TypedByteCodeNode> operands = new ArrayList<>();
+            for (Expression expression : node.getOperands()) {
+                operands.add(process(expression, context));
+            }
+
+            Class<?> type = getType(operands);
+
+            TypedByteCodeNode nullValue = coerceToType(context, process(new NullLiteral(), context), type);
+            for (TypedByteCodeNode operand : Lists.reverse(operands)) {
+                Block condition = new Block(context)
+                        .append(coerceToType(context, operand, type).node)
+                        .loadVariable("wasNull");
+
+                // if value was null, pop the null value, clear the null flag, and process the next operand
+                Block nullBlock = new Block(context)
+                        .pop(type)
+                        .loadConstant(false)
+                        .storeVariable("wasNull")
+                        .append(nullValue.node);
+
+                nullValue = typedByteCodeNode(new IfStatement(context, condition, nullBlock, NOP), type);
+            }
+
+            return typedByteCodeNode(nullValue.node, type);
         }
 
         @Override
