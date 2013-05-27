@@ -18,6 +18,8 @@ import com.facebook.presto.byteCode.SmartClassWriter;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.byteCode.instruction.LabelNode;
+import com.facebook.presto.metadata.FunctionInfo;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.sql.analyzer.Session;
@@ -32,6 +34,7 @@ import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.sql.tree.InputReference;
@@ -67,6 +70,7 @@ import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.util.TraceClassVisitor;
 
 import java.io.PrintWriter;
+import java.lang.invoke.MethodType;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -96,12 +100,14 @@ import static com.google.common.collect.Iterables.transform;
 public class ExpressionCompiler
 {
     private static final AtomicLong CLASS_ID = new AtomicLong();
+    private final Metadata metadata;
     private final Session session;
     private final Map<Symbol, Input> layout;
     private final ImmutableMap<Input, Type> inputTypes;
 
-    public ExpressionCompiler(Session session, Map<Symbol, Input> layout, final List<TupleInfo> tupleInfos)
+    public ExpressionCompiler(Metadata metadata, Session session, Map<Symbol, Input> layout, final List<TupleInfo> tupleInfos)
     {
+        this.metadata = checkNotNull(metadata, "metadata is null");
         this.session = checkNotNull(session, "session is null");
         this.layout = ImmutableMap.copyOf(checkNotNull(layout, "layout is null"));
 
@@ -110,6 +116,9 @@ public class ExpressionCompiler
             inputTypes.put(input, tupleInfos.get(input.getChannel()).getTypes().get(input.getField()));
         }
         this.inputTypes = inputTypes.build();
+
+        // todo this is a total hack
+        FunctionBootstrap.metadataReference.set(metadata);
     }
 
     public FilterFunction compileFilterFunction(Expression expression)
@@ -138,7 +147,7 @@ public class ExpressionCompiler
 
         // generate body code
         filterMethod.getCompilerContext().declareVariable(type(boolean.class), "wasNull");
-        TypedByteCodeNode body = new Visitor(session, inputTypes).process(expression, filterMethod.getCompilerContext());
+        TypedByteCodeNode body = new Visitor(metadata, inputTypes).process(expression, filterMethod.getCompilerContext());
 
         if (body.type == void.class) {
             filterMethod
@@ -196,7 +205,7 @@ public class ExpressionCompiler
         // generate body code
         CompilerContext context = projectionMethod.getCompilerContext();
         context.declareVariable(type(boolean.class), "wasNull");
-        TypedByteCodeNode body = new Visitor(session, inputTypes).process(expression, context);
+        TypedByteCodeNode body = new Visitor(metadata, inputTypes).process(expression, context);
 
         if (body.type != void.class) {
             projectionMethod
@@ -336,12 +345,12 @@ public class ExpressionCompiler
     private static class Visitor
             extends AstVisitor<TypedByteCodeNode, CompilerContext>
     {
-        private final Session session;
+        private final Metadata metadata;
         private final Map<Input, Type> inputTypes;
 
-        public Visitor(Session session, Map<Input, Type> inputTypes)
+        public Visitor(Metadata metadata, Map<Input, Type> inputTypes)
         {
-            this.session = session;
+            this.metadata = metadata;
             this.inputTypes = inputTypes;
         }
 
@@ -426,6 +435,36 @@ public class ExpressionCompiler
             }
 
             return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, notNull), nodeType);
+        }
+
+        @Override
+        protected TypedByteCodeNode visitFunctionCall(FunctionCall node, CompilerContext context)
+        {
+            List<TypedByteCodeNode> arguments = new ArrayList<>();
+            List<Class<?>> argumentTypes = new ArrayList<>();
+            for (Expression argument : node.getArguments()) {
+                TypedByteCodeNode typedByteCodeNode = process(argument, context);
+                if (typedByteCodeNode.type == void.class) {
+                    return typedByteCodeNode;
+                }
+                arguments.add(typedByteCodeNode);
+                argumentTypes.add(typedByteCodeNode.type);
+            }
+
+            FunctionInfo function = metadata.getFunction(node.getName(), Lists.transform(argumentTypes, toTupleType()));
+            checkArgument(function != null, "Unknown function %s%s", node.getName(), argumentTypes);
+            MethodType methodType = function.getScalarFunction().type();
+
+            LabelNode end = new LabelNode("end");
+            Block block = new Block(context);
+            for (TypedByteCodeNode argument : arguments) {
+                block.append(argument.node);
+            }
+            block.append(ifWasNullClearAndGoto(context, end, methodType.returnType(), methodType.parameterList()));
+            block.invokeDynamic(function.getName().toString(), methodType);
+            block.visitLabel(end);
+
+            return typedByteCodeNode(block, function.getScalarFunction().type().returnType());
         }
 
         @Override
@@ -860,6 +899,11 @@ public class ExpressionCompiler
 
         private ByteCodeNode ifWasNullClearAndGoto(CompilerContext context, LabelNode label, Class<?> returnType, Class<?>... stackArgsToPop)
         {
+            return ifWasNullClearAndGoto(context, label, returnType, ImmutableList.copyOf(stackArgsToPop));
+        }
+
+        private ByteCodeNode ifWasNullClearAndGoto(CompilerContext context, LabelNode label, Class<?> returnType, Iterable<? extends Class<?>> stackArgsToPop)
+        {
             Block nullCheck = new Block(context)
                     .setDescription("ifWasNullGoto")
                     .loadVariable("wasNull");
@@ -903,24 +947,7 @@ public class ExpressionCompiler
             return Iterables.getOnlyElement(types);
         }
 
-        private boolean isNumber(Class<?> type)
-        {
-            return type == long.class || type == double.class;
-        }
-
-        private Function<TypedByteCodeNode, Class<?>> nodeTypeGetter()
-        {
-            return new Function<TypedByteCodeNode, Class<?>>()
-            {
-                @Override
-                public Class<?> apply(TypedByteCodeNode node)
-                {
-                    return node.type;
-                }
-            };
-        }
-
-        private Function<TypedWhenClause, TypedByteCodeNode> whenValueGetter()
+        private static Function<TypedWhenClause, TypedByteCodeNode> whenValueGetter()
         {
             return new Function<TypedWhenClause, TypedByteCodeNode>()
             {
@@ -943,5 +970,43 @@ public class ExpressionCompiler
                 this.value = process(whenClause.getResult(), context);
             }
         }
+    }
+
+    private static boolean isNumber(Class<?> type)
+    {
+        return type == long.class || type == double.class;
+    }
+
+    private static Function<TypedByteCodeNode, Class<?>> nodeTypeGetter()
+    {
+        return new Function<TypedByteCodeNode, Class<?>>()
+        {
+            @Override
+            public Class<?> apply(TypedByteCodeNode node)
+            {
+                return node.type;
+            }
+        };
+    }
+
+    public static Function<Class<?>, Type> toTupleType()
+    {
+        return new Function<Class<?>, Type>()
+        {
+            @Override
+            public Type apply(Class<?> type)
+            {
+                if (type == long.class) {
+                    return Type.FIXED_INT_64;
+                }
+                if (type == double.class) {
+                    return Type.DOUBLE;
+                }
+                if (type == String.class) {
+                    return Type.VARIABLE_BINARY;
+                }
+                throw new UnsupportedOperationException("Unsupported function type " + type);
+            }
+        };
     }
 }

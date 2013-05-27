@@ -439,7 +439,7 @@ public class LocalExecutionPlanner
             PhysicalOperation source = node.getSource().accept(this, context);
 
 //            FilterFunction filter = new InterpretedFilterFunction(node.getPredicate(), source.getLayout(), metadata, context.getSession());
-            ExpressionCompiler compiler = new ExpressionCompiler(context.getSession(), source.getLayout(), source.getOperator().getTupleInfos());
+            ExpressionCompiler compiler = new ExpressionCompiler(metadata, context.getSession(), source.getLayout(), source.getOperator().getTupleInfos());
             FilterFunction filter;
             try {
                 filter = compiler.compileFilterFunction(node.getPredicate());
@@ -483,7 +483,7 @@ public class LocalExecutionPlanner
                 }
                 else {
 //                    function = new InterpretedProjectionFunction(context.getTypes().get(symbol), expression, source.getLayout(), metadata, context.getSession());
-                    ExpressionCompiler compiler = new ExpressionCompiler(context.getSession(), source.getLayout(), source.getOperator().getTupleInfos());
+                    ExpressionCompiler compiler = new ExpressionCompiler(metadata, context.getSession(), source.getLayout(), source.getOperator().getTupleInfos());
                     try {
                         function = compiler.compileProjectionFunction(expression);
                     }

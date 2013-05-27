@@ -14,9 +14,13 @@ import java.util.Map;
 import java.util.TreeMap;
 
 import static com.facebook.presto.byteCode.ParameterizedType.type;
+import static com.facebook.presto.sql.gen.FunctionBootstrap.FUNCTION_BOOTSTRAP;
 
 public class CompilerContext
 {
+    private final Method defaultBootstrapMethod;
+    private final Object[] defaultBootstrapArguments;
+
     private final VariableFactory variableFactory;
     private final VariableFactory parameterFactory;
 
@@ -34,11 +38,13 @@ public class CompilerContext
 
     public CompilerContext()
     {
-        this(new LocalVariableFactory(), new LocalVariableFactory());
+        this(FUNCTION_BOOTSTRAP, new Object[0], new LocalVariableFactory(), new LocalVariableFactory());
     }
 
-    public CompilerContext(VariableFactory variableFactory, VariableFactory parameterFactory)
+    public CompilerContext(Method defaultBootstrapMethod, Object[] defaultBootstrapArguments, VariableFactory variableFactory, VariableFactory parameterFactory)
     {
+        this.defaultBootstrapMethod = defaultBootstrapMethod;
+        this.defaultBootstrapArguments = defaultBootstrapArguments;
         this.parameterFactory = parameterFactory;
         Preconditions.checkNotNull(variableFactory, "localVariableType is null");
         this.variableFactory = variableFactory;
@@ -149,12 +155,12 @@ public class CompilerContext
 
     public Method getDefaultBootstrapMethod()
     {
-        throw new UnsupportedOperationException("not yet implemented");
+        return defaultBootstrapMethod;
     }
 
     public Object[] getDefaultBootstrapArguments()
     {
-        throw new UnsupportedOperationException("not yet implemented");
+        return defaultBootstrapArguments;
     }
 
     public boolean hasVisitedLine(Integer line)
