@@ -31,7 +31,6 @@ public abstract class VariableInstruction implements InstructionNode
         return new StoreVariableInstruction(variable);
     }
 
-
     private final LocalVariableDefinition variable;
 
     private VariableInstruction(LocalVariableDefinition variable)

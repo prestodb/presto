@@ -1,5 +1,6 @@
 package com.facebook.presto.sql.tree;
 
+import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 
 public class BooleanLiteral
@@ -8,17 +9,17 @@ public class BooleanLiteral
     public static final BooleanLiteral TRUE_LITERAL = new BooleanLiteral("true");
     public static final BooleanLiteral FALSE_LITERAL = new BooleanLiteral("false");
 
-    private final String value;
+    private final boolean value;
 
     public BooleanLiteral(String value)
     {
         Preconditions.checkNotNull(value, "value is null");
         Preconditions.checkArgument(value.toLowerCase().equals("true") || value.toLowerCase().equals("false"));
 
-        this.value = value;
+        this.value = value.toLowerCase().equals("true");
     }
 
-    public String getValue()
+    public boolean getValue()
     {
         return value;
     }
@@ -30,27 +31,21 @@ public class BooleanLiteral
     }
 
     @Override
-    public boolean equals(Object o)
+    public int hashCode()
     {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        BooleanLiteral that = (BooleanLiteral) o;
-
-        if (!value.equals(that.value)) {
-            return false;
-        }
-
-        return true;
+        return Objects.hashCode(value);
     }
 
     @Override
-    public int hashCode()
+    public boolean equals(Object obj)
     {
-        return value.hashCode();
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        final BooleanLiteral other = (BooleanLiteral) obj;
+        return Objects.equal(this.value, other.value);
     }
 }

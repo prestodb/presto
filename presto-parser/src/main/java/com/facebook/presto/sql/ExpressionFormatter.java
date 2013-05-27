@@ -123,7 +123,7 @@ public final class ExpressionFormatter
         @Override
         protected String visitBooleanLiteral(BooleanLiteral node, Void context)
         {
-            return node.getValue();
+            return String.valueOf(node.getValue());
         }
 
         @Override
