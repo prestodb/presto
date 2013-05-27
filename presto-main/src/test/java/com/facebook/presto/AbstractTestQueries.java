@@ -1107,6 +1107,7 @@ public abstract class AbstractTestQueries
     public void testCast()
             throws Exception
     {
+//        assertQuery("SELECT CAST('1' AS BIGINT) FROM orders");
         assertQuery("SELECT CAST(totalprice AS BIGINT) FROM orders");
         assertQuery("SELECT CAST(orderkey AS DOUBLE) FROM orders");
         assertQuery("SELECT CAST(orderkey AS VARCHAR) FROM orders");

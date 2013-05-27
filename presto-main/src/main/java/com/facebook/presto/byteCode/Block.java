@@ -585,7 +585,7 @@ public class Block implements ByteCodeNode
         if (type == long.class || type == double.class) {
             nodes.add(OpCodes.POP2);
         }
-        else {
+        else if (type != void.class) {
             nodes.add(OpCodes.POP);
         }
         return this;
@@ -740,6 +740,23 @@ public class Block implements ByteCodeNode
     {
         nodes.add(loadBoolean(value));
         return this;
+    }
+
+    public Block loadJavaDefault(Class<?> type)
+    {
+        if (type == boolean.class || type == byte.class || type == char.class || type == short.class || type == int.class) {
+            return loadConstant(0);
+        }
+        if (type == long.class) {
+            return loadConstant(0L);
+        }
+        if (type == float.class) {
+            return loadConstant(0.0f);
+        }
+        if (type == double.class) {
+            return loadConstant(0.0d);
+        }
+        return loadNull();
     }
 
     public Block loadVariable(String name)

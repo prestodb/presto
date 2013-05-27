@@ -116,6 +116,21 @@ public class CompilerContext
         return variableDefinition;
     }
 
+    public LocalVariableDefinition declareVariable(ParameterizedType type, String variableName)
+    {
+        Preconditions.checkArgument(!variables.containsKey(variableName), "There is already a parameter named %s", variableName);
+
+        LocalVariableDefinition variableDefinition = new LocalVariableDefinition(variableName, nextSlot, type);
+        nextSlot += Type.getType(type.getType()).getSize();
+
+        Variable variable = parameterFactory.createVariable(this, variableName, variableDefinition);
+
+        allVariables.add(variable);
+        variables.put(variableName, variable);
+
+        return variableDefinition;
+    }
+
     public void pushIterationScope(LabelNode begin, LabelNode end)
     {
         iterationScopes.push(new IterationScope(begin, end));
