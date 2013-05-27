@@ -34,10 +34,13 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.sql.tree.InputReference;
+import com.facebook.presto.sql.tree.IsNotNullPredicate;
+import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NegativeExpression;
 import com.facebook.presto.sql.tree.NotExpression;
+import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
@@ -658,6 +661,26 @@ public class ExpressionCompiler
         }
 
         @Override
+        protected TypedByteCodeNode visitIsNotNullPredicate(IsNotNullPredicate node, CompilerContext context)
+        {
+            TypedByteCodeNode value = process(node.getValue(), context);
+            Block block = new Block(context)
+                    .append(value.node)
+                    .pop(value.type)
+                    .loadVariable("wasNull")
+                    .invokeStatic(Operations.class, "not", boolean.class, boolean.class);
+
+            return typedByteCodeNode(block, boolean.class);
+        }
+
+        @Override
+        protected TypedByteCodeNode visitIsNullPredicate(IsNullPredicate node, CompilerContext context)
+        {
+            TypedByteCodeNode value = process(node.getValue(), context);
+            return typedByteCodeNode(new Block(context).append(value.node).pop(value.type).loadVariable("wasNull"), boolean.class);
+        }
+
+        @Override
         protected TypedByteCodeNode visitIfExpression(IfExpression node, CompilerContext context)
         {
             TypedByteCodeNode conditionValue = process(node.getCondition(), context);
@@ -768,6 +791,35 @@ public class ExpressionCompiler
             }
 
             return typedByteCodeNode(block.append(elseValue.node), type);
+        }
+
+        @Override
+        protected TypedByteCodeNode visitNullIfExpression(NullIfExpression node, CompilerContext context)
+        {
+            TypedByteCodeNode first = process(node.getFirst(), context);
+            TypedByteCodeNode second = process(node.getSecond(), context);
+
+            LabelNode end = new LabelNode("end");
+            Block block = new Block(context)
+                    .append(first.node)
+                    .append(ifWasNullClearAndGoto(context, end, first.type, first.type))
+                    .dup(first.type)
+                    .append(second.node)
+                    .append(ifWasNullClearAndGoto(context, end, first.type, first.type, first.type, second.type));
+
+            Block conditionBlock = new Block(context)
+                    .invokeStatic(Operations.class, "equal", boolean.class, first.type, second.type);
+
+            Block trueBlock = new Block(context)
+                    .loadConstant(true)
+                    .storeVariable("wasNull")
+                    .pop(first.type)
+                    .loadJavaDefault(first.type);
+
+            block.append(new IfStatement(context, conditionBlock, trueBlock, NOP))
+                    .visitLabel(end);
+
+            return typedByteCodeNode(block, first.type);
         }
 
         @Override
