@@ -45,6 +45,7 @@ import java.util.concurrent.TimeUnit;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.fail;
 
 public class TestSqlTaskManager
@@ -161,15 +162,19 @@ public class TestSqlTaskManager
                 ImmutableList.<TaskSource>of(),
                 new OutputBuffers(ImmutableSet.<String>of(), false));
         assertEquals(taskInfo.getState(), TaskState.RUNNING);
+        assertNull(taskInfo.getStats().getEndTime());
 
         taskInfo = sqlTaskManager.getTaskInfo(taskInfo.getTaskId(), false);
         assertEquals(taskInfo.getState(), TaskState.RUNNING);
+        assertNull(taskInfo.getStats().getEndTime());
 
         taskInfo = sqlTaskManager.cancelTask(taskInfo.getTaskId());
         assertEquals(taskInfo.getState(), TaskState.CANCELED);
+        assertNotNull(taskInfo.getStats().getEndTime());
 
         taskInfo = sqlTaskManager.getTaskInfo(taskInfo.getTaskId(), false);
         assertEquals(taskInfo.getState(), TaskState.CANCELED);
+        assertNotNull(taskInfo.getStats().getEndTime());
     }
 
     @Test
