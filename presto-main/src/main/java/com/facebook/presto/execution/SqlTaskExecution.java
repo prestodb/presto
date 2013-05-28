@@ -7,9 +7,6 @@ import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.event.query.QueryMonitor;
-import com.facebook.presto.metadata.LocalStorageManager;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.OutputProducingOperator;
@@ -19,7 +16,6 @@ import com.facebook.presto.operator.SourceHashProviderFactory;
 import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.split.CollocatedSplit;
-import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
@@ -34,8 +30,6 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFutureTask;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.inject.Provider;
-import io.airlift.node.NodeInfo;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
@@ -58,6 +52,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.max;
 
 public class SqlTaskExecution
@@ -65,16 +60,12 @@ public class SqlTaskExecution
 {
     private final TaskId taskId;
     private final TaskOutput taskOutput;
-    private final DataStreamProvider dataStreamProvider;
-    private final Provider<ExchangeClient> exchangeClientProvider;
     private final ListeningExecutorService shardExecutor;
     private final PlanFragment fragment;
-    private final Metadata metadata;
-    private final LocalStorageManager storageManager;
+    private final LocalExecutionPlanner planner;
     private final DataSize maxOperatorMemoryUsage;
     private final Session session;
     private final QueryMonitor queryMonitor;
-    private final NodeInfo nodeInfo;
 
     private final AtomicInteger pendingWorkerCount = new AtomicInteger();
 
@@ -90,15 +81,11 @@ public class SqlTaskExecution
     private final BlockingDeque<FutureTask<?>> unfinishedWorkerTasks = new LinkedBlockingDeque<>();
 
     public static SqlTaskExecution createSqlTaskExecution(Session session,
-            NodeInfo nodeInfo,
             TaskId taskId,
             URI location,
             PlanFragment fragment,
+            LocalExecutionPlanner planner,
             DataSize maxBufferSize,
-            DataStreamProvider dataStreamProvider,
-            Provider<ExchangeClient> exchangeClientProvider,
-            Metadata metadata,
-            LocalStorageManager storageManager,
             ExecutorService taskMasterExecutor,
             ListeningExecutorService shardExecutor,
             DataSize maxOperatorMemoryUsage,
@@ -106,15 +93,11 @@ public class SqlTaskExecution
             SqlTaskManagerStats globalStats)
     {
         SqlTaskExecution task = new SqlTaskExecution(session,
-                nodeInfo,
                 taskId,
                 location,
                 fragment,
+                planner,
                 maxBufferSize,
-                dataStreamProvider,
-                exchangeClientProvider,
-                metadata,
-                storageManager,
                 shardExecutor,
                 maxOperatorMemoryUsage,
                 queryMonitor,
@@ -128,48 +111,32 @@ public class SqlTaskExecution
     }
 
     private SqlTaskExecution(Session session,
-            NodeInfo nodeInfo,
             TaskId taskId,
             URI location,
             PlanFragment fragment,
+            LocalExecutionPlanner planner,
             DataSize maxBufferSize,
-            DataStreamProvider dataStreamProvider,
-            Provider<ExchangeClient> exchangeClientProvider,
-            Metadata metadata,
-            LocalStorageManager storageManager,
             ListeningExecutorService shardExecutor,
             DataSize maxOperatorMemoryUsage,
             QueryMonitor queryMonitor,
             Executor notificationExecutor,
             SqlTaskManagerStats globalStats)
     {
-        Preconditions.checkNotNull(session, "session is null");
-        Preconditions.checkNotNull(nodeInfo, "nodeInfo is null");
-        Preconditions.checkNotNull(taskId, "taskId is null");
-        Preconditions.checkNotNull(fragment, "fragment is null");
-        Preconditions.checkArgument(maxBufferSize.toBytes() > 0, "maxBufferSize must be at least 1");
-        Preconditions.checkNotNull(metadata, "metadata is null");
-        Preconditions.checkNotNull(storageManager, "storageManager is null");
-        Preconditions.checkNotNull(shardExecutor, "shardExecutor is null");
-        Preconditions.checkNotNull(maxOperatorMemoryUsage, "maxOperatorMemoryUsage is null");
-        Preconditions.checkNotNull(queryMonitor, "queryMonitor is null");
-        Preconditions.checkNotNull(globalStats, "globalStats is null");
-
         try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)){
-            this.session = session;
-            this.nodeInfo = nodeInfo;
-            this.taskId = taskId;
-            this.fragment = fragment;
-            this.dataStreamProvider = dataStreamProvider;
-            this.exchangeClientProvider = exchangeClientProvider;
-            this.shardExecutor = shardExecutor;
-            this.metadata = metadata;
-            this.storageManager = storageManager;
-            this.maxOperatorMemoryUsage = maxOperatorMemoryUsage;
-            this.queryMonitor = queryMonitor;
+            this.session = checkNotNull(session, "session is null");
+            this.taskId = checkNotNull(taskId, "taskId is null");
+            this.fragment = checkNotNull(fragment, "fragment is null");
+            this.planner = checkNotNull(planner, "planner is null");
+            this.shardExecutor = checkNotNull(shardExecutor, "shardExecutor is null");
+            this.maxOperatorMemoryUsage = checkNotNull(maxOperatorMemoryUsage, "maxOperatorMemoryUsage is null");
+            this.queryMonitor = checkNotNull(queryMonitor, "queryMonitor is null");
 
             // create output buffers
-            this.taskOutput = new TaskOutput(taskId, location, maxBufferSize, notificationExecutor, globalStats);
+            this.taskOutput = new TaskOutput(taskId,
+                    checkNotNull(location, "location is null"),
+                    checkNotNull(maxBufferSize, "maxBufferSize is null"),
+                    checkNotNull(notificationExecutor, "notificationExecutor is null"),
+                    checkNotNull(globalStats, "globalStats is null"));
         }
     }
 
@@ -214,7 +181,7 @@ public class SqlTaskExecution
     @Override
     public synchronized void addSources(List<TaskSource> sources)
     {
-        Preconditions.checkNotNull(sources, "sources is null");
+        checkNotNull(sources, "sources is null");
 
         try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskOutput.getTaskId())){
             long newMaxAcknowledgedSplit = maxAcknowledgedSplit;
@@ -238,7 +205,7 @@ public class SqlTaskExecution
     @Override
     public synchronized void addResultQueue(OutputBuffers outputIds)
     {
-        Preconditions.checkNotNull(outputIds, "outputIds is null");
+        checkNotNull(outputIds, "outputIds is null");
 
         try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskOutput.getTaskId())){
             for (String bufferId : outputIds.getBufferIds()) {
@@ -275,15 +242,10 @@ public class SqlTaskExecution
     {
         // create a new split worker
         SplitWorker worker = new SplitWorker(session,
-                nodeInfo,
                 taskOutput,
+                planner,
                 fragment,
                 getSourceHashProviderFactory(),
-                metadata,
-                maxOperatorMemoryUsage,
-                storageManager,
-                dataStreamProvider,
-                exchangeClientProvider,
                 queryMonitor);
 
         // TableScanOperator requires partitioned split to be added before task is started
@@ -400,9 +362,9 @@ public class SqlTaskExecution
     public BufferResult getResults(String outputId, long startingSequenceId, DataSize maxSize, Duration maxWait)
             throws InterruptedException
     {
-        Preconditions.checkNotNull(outputId, "outputId is null");
+        checkNotNull(outputId, "outputId is null");
         Preconditions.checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
-        Preconditions.checkNotNull(maxWait, "maxWait is null");
+        checkNotNull(maxWait, "maxWait is null");
 
         try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskOutput.getTaskId())){
             return taskOutput.getResults(outputId, startingSequenceId, maxSize, maxWait);
@@ -483,15 +445,10 @@ public class SqlTaskExecution
         private final Map<PlanNodeId, OutputProducingOperator<?>> outputOperators;
 
         private SplitWorker(Session session,
-                NodeInfo nodeInfo,
                 TaskOutput taskOutput,
+                LocalExecutionPlanner planner,
                 PlanFragment fragment,
                 SourceHashProviderFactory sourceHashProviderFactory,
-                Metadata metadata,
-                DataSize maxOperatorMemoryUsage,
-                LocalStorageManager storageManager,
-                DataStreamProvider dataStreamProvider,
-                Provider<ExchangeClient> exchangeClientProvider,
                 QueryMonitor queryMonitor)
         {
             this.taskOutput = taskOutput;
@@ -499,18 +456,7 @@ public class SqlTaskExecution
             operatorStats = new OperatorStats(taskOutput);
             this.queryMonitor = queryMonitor;
 
-            LocalExecutionPlanner planner = new LocalExecutionPlanner(session,
-                    nodeInfo,
-                    metadata,
-                    fragment.getSymbols(),
-                    operatorStats,
-                    sourceHashProviderFactory,
-                    maxOperatorMemoryUsage,
-                    dataStreamProvider,
-                    storageManager,
-                    exchangeClientProvider);
-
-            LocalExecutionPlan localExecutionPlan = planner.plan(fragment.getRoot());
+            LocalExecutionPlan localExecutionPlan = planner.plan(session, fragment.getRoot(), fragment.getSymbols(), sourceHashProviderFactory, operatorStats);
             operator = new AtomicReference<>(localExecutionPlan.getRootOperator());
             sourceOperators = localExecutionPlan.getSourceOperators();
             outputOperators = localExecutionPlan.getOutputOperators();

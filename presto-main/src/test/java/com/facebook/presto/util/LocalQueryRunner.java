@@ -8,6 +8,7 @@ import com.facebook.presto.connector.informationSchema.InformationSchemaSplitMan
 import com.facebook.presto.connector.system.NodesSystemTable;
 import com.facebook.presto.connector.system.SystemDataStreamProvider;
 import com.facebook.presto.connector.system.SystemSplitManager;
+import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.connector.system.SystemTablesManager;
 import com.facebook.presto.connector.system.SystemTablesMetadata;
@@ -18,7 +19,6 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.MockLocalStorageManager;
 import com.facebook.presto.operator.Operator;
-import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.SourceHashProviderFactory;
 import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.spi.ConnectorSplitManager;
@@ -129,20 +129,21 @@ public class LocalQueryRunner
         assertTrue(subplan.getChildren().isEmpty(), "Expected subplan to have no children");
 
         DataSize maxOperatorMemoryUsage = new DataSize(256, MEGABYTE);
-        LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(session,
+        LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(
                 new NodeInfo(new NodeConfig()
                         .setEnvironment("test")
                         .setNodeId("test-node")),
                 metadata,
-                plan.getTypes(),
-                new OperatorStats(),
-                new SourceHashProviderFactory(maxOperatorMemoryUsage),
                 maxOperatorMemoryUsage,
                 dataStreamProvider,
                 storageManager,
                 null);
 
-        LocalExecutionPlan localExecutionPlan = executionPlanner.plan(subplan.getFragment().getRoot());
+        LocalExecutionPlan localExecutionPlan = executionPlanner.plan(session,
+                subplan.getFragment().getRoot(),
+                plan.getTypes(),
+                new SourceHashProviderFactory(maxOperatorMemoryUsage),
+                new OperatorStats());
 
         // add the splits to the sources
         Map<PlanNodeId, SourceOperator> sourceOperators = localExecutionPlan.getSourceOperators();

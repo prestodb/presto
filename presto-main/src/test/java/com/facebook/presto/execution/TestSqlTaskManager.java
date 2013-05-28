@@ -19,6 +19,7 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.split.DataStreamManager;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
+import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
@@ -52,6 +53,7 @@ public class TestSqlTaskManager
 {
     private SqlTaskManager sqlTaskManager;
     private PlanFragment testFragment;
+    private LocalExecutionPlanner planner;
     private TaskId taskId;
     private Session session;
     private Symbol symbol;
@@ -77,11 +79,17 @@ public class TestSqlTaskManager
         DualSplitManager dualSplitManager = new DualSplitManager(new InMemoryNodeManager());
         split = Iterables.getOnlyElement(dualSplitManager.getPartitionSplits(dualSplitManager.getPartitions(tableHandle, ImmutableMap.<ColumnHandle, Object>of())));
 
-        sqlTaskManager = new SqlTaskManager(metadata,
-                new MockLocalStorageManager(new File("target/temp")),
-                new DataStreamManager(new DualDataStreamProvider()),
-                new MockExchangeClientProvider(),
+
+        planner = new LocalExecutionPlanner(
                 new NodeInfo("test"),
+                metadata,
+                new QueryManagerConfig(),
+                new DataStreamManager(new DualDataStreamProvider()),
+                new MockLocalStorageManager(new File("target/temp")),
+                new MockExchangeClientProvider());
+
+        sqlTaskManager = new SqlTaskManager(
+                planner,
                 new MockLocationFactory(),
                 new QueryMonitor(new ObjectMapperProvider().get(), new NullEventClient()),
                 new QueryManagerConfig());
@@ -205,11 +213,8 @@ public class TestSqlTaskManager
     public void testRemoveOldTasks()
             throws Exception
     {
-        sqlTaskManager = new SqlTaskManager(new MetadataManager(),
-                new MockLocalStorageManager(new File("target/temp")),
-                new DataStreamManager(),
-                new MockExchangeClientProvider(),
-                new NodeInfo("test"),
+        sqlTaskManager = new SqlTaskManager(
+                planner,
                 new MockLocationFactory(),
                 new QueryMonitor(new ObjectMapperProvider().get(), new NullEventClient()),
                 new QueryManagerConfig().setInfoMaxAge(new Duration(5, TimeUnit.MILLISECONDS)));
