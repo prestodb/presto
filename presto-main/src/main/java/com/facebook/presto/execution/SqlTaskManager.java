@@ -7,7 +7,6 @@ import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.event.query.QueryMonitor;
-import com.facebook.presto.execution.ExecutionStats.ExecutionStatsSnapshot;
 import com.facebook.presto.execution.SharedBuffer.QueueState;
 import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.metadata.Metadata;
@@ -197,6 +196,10 @@ public class SqlTaskManager
     {
         TaskInfo taskInfo = taskExecution.getTaskInfo(full);
         if (taskInfo.getState().isDone()) {
+            if (taskInfo.getStats().getEndTime() == null) {
+                log.warn("Task %s is in done state %s but does not have an end time", taskInfo.getTaskId(), taskInfo.getState());
+            }
+
             // cache task info
             taskInfos.putIfAbsent(taskInfo.getTaskId(), taskInfo);
 
@@ -299,13 +302,15 @@ public class SqlTaskManager
             if (taskInfo == null) {
                 // task does not exist yet, mark the task as canceled, so later if a late request
                 // comes in to create the task, the task remains canceled
+                ExecutionStats executionStats = new ExecutionStats();
+                executionStats.recordEnd();
                 taskInfo = new TaskInfo(taskId,
                         Long.MAX_VALUE,
                         TaskState.CANCELED,
                         URI.create("unknown"),
                         new SharedBufferInfo(QueueState.FINISHED, 0, 0, ImmutableList.<BufferInfo>of()),
                         ImmutableSet.<PlanNodeId>of(),
-                        new ExecutionStatsSnapshot(),
+                        executionStats.snapshot(false),
                         ImmutableList.<SplitExecutionStats>of(),
                         ImmutableList.<FailureInfo>of(),
                         ImmutableMap.<PlanNodeId, Set<?>>of());
