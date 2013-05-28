@@ -8,12 +8,9 @@ import com.facebook.presto.TaskSource;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.SharedBuffer.QueueState;
-import com.facebook.presto.metadata.LocalStorageManager;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.OperatorStats.SplitExecutionStats;
-import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Preconditions;
@@ -22,9 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.inject.Provider;
 import io.airlift.log.Logger;
-import io.airlift.node.NodeInfo;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
@@ -47,6 +42,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.util.Threads.threadsNamed;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class SqlTaskManager
         implements TaskManager
@@ -58,11 +54,7 @@ public class SqlTaskManager
     private final ExecutorService taskMasterExecutor;
     private final ListeningExecutorService shardExecutor;
     private final ScheduledExecutorService taskManagementExecutor;
-    private final Metadata metadata;
-    private final LocalStorageManager storageManager;
-    private final DataStreamProvider dataStreamProvider;
-    private final Provider<ExchangeClient> exchangeClientProvider;
-    private final NodeInfo nodeInfo;
+    private final LocalExecutionPlanner planner;
     private final LocationFactory locationFactory;
     private final QueryMonitor queryMonitor;
     private final DataSize maxOperatorMemoryUsage;
@@ -75,31 +67,16 @@ public class SqlTaskManager
 
     @Inject
     public SqlTaskManager(
-            Metadata metadata,
-            LocalStorageManager storageManager,
-            DataStreamProvider dataStreamProvider,
-            Provider<ExchangeClient> exchangeClientProvider,
-            NodeInfo nodeInfo,
+            LocalExecutionPlanner planner,
             LocationFactory locationFactory,
             QueryMonitor queryMonitor,
             QueryManagerConfig config)
     {
-        Preconditions.checkNotNull(metadata, "metadata is null");
-        Preconditions.checkNotNull(storageManager, "storageManager is null");
-        Preconditions.checkNotNull(dataStreamProvider, "dataStreamProvider is null");
-        Preconditions.checkNotNull(exchangeClientProvider, "exchangeClientProvider is null");
-        Preconditions.checkNotNull(nodeInfo, "nodeInfo is null");
-        Preconditions.checkNotNull(locationFactory, "locationFactory is null");
-        Preconditions.checkNotNull(queryMonitor, "queryMonitor is null");
-        Preconditions.checkNotNull(config, "config is null");
+        this.planner = checkNotNull(planner, "planner is null");
+        this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
+        this.queryMonitor = checkNotNull(queryMonitor, "queryMonitor is null");
 
-        this.metadata = metadata;
-        this.storageManager = storageManager;
-        this.dataStreamProvider = dataStreamProvider;
-        this.exchangeClientProvider = exchangeClientProvider;
-        this.nodeInfo = nodeInfo;
-        this.locationFactory = locationFactory;
-        this.queryMonitor = queryMonitor;
+        checkNotNull(config, "config is null");
         this.maxBufferSize = config.getSinkMaxBufferSize();
         this.maxOperatorMemoryUsage = config.getMaxOperatorMemoryUsage();
         this.infoCacheTime = config.getInfoMaxAge();
@@ -162,8 +139,8 @@ public class SqlTaskManager
     public void waitForStateChange(TaskId taskId, TaskState currentState, Duration maxWait)
             throws InterruptedException
     {
-        Preconditions.checkNotNull(taskId, "taskId is null");
-        Preconditions.checkNotNull(maxWait, "maxWait is null");
+        checkNotNull(taskId, "taskId is null");
+        checkNotNull(maxWait, "maxWait is null");
 
         TaskExecution taskExecution = tasks.get(taskId);
         if (taskExecution == null) {
@@ -177,7 +154,7 @@ public class SqlTaskManager
     @Override
     public TaskInfo getTaskInfo(TaskId taskId, boolean full)
     {
-        Preconditions.checkNotNull(taskId, "taskId is null");
+        checkNotNull(taskId, "taskId is null");
 
         TaskExecution taskExecution = tasks.get(taskId);
         if (taskExecution != null) {
@@ -225,15 +202,11 @@ public class SqlTaskManager
                 }
 
                 taskExecution = SqlTaskExecution.createSqlTaskExecution(session,
-                        nodeInfo,
                         taskId,
                         location,
                         fragment,
+                        planner,
                         maxBufferSize,
-                        dataStreamProvider,
-                        exchangeClientProvider,
-                        metadata,
-                        storageManager,
                         taskMasterExecutor,
                         shardExecutor,
                         maxOperatorMemoryUsage,
@@ -255,10 +228,10 @@ public class SqlTaskManager
     public BufferResult getTaskResults(TaskId taskId, String outputName, long startingSequenceId, DataSize maxSize, Duration maxWaitTime)
             throws InterruptedException
     {
-        Preconditions.checkNotNull(taskId, "taskId is null");
-        Preconditions.checkNotNull(outputName, "outputName is null");
+        checkNotNull(taskId, "taskId is null");
+        checkNotNull(outputName, "outputName is null");
         Preconditions.checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
-        Preconditions.checkNotNull(maxWaitTime, "maxWaitTime is null");
+        checkNotNull(maxWaitTime, "maxWaitTime is null");
 
         TaskExecution taskExecution = tasks.get(taskId);
         if (taskExecution == null) {
@@ -271,8 +244,8 @@ public class SqlTaskManager
     @Override
     public TaskInfo abortTaskResults(TaskId taskId, String outputId)
     {
-        Preconditions.checkNotNull(taskId, "taskId is null");
-        Preconditions.checkNotNull(outputId, "outputId is null");
+        checkNotNull(taskId, "taskId is null");
+        checkNotNull(outputId, "outputId is null");
 
         TaskExecution taskExecution = tasks.get(taskId);
         if (taskExecution == null) {
@@ -294,7 +267,7 @@ public class SqlTaskManager
     @Override
     public TaskInfo cancelTask(TaskId taskId)
     {
-        Preconditions.checkNotNull(taskId, "taskId is null");
+        checkNotNull(taskId, "taskId is null");
 
         TaskExecution taskExecution = tasks.get(taskId);
         if (taskExecution == null) {
