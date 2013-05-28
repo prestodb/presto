@@ -4,12 +4,21 @@ import com.facebook.presto.tuple.TupleReadable;
 
 public class FilterFunctions
 {
-    public static final FilterFunction TRUE_FUNCTION = new FilterFunction()
+    public static final FilterFunction TRUE_FUNCTION = new TrueFilterFunction();
+
+    private static class TrueFilterFunction
+            implements FilterFunction
     {
         @Override
         public boolean filter(TupleReadable... cursors)
         {
             return true;
         }
-    };
+
+        @Override
+        public String toString()
+        {
+            return "TRUE";
+        }
+    }
 }
