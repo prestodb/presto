@@ -15,7 +15,7 @@
         <dependency>
             <groupId>org.jruby.joni</groupId>
             <artifactId>joni</artifactId>
-            <version>1.1.9</version>
+            <version>2.0.0</version>
         </dependency>
 
         <dependency>
