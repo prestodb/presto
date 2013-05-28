@@ -53,10 +53,15 @@ import com.facebook.presto.sql.tree.TreeRewriter;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleReadable;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
+import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.base.Throwables;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMap.Builder;
@@ -102,6 +107,24 @@ public class ExpressionCompiler
     private static final AtomicLong CLASS_ID = new AtomicLong();
     private final Metadata metadata;
 
+    private final LoadingCache<ExpressionCacheKey, FilterFunction> filters = CacheBuilder.newBuilder().build(new CacheLoader<ExpressionCacheKey, FilterFunction>() {
+        @Override
+        public FilterFunction load(ExpressionCacheKey key)
+                throws Exception
+        {
+            return compileFilterFunction(key.getExpression(), key.getInputTypes());
+        }
+    });
+
+    private final LoadingCache<ExpressionCacheKey, ProjectionFunction> projections = CacheBuilder.newBuilder().build(new CacheLoader<ExpressionCacheKey, ProjectionFunction>() {
+        @Override
+        public ProjectionFunction load(ExpressionCacheKey key)
+                throws Exception
+        {
+            return compileProjectionFunction(key.getExpression(), key.getInputTypes());
+        }
+    });
+
     @Inject
     public ExpressionCompiler(Metadata metadata)
     {
@@ -139,9 +162,10 @@ public class ExpressionCompiler
         expression = TreeRewriter.rewriteWith(new SymbolToInputRewriter(layout), expression);
 
         ImmutableMap<Input, Type> inputTypes = getInputTypes(layout, tupleInfos);
-        return compileFilterFunction(expression, inputTypes);
+        return filters.getUnchecked(new ExpressionCacheKey(expression, inputTypes));
     }
 
+    @VisibleForTesting
     public FilterFunction compileFilterFunction(Expression expression, Map<Input, Type> inputTypes)
     {
         ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(),
@@ -201,9 +225,10 @@ public class ExpressionCompiler
         expression = TreeRewriter.rewriteWith(new SymbolToInputRewriter(layout), expression);
 
         ImmutableMap<Input, Type> inputTypes = getInputTypes(layout, tupleInfos);
-        return compileProjectionFunction(expression, inputTypes);
+        return projections.getUnchecked(new ExpressionCacheKey(expression, inputTypes));
     }
 
+    @VisibleForTesting
     public ProjectionFunction compileProjectionFunction(Expression expression, Map<Input, Type> inputTypes)
     {
         ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(),
@@ -1037,5 +1062,55 @@ public class ExpressionCompiler
                 throw new UnsupportedOperationException("Unsupported function type " + type);
             }
         };
+    }
+
+    private static final class ExpressionCacheKey
+    {
+        private final Expression expression;
+        private final Map<Input, Type> inputTypes;
+
+        private ExpressionCacheKey(Expression expression, Map<Input, Type> inputTypes)
+        {
+            this.expression = expression;
+            this.inputTypes = inputTypes;
+        }
+
+        private Expression getExpression()
+        {
+            return expression;
+        }
+
+        private Map<Input, Type> getInputTypes()
+        {
+            return inputTypes;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hashCode(expression, inputTypes);
+        }
+
+        @Override
+        public boolean equals(Object obj)
+        {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null || getClass() != obj.getClass()) {
+                return false;
+            }
+            final ExpressionCacheKey other = (ExpressionCacheKey) obj;
+            return Objects.equal(this.expression, other.expression) && Objects.equal(this.inputTypes, other.inputTypes);
+        }
+
+        @Override
+        public String toString()
+        {
+            return Objects.toStringHelper(this)
+                    .add("expression", expression)
+                    .add("inputTypes", inputTypes)
+                    .toString();
+        }
     }
 }
