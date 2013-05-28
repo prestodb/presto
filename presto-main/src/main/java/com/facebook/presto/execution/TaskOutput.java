@@ -216,12 +216,12 @@ public class TaskOutput
                 return false;
             }
 
+            stats.recordEnd();
+
             // If someone changed the state while we were working, start
             // the whole process over again.  This assures that a final
             // state can not be changed.
             if (taskState.compareAndSet(currentTaskState, doneState)) {
-
-                stats.recordEnd();
 
                 sharedBuffer.destroy();
 
