@@ -1523,6 +1523,20 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testSelectOnlyUnion()
+            throws Exception
+    {
+        assertQuery("SELECT 123, 'foo' UNION ALL SELECT 999, 'bar'");
+    }
+
+    @Test
+    public void testMultiColumnUnionAll()
+            throws Exception
+    {
+        assertQuery("SELECT * FROM orders UNION ALL SELECT * FROM orders");
+    }
+
+    @Test
     public void testTableQuery()
             throws Exception
     {
