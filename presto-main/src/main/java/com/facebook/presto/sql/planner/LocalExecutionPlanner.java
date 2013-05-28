@@ -103,6 +103,7 @@ public class LocalExecutionPlanner
     private final DataStreamProvider dataStreamProvider;
     private final LocalStorageManager storageManager;
     private final Provider<ExchangeClient> exchangeClientProvider;
+    private final ExpressionCompiler compiler;
 
     @Inject
     public LocalExecutionPlanner(NodeInfo nodeInfo,
@@ -110,9 +111,10 @@ public class LocalExecutionPlanner
             QueryManagerConfig config,
             DataStreamProvider dataStreamProvider,
             LocalStorageManager storageManager,
-            Provider<ExchangeClient> exchangeClientProvider)
+            Provider<ExchangeClient> exchangeClientProvider,
+            ExpressionCompiler compiler)
     {
-        this(nodeInfo, metadata, config.getMaxOperatorMemoryUsage(), dataStreamProvider, storageManager, exchangeClientProvider);
+        this(nodeInfo, metadata, config.getMaxOperatorMemoryUsage(), dataStreamProvider, storageManager, exchangeClientProvider, compiler);
     }
 
     public LocalExecutionPlanner(NodeInfo nodeInfo,
@@ -120,7 +122,8 @@ public class LocalExecutionPlanner
             DataSize maxOperatorMemoryUsage,
             DataStreamProvider dataStreamProvider,
             LocalStorageManager storageManager,
-            Provider<ExchangeClient> exchangeClientProvider)
+            Provider<ExchangeClient> exchangeClientProvider,
+            ExpressionCompiler compiler)
     {
         this.nodeInfo = checkNotNull(nodeInfo, "nodeInfo is null");
         this.dataStreamProvider = dataStreamProvider;
@@ -128,6 +131,7 @@ public class LocalExecutionPlanner
         this.metadata = checkNotNull(metadata, "metadata is null");
         this.maxOperatorMemoryUsage = Preconditions.checkNotNull(maxOperatorMemoryUsage, "maxOperatorMemoryUsage is null");
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
+        this.compiler = checkNotNull(compiler, "compiler is null");
     }
 
     public LocalExecutionPlan plan(Session session, PlanNode plan, Map<Symbol, Type> types, SourceHashProviderFactory joinHashFactory, OperatorStats operatorStats)
@@ -439,10 +443,9 @@ public class LocalExecutionPlanner
             PhysicalOperation source = node.getSource().accept(this, context);
 
 //            FilterFunction filter = new InterpretedFilterFunction(node.getPredicate(), source.getLayout(), metadata, context.getSession());
-            ExpressionCompiler compiler = new ExpressionCompiler(metadata, context.getSession(), source.getLayout(), source.getOperator().getTupleInfos());
             FilterFunction filter;
             try {
-                filter = compiler.compileFilterFunction(node.getPredicate());
+                filter = compiler.compileFilterFunction(node.getPredicate(), source.getLayout(), source.getOperator().getTupleInfos());
             }
             catch (Exception e) {
                 throw Throwables.propagate(e);
@@ -483,9 +486,8 @@ public class LocalExecutionPlanner
                 }
                 else {
 //                    function = new InterpretedProjectionFunction(context.getTypes().get(symbol), expression, source.getLayout(), metadata, context.getSession());
-                    ExpressionCompiler compiler = new ExpressionCompiler(metadata, context.getSession(), source.getLayout(), source.getOperator().getTupleInfos());
                     try {
-                        function = compiler.compileProjectionFunction(expression);
+                        function = compiler.compileProjectionFunction(expression, source.getLayout(), source.getOperator().getTupleInfos());
                     }
                     catch (Exception e) {
                         throw Throwables.propagate(e);

@@ -30,6 +30,7 @@ import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DistributedLogicalPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
@@ -75,11 +76,12 @@ import static org.testng.Assert.assertTrue;
 
 public class LocalQueryRunner
 {
-    private final DataStreamProvider dataStreamProvider;
     private final Metadata metadata;
+    private final SplitManager splitManager;
+    private final DataStreamProvider dataStreamProvider;
     private final LocalStorageManager storageManager;
     private final Session session;
-    private final SplitManager splitManager;
+    private final ExpressionCompiler compiler;
     private boolean printPlan;
 
     public LocalQueryRunner(Metadata metadata,
@@ -93,6 +95,7 @@ public class LocalQueryRunner
         this.dataStreamProvider = checkNotNull(dataStreamProvider, "dataStreamProvider is null");
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
         this.session = checkNotNull(session, "session is null");
+        this.compiler = new ExpressionCompiler(metadata);
     }
 
     public LocalQueryRunner printPlan()
@@ -137,7 +140,8 @@ public class LocalQueryRunner
                 maxOperatorMemoryUsage,
                 dataStreamProvider,
                 storageManager,
-                null);
+                null,
+                compiler);
 
         LocalExecutionPlan localExecutionPlan = executionPlanner.plan(session,
                 subplan.getFragment().getRoot(),

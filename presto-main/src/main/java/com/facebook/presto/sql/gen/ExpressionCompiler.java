@@ -22,7 +22,6 @@ import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.operator.ProjectionFunction;
-import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolToInputRewriter;
@@ -69,6 +68,7 @@ import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.util.TraceClassVisitor;
 
+import javax.inject.Inject;
 import java.io.PrintWriter;
 import java.lang.invoke.MethodType;
 import java.util.ArrayList;
@@ -101,16 +101,18 @@ public class ExpressionCompiler
 {
     private static final AtomicLong CLASS_ID = new AtomicLong();
     private final Metadata metadata;
-    private final Session session;
-    private final Map<Symbol, Input> layout;
-    private final ImmutableMap<Input, Type> inputTypes;
 
-    public ExpressionCompiler(Metadata metadata, Session session, Map<Symbol, Input> layout, final List<TupleInfo> tupleInfos)
+    @Inject
+    public ExpressionCompiler(Metadata metadata)
     {
         this.metadata = checkNotNull(metadata, "metadata is null");
-        this.session = checkNotNull(session, "session is null");
-        this.layout = ImmutableMap.copyOf(checkNotNull(layout, "layout is null"));
 
+        // todo this is a total hack
+        FunctionBootstrap.metadataReference.set(metadata);
+    }
+
+    private static ImmutableMap<Input, Type> getInputTypes(Map<Symbol, Input> layout, List<TupleInfo> tupleInfos)
+    {
         Builder<Input, Type> inputTypes = ImmutableMap.builder();
         for (Input input : layout.values()) {
             TupleInfo.Type type = tupleInfos.get(input.getChannel()).getTypes().get(input.getField());
@@ -129,16 +131,19 @@ public class ExpressionCompiler
             }
 
         }
-        this.inputTypes = inputTypes.build();
-
-        // todo this is a total hack
-        FunctionBootstrap.metadataReference.set(metadata);
+        return inputTypes.build();
     }
 
-    public FilterFunction compileFilterFunction(Expression expression)
+    public FilterFunction compileFilterFunction(Expression expression, Map<Symbol, Input> layout, List<TupleInfo> tupleInfos)
     {
         expression = TreeRewriter.rewriteWith(new SymbolToInputRewriter(layout), expression);
 
+        ImmutableMap<Input, Type> inputTypes = getInputTypes(layout, tupleInfos);
+        return compileFilterFunction(expression, inputTypes);
+    }
+
+    public FilterFunction compileFilterFunction(Expression expression, Map<Input, Type> inputTypes)
+    {
         ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(),
                 a(PUBLIC, FINAL),
                 typeFromPathName("FilterFunction_" + CLASS_ID.incrementAndGet()),
@@ -191,10 +196,16 @@ public class ExpressionCompiler
         }
     }
 
-    public ProjectionFunction compileProjectionFunction(Expression expression)
+    public ProjectionFunction compileProjectionFunction(Expression expression, Map<Symbol, Input> layout, List<TupleInfo> tupleInfos)
     {
         expression = TreeRewriter.rewriteWith(new SymbolToInputRewriter(layout), expression);
 
+        ImmutableMap<Input, Type> inputTypes = getInputTypes(layout, tupleInfos);
+        return compileProjectionFunction(expression, inputTypes);
+    }
+
+    public ProjectionFunction compileProjectionFunction(Expression expression, Map<Input, Type> inputTypes)
+    {
         ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(),
                 a(PUBLIC, FINAL),
                 typeFromPathName("ProjectionFunction_" + CLASS_ID.incrementAndGet()),
