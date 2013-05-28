@@ -411,7 +411,17 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitProject(ProjectNode node, LocalExecutionPlanContext context)
         {
-            PhysicalOperation source = node.getSource().accept(this, context);
+            // collapse project on filter to a single operator
+            PhysicalOperation source;
+            FilterFunction filter;
+            if (node.getSource() instanceof FilterNode) {
+                FilterNode filterNode = (FilterNode) node.getSource();
+                source = filterNode.getSource().accept(this, context);
+                filter = new InterpretedFilterFunction(filterNode.getPredicate(), source.getLayout(), metadata, session);
+            } else {
+                source = node.getSource().accept(this, context);
+                filter = FilterFunctions.TRUE_FUNCTION;
+            }
 
             Map<Symbol, Input> outputMappings = new HashMap<>();
             List<ProjectionFunction> projections = new ArrayList<>();
@@ -433,7 +443,7 @@ public class LocalExecutionPlanner
                 outputMappings.put(symbol, new Input(i, 0)); // one field per channel
             }
 
-            FilterAndProjectOperator operator = new FilterAndProjectOperator(source.getOperator(), FilterFunctions.TRUE_FUNCTION, projections);
+            FilterAndProjectOperator operator = new FilterAndProjectOperator(source.getOperator(), filter, projections);
             return new PhysicalOperation(operator, outputMappings);
         }
 
