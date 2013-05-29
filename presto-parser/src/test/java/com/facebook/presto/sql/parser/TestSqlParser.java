@@ -27,6 +27,13 @@ import static org.testng.Assert.fail;
 public class TestSqlParser
 {
     @Test
+    public void testPossibleExponentialBacktracking()
+            throws Exception
+    {
+        SqlParser.createExpression("(((((((((((((((((((((((((((true)))))))))))))))))))))))))))");
+    }
+
+    @Test
     public void testDouble()
             throws Exception
     {
