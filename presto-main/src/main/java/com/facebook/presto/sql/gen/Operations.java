@@ -4,15 +4,20 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.operator.scalar.MathFunctions;
-import com.google.common.base.Charsets;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
+
+import static com.google.common.base.Charsets.US_ASCII;
+import static com.google.common.base.Charsets.UTF_8;
 
 public final class Operations
 {
+    private static final Slice TRUE = Slices.copiedBuffer("true", US_ASCII);
+    private static final Slice FALSE = Slices.copiedBuffer("false", US_ASCII);
+
     private Operations()
     {
     }
-
 
     public static boolean and(boolean left, boolean right)
     {
@@ -169,44 +174,39 @@ public final class Operations
         return min <= value && value <= max;
     }
 
-    public static boolean equal(String left, String right)
+    public static boolean equal(Slice left, Slice right)
     {
         return left.equals(right);
     }
 
-    public static boolean notEqual(String left, String right)
+    public static boolean notEqual(Slice left, Slice right)
     {
         return !left.equals(right);
     }
 
-    public static boolean lessThan(String left, String right)
+    public static boolean lessThan(Slice left, Slice right)
     {
         return left.compareTo(right) < 0;
     }
 
-    public static boolean lessThanOrEqual(String left, String right)
+    public static boolean lessThanOrEqual(Slice left, Slice right)
     {
         return left.compareTo(right) <= 0;
     }
 
-    public static boolean greaterThan(String left, String right)
+    public static boolean greaterThan(Slice left, Slice right)
     {
         return left.compareTo(right) > 0;
     }
 
-    public static boolean greaterThanOrEqual(String left, String right)
+    public static boolean greaterThanOrEqual(Slice left, Slice right)
     {
         return left.compareTo(right) >= 0;
     }
 
-    public static boolean between(String value, String min, String max)
+    public static boolean between(Slice value, Slice min, Slice max)
     {
         return min.compareTo(value) <= 0 && value.compareTo(max) <= 0;
-    }
-
-    public static String toString(Slice slice)
-    {
-        return slice.toString(Charsets.UTF_8);
     }
 
     public static boolean castToBoolean(boolean value)
@@ -224,15 +224,34 @@ public final class Operations
         return value != 0;
     }
 
-    public static boolean castToBoolean(String value)
+    public static boolean castToBoolean(Slice value)
     {
-        if (value.equals("t") || value.equals("true") || value.equals("1")) {
+        if ((value.length() == 4) &&
+                (toUpperCase(value.getByte(0)) == 'T') &&
+                (toUpperCase(value.getByte(1)) == 'R') &&
+                (toUpperCase(value.getByte(2)) == 'U') &&
+                (toUpperCase(value.getByte(3)) == 'E')) {
             return true;
         }
-        if (value.equals("f") || value.equals("false") || value.equals("0")) {
+        if ((value.length() == 5) &&
+                (toUpperCase(value.getByte(0)) == 'F') &&
+                (toUpperCase(value.getByte(1)) == 'A') &&
+                (toUpperCase(value.getByte(2)) == 'L') &&
+                (toUpperCase(value.getByte(3)) == 'S') &&
+                (toUpperCase(value.getByte(4)) == 'E')) {
             return false;
         }
-        throw new IllegalArgumentException(String.format("Cannot cast %s to BOOLEAN", value.getClass().getSimpleName()));
+        throw new IllegalArgumentException(String.format("Cannot cast %s to BOOLEAN", value.toString(UTF_8)));
+    }
+
+    private static byte toUpperCase(byte b)
+    {
+        return isLowerCase(b) ? ((byte) (b - 32)) : b;
+    }
+
+    private static boolean isLowerCase(byte b)
+    {
+        return (b >= 'a') && (b <= 'z');
     }
 
     public static long castToLong(boolean value)
@@ -250,9 +269,35 @@ public final class Operations
         return (long) MathFunctions.round(value);
     }
 
-    public static long castToLong(String value)
+    public static long castToLong(Slice slice)
     {
-        return Long.parseLong(value);
+        if (slice.length() < 1) {
+            throw new IllegalArgumentException("Can not convert " + slice.toString(UTF_8) + " to BIGINT");
+        }
+
+        int start = 0;
+        int sign = slice.getByte(start) == '-' ? -1 : 1;
+
+        if (sign == -1 || slice.getByte(start) == '+') {
+            start++;
+        }
+
+        long value = getDecimalValue(slice, start++);
+        while (start < slice.length()) {
+            value = value * 10 + (getDecimalValue(slice, start));
+            start++;
+        }
+
+        return value * sign;
+    }
+
+    private static int getDecimalValue(Slice slice, int start)
+    {
+        int decimal = slice.getByte(start) - '0';
+        if (decimal < 0 || decimal > 9) {
+            throw new IllegalArgumentException("Can not convert " + slice.toString(UTF_8) + " to BIGINT");
+        }
+        return decimal;
     }
 
     public static double castToDouble(boolean value)
@@ -270,27 +315,33 @@ public final class Operations
         return value;
     }
 
-    public static double castToDouble(String value)
+    public static double castToDouble(Slice value)
     {
-        return Double.parseDouble(value);
+        char[] chars = new char[value.length()];
+        for (int pos = 0; pos < value.length(); pos++) {
+            chars[pos] = (char) value.getByte(pos);
+        }
+        String string = new String(chars);
+        return Double.parseDouble(string);
     }
 
-    public static String castToString(boolean value)
+    public static Slice castToSlice(boolean value)
     {
-        return value ? "true" : "false";
+        return value ? TRUE : FALSE;
     }
 
-    public static String castToString(long value)
+    public static Slice castToSlice(long value)
     {
-        return String.valueOf(value);
+        // todo optimize me
+        return Slices.copiedBuffer(String.valueOf(value), UTF_8);
     }
 
-    public static String castToString(double value)
+    public static Slice castToSlice(double value)
     {
-        return String.valueOf(value);
+        return Slices.copiedBuffer(String.valueOf(value), UTF_8);
     }
 
-    public static String castToString(String value)
+    public static Slice castToSlice(Slice value)
     {
         return value;
     }

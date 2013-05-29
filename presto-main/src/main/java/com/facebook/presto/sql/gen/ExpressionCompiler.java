@@ -93,8 +93,9 @@ import static com.facebook.presto.byteCode.ParameterizedType.typeFromPathName;
 import static com.facebook.presto.byteCode.instruction.Constant.loadBoolean;
 import static com.facebook.presto.byteCode.instruction.Constant.loadDouble;
 import static com.facebook.presto.byteCode.instruction.Constant.loadLong;
-import static com.facebook.presto.byteCode.instruction.Constant.loadString;
+import static com.facebook.presto.byteCode.instruction.InvokeInstruction.invokeDynamic;
 import static com.facebook.presto.sql.gen.ExpressionCompiler.TypedByteCodeNode.typedByteCodeNode;
+import static com.facebook.presto.sql.gen.SliceLiteralBootstrap.SLICE_LITERAL_BOOTSTRAP;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -272,8 +273,8 @@ public class ExpressionCompiler
             else if (body.type == double.class) {
                 notNullBlock.invokeVirtual(BlockBuilder.class, "append", BlockBuilder.class, double.class);
             }
-            else if (body.type == String.class) {
-                notNullBlock.invokeVirtual(BlockBuilder.class, "append", BlockBuilder.class, String.class);
+            else if (body.type == Slice.class) {
+                notNullBlock.invokeVirtual(BlockBuilder.class, "append", BlockBuilder.class, Slice.class);
             }
             else {
                 throw new UnsupportedOperationException("Type " + body.type + " can not be output yet");
@@ -312,7 +313,7 @@ public class ExpressionCompiler
                     .getStaticField(type(TupleInfo.class), "SINGLE_DOUBLE", type(TupleInfo.class))
                     .retObject();
         }
-        else if (body.type == String.class) {
+        else if (body.type == Slice.class) {
             getTupleInfoMethod.getBody()
                     .getStaticField(type(TupleInfo.class), "SINGLE_VARBINARY", type(TupleInfo.class))
                     .retObject();
@@ -425,7 +426,7 @@ public class ExpressionCompiler
         @Override
         protected TypedByteCodeNode visitStringLiteral(StringLiteral node, CompilerContext context)
         {
-            return typedByteCodeNode(loadString(node.getValue()), String.class);
+            return typedByteCodeNode(invokeDynamic("load", MethodType.methodType(Slice.class), SLICE_LITERAL_BOOTSTRAP, node.getValue()), Slice.class);
         }
 
         @Override
@@ -478,8 +479,7 @@ public class ExpressionCompiler
                 case STRING:
                     isNull.loadNull();
                     notNull.invokeInterface(TupleReadable.class, "getSlice", Slice.class, int.class);
-                    notNull.invokeStatic(Operations.class, "toString", String.class, Slice.class);
-                    nodeType = String.class;
+                    nodeType = Slice.class;
                     break;
                 default:
                     throw new UnsupportedOperationException("not yet implemented: " + type);
@@ -544,9 +544,9 @@ public class ExpressionCompiler
                     block.invokeStatic(Operations.class, "castToDouble", double.class, value.type);
                     return typedByteCodeNode(block.visitLabel(end), double.class);
                 case "VARCHAR":
-                    block.append(ifWasNullClearAndGoto(context, end, String.class, value.type));
-                    block.invokeStatic(Operations.class, "castToString", String.class, value.type);
-                    return typedByteCodeNode(block.visitLabel(end), String.class);
+                    block.append(ifWasNullClearAndGoto(context, end, Slice.class, value.type));
+                    block.invokeStatic(Operations.class, "castToSlice", Slice.class, value.type);
+                    return typedByteCodeNode(block.visitLabel(end), Slice.class);
             }
             throw new UnsupportedOperationException("Unsupported type: " + node.getType());
         }
@@ -1057,6 +1057,9 @@ public class ExpressionCompiler
                     return Type.DOUBLE;
                 }
                 if (type == String.class) {
+                    return Type.STRING;
+                }
+                if (type == Slice.class) {
                     return Type.STRING;
                 }
                 throw new UnsupportedOperationException("Unsupported function type " + type);
