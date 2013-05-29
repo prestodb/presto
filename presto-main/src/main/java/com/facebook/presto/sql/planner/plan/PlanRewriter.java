@@ -307,7 +307,7 @@ public final class PlanRewriter<C>
             }
 
             if (modified) {
-                return new UnionNode(node.getId(), builder.build(), node.getOutputSymbols());
+                return new UnionNode(node.getId(), builder.build(), node.getSymbolMapping());
             }
 
             return node;

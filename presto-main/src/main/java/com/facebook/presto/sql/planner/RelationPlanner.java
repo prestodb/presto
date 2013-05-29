@@ -30,6 +30,7 @@ import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Union;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 
@@ -166,21 +167,28 @@ class RelationPlanner
         checkArgument(!node.getRelations().isEmpty(), "No relations specified for UNION");
 
         List<Symbol> outputSymbols = null;
-        ImmutableList.Builder<PlanNode> builder = ImmutableList.builder();
+        ImmutableList.Builder<PlanNode> sources = ImmutableList.builder();
+        ImmutableListMultimap.Builder<Symbol, Symbol> symbolMapping = ImmutableListMultimap.builder();
         for (Relation relation : node.getRelations()) {
             RelationPlan relationPlan = process(relation, context);
+
             if (outputSymbols == null) {
-                // Use the first Relation to extract the new output symbols
-                ImmutableList.Builder<Symbol> symbolsBuilder = ImmutableList.builder();
+                // Use the first Relation to derive output symbol names
+                ImmutableList.Builder<Symbol> outputSymbolBuilder = ImmutableList.builder();
                 for (Symbol symbol : relationPlan.getOutputSymbols()) {
-                    symbolsBuilder.add(symbolAllocator.newSymbol(symbol.getName(), symbolAllocator.getTypes().get(symbol)));
+                    outputSymbolBuilder.add(symbolAllocator.newSymbol(symbol.getName(), symbolAllocator.getTypes().get(symbol)));
                 }
-                outputSymbols = symbolsBuilder.build();
+                outputSymbols = outputSymbolBuilder.build();
             }
-            builder.add(relationPlan.getRoot());
+
+            for (int i = 0; i < outputSymbols.size(); i++) {
+                symbolMapping.put(outputSymbols.get(i), relationPlan.getOutputSymbols().get(i));
+            }
+
+            sources.add(relationPlan.getRoot());
         }
 
-        PlanNode planNode = new UnionNode(idAllocator.getNextId(), builder.build(), outputSymbols);
+        PlanNode planNode = new UnionNode(idAllocator.getNextId(), sources.build(), symbolMapping.build());
         if (node.isDistinct()) {
             planNode = distinct(planNode);
         }

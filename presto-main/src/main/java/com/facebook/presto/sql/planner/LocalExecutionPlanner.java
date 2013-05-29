@@ -37,7 +37,6 @@ import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
-import com.facebook.presto.sql.planner.plan.LocalUnionNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -48,6 +47,7 @@ import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
+import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -507,15 +507,25 @@ public class LocalExecutionPlanner
         {
             PhysicalOperation source = node.getSource().accept(this, context);
 
+            boolean projectionMatchesOutput = IterableTransformer.on(source.getLayout().entrySet())
+                    .orderBy(inputOrdering().onResultOf(MoreFunctions.<Symbol, Input>valueGetter()))
+                    .transform(MoreFunctions.<Symbol, Input>keyGetter())
+                    .list()
+                    .equals(node.getOutputSymbols());
+
             // if any symbols are mapped to a non-zero field, re-map to one field per channel
             // TODO: this is currently what the exchange operator expects -- figure out how to remove this assumption
             // to avoid unnecessary projections
-            boolean needsProjection = IterableTransformer.on(source.getLayout().values())
+            boolean hasMultiFieldChannels = IterableTransformer.on(source.getLayout().values())
                     .transform(fieldGetter())
                     .any(not(equalTo(0)));
 
-            if (needsProjection) {
-                return projectToOneFieldPerChannel(source, types);
+            if (hasMultiFieldChannels || !projectionMatchesOutput) {
+                IdentityProjectionInfo mappings = computeIdentityMapping(node.getOutputSymbols(), source.getLayout(), types);
+                Operator operator = new FilterAndProjectOperator(source.getOperator(), FilterFunctions.TRUE_FUNCTION, mappings.getProjections());
+                // NOTE: the generated output layout may not be completely accurate if the same field was projected as multiple inputs.
+                // However, this should not affect the operation of the sink.
+                return new PhysicalOperation(operator, mappings.getOutputLayout());
             }
 
             return source;
@@ -552,12 +562,28 @@ public class LocalExecutionPlanner
         }
 
         @Override
-        public PhysicalOperation visitLocalUnion(LocalUnionNode node, LocalExecutionPlanContext context)
+        public PhysicalOperation visitUnion(UnionNode node, LocalExecutionPlanContext context)
         {
-
             ImmutableList.Builder<Operator> operatorBuilder = ImmutableList.builder();
-            for (PlanNode subPlanNode : node.getSources()) {
-                operatorBuilder.add(subPlanNode.accept(this, context).getOperator());
+            for (int i = 0; i < node.getSources().size(); i++) {
+                PlanNode subplan = node.getSources().get(i);
+                List<Symbol> expectedLayout = node.sourceOutputLayout(i);
+
+                PhysicalOperation source = subplan.accept(this, context);
+
+                boolean projectionMatchesOutput = IterableTransformer.on(source.getLayout().entrySet())
+                        .orderBy(inputOrdering().onResultOf(MoreFunctions.<Symbol, Input>valueGetter()))
+                        .transform(MoreFunctions.<Symbol, Input>keyGetter())
+                        .list()
+                        .equals(expectedLayout);
+
+                if (!projectionMatchesOutput) {
+                    IdentityProjectionInfo mappings = computeIdentityMapping(expectedLayout, source.getLayout(), types);
+                    operatorBuilder.add(new FilterAndProjectOperator(source.getOperator(), FilterFunctions.TRUE_FUNCTION, mappings.getProjections()));
+                }
+                else {
+                    operatorBuilder.add(source.getOperator());
+                }
             }
 
             // Fow now, we assume that subplans always produce one symbol per channel. TODO: remove this assumption
@@ -722,15 +748,6 @@ public class LocalExecutionPlanner
 
         Operator operator = new FilterAndProjectOperator(source.getOperator(), FilterFunctions.TRUE_FUNCTION, projections.build());
         return new PhysicalOperation(operator, outputMappings.build());
-    }
-
-    private static PhysicalOperation projectToOneFieldPerChannel(PhysicalOperation source, Map<Symbol, Type> types)
-    {
-        List<Symbol> symbols = ImmutableList.copyOf(source.getLayout().keySet());
-        IdentityProjectionInfo mappings = computeIdentityMapping(symbols, source.getLayout(), types);
-
-        Operator operator = new FilterAndProjectOperator(source.getOperator(), FilterFunctions.TRUE_FUNCTION, mappings.getProjections());
-        return new PhysicalOperation(operator, mappings.getOutputLayout());
     }
 
     private static Set<Integer> getChannelsForSymbols(List<Symbol> symbols, Map<Symbol, Input> layout)

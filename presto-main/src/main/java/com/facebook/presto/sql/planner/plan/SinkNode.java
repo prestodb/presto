@@ -8,21 +8,26 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
 public class SinkNode
-    extends PlanNode
+        extends PlanNode
 {
     private final PlanNode source;
+    private final List<Symbol> outputSymbols; // Expected output symbol layout
 
     @JsonCreator
-    public SinkNode(@JsonProperty("id") PlanNodeId id, @JsonProperty("source") PlanNode source)
+    public SinkNode(@JsonProperty("id") PlanNodeId id,
+            @JsonProperty("source") PlanNode source,
+            @JsonProperty("outputSymbols") List<Symbol> outputSymbols)
     {
         super(id);
 
         Preconditions.checkNotNull(source, "source is null");
+        Preconditions.checkNotNull(outputSymbols, "outputSymbols is null");
 
         this.source = source;
+        this.outputSymbols = ImmutableList.copyOf(outputSymbols);
+
+        Preconditions.checkArgument(source.getOutputSymbols().containsAll(this.outputSymbols), "Source output needs to be able to produce all of the required outputSymbols");
     }
 
     @JsonProperty("source")
@@ -38,9 +43,10 @@ public class SinkNode
     }
 
     @Override
+    @JsonProperty("outputSymbols")
     public List<Symbol> getOutputSymbols()
     {
-        return source.getOutputSymbols();
+        return outputSymbols;
     }
 
     public <C, R> R accept(PlanVisitor<C, R> visitor, C context)

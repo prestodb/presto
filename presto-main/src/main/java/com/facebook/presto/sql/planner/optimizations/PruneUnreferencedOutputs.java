@@ -25,12 +25,13 @@ import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.ListMultimap;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 
@@ -256,26 +257,26 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode rewriteUnion(UnionNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
         {
-            List<Integer> expectedFields = new ArrayList<>();
-            ImmutableList.Builder<Symbol> outputSymbols = ImmutableList.builder();
-            for (int i = 0; i < node.getOutputSymbols().size(); i++) {
-                Symbol symbol = node.getOutputSymbols().get(i);
+            // Find out which output symbols we need to keep
+            ImmutableListMultimap.Builder<Symbol, Symbol> rewrittenSymbolMappingBuilder = ImmutableListMultimap.builder();
+            for (Symbol symbol : node.getOutputSymbols()) {
                 if (expectedOutputs.contains(symbol)) {
-                    expectedFields.add(i);
-                    outputSymbols.add(symbol);
+                    rewrittenSymbolMappingBuilder.putAll(symbol, node.getSymbolMapping().get(symbol));
                 }
             }
+            ListMultimap<Symbol, Symbol> rewrittenSymbolMapping = rewrittenSymbolMappingBuilder.build();
 
+            // Find the corresponding input symbol to the remaining output symbols and prune the subplans
             ImmutableList.Builder<PlanNode> rewrittenSubPlans = ImmutableList.builder();
-            for (PlanNode subPlan : node.getSources()) {
+            for (int i = 0; i < node.getSources().size(); i++) {
                 ImmutableSet.Builder<Symbol> expectedInputSymbols = ImmutableSet.builder();
-                for (Integer expectedField : expectedFields) {
-                    expectedInputSymbols.add(subPlan.getOutputSymbols().get(expectedField));
+                for (Collection<Symbol> symbols : rewrittenSymbolMapping.asMap().values()) {
+                    expectedInputSymbols.add(Iterables.get(symbols, i));
                 }
-                rewrittenSubPlans.add(planRewriter.rewrite(subPlan, expectedInputSymbols.build()));
+                rewrittenSubPlans.add(planRewriter.rewrite(node.getSources().get(i), expectedInputSymbols.build()));
             }
 
-            return new UnionNode(node.getId(), rewrittenSubPlans.build(), outputSymbols.build());
+            return new UnionNode(node.getId(), rewrittenSubPlans.build(), rewrittenSymbolMapping);
         }
     }
 }

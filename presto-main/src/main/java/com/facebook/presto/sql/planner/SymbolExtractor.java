@@ -5,7 +5,6 @@ import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
-import com.facebook.presto.sql.planner.plan.LocalUnionNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
@@ -165,16 +164,6 @@ public class SymbolExtractor
 
         @Override
         public Void visitUnion(UnionNode node, Void context)
-        {
-            for (PlanNode subPlanNode : node.getSources()) {
-                subPlanNode.accept(this, context);
-            }
-
-            return null;
-        }
-
-        @Override
-        public Void visitLocalUnion(LocalUnionNode node, Void context)
         {
             for (PlanNode subPlanNode : node.getSources()) {
                 subPlanNode.accept(this, context);
