@@ -43,6 +43,7 @@ import com.google.common.collect.Iterables;
 import javax.annotation.Nullable;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -239,14 +240,14 @@ class QueryPlanner
         }
 
         // 2.b. Rewrite group by expressions in terms of pre-projected inputs
-        ImmutableList.Builder<Symbol> groupBySymbols = ImmutableList.builder();
+        Set<Symbol> groupBySymbols = new LinkedHashSet<>();
         for (FieldOrExpression fieldOrExpression : analysis.getGroupByExpressions(node)) {
             Symbol symbol = subPlan.translate(fieldOrExpression);
             groupBySymbols.add(symbol);
             translations.put(fieldOrExpression, symbol);
         }
 
-        return new PlanBuilder(translations, new AggregationNode(idAllocator.getNextId(), subPlan.getRoot(), groupBySymbols.build(), aggregationAssignments.build(), functions.build()));
+        return new PlanBuilder(translations, new AggregationNode(idAllocator.getNextId(), subPlan.getRoot(), ImmutableList.copyOf(groupBySymbols), aggregationAssignments.build(), functions.build()));
     }
 
     private PlanBuilder window(PlanBuilder subPlan, QuerySpecification node)
