@@ -128,6 +128,13 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testGroupByRepeatedField2()
+            throws Exception
+    {
+        assertQuery("SELECT count(*) FROM (select orderstatus a, orderstatus b FROM orders) GROUP BY a, b");
+    }
+
+    @Test
     public void testGroupByMultipleFieldsWithPredicateOnAggregationArgument()
             throws Exception
     {
