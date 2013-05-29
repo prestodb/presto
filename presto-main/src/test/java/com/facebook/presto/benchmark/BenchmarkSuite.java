@@ -48,6 +48,7 @@ public class BenchmarkSuite
                 new SqlDistinctMultipleFields(tpchBlocksProvider),
                 new SqlDistinctSingleField(tpchBlocksProvider),
                 new SqlTpchQuery1(tpchBlocksProvider),
+                new SqlTpchQuery6(tpchBlocksProvider),
                 new SqlLikeBenchmark(tpchBlocksProvider),
                 new SqlInBenchmark(tpchBlocksProvider),
 
