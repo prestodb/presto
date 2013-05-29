@@ -121,6 +121,13 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testGroupByRepeatedField()
+            throws Exception
+    {
+        assertQuery("SELECT sum(custkey) FROM orders GROUP BY orderstatus, orderstatus");
+    }
+
+    @Test
     public void testGroupByMultipleFieldsWithPredicateOnAggregationArgument()
             throws Exception
     {

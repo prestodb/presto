@@ -624,7 +624,7 @@ public class LocalExecutionPlanner
 
         private PhysicalOperation planGroupByAggregation(AggregationNode node, PhysicalOperation source)
         {
-            List<Symbol> groupBySymbols = node.getGroupBy();
+            List<Symbol> groupBySymbols = ImmutableList.copyOf(ImmutableSet.copyOf(node.getGroupBy()));
 
             // introduce a projection to put all group by fields from the source into a single channel if necessary
             source = packIfNecessary(groupBySymbols, source);
