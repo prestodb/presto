@@ -6,6 +6,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.sql.planner.optimizations.CoalesceLimits;
+import com.facebook.presto.sql.planner.optimizations.MergeProjections;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PruneRedundantProjections;
 import com.facebook.presto.sql.planner.optimizations.PruneUnreferencedOutputs;
@@ -39,6 +40,7 @@ public class PlanOptimizersFactory implements Provider<List<PlanOptimizer>>
                 new UnaliasSymbolReferences(),
                 new PruneRedundantProjections(),
                 new CoalesceLimits(),
+                new MergeProjections(),
                 new SetFlatteningOptimizer());
 
         this.optimizers = builder.build();

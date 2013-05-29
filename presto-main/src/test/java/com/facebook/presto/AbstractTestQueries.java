@@ -575,6 +575,13 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testInlineViewWithProjections()
+            throws Exception
+    {
+        assertQuery("SELECT x + 1, y FROM (SELECT orderkey * 10 x, custkey y FROM ORDERS) u");
+    }
+
+    @Test
     public void testGroupByWithoutAggregation()
             throws Exception
     {
