@@ -49,6 +49,7 @@ public class BenchmarkSuite
                 new SqlDistinctSingleField(tpchBlocksProvider),
                 new SqlTpchQuery1(tpchBlocksProvider),
                 new SqlTpchQuery6(tpchBlocksProvider),
+                new HandTpchQuery6(tpchBlocksProvider),
                 new SqlLikeBenchmark(tpchBlocksProvider),
                 new SqlInBenchmark(tpchBlocksProvider),
                 new SqlRegexpLikeBenchmark(tpchBlocksProvider),
