@@ -10,6 +10,7 @@ import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.util.SetThreadName;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
@@ -314,8 +315,10 @@ public class SqlQueryManager
         @Override
         public void run()
         {
-            stats.queryStarted();
-            queryExecution.start();
+            try (SetThreadName setThreadName = new SetThreadName("Query-%s", queryExecution.getQueryInfo().getQueryId())){
+                stats.queryStarted();
+                queryExecution.start();
+            }
         }
     }
 }

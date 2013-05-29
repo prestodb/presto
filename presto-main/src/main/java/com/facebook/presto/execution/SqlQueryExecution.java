@@ -21,6 +21,7 @@ import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.storage.StorageManager;
+import com.facebook.presto.util.SetThreadName;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import io.airlift.units.Duration;
@@ -56,7 +57,7 @@ public class SqlQueryExecution
     private final ExecutorService queryExecutor;
     private final ShardManager shardManager;
     private final StorageManager storageManager;
-    private final  PeriodicImportManager periodicImportManager;
+    private final PeriodicImportManager periodicImportManager;
 
     private final AtomicReference<SqlStageExecution> outputStage = new AtomicReference<>();
 
@@ -77,72 +78,78 @@ public class SqlQueryExecution
             StorageManager storageManager,
             PeriodicImportManager periodicImportManager)
     {
-        this.statement = checkNotNull(statement, "statement is null");
-        this.metadata = checkNotNull(metadata, "metadata is null");
-        this.splitManager = checkNotNull(splitManager, "splitManager is null");
-        this.nodeScheduler = checkNotNull(nodeScheduler, "nodeScheduler is null");
-        this.planOptimizers = checkNotNull(planOptimizers, "planOptimizers is null");
-        this.remoteTaskFactory = checkNotNull(remoteTaskFactory, "remoteTaskFactory is null");
-        this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
-        this.queryExecutor = checkNotNull(queryExecutor, "queryExecutor is null");
-        this.shardManager = checkNotNull(shardManager, "shardManager is null");
-        this.storageManager = checkNotNull(storageManager, "storageManager is null");
-        this.periodicImportManager = checkNotNull(periodicImportManager, "periodicImportManager is null");
+        try (SetThreadName setThreadName = new SetThreadName("Query-%s", queryId)){
+            this.statement = checkNotNull(statement, "statement is null");
+            this.metadata = checkNotNull(metadata, "metadata is null");
+            this.splitManager = checkNotNull(splitManager, "splitManager is null");
+            this.nodeScheduler = checkNotNull(nodeScheduler, "nodeScheduler is null");
+            this.planOptimizers = checkNotNull(planOptimizers, "planOptimizers is null");
+            this.remoteTaskFactory = checkNotNull(remoteTaskFactory, "remoteTaskFactory is null");
+            this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
+            this.queryExecutor = checkNotNull(queryExecutor, "queryExecutor is null");
+            this.shardManager = checkNotNull(shardManager, "shardManager is null");
+            this.storageManager = checkNotNull(storageManager, "storageManager is null");
+            this.periodicImportManager = checkNotNull(periodicImportManager, "periodicImportManager is null");
 
-        checkArgument(maxPendingSplitsPerNode > 0, "maxPendingSplitsPerNode must be greater than 0");
-        this.maxPendingSplitsPerNode = maxPendingSplitsPerNode;
+            checkArgument(maxPendingSplitsPerNode > 0, "maxPendingSplitsPerNode must be greater than 0");
+            this.maxPendingSplitsPerNode = maxPendingSplitsPerNode;
 
-        checkNotNull(queryId, "queryId is null");
-        checkNotNull(query, "query is null");
-        checkNotNull(session, "session is null");
-        checkNotNull(self, "self is null");
-        this.stateMachine = new QueryStateMachine(queryId, query, session, self, queryExecutor);
+            checkNotNull(queryId, "queryId is null");
+            checkNotNull(query, "query is null");
+            checkNotNull(session, "session is null");
+            checkNotNull(self, "self is null");
+            this.stateMachine = new QueryStateMachine(queryId, query, session, self, queryExecutor);
+        }
     }
 
     @Override
     public void start()
     {
-        try {
-            // transition to planning
-            if (!stateMachine.beginPlanning()) {
-                // query already started or finished
-                return;
+        try (SetThreadName setThreadName = new SetThreadName("Query-%s", stateMachine.getQueryId())){
+            try {
+                // transition to planning
+                if (!stateMachine.beginPlanning()) {
+                    // query already started or finished
+                    return;
+                }
+
+                // analyze query
+                SubPlan subplan = analyzeQuery();
+
+                // plan distribution of query
+                planDistribution(subplan);
+
+                // transition to starting
+                if (!stateMachine.starting()) {
+                    // query already started or finished
+                    return;
+                }
+
+                // if query is not finished, start the stage, otherwise cancel it
+                SqlStageExecution stage = outputStage.get();
+
+                if (!stateMachine.isDone()) {
+                    stage.addOutputBuffer(ROOT_OUTPUT_BUFFER_NAME);
+                    stage.noMoreOutputBuffers();
+                    stage.start();
+                }
+                else {
+                    stage.cancel();
+                }
             }
-
-            // analyze query
-            SubPlan subplan = analyzeQuery();
-
-            // plan distribution of query
-            planDistribution(subplan);
-
-            // transition to starting
-            if (!stateMachine.starting()) {
-                // query already started or finished
-                return;
+            catch (Throwable e) {
+                fail(e);
+                Throwables.propagateIfInstanceOf(e, Error.class);
             }
-
-            // if query is not finished, start the stage, otherwise cancel it
-            SqlStageExecution stage = outputStage.get();
-
-            if (!stateMachine.isDone()) {
-                stage.addOutputBuffer(ROOT_OUTPUT_BUFFER_NAME);
-                stage.noMoreOutputBuffers();
-                stage.start();
-            }
-            else {
-                stage.cancel();
-            }
-        }
-        catch (Throwable e) {
-            fail(e);
-            Throwables.propagateIfInstanceOf(e, Error.class);
         }
     }
 
     @Override
     public void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener)
     {
-        stateMachine.addStateChangeListener(stateChangeListener);
+        try (SetThreadName setThreadName = new SetThreadName("Query-%s", stateMachine.getQueryId())){
+            stateMachine.addStateChangeListener(stateChangeListener);
+        }
     }
 
     private SubPlan analyzeQuery()
@@ -211,15 +218,19 @@ public class SqlQueryExecution
     @Override
     public void cancel()
     {
-        stateMachine.cancel();
-        cancelOutputStage();
+        try (SetThreadName setThreadName = new SetThreadName("Query-%s", stateMachine.getQueryId())){
+            stateMachine.cancel();
+            cancelOutputStage();
+        }
     }
 
     private void cancelOutputStage()
     {
-        SqlStageExecution stageExecution = outputStage.get();
-        if (stageExecution != null) {
-            stageExecution.cancel();
+        try (SetThreadName setThreadName = new SetThreadName("Query-%s", stateMachine.getQueryId())){
+            SqlStageExecution stageExecution = outputStage.get();
+            if (stageExecution != null) {
+                stageExecution.cancel();
+            }
         }
     }
 
@@ -228,36 +239,44 @@ public class SqlQueryExecution
     {
         Preconditions.checkNotNull(stageId, "stageId is null");
 
-        SqlStageExecution stageExecution = outputStage.get();
-        if (stageExecution != null) {
-            stageExecution.cancelStage(stageId);
+        try (SetThreadName setThreadName = new SetThreadName("Query-%s", stateMachine.getQueryId())){
+            SqlStageExecution stageExecution = outputStage.get();
+            if (stageExecution != null) {
+                stageExecution.cancelStage(stageId);
+            }
         }
     }
 
     @Override
     public void fail(Throwable cause)
     {
-        // transition to failed state, only if not already finished
-        stateMachine.fail(cause);
-        cancelOutputStage();
+        try (SetThreadName setThreadName = new SetThreadName("Query-%s", stateMachine.getQueryId())){
+            // transition to failed state, only if not already finished
+            stateMachine.fail(cause);
+            cancelOutputStage();
+        }
     }
 
     @Override
     public Duration waitForStateChange(QueryState currentState, Duration maxWait)
             throws InterruptedException
     {
-        return stateMachine.waitForStateChange(currentState, maxWait);
+        try (SetThreadName setThreadName = new SetThreadName("Query-%s", stateMachine.getQueryId())){
+            return stateMachine.waitForStateChange(currentState, maxWait);
+        }
     }
 
     @Override
     public QueryInfo getQueryInfo()
     {
-        SqlStageExecution outputStage = this.outputStage.get();
-        StageInfo stageInfo = null;
-        if (outputStage != null) {
-            stageInfo = outputStage.getStageInfo();
+        try (SetThreadName setThreadName = new SetThreadName("Query-%s", stateMachine.getQueryId())){
+            SqlStageExecution outputStage = this.outputStage.get();
+            StageInfo stageInfo = null;
+            if (outputStage != null) {
+                stageInfo = outputStage.getStageInfo();
+            }
+            return stateMachine.getQueryInfo(stageInfo);
         }
-        return stateMachine.getQueryInfo(stageInfo);
     }
 
     private void doUpdateState(StageInfo outputStageInfo)
