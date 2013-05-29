@@ -1609,6 +1609,13 @@ public abstract class AbstractTestQueries
         assertQueryOrdered("SELECT * FROM (SELECT * FROM orders ORDER BY orderkey) LIMIT 10");
     }
 
+    @Test
+    public void testUnaliasSymbolReferencesWithUnion()
+            throws Exception
+    {
+        assertQuery("SELECT 1, 1, 'a', 'a' UNION ALL SELECT 1, 2, 'a', 'b'");
+    }
+
     @BeforeClass(alwaysRun = true)
     public void setupDatabase()
             throws Exception

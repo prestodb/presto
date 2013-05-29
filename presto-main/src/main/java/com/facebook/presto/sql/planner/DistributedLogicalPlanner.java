@@ -9,7 +9,6 @@ import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
-import com.facebook.presto.sql.planner.plan.LocalUnionNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -114,7 +113,7 @@ public class DistributedLogicalPlanner
             }
 
             AggregationNode aggregation = new AggregationNode(idAllocator.getNextId(), plan.getRoot(), groupBy, intermediateCalls, intermediateFunctions, PARTIAL);
-            plan.setRoot(new SinkNode(idAllocator.getNextId(), aggregation));
+            plan.setRoot(new SinkNode(idAllocator.getNextId(), aggregation, aggregation.getOutputSymbols()));
 
             // create merge + aggregation plan
             ExchangeNode source = new ExchangeNode(idAllocator.getNextId(), plan.getId(), plan.getRoot().getOutputSymbols());
@@ -130,7 +129,7 @@ public class DistributedLogicalPlanner
             SubPlanBuilder current = node.getSource().accept(this, context);
 
             if (current.isPartitioned()) {
-                current.setRoot(new SinkNode(idAllocator.getNextId(), current.getRoot()));
+                current.setRoot(new SinkNode(idAllocator.getNextId(), current.getRoot(), current.getRoot().getOutputSymbols()));
 
                 // create a new non-partitioned fragment
                 current = newSubPlan(new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols()))
@@ -167,7 +166,7 @@ public class DistributedLogicalPlanner
             current.setRoot(new TopNNode(node.getId(), current.getRoot(), node.getCount(), node.getOrderBy(), node.getOrderings()));
 
             if (current.isPartitioned()) {
-                current.setRoot(new SinkNode(idAllocator.getNextId(), current.getRoot()));
+                current.setRoot(new SinkNode(idAllocator.getNextId(), current.getRoot(), current.getRoot().getOutputSymbols()));
 
                 // create merge plan fragment
                 PlanNode source = new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols());
@@ -186,7 +185,7 @@ public class DistributedLogicalPlanner
             SubPlanBuilder current = node.getSource().accept(this, context);
 
             if (current.isPartitioned()) {
-                current.setRoot(new SinkNode(idAllocator.getNextId(), current.getRoot()));
+                current.setRoot(new SinkNode(idAllocator.getNextId(), current.getRoot(), current.getRoot().getOutputSymbols()));
 
                 // create a new non-partitioned fragment
                 current = newSubPlan(new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols()))
@@ -206,7 +205,7 @@ public class DistributedLogicalPlanner
             SubPlanBuilder current = node.getSource().accept(this, context);
 
             if (current.isPartitioned()) {
-                current.setRoot(new SinkNode(idAllocator.getNextId(), current.getRoot()));
+                current.setRoot(new SinkNode(idAllocator.getNextId(), current.getRoot(), current.getRoot().getOutputSymbols()));
 
                 // create a new non-partitioned fragment
                 current = newSubPlan(new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols()))
@@ -227,7 +226,7 @@ public class DistributedLogicalPlanner
             current.setRoot(new LimitNode(node.getId(), current.getRoot(), node.getCount()));
 
             if (current.isPartitioned()) {
-                current.setRoot(new SinkNode(idAllocator.getNextId(), current.getRoot()));
+                current.setRoot(new SinkNode(idAllocator.getNextId(), current.getRoot(), current.getRoot().getOutputSymbols()));
 
                 // create merge plan fragment
                 PlanNode source = new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols());
@@ -296,7 +295,7 @@ public class DistributedLogicalPlanner
             SubPlanBuilder right = node.getRight().accept(this, context);
 
             if (left.isPartitioned() || right.isPartitioned()) {
-                right.setRoot(new SinkNode(idAllocator.getNextId(), right.getRoot()));
+                right.setRoot(new SinkNode(idAllocator.getNextId(), right.getRoot(), right.getRoot().getOutputSymbols()));
 
                 ExchangeNode exchange = new ExchangeNode(idAllocator.getNextId(), right.getId(), right.getRoot().getOutputSymbols());
                 JoinNode join = new JoinNode(node.getId(), left.getRoot(), exchange, node.getCriteria());
@@ -321,14 +320,15 @@ public class DistributedLogicalPlanner
                 for (PlanNode source : node.getSources()) {
                     sourceBuilder.add(source.accept(this, context).getRoot());
                 }
-                return newSubPlan(new LocalUnionNode(idAllocator.getNextId(), sourceBuilder.build(), node.getOutputSymbols()));
+                return newSubPlan(new UnionNode(node.getId(), sourceBuilder.build(), node.getSymbolMapping()));
             }
             else {
                 ImmutableList.Builder<SubPlan> sourceBuilder = ImmutableList.builder();
                 ImmutableList.Builder<PlanFragmentId> fragmentIdBuilder = ImmutableList.builder();
-                for (PlanNode source : node.getSources()) {
-                    SubPlanBuilder current = source.accept(this, context);
-                    current.setRoot(new SinkNode(idAllocator.getNextId(), current.getRoot()));
+                for (int i = 0; i < node.getSources().size(); i++) {
+                    PlanNode subplan = node.getSources().get(i);
+                    SubPlanBuilder current = subplan.accept(this, context);
+                    current.setRoot(new SinkNode(idAllocator.getNextId(), current.getRoot(), node.sourceOutputLayout(i)));
                     fragmentIdBuilder.add(current.getId());
                     sourceBuilder.add(current.build());
                 }
