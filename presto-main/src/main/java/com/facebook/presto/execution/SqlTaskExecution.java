@@ -25,6 +25,7 @@ import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.util.SetThreadName;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.HashMultimap;
@@ -120,9 +121,10 @@ public class SqlTaskExecution
                 taskMasterExecutor,
                 globalStats);
 
-        task.start(taskMasterExecutor);
-
-        return task;
+        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)){
+            task.start(taskMasterExecutor);
+            return task;
+        }
     }
 
     private SqlTaskExecution(Session session,
@@ -153,20 +155,22 @@ public class SqlTaskExecution
         Preconditions.checkNotNull(queryMonitor, "queryMonitor is null");
         Preconditions.checkNotNull(globalStats, "globalStats is null");
 
-        this.session = session;
-        this.nodeInfo = nodeInfo;
-        this.taskId = taskId;
-        this.fragment = fragment;
-        this.dataStreamProvider = dataStreamProvider;
-        this.exchangeClientProvider = exchangeClientProvider;
-        this.shardExecutor = shardExecutor;
-        this.metadata = metadata;
-        this.storageManager = storageManager;
-        this.maxOperatorMemoryUsage = maxOperatorMemoryUsage;
-        this.queryMonitor = queryMonitor;
+        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)){
+            this.session = session;
+            this.nodeInfo = nodeInfo;
+            this.taskId = taskId;
+            this.fragment = fragment;
+            this.dataStreamProvider = dataStreamProvider;
+            this.exchangeClientProvider = exchangeClientProvider;
+            this.shardExecutor = shardExecutor;
+            this.metadata = metadata;
+            this.storageManager = storageManager;
+            this.maxOperatorMemoryUsage = maxOperatorMemoryUsage;
+            this.queryMonitor = queryMonitor;
 
-        // create output buffers
-        this.taskOutput = new TaskOutput(taskId, location, maxBufferSize, notificationExecutor, globalStats);
+            // create output buffers
+            this.taskOutput = new TaskOutput(taskId, location, maxBufferSize, notificationExecutor, globalStats);
+        }
     }
 
     //
@@ -193,14 +197,18 @@ public class SqlTaskExecution
     public void waitForStateChange(TaskState currentState, Duration maxWait)
             throws InterruptedException
     {
-        taskOutput.waitForStateChange(currentState, maxWait);
+        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskOutput.getTaskId())){
+            taskOutput.waitForStateChange(currentState, maxWait);
+        }
     }
 
     @Override
     public TaskInfo getTaskInfo(boolean full)
     {
-        checkTaskCompletion();
-        return taskOutput.getTaskInfo(full);
+        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskOutput.getTaskId())){
+            checkTaskCompletion();
+            return taskOutput.getTaskInfo(full);
+        }
     }
 
     @Override
@@ -208,21 +216,23 @@ public class SqlTaskExecution
     {
         Preconditions.checkNotNull(sources, "sources is null");
 
-        long newMaxAcknowledgedSplit = maxAcknowledgedSplit;
-        for (TaskSource source : sources) {
-            PlanNodeId sourceId = source.getPlanNodeId();
-            for (ScheduledSplit scheduledSplit : source.getSplits()) {
-                // only add a split if we have not already scheduled it
-                if (scheduledSplit.getSequenceId() > maxAcknowledgedSplit) {
-                    addSplit(sourceId, scheduledSplit.getSplit());
-                    newMaxAcknowledgedSplit = max(scheduledSplit.getSequenceId(), newMaxAcknowledgedSplit);
+        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskOutput.getTaskId())){
+            long newMaxAcknowledgedSplit = maxAcknowledgedSplit;
+            for (TaskSource source : sources) {
+                PlanNodeId sourceId = source.getPlanNodeId();
+                for (ScheduledSplit scheduledSplit : source.getSplits()) {
+                    // only add a split if we have not already scheduled it
+                    if (scheduledSplit.getSequenceId() > maxAcknowledgedSplit) {
+                        addSplit(sourceId, scheduledSplit.getSplit());
+                        newMaxAcknowledgedSplit = max(scheduledSplit.getSequenceId(), newMaxAcknowledgedSplit);
+                    }
+                }
+                if (source.isNoMoreSplits()) {
+                    noMoreSplits(sourceId);
                 }
             }
-            if (source.isNoMoreSplits()) {
-                noMoreSplits(sourceId);
-            }
+            maxAcknowledgedSplit = newMaxAcknowledgedSplit;
         }
-        maxAcknowledgedSplit = newMaxAcknowledgedSplit;
     }
 
     @Override
@@ -230,11 +240,13 @@ public class SqlTaskExecution
     {
         Preconditions.checkNotNull(outputIds, "outputIds is null");
 
-        for (String bufferId : outputIds.getBufferIds()) {
-            taskOutput.addResultQueue(bufferId);
-        }
-        if (outputIds.isNoMoreBufferIds()) {
-            taskOutput.noMoreResultQueues();
+        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskOutput.getTaskId())){
+            for (String bufferId : outputIds.getBufferIds()) {
+                taskOutput.addResultQueue(bufferId);
+            }
+            if (outputIds.isNoMoreBufferIds()) {
+                taskOutput.noMoreResultQueues();
+            }
         }
     }
 
@@ -301,19 +313,23 @@ public class SqlTaskExecution
             @Override
             public void onSuccess(Object result)
             {
-                pendingWorkerCount.decrementAndGet();
-                checkTaskCompletion();
-                // free the reference to the this task in the scheduled workers, so the memory can be released
-                unfinishedWorkerTasks.removeFirstOccurrence(workerFutureTask);
+                try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskOutput.getTaskId())){
+                    pendingWorkerCount.decrementAndGet();
+                    checkTaskCompletion();
+                    // free the reference to the this task in the scheduled workers, so the memory can be released
+                    unfinishedWorkerTasks.removeFirstOccurrence(workerFutureTask);
+                }
             }
 
             @Override
             public void onFailure(Throwable t)
             {
-                taskOutput.queryFailed(t);
-                pendingWorkerCount.decrementAndGet();
-                // free the reference to the this task in the scheduled workers, so the memory can be released
-                unfinishedWorkerTasks.removeFirstOccurrence(workerFutureTask);
+                try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskOutput.getTaskId())){
+                    taskOutput.queryFailed(t);
+                    pendingWorkerCount.decrementAndGet();
+                    // free the reference to the this task in the scheduled workers, so the memory can be released
+                    unfinishedWorkerTasks.removeFirstOccurrence(workerFutureTask);
+                }
             }
         });
     }
@@ -367,13 +383,17 @@ public class SqlTaskExecution
     @Override
     public void cancel()
     {
-        taskOutput.cancel();
+        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskOutput.getTaskId())){
+            taskOutput.cancel();
+        }
     }
 
     @Override
     public void fail(Throwable cause)
     {
-        taskOutput.queryFailed(cause);
+        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskOutput.getTaskId())){
+            taskOutput.queryFailed(cause);
+        }
     }
 
     @Override
@@ -384,19 +404,25 @@ public class SqlTaskExecution
         Preconditions.checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
         Preconditions.checkNotNull(maxWait, "maxWait is null");
 
-        return taskOutput.getResults(outputId, startingSequenceId, maxSize, maxWait);
+        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskOutput.getTaskId())){
+            return taskOutput.getResults(outputId, startingSequenceId, maxSize, maxWait);
+        }
     }
 
     @Override
     public void abortResults(String outputId)
     {
-        taskOutput.abortResults(outputId);
+        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskOutput.getTaskId())){
+            taskOutput.abortResults(outputId);
+        }
     }
 
     @Override
     public void recordHeartbeat()
     {
-        taskOutput.getStats().recordHeartbeat();
+        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskOutput.getTaskId())){
+            taskOutput.getStats().recordHeartbeat();
+        }
     }
 
     @Override
@@ -425,20 +451,22 @@ public class SqlTaskExecution
         public Void call()
                 throws InterruptedException
         {
-            while (!taskOutput.getState().isDone()) {
-                FutureTask<?> futureTask = scheduledWorkers.pollFirst(1, TimeUnit.SECONDS);
-                // if we got a task and the state is not done, run the task
-                if (futureTask != null && !taskOutput.getState().isDone()) {
-                    futureTask.run();
+            try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskOutput.getTaskId())){
+                while (!taskOutput.getState().isDone()) {
+                    FutureTask<?> futureTask = scheduledWorkers.pollFirst(1, TimeUnit.SECONDS);
+                    // if we got a task and the state is not done, run the task
+                    if (futureTask != null && !taskOutput.getState().isDone()) {
+                        futureTask.run();
+                    }
                 }
-            }
 
-            // assure all tasks are complete
-            for (FutureTask<?> futureTask = scheduledWorkers.poll(); futureTask != null; futureTask = scheduledWorkers.poll()) {
-                futureTask.cancel(true);
-            }
+                // assure all tasks are complete
+                for (FutureTask<?> futureTask = scheduledWorkers.poll(); futureTask != null; futureTask = scheduledWorkers.poll()) {
+                    futureTask.cancel(true);
+                }
 
-            return null;
+                return null;
+            }
         }
     }
 
@@ -525,28 +553,30 @@ public class SqlTaskExecution
                 return null;
             }
 
-            operatorStats.start();
-            try (PageIterator pages = operator.get().iterator(operatorStats)) {
-                while (pages.hasNext()) {
-                    Page page = pages.next();
-                    taskOutput.getStats().addOutputDataSize(page.getDataSize());
-                    taskOutput.getStats().addOutputPositions(page.getPositionCount());
-                    if (!taskOutput.addPage(page)) {
-                        break;
+            try (SetThreadName setThreadName = new SetThreadName("SplitWorker-Task-%s", taskOutput.getTaskId())){
+                operatorStats.start();
+                try (PageIterator pages = operator.get().iterator(operatorStats)) {
+                    while (pages.hasNext()) {
+                        Page page = pages.next();
+                        taskOutput.getStats().addOutputDataSize(page.getDataSize());
+                        taskOutput.getStats().addOutputPositions(page.getPositionCount());
+                        if (!taskOutput.addPage(page)) {
+                            break;
+                        }
                     }
                 }
-            }
-            finally {
-                operatorStats.finish();
-                queryMonitor.splitCompletionEvent(taskOutput.getTaskInfo(false), operatorStats.snapshot());
+                finally {
+                    operatorStats.finish();
+                    queryMonitor.splitCompletionEvent(taskOutput.getTaskInfo(false), operatorStats.snapshot());
 
-                for (Map.Entry<PlanNodeId, OutputProducingOperator<?>> entry : outputOperators.entrySet()) {
-                    taskOutput.addOutput(entry.getKey(), entry.getValue().getOutput());
+                    for (Entry<PlanNodeId, OutputProducingOperator<?>> entry : outputOperators.entrySet()) {
+                        taskOutput.addOutput(entry.getKey(), entry.getValue().getOutput());
+                    }
                 }
+                // remove this when ExpressionInterpreter changed to no hold onto input resolvers
+                operator.set(null);
+                return null;
             }
-            // remove this when ExpressionInterpreter changed to no hold onto input resolvers
-            operator.set(null);
-            return null;
         }
     }
 }

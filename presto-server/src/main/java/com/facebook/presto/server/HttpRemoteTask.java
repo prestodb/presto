@@ -28,6 +28,7 @@ import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.util.SetThreadName;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
@@ -87,6 +88,8 @@ public class HttpRemoteTask
         implements RemoteTask
 {
     private static final Logger log = Logger.get(HttpRemoteTask.class);
+
+    private final TaskId taskId;
 
     private final Session session;
     private final String nodeId;
@@ -161,51 +164,54 @@ public class HttpRemoteTask
         checkNotNull(taskInfoCodec, "taskInfoCodec is null");
         checkNotNull(taskUpdateRequestCodec, "taskUpdateRequestCodec is null");
 
-        this.session = session;
-        this.nodeId = node.getNodeIdentifier();
-        this.planFragment = planFragment;
-        this.outputReceivers = ImmutableMap.copyOf(outputReceivers);
-        this.outputIds.addAll(initialOutputIds);
-        this.httpClient = httpClient;
-        this.executor = executor;
-        this.taskInfoCodec = taskInfoCodec;
-        this.taskUpdateRequestCodec = taskUpdateRequestCodec;
-        this.tupleInfos = planFragment.getTupleInfos();
-        this.maxConsecutiveErrorCount = maxConsecutiveErrorCount;
-        this.minErrorDuration = minErrorDuration;
+        try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)){
+            this.taskId = taskId;
+            this.session = session;
+            this.nodeId = node.getNodeIdentifier();
+            this.planFragment = planFragment;
+            this.outputReceivers = ImmutableMap.copyOf(outputReceivers);
+            this.outputIds.addAll(initialOutputIds);
+            this.httpClient = httpClient;
+            this.executor = executor;
+            this.taskInfoCodec = taskInfoCodec;
+            this.taskUpdateRequestCodec = taskUpdateRequestCodec;
+            this.tupleInfos = planFragment.getTupleInfos();
+            this.maxConsecutiveErrorCount = maxConsecutiveErrorCount;
+            this.minErrorDuration = minErrorDuration;
 
-        for (Entry<PlanNodeId, URI> entry : initialExchangeLocations.entries()) {
-            ScheduledSplit scheduledSplit = new ScheduledSplit(nextSplitId.getAndIncrement(), createRemoteSplitFor(entry.getValue()));
-            pendingSplits.put(entry.getKey(), scheduledSplit);
-        }
-
-        this.exchangeLocations.putAll(initialExchangeLocations);
-
-        List<BufferInfo> bufferStates = ImmutableList.copyOf(transform(initialOutputIds, new Function<String, BufferInfo>()
-        {
-            @Override
-            public BufferInfo apply(String outputId)
-            {
-                return new BufferInfo(outputId, false, 0, 0);
+            for (Entry<PlanNodeId, URI> entry : initialExchangeLocations.entries()) {
+                ScheduledSplit scheduledSplit = new ScheduledSplit(nextSplitId.getAndIncrement(), createRemoteSplitFor(entry.getValue()));
+                pendingSplits.put(entry.getKey(), scheduledSplit);
             }
-        }));
 
-        if (initialSplit != null) {
-            checkState(planFragment.isPartitioned(), "Plan is not partitioned");
-            pendingSplits.put(planFragment.getPartitionedSource(), new ScheduledSplit(nextSplitId.getAndIncrement(), initialSplit));
+            this.exchangeLocations.putAll(initialExchangeLocations);
+
+            List<BufferInfo> bufferStates = ImmutableList.copyOf(transform(initialOutputIds, new Function<String, BufferInfo>()
+            {
+                @Override
+                public BufferInfo apply(String outputId)
+                {
+                    return new BufferInfo(outputId, false, 0, 0);
+                }
+            }));
+
+            if (initialSplit != null) {
+                checkState(planFragment.isPartitioned(), "Plan is not partitioned");
+                pendingSplits.put(planFragment.getPartitionedSource(), new ScheduledSplit(nextSplitId.getAndIncrement(), initialSplit));
+            }
+
+            taskInfo = new StateMachine<>("task " + taskId, executor, new TaskInfo(
+                    taskId,
+                    TaskInfo.MIN_VERSION,
+                    TaskState.PLANNED,
+                    location,
+                    new SharedBufferInfo(QueueState.OPEN, 0, 0, bufferStates),
+                    ImmutableSet.<PlanNodeId>of(),
+                    new ExecutionStatsSnapshot(),
+                    ImmutableList.<SplitExecutionStats>of(),
+                    ImmutableList.<FailureInfo>of(),
+                    ImmutableMap.<PlanNodeId, Set<?>>of()));
         }
-
-        taskInfo = new StateMachine<>("task " + taskId, executor, new TaskInfo(
-                taskId,
-                TaskInfo.MIN_VERSION,
-                TaskState.PLANNED,
-                location,
-                new SharedBufferInfo(QueueState.OPEN, 0, 0, bufferStates),
-                ImmutableSet.<PlanNodeId>of(),
-                new ExecutionStatsSnapshot(),
-                ImmutableList.<SplitExecutionStats>of(),
-                ImmutableList.<FailureInfo>of(),
-                ImmutableMap.<PlanNodeId, Set<?>>of()));
     }
 
     @Override
@@ -217,99 +223,113 @@ public class HttpRemoteTask
     @Override
     public void start()
     {
-        // to start we just need to trigger an update
-        scheduleUpdate();
+        try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)){
+            // to start we just need to trigger an update
+            scheduleUpdate();
+        }
     }
 
     @Override
     public synchronized void addSplit(Split split)
     {
-        checkNotNull(split, "split is null");
-        checkState(!noMoreSplits, "noMoreSplits has already been set");
-        checkState(planFragment.isPartitioned(), "Plan is not partitioned");
+        try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)){
+            checkNotNull(split, "split is null");
+            checkState(!noMoreSplits, "noMoreSplits has already been set");
+            checkState(planFragment.isPartitioned(), "Plan is not partitioned");
 
-        // only add pending split if not done
-        if (!getTaskInfo().getState().isDone()) {
-            pendingSplits.put(planFragment.getPartitionedSource(), new ScheduledSplit(nextSplitId.getAndIncrement(), split));
-            needsUpdate.set(true);
+            // only add pending split if not done
+            if (!getTaskInfo().getState().isDone()) {
+                pendingSplits.put(planFragment.getPartitionedSource(), new ScheduledSplit(nextSplitId.getAndIncrement(), split));
+                needsUpdate.set(true);
+            }
+
+            scheduleUpdate();
         }
-
-        scheduleUpdate();
     }
 
     @Override
     public synchronized void noMoreSplits()
     {
-        Preconditions.checkState(!noMoreSplits, "noMoreSplits has already been set");
-        noMoreSplits = true;
-        needsUpdate.set(true);
+        try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)){
+            Preconditions.checkState(!noMoreSplits, "noMoreSplits has already been set");
+            noMoreSplits = true;
+            needsUpdate.set(true);
 
-        scheduleUpdate();
+            scheduleUpdate();
+        }
     }
 
     @Override
     public synchronized void addExchangeLocations(Multimap<PlanNodeId, URI> additionalLocations, boolean noMore)
     {
-        if (getTaskInfo().getState().isDone()) {
-            return;
+        try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)){
+            if (getTaskInfo().getState().isDone()) {
+                return;
+            }
+
+            if (noMoreExchangeLocations == noMore && exchangeLocations.entries().containsAll(additionalLocations.entries())) {
+                // duplicate request
+                return;
+            }
+            Preconditions.checkState(!noMoreExchangeLocations, "Locations can not be added after noMoreExchangeLocations has been set");
+
+            // determine which locations are new
+            SetMultimap<PlanNodeId, URI> newExchangeLocations = HashMultimap.create(additionalLocations);
+            newExchangeLocations.entries().removeAll(exchangeLocations.entries());
+
+            // only add pending split if not done
+            for (Entry<PlanNodeId, URI> entry : newExchangeLocations.entries()) {
+                ScheduledSplit scheduledSplit = new ScheduledSplit(nextSplitId.getAndIncrement(), createRemoteSplitFor(entry.getValue()));
+                pendingSplits.put(entry.getKey(), scheduledSplit);
+            }
+            exchangeLocations.putAll(additionalLocations);
+            noMoreExchangeLocations = noMore;
+            needsUpdate.set(true);
+
+            scheduleUpdate();
         }
-
-        if (noMoreExchangeLocations == noMore && exchangeLocations.entries().containsAll(additionalLocations.entries())) {
-            // duplicate request
-            return;
-        }
-        Preconditions.checkState(!noMoreExchangeLocations, "Locations can not be added after noMoreExchangeLocations has been set");
-
-        // determine which locations are new
-        SetMultimap<PlanNodeId, URI> newExchangeLocations = HashMultimap.create(additionalLocations);
-        newExchangeLocations.entries().removeAll(exchangeLocations.entries());
-
-        // only add pending split if not done
-        for (Entry<PlanNodeId, URI> entry : newExchangeLocations.entries()) {
-            ScheduledSplit scheduledSplit = new ScheduledSplit(nextSplitId.getAndIncrement(), createRemoteSplitFor(entry.getValue()));
-            pendingSplits.put(entry.getKey(), scheduledSplit);
-        }
-        exchangeLocations.putAll(additionalLocations);
-        noMoreExchangeLocations = noMore;
-        needsUpdate.set(true);
-
-        scheduleUpdate();
     }
 
     @Override
     public synchronized void addOutputBuffers(Set<String> outputBuffers, boolean noMore)
     {
-        if (getTaskInfo().getState().isDone()) {
-            return;
+        try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)){
+            if (getTaskInfo().getState().isDone()) {
+                return;
+            }
+
+            if (noMoreOutputIds == noMore && this.outputIds.containsAll(outputBuffers)) {
+                // duplicate request
+                return;
+            }
+            Preconditions.checkState(!noMoreOutputIds, "New buffers can not be added after noMoreOutputIds has been set");
+
+            outputIds.addAll(outputBuffers);
+            noMoreOutputIds = noMore;
+            needsUpdate.set(true);
+
+            scheduleUpdate();
         }
-
-        if (noMoreOutputIds == noMore && this.outputIds.containsAll(outputBuffers)) {
-            // duplicate request
-            return;
-        }
-        Preconditions.checkState(!noMoreOutputIds, "New buffers can not be added after noMoreOutputIds has been set");
-
-        outputIds.addAll(outputBuffers);
-        noMoreOutputIds = noMore;
-        needsUpdate.set(true);
-
-        scheduleUpdate();
     }
 
     @Override
     public synchronized int getQueuedSplits()
     {
-        int pendingSplitCount = 0;
-        if (planFragment.isPartitioned()) {
-            pendingSplitCount = pendingSplits.get(planFragment.getPartitionedSource()).size();
+        try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)){
+            int pendingSplitCount = 0;
+            if (planFragment.isPartitioned()) {
+                pendingSplitCount = pendingSplits.get(planFragment.getPartitionedSource()).size();
+            }
+            return pendingSplitCount + taskInfo.get().getStats().getQueuedSplits();
         }
-        return pendingSplitCount + taskInfo.get().getStats().getQueuedSplits();
     }
 
     @Override
     public void addStateChangeListener(StateChangeListener<TaskInfo> stateChangeListener)
     {
-        taskInfo.addStateChangeListener(stateChangeListener);
+        try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)){
+            taskInfo.addStateChangeListener(stateChangeListener);
+        }
     }
 
     private synchronized void updateTaskInfo(final TaskInfo newValue)
@@ -415,74 +435,78 @@ public class HttpRemoteTask
     @Override
     public synchronized void cancel()
     {
-        // clear pending splits to free memory
-        pendingSplits.clear();
+        try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)){
+            // clear pending splits to free memory
+            pendingSplits.clear();
 
-        // cancel pending request
-        if (currentRequest != null) {
-            currentRequest.cancel(true);
-            currentRequest = null;
-            currentRequestStartNanos = 0;
-        }
+            // cancel pending request
+            if (currentRequest != null) {
+                currentRequest.cancel(true);
+                currentRequest = null;
+                currentRequestStartNanos = 0;
+            }
 
-        // mark task as canceled (if not already done)
-        TaskInfo taskInfo = getTaskInfo();
-        updateTaskInfo(new TaskInfo(taskInfo.getTaskId(),
-                TaskInfo.MAX_VERSION,
-                TaskState.CANCELED,
-                taskInfo.getSelf(),
-                taskInfo.getOutputBuffers(),
-                taskInfo.getNoMoreSplits(),
-                taskInfo.getStats(),
-                ImmutableList.<SplitExecutionStats>of(),
-                ImmutableList.<FailureInfo>of(),
-                ImmutableMap.<PlanNodeId, Set<?>>of()));
+            // mark task as canceled (if not already done)
+            TaskInfo taskInfo = getTaskInfo();
+            updateTaskInfo(new TaskInfo(taskInfo.getTaskId(),
+                    TaskInfo.MAX_VERSION,
+                    TaskState.CANCELED,
+                    taskInfo.getSelf(),
+                    taskInfo.getOutputBuffers(),
+                    taskInfo.getNoMoreSplits(),
+                    taskInfo.getStats(),
+                    ImmutableList.<SplitExecutionStats>of(),
+                    ImmutableList.<FailureInfo>of(),
+                    ImmutableMap.<PlanNodeId, Set<?>>of()));
 
-        // fire delete to task and ignore response
-        if (taskInfo.getSelf() != null) {
-            final long start = System.nanoTime();
-            final Request request = prepareDelete().setUri(taskInfo.getSelf()).build();
-            Futures.addCallback(httpClient.executeAsync(request, createStatusResponseHandler()), new FutureCallback<StatusResponse>()
-            {
-                @Override
-                public void onSuccess(StatusResponse result)
+            // fire delete to task and ignore response
+            if (taskInfo.getSelf() != null) {
+                final long start = System.nanoTime();
+                final Request request = prepareDelete().setUri(taskInfo.getSelf()).build();
+                Futures.addCallback(httpClient.executeAsync(request, createStatusResponseHandler()), new FutureCallback<StatusResponse>()
                 {
-                    // assume any response is good enough
-                }
+                    @Override
+                    public void onSuccess(StatusResponse result)
+                    {
+                        // assume any response is good enough
+                    }
 
-                @Override
-                public void onFailure(Throwable t)
-                {
-                    // reschedule
-                    if (Duration.nanosSince(start).compareTo(new Duration(2, TimeUnit.MINUTES)) < 0) {
-                        Futures.addCallback(httpClient.executeAsync(request, createStatusResponseHandler()), this, executor);
+                    @Override
+                    public void onFailure(Throwable t)
+                    {
+                        // reschedule
+                        if (Duration.nanosSince(start).compareTo(new Duration(2, TimeUnit.MINUTES)) < 0) {
+                            Futures.addCallback(httpClient.executeAsync(request, createStatusResponseHandler()), this, executor);
+                        }
+                        else {
+                            log.error(t, "Unable to cancel task at %s", request.getUri());
+                        }
                     }
-                    else {
-                        log.error(t, "Unable to cancel task at %s", request.getUri());
-                    }
-                }
-            }, executor);
+                }, executor);
+            }
         }
     }
 
     private synchronized void requestSucceeded(TaskInfo newValue, List<TaskSource> sources)
     {
-        updateTaskInfo(newValue);
-        lastSuccessfulRequest.set(System.nanoTime());
-        errorCount.set(0);
-        errorsSinceLastSuccess.clear();
+        try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)){
+            updateTaskInfo(newValue);
+            lastSuccessfulRequest.set(System.nanoTime());
+            errorCount.set(0);
+            errorsSinceLastSuccess.clear();
 
-        // remove acknowledged splits, which frees memory
-        for (TaskSource source : sources) {
-            PlanNodeId planNodeId = source.getPlanNodeId();
-            for (ScheduledSplit split : source.getSplits()) {
-                pendingSplits.remove(planNodeId, split);
+            // remove acknowledged splits, which frees memory
+            for (TaskSource source : sources) {
+                PlanNodeId planNodeId = source.getPlanNodeId();
+                for (ScheduledSplit split : source.getSplits()) {
+                    pendingSplits.remove(planNodeId, split);
+                }
             }
-        }
 
-        if (continuousTaskInfoFetcher == null) {
-            continuousTaskInfoFetcher = new ContinuousTaskInfoFetcher();
-            continuousTaskInfoFetcher.start();
+            if (continuousTaskInfoFetcher == null) {
+                continuousTaskInfoFetcher = new ContinuousTaskInfoFetcher();
+                continuousTaskInfoFetcher.start();
+            }
         }
     }
 
@@ -573,32 +597,38 @@ public class HttpRemoteTask
         @Override
         public void success(TaskInfo value)
         {
-            try {
-                requestSucceeded(value, sources);
-            }
-            finally {
-                scheduleUpdate();
+            try (SetThreadName setThreadName = new SetThreadName("UpdateResponseHandler-%s", taskId)){
+                try {
+                    requestSucceeded(value, sources);
+                }
+                finally {
+                    scheduleUpdate();
+                }
             }
         }
 
         @Override
         public void failed(Throwable cause)
         {
-            try {
-                // on failure assume we need to update again
-                needsUpdate.set(true);
+            try (SetThreadName setThreadName = new SetThreadName("UpdateResponseHandler-%s", taskId)){
+                try {
+                    // on failure assume we need to update again
+                    needsUpdate.set(true);
 
-                requestFailed(cause);
-            }
-            finally {
-                scheduleUpdate();
+                    requestFailed(cause);
+                }
+                finally {
+                    scheduleUpdate();
+                }
             }
         }
 
         @Override
         public void fatal(Throwable cause)
         {
-            failTask(cause);
+            try (SetThreadName setThreadName = new SetThreadName("UpdateResponseHandler-%s", taskId)){
+                failTask(cause);
+            }
         }
     }
 
@@ -637,68 +667,76 @@ public class HttpRemoteTask
 
         private synchronized void scheduleNextRequest()
         {
-            // stopped or done?
-            TaskInfo taskInfo = HttpRemoteTask.this.taskInfo.get();
-            if (!running || taskInfo.getState().isDone()) {
-                return;
+            try (SetThreadName setThreadName = new SetThreadName("ContinuousTaskInfoFetcher-%s", taskId)){
+                // stopped or done?
+                TaskInfo taskInfo = HttpRemoteTask.this.taskInfo.get();
+                if (!running || taskInfo.getState().isDone()) {
+                    return;
+                }
+
+                // outstanding request?
+                if (future != null && !future.isDone()) {
+                    // this should never happen
+                    log.error("Can not reschedule update because an update is already running");
+                    return;
+                }
+
+                Request request = prepareGet()
+                        .setUri(taskInfo.getSelf())
+                        .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.JSON_UTF_8.toString())
+                        .setHeader(PrestoHeaders.PRESTO_CURRENT_STATE, taskInfo.getState().toString())
+                        .setHeader(PrestoHeaders.PRESTO_MAX_WAIT, "200ms")
+                        .build();
+
+                future = httpClient.executeAsync(request, createFullJsonResponseHandler(taskInfoCodec));
+                Futures.addCallback(future, new SimpleHttpResponseHandler<>(this, request.getUri()), executor);
             }
-
-            // outstanding request?
-            if (future != null && !future.isDone()) {
-                // this should never happen
-                log.error("Can not reschedule update because an update is already running");
-                return;
-            }
-
-            Request request = prepareGet()
-                    .setUri(taskInfo.getSelf())
-                    .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.JSON_UTF_8.toString())
-                    .setHeader(PrestoHeaders.PRESTO_CURRENT_STATE, taskInfo.getState().toString())
-                    .setHeader(PrestoHeaders.PRESTO_MAX_WAIT, "200ms")
-                    .build();
-
-            future = httpClient.executeAsync(request, createFullJsonResponseHandler(taskInfoCodec));
-            Futures.addCallback(future, new SimpleHttpResponseHandler<>(this, request.getUri()), executor);
         }
 
         @Override
         public void success(TaskInfo value)
         {
-            synchronized (this) {
-                future = null;
-            }
+            try (SetThreadName setThreadName = new SetThreadName("ContinuousTaskInfoFetcher-%s", taskId)){
+                synchronized (this) {
+                    future = null;
+                }
 
-            try {
-                requestSucceeded(value, ImmutableList.<TaskSource>of());
-            }
-            finally {
-                scheduleNextRequest();
+                try {
+                    requestSucceeded(value, ImmutableList.<TaskSource>of());
+                }
+                finally {
+                    scheduleNextRequest();
+                }
             }
         }
 
         @Override
         public void failed(Throwable cause)
         {
-            synchronized (this) {
-                future = null;
-            }
+            try (SetThreadName setThreadName = new SetThreadName("ContinuousTaskInfoFetcher-%s", taskId)){
+                synchronized (this) {
+                    future = null;
+                }
 
-            try {
-                requestFailed(cause);
-            }
-            finally {
-                scheduleNextRequest();
+                try {
+                    requestFailed(cause);
+                }
+                finally {
+                    scheduleNextRequest();
+                }
             }
         }
 
         @Override
         public void fatal(Throwable cause)
         {
-            synchronized (this) {
-                future = null;
-            }
+            try (SetThreadName setThreadName = new SetThreadName("ContinuousTaskInfoFetcher-%s", taskId)){
+                synchronized (this) {
+                    future = null;
+                }
 
-            failTask(cause);
+                failTask(cause);
+            }
         }
     }
 
