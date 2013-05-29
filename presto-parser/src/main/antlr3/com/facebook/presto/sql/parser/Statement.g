@@ -20,6 +20,7 @@ grammar Statement;
 options {
     output = AST;
     ASTLabelType = CommonTree;
+    memoize=true;
 }
 
 tokens {
