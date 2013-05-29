@@ -30,6 +30,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
@@ -102,7 +103,8 @@ public class UnaliasSymbolReferences
                 functionInfos.put(canonical, node.getFunctions().get(symbol));
             }
 
-            return new AggregationNode(node.getId(), source, canonicalize(node.getGroupBy()), functionCalls.build(), functionInfos.build());
+            ImmutableList<Symbol> groupByKeys = ImmutableList.copyOf(ImmutableSet.copyOf(canonicalize(node.getGroupBy())));
+            return new AggregationNode(node.getId(), source, groupByKeys, functionCalls.build(), functionInfos.build());
         }
 
         @Override
