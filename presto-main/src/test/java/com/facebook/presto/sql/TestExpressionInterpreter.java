@@ -44,6 +44,7 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("false and null", "false");
         assertOptimizedEquals("null and true", "null");
         assertOptimizedEquals("null and false", "false");
+        assertOptimizedEquals("null and null", "null");
 
         assertOptimizedEquals("a='z' and true", "a='z'");
         assertOptimizedEquals("a='z' and false", "false");
@@ -62,6 +63,7 @@ public class TestExpressionInterpreter
 
         assertOptimizedEquals("true or null", "true");
         assertOptimizedEquals("null or true", "true");
+        assertOptimizedEquals("null or null", "null");
 
         assertOptimizedEquals("false or null", "null");
         assertOptimizedEquals("null or false", "null");
