@@ -55,6 +55,7 @@ import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static java.lang.Math.max;
 
@@ -447,7 +448,7 @@ public class SqlTaskExecution
         private final AtomicBoolean started = new AtomicBoolean();
         private final TaskOutput taskOutput;
         private final PlanNodeId partitionedSource;
-        private final Operator operator;
+        private final AtomicReference<Operator> operator;
         private final OperatorStats operatorStats;
         private final QueryMonitor queryMonitor;
         private final Map<PlanNodeId, SourceOperator> sourceOperators;
@@ -482,7 +483,7 @@ public class SqlTaskExecution
                     exchangeClientProvider);
 
             LocalExecutionPlan localExecutionPlan = planner.plan(fragment.getRoot());
-            operator = localExecutionPlan.getRootOperator();
+            operator = new AtomicReference<>(localExecutionPlan.getRootOperator());
             sourceOperators = localExecutionPlan.getSourceOperators();
             outputOperators = localExecutionPlan.getOutputOperators();
         }
@@ -525,7 +526,7 @@ public class SqlTaskExecution
             }
 
             operatorStats.start();
-            try (PageIterator pages = operator.iterator(operatorStats)) {
+            try (PageIterator pages = operator.get().iterator(operatorStats)) {
                 while (pages.hasNext()) {
                     Page page = pages.next();
                     taskOutput.getStats().addOutputDataSize(page.getDataSize());
@@ -543,6 +544,8 @@ public class SqlTaskExecution
                     taskOutput.addOutput(entry.getKey(), entry.getValue().getOutput());
                 }
             }
+            // remove this when ExpressionInterpreter changed to no hold onto input resolvers
+            operator.set(null);
             return null;
         }
     }
