@@ -51,6 +51,7 @@ public class BenchmarkSuite
                 new SqlTpchQuery6(tpchBlocksProvider),
                 new SqlLikeBenchmark(tpchBlocksProvider),
                 new SqlInBenchmark(tpchBlocksProvider),
+                new SqlRegexpLikeBenchmark(tpchBlocksProvider),
 
                 // statistics benchmarks
                 new StatisticsBenchmark.LongVarianceBenchmark(tpchBlocksProvider),
