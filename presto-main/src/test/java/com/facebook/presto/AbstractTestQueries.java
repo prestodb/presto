@@ -146,7 +146,7 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         assertQuery(
-                "SELECT orderstatus, a, custkey, b FROM (SELECT custkey, orderstatus, -COUNT(*) a, MAX(orderkey) b FROM ORDERS WHERE orderkey = 1 GROUP BY custkey, orderstatus) T");
+                "SELECT custkey, orderstatus, -COUNT(*) a FROM ORDERS GROUP BY custkey, orderstatus");
     }
 
     @Test

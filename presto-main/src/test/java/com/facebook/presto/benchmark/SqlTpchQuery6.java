@@ -7,7 +7,7 @@ public class SqlTpchQuery6
 {
     public SqlTpchQuery6(TpchBlocksProvider tpchBlocksProvider)
     {
-        super(tpchBlocksProvider, "sql_tpch_query_6", 2, 10, "" +
+        super(tpchBlocksProvider, "sql_tpch_query_6", 4, 20, "" +
                 "select sum(extendedprice * discount) as revenue \n" +
                 "from lineitem \n" +
                 "where shipdate >= '1994-01-01' \n" +

@@ -4,6 +4,7 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ClassDefinition;
@@ -11,16 +12,25 @@ import com.facebook.presto.byteCode.ClassInfoLoader;
 import com.facebook.presto.byteCode.CompilerContext;
 import com.facebook.presto.byteCode.DumpByteCodeVisitor;
 import com.facebook.presto.byteCode.DynamicClassLoader;
+import com.facebook.presto.byteCode.FieldDefinition;
+import com.facebook.presto.byteCode.LocalVariableDefinition;
 import com.facebook.presto.byteCode.MethodDefinition;
 import com.facebook.presto.byteCode.NamedParameterDefinition;
 import com.facebook.presto.byteCode.ParameterizedType;
 import com.facebook.presto.byteCode.SmartClassWriter;
 import com.facebook.presto.byteCode.Variable;
+import com.facebook.presto.byteCode.control.ForLoop.ForLoopBuilder;
 import com.facebook.presto.byteCode.control.IfStatement;
+import com.facebook.presto.byteCode.control.IfStatement.IfStatementBuilder;
 import com.facebook.presto.byteCode.instruction.LabelNode;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.operator.AbstractFilterAndProjectOperator;
+import com.facebook.presto.operator.AbstractFilterAndProjectOperator.AbstractFilterAndProjectIterator;
 import com.facebook.presto.operator.FilterFunction;
+import com.facebook.presto.operator.Operator;
+import com.facebook.presto.operator.PageBuilder;
+import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
@@ -73,6 +83,7 @@ import org.objectweb.asm.util.TraceClassVisitor;
 import javax.inject.Inject;
 import java.io.PrintWriter;
 import java.lang.invoke.MethodType;
+import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -81,6 +92,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.byteCode.Access.FINAL;
+import static com.facebook.presto.byteCode.Access.PRIVATE;
 import static com.facebook.presto.byteCode.Access.PUBLIC;
 import static com.facebook.presto.byteCode.Access.a;
 import static com.facebook.presto.byteCode.NamedParameterDefinition.arg;
@@ -88,6 +100,7 @@ import static com.facebook.presto.byteCode.OpCodes.L2D;
 import static com.facebook.presto.byteCode.OpCodes.NOP;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.ParameterizedType.typeFromPathName;
+import static com.facebook.presto.byteCode.control.ForLoop.forLoopBuilder;
 import static com.facebook.presto.byteCode.instruction.Constant.loadBoolean;
 import static com.facebook.presto.byteCode.instruction.Constant.loadDouble;
 import static com.facebook.presto.byteCode.instruction.Constant.loadLong;
@@ -106,6 +119,17 @@ public class ExpressionCompiler
 {
     private static final AtomicLong CLASS_ID = new AtomicLong();
     private final Metadata metadata;
+
+    private final LoadingCache<OperatorCacheKey, Function<Operator, Operator>> operatorFactories = CacheBuilder.newBuilder().build(
+            new CacheLoader<OperatorCacheKey, Function<Operator, Operator>>()
+            {
+                @Override
+                public Function<Operator, Operator> load(OperatorCacheKey key)
+                        throws Exception
+                {
+                    return internalCompileFilterAndProjectOperator(key.getFilter(), key.getProjections(), key.getInputTypes());
+                }
+            });
 
     private final LoadingCache<ExpressionCacheKey, FilterFunction> filters = CacheBuilder.newBuilder().build(new CacheLoader<ExpressionCacheKey, FilterFunction>()
     {
@@ -136,6 +160,11 @@ public class ExpressionCompiler
         FunctionBootstrap.metadataReference.set(metadata);
     }
 
+    public Function<Operator, Operator> compileFilterAndProjectOperator(Expression filter, List<Expression> projections, Map<Input, Type> inputTypes)
+    {
+        return operatorFactories.getUnchecked(new OperatorCacheKey(filter, projections, inputTypes));
+    }
+
     public FilterFunction compileFilterFunction(Expression expression, ImmutableMap<Input, Type> inputTypes)
     {
         return filters.getUnchecked(new ExpressionCacheKey(expression, inputTypes));
@@ -144,6 +173,272 @@ public class ExpressionCompiler
     public ProjectionFunction compileProjectionFunction(Expression expression, ImmutableMap<Input, Type> inputTypes)
     {
         return projections.getUnchecked(new ExpressionCacheKey(expression, inputTypes));
+    }
+
+    @VisibleForTesting
+    public Function<Operator, Operator> internalCompileFilterAndProjectOperator(Expression filter, List<Expression> projections, Map<Input, Type> inputTypes)
+    {
+        // create filter and project page iterator class
+        TypedPageIteratorClass typedPageIteratorClass = compileFilterAndProjectIterator(filter, projections, inputTypes);
+
+        // create and operator for the class
+        Class<? extends Operator> operatorClass = compileOperatorClass(typedPageIteratorClass.getPageIteratorClass());
+
+        // create an factory for the operator
+        return compileOperatorFactoryClass(typedPageIteratorClass.getTupleInfos(), operatorClass);
+    }
+
+    private TypedPageIteratorClass compileFilterAndProjectIterator(Expression filter, List<Expression> projections, Map<Input, Type> inputTypes)
+    {
+        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(),
+                a(PUBLIC, FINAL),
+                typeFromPathName("FilterAndProjectIterator_" + CLASS_ID.incrementAndGet()),
+                type(AbstractFilterAndProjectIterator.class));
+
+        // constructor
+        classDefinition.declareConstructor(new CompilerContext(), a(PUBLIC), arg("tupleInfos", type(Iterable.class, TupleInfo.class)), arg("pageIterator", PageIterator.class))
+                .getBody()
+                .loadThis()
+                .loadVariable("tupleInfos")
+                .loadVariable("pageIterator")
+                .invokeConstructor(AbstractFilterAndProjectIterator.class, Iterable.class, PageIterator.class)
+                .ret();
+
+        generateFilterAndProjectMethod(classDefinition, projections, inputTypes);
+
+        //
+        // filter method
+        //
+        generateFilterMethod(classDefinition, filter, inputTypes);
+
+        //
+        // project methods
+        //
+        List<TupleInfo> tupleInfos = new ArrayList<>();
+        int projectionIndex = 0;
+        for (Expression projection : projections) {
+            Class<?> type = generateProjectMethod(classDefinition, "project_" + projectionIndex, projection, inputTypes);
+            if (type == long.class || type == void.class) {
+                tupleInfos.add(TupleInfo.SINGLE_LONG);
+            }
+            else if (type == double.class) {
+                tupleInfos.add(TupleInfo.SINGLE_DOUBLE);
+            }
+            else if (type == Slice.class) {
+                tupleInfos.add(TupleInfo.SINGLE_VARBINARY);
+            }
+            projectionIndex++;
+        }
+
+        Class<? extends PageIterator> filterAndProjectClass = defineClasses(ImmutableList.of(classDefinition)).values().iterator().next().asSubclass(PageIterator.class);
+        return new TypedPageIteratorClass(filterAndProjectClass, tupleInfos);
+    }
+
+    private void generateFilterAndProjectMethod(ClassDefinition classDefinition,
+            List<Expression> projections,
+            Map<Input, Type> inputTypes)
+    {
+        MethodDefinition filterAndProjectMethod = classDefinition.declareMethod(new CompilerContext(),
+                a(PUBLIC),
+                "filterAndProjectRowOriented",
+                type(void.class),
+                arg("blocks", com.facebook.presto.block.Block[].class),
+                arg("pageBuilder", PageBuilder.class));
+
+        CompilerContext compilerContext = filterAndProjectMethod.getCompilerContext();
+
+        LocalVariableDefinition positionVariable = compilerContext.declareVariable(int.class, "position");
+
+        // int rows = extendedPriceBlock.getPositionCount();
+        LocalVariableDefinition rowsVariable = compilerContext.declareVariable(int.class, "rows");
+        filterAndProjectMethod.getBody()
+                .loadVariable("blocks")
+                .loadConstant(0)
+                .loadObjectArray()
+                .invokeInterface(com.facebook.presto.block.Block.class, "getPositionCount", int.class)
+                .storeVariable(rowsVariable);
+
+
+        // BlockCursor extendedPriceCursor = extendedPriceBlock.cursor();
+        List<LocalVariableDefinition> cursorVariables = new ArrayList<>();
+        int channels = Ordering.natural().max(transform(inputTypes.keySet(), Input.channelGetter())) + 1;
+        for (int i = 0; i < channels; i++) {
+            LocalVariableDefinition cursorVariable = compilerContext.declareVariable(BlockCursor.class, "cursor_" + i);
+            cursorVariables.add(cursorVariable);
+            filterAndProjectMethod.getBody()
+                    .loadVariable("blocks")
+                    .loadConstant(i)
+                    .loadObjectArray()
+                    .invokeInterface(com.facebook.presto.block.Block.class, "cursor", BlockCursor.class)
+                    .storeVariable(cursorVariable);
+        }
+
+        //
+        // for loop body
+        //
+
+        // for (position = 0; position < rows; position++)
+        ForLoopBuilder forLoop = forLoopBuilder(compilerContext)
+                .initialize(new Block(compilerContext).loadConstant(0).storeVariable(positionVariable))
+                .condition(new Block(compilerContext)
+                        .loadVariable(positionVariable)
+                        .loadVariable(rowsVariable)
+                        .invokeStatic(Operations.class, "lessThan", boolean.class, int.class, int.class))
+                .update(new Block(compilerContext).incrementVariable(positionVariable, (byte) 1));
+
+        Block forLoopBody = new Block(compilerContext);
+
+        // cursor.advanceNextPosition()
+        for (LocalVariableDefinition cursorVariable : cursorVariables) {
+            forLoopBody
+                    .loadVariable(cursorVariable)
+                    .invokeInterface(BlockCursor.class, "advanceNextPosition", boolean.class)
+                    .invokeStatic(Preconditions.class, "checkState", void.class, boolean.class);
+        }
+
+        IfStatementBuilder ifStatement = new IfStatementBuilder(compilerContext);
+        Block condition = new Block(compilerContext);
+        condition.loadThis();
+        for (int channel = 0; channel < channels; channel++) {
+            condition.loadVariable("cursor_" + channel);
+        }
+        condition.invokeVirtual(classDefinition.getType(), "filter", type(boolean.class), nCopies(channels, type(TupleReadable.class)));
+        ifStatement.condition(condition);
+
+        Block trueBlock = new Block(compilerContext);
+        if (projections.isEmpty()) {
+            trueBlock.loadVariable("pageBuilder").invokeVirtual(PageBuilder.class, "declarePosition", void.class);
+        }
+        else {
+            // pageBuilder.getBlockBuilder(0).append(cursor.getDouble(0);
+            for (int projectionIndex = 0; projectionIndex < projections.size(); projectionIndex++) {
+                trueBlock.loadThis();
+                for (int channel = 0; channel < channels; channel++) {
+                    trueBlock.loadVariable("cursor_" + channel);
+                }
+
+                // pageBuilder.getBlockBuilder(0)
+                trueBlock.loadVariable("pageBuilder")
+                        .loadConstant(projectionIndex)
+                        .invokeVirtual(PageBuilder.class, "getBlockBuilder", BlockBuilder.class, int.class);
+
+                // project(cursor_0, cursor_1, blockBuilder)
+                trueBlock.invokeVirtual(classDefinition.getType(),
+                        "project_" + projectionIndex,
+                        type(void.class),
+                        ImmutableList.<ParameterizedType>builder().addAll(nCopies(channels, type(TupleReadable.class))).add(type(BlockBuilder.class)).build());
+            }
+        }
+        ifStatement.ifTrue(trueBlock);
+
+        forLoopBody.append(ifStatement.build());
+        filterAndProjectMethod.getBody().append(forLoop.body(forLoopBody).build());
+
+        //
+        //  Verify all cursors ended together
+        //
+
+        // checkState(!cursor.advanceNextPosition());
+        for (LocalVariableDefinition cursorVariable : cursorVariables) {
+            filterAndProjectMethod.getBody()
+                    .loadVariable(cursorVariable)
+                    .invokeInterface(BlockCursor.class, "advanceNextPosition", boolean.class)
+                    .invokeStatic(Operations.class, "not", boolean.class, boolean.class)
+                    .invokeStatic(Preconditions.class, "checkState", void.class, boolean.class);
+        }
+
+        filterAndProjectMethod.getBody().ret();
+    }
+
+    private Function<Operator, Operator> compileOperatorFactoryClass(final List<TupleInfo> tupleInfos, final Class<? extends Operator> operatorClass)
+    {
+        Constructor<? extends Operator> constructor;
+        try {
+            constructor = operatorClass.getConstructor(List.class, Operator.class);
+        }
+        catch (NoSuchMethodException e) {
+            throw new IllegalArgumentException(e);
+        }
+
+        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(),
+                a(PUBLIC, FINAL),
+                typeFromPathName("FilterAndProjectOperatorFactory_" + CLASS_ID.incrementAndGet()),
+                type(Object.class),
+                type(Function.class, Operator.class, Operator.class));
+
+        FieldDefinition tupleInfoField = classDefinition.declareField(a(PRIVATE, FINAL), "tupleInfo", type(List.class, TupleInfo.class));
+
+        // constructor
+        classDefinition.declareConstructor(new CompilerContext(), a(PUBLIC), arg("tupleInfos", type(List.class, TupleInfo.class)))
+                .getBody()
+                .loadThis()
+                .invokeConstructor(Object.class)
+                .loadThis()
+                .loadVariable("tupleInfos")
+                .putField(classDefinition.getType(), tupleInfoField)
+                .ret();
+
+        // apply method
+        MethodDefinition applyMethod = classDefinition.declareMethod(new CompilerContext(),
+                a(PUBLIC),
+                "apply",
+                type(Object.class),
+                arg("source", Object.class));
+
+        applyMethod.getBody()
+                .newObject(operatorClass)
+                .dup()
+                .loadThis()
+                .getField(classDefinition.getType(), tupleInfoField)
+                .loadVariable("source")
+                .invokeConstructor(constructor)
+                .retObject();
+
+        Class<? extends Function<Operator, Operator>> factoryClass =
+                (Class<? extends Function<Operator, Operator>>) defineClasses(ImmutableList.of(classDefinition)).values().iterator().next().asSubclass(Function.class);
+
+        try {
+            Constructor<? extends Function<Operator, Operator>> factoryConstructor = factoryClass.getConstructor(List.class);
+            Function<Operator, Operator> factory = factoryConstructor.newInstance(tupleInfos);
+            return factory;
+        }
+        catch (Throwable e) {
+            throw Throwables.propagate(e);
+        }
+    }
+
+    private Class<? extends Operator> compileOperatorClass(Class<? extends PageIterator> iteratorClass)
+    {
+        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(),
+                a(PUBLIC, FINAL),
+                typeFromPathName("FilterAndProjectOperator_" + CLASS_ID.incrementAndGet()),
+                type(AbstractFilterAndProjectOperator.class));
+
+        // constructor
+        classDefinition.declareConstructor(new CompilerContext(), a(PUBLIC), arg("tupleInfos", type(List.class, TupleInfo.class)), arg("source", Operator.class))
+                .getBody()
+                .loadThis()
+                .loadVariable("tupleInfos")
+                .loadVariable("source")
+                .invokeConstructor(AbstractFilterAndProjectOperator.class, List.class, Operator.class)
+                .ret();
+
+        MethodDefinition iteratorMethod = classDefinition.declareMethod(new CompilerContext(),
+                a(PUBLIC),
+                "iterator",
+                type(PageIterator.class),
+                arg("source", PageIterator.class));
+
+        iteratorMethod.getBody()
+                .newObject(iteratorClass)
+                .dup()
+                .loadThis()
+                .invokeInterface(Operator.class, "getTupleInfos", List.class)
+                .loadVariable("source")
+                .invokeConstructor(iteratorClass, Iterable.class, PageIterator.class)
+                .retObject();
+
+        return defineClasses(ImmutableList.of(classDefinition)).values().iterator().next().asSubclass(Operator.class);
     }
 
     @VisibleForTesting
@@ -373,6 +668,28 @@ public class ExpressionCompiler
         return body.type;
     }
 
+    private static class TypedPageIteratorClass
+    {
+        private final Class<? extends PageIterator> pageIteratorClass;
+        private final List<TupleInfo> tupleInfos;
+
+        private TypedPageIteratorClass(Class<? extends PageIterator> pageIteratorClass, List<TupleInfo> tupleInfos)
+        {
+            this.pageIteratorClass = pageIteratorClass;
+            this.tupleInfos = tupleInfos;
+        }
+
+        private Class<? extends PageIterator> getPageIteratorClass()
+        {
+            return pageIteratorClass;
+        }
+
+        private List<TupleInfo> getTupleInfos()
+        {
+            return tupleInfos;
+        }
+    }
+
     private List<NamedParameterDefinition> toTupleReaderParameters(Map<Input, Type> inputTypes)
     {
         ImmutableList.Builder<NamedParameterDefinition> parameters = ImmutableList.builder();
@@ -494,7 +811,7 @@ public class ExpressionCompiler
             Type type = inputTypes.get(input);
             checkState(type != null, "No type for input %s", input);
 
-            int field = 0;
+            int field = input.getField();
             Block isNullCheck = new Block(context)
                     .setDescription(String.format("channel_%d.get%s(%d)", channel, type, field))
                     .loadVariable("channel_" + channel)
@@ -1160,6 +1477,64 @@ public class ExpressionCompiler
         {
             return Objects.toStringHelper(this)
                     .add("expression", expression)
+                    .add("inputTypes", inputTypes)
+                    .toString();
+        }
+    }
+
+    private static final class OperatorCacheKey
+    {
+        private final Expression filter;
+        private final List<Expression> projections;
+        private final Map<Input, Type> inputTypes;
+
+        private OperatorCacheKey(Expression expression, List<Expression> projections, Map<Input, Type> inputTypes)
+        {
+            this.filter = expression;
+            this.projections = ImmutableList.copyOf(projections);
+            this.inputTypes = inputTypes;
+        }
+
+        private Expression getFilter()
+        {
+            return filter;
+        }
+
+        private List<Expression> getProjections()
+        {
+            return projections;
+        }
+
+        private Map<Input, Type> getInputTypes()
+        {
+            return inputTypes;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hashCode(filter, projections, inputTypes);
+        }
+
+        @Override
+        public boolean equals(Object obj)
+        {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null || getClass() != obj.getClass()) {
+                return false;
+            }
+            final OperatorCacheKey other = (OperatorCacheKey) obj;
+            return Objects.equal(this.filter, other.filter) && Objects.equal(this.projections, other.projections) && Objects.equal(this.inputTypes, other.inputTypes);
+        }
+
+        @Override
+        public String toString()
+        {
+            return Objects.toStringHelper(this)
+                    .add("filter", filter)
+                    .add("projections", projections)
                     .add("inputTypes", inputTypes)
                     .toString();
         }
