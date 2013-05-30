@@ -56,6 +56,7 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.SortItem;
+import com.facebook.presto.sql.tree.TreeRewriter;
 import com.facebook.presto.tuple.FieldOrderedTupleComparator;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleReadable;
@@ -68,6 +69,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMap.Builder;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -442,10 +444,11 @@ public class LocalExecutionPlanner
         {
             PhysicalOperation source = node.getSource().accept(this, context);
 
-//            FilterFunction filter = new InterpretedFilterFunction(node.getPredicate(), source.getLayout(), metadata, context.getSession());
             FilterFunction filter;
             try {
-                filter = compiler.compileFilterFunction(node.getPredicate(), source.getLayout(), source.getOperator().getTupleInfos());
+                Expression filterExpression = node.getPredicate();
+                filterExpression = TreeRewriter.rewriteWith(new SymbolToInputRewriter(source.getLayout()), filterExpression);
+                filter = compiler.compileFilterFunction(filterExpression, getInputTypes(source.getLayout(), source.getOperator().getTupleInfos()));
             }
             catch (Exception e) {
                 throw Throwables.propagate(e);
@@ -466,7 +469,10 @@ public class LocalExecutionPlanner
             if (node.getSource() instanceof FilterNode) {
                 FilterNode filterNode = (FilterNode) node.getSource();
                 source = filterNode.getSource().accept(this, context);
-                filter = new InterpretedFilterFunction(filterNode.getPredicate(), source.getLayout(), metadata, context.getSession());
+
+                Expression filterExpression = filterNode.getPredicate();
+                filterExpression = TreeRewriter.rewriteWith(new SymbolToInputRewriter(source.getLayout()), filterExpression);
+                filter = compiler.compileFilterFunction(filterExpression, getInputTypes(source.getLayout(), source.getOperator().getTupleInfos()));
             } else {
                 source = node.getSource().accept(this, context);
                 filter = FilterFunctions.TRUE_FUNCTION;
@@ -487,7 +493,8 @@ public class LocalExecutionPlanner
                 else {
 //                    function = new InterpretedProjectionFunction(context.getTypes().get(symbol), expression, source.getLayout(), metadata, context.getSession());
                     try {
-                        function = compiler.compileProjectionFunction(expression, source.getLayout(), source.getOperator().getTupleInfos());
+                        expression = TreeRewriter.rewriteWith(new SymbolToInputRewriter(source.getLayout()), expression);
+                        function = compiler.compileProjectionFunction(expression, getInputTypes(source.getLayout(), source.getOperator().getTupleInfos()));
                     }
                     catch (Exception e) {
                         throw Throwables.propagate(e);
@@ -500,6 +507,28 @@ public class LocalExecutionPlanner
 
             FilterAndProjectOperator operator = new FilterAndProjectOperator(source.getOperator(), filter, projections);
             return new PhysicalOperation(operator, outputMappings);
+        }
+
+        private ImmutableMap<Input, Type> getInputTypes(Map<Symbol, Input> layout, List<TupleInfo> tupleInfos)
+        {
+            Builder<Input, Type> inputTypes = ImmutableMap.builder();
+            for (Input input : layout.values()) {
+                 TupleInfo.Type type = tupleInfos.get(input.getChannel()).getTypes().get(input.getField());
+                 switch (type) {
+                     case FIXED_INT_64:
+                         inputTypes.put(input, Type.LONG);
+                         break;
+                     case VARIABLE_BINARY:
+                         inputTypes.put(input, Type.STRING);
+                         break;
+                     case DOUBLE:
+                         inputTypes.put(input, Type.DOUBLE);
+                         break;
+                     default:
+                         throw new IllegalArgumentException("Unsupported type " + type);
+                 }
+            }
+            return inputTypes.build();
         }
 
         @Override
