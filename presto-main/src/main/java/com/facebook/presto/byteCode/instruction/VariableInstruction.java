@@ -31,6 +31,11 @@ public abstract class VariableInstruction implements InstructionNode
         return new StoreVariableInstruction(variable);
     }
 
+    public static InstructionNode incrementVariable(LocalVariableDefinition variable, byte increment)
+    {
+        return new IncrementVariableInstruction(variable, increment);
+    }
+
     private final LocalVariableDefinition variable;
 
     private VariableInstruction(LocalVariableDefinition variable)
@@ -100,6 +105,34 @@ public abstract class VariableInstruction implements InstructionNode
         public <T> T accept(ByteCodeNode parent, ByteCodeVisitor<T> visitor)
         {
             return visitor.visitStoreVariable(parent, this);
+        }
+    }
+
+    public static class IncrementVariableInstruction extends VariableInstruction
+    {
+        private final byte increment;
+
+        public IncrementVariableInstruction(LocalVariableDefinition variable, byte increment)
+        {
+            super(variable);
+            this.increment = increment;
+        }
+
+        public byte getIncrement()
+        {
+            return increment;
+        }
+
+        @Override
+        public void accept(MethodVisitor visitor)
+        {
+            visitor.visitIincInsn(getVariable().getSlot(), increment);
+        }
+
+        @Override
+        public <T> T accept(ByteCodeNode parent, ByteCodeVisitor<T> visitor)
+        {
+            return visitor.visitIncrementVariable(parent, this);
         }
     }
 }

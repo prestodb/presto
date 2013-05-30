@@ -3,6 +3,24 @@ package com.facebook.presto.byteCode;
 
 public class ByteCodeNodes
 {
+    public static Block buildBlock(CompilerContext context, ByteCodeNode node)
+    {
+        return buildBlock(context, node, null);
+    }
+
+    public static Block buildBlock(CompilerContext context, ByteCodeNode node, String description)
+    {
+        Block block;
+        if (node instanceof Block) {
+            block = (Block) node;
+        }
+        else {
+            block = new Block(context).append(node);
+        }
+        block.setDescription(description);
+        return block;
+    }
+
     public static Block buildBlock(CompilerContext context, ByteCodeNodeFactory factory, ExpectedType expectedType)
     {
         return buildBlock(context, factory, expectedType, null);
@@ -21,6 +39,4 @@ public class ByteCodeNodes
         block.setDescription(description);
         return block;
     }
-
-
 }

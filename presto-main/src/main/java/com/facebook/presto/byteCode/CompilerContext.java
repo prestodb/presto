@@ -66,20 +66,7 @@ public class CompilerContext
     public Variable getVariable(String name)
     {
         Variable variable = variables.get(name);
-        if (variable != null) {
-            return variable;
-        }
-
-        // reserve a slot for this variable
-        ParameterizedType type = type(Object.class);
-        LocalVariableDefinition variableDefinition = new LocalVariableDefinition(name, nextSlot, type);
-        nextSlot += Type.getType(type.getType()).getSize();
-
-        // create local variable
-        variable = variableFactory.createVariable(this, name, variableDefinition);
-
-        allVariables.add(variable);
-        variables.put(name, variable);
+        Preconditions.checkArgument(variable != null, "Variable %s not defined", name);
         return variable;
     }
 
@@ -120,6 +107,11 @@ public class CompilerContext
         variables.put(parameterName, variable);
 
         return variableDefinition;
+    }
+
+    public LocalVariableDefinition declareVariable(Class<?> type, String variableName)
+    {
+        return declareVariable(type(type), variableName);
     }
 
     public LocalVariableDefinition declareVariable(ParameterizedType type, String variableName)

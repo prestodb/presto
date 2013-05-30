@@ -677,9 +677,21 @@ public class Block implements ByteCodeNode
         return this;
     }
 
+    public Block getStaticField(Class<?> target, String fieldName, Class<?> fieldType)
+    {
+        nodes.add(getStaticInstruction(target, fieldName, fieldType));
+        return this;
+    }
+
     public Block getStaticField(ParameterizedType target, String fieldName, ParameterizedType fieldType)
     {
         nodes.add(getStaticInstruction(target, fieldName, fieldType));
+        return this;
+    }
+
+    public Block getStaticField(ParameterizedType target, FieldDefinition field)
+    {
+        nodes.add(getStaticInstruction(target, field.getName(), field.getType()));
         return this;
     }
 
@@ -821,6 +833,12 @@ public class Block implements ByteCodeNode
     public Block storeVariable(LocalVariableDefinition variable)
     {
         nodes.add(VariableInstruction.storeVariable(variable));
+        return this;
+    }
+
+    public Block incrementVariable(LocalVariableDefinition variable, byte increment)
+    {
+        nodes.add(VariableInstruction.incrementVariable(variable, increment));
         return this;
     }
 

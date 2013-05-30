@@ -1,5 +1,6 @@
 package com.facebook.presto.byteCode;
 
+import com.facebook.presto.byteCode.instruction.VariableInstruction.IncrementVariableInstruction;
 import com.google.common.base.Joiner;
 import com.facebook.presto.byteCode.control.DoWhileLoop;
 import com.facebook.presto.byteCode.control.ForLoop;
@@ -197,7 +198,7 @@ public class DumpByteCodeVisitor extends ByteCodeVisitor<Void>
     public Void visitLoadVariable(ByteCodeNode parent, LoadVariableInstruction loadVariableInstruction)
     {
         LocalVariableDefinition variable = loadVariableInstruction.getVariable();
-        printLine("load #%d %s", variable.getSlot(), variable.getName());
+        printLine("load %s(#%d)", variable.getName(), variable.getSlot());
         return null;
     }
 
@@ -205,7 +206,16 @@ public class DumpByteCodeVisitor extends ByteCodeVisitor<Void>
     public Void visitStoreVariable(ByteCodeNode parent, StoreVariableInstruction storeVariableInstruction)
     {
         LocalVariableDefinition variable = storeVariableInstruction.getVariable();
-        printLine("store #%d %s", variable.getSlot(), variable.getName());
+        printLine("store %s(#%d)", variable.getName(), variable.getSlot());
+        return null;
+    }
+
+    @Override
+    public Void visitIncrementVariable(ByteCodeNode parent, IncrementVariableInstruction incrementVariableInstruction)
+    {
+        LocalVariableDefinition variable = incrementVariableInstruction.getVariable();
+        byte increment = incrementVariableInstruction.getIncrement();
+        printLine("increment %s(#%d) %s", variable.getName(), variable.getSlot(), increment);
         return null;
     }
 
@@ -254,7 +264,15 @@ public class DumpByteCodeVisitor extends ByteCodeVisitor<Void>
     @Override
     public Void visitFor(ByteCodeNode parent, ForLoop forLoop)
     {
-        return super.visitFor(parent, forLoop);
+        printLine("for {");
+        indentLevel++;
+        forLoop.getInitialize().accept(forLoop, this);
+        forLoop.getCondition().accept(forLoop, this);
+        forLoop.getUpdate().accept(forLoop, this);
+        forLoop.getBody().accept(forLoop, this);
+        indentLevel--;
+        printLine("}");
+        return null;
     }
 
     @Override

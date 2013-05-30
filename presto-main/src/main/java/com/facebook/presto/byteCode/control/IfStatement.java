@@ -37,7 +37,7 @@ public class IfStatement implements FlowControl
 
         public IfStatementBuilder condition(ByteCodeNode condition)
         {
-            this.condition = condition;
+            this.condition = buildBlock(context, condition, "condition");
             return this;
         }
 
@@ -49,7 +49,7 @@ public class IfStatement implements FlowControl
 
         public IfStatementBuilder ifTrue(ByteCodeNode ifTrue)
         {
-            this.ifTrue = ifTrue;
+            this.ifTrue = buildBlock(context, ifTrue, "ifTrue");
             return this;
         }
 
@@ -61,7 +61,7 @@ public class IfStatement implements FlowControl
 
         public IfStatementBuilder ifFalse(ByteCodeNode ifFalse)
         {
-            this.ifFalse = ifFalse;
+            this.ifFalse = buildBlock(context, ifFalse, "ifFalse");
             return this;
         }
 

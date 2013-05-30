@@ -30,6 +30,7 @@ import com.facebook.presto.byteCode.instruction.InvokeInstruction.InvokeDynamicI
 import com.facebook.presto.byteCode.instruction.JumpInstruction;
 import com.facebook.presto.byteCode.instruction.LabelNode;
 import com.facebook.presto.byteCode.instruction.VariableInstruction;
+import com.facebook.presto.byteCode.instruction.VariableInstruction.IncrementVariableInstruction;
 import com.facebook.presto.byteCode.instruction.VariableInstruction.LoadVariableInstruction;
 import com.facebook.presto.byteCode.instruction.VariableInstruction.StoreVariableInstruction;
 
@@ -222,6 +223,11 @@ public class ByteCodeVisitor<T>
     public T visitStoreVariable(ByteCodeNode parent, StoreVariableInstruction storeVariableInstruction)
     {
         return visitVariableInstruction(parent, storeVariableInstruction);
+    }
+
+    public T visitIncrementVariable(ByteCodeNode parent, IncrementVariableInstruction incrementVariableInstruction)
+    {
+        return visitVariableInstruction(parent, incrementVariableInstruction);
     }
 
     //
