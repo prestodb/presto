@@ -51,6 +51,7 @@ import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
+import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Input;
@@ -198,6 +199,7 @@ public class LocalExecutionPlanner
         {
             return ImmutableMap.copyOf(sourceOperators);
         }
+
         private Map<PlanNodeId, OutputProducingOperator<?>> getOutputOperators()
         {
             return ImmutableMap.copyOf(outputOperators);
@@ -465,47 +467,29 @@ public class LocalExecutionPlanner
         {
             // collapse project on filter to a single operator
             PhysicalOperation source;
-            FilterFunction filter;
+            Expression filterExpression;
             if (node.getSource() instanceof FilterNode) {
                 FilterNode filterNode = (FilterNode) node.getSource();
                 source = filterNode.getSource().accept(this, context);
-
-                Expression filterExpression = filterNode.getPredicate();
+                filterExpression = filterNode.getPredicate();
                 filterExpression = TreeRewriter.rewriteWith(new SymbolToInputRewriter(source.getLayout()), filterExpression);
-                filter = compiler.compileFilterFunction(filterExpression, getInputTypes(source.getLayout(), source.getOperator().getTupleInfos()));
-            } else {
+            }
+            else {
                 source = node.getSource().accept(this, context);
-                filter = FilterFunctions.TRUE_FUNCTION;
+                filterExpression = BooleanLiteral.TRUE_LITERAL;
             }
 
             Map<Symbol, Input> outputMappings = new HashMap<>();
-            List<ProjectionFunction> projections = new ArrayList<>();
+            List<Expression> projections = new ArrayList<>();
             for (int i = 0; i < node.getExpressions().size(); i++) {
                 Symbol symbol = node.getOutputSymbols().get(i);
-                Expression expression = node.getExpressions().get(i);
-
-                ProjectionFunction function;
-                if (expression instanceof QualifiedNameReference) {
-                    // fast path when we know it's a direct symbol reference
-                    Symbol reference = Symbol.fromQualifiedName(((QualifiedNameReference) expression).getName());
-                    function = ProjectionFunctions.singleColumn(context.getTypes().get(reference).getRawType(), source.getLayout().get(symbol));
-                }
-                else {
-//                    function = new InterpretedProjectionFunction(context.getTypes().get(symbol), expression, source.getLayout(), metadata, context.getSession());
-                    try {
-                        expression = TreeRewriter.rewriteWith(new SymbolToInputRewriter(source.getLayout()), expression);
-                        function = compiler.compileProjectionFunction(expression, getInputTypes(source.getLayout(), source.getOperator().getTupleInfos()));
-                    }
-                    catch (Exception e) {
-                        throw Throwables.propagate(e);
-                    }
-                }
-                projections.add(function);
-
+                projections.add(TreeRewriter.rewriteWith(new SymbolToInputRewriter(source.getLayout()), node.getExpressions().get(i)));
                 outputMappings.put(symbol, new Input(i, 0)); // one field per channel
             }
 
-            FilterAndProjectOperator operator = new FilterAndProjectOperator(source.getOperator(), filter, projections);
+            ImmutableMap<Input, TupleInfo.Type> inputTypes = getInputTypes(source.getLayout(), source.getOperator().getTupleInfos());
+            Function<Operator, Operator> operatorFactory = compiler.compileFilterAndProjectOperator(filterExpression, projections, inputTypes);
+            Operator operator = operatorFactory.apply(source.getOperator());
             return new PhysicalOperation(operator, outputMappings);
         }
 
@@ -894,7 +878,8 @@ public class LocalExecutionPlanner
 
     private static Ordering<Input> inputOrdering()
     {
-        return Ordering.from(new Comparator<Input>() {
+        return Ordering.from(new Comparator<Input>()
+        {
             @Override
             public int compare(Input o1, Input o2)
             {

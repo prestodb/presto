@@ -114,6 +114,11 @@ public final class Operations
         return left != right;
     }
 
+    public static boolean lessThan(int left, int right)
+    {
+        return left < right;
+    }
+
     public static boolean lessThan(long left, long right)
     {
         return left < right;
