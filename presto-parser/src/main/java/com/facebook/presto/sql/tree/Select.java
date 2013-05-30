@@ -11,9 +11,9 @@ public class Select
     extends Node
 {
     private final boolean distinct;
-    private final List<Expression> selectItems;
+    private final List<SelectItem> selectItems;
 
-    public Select(boolean distinct, List<Expression> selectItems)
+    public Select(boolean distinct, List<SelectItem> selectItems)
     {
         this.distinct = distinct;
         this.selectItems = ImmutableList.copyOf(checkNotNull(selectItems, "selectItems"));
@@ -24,7 +24,7 @@ public class Select
         return distinct;
     }
 
-    public List<Expression> getSelectItems()
+    public List<SelectItem> getSelectItems()
     {
         return selectItems;
     }

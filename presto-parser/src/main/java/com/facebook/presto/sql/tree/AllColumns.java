@@ -4,7 +4,7 @@ import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 
 public class AllColumns
-        extends Expression
+        extends SelectItem
 {
     private final Optional<QualifiedName> prefix;
 
@@ -53,5 +53,15 @@ public class AllColumns
     public int hashCode()
     {
         return prefix != null ? prefix.hashCode() : 0;
+    }
+
+    @Override
+    public String toString()
+    {
+        if (prefix.isPresent()) {
+            return prefix.get() + ".*";
+        }
+
+        return "*";
     }
 }
