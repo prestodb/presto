@@ -317,6 +317,12 @@
             </dependency>
 
             <dependency>
+                <groupId>org.jruby.joni</groupId>
+                <artifactId>joni</artifactId>
+                <version>2.0.0</version>
+            </dependency>
+
+            <dependency>
                 <groupId>org.antlr</groupId>
                 <artifactId>antlr-runtime</artifactId>
                 <version>${dep.antlr.version}</version>
