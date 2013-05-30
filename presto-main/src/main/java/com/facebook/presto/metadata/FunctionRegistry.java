@@ -62,6 +62,8 @@ import static com.facebook.presto.sql.analyzer.Type.BOOLEAN;
 import static com.facebook.presto.sql.analyzer.Type.DOUBLE;
 import static com.facebook.presto.sql.analyzer.Type.LONG;
 import static com.facebook.presto.sql.analyzer.Type.STRING;
+import static com.google.common.base.CaseFormat.LOWER_CAMEL;
+import static com.google.common.base.CaseFormat.LOWER_UNDERSCORE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
@@ -259,7 +261,7 @@ public class FunctionRegistry
                     MethodHandle methodHandle = lookup().unreflect(method);
                     String name = scalarFunction.value();
                     if (name.isEmpty()) {
-                        name = method.getName();
+                        name = camelToSnake(method.getName());
                     }
                     scalar(name, methodHandle, scalarFunction.deterministic());
                     for (String alias : scalarFunction.alias()) {
@@ -273,6 +275,11 @@ public class FunctionRegistry
                 throw Throwables.propagate(e);
             }
             return this;
+        }
+
+        private static String camelToSnake(String name)
+        {
+            return LOWER_CAMEL.to(LOWER_UNDERSCORE, name);
         }
 
         private static final Set<Class<?>> SUPPORTED_TYPES = ImmutableSet.<Class<?>>of(long.class, double.class, Slice.class, boolean.class);

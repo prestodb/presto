@@ -28,19 +28,19 @@ public final class RegexpFunctions
 
     private RegexpFunctions() {}
 
-    @ScalarFunction("regexp_like")
+    @ScalarFunction
     public static boolean regexpLike(Slice source, Slice pattern)
     {
         return matcher(source, pattern).find();
     }
 
-    @ScalarFunction("regexp_replace")
+    @ScalarFunction
     public static Slice regexpReplace(Slice source, Slice pattern)
     {
         return regexpReplace(source, pattern, Slices.EMPTY_SLICE);
     }
 
-    @ScalarFunction("regexp_replace")
+    @ScalarFunction
     public static Slice regexpReplace(Slice source, Slice pattern, Slice replacement)
     {
         Matcher matcher = matcher(source, pattern);
@@ -48,13 +48,13 @@ public final class RegexpFunctions
         return Slices.copiedBuffer(replaced, UTF_8);
     }
 
-    @ScalarFunction("regexp_extract")
+    @ScalarFunction
     public static Slice regexpExtract(Slice source, Slice pattern)
     {
         return regexpExtract(source, pattern, 0);
     }
 
-    @ScalarFunction("regexp_extract")
+    @ScalarFunction
     public static Slice regexpExtract(Slice source, Slice pattern, long group)
     {
         Matcher matcher = matcher(source, pattern);

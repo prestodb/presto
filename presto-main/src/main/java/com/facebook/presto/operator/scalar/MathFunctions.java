@@ -48,13 +48,13 @@ public final class MathFunctions
         return Math.cbrt(num);
     }
 
-    @ScalarFunction(value = "ceil", alias = "ceiling")
+    @ScalarFunction(alias = "ceil")
     public static long ceiling(long num)
     {
         return num;
     }
 
-    @ScalarFunction(value = "ceil", alias = "ceiling")
+    @ScalarFunction(alias = "ceil")
     public static double ceiling(double num)
     {
         return Math.ceil(num);

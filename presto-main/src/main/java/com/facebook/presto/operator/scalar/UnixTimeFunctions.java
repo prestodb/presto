@@ -50,7 +50,7 @@ public final class UnixTimeFunctions
         return fromMillis(session.getStartTime());
     }
 
-    @ScalarFunction("date_add")
+    @ScalarFunction
     public static long dateAdd(Slice unit, long value, long unixTime)
     {
         return fromMillis(internalDateAdd(unit, value, toMillis(unixTime)));
@@ -88,7 +88,7 @@ public final class UnixTimeFunctions
         }
     }
 
-    @ScalarFunction("date_diff")
+    @ScalarFunction
     public static long dateDiff(Slice unit, long unixTime1, long unixTime2)
     {
         String unitString = unit.toString(Charsets.US_ASCII).toLowerCase();
@@ -123,7 +123,7 @@ public final class UnixTimeFunctions
         }
     }
 
-    @ScalarFunction("parse_datetime")
+    @ScalarFunction
     public static long parseDatetime(Slice datetime, Slice formatString)
     {
         String pattern = formatString.toString(Charsets.UTF_8);
@@ -133,7 +133,7 @@ public final class UnixTimeFunctions
         return fromMillis(formatter.parseMillis(datetimeString));
     }
 
-    @ScalarFunction("format_datetime")
+    @ScalarFunction
     public static Slice formatDatetime(long unixTime, Slice formatString)
     {
         String pattern = formatString.toString(Charsets.UTF_8);
@@ -143,14 +143,14 @@ public final class UnixTimeFunctions
         return Slices.wrappedBuffer(datetimeString.getBytes(Charsets.UTF_8));
     }
 
-    @ScalarFunction("date_format")
+    @ScalarFunction
     public static Slice dateFormat(long unixTime, Slice formatString)
     {
         DateTimeFormatter formatter = DATETIME_FORMATTER_CACHE.get(formatString);
         return Slices.copiedBuffer(formatter.print(toMillis(unixTime)), Charsets.UTF_8);
     }
 
-    @ScalarFunction("date_parse")
+    @ScalarFunction
     public static long dateParse(Slice dateTime, Slice formatString)
     {
         DateTimeFormatter formatter = DATETIME_FORMATTER_CACHE.get(formatString);
@@ -175,7 +175,7 @@ public final class UnixTimeFunctions
         return HOUR_OF_DAY.get(toMillis(unixTime));
     }
 
-    @ScalarFunction(value = "day_of_week", alias = "dow")
+    @ScalarFunction(alias = "dow")
     public static long dayOfWeek(long unixTime)
     {
         return DAY_OF_WEEK.get(toMillis(unixTime));
@@ -187,7 +187,7 @@ public final class UnixTimeFunctions
         return DAY_OF_MONTH.get(toMillis(unixTime));
     }
 
-    @ScalarFunction(value = "day_of_year", alias = "doy")
+    @ScalarFunction(alias = "doy")
     public static long dayOfYear(long unixTime)
     {
         return DAY_OF_YEAR.get(toMillis(unixTime));

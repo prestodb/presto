@@ -9,7 +9,7 @@ public final class JsonFunctions
 {
     private JsonFunctions() {}
 
-    @ScalarFunction("json_extract_scalar")
+    @ScalarFunction
     public static Slice jsonExtractScalar(Slice json, Slice jsonPath)
     {
         try {
@@ -20,7 +20,7 @@ public final class JsonFunctions
         }
     }
 
-    @ScalarFunction("json_extract")
+    @ScalarFunction
     public static Slice jsonExtract(Slice json, Slice jsonPath)
     {
         try {
