@@ -9,6 +9,7 @@ import com.facebook.presto.operator.aggregation.LongVarianceAggregation;
 import com.facebook.presto.operator.scalar.ColorFunctions;
 import com.facebook.presto.operator.scalar.JsonFunctions;
 import com.facebook.presto.operator.scalar.MathFunctions;
+import com.facebook.presto.operator.scalar.RegexpFunctions;
 import com.facebook.presto.operator.scalar.ScalarFunction;
 import com.facebook.presto.operator.scalar.StringFunctions;
 import com.facebook.presto.operator.scalar.UnixTimeFunctions;
@@ -108,6 +109,7 @@ public class FunctionRegistry
                 .aggregate("approx_distinct", LONG, ImmutableList.of(DOUBLE), STRING, ApproximateCountDistinctAggregation.DOUBLE_INSTANCE)
                 .aggregate("approx_distinct", LONG, ImmutableList.of(STRING), STRING, ApproximateCountDistinctAggregation.VARBINARY_INSTANCE)
                 .scalar(StringFunctions.class)
+                .scalar(RegexpFunctions.class)
                 .scalar(MathFunctions.class)
                 .scalar(UnixTimeFunctions.class)
                 .scalar(JsonFunctions.class)
