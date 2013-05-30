@@ -1,6 +1,5 @@
 package com.facebook.presto.util;
 
-import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.util.concurrent.atomic.AtomicInteger;
@@ -14,7 +13,8 @@ public class TestThreadLocalCache
             throws Exception
     {
         final AtomicInteger count = new AtomicInteger(0);
-        ThreadLocalCache<String, String> cache = new ThreadLocalCache<String, String>(2) {
+        ThreadLocalCache<String, String> cache = new ThreadLocalCache<String, String>(2)
+        {
             @Override
             protected String load(String key)
             {
@@ -40,5 +40,19 @@ public class TestThreadLocalCache
         assertEquals(cache.get("abc"), "abc3");
 
         // TODO: add tests for multiple threads
+    }
+
+    @SuppressWarnings("ConstantConditions")
+    @Test(expectedExceptions = NullPointerException.class, expectedExceptionsMessageRegExp = "value must not be null")
+    public void testDisallowsNulls()
+    {
+        new ThreadLocalCache<String, String>(10)
+        {
+            @Override
+            protected String load(String key)
+            {
+                return null;
+            }
+        }.get("foo");
     }
 }
