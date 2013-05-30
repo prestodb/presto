@@ -13,7 +13,7 @@ import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 
-public class ColorFunctions
+public final class ColorFunctions
 {
     private static final String ANSI_RESET = "\u001b[0m";
 
@@ -40,6 +40,8 @@ public class ColorFunctions
             return index;
         }
     }
+
+    private ColorFunctions() {}
 
     @ScalarFunction
     public static long color(Slice color)
