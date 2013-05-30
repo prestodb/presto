@@ -175,25 +175,25 @@ public final class UnixTimeFunctions
         return HOUR_OF_DAY.get(toMillis(unixTime));
     }
 
-    @ScalarFunction(alias = {"day_of_week", "dow"})
+    @ScalarFunction(value = "day_of_week", alias = "dow")
     public static long dayOfWeek(long unixTime)
     {
         return DAY_OF_WEEK.get(toMillis(unixTime));
     }
 
-    @ScalarFunction(alias = {"day_of_month", "dayOfMonth"})
+    @ScalarFunction(alias = "day_of_month")
     public static long day(long unixTime)
     {
         return DAY_OF_MONTH.get(toMillis(unixTime));
     }
 
-    @ScalarFunction(alias = {"day_of_year", "doy"})
+    @ScalarFunction(value = "day_of_year", alias = "doy")
     public static long dayOfYear(long unixTime)
     {
         return DAY_OF_YEAR.get(toMillis(unixTime));
     }
 
-    @ScalarFunction(alias = {"week_of_year", "weekOfYear"})
+    @ScalarFunction(alias = "week_of_year")
     public static long week(long unixTime)
     {
         return WEEK_OF_YEAR.get(toMillis(unixTime));
