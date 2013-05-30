@@ -23,8 +23,6 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.sql.analyzer.Type;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolToInputRewriter;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
@@ -49,7 +47,6 @@ import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
-import com.facebook.presto.sql.tree.TreeRewriter;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleReadable;
@@ -64,10 +61,10 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMap.Builder;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Ordering;
 import io.airlift.slice.Slice;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
@@ -86,6 +83,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import static com.facebook.presto.byteCode.Access.FINAL;
 import static com.facebook.presto.byteCode.Access.PUBLIC;
 import static com.facebook.presto.byteCode.Access.a;
+import static com.facebook.presto.byteCode.NamedParameterDefinition.arg;
 import static com.facebook.presto.byteCode.OpCodes.L2D;
 import static com.facebook.presto.byteCode.OpCodes.NOP;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
@@ -102,27 +100,30 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
+import static java.util.Collections.nCopies;
 
 public class ExpressionCompiler
 {
     private static final AtomicLong CLASS_ID = new AtomicLong();
     private final Metadata metadata;
 
-    private final LoadingCache<ExpressionCacheKey, FilterFunction> filters = CacheBuilder.newBuilder().build(new CacheLoader<ExpressionCacheKey, FilterFunction>() {
+    private final LoadingCache<ExpressionCacheKey, FilterFunction> filters = CacheBuilder.newBuilder().build(new CacheLoader<ExpressionCacheKey, FilterFunction>()
+    {
         @Override
         public FilterFunction load(ExpressionCacheKey key)
                 throws Exception
         {
-            return compileFilterFunction(key.getExpression(), key.getInputTypes());
+            return internalCompileFilterFunction(key.getExpression(), key.getInputTypes());
         }
     });
 
-    private final LoadingCache<ExpressionCacheKey, ProjectionFunction> projections = CacheBuilder.newBuilder().build(new CacheLoader<ExpressionCacheKey, ProjectionFunction>() {
+    private final LoadingCache<ExpressionCacheKey, ProjectionFunction> projections = CacheBuilder.newBuilder().build(new CacheLoader<ExpressionCacheKey, ProjectionFunction>()
+    {
         @Override
         public ProjectionFunction load(ExpressionCacheKey key)
                 throws Exception
         {
-            return compileProjectionFunction(key.getExpression(), key.getInputTypes());
+            return internalCompileProjectionFunction(key.getExpression(), key.getInputTypes());
         }
     });
 
@@ -135,39 +136,18 @@ public class ExpressionCompiler
         FunctionBootstrap.metadataReference.set(metadata);
     }
 
-    private static ImmutableMap<Input, Type> getInputTypes(Map<Symbol, Input> layout, List<TupleInfo> tupleInfos)
+    public FilterFunction compileFilterFunction(Expression expression, ImmutableMap<Input, Type> inputTypes)
     {
-        Builder<Input, Type> inputTypes = ImmutableMap.builder();
-        for (Input input : layout.values()) {
-            TupleInfo.Type type = tupleInfos.get(input.getChannel()).getTypes().get(input.getField());
-            switch (type) {
-                case FIXED_INT_64:
-                    inputTypes.put(input, Type.LONG);
-                    break;
-                case VARIABLE_BINARY:
-                    inputTypes.put(input, Type.STRING);
-                    break;
-                case DOUBLE:
-                    inputTypes.put(input, Type.DOUBLE);
-                    break;
-                default:
-                    throw new IllegalArgumentException("Unsupported type " + type);
-            }
-
-        }
-        return inputTypes.build();
-    }
-
-    public FilterFunction compileFilterFunction(Expression expression, Map<Symbol, Input> layout, List<TupleInfo> tupleInfos)
-    {
-        expression = TreeRewriter.rewriteWith(new SymbolToInputRewriter(layout), expression);
-
-        ImmutableMap<Input, Type> inputTypes = getInputTypes(layout, tupleInfos);
         return filters.getUnchecked(new ExpressionCacheKey(expression, inputTypes));
     }
 
+    public ProjectionFunction compileProjectionFunction(Expression expression, ImmutableMap<Input, Type> inputTypes)
+    {
+        return projections.getUnchecked(new ExpressionCacheKey(expression, inputTypes));
+    }
+
     @VisibleForTesting
-    public FilterFunction compileFilterFunction(Expression expression, Map<Input, Type> inputTypes)
+    public FilterFunction internalCompileFilterFunction(Expression expression, Map<Input, Type> inputTypes)
     {
         ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(),
                 a(PUBLIC, FINAL),
@@ -187,11 +167,50 @@ public class ExpressionCompiler
                 a(PUBLIC),
                 "filter",
                 type(boolean.class),
-                NamedParameterDefinition.arg("channels", TupleReadable[].class));
+                arg("channels", TupleReadable[].class));
 
-        // generate body code
+        filterMethod.getBody().loadThis();
+
+        int channels = Ordering.natural().max(transform(inputTypes.keySet(), Input.channelGetter())) + 1;
+        for (int i = 0; i < channels; i++) {
+            filterMethod.getBody()
+                    .loadVariable("channels")
+                    .loadConstant(i)
+                    .loadObjectArray();
+        }
+        filterMethod.getBody()
+                .invokeVirtual(classDefinition.getType(), "filter", type(boolean.class), nCopies(channels, type(TupleReadable.class)));
+
+        filterMethod.getBody().retBoolean();
+
+        // filter method with unrolled channels
+        generateFilterMethod(classDefinition, expression, inputTypes);
+
+        // define the class
+        Class<? extends FilterFunction> filterClass = defineClasses(ImmutableList.of(classDefinition)).values().iterator().next().asSubclass(FilterFunction.class);
+
+        // create instance
+        try {
+            FilterFunction function = filterClass.newInstance();
+            return function;
+        }
+        catch (Throwable e) {
+            throw Throwables.propagate(e);
+        }
+    }
+
+    private void generateFilterMethod(ClassDefinition classDefinition,
+            Expression filter,
+            Map<Input, Type> inputTypes)
+    {
+        MethodDefinition filterMethod = classDefinition.declareMethod(new CompilerContext(),
+                a(PUBLIC),
+                "filter",
+                type(boolean.class),
+                toTupleReaderParameters(inputTypes));
+
         filterMethod.getCompilerContext().declareVariable(type(boolean.class), "wasNull");
-        TypedByteCodeNode body = new Visitor(metadata, inputTypes).process(expression, filterMethod.getCompilerContext());
+        TypedByteCodeNode body = new Visitor(metadata, inputTypes).process(filter, filterMethod.getCompilerContext());
 
         if (body.type == void.class) {
             filterMethod
@@ -207,30 +226,10 @@ public class ExpressionCompiler
                     .append(body.node)
                     .retBoolean();
         }
-
-        // define the class
-        Class<? extends FilterFunction> filterClass = defineClasses(ImmutableList.of(classDefinition)).values().iterator().next().asSubclass(FilterFunction.class);
-
-        // create instance
-        try {
-            FilterFunction function = filterClass.newInstance();
-            return function;
-        }
-        catch (Throwable e) {
-            throw Throwables.propagate(e);
-        }
-    }
-
-    public ProjectionFunction compileProjectionFunction(Expression expression, Map<Symbol, Input> layout, List<TupleInfo> tupleInfos)
-    {
-        expression = TreeRewriter.rewriteWith(new SymbolToInputRewriter(layout), expression);
-
-        ImmutableMap<Input, Type> inputTypes = getInputTypes(layout, tupleInfos);
-        return projections.getUnchecked(new ExpressionCacheKey(expression, inputTypes));
     }
 
     @VisibleForTesting
-    public ProjectionFunction compileProjectionFunction(Expression expression, Map<Input, Type> inputTypes)
+    public ProjectionFunction internalCompileProjectionFunction(Expression expression, Map<Input, Type> inputTypes)
     {
         ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(),
                 a(PUBLIC, FINAL),
@@ -250,13 +249,89 @@ public class ExpressionCompiler
                 a(PUBLIC),
                 "project",
                 type(void.class),
-                NamedParameterDefinition.arg("channels", TupleReadable[].class),
-                NamedParameterDefinition.arg("output", BlockBuilder.class));
+                arg("channels", TupleReadable[].class),
+                arg("output", BlockBuilder.class));
+
+        projectionMethod.getBody().loadThis();
+
+        int channels = Ordering.natural().max(transform(inputTypes.keySet(), Input.channelGetter())) + 1;
+        for (int i = 0; i < channels; i++) {
+            projectionMethod.getBody()
+                    .loadVariable("channels")
+                    .loadConstant(i)
+                    .loadObjectArray();
+        }
+
+        projectionMethod.getBody().loadVariable("output");
+
+        projectionMethod.getBody()
+                .invokeVirtual(classDefinition.getType(),
+                        "project",
+                        type(void.class),
+                        ImmutableList.<ParameterizedType>builder().addAll(nCopies(channels, type(TupleReadable.class))).add(type(BlockBuilder.class)).build());
+        projectionMethod.getBody().ret();
+
+        // projection with unrolled channels
+        Class<?> type = generateProjectMethod(classDefinition, "project", expression, inputTypes);
+
+
+        // TupleInfo getTupleInfo();
+        MethodDefinition getTupleInfoMethod = classDefinition.declareMethod(new CompilerContext(),
+                a(PUBLIC),
+                "getTupleInfo",
+                type(TupleInfo.class));
+
+        // todo remove assumption that void is a long
+        if (type == long.class || type == void.class) {
+            getTupleInfoMethod.getBody()
+                    .getStaticField(type(TupleInfo.class), "SINGLE_LONG", type(TupleInfo.class))
+                    .retObject();
+        }
+        else if (type == double.class) {
+            getTupleInfoMethod.getBody()
+                    .getStaticField(type(TupleInfo.class), "SINGLE_DOUBLE", type(TupleInfo.class))
+                    .retObject();
+        }
+        else if (type == Slice.class) {
+            getTupleInfoMethod.getBody()
+                    .getStaticField(type(TupleInfo.class), "SINGLE_VARBINARY", type(TupleInfo.class))
+                    .retObject();
+        }
+
+
+        // define the class
+        Class<? extends ProjectionFunction> projectionClass = defineClasses(ImmutableList.of(classDefinition)).values().iterator().next().asSubclass(ProjectionFunction.class);
+
+        // create instance
+        try {
+            ProjectionFunction function = projectionClass.newInstance();
+            return function;
+        }
+        catch (Throwable e) {
+            throw Throwables.propagate(e);
+        }
+    }
+
+    private Class<?> generateProjectMethod(ClassDefinition classDefinition,
+            String methodName,
+            Expression projection,
+            Map<Input, Type> inputTypes)
+    {
+        ImmutableList.Builder<NamedParameterDefinition> parameters = ImmutableList.builder();
+        parameters.addAll(toTupleReaderParameters(inputTypes));
+        parameters.add(arg("output", BlockBuilder.class));
+
+        MethodDefinition projectionMethod = classDefinition.declareMethod(new CompilerContext(),
+                a(PUBLIC),
+                methodName,
+                type(void.class),
+                parameters.build());
+
 
         // generate body code
         CompilerContext context = projectionMethod.getCompilerContext();
         context.declareVariable(type(boolean.class), "wasNull");
-        TypedByteCodeNode body = new Visitor(metadata, inputTypes).process(expression, context);
+        TypedByteCodeNode body = new Visitor(metadata, inputTypes).process(projection, context);
 
         if (body.type != void.class) {
             projectionMethod
@@ -295,42 +370,17 @@ public class ExpressionCompiler
                     .invokeVirtual(BlockBuilder.class, "appendNull", BlockBuilder.class)
                     .ret();
         }
+        return body.type;
+    }
 
-        // TupleInfo getTupleInfo();
-        MethodDefinition getTupleInfoMethod = classDefinition.declareMethod(new CompilerContext(),
-                a(PUBLIC),
-                "getTupleInfo",
-                type(TupleInfo.class));
-
-        // todo remove assumption that void is a long
-        if (body.type == long.class || body.type == void.class) {
-            getTupleInfoMethod.getBody()
-                    .getStaticField(type(TupleInfo.class), "SINGLE_LONG", type(TupleInfo.class))
-                    .retObject();
+    private List<NamedParameterDefinition> toTupleReaderParameters(Map<Input, Type> inputTypes)
+    {
+        ImmutableList.Builder<NamedParameterDefinition> parameters = ImmutableList.builder();
+        int channels = Ordering.natural().max(transform(inputTypes.keySet(), Input.channelGetter())) + 1;
+        for (int i = 0; i < channels; i++) {
+            parameters.add(arg("channel_" + i, TupleReadable.class));
         }
-        else if (body.type == double.class) {
-            getTupleInfoMethod.getBody()
-                    .getStaticField(type(TupleInfo.class), "SINGLE_DOUBLE", type(TupleInfo.class))
-                    .retObject();
-        }
-        else if (body.type == Slice.class) {
-            getTupleInfoMethod.getBody()
-                    .getStaticField(type(TupleInfo.class), "SINGLE_VARBINARY", type(TupleInfo.class))
-                    .retObject();
-        }
-
-
-        // define the class
-        Class<? extends ProjectionFunction> projectionClass = defineClasses(ImmutableList.of(classDefinition)).values().iterator().next().asSubclass(ProjectionFunction.class);
-
-        // create instance
-        try {
-            ProjectionFunction function = projectionClass.newInstance();
-            return function;
-        }
-        catch (Throwable e) {
-            throw Throwables.propagate(e);
-        }
+        return parameters.build();
     }
 
     private static final DynamicClassLoader classLoader = new DynamicClassLoader();
@@ -446,10 +496,8 @@ public class ExpressionCompiler
 
             int field = 0;
             Block isNullCheck = new Block(context)
-                    .setDescription(String.format("channels[%d].get%s(%d)", channel, type, field))
-                    .loadVariable("channels")
-                    .loadConstant(channel)
-                    .loadObjectArray()
+                    .setDescription(String.format("channel_%d.get%s(%d)", channel, type, field))
+                    .loadVariable("channel_" + channel)
                     .loadConstant(field)
                     .invokeInterface(TupleReadable.class, "isNull", boolean.class, int.class);
 
@@ -458,9 +506,7 @@ public class ExpressionCompiler
                     .storeVariable("wasNull");
 
             Block notNull = new Block(context)
-                    .loadVariable("channels")
-                    .loadConstant(channel)
-                    .loadObjectArray()
+                    .loadVariable("channel_" + channel)
                     .loadConstant(field);
 
             Class<?> nodeType;
@@ -804,7 +850,8 @@ public class ExpressionCompiler
             TypedByteCodeNode elseValue;
             if (node.getDefaultValue() != null) {
                 elseValue = process(node.getDefaultValue(), context);
-            } else {
+            }
+            else {
                 elseValue = process(new NullLiteral(), context);
             }
 
@@ -851,7 +898,8 @@ public class ExpressionCompiler
             TypedByteCodeNode elseValue;
             if (node.getDefaultValue() != null) {
                 elseValue = process(node.getDefaultValue(), context);
-            } else {
+            }
+            else {
                 elseValue = process(new NullLiteral(), context);
             }
 
