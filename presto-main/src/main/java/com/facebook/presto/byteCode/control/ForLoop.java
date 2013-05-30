@@ -29,10 +29,10 @@ public class ForLoop implements FlowControl
         private final LabelNode continueLabel = new LabelNode("continue");
         private final LabelNode endLabel = new LabelNode("end");
 
-        private Block initialize;
-        private Block condition;
-        private Block update;
-        private Block body;
+        private ByteCodeNode initialize;
+        private ByteCodeNode condition;
+        private ByteCodeNode update;
+        private ByteCodeNode body;
 
         public ForLoopBuilder(CompilerContext context)
         {
@@ -40,9 +40,21 @@ public class ForLoop implements FlowControl
             context.pushIterationScope(continueLabel, endLabel);
         }
 
+        public ForLoopBuilder initialize(ByteCodeNode initialize)
+        {
+            this.initialize = buildBlock(context, initialize, "initialize");
+            return this;
+        }
+
         public ForLoopBuilder initialize(ByteCodeNodeFactory initialize)
         {
             this.initialize = buildBlock(context, initialize, VOID, "initialize");
+            return this;
+        }
+
+        public ForLoopBuilder condition(ByteCodeNode condition)
+        {
+            this.condition = buildBlock(context, condition, "condition");
             return this;
         }
 
@@ -52,9 +64,21 @@ public class ForLoop implements FlowControl
             return this;
         }
 
+        public ForLoopBuilder update(ByteCodeNode update)
+        {
+            this.update = buildBlock(context, update, "update");
+            return this;
+        }
+
         public ForLoopBuilder update(ByteCodeNodeFactory update)
         {
             this.update = buildBlock(context, update, VOID, "update");
+            return this;
+        }
+
+        public ForLoopBuilder body(ByteCodeNode body)
+        {
+            this.body = buildBlock(context, body, "body");
             return this;
         }
 
@@ -73,16 +97,16 @@ public class ForLoop implements FlowControl
     }
 
     private final CompilerContext context;
-    private final Block initialize;
-    private final Block condition;
-    private final Block update;
-    private final Block body;
+    private final ByteCodeNode initialize;
+    private final ByteCodeNode condition;
+    private final ByteCodeNode update;
+    private final ByteCodeNode body;
 
     private final LabelNode beginLabel = new LabelNode("beginLabel");
     private final LabelNode continueLabel;
     private final LabelNode endLabel;
 
-    private ForLoop(CompilerContext context, Block initialize, Block condition, Block update, Block body, LabelNode continueLabel, LabelNode endLabel)
+    private ForLoop(CompilerContext context, ByteCodeNode initialize, ByteCodeNode condition, ByteCodeNode update, ByteCodeNode body, LabelNode continueLabel, LabelNode endLabel)
     {
         this.context = context;
         this.initialize = initialize;
@@ -91,6 +115,26 @@ public class ForLoop implements FlowControl
         this.body = body;
         this.continueLabel = continueLabel;
         this.endLabel = endLabel;
+    }
+
+    public ByteCodeNode getInitialize()
+    {
+        return initialize;
+    }
+
+    public ByteCodeNode getCondition()
+    {
+        return condition;
+    }
+
+    public ByteCodeNode getUpdate()
+    {
+        return update;
+    }
+
+    public ByteCodeNode getBody()
+    {
+        return body;
     }
 
     @Override
@@ -117,7 +161,7 @@ public class ForLoop implements FlowControl
     @Override
     public List<ByteCodeNode> getChildNodes()
     {
-        return ImmutableList.<ByteCodeNode>of(initialize, condition, update, body);
+        return ImmutableList.of(initialize, condition, update, body);
     }
 
     @Override
