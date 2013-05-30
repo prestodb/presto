@@ -6,7 +6,6 @@ import com.facebook.presto.metadata.NativeTableHandle;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.sql.tree.AliasedExpression;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Expression;
@@ -16,6 +15,8 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.RefreshMaterializedView;
+import com.facebook.presto.sql.tree.SingleColumn;
+import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.ShowColumns;
 import com.facebook.presto.sql.tree.ShowFunctions;
 import com.facebook.presto.sql.tree.ShowPartitions;
@@ -166,14 +167,14 @@ class StatementAnalyzer
                 ORDER BY partition_number
             */
 
-        ImmutableList.Builder<Expression> selectList = ImmutableList.builder();
+        ImmutableList.Builder<SelectItem> selectList = ImmutableList.builder();
         for (ColumnMetadata column : metadata.getTableMetadata(tableHandle.get()).getColumns()) {
             if (!column.isPartitionKey()) {
                 continue;
             }
             Expression key = equal(nameReference("partition_key"), new StringLiteral(column.getName()));
             Expression function = functionCall("max", caseWhen(key, nameReference("partition_value")));
-            selectList.add(new AliasedExpression(function, column.getName()));
+            selectList.add(new SingleColumn(function, column.getName()));
         }
 
         Query query = new Query(

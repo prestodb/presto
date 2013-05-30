@@ -92,11 +92,6 @@ public class NodeRewriter<C>
         return rewriteNode(node, context, treeRewriter);
     }
 
-    public Node rewriteAliasedExpression(AliasedExpression node, C context, TreeRewriter<C> treeRewriter)
-    {
-        return rewriteExpression(node, context, treeRewriter);
-    }
-
     public Node rewriteNegativeExpression(NegativeExpression node, C context, TreeRewriter<C> treeRewriter)
     {
         return rewriteExpression(node, context, treeRewriter);
@@ -192,9 +187,19 @@ public class NodeRewriter<C>
         return rewriteExpression(node, context, treeRewriter);
     }
 
+    public Node rewriteSelectItem(SelectItem node, C context, TreeRewriter<C> treeRewriter)
+    {
+        return rewriteNode(node, context, treeRewriter);
+    }
+
     public Node rewriteAllColumns(AllColumns node, C context, TreeRewriter<C> treeRewriter)
     {
-        return rewriteExpression(node, context, treeRewriter);
+        return rewriteSelectItem(node, context, treeRewriter);
+    }
+
+    public Node rewriteSelectColumn(SingleColumn node, C context, TreeRewriter<C> treeRewriter)
+    {
+        return rewriteSelectItem(node, context, treeRewriter);
     }
 
     public Node rewriteLiteral(Literal node, C context, TreeRewriter<C> treeRewriter)

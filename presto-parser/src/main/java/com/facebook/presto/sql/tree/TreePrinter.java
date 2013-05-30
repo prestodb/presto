@@ -126,6 +126,18 @@ public class TreePrinter
             }
 
             @Override
+            protected Void visitSingleColumn(SingleColumn node, Integer indent)
+            {
+                if (node.getAlias().isPresent()) {
+                    print(indent, "Alias: " + node.getAlias().get());
+                }
+
+                super.visitSingleColumn(node, indent + 1); // visit children
+
+                return null;
+            }
+
+            @Override
             protected Void visitComparisonExpression(ComparisonExpression node, Integer indentLevel)
             {
                 print(indentLevel, node.getType().toString());
@@ -224,16 +236,6 @@ public class TreePrinter
                 print(indentLevel, "Alias[" + node.getAlias() + "]");
 
                 super.visitAliasedRelation(node, indentLevel + 1);
-
-                return null;
-            }
-
-            @Override
-            protected Void visitAliasedExpression(AliasedExpression node, Integer indentLevel)
-            {
-                print(indentLevel, "Alias[" + node.getAlias() + "]");
-
-                super.visitAliasedExpression(node, indentLevel + 1);
 
                 return null;
             }

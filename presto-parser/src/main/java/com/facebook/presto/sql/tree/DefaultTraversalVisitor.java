@@ -86,9 +86,17 @@ public class DefaultTraversalVisitor<R, C>
     @Override
     protected R visitSelect(Select node, C context)
     {
-        for (Expression item : node.getSelectItems()) {
+        for (SelectItem item : node.getSelectItems()) {
             process(item, context);
         }
+
+        return null;
+    }
+
+    @Override
+    protected R visitSingleColumn(SingleColumn node, C context)
+    {
+        process(node.getExpression(), context);
 
         return null;
     }
@@ -162,12 +170,6 @@ public class DefaultTraversalVisitor<R, C>
         }
 
         return null;
-    }
-
-    @Override
-    protected R visitAliasedExpression(AliasedExpression node, C context)
-    {
-        return process(node.getExpression(), context);
     }
 
     @Override

@@ -1,6 +1,7 @@
 package com.facebook.presto.sql;
 
 import com.facebook.presto.sql.tree.AliasedRelation;
+import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Join;
@@ -13,6 +14,8 @@ import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.Select;
+import com.facebook.presto.sql.tree.SingleColumn;
+import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Table;
@@ -169,16 +172,49 @@ public final class SqlFormatter
             }
 
             if (node.getSelectItems().size() > 1) {
-                builder.append("\n  ");
-                append(indent, Joiner.on('\n' + indentString(indent) + ", ")
-                        .join(Iterables.transform(node.getSelectItems(), expressionFormatterFunction())));
+                boolean first = true;
+                for (SelectItem item : node.getSelectItems()) {
+                    builder.append("\n")
+                        .append(indentString(indent))
+                        .append(first ? "  " : ", ");
+
+                    process(item, indent);
+                    first = false;
+                }
             }
             else {
-                builder.append(' ')
-                        .append(formatExpression(Iterables.getOnlyElement(node.getSelectItems())));
+                builder.append(' ');
+                process(Iterables.getOnlyElement(node.getSelectItems()), indent);
             }
 
             builder.append('\n');
+
+            return null;
+        }
+
+        @Override
+        protected Void visitSingleColumn(SingleColumn node, Integer indent)
+        {
+            builder.append(formatExpression(node.getExpression()));
+            if (node.getAlias().isPresent()) {
+                builder.append(' ')
+                        .append('"')
+                        .append(node.getAlias().get())
+                        .append('"'); // TODO: handle quoting properly
+            }
+
+            return null;
+        }
+
+        @Override
+        protected Void visitAllColumns(AllColumns node, Integer context)
+        {
+            if (node.getPrefix().isPresent()) {
+                builder.append(node.getPrefix().isPresent())
+                        .append('.');
+            }
+
+            builder.append('*');
 
             return null;
         }

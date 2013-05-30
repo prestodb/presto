@@ -12,7 +12,6 @@ import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolResolver;
-import com.facebook.presto.sql.tree.AliasedExpression;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.ComparisonExpression;
@@ -32,16 +31,18 @@ import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
+import com.facebook.presto.sql.tree.SelectItem;
+import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Window;
-import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -67,10 +68,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.ORDER_BY_MUST_BE_IN_SELECT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WILDCARD_WITHOUT_FROM;
-import static com.facebook.presto.sql.tree.AliasedExpression.aliasGetter;
 import static com.facebook.presto.sql.tree.FunctionCall.distinctPredicate;
-import static com.google.common.base.Functions.compose;
-import static com.google.common.base.Predicates.instanceOf;
 import static com.google.common.collect.Iterables.elementsEqual;
 import static com.google.common.collect.Iterables.transform;
 
@@ -434,10 +432,16 @@ class TupleAnalyzer
 
         if (!items.isEmpty()) {
             // Compute aliased output terms so we can resolve order by expressions against them first
-            Multimap<QualifiedName, AliasedExpression> byAlias = IterableTransformer.on(node.getSelect().getSelectItems())
-                    .select(instanceOf(AliasedExpression.class))
-                    .cast(AliasedExpression.class)
-                    .index(compose(QualifiedName.fromStringFunction(), aliasGetter())); // TODO: need to know if alias was quoted
+            ImmutableMultimap.Builder<QualifiedName, Expression> byAliasBuilder = ImmutableMultimap.builder();
+            for (SelectItem item : node.getSelect().getSelectItems()) {
+                if (item instanceof SingleColumn) {
+                    Optional<String> alias = ((SingleColumn) item).getAlias();
+                    if (alias.isPresent()) {
+                        byAliasBuilder.put(QualifiedName.of(alias.get()), ((SingleColumn) item).getExpression()); // TODO: need to know if alias was quoted
+                    }
+                }
+            }
+            Multimap<QualifiedName, Expression> byAlias = byAliasBuilder.build();
 
             for (SortItem item : items) {
                 Expression expression = item.getSortKey();
@@ -447,12 +451,12 @@ class TupleAnalyzer
                     // if this is a simple name reference, try to resolve against output columns
 
                     QualifiedName name = ((QualifiedNameReference) expression).getName();
-                    Collection<AliasedExpression> expressions = byAlias.get(name);
+                    Collection<Expression> expressions = byAlias.get(name);
                     if (expressions.size() > 1) {
                         throw new SemanticException(AMBIGUOUS_ATTRIBUTE, expression, "'%s' in ORDER BY is ambiguous", name.getSuffix());
                     }
                     else if (expressions.size() == 1) {
-                        orderByExpression = new FieldOrExpression(unalias(Iterables.getOnlyElement(expressions)));
+                        orderByExpression = new FieldOrExpression(Iterables.getOnlyElement(expressions));
                     }
 
                     // otherwise, couldn't resolve name against output aliases, so fall through...
@@ -531,26 +535,27 @@ class TupleAnalyzer
     {
         ImmutableList.Builder<Field> outputFields = ImmutableList.builder();
 
-        for (Expression expression : node.getSelect().getSelectItems()) {
-            if (expression instanceof AllColumns) {
+        for (SelectItem item : node.getSelect().getSelectItems()) {
+            if (item instanceof AllColumns) {
                 // expand * and T.*
-                Optional<QualifiedName> starPrefix = ((AllColumns) expression).getPrefix();
+                Optional<QualifiedName> starPrefix = ((AllColumns) item).getPrefix();
 
                 for (Field field : inputTupleDescriptor.resolveFieldsWithPrefix(starPrefix)) {
                     outputFields.add(Field.newUnqualified(field.getName(), field.getType()));
                 }
             }
-            else {
-                Optional<String> alias = Optional.absent();
-                if (expression instanceof AliasedExpression) {
-                    AliasedExpression aliased = (AliasedExpression) expression;
-                    alias = Optional.of(aliased.getAlias());
-                }
-                else if (expression instanceof QualifiedNameReference) {
-                    alias = Optional.of(((QualifiedNameReference) expression).getName().getSuffix());
+            else if (item instanceof SingleColumn) {
+                SingleColumn column = (SingleColumn) item;
+
+                Optional<String> alias = column.getAlias();
+                if (!alias.isPresent() && column.getExpression() instanceof QualifiedNameReference) {
+                    alias = Optional.of(((QualifiedNameReference) column.getExpression()).getName().getSuffix());
                 }
 
-                outputFields.add(Field.newUnqualified(alias, analysis.getType(expression))); // TODO don't use analysis as a side-channel. Use outputExpressions to look up the type
+                outputFields.add(Field.newUnqualified(alias, analysis.getType(column.getExpression()))); // TODO don't use analysis as a side-channel. Use outputExpressions to look up the type
+            }
+            else {
+                throw new IllegalArgumentException("Unsupported SelectItem type: " + item.getClass().getName());
             }
         }
 
@@ -561,18 +566,18 @@ class TupleAnalyzer
     {
         ImmutableList.Builder<FieldOrExpression> outputExpressionBuilder = ImmutableList.builder();
 
-        for (Expression expression : node.getSelect().getSelectItems()) {
-            if (expression instanceof AllColumns) {
+        for (SelectItem item : node.getSelect().getSelectItems()) {
+            if (item instanceof AllColumns) {
                 // expand * and T.*
-                Optional<QualifiedName> starPrefix = ((AllColumns) expression).getPrefix();
+                Optional<QualifiedName> starPrefix = ((AllColumns) item).getPrefix();
 
                 List<Integer> fields = tupleDescriptor.resolveFieldIndexesWithPrefix(starPrefix);
                 if (fields.isEmpty()) {
                     if (starPrefix.isPresent()) {
-                        throw new SemanticException(MISSING_TABLE, expression, "Table '%s' not found", starPrefix.get());
+                        throw new SemanticException(MISSING_TABLE, item, "Table '%s' not found", starPrefix.get());
                     }
                     else {
-                        throw new SemanticException(WILDCARD_WITHOUT_FROM, expression, "SELECT * not allowed in queries without FROM clause");
+                        throw new SemanticException(WILDCARD_WITHOUT_FROM, item, "SELECT * not allowed in queries without FROM clause");
                     }
                 }
 
@@ -580,9 +585,13 @@ class TupleAnalyzer
                     outputExpressionBuilder.add(new FieldOrExpression(fieldIndex));
                 }
             }
+            else if (item instanceof SingleColumn) {
+                SingleColumn column = (SingleColumn) item;
+                Analyzer.analyzeExpression(metadata, tupleDescriptor, analysis, column.getExpression());
+                outputExpressionBuilder.add(new FieldOrExpression(column.getExpression()));
+            }
             else {
-                Analyzer.analyzeExpression(metadata, tupleDescriptor, analysis, expression);
-                outputExpressionBuilder.add(new FieldOrExpression(unalias(expression)));
+                throw new IllegalArgumentException("Unsupported SelectItem type: " + item.getClass().getName());
             }
         }
 
@@ -657,8 +666,10 @@ class TupleAnalyzer
     private List<FunctionCall> extractAggregates(QuerySpecification node)
     {
         AggregateExtractor extractor = new AggregateExtractor(metadata);
-        for (Expression expression : node.getSelect().getSelectItems()) {
-            expression.accept(extractor, null);
+        for (SelectItem item : node.getSelect().getSelectItems()) {
+            if (item instanceof SingleColumn) {
+                ((SingleColumn) item).getExpression().accept(extractor, null);
+            }
         }
 
         for (SortItem item : node.getOrderBy()) {
@@ -704,15 +715,6 @@ class TupleAnalyzer
                 }
             }
         }
-    }
-
-    private static Expression unalias(Expression expression)
-    {
-        if (expression instanceof AliasedExpression) {
-            return ((AliasedExpression) expression).getExpression();
-        }
-
-        return expression;
     }
 
     public static class DependencyExtractor

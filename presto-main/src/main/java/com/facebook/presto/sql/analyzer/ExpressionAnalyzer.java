@@ -2,7 +2,6 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.sql.tree.AliasedExpression;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
@@ -528,15 +527,6 @@ public class ExpressionAnalyzer
 
             subExpressionTypes.put(node, Type.BOOLEAN);
             return Type.BOOLEAN;
-        }
-
-        @Override
-        protected Type visitAliasedExpression(AliasedExpression node, Void context)
-        {
-            Type type = process(node.getExpression(), context);
-            subExpressionTypes.put(node, type);
-
-            return type;
         }
 
         @Override

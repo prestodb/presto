@@ -1,7 +1,6 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.sql.tree.AliasedExpression;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
@@ -45,7 +44,6 @@ import static com.facebook.presto.sql.analyzer.FieldOrExpression.isFieldReferenc
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATE_OR_GROUP_BY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_AGGREGATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_WINDOW;
-import static com.google.common.base.Predicates.contains;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.instanceOf;
 
@@ -276,12 +274,6 @@ public class AggregationAnalyzer
             }
 
             return true;
-        }
-
-        @Override
-        protected Boolean visitAliasedExpression(AliasedExpression node, Void context)
-        {
-            return process(node.getExpression(), context);
         }
 
         @Override

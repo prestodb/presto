@@ -148,15 +148,15 @@ distinct[boolean defaultValue] returns [boolean value]
     |           { $value = $defaultValue; }
     ;
 
-selectList returns [List<Expression> value = new ArrayList<>()]
+selectList returns [List<SelectItem> value = new ArrayList<>()]
     : ^(SELECT_LIST ( selectItem { $value.add($selectItem.value); } )+ )
     ;
 
-selectItem returns [Expression value]
-    : (^(SELECT_ITEM expr ident)) => ^(SELECT_ITEM e=expr i=ident)  { $value = new AliasedExpression($e.value, $i.value); }
-    | ^(SELECT_ITEM expr)                                           { $value = $expr.value; }
-    | (^(ALL_COLUMNS qname)) => ^(ALL_COLUMNS qname)                { $value = new AllColumns($qname.value); }
-    | ALL_COLUMNS                                                   { $value = new AllColumns(); }
+selectItem returns [SelectItem value]
+    :
+      ^(SELECT_ITEM expr ident?)                       { $value = new SingleColumn($expr.value, Optional.fromNullable($ident.value)); }
+    | (^(ALL_COLUMNS qname)) => ^(ALL_COLUMNS qname)   { $value = new AllColumns($qname.value); }
+    | ALL_COLUMNS                                      { $value = new AllColumns(); }
     ;
 
 fromClause returns [List<Relation> value]

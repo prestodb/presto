@@ -11,24 +11,28 @@ public class QueryUtil
         return new QualifiedNameReference(QualifiedName.of(name));
     }
 
-    public static Expression aliasedName(String name, String alias)
+    public static SelectItem aliasedName(String name, String alias)
     {
-        return new AliasedExpression(nameReference(name), alias);
-    }
-
-    public static Expression aliasedExpression(Expression expression, String alias)
-    {
-        return new AliasedExpression(expression, alias);
+        return new SingleColumn(nameReference(name), alias);
     }
 
     public static Select selectList(Expression... expressions)
     {
-        return new Select(false, ImmutableList.copyOf(expressions));
+        ImmutableList.Builder<SelectItem> items = ImmutableList.builder();
+        for (Expression expression : expressions) {
+            items.add(new SingleColumn(expression));
+        }
+        return new Select(false, items.build());
     }
 
-    public static Select selectAll(List<Expression> expressions)
+    public static Select selectList(SelectItem... items)
     {
-        return new Select(false, expressions);
+        return new Select(false, ImmutableList.copyOf(items));
+    }
+
+    public static Select selectAll(List<SelectItem> items)
+    {
+        return new Select(false, items);
     }
 
     public static List<Relation> table(QualifiedName name)

@@ -174,11 +174,6 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
-    protected R visitAliasedExpression(AliasedExpression node, C context)
-    {
-        return visitExpression(node, context);
-    }
-
     protected R visitSimpleCaseExpression(SimpleCaseExpression node, C context)
     {
         return visitExpression(node, context);
@@ -229,9 +224,19 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
+    protected R visitSelectItem(SelectItem node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitSingleColumn(SingleColumn node, C context)
+    {
+        return visitSelectItem(node, context);
+    }
+
     protected R visitAllColumns(AllColumns node, C context)
     {
-        return visitExpression(node, context);
+        return visitSelectItem(node, context);
     }
 
     protected R visitSearchedCaseExpression(SearchedCaseExpression node, C context)
@@ -343,5 +348,4 @@ public abstract class AstVisitor<R, C>
     {
         return visitNode(node, context);
     }
-
 }

@@ -150,9 +150,9 @@ public final class TreeRewriter<C>
                 }
             }
 
-            ImmutableList.Builder<Expression> builder = ImmutableList.builder();
-            for (Expression expression : node.getSelectItems()) {
-                builder.add(rewrite(expression, context.get()));
+            ImmutableList.Builder<SelectItem> builder = ImmutableList.builder();
+            for (SelectItem item : node.getSelectItems()) {
+                builder.add(rewrite(item, context.get()));
             }
 
             if (!sameElements(node.getSelectItems(), builder.build())) {
@@ -250,24 +250,6 @@ public final class TreeRewriter<C>
             Query child = rewrite(node.getQuery(), context.get());
             if (child != node.getQuery()) {
                 return new TableSubquery(child);
-            }
-
-            return node;
-        }
-
-        @Override
-        public Node visitAliasedExpression(AliasedExpression node, Context<C> context)
-        {
-            if (!context.isDefaultRewrite()) {
-                Node result = nodeRewriter.rewriteAliasedExpression(node, context.get(), TreeRewriter.this);
-                if (result != null) {
-                    return result;
-                }
-            }
-
-            Expression child = rewrite(node.getExpression(), context.get());
-            if (child != node.getExpression()) {
-                return new AliasedExpression(child, node.getAlias());
             }
 
             return node;
@@ -727,6 +709,25 @@ public final class TreeRewriter<C>
 
             return node;
         }
+
+        @Override
+        public Node visitSingleColumn(SingleColumn node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Node result = nodeRewriter.rewriteSelectColumn(node, context.get(), TreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression child = rewrite(node.getExpression(), context.get());
+            if (child != node.getExpression()) {
+                return new SingleColumn(child, node.getAlias());
+            }
+
+            return node;
+        }
+
 
         @Override
         public Node visitTable(Table node, Context<C> context)
