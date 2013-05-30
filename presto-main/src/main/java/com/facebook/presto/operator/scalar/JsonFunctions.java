@@ -5,7 +5,6 @@ import io.airlift.slice.Slice;
 
 import java.io.IOException;
 
-@SuppressWarnings("UnusedDeclaration")
 public final class JsonFunctions
 {
     private JsonFunctions() {}

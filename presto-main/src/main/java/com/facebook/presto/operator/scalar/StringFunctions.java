@@ -6,7 +6,6 @@ import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
-@SuppressWarnings("UnusedDeclaration")
 public final class StringFunctions
 {
     private StringFunctions() {}

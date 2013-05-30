@@ -4,9 +4,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 public final class MathFunctions
 {
-    public MathFunctions()
-    {
-    }
+    private MathFunctions() {}
 
     @ScalarFunction
     public static long abs(long num)

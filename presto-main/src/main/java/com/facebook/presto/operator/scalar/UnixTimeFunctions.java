@@ -19,7 +19,7 @@ import org.joda.time.format.DateTimeFormatterBuilder;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-public class UnixTimeFunctions
+public final class UnixTimeFunctions
 {
     private static final ThreadLocalCache<Slice, DateTimeFormatter> DATETIME_FORMATTER_CACHE = new ThreadLocalCache<Slice, DateTimeFormatter>(100)
     {
@@ -41,6 +41,8 @@ public class UnixTimeFunctions
     private static final DateTimeField MONTH_OF_YEAR = UTC_CHRONOLOGY.monthOfYear();
     private static final DateTimeField YEAR = UTC_CHRONOLOGY.year();
     private static final DateTimeField CENTURY = UTC_CHRONOLOGY.centuryOfEra();
+
+    private UnixTimeFunctions() {}
 
     @ScalarFunction("now")
     public static long currentTimestamp(Session session)
@@ -143,14 +145,14 @@ public class UnixTimeFunctions
         return Slices.wrappedBuffer(datetimeString.getBytes(Charsets.UTF_8));
     }
 
-    @ScalarFunction(alias = {"date_format"})
+    @ScalarFunction(alias = "date_format")
     public static Slice dateFormat(long unixTime, Slice formatString)
     {
         DateTimeFormatter formatter = DATETIME_FORMATTER_CACHE.get(formatString);
         return Slices.copiedBuffer(formatter.print(toMillis(unixTime)), Charsets.UTF_8);
     }
 
-    @ScalarFunction(alias = {"date_parse"})
+    @ScalarFunction(alias = "date_parse")
     public static long dateParse(Slice dateTime, Slice formatString)
     {
         DateTimeFormatter formatter = DATETIME_FORMATTER_CACHE.get(formatString);
@@ -233,6 +235,7 @@ public class UnixTimeFunctions
         return MILLISECONDS.toSeconds(millis);
     }
 
+    @SuppressWarnings("fallthrough")
     public static DateTimeFormatter createDateTimeFormatter(Slice format)
     {
         DateTimeFormatterBuilder builder = new DateTimeFormatterBuilder();
