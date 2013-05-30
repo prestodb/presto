@@ -7,14 +7,15 @@ import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TableMetadata;
+import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import javax.inject.Singleton;
+
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -56,7 +57,7 @@ public class MetadataManager
     }
 
     @Override
-    public FunctionInfo getFunction(QualifiedName name, List<TupleInfo.Type> parameterTypes)
+    public FunctionInfo getFunction(QualifiedName name, List<Type> parameterTypes)
     {
         return functions.get(name, parameterTypes);
     }

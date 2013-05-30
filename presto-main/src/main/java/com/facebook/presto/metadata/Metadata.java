@@ -2,20 +2,21 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.TableMetadata;
+import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Optional;
 
 import javax.validation.constraints.NotNull;
+
 import java.util.List;
 import java.util.Map;
 
 public interface Metadata
 {
-    FunctionInfo getFunction(QualifiedName name, List<TupleInfo.Type> parameterTypes);
+    FunctionInfo getFunction(QualifiedName name, List<Type> parameterTypes);
 
     @NotNull
     FunctionInfo getFunction(FunctionHandle handle);

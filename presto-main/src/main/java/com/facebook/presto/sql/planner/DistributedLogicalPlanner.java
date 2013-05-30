@@ -29,7 +29,6 @@ import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 
 import java.util.HashMap;
 import java.util.List;
@@ -106,7 +105,7 @@ public class DistributedLogicalPlanner
                 FunctionHandle functionHandle = functions.get(entry.getKey());
                 FunctionInfo function = metadata.getFunction(functionHandle);
 
-                Symbol intermediateSymbol = allocator.newSymbol(function.getName().getSuffix(), Type.fromRaw(function.getIntermediateType()));
+                Symbol intermediateSymbol = allocator.newSymbol(function.getName().getSuffix(), function.getIntermediateType());
                 intermediateCalls.put(intermediateSymbol, entry.getValue());
                 intermediateFunctions.put(intermediateSymbol, functionHandle);
 
@@ -265,9 +264,9 @@ public class DistributedLogicalPlanner
             }
             else {
                 // Put a simple SUM(<output symbol>) on top of the table writer node
-                FunctionInfo sum = metadata.getFunction(QualifiedName.of("sum"), Lists.transform(ImmutableList.of(Type.LONG), Type.toRaw()));
+                FunctionInfo sum = metadata.getFunction(QualifiedName.of("sum"), ImmutableList.of(Type.LONG));
 
-                Symbol intermediateOutput = allocator.newSymbol(node.getOutput().toString(), Type.fromRaw(sum.getReturnType()));
+                Symbol intermediateOutput = allocator.newSymbol(node.getOutput().toString(), sum.getReturnType());
 
                 TableWriterNode writer = new TableWriterNode(node.getId(),
                         subPlanBuilder.getRoot(),

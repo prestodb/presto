@@ -31,6 +31,11 @@ public enum Type
         return rawType.toColumnType();
     }
 
+    public String getName()
+    {
+        return name().toLowerCase();
+    }
+
     public static Type fromRaw(ColumnType type)
     {
         return fromRaw(TupleInfo.Type.fromColumnType(type));
@@ -62,5 +67,17 @@ public enum Type
     public static boolean isNumeric(Type type)
     {
         return type == LONG || type == DOUBLE;
+    }
+
+    public static Function<Type, String> nameGetter()
+    {
+        return new Function<Type, String>()
+        {
+            @Override
+            public String apply(Type type)
+            {
+                return type.getName();
+            }
+        };
     }
 }

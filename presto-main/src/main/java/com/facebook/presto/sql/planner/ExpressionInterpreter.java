@@ -660,7 +660,7 @@ public class ExpressionInterpreter
             argumentValues.add(value);
             argumentTypes.add(type);
         }
-        FunctionInfo function = metadata.getFunction(node.getName(), Lists.transform(argumentTypes, Type.toRaw()));
+        FunctionInfo function = metadata.getFunction(node.getName(), argumentTypes);
         // do not optimize non-deterministic functions
         if (optimize && !function.isDeterministic()) {
             return new FunctionCall(node.getName(), node.getWindow().orNull(), node.isDistinct(), toExpressions(argumentValues));

@@ -42,7 +42,6 @@ import com.facebook.presto.sql.tree.WhenClause;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -449,14 +448,13 @@ public class ExpressionAnalyzer
                 argumentTypes.add(process(expression, context));
             }
 
-            FunctionInfo function = metadata.getFunction(node.getName(), Lists.transform(argumentTypes.build(), Type.toRaw()));
+            FunctionInfo function = metadata.getFunction(node.getName(), argumentTypes.build());
 
             resolvedFunctions.put(node, function);
 
-            Type type = Type.fromRaw(function.getReturnType());
-            subExpressionTypes.put(node, type);
+            subExpressionTypes.put(node, function.getReturnType());
 
-            return type;
+            return function.getReturnType();
         }
 
         @Override
