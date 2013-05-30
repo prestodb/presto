@@ -86,7 +86,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
  *    $.store.bicycle => {"color": "red", "price": 19.95}
  * </pre>
  */
-public class JsonExtract
+public final class JsonExtract
 {
     private static final Pattern EXPECTED_PATH = Pattern.compile("\\$(\\[\\d+\\])*(\\.[^@\\.\\[\\]\\$\\*]+(\\[\\d+\\])*)*");
     private static final int ESTIMATED_JSON_OUTPUT_SIZE = 512;
@@ -116,6 +116,8 @@ public class JsonExtract
             return generateExtractor(jsonPath.toString(Charsets.UTF_8), false);
         }
     };
+
+    private JsonExtract() {}
 
     /**
      * Main scalar extraction entry point

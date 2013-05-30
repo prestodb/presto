@@ -19,7 +19,7 @@ import org.joda.time.format.DateTimeFormatterBuilder;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-public class UnixTimeFunctions
+public final class UnixTimeFunctions
 {
     private static final ThreadLocalCache<Slice, DateTimeFormatter> DATETIME_FORMATTER_CACHE = new ThreadLocalCache<Slice, DateTimeFormatter>(100)
     {
@@ -42,13 +42,15 @@ public class UnixTimeFunctions
     private static final DateTimeField YEAR = UTC_CHRONOLOGY.year();
     private static final DateTimeField CENTURY = UTC_CHRONOLOGY.centuryOfEra();
 
+    private UnixTimeFunctions() {}
+
     @ScalarFunction("now")
     public static long currentTimestamp(Session session)
     {
         return fromMillis(session.getStartTime());
     }
 
-    @ScalarFunction(alias = "date_add")
+    @ScalarFunction("date_add")
     public static long dateAdd(Slice unit, long value, long unixTime)
     {
         return fromMillis(internalDateAdd(unit, value, toMillis(unixTime)));
@@ -86,7 +88,7 @@ public class UnixTimeFunctions
         }
     }
 
-    @ScalarFunction(alias = "date_diff")
+    @ScalarFunction("date_diff")
     public static long dateDiff(Slice unit, long unixTime1, long unixTime2)
     {
         String unitString = unit.toString(Charsets.US_ASCII).toLowerCase();
@@ -121,8 +123,7 @@ public class UnixTimeFunctions
         }
     }
 
-    @ScalarFunction(alias = "parse_datetime")
-    @Deprecated
+    @ScalarFunction("parse_datetime")
     public static long parseDatetime(Slice datetime, Slice formatString)
     {
         String pattern = formatString.toString(Charsets.UTF_8);
@@ -132,8 +133,7 @@ public class UnixTimeFunctions
         return fromMillis(formatter.parseMillis(datetimeString));
     }
 
-    @ScalarFunction(alias = "format_datetime")
-    @Deprecated
+    @ScalarFunction("format_datetime")
     public static Slice formatDatetime(long unixTime, Slice formatString)
     {
         String pattern = formatString.toString(Charsets.UTF_8);
@@ -143,14 +143,14 @@ public class UnixTimeFunctions
         return Slices.wrappedBuffer(datetimeString.getBytes(Charsets.UTF_8));
     }
 
-    @ScalarFunction(alias = {"date_format"})
+    @ScalarFunction("date_format")
     public static Slice dateFormat(long unixTime, Slice formatString)
     {
         DateTimeFormatter formatter = DATETIME_FORMATTER_CACHE.get(formatString);
         return Slices.copiedBuffer(formatter.print(toMillis(unixTime)), Charsets.UTF_8);
     }
 
-    @ScalarFunction(alias = {"date_parse"})
+    @ScalarFunction("date_parse")
     public static long dateParse(Slice dateTime, Slice formatString)
     {
         DateTimeFormatter formatter = DATETIME_FORMATTER_CACHE.get(formatString);
@@ -233,6 +233,7 @@ public class UnixTimeFunctions
         return MILLISECONDS.toSeconds(millis);
     }
 
+    @SuppressWarnings("fallthrough")
     public static DateTimeFormatter createDateTimeFormatter(Slice format)
     {
         DateTimeFormatterBuilder builder = new DateTimeFormatterBuilder();
