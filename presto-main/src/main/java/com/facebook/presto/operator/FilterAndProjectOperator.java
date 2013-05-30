@@ -10,15 +10,13 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.facebook.presto.operator.ProjectionFunctions.toTupleInfos;
 import static com.google.common.base.Preconditions.checkState;
 
-public class FilterAndProjectOperator implements Operator
+public class FilterAndProjectOperator
+        extends AbstractFilterAndProjectOperator
 {
-    private final Operator source;
     private final FilterFunction filter;
     private final List<ProjectionFunction> projections;
-    private final List<TupleInfo> tupleInfos;
 
     public FilterAndProjectOperator(Operator source, FilterFunction filter, ProjectionFunction... projections)
     {
@@ -27,75 +25,40 @@ public class FilterAndProjectOperator implements Operator
 
     public FilterAndProjectOperator(Operator source, FilterFunction filter, List<ProjectionFunction> projections)
     {
-        this.source = source;
+        super(toTupleInfos(projections), source);
         this.filter = filter;
         this.projections = ImmutableList.copyOf(projections);
+    }
 
+    private static ImmutableList<TupleInfo> toTupleInfos(List<ProjectionFunction> projections)
+    {
         ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
         for (ProjectionFunction projection : projections) {
             tupleInfos.add(projection.getTupleInfo());
         }
-        this.tupleInfos = tupleInfos.build();
+        return tupleInfos.build();
     }
 
     @Override
-    public int getChannelCount()
+    protected PageIterator iterator(PageIterator source)
     {
-        return projections.size();
+        return new FilterAndProjectIterator(source, filter, projections);
     }
 
-    @Override
-    public List<TupleInfo> getTupleInfos()
+    public static class FilterAndProjectIterator
+            extends AbstractFilterAndProjectIterator
     {
-        return tupleInfos;
-    }
-
-    @Override
-    public PageIterator iterator(OperatorStats operatorStats)
-    {
-        return new FilterAndProjectIterator(source.iterator(operatorStats), filter, projections);
-    }
-
-    private static class FilterAndProjectIterator extends AbstractPageIterator
-    {
-        private final PageIterator pageIterator;
         private final FilterFunction filterFunction;
         private final List<ProjectionFunction> projections;
-        private final PageBuilder pageBuilder;
 
         public FilterAndProjectIterator(PageIterator pageIterator, FilterFunction filterFunction, List<ProjectionFunction> projections)
         {
-            super(toTupleInfos(projections));
-            this.pageIterator = pageIterator;
+            super(toTupleInfos(projections), pageIterator);
             this.filterFunction = filterFunction;
             this.projections = projections;
-            this.pageBuilder = new PageBuilder(getTupleInfos());
         }
 
-        protected Page computeNext()
-        {
-            pageBuilder.reset();
-            while (!pageBuilder.isFull() && pageIterator.hasNext()) {
-                Page page = pageIterator.next();
-                Block[] blocks = page.getBlocks();
-                filterAndProjectRowOriented(blocks, pageBuilder);
-            }
-
-            if (pageBuilder.isEmpty()) {
-                return endOfData();
-            }
-
-            Page page = pageBuilder.build();
-            return page;
-        }
-
-        @Override
-        protected void doClose()
-        {
-            pageIterator.close();
-        }
-
-        private void filterAndProjectRowOriented(Block[] blocks, PageBuilder pageBuilder)
+        protected void filterAndProjectRowOriented(Block[] blocks, PageBuilder pageBuilder)
         {
             int rows = blocks[0].getPositionCount();
 
@@ -124,3 +87,4 @@ public class FilterAndProjectOperator implements Operator
         }
     }
 }
+
