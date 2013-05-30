@@ -3,10 +3,9 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.operator.AggregationFunctionDefinition;
 import com.facebook.presto.operator.aggregation.AggregationFunction;
 import com.facebook.presto.operator.window.WindowFunction;
+import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
@@ -16,6 +15,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 
 import javax.inject.Provider;
+
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 
@@ -28,11 +28,11 @@ public class FunctionInfo implements Comparable<FunctionInfo>
     private final int id;
 
     private final QualifiedName name;
-    private final TupleInfo.Type returnType;
-    private final List<TupleInfo.Type> argumentTypes;
+    private final Type returnType;
+    private final List<Type> argumentTypes;
 
     private final boolean isAggregate;
-    private final TupleInfo.Type intermediateType;
+    private final Type intermediateType;
     private final AggregationFunction aggregationFunction;
 
     private final MethodHandle scalarFunction;
@@ -58,7 +58,7 @@ public class FunctionInfo implements Comparable<FunctionInfo>
         this.windowFunction = checkNotNull(windowFunction, "windowFunction is null");
     }
 
-    public FunctionInfo(int id, QualifiedName name, TupleInfo.Type returnType, List<TupleInfo.Type> argumentTypes, TupleInfo.Type intermediateType, AggregationFunction function)
+    public FunctionInfo(int id, QualifiedName name, Type returnType, List<Type> argumentTypes, Type intermediateType, AggregationFunction function)
     {
         this.id = id;
         this.name = name;
@@ -116,17 +116,17 @@ public class FunctionInfo implements Comparable<FunctionInfo>
         return windowFunction;
     }
 
-    public TupleInfo.Type getReturnType()
+    public Type getReturnType()
     {
         return returnType;
     }
 
-    public List<TupleInfo.Type> getArgumentTypes()
+    public List<Type> getArgumentTypes()
     {
         return argumentTypes;
     }
 
-    public TupleInfo.Type getIntermediateType()
+    public Type getIntermediateType()
     {
         return intermediateType;
     }

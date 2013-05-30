@@ -37,7 +37,6 @@ import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Window;
-import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
@@ -394,12 +393,12 @@ class TupleAnalyzer
                 throw new SemanticException(NOT_SUPPORTED, node, "Window frames not yet supported");
             }
 
-            List<TupleInfo.Type> argumentTypes = Lists.transform(windowFunction.getArguments(), new Function<Expression, TupleInfo.Type>()
+            List<Type> argumentTypes = Lists.transform(windowFunction.getArguments(), new Function<Expression, Type>()
             {
                 @Override
-                public TupleInfo.Type apply(Expression input)
+                public Type apply(Expression input)
                 {
-                    return analysis.getType(input).getRawType();
+                    return analysis.getType(input);
                 }
             });
 

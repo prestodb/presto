@@ -16,7 +16,7 @@ import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.split.ConnectorDataStreamProvider;
 import com.facebook.presto.split.SplitManager;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.sql.analyzer.Type;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -147,7 +148,7 @@ public class InformationSchemaDataStreamProvider
     {
         InternalTable.Builder table = InternalTable.builder(InformationSchemaMetadata.informationSchemaTableColumns(InformationSchemaMetadata.TABLE_INTERNAL_FUNCTIONS));
         for (FunctionInfo function : metadata.listFunctions()) {
-            Iterable<String> arguments = transform(function.getArgumentTypes(), TupleInfo.Type.nameGetter());
+            Iterable<String> arguments = transform(function.getArgumentTypes(), Type.nameGetter());
 
             String functionType;
             if (function.isAggregate()) {

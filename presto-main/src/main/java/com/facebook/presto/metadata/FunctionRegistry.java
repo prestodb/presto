@@ -19,9 +19,8 @@ import com.facebook.presto.operator.window.RankFunction;
 import com.facebook.presto.operator.window.RowNumberFunction;
 import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
@@ -58,9 +57,10 @@ import static com.facebook.presto.operator.aggregation.LongMinAggregation.LONG_M
 import static com.facebook.presto.operator.aggregation.LongSumAggregation.LONG_SUM;
 import static com.facebook.presto.operator.aggregation.VarBinaryMaxAggregation.VAR_BINARY_MAX;
 import static com.facebook.presto.operator.aggregation.VarBinaryMinAggregation.VAR_BINARY_MIN;
-import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
-import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
-import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
+import static com.facebook.presto.sql.analyzer.Type.BOOLEAN;
+import static com.facebook.presto.sql.analyzer.Type.DOUBLE;
+import static com.facebook.presto.sql.analyzer.Type.LONG;
+import static com.facebook.presto.sql.analyzer.Type.STRING;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
@@ -73,40 +73,40 @@ public class FunctionRegistry
     public FunctionRegistry()
     {
         List<FunctionInfo> functions = new FunctionListBuilder()
-                .window("row_number", FIXED_INT_64, ImmutableList.<TupleInfo.Type>of(), provider(RowNumberFunction.class))
-                .window("rank", FIXED_INT_64, ImmutableList.<TupleInfo.Type>of(), provider(RankFunction.class))
-                .window("dense_rank", FIXED_INT_64, ImmutableList.<TupleInfo.Type>of(), provider(DenseRankFunction.class))
-                .window("percent_rank", DOUBLE, ImmutableList.<TupleInfo.Type>of(), provider(PercentRankFunction.class))
-                .window("cume_dist", DOUBLE, ImmutableList.<TupleInfo.Type>of(), provider(CumulativeDistributionFunction.class))
-                .aggregate("count", FIXED_INT_64, ImmutableList.<TupleInfo.Type>of(), FIXED_INT_64, COUNT)
-                .aggregate("count", FIXED_INT_64, ImmutableList.<TupleInfo.Type>of(FIXED_INT_64), FIXED_INT_64, COUNT_COLUMN)
-                .aggregate("count", FIXED_INT_64, ImmutableList.<TupleInfo.Type>of(DOUBLE), FIXED_INT_64, COUNT_COLUMN)
-                .aggregate("count", FIXED_INT_64, ImmutableList.<TupleInfo.Type>of(VARIABLE_BINARY), FIXED_INT_64, COUNT_COLUMN)
-                .aggregate("sum", FIXED_INT_64, ImmutableList.of(FIXED_INT_64), FIXED_INT_64, LONG_SUM)
+                .window("row_number", LONG, ImmutableList.<Type>of(), provider(RowNumberFunction.class))
+                .window("rank", LONG, ImmutableList.<Type>of(), provider(RankFunction.class))
+                .window("dense_rank", LONG, ImmutableList.<Type>of(), provider(DenseRankFunction.class))
+                .window("percent_rank", DOUBLE, ImmutableList.<Type>of(), provider(PercentRankFunction.class))
+                .window("cume_dist", DOUBLE, ImmutableList.<Type>of(), provider(CumulativeDistributionFunction.class))
+                .aggregate("count", LONG, ImmutableList.<Type>of(), LONG, COUNT)
+                .aggregate("count", LONG, ImmutableList.<Type>of(LONG), LONG, COUNT_COLUMN)
+                .aggregate("count", LONG, ImmutableList.<Type>of(DOUBLE), LONG, COUNT_COLUMN)
+                .aggregate("count", LONG, ImmutableList.<Type>of(STRING), LONG, COUNT_COLUMN)
+                .aggregate("sum", LONG, ImmutableList.of(LONG), LONG, LONG_SUM)
                 .aggregate("sum", DOUBLE, ImmutableList.of(DOUBLE), DOUBLE, DOUBLE_SUM)
-                .aggregate("avg", DOUBLE, ImmutableList.of(DOUBLE), VARIABLE_BINARY, DOUBLE_AVERAGE)
-                .aggregate("avg", DOUBLE, ImmutableList.of(FIXED_INT_64), VARIABLE_BINARY, LONG_AVERAGE)
-                .aggregate("max", FIXED_INT_64, ImmutableList.of(FIXED_INT_64), FIXED_INT_64, LONG_MAX)
+                .aggregate("avg", DOUBLE, ImmutableList.of(DOUBLE), STRING, DOUBLE_AVERAGE)
+                .aggregate("avg", DOUBLE, ImmutableList.of(LONG), STRING, LONG_AVERAGE)
+                .aggregate("max", LONG, ImmutableList.of(LONG), LONG, LONG_MAX)
                 .aggregate("max", DOUBLE, ImmutableList.of(DOUBLE), DOUBLE, DOUBLE_MAX)
-                .aggregate("max", VARIABLE_BINARY, ImmutableList.of(VARIABLE_BINARY), VARIABLE_BINARY, VAR_BINARY_MAX)
-                .aggregate("min", FIXED_INT_64, ImmutableList.of(FIXED_INT_64), FIXED_INT_64, LONG_MIN)
+                .aggregate("max", STRING, ImmutableList.of(STRING), STRING, VAR_BINARY_MAX)
+                .aggregate("min", LONG, ImmutableList.of(LONG), LONG, LONG_MIN)
                 .aggregate("min", DOUBLE, ImmutableList.of(DOUBLE), DOUBLE, DOUBLE_MIN)
-                .aggregate("min", VARIABLE_BINARY, ImmutableList.of(VARIABLE_BINARY), VARIABLE_BINARY, VAR_BINARY_MIN)
-                .aggregate("var_pop", DOUBLE, ImmutableList.of(DOUBLE), VARIABLE_BINARY, DoubleVarianceAggregation.VARIANCE_POP_INSTANCE)
-                .aggregate("var_pop", DOUBLE, ImmutableList.of(FIXED_INT_64), VARIABLE_BINARY, LongVarianceAggregation.VARIANCE_POP_INSTANCE)
-                .aggregate("var_samp", DOUBLE, ImmutableList.of(DOUBLE), VARIABLE_BINARY, DoubleVarianceAggregation.VARIANCE_INSTANCE)
-                .aggregate("var_samp", DOUBLE, ImmutableList.of(FIXED_INT_64), VARIABLE_BINARY, LongVarianceAggregation.VARIANCE_INSTANCE)
-                .aggregate("variance", DOUBLE, ImmutableList.of(DOUBLE), VARIABLE_BINARY, DoubleVarianceAggregation.VARIANCE_INSTANCE)
-                .aggregate("variance", DOUBLE, ImmutableList.of(FIXED_INT_64), VARIABLE_BINARY, LongVarianceAggregation.VARIANCE_INSTANCE)
-                .aggregate("stddev_pop", DOUBLE, ImmutableList.of(DOUBLE), VARIABLE_BINARY, DoubleStdDevAggregation.STDDEV_POP_INSTANCE)
-                .aggregate("stddev_pop", DOUBLE, ImmutableList.of(FIXED_INT_64), VARIABLE_BINARY, LongStdDevAggregation.STDDEV_POP_INSTANCE)
-                .aggregate("stddev_samp", DOUBLE, ImmutableList.of(DOUBLE), VARIABLE_BINARY, DoubleStdDevAggregation.STDDEV_INSTANCE)
-                .aggregate("stddev_samp", DOUBLE, ImmutableList.of(FIXED_INT_64), VARIABLE_BINARY, LongStdDevAggregation.STDDEV_INSTANCE)
-                .aggregate("stddev", DOUBLE, ImmutableList.of(DOUBLE), VARIABLE_BINARY, DoubleStdDevAggregation.STDDEV_INSTANCE)
-                .aggregate("stddev", DOUBLE, ImmutableList.of(FIXED_INT_64), VARIABLE_BINARY, LongStdDevAggregation.STDDEV_INSTANCE)
-                .aggregate("approx_distinct", FIXED_INT_64, ImmutableList.of(FIXED_INT_64), VARIABLE_BINARY, ApproximateCountDistinctAggregation.LONG_INSTANCE)
-                .aggregate("approx_distinct", FIXED_INT_64, ImmutableList.of(DOUBLE), VARIABLE_BINARY, ApproximateCountDistinctAggregation.DOUBLE_INSTANCE)
-                .aggregate("approx_distinct", FIXED_INT_64, ImmutableList.of(VARIABLE_BINARY), VARIABLE_BINARY, ApproximateCountDistinctAggregation.VARBINARY_INSTANCE)
+                .aggregate("min", STRING, ImmutableList.of(STRING), STRING, VAR_BINARY_MIN)
+                .aggregate("var_pop", DOUBLE, ImmutableList.of(DOUBLE), STRING, DoubleVarianceAggregation.VARIANCE_POP_INSTANCE)
+                .aggregate("var_pop", DOUBLE, ImmutableList.of(LONG), STRING, LongVarianceAggregation.VARIANCE_POP_INSTANCE)
+                .aggregate("var_samp", DOUBLE, ImmutableList.of(DOUBLE), STRING, DoubleVarianceAggregation.VARIANCE_INSTANCE)
+                .aggregate("var_samp", DOUBLE, ImmutableList.of(LONG), STRING, LongVarianceAggregation.VARIANCE_INSTANCE)
+                .aggregate("variance", DOUBLE, ImmutableList.of(DOUBLE), STRING, DoubleVarianceAggregation.VARIANCE_INSTANCE)
+                .aggregate("variance", DOUBLE, ImmutableList.of(LONG), STRING, LongVarianceAggregation.VARIANCE_INSTANCE)
+                .aggregate("stddev_pop", DOUBLE, ImmutableList.of(DOUBLE), STRING, DoubleStdDevAggregation.STDDEV_POP_INSTANCE)
+                .aggregate("stddev_pop", DOUBLE, ImmutableList.of(LONG), STRING, LongStdDevAggregation.STDDEV_POP_INSTANCE)
+                .aggregate("stddev_samp", DOUBLE, ImmutableList.of(DOUBLE), STRING, DoubleStdDevAggregation.STDDEV_INSTANCE)
+                .aggregate("stddev_samp", DOUBLE, ImmutableList.of(LONG), STRING, LongStdDevAggregation.STDDEV_INSTANCE)
+                .aggregate("stddev", DOUBLE, ImmutableList.of(DOUBLE), STRING, DoubleStdDevAggregation.STDDEV_INSTANCE)
+                .aggregate("stddev", DOUBLE, ImmutableList.of(LONG), STRING, LongStdDevAggregation.STDDEV_INSTANCE)
+                .aggregate("approx_distinct", LONG, ImmutableList.of(LONG), STRING, ApproximateCountDistinctAggregation.LONG_INSTANCE)
+                .aggregate("approx_distinct", LONG, ImmutableList.of(DOUBLE), STRING, ApproximateCountDistinctAggregation.DOUBLE_INSTANCE)
+                .aggregate("approx_distinct", LONG, ImmutableList.of(STRING), STRING, ApproximateCountDistinctAggregation.VARBINARY_INSTANCE)
                 .scalar(StringFunctions.class)
                 .scalar(MathFunctions.class)
                 .scalar(UnixTimeFunctions.class)
@@ -135,7 +135,7 @@ public class FunctionRegistry
         return Iterables.any(functionsByName.get(name), isAggregationPredicate());
     }
 
-    public FunctionInfo get(QualifiedName name, List<TupleInfo.Type> parameterTypes)
+    public FunctionInfo get(QualifiedName name, List<Type> parameterTypes)
     {
         // search for exact match
         for (FunctionInfo functionInfo : functionsByName.get(name)) {
@@ -155,7 +155,7 @@ public class FunctionRegistry
         throw new IllegalArgumentException(format("Function %s(%s) not registered", name, parameters));
     }
 
-    private boolean canCoerce(List<Type> parameterTypes, FunctionInfo functionInfo)
+    private static boolean canCoerce(List<Type> parameterTypes, FunctionInfo functionInfo)
     {
         List<Type> functionArguments = functionInfo.getArgumentTypes();
         if (parameterTypes.size() != functionArguments.size()) {
@@ -164,7 +164,7 @@ public class FunctionRegistry
         for (int i = 0; i < functionArguments.size(); i++) {
             Type functionArgument = functionArguments.get(i);
             Type parameterType = parameterTypes.get(i);
-            if (functionArgument != parameterType && !(functionArgument == DOUBLE && parameterType == FIXED_INT_64)) {
+            if (functionArgument != parameterType && !(functionArgument == DOUBLE && parameterType == LONG)) {
                 return false;
             }
         }
@@ -176,9 +176,9 @@ public class FunctionRegistry
         return functionsByHandle.get(handle);
     }
 
-    private static List<TupleInfo.Type> types(MethodHandle handle)
+    private static List<Type> types(MethodHandle handle)
     {
-        ImmutableList.Builder<TupleInfo.Type> types = ImmutableList.builder();
+        ImmutableList.Builder<Type> types = ImmutableList.builder();
         for (Class<?> parameter : getParameterTypes(handle.type().parameterArray())) {
             types.add(type(parameter));
         }
@@ -194,16 +194,19 @@ public class FunctionRegistry
         return parameterTypes;
     }
 
-    private static TupleInfo.Type type(Class<?> clazz)
+    private static Type type(Class<?> clazz)
     {
         if (clazz == long.class) {
-            return FIXED_INT_64;
+            return LONG;
         }
         if (clazz == double.class) {
             return DOUBLE;
         }
         if (clazz == Slice.class) {
-            return VARIABLE_BINARY;
+            return STRING;
+        }
+        if (clazz == boolean.class) {
+            return BOOLEAN;
         }
         throw new IllegalArgumentException("Unhandled type: " + clazz.getName());
     }
@@ -212,7 +215,7 @@ public class FunctionRegistry
     {
         private final List<FunctionInfo> functions = new ArrayList<>();
 
-        public FunctionListBuilder window(String name, TupleInfo.Type returnType, List<TupleInfo.Type> argumentTypes, Provider<WindowFunction> function)
+        public FunctionListBuilder window(String name, Type returnType, List<Type> argumentTypes, Provider<WindowFunction> function)
         {
             name = name.toLowerCase();
 
@@ -221,7 +224,7 @@ public class FunctionRegistry
             return this;
         }
 
-        public FunctionListBuilder aggregate(String name, TupleInfo.Type returnType, List<TupleInfo.Type> argumentTypes, TupleInfo.Type intermediateType, AggregationFunction function)
+        public FunctionListBuilder aggregate(String name, Type returnType, List<Type> argumentTypes, Type intermediateType, AggregationFunction function)
         {
             name = name.toLowerCase();
 
@@ -235,8 +238,8 @@ public class FunctionRegistry
             name = name.toLowerCase();
 
             int id = functions.size() + 1;
-            TupleInfo.Type returnType = type(function.type().returnType());
-            List<TupleInfo.Type> argumentTypes = types(function);
+            Type returnType = type(function.type().returnType());
+            List<Type> argumentTypes = types(function);
             functions.add(new FunctionInfo(id, QualifiedName.of(name), returnType, argumentTypes, function, deterministic));
             return this;
         }
@@ -270,9 +273,9 @@ public class FunctionRegistry
             return this;
         }
 
-        private static final Set<Class<?>> SUPPORTED_TYPES = ImmutableSet.<Class<?>>of(long.class, double.class, Slice.class);
+        private static final Set<Class<?>> SUPPORTED_TYPES = ImmutableSet.<Class<?>>of(long.class, double.class, Slice.class, boolean.class);
 
-        private boolean isValidMethod(Method method)
+        private static boolean isValidMethod(Method method)
         {
             if (!Modifier.isStatic(method.getModifiers())) {
                 return false;
