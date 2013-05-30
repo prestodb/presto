@@ -954,7 +954,7 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT NULLIF(1, orderkey), count(*) FROM orders GROUP BY orderkey");
     }
 
-    @Test
+    @Test(enabled =  false)
     public void testGroupByExtract()
             throws Exception
     {
@@ -1308,7 +1308,7 @@ public abstract class AbstractTestQueries
                 "SELECT sum(CASE WHEN NULLIF(orderstatus, 'F') <> 'F' THEN totalprice ELSE 5.1 END) FROM orders");
     }
 
-    @Test
+    @Test(enabled =  false)
     public void testIn()
             throws Exception
     {
@@ -1436,7 +1436,7 @@ public abstract class AbstractTestQueries
         assertEquals(tableNames, ImmutableSet.of());
     }
 
-    @Test
+    @Test(enabled =  false)
     public void testShowTablesLike()
             throws Exception
     {

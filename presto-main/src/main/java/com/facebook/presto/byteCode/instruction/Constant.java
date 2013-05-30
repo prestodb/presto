@@ -296,7 +296,10 @@ public abstract class Constant implements InstructionNode
         @SuppressWarnings("FloatingPointEquality")
         public void accept(MethodVisitor visitor)
         {
-            if (value == 0) {
+            // We can not use "value == 0.0" because when value is "-0.0" the expression
+            // will evaluate to true and we would convert "-0.0" to "0.0" which is
+            // not the same value
+            if (Float.floatToIntBits(value) == Float.floatToIntBits(0.0f)) {
                 visitor.visitInsn(FCONST_0.getOpCode());
             }
             else if (value == 1.0f) {
@@ -430,7 +433,10 @@ public abstract class Constant implements InstructionNode
         @SuppressWarnings("FloatingPointEquality")
         public void accept(MethodVisitor visitor)
         {
-            if (value == 0) {
+            // We can not use "value == 0.0" because when value is "-0.0" the expression
+            // will evaluate to true and we would convert "-0.0" to "0.0" which is
+            // not the same value
+            if (Double.doubleToLongBits(value) == Double.doubleToLongBits(0.0)) {
                 visitor.visitInsn(DCONST_0.getOpCode());
             }
             else if (value == 1.0) {

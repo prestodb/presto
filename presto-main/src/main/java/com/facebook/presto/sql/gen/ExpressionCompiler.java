@@ -718,6 +718,10 @@ public class ExpressionCompiler
             ClassWriter cw = new SmartClassWriter(classInfoLoader);
             classDefinition.visit(cw);
             byte[] byteCode = cw.toByteArray();
+//            if (true) {
+//                ClassReader reader = new ClassReader(byteCode);
+//                CheckClassAdapter.verify(reader, classLoader, true, new PrintWriter(System.out));
+//            }
             byteCodes.put(classDefinition.getType(), byteCode);
         }
 //        if (classDebugPath.isPresent()) {
@@ -734,7 +738,6 @@ public class ExpressionCompiler
 //            }
 //        }
         if (false) {
-//            verifyClasses(byteCodes, classLoader, true, new PrintWriter(System.err));
             for (byte[] byteCode : byteCodes.values()) {
                 ClassReader classReader = new ClassReader(byteCode);
                 classReader.accept(new TraceClassVisitor(new PrintWriter(System.err)), ClassReader.SKIP_FRAMES);
