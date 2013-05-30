@@ -3,12 +3,11 @@ package com.facebook.presto.benchmark;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.operator.AbstractPageIterator;
+import com.facebook.presto.operator.AbstractFilterAndProjectOperator.AbstractFilterAndProjectIterator;
 import com.facebook.presto.operator.AggregationOperator;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
-import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.serde.BlocksFileEncoding;
@@ -52,17 +51,17 @@ public class HandTpchQuery6
         BlockIterable quantity = getBlockIterable("lineitem", "quantity", BlocksFileEncoding.RAW);
 
         AlignmentOperator alignmentOperator = new AlignmentOperator(extendedPrice, discount, shipDate, quantity);
-        TpchQuery1Operator tpchQuery1Operator = new TpchQuery1Operator(alignmentOperator);
-        return new AggregationOperator(tpchQuery1Operator, Step.SINGLE, ImmutableList.of(aggregation(DOUBLE_SUM, new Input(0, 0))));
+        TpchQuery6Operator tpchQuery6Operator = new TpchQuery6Operator(alignmentOperator);
+        return new AggregationOperator(tpchQuery6Operator, Step.SINGLE, ImmutableList.of(aggregation(DOUBLE_SUM, new Input(0, 0))));
     }
 
-    public static class TpchQuery1Operator
+    public static class TpchQuery6Operator
             implements Operator
     {
         private final Operator source;
         private final List<TupleInfo> tupleInfos;
 
-        public TpchQuery1Operator(Operator source)
+        public TpchQuery6Operator(Operator source)
         {
             this.source = source;
             this.tupleInfos = ImmutableList.of(TupleInfo.SINGLE_DOUBLE);
@@ -83,46 +82,25 @@ public class HandTpchQuery6
         @Override
         public PageIterator iterator(OperatorStats operatorStats)
         {
-            return new TpchQuery1Iterator(source.iterator(operatorStats));
+            return new TpchQuery6Iterator(source.iterator(operatorStats));
         }
 
-        private static class TpchQuery1Iterator
-                extends AbstractPageIterator
+        private static class TpchQuery6Iterator
+                extends AbstractFilterAndProjectIterator
         {
-            private final PageIterator pageIterator;
-            private final PageBuilder pageBuilder;
+            private static final Slice MIN_SHIP_DATE = Slices.copiedBuffer("1994-01-01", UTF_8);
+            private static final Slice MAX_SHIP_DATE = Slices.copiedBuffer("1995-01-01", UTF_8);
 
-            public TpchQuery1Iterator(PageIterator pageIterator)
+            public TpchQuery6Iterator(PageIterator pageIterator)
             {
-                super(ImmutableList.of(TupleInfo.SINGLE_DOUBLE));
-                this.pageIterator = pageIterator;
-                this.pageBuilder = new PageBuilder(getTupleInfos());
-            }
-
-            protected Page computeNext()
-            {
-                pageBuilder.reset();
-                while (!pageBuilder.isFull() && pageIterator.hasNext()) {
-                    Page page = pageIterator.next();
-                    filterAndProjectRowOriented(pageBuilder, page.getBlock(0), page.getBlock(1), page.getBlock(2), page.getBlock(3));
-                }
-
-                if (pageBuilder.isEmpty()) {
-                    return endOfData();
-                }
-
-                Page page = pageBuilder.build();
-                return page;
+                super(ImmutableList.of(TupleInfo.SINGLE_DOUBLE), pageIterator);
             }
 
             @Override
-            protected void doClose()
+            protected void filterAndProjectRowOriented(Block[] blocks, PageBuilder pageBuilder)
             {
-                pageIterator.close();
+                filterAndProjectRowOriented(pageBuilder, blocks[0], blocks[1], blocks[2], blocks[3]);
             }
-
-            private static final Slice MIN_SHIP_DATE = Slices.copiedBuffer("1994-01-01", UTF_8);
-            private static final Slice MAX_SHIP_DATE = Slices.copiedBuffer("1995-01-01", UTF_8);
 
             private void filterAndProjectRowOriented(PageBuilder pageBuilder, Block extendedPriceBlock, Block discountBlock, Block shipDateBlock, Block quantityBlock)
             {
@@ -139,25 +117,13 @@ public class HandTpchQuery6
                     checkState(shipDateCursor.advanceNextPosition());
                     checkState(quantityCursor.advanceNextPosition());
 
-                    if (extendedPriceCursor.isNull(0) ||
-                            discountCursor.isNull(0) ||
-                            shipDateCursor.isNull(0) ||
-                            quantityCursor.isNull(0)) {
-                        continue;
-                    }
-
-                    double extendedPrice = extendedPriceCursor.getDouble(0);
-                    double discount = discountCursor.getDouble(0);
-                    Slice shipDate = shipDateCursor.getSlice(0);
-                    double quantity = quantityCursor.getDouble(0);
-
                     // where shipdate >= '1994-01-01'
                     //    and shipdate < '1995-01-01'
                     //    and discount >= 0.05
                     //    and discount <= 0.07
                     //    and quantity < 24;
-                    if (shipDate.compareTo(MIN_SHIP_DATE) >= 0 && shipDate.compareTo(MAX_SHIP_DATE) < 0 && discount >= 0.05 && discount <= 0.07 && quantity < 24) {
-                        pageBuilder.getBlockBuilder(0).append(extendedPrice * discount);
+                    if (filter(discountCursor, shipDateCursor, quantityCursor)) {
+                        project(pageBuilder, extendedPriceCursor, discountCursor);
                     }
                 }
 
@@ -165,6 +131,24 @@ public class HandTpchQuery6
                 checkState(!discountCursor.advanceNextPosition());
                 checkState(!shipDateCursor.advanceNextPosition());
                 checkState(!quantityCursor.advanceNextPosition());
+            }
+
+            private void project(PageBuilder pageBuilder, BlockCursor extendedPriceCursor, BlockCursor discountCursor)
+            {
+                if (discountCursor.isNull(0) || extendedPriceCursor.isNull(0)) {
+                    pageBuilder.getBlockBuilder(0).appendNull();
+                } else {
+                    pageBuilder.getBlockBuilder(0).append(extendedPriceCursor.getDouble(0) * discountCursor.getDouble(0));
+                }
+            }
+
+            private boolean filter(BlockCursor discountCursor, BlockCursor shipDateCursor, BlockCursor quantityCursor)
+            {
+                return !shipDateCursor.isNull(0) && shipDateCursor.getSlice(0).compareTo(MIN_SHIP_DATE) >= 0 &&
+                        !shipDateCursor.isNull(0) && shipDateCursor.getSlice(0).compareTo(MAX_SHIP_DATE) < 0 &&
+                        !discountCursor.isNull(0) && discountCursor.getDouble(0) >= 0.05 &&
+                        !discountCursor.isNull(0) && discountCursor.getDouble(0) <= 0.07 &&
+                        !quantityCursor.isNull(0) && quantityCursor.getDouble(0) < 24;
             }
         }
     }
