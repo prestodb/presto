@@ -1,6 +1,5 @@
 package com.facebook.presto.sql;
 
-import com.facebook.presto.sql.tree.AliasedExpression;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
@@ -196,12 +195,6 @@ public final class ExpressionFormatter
                 parts.add(formatIdentifier(part));
             }
             return Joiner.on('.').join(parts);
-        }
-
-        @Override
-        protected String visitAliasedExpression(AliasedExpression node, Void context)
-        {
-            return process(node.getExpression(), null) + ' ' + formatIdentifier(node.getAlias());
         }
 
         @Override
