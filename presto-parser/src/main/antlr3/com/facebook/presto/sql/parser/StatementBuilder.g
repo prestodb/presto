@@ -372,12 +372,13 @@ comparisonExpression returns [ComparisonExpression value]
     ;
 
 comparisonType returns [ComparisonExpression.Type value]
-    : EQ  { $value = ComparisonExpression.Type.EQUAL; }
-    | NEQ { $value = ComparisonExpression.Type.NOT_EQUAL; }
-    | LT  { $value = ComparisonExpression.Type.LESS_THAN; }
-    | LTE { $value = ComparisonExpression.Type.LESS_THAN_OR_EQUAL; }
-    | GT  { $value = ComparisonExpression.Type.GREATER_THAN; }
-    | GTE { $value = ComparisonExpression.Type.GREATER_THAN_OR_EQUAL; }
+    : EQ                    { $value = ComparisonExpression.Type.EQUAL; }
+    | NEQ                   { $value = ComparisonExpression.Type.NOT_EQUAL; }
+    | LT                    { $value = ComparisonExpression.Type.LESS_THAN; }
+    | LTE                   { $value = ComparisonExpression.Type.LESS_THAN_OR_EQUAL; }
+    | GT                    { $value = ComparisonExpression.Type.GREATER_THAN; }
+    | GTE                   { $value = ComparisonExpression.Type.GREATER_THAN_OR_EQUAL; }
+    | IS_DISTINCT_FROM      { $value = ComparisonExpression.Type.IS_DISTINCT_FROM; }
     ;
 
 intervalValue returns [IntervalLiteral value]

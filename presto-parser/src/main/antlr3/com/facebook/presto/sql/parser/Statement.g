@@ -48,6 +48,7 @@ tokens {
     COMPARE;
     IS_NULL;
     IS_NOT_NULL;
+    IS_DISTINCT_FROM;
     IN_LIST;
     SIMPLE_CASE;
     SEARCHED_CASE;
@@ -338,6 +339,8 @@ booleanPrimary
 predicate
     : (predicatePrimary -> predicatePrimary)
       ( cmpOp e=predicatePrimary                                  -> ^(cmpOp $predicate $e)
+      | IS DISTINCT FROM e=predicatePrimary                       -> ^(IS_DISTINCT_FROM $predicate $e)
+      | IS NOT DISTINCT FROM e=predicatePrimary                   -> ^(NOT ^(IS_DISTINCT_FROM $predicate $e))
       | BETWEEN min=predicatePrimary AND max=predicatePrimary     -> ^(BETWEEN $predicate $min $max)
       | NOT BETWEEN min=predicatePrimary AND max=predicatePrimary -> ^(NOT ^(BETWEEN $predicate $min $max))
       | LIKE e=predicatePrimary (ESCAPE x=predicatePrimary)?      -> ^(LIKE $predicate $e $x?)
