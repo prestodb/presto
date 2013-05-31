@@ -33,6 +33,8 @@ public class TestStatementBuilder
 
         printStatement("select 1 + 13 || '15' from foo");
 
+        printStatement("select x is distinct from y from foo where a is not distinct from b");
+
         printStatement("" +
                 "select depname, empno, salary\n" +
                 ", count(*) over ()\n" +
