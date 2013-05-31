@@ -164,6 +164,11 @@ public class TestInterpretedFilterFunction
     public void testComparisonExpressionWithNulls()
     {
         for (ComparisonExpression.Type type : ComparisonExpression.Type.values()) {
+            if (type == ComparisonExpression.Type.IS_DISTINCT_FROM) {
+                // IS DISTINCT FROM has different NULL semantics
+                continue;
+            }
+
             assertFilter(format("NULL %s NULL", type.getValue()), false);
 
             assertFilter(format("42 %s NULL", type.getValue()), false);
