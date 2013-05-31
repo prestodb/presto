@@ -231,6 +231,16 @@ public final class Operations
 
     public static boolean castToBoolean(Slice value)
     {
+        if (value.length() == 1)
+        {
+            byte character = toUpperCase(value.getByte(0));
+            if (character == 'T' || character == '1') {
+                return true;
+            }
+            if (character == 'F' || character == '0') {
+                return false;
+            }
+        }
         if ((value.length() == 4) &&
                 (toUpperCase(value.getByte(0)) == 'T') &&
                 (toUpperCase(value.getByte(1)) == 'R') &&

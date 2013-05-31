@@ -236,9 +236,10 @@ public class DumpByteCodeVisitor extends ByteCodeVisitor<Void>
     @Override
     public Void visitInvokeDynamic(ByteCodeNode parent, InvokeDynamicInstruction invokeDynamicInstruction)
     {
-        printLine("invokeDynamic %s%s",
+        printLine("invokeDynamic %s%s %s",
                 invokeDynamicInstruction.getName(),
-                invokeDynamicInstruction.getMethodDescription());
+                invokeDynamicInstruction.getMethodDescription(),
+                invokeDynamicInstruction.getBootstrapArguments());
         return null;
     }
 

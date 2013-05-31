@@ -487,7 +487,7 @@ public class LocalExecutionPlanner
                 outputMappings.put(symbol, new Input(i, 0)); // one field per channel
             }
 
-            ImmutableMap<Input, TupleInfo.Type> inputTypes = getInputTypes(source.getLayout(), source.getOperator().getTupleInfos());
+            ImmutableMap<Input, Type> inputTypes = getInputTypes(source.getLayout(), source.getOperator().getTupleInfos());
             Function<Operator, Operator> operatorFactory = compiler.compileFilterAndProjectOperator(filterExpression, projections, inputTypes);
             Operator operator = operatorFactory.apply(source.getOperator());
             return new PhysicalOperation(operator, outputMappings);

@@ -756,6 +756,9 @@ public class Block implements ByteCodeNode
 
     public Block loadJavaDefault(Class<?> type)
     {
+        if (type == void.class) {
+            return this;
+        }
         if (type == boolean.class || type == byte.class || type == char.class || type == short.class || type == int.class) {
             return loadConstant(0);
         }
