@@ -94,6 +94,19 @@ public class TestExpressionInterpreter
     }
 
     @Test
+    public void testIsDistinctFrom()
+            throws Exception
+    {
+        assertOptimizedEquals("null is distinct from null", "false");
+
+        assertOptimizedEquals("3 is distinct from 4", "true");
+        assertOptimizedEquals("3 is distinct from 3", "false");
+        assertOptimizedEquals("3 is distinct from null", "true");
+        assertOptimizedEquals("null is distinct from 3", "true");
+
+    }
+
+    @Test
     public void testFunctionCall()
             throws Exception
     {

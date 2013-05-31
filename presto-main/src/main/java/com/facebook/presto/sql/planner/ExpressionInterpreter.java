@@ -451,6 +451,26 @@ public class ExpressionInterpreter
     @Override
     protected Object visitComparisonExpression(ComparisonExpression node, Void context)
     {
+        if (node.getType() == ComparisonExpression.Type.IS_DISTINCT_FROM) {
+            Object left = process(node.getLeft(), context);
+            Object right = process(node.getRight(), context);
+
+            if (left == null && right == null) {
+                return false;
+            }
+            else if (left == null || right == null) {
+                return true;
+            }
+            else if (left instanceof Number && right instanceof Number) {
+                return ((Number) left).doubleValue() != ((Number) right).doubleValue();
+            }
+            else if (left instanceof Slice && right instanceof Slice) {
+                return !left.equals(right);
+            }
+
+            return new ComparisonExpression(node.getType(), toExpression(left), toExpression(right));
+        }
+
         Object left = process(node.getLeft(), context);
         if (left == null) {
             return null;
