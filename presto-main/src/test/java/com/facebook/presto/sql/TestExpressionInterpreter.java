@@ -7,7 +7,10 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolResolver;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Input;
+import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.StringLiteral;
+import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.intellij.lang.annotations.Language;
 import org.joda.time.DateTime;
@@ -18,7 +21,6 @@ import org.testng.annotations.Test;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.connector.dual.DualMetadata.DUAL_METADATA_MANAGER;
-import static com.facebook.presto.operator.scalar.FunctionAssertions.assertFunction;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
 import static com.facebook.presto.sql.parser.SqlParser.createExpression;
@@ -161,7 +163,6 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("extract (SECOND from " + seconds + ")", "5");
         assertOptimizedEquals("extract (TIMEZONE_HOUR from " + seconds + ")", "0");
         assertOptimizedEquals("extract (TIMEZONE_MINUTE from " + seconds + ")", "0");
-
 
         assertOptimizedEquals("extract (CENTURY from boundTimestamp)", "20");
         assertOptimizedEquals("extract (YEAR from boundTimestamp)", "2001");
@@ -404,7 +405,6 @@ public class TestExpressionInterpreter
                         "when a = 1234 then 33 " +
                         "else 1 " +
                         "end");
-
     }
 
     @Test
@@ -557,14 +557,12 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("'^' LIKE '^'", "true");
         assertOptimizedEquals("'$' LIKE '$'", "true");
 
-
         assertOptimizedEquals("null like '%'", "null");
         assertOptimizedEquals("'a' like null", "null");
         assertOptimizedEquals("'a' like '%' escape null", "null");
 
         assertOptimizedEquals("'%' like 'z%' escape 'z'", "true");
     }
-
 
     @Test
     public void testLikeOptimization()
@@ -671,6 +669,34 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("time '03:04 Asia/Oral'", getSeconds(new DateTime(1970, 1, 1, 3, 4, 0, 0, timeZone)));
     }
 
+    @Test(timeOut = 1000)
+    public void testLikeInvalidUtf8()
+    {
+        assertLike(new byte[] {'a', 'b', 'c'}, "%b%", true);
+        assertLike(new byte[] {'a', 'b', 'c', (byte) 0xFF, 'x', 'y'}, "%b%", true);
+    }
+
+    private static void assertLike(byte[] value, String pattern, boolean expected)
+    {
+        Expression predicate = new LikePredicate(
+                rawStringLiteral(Slices.wrappedBuffer(value)),
+                new StringLiteral(pattern),
+                null);
+        assertEquals(evaluate(predicate), expected);
+    }
+
+    private static StringLiteral rawStringLiteral(final Slice slice)
+    {
+        return new StringLiteral(slice.toString(UTF_8))
+        {
+            @Override
+            public Slice getSlice()
+            {
+                return slice;
+            }
+        };
+    }
+
     private static String getSeconds(DateTime dateTime)
     {
         return String.valueOf(MILLISECONDS.toSeconds(dateTime.getMillis()));
@@ -728,6 +754,17 @@ public class TestExpressionInterpreter
 
     private static Object evaluate(String expression)
     {
+        Expression parsedExpression = createExpression(expression);
+
+        // verify roundtrip
+        Expression roundtrip = createExpression(ExpressionFormatter.formatExpression(parsedExpression));
+        assertEquals(parsedExpression, roundtrip);
+
+        return evaluate(parsedExpression);
+    }
+
+    private static Object evaluate(Expression expression)
+    {
         ExpressionInterpreter interpreter = ExpressionInterpreter.expressionInterpreter(new InputResolver()
         {
             @Override
@@ -737,12 +774,6 @@ public class TestExpressionInterpreter
             }
         }, DUAL_METADATA_MANAGER, new Session("user", "test", DEFAULT_CATALOG, DEFAULT_SCHEMA, null, null));
 
-        Expression parsedExpression = createExpression(expression);
-
-        // verify roundtrip
-        Expression roundtrip = createExpression(ExpressionFormatter.formatExpression(parsedExpression));
-        assertEquals(parsedExpression, roundtrip);
-
-        return interpreter.process(parsedExpression, null);
+        return interpreter.process(expression, null);
     }
 }

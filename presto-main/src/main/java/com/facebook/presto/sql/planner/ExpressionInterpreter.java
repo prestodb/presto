@@ -49,11 +49,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
-import org.joni.Regex;
 import org.joni.Option;
-import org.joni.Matcher;
+import org.joni.Regex;
 
 import javax.annotation.Nullable;
+
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -690,9 +690,7 @@ public class ExpressionInterpreter
                 node.getPattern() instanceof StringLiteral &&
                 (node.getEscape() instanceof StringLiteral || node.getEscape() == null)) {
             // fast path when we know the pattern and escape are constant
-            Slice valueSlice = (Slice) value;
-            Matcher matcher = getConstantPattern(node).matcher(valueSlice.getBytes());
-            return matcher.match(0, valueSlice.length(), Option.NONE) != -1;
+            return regexMatches(getConstantPattern(node), (Slice) value);
         }
 
         Object pattern = process(node.getPattern(), context);
@@ -723,9 +721,7 @@ public class ExpressionInterpreter
 
             Regex regex = likeToPattern(patternString, escapeChar);
 
-            Slice valueSlice = (Slice) value;
-            Matcher matcher = regex.matcher(valueSlice.getBytes());
-            return matcher.match(0, valueSlice.length(), Option.NONE) != -1;
+            return regexMatches(regex, (Slice) value);
         }
 
         // if pattern is a constant without % or _ replace with a comparison
@@ -742,6 +738,30 @@ public class ExpressionInterpreter
         }
 
         return new LikePredicate(toExpression(value), toExpression(pattern), optimizedEscape);
+    }
+
+    private static boolean regexMatches(Regex regex, Slice value)
+    {
+        // Joni doesn't handle invalid UTF-8, so replace invalid characters
+        byte[] bytes = value.getBytes();
+        if (isAscii(bytes)) {
+            return regexMatches(regex, bytes);
+        }
+        return regexMatches(regex, value.toString(UTF_8).getBytes(UTF_8));
+    }
+
+    private static boolean regexMatches(Regex regex, byte[] bytes)
+    {
+        return regex.matcher(bytes).match(0, bytes.length, Option.NONE) != -1;
+    }
+
+    private static boolean isAscii(byte[] bytes)
+    {
+        boolean high = false;
+        for (byte b : bytes) {
+            high |= (b & 0x80) != 0;
+        }
+        return !high;
     }
 
     private Regex getConstantPattern(LikePredicate node)
