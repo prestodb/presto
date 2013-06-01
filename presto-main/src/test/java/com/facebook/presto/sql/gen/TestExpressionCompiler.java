@@ -5,6 +5,8 @@ import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.ProjectionFunction;
+import com.facebook.presto.operator.scalar.MathFunctions;
+import com.facebook.presto.operator.scalar.StringFunctions;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolToInputRewriter;
@@ -17,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import io.airlift.slice.Slices;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
@@ -29,6 +32,7 @@ import java.util.Set;
 
 import static com.facebook.presto.sql.parser.SqlParser.createExpression;
 import static com.facebook.presto.tuple.Tuples.createTuple;
+import static com.google.common.base.Charsets.UTF_8;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -391,7 +395,6 @@ public class TestExpressionCompiler
         }
     }
 
-
     @Test
     public void testSimpleCase()
             throws Exception
@@ -479,6 +482,86 @@ public class TestExpressionCompiler
         }
     }
 
+    @Test
+    public void testFunctionCall()
+            throws Exception
+    {
+        for (Long left : longLefts) {
+            for (Long right : longRights) {
+                assertExecute(generateExpression("log(%s, %s)", left, right), left == null || right == null ? null : MathFunctions.log(left, right));
+            }
+        }
+
+        for (Long left : longLefts) {
+            for (Double right : doubleRights) {
+                assertExecute(generateExpression("log(%s, %s)", left, right), left == null || right == null ? null : MathFunctions.log(left, right));
+            }
+        }
+
+        for (Double left : doubleLefts) {
+            for (Long right : longRights) {
+                assertExecute(generateExpression("log(%s, %s)", left, right), left == null || right == null ? null : MathFunctions.log(left, right));
+            }
+        }
+
+        for (Double left : doubleLefts) {
+            for (Double right : doubleRights) {
+                assertExecute(generateExpression("log(%s, %s)", left, right), left == null || right == null ? null : MathFunctions.log(left, right));
+            }
+        }
+
+        for (String value : stringLefts) {
+            for (Long start : longLefts) {
+                for (Long length : longRights) {
+                    String expected;
+                    if (value == null || start == null || length == null) {
+                        expected = null;
+                    } else {
+                        expected = StringFunctions.substr(Slices.copiedBuffer(value, UTF_8), start, length).toString(UTF_8);
+                    }
+                    assertExecute(generateExpression("substr(%s, %s, %s)", value, start, length), expected);
+                }
+            }
+        }
+    }
+
+    @Test
+    public void testCoalesce()
+            throws Exception
+    {
+        assertExecute("coalesce(9, 1)", 9L);
+        assertExecute("coalesce(9, null)", 9L);
+        assertExecute("coalesce(9, cast(null as bigint))", 9L);
+        assertExecute("coalesce(null, 9, 1)", 9L);
+        assertExecute("coalesce(null, 9, null)", 9L);
+        assertExecute("coalesce(null, 9, cast(null as bigint))", 9L);
+        assertExecute("coalesce(cast(null as bigint), 9, 1)", 9L);
+        assertExecute("coalesce(cast(null as bigint), 9, null)", 9L);
+        assertExecute("coalesce(cast(null as bigint), 9, cast(null as bigint))", 9L);
+
+        assertExecute("coalesce(9.0, 1)", 9.0);
+        assertExecute("coalesce(9.0, null)", 9.0);
+        assertExecute("coalesce(9.0, cast(null as bigint))", 9.0);
+        assertExecute("coalesce(null, 9.0, 1)", 9.0);
+        assertExecute("coalesce(null, 9.0, null)", 9.0);
+        assertExecute("coalesce(null, 9.0, cast(null as bigint))", 9.0);
+        assertExecute("coalesce(cast(null as bigint), 9.0, 1)", 9.0);
+        assertExecute("coalesce(cast(null as bigint), 9.0, null)", 9.0);
+        assertExecute("coalesce(cast(null as bigint), 9.0, cast(null as bigint))", 9.0);
+
+        assertExecute("coalesce('foo', 'bar')", "foo");
+        assertExecute("coalesce('foo', null)", "foo");
+        assertExecute("coalesce('foo', cast(null as varchar))", "foo");
+        assertExecute("coalesce(null, 'foo', 'bar')", "foo");
+        assertExecute("coalesce(null, 'foo', null)", "foo");
+        assertExecute("coalesce(null, 'foo', cast(null as varchar))", "foo");
+        assertExecute("coalesce(cast(null as varchar), 'foo', 'bar')", "foo");
+        assertExecute("coalesce(cast(null as varchar), 'foo', null)", "foo");
+        assertExecute("coalesce(cast(null as varchar), 'foo', cast(null as varchar))", "foo");
+
+        assertExecute("coalesce(cast(null as bigint), null, cast(null as bigint))", null);
+    }
+   
     private List<String> generateExpression(String expressionPattern, Boolean value)
     {
         return formatExpression(expressionPattern, value, "boolean");
@@ -562,6 +645,11 @@ public class TestExpressionCompiler
     private List<String> generateExpression(String expressionPattern, Boolean first, String second, String third)
     {
         return formatExpression(expressionPattern, first, "boolean", second, "varchar", third, "varchar");
+    }
+
+    private List<String> generateExpression(String expressionPattern, String first, Long second, Long third)
+    {
+        return formatExpression(expressionPattern, first, "varchar", second, "bigint", third, "bigint");
     }
 
     private List<String> formatExpression(String expressionPattern, Object value, String type)

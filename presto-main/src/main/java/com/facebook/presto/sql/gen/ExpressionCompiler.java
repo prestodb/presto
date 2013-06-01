@@ -881,10 +881,12 @@ public class ExpressionCompiler
 
             LabelNode end = new LabelNode("end");
             Block block = new Block(context);
-            for (TypedByteCodeNode argument : arguments) {
-                block.append(argument.node);
+            for (int i = 0; i < arguments.size(); i++) {
+                TypedByteCodeNode argument = arguments.get(i);
+                Class<?> argumentType = methodType.parameterList().get(i);
+                block.append(coerceToType(context, argument, argumentType).node);
             }
-            block.append(ifWasNullPopAndGoto(context, end, methodType.returnType(), methodType.parameterList()));
+            block.append(ifWasNullPopAndGoto(context, end, methodType.returnType(), Lists.reverse(methodType.parameterList())));
             block.invokeDynamic(function.getName().toString(), methodType);
             block.visitLabel(end);
 
