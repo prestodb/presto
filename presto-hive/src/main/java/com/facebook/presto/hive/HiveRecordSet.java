@@ -8,7 +8,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.MetaStoreUtils;
 import org.apache.hadoop.hive.serde.Constants;
@@ -44,7 +43,7 @@ import static com.google.common.collect.Lists.transform;
 public class HiveRecordSet
         implements RecordSet
 {
-    static{
+    static {
         HadoopNative.requireHadoopNative();
     }
 
@@ -93,12 +92,10 @@ public class HiveRecordSet
             String nullSequence = (String) schema.get(Constants.SERIALIZATION_NULL_FORMAT);
             checkState(nullSequence == null || nullSequence.equals("\\N"), "Only '\\N' supported as null specifier, was '%s'", nullSequence);
 
-            Configuration configuration = hdfsEnvironment.getConfiguration();
-
             // Tell hive the columns we would like to read, this lets hive optimize reading column oriented files
-            ColumnProjectionUtils.setReadColumnIDs(configuration, readHiveColumnIndexes);
+            ColumnProjectionUtils.setReadColumnIDs(hdfsEnvironment.getConfiguration(), readHiveColumnIndexes);
 
-            RecordReader<?, ?> recordReader = createRecordReader(configuration, split);
+            RecordReader<?, ?> recordReader = createRecordReader(hdfsEnvironment, split);
             if (recordReader.createValue() instanceof BytesRefArrayWritable) {
                 return new BytesHiveRecordCursor<>((RecordReader<?, BytesRefArrayWritable>) recordReader,
                         split.getLength(),
@@ -142,11 +139,13 @@ public class HiveRecordSet
         throw new IllegalStateException("Table doesn't have any PRIMITIVE columns");
     }
 
-    private static RecordReader<?, ?> createRecordReader(Configuration configuration, HiveSplit split)
+    private static RecordReader<?, ?> createRecordReader(HdfsEnvironment environment, HiveSplit split)
     {
-        InputFormat inputFormat = getInputFormat(configuration, split.getSchema(), true);
-        FileSplit fileSplit = new FileSplit(new Path(split.getPath()), split.getStart(), split.getLength(), (String[]) null);
-        JobConf jobConf = new JobConf(configuration);
+        InputFormat inputFormat = getInputFormat(environment.getConfiguration(), split.getSchema(), true);
+        JobConf jobConf = new JobConf(environment.getConfiguration());
+
+        Path wrappedPath = environment.getFileSystemWrapper().wrap(new Path(split.getPath()));
+        FileSplit fileSplit = createFileSplit(wrappedPath, split.getStart(), split.getLength());
 
         try {
             return inputFormat.getRecordReader(fileSplit, jobConf, Reporter.NULL);
@@ -154,5 +153,18 @@ public class HiveRecordSet
         catch (IOException e) {
             throw new RuntimeException("Unable to create record reader for input format " + getInputFormatName(split.getSchema()), e);
         }
+    }
+
+    private static FileSplit createFileSplit(final Path path, long start, long length)
+    {
+        return new FileSplit(path, start, length, (String[]) null)
+        {
+            @Override
+            public Path getPath()
+            {
+                // make sure our original path object is returned
+                return path;
+            }
+        };
     }
 }
