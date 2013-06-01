@@ -23,6 +23,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolToInputRewriter;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
@@ -52,7 +53,6 @@ import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.TreeRewriter;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.tuple.TupleReadable;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
@@ -113,7 +113,21 @@ public class ExpressionCompiler
 
         Builder<Input, Type> inputTypes = ImmutableMap.builder();
         for (Input input : layout.values()) {
-            inputTypes.put(input, tupleInfos.get(input.getChannel()).getTypes().get(input.getField()));
+            TupleInfo.Type type = tupleInfos.get(input.getChannel()).getTypes().get(input.getField());
+            switch (type) {
+                case FIXED_INT_64:
+                    inputTypes.put(input, Type.LONG);
+                    break;
+                case VARIABLE_BINARY:
+                    inputTypes.put(input, Type.STRING);
+                    break;
+                case DOUBLE:
+                    inputTypes.put(input, Type.DOUBLE);
+                    break;
+                default:
+                    throw new IllegalArgumentException("Unsupported type " + type);
+            }
+
         }
         this.inputTypes = inputTypes.build();
 
@@ -414,7 +428,8 @@ public class ExpressionCompiler
 
             Class<?> nodeType;
             switch (type) {
-                case FIXED_INT_64:
+                case BOOLEAN:
+                case LONG:
                     isNull.loadConstant(0L);
                     notNull.invokeInterface(TupleReadable.class, "getLong", long.class, int.class);
                     nodeType = long.class;
@@ -424,7 +439,7 @@ public class ExpressionCompiler
                     notNull.invokeInterface(TupleReadable.class, "getDouble", double.class, int.class);
                     nodeType = double.class;
                     break;
-                case VARIABLE_BINARY:
+                case STRING:
                     isNull.loadNull();
                     notNull.invokeInterface(TupleReadable.class, "getSlice", Slice.class, int.class);
                     notNull.invokeStatic(Operations.class, "toString", String.class, Slice.class);
@@ -996,14 +1011,17 @@ public class ExpressionCompiler
             @Override
             public Type apply(Class<?> type)
             {
+                if (type == boolean.class) {
+                    return Type.BOOLEAN;
+                }
                 if (type == long.class) {
-                    return Type.FIXED_INT_64;
+                    return Type.LONG;
                 }
                 if (type == double.class) {
                     return Type.DOUBLE;
                 }
                 if (type == String.class) {
-                    return Type.VARIABLE_BINARY;
+                    return Type.STRING;
                 }
                 throw new UnsupportedOperationException("Unsupported function type " + type);
             }
