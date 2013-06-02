@@ -1436,7 +1436,7 @@ public abstract class AbstractTestQueries
         assertEquals(tableNames, ImmutableSet.of());
     }
 
-    @Test(enabled =  false)
+    @Test
     public void testShowTablesLike()
             throws Exception
     {

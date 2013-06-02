@@ -20,7 +20,7 @@ public abstract class ThreadLocalCache<K, V>
     @SuppressWarnings("ThreadLocalNotStaticFinal")
     private final ThreadLocal<LinkedHashMap<K, V>> cache;
 
-    protected ThreadLocalCache(final int maxSizePerThread)
+    public ThreadLocalCache(final int maxSizePerThread)
     {
         checkArgument(maxSizePerThread > 0, "max size must be greater than zero");
         cache = new ThreadLocal<LinkedHashMap<K, V>>()
