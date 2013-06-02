@@ -497,9 +497,15 @@ public class Block implements ByteCodeNode
         return invokeDynamic(name, methodType, context.getDefaultBootstrapMethod(), context.getDefaultBootstrapArguments());
     }
 
-    public Block invokeDynamic(String name, MethodType methodType, Method defaultBootstrapMethod, Object... defaultBootstrapArguments)
+    public Block invokeDynamic(String name, MethodType methodType, Object... defaultBootstrapArguments)
     {
-        nodes.add(InvokeInstruction.invokeDynamic(name, methodType, defaultBootstrapMethod, defaultBootstrapArguments));
+        nodes.add(InvokeInstruction.invokeDynamic(name, methodType, context.getDefaultBootstrapMethod(), defaultBootstrapArguments));
+        return this;
+    }
+
+    public Block invokeDynamic(String name, MethodType methodType, Method bootstrapMethod, Object... defaultBootstrapArguments)
+    {
+        nodes.add(InvokeInstruction.invokeDynamic(name, methodType, bootstrapMethod, defaultBootstrapArguments));
         return this;
     }
 
