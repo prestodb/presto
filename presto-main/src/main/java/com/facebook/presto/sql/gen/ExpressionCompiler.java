@@ -47,6 +47,7 @@ import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.sql.tree.InputReference;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
+import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NegativeExpression;
@@ -110,9 +111,8 @@ import static com.facebook.presto.byteCode.control.IfStatement.ifStatementBuilde
 import static com.facebook.presto.byteCode.instruction.Constant.loadBoolean;
 import static com.facebook.presto.byteCode.instruction.Constant.loadDouble;
 import static com.facebook.presto.byteCode.instruction.Constant.loadLong;
-import static com.facebook.presto.byteCode.instruction.InvokeInstruction.invokeDynamic;
 import static com.facebook.presto.sql.gen.ExpressionCompiler.TypedByteCodeNode.typedByteCodeNode;
-import static com.facebook.presto.sql.gen.SliceLiteralBootstrap.SLICE_LITERAL_BOOTSTRAP;
+import static com.facebook.presto.sql.gen.SliceConstant.sliceConstant;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -866,7 +866,7 @@ public class ExpressionCompiler
         @Override
         protected TypedByteCodeNode visitStringLiteral(StringLiteral node, CompilerContext context)
         {
-            return typedByteCodeNode(invokeDynamic("load", MethodType.methodType(Slice.class), SLICE_LITERAL_BOOTSTRAP, node.getValue()), Slice.class);
+            return typedByteCodeNode(sliceConstant(node.getSlice()), Slice.class);
         }
 
         @Override
@@ -937,18 +937,51 @@ public class ExpressionCompiler
             }
 
             FunctionBinding functionBinding = bootstrapFunctionBinder.bindFunction(node.getName(), arguments);
+            return visitFunctionBinding(context, functionBinding);
+        }
+
+        @Override
+        protected TypedByteCodeNode visitLikePredicate(LikePredicate node, CompilerContext context)
+        {
+            ImmutableList<Expression> expressions;
+            if (node.getEscape() != null) {
+                expressions = ImmutableList.of(node.getValue(), node.getPattern(), node.getEscape());
+            }
+            else {
+                expressions = ImmutableList.of(node.getValue(), node.getPattern());
+            }
+
+            List<TypedByteCodeNode> arguments = new ArrayList<>();
+            for (Expression argument : expressions) {
+                TypedByteCodeNode typedByteCodeNode = process(argument, context);
+                if (typedByteCodeNode.type == void.class) {
+                    return typedByteCodeNode;
+                }
+                arguments.add(typedByteCodeNode);
+            }
+
+            FunctionBinding functionBinding = bootstrapFunctionBinder.bindFunction("like", arguments, new LikeFunctionBinder());
+            return visitFunctionBinding(context, functionBinding);
+        }
+
+        private TypedByteCodeNode visitFunctionBinding(CompilerContext context, FunctionBinding functionBinding)
+        {
+            List<TypedByteCodeNode> arguments;
             arguments = functionBinding.getArguments();
             MethodType methodType = functionBinding.getCallSite().type();
 
             LabelNode end = new LabelNode("end");
             Block block = new Block(context);
+            ArrayList<Class<?>> stackTypes = new ArrayList<>();
             for (int i = 0; i < arguments.size(); i++) {
                 TypedByteCodeNode argument = arguments.get(i);
                 Class<?> argumentType = methodType.parameterList().get(i);
                 block.append(coerceToType(context, argument, argumentType).node);
+
+                stackTypes.add(argument.type);
+                block.append(ifWasNullPopAndGoto(context, end, methodType.returnType(), Lists.reverse(stackTypes)));
             }
-            block.append(ifWasNullPopAndGoto(context, end, methodType.returnType(), Lists.reverse(methodType.parameterList())));
-            block.invokeDynamic(functionBinding.getName().toString(), methodType, functionBinding.getBindingId());
+            block.invokeDynamic(functionBinding.getName(), methodType, functionBinding.getBindingId());
             block.visitLabel(end);
 
             return typedByteCodeNode(block, methodType.returnType());

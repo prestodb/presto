@@ -3,7 +3,6 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.instruction.Constant;
 import com.facebook.presto.sql.gen.ExpressionCompiler.TypedByteCodeNode;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.Ordering;
 
 import java.lang.invoke.CallSite;
@@ -19,7 +18,14 @@ import java.util.TreeMap;
 public class DefaultFunctionBinder
         implements FunctionBinder
 {
-    public FunctionBinding bindFunction(long bindingId, QualifiedName name, List<TypedByteCodeNode> arguments, MethodHandle methodHandle)
+    private final MethodHandle methodHandle;
+
+    public DefaultFunctionBinder(MethodHandle methodHandle)
+    {
+        this.methodHandle = methodHandle;
+    }
+
+    public FunctionBinding bindFunction(long bindingId, String name, List<TypedByteCodeNode> arguments)
     {
         // extract constant arguments
         SortedMap<Integer, Object> constantArguments = new TreeMap<>(Ordering.natural().reverse());
@@ -33,6 +39,7 @@ public class DefaultFunctionBinder
         }
 
         // bind constant arguments
+        MethodHandle methodHandle = this.methodHandle;
         arguments = new ArrayList<>(arguments);
         for (Entry<Integer, Object> entry : constantArguments.entrySet()) {
             methodHandle = MethodHandles.insertArguments(methodHandle, entry.getKey(), entry.getValue());

@@ -1,7 +1,6 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.sql.gen.ExpressionCompiler.TypedByteCodeNode;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Objects;
 
 import java.lang.invoke.CallSite;
@@ -10,11 +9,11 @@ import java.util.List;
 public class FunctionBinding
 {
     private final long bindingId;
-    private final QualifiedName name;
+    private final String name;
     private final CallSite callSite;
     private final List<TypedByteCodeNode> arguments;
 
-    public FunctionBinding(long bindingId, QualifiedName name, CallSite callSite, List<TypedByteCodeNode> arguments)
+    public FunctionBinding(long bindingId, String name, CallSite callSite, List<TypedByteCodeNode> arguments)
     {
         this.bindingId = bindingId;
         this.name = name;
@@ -27,7 +26,7 @@ public class FunctionBinding
         return bindingId;
     }
 
-    public QualifiedName getName()
+    public String getName()
     {
         return name;
     }

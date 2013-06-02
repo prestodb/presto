@@ -22,7 +22,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class BootstrapFunctionBinder
 {
     private static final AtomicLong NEXT_BINDING_ID = new AtomicLong();
-    private static final FunctionBinder defaultFunctionBinder = new DefaultFunctionBinder();
 
     private final Metadata metadata;
 
@@ -38,10 +37,21 @@ public class BootstrapFunctionBinder
         List<Type> argumentTypes = Lists.transform(arguments, toTupleType());
         FunctionInfo function = metadata.getFunction(name, argumentTypes);
         checkArgument(function != null, "Unknown function %s%s", name, argumentTypes);
-        FunctionBinding functionBinding = defaultFunctionBinder.bindFunction(NEXT_BINDING_ID.getAndIncrement(), name, arguments, function.getScalarFunction());
 
+        FunctionBinder defaultFunctionBinder = new DefaultFunctionBinder(function.getScalarFunction());
+        FunctionBinding functionBinding = bindFunction(name.toString(), arguments, defaultFunctionBinder);
 
+        return functionBinding;
+    }
+
+    public FunctionBinding bindFunction(String name, List<TypedByteCodeNode> arguments, FunctionBinder defaultFunctionBinder)
+    {
+        // perform binding
+        FunctionBinding functionBinding = defaultFunctionBinder.bindFunction(NEXT_BINDING_ID.getAndIncrement(), name, arguments);
+
+        // record binding
         functionBindings.put(functionBinding.getBindingId(), functionBinding);
+
         return functionBinding;
     }
 

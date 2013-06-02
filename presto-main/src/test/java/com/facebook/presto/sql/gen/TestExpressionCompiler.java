@@ -8,6 +8,7 @@ import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.operator.scalar.StringFunctions;
 import com.facebook.presto.sql.analyzer.Type;
+import com.facebook.presto.sql.planner.LikeUtils;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolToInputRewriter;
 import com.facebook.presto.sql.tree.Expression;
@@ -22,6 +23,7 @@ import com.google.common.collect.Sets;
 import io.airlift.slice.Slices;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
+import org.joni.Regex;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -405,11 +407,14 @@ public class TestExpressionCompiler
                     String expected;
                     if (value == null) {
                         expected = "else";
-                    } else if (firstTest != null && (double) value == firstTest) {
+                    }
+                    else if (firstTest != null && (double) value == firstTest) {
                         expected = "first";
-                    } else if (secondTest != null && (double) value == secondTest) {
+                    }
+                    else if (secondTest != null && (double) value == secondTest) {
                         expected = "second";
-                    } else {
+                    }
+                    else {
                         expected = "else";
                     }
                     assertExecute(generateExpression("case %s when %s then 'first' when %s then 'second' else 'else' end", value, firstTest, secondTest), expected);
@@ -422,11 +427,14 @@ public class TestExpressionCompiler
                     String expected;
                     if (value == null) {
                         expected = null;
-                    } else if (firstTest != null && (double) value == firstTest) {
+                    }
+                    else if (firstTest != null && (double) value == firstTest) {
                         expected = "first";
-                    } else if (secondTest != null && (double) value == secondTest) {
+                    }
+                    else if (secondTest != null && (double) value == secondTest) {
                         expected = "second";
-                    } else {
+                    }
+                    else {
                         expected = null;
                     }
                     assertExecute(generateExpression("case %s when %s then 'first' when %s then 'second' end", value, firstTest, secondTest), expected);
@@ -445,11 +453,14 @@ public class TestExpressionCompiler
                     String expected;
                     if (value == null) {
                         expected = "else";
-                    } else if (firstTest != null && (double) value == firstTest) {
+                    }
+                    else if (firstTest != null && (double) value == firstTest) {
                         expected = "first";
-                    } else if (secondTest != null && (double) value == secondTest) {
+                    }
+                    else if (secondTest != null && (double) value == secondTest) {
                         expected = "second";
-                    } else {
+                    }
+                    else {
                         expected = "else";
                     }
                     List<String> expressions = formatExpression("case when %s = %s then 'first' when %s = %s then 'second' else 'else' end",
@@ -466,11 +477,14 @@ public class TestExpressionCompiler
                     String expected;
                     if (value == null) {
                         expected = null;
-                    } else if (firstTest != null && (double) value == firstTest) {
+                    }
+                    else if (firstTest != null && (double) value == firstTest) {
                         expected = "first";
-                    } else if (secondTest != null && (double) value == secondTest) {
+                    }
+                    else if (secondTest != null && (double) value == secondTest) {
                         expected = "second";
-                    } else {
+                    }
+                    else {
                         expected = null;
                     }
                     List<String> expressions = formatExpression("case when %s = %s then 'first' when %s = %s then 'second' end",
@@ -516,11 +530,28 @@ public class TestExpressionCompiler
                     String expected;
                     if (value == null || start == null || length == null) {
                         expected = null;
-                    } else {
+                    }
+                    else {
                         expected = StringFunctions.substr(Slices.copiedBuffer(value, UTF_8), start, length).toString(UTF_8);
                     }
                     assertExecute(generateExpression("substr(%s, %s, %s)", value, start, length), expected);
                 }
+            }
+        }
+    }
+
+    @Test
+    public void testLike()
+            throws Exception
+    {
+        for (String value : stringLefts) {
+            for (String pattern : stringLefts) {
+                Boolean expected = null;
+                if (value != null && pattern != null) {
+                    Regex regex = LikeUtils.likeToPattern(pattern, '\\');
+                    expected = LikeUtils.regexMatches(regex, Slices.copiedBuffer(value, UTF_8));
+                }
+                assertExecute(generateExpression("%s like %s", value, pattern), expected);
             }
         }
     }
@@ -561,7 +592,7 @@ public class TestExpressionCompiler
 
         assertExecute("coalesce(cast(null as bigint), null, cast(null as bigint))", null);
     }
-   
+
     private List<String> generateExpression(String expressionPattern, Boolean value)
     {
         return formatExpression(expressionPattern, value, "boolean");
