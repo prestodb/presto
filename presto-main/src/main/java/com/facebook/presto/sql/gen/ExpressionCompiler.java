@@ -23,7 +23,6 @@ import com.facebook.presto.byteCode.control.ForLoop.ForLoopBuilder;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.byteCode.control.IfStatement.IfStatementBuilder;
 import com.facebook.presto.byteCode.instruction.LabelNode;
-import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.AbstractFilterAndProjectOperator;
 import com.facebook.presto.operator.AbstractFilterAndProjectOperator.AbstractFilterAndProjectIterator;
@@ -126,9 +125,8 @@ public class ExpressionCompiler
 {
     private static final AtomicLong CLASS_ID = new AtomicLong();
 
-    private final Metadata metadata;
     private final Method bootstrapMethod;
-    private final FunctionBootstrap functionBootstrap;
+    private final BootstrapFunctionBinder bootstrapFunctionBinder;
 
     private final LoadingCache<OperatorCacheKey, Function<Operator, Operator>> operatorFactories = CacheBuilder.newBuilder().build(
             new CacheLoader<OperatorCacheKey, Function<Operator, Operator>>()
@@ -165,8 +163,7 @@ public class ExpressionCompiler
     @Inject
     public ExpressionCompiler(Metadata metadata)
     {
-        this.metadata = checkNotNull(metadata, "metadata is null");
-        this.functionBootstrap = new FunctionBootstrap(metadata);
+        this.bootstrapFunctionBinder = new BootstrapFunctionBinder(checkNotNull(metadata, "metadata is null"));
 
         // code gen a bootstrap class
         try {
@@ -175,7 +172,7 @@ public class ExpressionCompiler
                     typeFromPathName("Bootstrap" + CLASS_ID.incrementAndGet()),
                     type(AbstractFilterAndProjectIterator.class));
 
-            FieldDefinition bootstrapField = classDefinition.declareField(a(PUBLIC, STATIC, FINAL), "BOOTSTRAP", type(AtomicReference.class, FunctionBootstrap.class));
+            FieldDefinition bootstrapField = classDefinition.declareField(a(PUBLIC, STATIC, FINAL), "BOOTSTRAP", type(AtomicReference.class, BootstrapFunctionBinder.class));
 
             classDefinition.getClassInitializer()
                     .getBody()
@@ -190,22 +187,24 @@ public class ExpressionCompiler
                     type(CallSite.class),
                     arg("lookup", Lookup.class),
                     arg("name", String.class),
-                    arg("type", MethodType.class))
+                    arg("type", MethodType.class),
+                    arg("bindingId", long.class))
                     .getBody()
                     .getStaticField(bootstrapField)
                     .invokeVirtual(AtomicReference.class, "get", Object.class)
-                    .checkCast(FunctionBootstrap.class)
+                    .checkCast(BootstrapFunctionBinder.class)
                     .loadVariable("name")
                     .loadVariable("type")
-                    .invokeVirtual(FunctionBootstrap.class, "bootstrap", CallSite.class, String.class, MethodType.class)
+                    .loadVariable("bindingId")
+                    .invokeVirtual(BootstrapFunctionBinder.class, "bootstrap", CallSite.class, String.class, MethodType.class, long.class)
                     .retObject();
 
             Class<?> bootstrapClass = defineClasses(ImmutableList.of(classDefinition)).values().iterator().next();
 
-            AtomicReference<FunctionBootstrap> bootstrapReference = (AtomicReference<FunctionBootstrap>) bootstrapClass.getField("BOOTSTRAP").get(null);
-            bootstrapReference.set(functionBootstrap);
+            AtomicReference<BootstrapFunctionBinder> bootstrapReference = (AtomicReference<BootstrapFunctionBinder>) bootstrapClass.getField("BOOTSTRAP").get(null);
+            bootstrapReference.set(bootstrapFunctionBinder);
 
-            bootstrapMethod = bootstrapClass.getMethod("bootstrap", Lookup.class, String.class, MethodType.class);
+            bootstrapMethod = bootstrapClass.getMethod("bootstrap", Lookup.class, String.class, MethodType.class, long.class);
         }
         catch (Exception e) {
             throw Throwables.propagate(e);
@@ -560,7 +559,7 @@ public class ExpressionCompiler
                 toTupleReaderParameters(inputTypes));
 
         filterMethod.getCompilerContext().declareVariable(type(boolean.class), "wasNull");
-        TypedByteCodeNode body = new Visitor(metadata, inputTypes).process(filter, filterMethod.getCompilerContext());
+        TypedByteCodeNode body = new Visitor(bootstrapFunctionBinder, inputTypes).process(filter, filterMethod.getCompilerContext());
 
         if (body.type == void.class) {
             filterMethod
@@ -684,7 +683,7 @@ public class ExpressionCompiler
         // generate body code
         CompilerContext context = projectionMethod.getCompilerContext();
         context.declareVariable(type(boolean.class), "wasNull");
-        TypedByteCodeNode body = new Visitor(metadata, inputTypes).process(projection, context);
+        TypedByteCodeNode body = new Visitor(bootstrapFunctionBinder, inputTypes).process(projection, context);
 
         if (body.type != void.class) {
             projectionMethod
@@ -822,17 +821,27 @@ public class ExpressionCompiler
             this.node = node;
             this.type = type;
         }
+
+        public ByteCodeNode getNode()
+        {
+            return node;
+        }
+
+        public Class<?> getType()
+        {
+            return type;
+        }
     }
 
     private static class Visitor
             extends AstVisitor<TypedByteCodeNode, CompilerContext>
     {
-        private final Metadata metadata;
+        private final BootstrapFunctionBinder bootstrapFunctionBinder;
         private final Map<Input, Type> inputTypes;
 
-        public Visitor(Metadata metadata, Map<Input, Type> inputTypes)
+        public Visitor(BootstrapFunctionBinder bootstrapFunctionBinder, Map<Input, Type> inputTypes)
         {
-            this.metadata = metadata;
+            this.bootstrapFunctionBinder = bootstrapFunctionBinder;
             this.inputTypes = inputTypes;
         }
 
@@ -919,19 +928,17 @@ public class ExpressionCompiler
         protected TypedByteCodeNode visitFunctionCall(FunctionCall node, CompilerContext context)
         {
             List<TypedByteCodeNode> arguments = new ArrayList<>();
-            List<Class<?>> argumentTypes = new ArrayList<>();
             for (Expression argument : node.getArguments()) {
                 TypedByteCodeNode typedByteCodeNode = process(argument, context);
                 if (typedByteCodeNode.type == void.class) {
                     return typedByteCodeNode;
                 }
                 arguments.add(typedByteCodeNode);
-                argumentTypes.add(typedByteCodeNode.type);
             }
 
-            FunctionInfo function = metadata.getFunction(node.getName(), Lists.transform(argumentTypes, toTupleType()));
-            checkArgument(function != null, "Unknown function %s%s", node.getName(), argumentTypes);
-            MethodType methodType = function.getScalarFunction().type();
+            FunctionBinding functionBinding = bootstrapFunctionBinder.bindFunction(node.getName(), arguments);
+            arguments = functionBinding.getArguments();
+            MethodType methodType = functionBinding.getCallSite().type();
 
             LabelNode end = new LabelNode("end");
             Block block = new Block(context);
@@ -941,10 +948,10 @@ public class ExpressionCompiler
                 block.append(coerceToType(context, argument, argumentType).node);
             }
             block.append(ifWasNullPopAndGoto(context, end, methodType.returnType(), Lists.reverse(methodType.parameterList())));
-            block.invokeDynamic(function.getName().toString(), methodType);
+            block.invokeDynamic(functionBinding.getName().toString(), methodType, functionBinding.getBindingId());
             block.visitLabel(end);
 
-            return typedByteCodeNode(block, function.getScalarFunction().type().returnType());
+            return typedByteCodeNode(block, methodType.returnType());
         }
 
         @Override
@@ -1659,33 +1666,6 @@ public class ExpressionCompiler
             public Class<?> apply(TypedByteCodeNode node)
             {
                 return node.type;
-            }
-        };
-    }
-
-    public static Function<Class<?>, Type> toTupleType()
-    {
-        return new Function<Class<?>, Type>()
-        {
-            @Override
-            public Type apply(Class<?> type)
-            {
-                if (type == boolean.class) {
-                    return Type.BOOLEAN;
-                }
-                if (type == long.class) {
-                    return Type.LONG;
-                }
-                if (type == double.class) {
-                    return Type.DOUBLE;
-                }
-                if (type == String.class) {
-                    return Type.STRING;
-                }
-                if (type == Slice.class) {
-                    return Type.STRING;
-                }
-                throw new UnsupportedOperationException("Unsupported function type " + type);
             }
         };
     }
