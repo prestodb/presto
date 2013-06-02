@@ -695,6 +695,12 @@ public class Block implements ByteCodeNode
         return this;
     }
 
+    public Block putStaticField(FieldDefinition field)
+    {
+        putStaticField(field.getDeclaringClass().getType(), field.getName(), field.getType());
+        return this;
+    }
+
     public Block putStaticField(ParameterizedType target, FieldDefinition field)
     {
         checkArgument(field.getAccess().contains(STATIC), "Field is not static: %s", field);

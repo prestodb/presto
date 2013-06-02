@@ -14,7 +14,6 @@ import java.util.Map;
 import java.util.TreeMap;
 
 import static com.facebook.presto.byteCode.ParameterizedType.type;
-import static com.facebook.presto.sql.gen.FunctionBootstrap.FUNCTION_BOOTSTRAP;
 
 public class CompilerContext
 {
@@ -36,9 +35,9 @@ public class CompilerContext
 
     private Integer currentLine;
 
-    public CompilerContext()
+    public CompilerContext(Method defaultBootstrapMethod)
     {
-        this(FUNCTION_BOOTSTRAP, new Object[0], new LocalVariableFactory(), new LocalVariableFactory());
+        this(defaultBootstrapMethod, new Object[0], new LocalVariableFactory(), new LocalVariableFactory());
     }
 
     public CompilerContext(Method defaultBootstrapMethod, Object[] defaultBootstrapArguments, VariableFactory variableFactory, VariableFactory parameterFactory)
