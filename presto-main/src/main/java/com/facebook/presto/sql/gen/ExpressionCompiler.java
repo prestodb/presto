@@ -82,18 +82,23 @@ import org.objectweb.asm.util.TraceClassVisitor;
 
 import javax.inject.Inject;
 import java.io.PrintWriter;
+import java.lang.invoke.CallSite;
+import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.byteCode.Access.FINAL;
 import static com.facebook.presto.byteCode.Access.PRIVATE;
 import static com.facebook.presto.byteCode.Access.PUBLIC;
+import static com.facebook.presto.byteCode.Access.STATIC;
 import static com.facebook.presto.byteCode.Access.a;
 import static com.facebook.presto.byteCode.NamedParameterDefinition.arg;
 import static com.facebook.presto.byteCode.OpCodes.I2L;
@@ -120,7 +125,10 @@ import static java.util.Collections.nCopies;
 public class ExpressionCompiler
 {
     private static final AtomicLong CLASS_ID = new AtomicLong();
+
     private final Metadata metadata;
+    private final Method bootstrapMethod;
+    private final FunctionBootstrap functionBootstrap;
 
     private final LoadingCache<OperatorCacheKey, Function<Operator, Operator>> operatorFactories = CacheBuilder.newBuilder().build(
             new CacheLoader<OperatorCacheKey, Function<Operator, Operator>>()
@@ -153,13 +161,55 @@ public class ExpressionCompiler
         }
     });
 
+
     @Inject
     public ExpressionCompiler(Metadata metadata)
     {
         this.metadata = checkNotNull(metadata, "metadata is null");
+        this.functionBootstrap = new FunctionBootstrap(metadata);
 
-        // todo this is a total hack
-        FunctionBootstrap.metadataReference.set(metadata);
+        // code gen a bootstrap class
+        try {
+            ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(null),
+                    a(PUBLIC, FINAL),
+                    typeFromPathName("Bootstrap" + CLASS_ID.incrementAndGet()),
+                    type(AbstractFilterAndProjectIterator.class));
+
+            FieldDefinition bootstrapField = classDefinition.declareField(a(PUBLIC, STATIC, FINAL), "BOOTSTRAP", type(AtomicReference.class, FunctionBootstrap.class));
+
+            classDefinition.getClassInitializer()
+                    .getBody()
+                    .newObject(AtomicReference.class)
+                    .dup()
+                    .invokeConstructor(AtomicReference.class)
+                    .putStaticField(bootstrapField);
+
+            classDefinition.declareMethod(new CompilerContext(null),
+                    a(PUBLIC, STATIC),
+                    "bootstrap",
+                    type(CallSite.class),
+                    arg("lookup", Lookup.class),
+                    arg("name", String.class),
+                    arg("type", MethodType.class))
+                    .getBody()
+                    .getStaticField(bootstrapField)
+                    .invokeVirtual(AtomicReference.class, "get", Object.class)
+                    .checkCast(FunctionBootstrap.class)
+                    .loadVariable("name")
+                    .loadVariable("type")
+                    .invokeVirtual(FunctionBootstrap.class, "bootstrap", CallSite.class, String.class, MethodType.class)
+                    .retObject();
+
+            Class<?> bootstrapClass = defineClasses(ImmutableList.of(classDefinition)).values().iterator().next();
+
+            AtomicReference<FunctionBootstrap> bootstrapReference = (AtomicReference<FunctionBootstrap>) bootstrapClass.getField("BOOTSTRAP").get(null);
+            bootstrapReference.set(functionBootstrap);
+
+            bootstrapMethod = bootstrapClass.getMethod("bootstrap", Lookup.class, String.class, MethodType.class);
+        }
+        catch (Exception e) {
+            throw Throwables.propagate(e);
+        }
     }
 
     public Function<Operator, Operator> compileFilterAndProjectOperator(Expression filter, List<Expression> projections, Map<Input, Type> inputTypes)
@@ -192,13 +242,16 @@ public class ExpressionCompiler
 
     private TypedPageIteratorClass compileFilterAndProjectIterator(Expression filter, List<Expression> projections, Map<Input, Type> inputTypes)
     {
-        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(),
+        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(bootstrapMethod),
                 a(PUBLIC, FINAL),
                 typeFromPathName("FilterAndProjectIterator_" + CLASS_ID.incrementAndGet()),
                 type(AbstractFilterAndProjectIterator.class));
 
         // constructor
-        classDefinition.declareConstructor(new CompilerContext(), a(PUBLIC), arg("tupleInfos", type(Iterable.class, TupleInfo.class)), arg("pageIterator", PageIterator.class))
+        classDefinition.declareConstructor(new CompilerContext(bootstrapMethod),
+                a(PUBLIC),
+                arg("tupleInfos", type(Iterable.class, TupleInfo.class)),
+                arg("pageIterator", PageIterator.class))
                 .getBody()
                 .loadThis()
                 .loadVariable("tupleInfos")
@@ -240,7 +293,7 @@ public class ExpressionCompiler
             List<Expression> projections,
             Map<Input, Type> inputTypes)
     {
-        MethodDefinition filterAndProjectMethod = classDefinition.declareMethod(new CompilerContext(),
+        MethodDefinition filterAndProjectMethod = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
                 a(PUBLIC),
                 "filterAndProjectRowOriented",
                 type(void.class),
@@ -362,7 +415,7 @@ public class ExpressionCompiler
             throw new IllegalArgumentException(e);
         }
 
-        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(),
+        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(bootstrapMethod),
                 a(PUBLIC, FINAL),
                 typeFromPathName("FilterAndProjectOperatorFactory_" + CLASS_ID.incrementAndGet()),
                 type(Object.class),
@@ -371,7 +424,7 @@ public class ExpressionCompiler
         FieldDefinition tupleInfoField = classDefinition.declareField(a(PRIVATE, FINAL), "tupleInfo", type(List.class, TupleInfo.class));
 
         // constructor
-        classDefinition.declareConstructor(new CompilerContext(), a(PUBLIC), arg("tupleInfos", type(List.class, TupleInfo.class)))
+        classDefinition.declareConstructor(new CompilerContext(bootstrapMethod), a(PUBLIC), arg("tupleInfos", type(List.class, TupleInfo.class)))
                 .getBody()
                 .loadThis()
                 .invokeConstructor(Object.class)
@@ -381,7 +434,7 @@ public class ExpressionCompiler
                 .ret();
 
         // apply method
-        MethodDefinition applyMethod = classDefinition.declareMethod(new CompilerContext(),
+        MethodDefinition applyMethod = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
                 a(PUBLIC),
                 "apply",
                 type(Object.class),
@@ -411,13 +464,13 @@ public class ExpressionCompiler
 
     private Class<? extends Operator> compileOperatorClass(Class<? extends PageIterator> iteratorClass)
     {
-        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(),
+        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(bootstrapMethod),
                 a(PUBLIC, FINAL),
                 typeFromPathName("FilterAndProjectOperator_" + CLASS_ID.incrementAndGet()),
                 type(AbstractFilterAndProjectOperator.class));
 
         // constructor
-        classDefinition.declareConstructor(new CompilerContext(), a(PUBLIC), arg("tupleInfos", type(List.class, TupleInfo.class)), arg("source", Operator.class))
+        classDefinition.declareConstructor(new CompilerContext(bootstrapMethod), a(PUBLIC), arg("tupleInfos", type(List.class, TupleInfo.class)), arg("source", Operator.class))
                 .getBody()
                 .loadThis()
                 .loadVariable("tupleInfos")
@@ -425,7 +478,7 @@ public class ExpressionCompiler
                 .invokeConstructor(AbstractFilterAndProjectOperator.class, List.class, Operator.class)
                 .ret();
 
-        MethodDefinition iteratorMethod = classDefinition.declareMethod(new CompilerContext(),
+        MethodDefinition iteratorMethod = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
                 a(PUBLIC),
                 "iterator",
                 type(PageIterator.class),
@@ -446,21 +499,21 @@ public class ExpressionCompiler
     @VisibleForTesting
     public FilterFunction internalCompileFilterFunction(Expression expression, Map<Input, Type> inputTypes)
     {
-        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(),
+        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(bootstrapMethod),
                 a(PUBLIC, FINAL),
                 typeFromPathName("FilterFunction_" + CLASS_ID.incrementAndGet()),
                 type(Object.class),
                 type(FilterFunction.class));
 
         // constructor
-        classDefinition.declareConstructor(new CompilerContext(), a(PUBLIC))
+        classDefinition.declareConstructor(new CompilerContext(bootstrapMethod), a(PUBLIC))
                 .getBody()
                 .loadThis()
                 .invokeConstructor(Object.class)
                 .ret();
 
         // filter function
-        MethodDefinition filterMethod = classDefinition.declareMethod(new CompilerContext(),
+        MethodDefinition filterMethod = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
                 a(PUBLIC),
                 "filter",
                 type(boolean.class),
@@ -500,7 +553,7 @@ public class ExpressionCompiler
             Expression filter,
             Map<Input, Type> inputTypes)
     {
-        MethodDefinition filterMethod = classDefinition.declareMethod(new CompilerContext(),
+        MethodDefinition filterMethod = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
                 a(PUBLIC),
                 "filter",
                 type(boolean.class),
@@ -528,21 +581,21 @@ public class ExpressionCompiler
     @VisibleForTesting
     public ProjectionFunction internalCompileProjectionFunction(Expression expression, Map<Input, Type> inputTypes)
     {
-        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(),
+        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(bootstrapMethod),
                 a(PUBLIC, FINAL),
                 typeFromPathName("ProjectionFunction_" + CLASS_ID.incrementAndGet()),
                 type(Object.class),
                 type(ProjectionFunction.class));
 
         // constructor
-        classDefinition.declareConstructor(new CompilerContext(), a(PUBLIC))
+        classDefinition.declareConstructor(new CompilerContext(bootstrapMethod), a(PUBLIC))
                 .getBody()
                 .loadThis()
                 .invokeConstructor(Object.class)
                 .ret();
 
         // void project(TupleReadable[] channels, BlockBuilder output)
-        MethodDefinition projectionMethod = classDefinition.declareMethod(new CompilerContext(),
+        MethodDefinition projectionMethod = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
                 a(PUBLIC),
                 "project",
                 type(void.class),
@@ -573,7 +626,7 @@ public class ExpressionCompiler
 
 
         // TupleInfo getTupleInfo();
-        MethodDefinition getTupleInfoMethod = classDefinition.declareMethod(new CompilerContext(),
+        MethodDefinition getTupleInfoMethod = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
                 a(PUBLIC),
                 "getTupleInfo",
                 type(TupleInfo.class));
@@ -621,7 +674,7 @@ public class ExpressionCompiler
         parameters.addAll(toTupleReaderParameters(inputTypes));
         parameters.add(arg("output", BlockBuilder.class));
 
-        MethodDefinition projectionMethod = classDefinition.declareMethod(new CompilerContext(),
+        MethodDefinition projectionMethod = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
                 a(PUBLIC),
                 methodName,
                 type(void.class),
