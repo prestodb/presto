@@ -336,16 +336,16 @@ public class TestExpressionCompiler
         assertExecute("false and false", FALSE);
 
         assertExecute("true and cast(null as boolean)", null);
-//        assertExecute("false and cast(null as boolean)", FALSE);
+        assertExecute("false and cast(null as boolean)", FALSE);
         assertExecute("cast(null as boolean) and true", null);
-//        assertExecute("cast(null as boolean) and false", FALSE);
+        assertExecute("cast(null as boolean) and false", FALSE);
         assertExecute("cast(null as boolean) and cast(null as boolean)", null);
 
-//        assertExecute("true and null", null);
-//        assertExecute("false and null", FALSE);
-//        assertExecute("null and true", null);
-//        assertExecute("null and false", FALSE);
-//        assertExecute("null and null", null);
+        assertExecute("true and null", null);
+        assertExecute("false and null", FALSE);
+        assertExecute("null and true", null);
+        assertExecute("null and false", FALSE);
+        assertExecute("null and null", null);
     }
 
     @Test
@@ -357,17 +357,17 @@ public class TestExpressionCompiler
         assertExecute("false or true", TRUE);
         assertExecute("false or false", FALSE);
 
-//        assertExecute("true or cast(null as boolean)", TRUE);
+        assertExecute("true or cast(null as boolean)", TRUE);
         assertExecute("false or cast(null as boolean)", null);
-//        assertExecute("cast(null as boolean) or true", TRUE);
+        assertExecute("cast(null as boolean) or true", TRUE);
         assertExecute("cast(null as boolean) or false", null);
         assertExecute("cast(null as boolean) or cast(null as boolean)", null);
 
-//        assertExecute("true or null", TRUE);
-//        assertExecute("false or null", null);
-//        assertExecute("null or true", TRUE);
-//        assertExecute("null or false", null);
-//        assertExecute("null or null", null);
+        assertExecute("true or null", TRUE);
+        assertExecute("false or null", null);
+        assertExecute("null or true", TRUE);
+        assertExecute("null or false", null);
+        assertExecute("null or null", null);
     }
 
     @Test
