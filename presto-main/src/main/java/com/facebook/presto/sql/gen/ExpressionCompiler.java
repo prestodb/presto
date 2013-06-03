@@ -102,6 +102,7 @@ import static com.facebook.presto.byteCode.OpCodes.NOP;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.ParameterizedType.typeFromPathName;
 import static com.facebook.presto.byteCode.control.ForLoop.forLoopBuilder;
+import static com.facebook.presto.byteCode.control.IfStatement.ifStatementBuilder;
 import static com.facebook.presto.byteCode.instruction.Constant.loadBoolean;
 import static com.facebook.presto.byteCode.instruction.Constant.loadDouble;
 import static com.facebook.presto.byteCode.instruction.Constant.loadLong;
@@ -1014,26 +1015,119 @@ public class ExpressionCompiler
         protected TypedByteCodeNode visitLogicalBinaryExpression(LogicalBinaryExpression node, CompilerContext context)
         {
             TypedByteCodeNode left = process(node.getLeft(), context);
+            if (left.type == void.class) {
+                left = coerceToType(context, left, boolean.class);
+            }
             Preconditions.checkState(left.type == boolean.class, "Expected logical binary expression left value to be a boolean but is a %s: %s", left.type.getName(), node);
 
             TypedByteCodeNode right = process(node.getRight(), context);
+            if (right.type == void.class) {
+                right = coerceToType(context, right, boolean.class);
+            }
             Preconditions.checkState(right.type == boolean.class, "Expected logical binary expression right value to be a boolean but is a %s: %s", right.type.getName(), node);
-
-            Block block = new Block(context)
-                    .append(left.node)
-                    .append(right.node);
 
             switch (node.getType()) {
                 case AND: {
-                    block.invokeStatic(Operations.class, "and", boolean.class, boolean.class, boolean.class);
-                    return typedByteCodeNode(block, boolean.class);
+                    return visitAnd(context, left, right);
+
                 }
                 case OR: {
-                    block.invokeStatic(Operations.class, "or", boolean.class, boolean.class, boolean.class);
-                    return typedByteCodeNode(block, boolean.class);
+                    return visitOr(context, left, right);
                 }
             }
             throw new UnsupportedOperationException(String.format("not yet implemented: %s(%s, %s)", node.getType(), left.type, right.type));
+        }
+
+        private TypedByteCodeNode visitAnd(CompilerContext context, TypedByteCodeNode left, TypedByteCodeNode right)
+        {
+            Block block = new Block(context);
+
+            block.append(left.node);
+
+            IfStatementBuilder ifLeftIsNull = ifStatementBuilder(context)
+                    .condition(new Block(context).loadVariable("wasNull"));
+
+            LabelNode end = new LabelNode("end");
+            ifLeftIsNull.ifTrue(new Block(context)
+                    .loadConstant(false)
+                    .storeVariable("wasNull")
+                    .pop()
+                    .loadConstant(true));
+
+            LabelNode leftIsTrue = new LabelNode("leftIsTrue");
+            ifLeftIsNull.ifFalse(new Block(context)
+                    .ifNotZeroGoto(leftIsTrue)
+                    // left is false, so we are done
+                    .loadConstant(false)
+                    .gotoLabel(end)
+                    .visitLabel(leftIsTrue)
+                    .append(loadBoolean(false)));
+
+            block.append(ifLeftIsNull.build());
+
+            // eval right!
+            block.append(right.node);
+
+            IfStatementBuilder ifRightIsNull = ifStatementBuilder(context);
+            ifRightIsNull.condition(new Block(context).loadVariable("wasNull"));
+
+            ifRightIsNull.ifTrue(new Block(context).pop());
+
+            ifRightIsNull.ifFalse(new Block(context).append(new IfStatement(context,
+                    NOP,
+                    new Block(context).storeVariable("wasNull").loadConstant(true),
+                    new Block(context).pop().loadConstant(false))));
+
+            block.append(ifRightIsNull.build())
+                .visitLabel(end);
+
+            return typedByteCodeNode(block, boolean.class);
+        }
+
+        private TypedByteCodeNode visitOr(CompilerContext context, TypedByteCodeNode left, TypedByteCodeNode right)
+        {
+            Block block = new Block(context);
+
+            block.append(left.node);
+
+            IfStatementBuilder ifLeftIsNull = ifStatementBuilder(context)
+                    .condition(new Block(context).loadVariable("wasNull"));
+
+            LabelNode end = new LabelNode("end");
+            ifLeftIsNull.ifTrue(new Block(context)
+                    .loadConstant(false)
+                    .storeVariable("wasNull")
+                    .pop()
+                    .loadConstant(true));
+
+            LabelNode leftIsFalse = new LabelNode("leftIsFalse");
+            ifLeftIsNull.ifFalse(new Block(context)
+                    .ifZeroGoto(leftIsFalse)
+                            // left is true, so we are done
+                    .loadConstant(true)
+                    .gotoLabel(end)
+                    .visitLabel(leftIsFalse)
+                    .append(loadBoolean(false)));
+
+            block.append(ifLeftIsNull.build());
+
+            // eval right!
+            block.append(right.node);
+
+            IfStatementBuilder ifRightIsNull = ifStatementBuilder(context);
+            ifRightIsNull.condition(new Block(context).loadVariable("wasNull"));
+
+            ifRightIsNull.ifTrue(new Block(context).pop());
+
+            ifRightIsNull.ifFalse(new Block(context).append(new IfStatement(context,
+                    NOP,
+                    new Block(context).pop().loadConstant(true),
+                    new Block(context).storeVariable("wasNull").loadConstant(false))));
+
+            block.append(ifRightIsNull.build())
+                .visitLabel(end);
+
+            return typedByteCodeNode(block, boolean.class);
         }
 
         @Override
