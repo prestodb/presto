@@ -41,6 +41,7 @@ import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.Input;
@@ -54,6 +55,7 @@ import com.facebook.presto.sql.tree.NegativeExpression;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
@@ -937,6 +939,24 @@ public class ExpressionCompiler
             }
 
             FunctionBinding functionBinding = bootstrapFunctionBinder.bindFunction(node.getName(), arguments);
+            return visitFunctionBinding(context, functionBinding);
+        }
+
+        @Override
+        protected TypedByteCodeNode visitExtract(Extract node, CompilerContext context)
+        {
+            TypedByteCodeNode expression = process(node.getExpression(), context);
+            if (expression.type == void.class) {
+                return expression;
+            }
+
+            if (node.getField() == Extract.Field.TIMEZONE_HOUR || node.getField() == Extract.Field.TIMEZONE_MINUTE) {
+                // TODO: we assume all times are UTC for now
+                return new TypedByteCodeNode(new Block(context).append(expression.node).pop(long.class).loadConstant(0L), long.class);
+            }
+
+            QualifiedName functionName = QualifiedName.of(node.getField().name().toLowerCase());
+            FunctionBinding functionBinding = bootstrapFunctionBinder.bindFunction(functionName, ImmutableList.of(expression));
             return visitFunctionBinding(context, functionBinding);
         }
 

@@ -7,11 +7,13 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.operator.scalar.StringFunctions;
+import com.facebook.presto.operator.scalar.UnixTimeFunctions;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.LikeUtils;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolToInputRewriter;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Extract.Field;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.sql.tree.TreeRewriter;
 import com.facebook.presto.tuple.TupleReadable;
@@ -536,6 +538,60 @@ public class TestExpressionCompiler
                     }
                     assertExecute(generateExpression("substr(%s, %s, %s)", value, start, length), expected);
                 }
+            }
+        }
+    }
+
+    @Test
+    public void tesExtract()
+            throws Exception
+    {
+        for (Long left : longLefts) {
+            for (Field field : Field.values()) {
+                Long expected = null;
+                if (left != null) {
+                    switch (field) {
+                        case CENTURY:
+                            expected = UnixTimeFunctions.century(left);
+                            break;
+                        case YEAR:
+                            expected = UnixTimeFunctions.year(left);
+                            break;
+                        case QUARTER:
+                            expected = UnixTimeFunctions.quarter(left);
+                            break;
+                        case MONTH:
+                            expected = UnixTimeFunctions.month(left);
+                            break;
+                        case WEEK:
+                            expected = UnixTimeFunctions.week(left);
+                            break;
+                        case DAY:
+                            expected = UnixTimeFunctions.day(left);
+                            break;
+                        case DOW:
+                            expected = UnixTimeFunctions.dayOfWeek(left);
+                            break;
+                        case DOY:
+                            expected = UnixTimeFunctions.dayOfYear(left);
+                            break;
+                        case HOUR:
+                            expected = UnixTimeFunctions.hour(left);
+                            break;
+                        case MINUTE:
+                            expected = UnixTimeFunctions.minute(left);
+                            break;
+                        case SECOND:
+                            expected = UnixTimeFunctions.second(left);
+                            break;
+                        case TIMEZONE_HOUR:
+                        case TIMEZONE_MINUTE:
+                            // TODO: we assume all times are UTC for now
+                            expected = 0L;
+                            break;
+                    }
+                }
+                assertExecute(generateExpression("extract(" + field.toString() + " from %s)", left), expected);
             }
         }
     }
