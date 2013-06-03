@@ -954,7 +954,7 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT NULLIF(1, orderkey), count(*) FROM orders GROUP BY orderkey");
     }
 
-    @Test(enabled =  false)
+    @Test
     public void testGroupByExtract()
             throws Exception
     {
