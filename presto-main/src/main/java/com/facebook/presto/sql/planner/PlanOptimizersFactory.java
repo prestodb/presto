@@ -5,7 +5,7 @@ import com.facebook.presto.metadata.AliasDao;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.ShardManager;
-import com.facebook.presto.sql.planner.optimizations.CoalesceLimits;
+import com.facebook.presto.sql.planner.optimizations.LimitPushDown;
 import com.facebook.presto.sql.planner.optimizations.MergeProjections;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PruneRedundantProjections;
@@ -22,7 +22,8 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class PlanOptimizersFactory implements Provider<List<PlanOptimizer>>
+public class PlanOptimizersFactory
+        implements Provider<List<PlanOptimizer>>
 {
     private final Metadata metadata;
 
@@ -39,9 +40,10 @@ public class PlanOptimizersFactory implements Provider<List<PlanOptimizer>>
                 new PruneUnreferencedOutputs(),
                 new UnaliasSymbolReferences(),
                 new PruneRedundantProjections(),
-                new CoalesceLimits(),
                 new MergeProjections(),
-                new SetFlatteningOptimizer());
+                new SetFlatteningOptimizer(),
+                new LimitPushDown()); // Run the LimitPushDown after flattening set operators to make it easier to do the set flattening
+        // TODO: figure out how to improve the set flattening optimizer so that it can run at any point
 
         this.optimizers = builder.build();
     }
