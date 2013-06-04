@@ -22,6 +22,8 @@ import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.ForLoop.ForLoopBuilder;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.byteCode.control.IfStatement.IfStatementBuilder;
+import com.facebook.presto.byteCode.control.LookupSwitch.LookupSwitchBuilder;
+import com.facebook.presto.byteCode.instruction.Constant;
 import com.facebook.presto.byteCode.instruction.LabelNode;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.AbstractFilterAndProjectOperator;
@@ -44,6 +46,8 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.IfExpression;
+import com.facebook.presto.sql.tree.InListExpression;
+import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.sql.tree.InputReference;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
@@ -72,6 +76,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -90,9 +95,11 @@ import java.lang.invoke.MethodType;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -110,6 +117,7 @@ import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.ParameterizedType.typeFromPathName;
 import static com.facebook.presto.byteCode.control.ForLoop.forLoopBuilder;
 import static com.facebook.presto.byteCode.control.IfStatement.ifStatementBuilder;
+import static com.facebook.presto.byteCode.control.LookupSwitch.lookupSwitchBuilder;
 import static com.facebook.presto.byteCode.instruction.Constant.loadBoolean;
 import static com.facebook.presto.byteCode.instruction.Constant.loadDouble;
 import static com.facebook.presto.byteCode.instruction.Constant.loadLong;
@@ -1170,7 +1178,7 @@ public class ExpressionCompiler
             LabelNode leftIsTrue = new LabelNode("leftIsTrue");
             ifLeftIsNull.ifFalse(new Block(context)
                     .ifNotZeroGoto(leftIsTrue)
-                    // left is false, so we are done
+                            // left is false, so we are done
                     .loadConstant(false)
                     .gotoLabel(end)
                     .visitLabel(leftIsTrue)
@@ -1192,7 +1200,7 @@ public class ExpressionCompiler
                     new Block(context).pop().loadConstant(false))));
 
             block.append(ifRightIsNull.build())
-                .visitLabel(end);
+                    .visitLabel(end);
 
             return typedByteCodeNode(block, boolean.class);
         }
@@ -1238,7 +1246,7 @@ public class ExpressionCompiler
                     new Block(context).storeVariable("wasNull").loadConstant(false))));
 
             block.append(ifRightIsNull.build())
-                .visitLabel(end);
+                    .visitLabel(end);
 
             return typedByteCodeNode(block, boolean.class);
         }
@@ -1585,6 +1593,172 @@ public class ExpressionCompiler
             }
 
             return typedByteCodeNode(nullValue.node, type);
+        }
+
+        @Override
+        protected TypedByteCodeNode visitInPredicate(InPredicate node, CompilerContext context)
+        {
+            Expression valueListExpression = node.getValueList();
+            if (!(valueListExpression instanceof InListExpression)) {
+                throw new UnsupportedOperationException("Compilation of IN subquery is not supported yet");
+            }
+
+            TypedByteCodeNode value = process(node.getValue(), context);
+            if (value.type == void.class) {
+                return value;
+            }
+
+            ImmutableList.Builder<TypedByteCodeNode> values = ImmutableList.builder();
+            InListExpression valueList = (InListExpression) valueListExpression;
+            for (Expression test : valueList.getValues()) {
+                TypedByteCodeNode testNode = process(test, context);
+                values.add(testNode);
+            }
+
+            Class<?> type = getType(ImmutableList.<TypedByteCodeNode>builder()
+                    .add(value)
+                    .addAll(values.build()).build());
+
+            ImmutableListMultimap.Builder<Integer, TypedByteCodeNode> hashBuckets = ImmutableListMultimap.builder();
+            ImmutableList.Builder<TypedByteCodeNode> defaultBucket = ImmutableList.builder();
+            for (TypedByteCodeNode testNode : values.build()) {
+                if (testNode.node instanceof Constant) {
+                    Constant constant = (Constant) testNode.node;
+                    Object testValue = constant.getValue();
+                    int hashCode;
+                    if (type == boolean.class) {
+                        // boolean constant is actually and integer type
+                        hashCode = Operations.hashCode(testValue != 0);
+                    }
+                    else if (type == long.class) {
+                        hashCode = Operations.hashCode((long) testValue);
+                    }
+                    else if (type == double.class) {
+                        hashCode = Operations.hashCode(((Number) testValue).doubleValue());
+                    }
+                    else if (type == Slice.class) {
+                        hashCode = Operations.hashCode((Slice) testValue);
+                    } else {
+                        // SQL nulls are not currently encoded as constants, if they are one day, this code will need to be modified
+                        throw new IllegalStateException("Error processing in statement: unsupported type " + testValue.getClass().getSimpleName());
+                    }
+
+                    hashBuckets.put(hashCode, coerceToType(context, testNode, type));
+                }
+                else {
+                    defaultBucket.add(coerceToType(context, testNode, type));
+                }
+            }
+
+            LabelNode end = new LabelNode("end");
+            LabelNode match = new LabelNode("match");
+            LabelNode noMatch = new LabelNode("noMatch");
+
+            LabelNode defaultLabel = new LabelNode("default");
+
+            Block switchCaseBlocks = new Block(context);
+            LookupSwitchBuilder switchBuilder = lookupSwitchBuilder();
+            for (Entry<Integer, Collection<TypedByteCodeNode>> bucket : hashBuckets.build().asMap().entrySet()) {
+                LabelNode label = new LabelNode("inHash" + bucket.getKey());
+                switchBuilder.addCase(bucket.getKey(), label);
+                Collection<TypedByteCodeNode> testValues = bucket.getValue();
+
+                Block caseBlock = buildCase(context, type, label, match, defaultLabel, testValues, false);
+                switchCaseBlocks.append(caseBlock.setDescription("case " + bucket.getKey()));
+            }
+
+            switchBuilder.defaultCase(defaultLabel);
+            Block caseBlock = buildCase(context, type, defaultLabel, match, noMatch, defaultBucket.build(), true);
+            switchCaseBlocks.append(caseBlock.setDescription("default"));
+
+            Block block = new Block(context)
+                    .append(coerceToType(context, value, type).node)
+                    .append(ifWasNullPopAndGoto(context, end, boolean.class, type))
+                    .dup(type)
+                    .invokeStatic(Operations.class, "hashCode", int.class, type)
+                    .append(switchBuilder.build())
+                    .append(switchCaseBlocks);
+
+            Block matchBlock = new Block(context)
+                    .setDescription("match")
+                    .visitLabel(match)
+                    .pop(type)
+                    .loadConstant(false)
+                    .storeVariable("wasNull")
+                    .loadConstant(true)
+                    .gotoLabel(end);
+            block.append(matchBlock);
+
+            Block noMatchBlock = new Block(context)
+                    .setDescription("noMatch")
+                    .visitLabel(noMatch)
+                    .pop(type)
+                    .loadConstant(false)
+                    .gotoLabel(end);
+            block.append(noMatchBlock);
+
+            block.visitLabel(end);
+
+            return typedByteCodeNode(block, boolean.class);
+        }
+
+        private Block buildCase(CompilerContext context,
+                Class<?> type,
+                LabelNode caseLabel,
+                LabelNode matchLabel,
+                LabelNode noMatchLabel,
+                Collection<TypedByteCodeNode> testValues, boolean checkForNulls)
+        {
+            Variable caseWasNull = null;
+            if (checkForNulls) {
+                caseWasNull = context.createTempVariable(boolean.class);
+            }
+
+            Block caseBlock = new Block(context)
+                    .visitLabel(caseLabel);
+
+            if (checkForNulls) {
+                caseBlock.loadConstant(false)
+                        .storeVariable(caseWasNull.getLocalVariableDefinition());
+            }
+
+            LabelNode elseLabel = new LabelNode("else");
+            Block elseBlock = new Block(context)
+                    .visitLabel(elseLabel);
+
+            if (checkForNulls) {
+                elseBlock.loadVariable(caseWasNull.getLocalVariableDefinition())
+                        .storeVariable("wasNull");
+            }
+
+            elseBlock.gotoLabel(noMatchLabel);
+
+            ByteCodeNode elseNode = elseBlock;
+            for (TypedByteCodeNode testNode : testValues) {
+                LabelNode testLabel = new LabelNode("test");
+                IfStatementBuilder test = ifStatementBuilder(context);
+
+                Block condition = new Block(context)
+                        .visitLabel(testLabel)
+                        .dup(type)
+                        .append(coerceToType(context, testNode, type).node);
+
+                if (checkForNulls) {
+                    condition.loadVariable("wasNull")
+                            .storeVariable(caseWasNull.getLocalVariableDefinition())
+                            .append(ifWasNullPopAndGoto(context, elseLabel, void.class, type, type));
+                }
+                condition.invokeStatic(Operations.class, "equal", boolean.class, type, type);
+                test.condition(condition);
+
+                test.ifTrue(new Block(context).gotoLabel(matchLabel));
+                test.ifFalse(elseNode);
+
+                elseNode = test.build();
+                elseLabel = testLabel;
+            }
+            caseBlock.append(elseNode);
+            return caseBlock;
         }
 
         @Override

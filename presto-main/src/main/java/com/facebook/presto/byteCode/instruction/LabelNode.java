@@ -16,20 +16,20 @@ public class LabelNode implements InstructionNode
 
     public LabelNode()
     {
-        this.name = "label@" + System.identityHashCode(this);
-        label = new Label();
+        this.label = new Label();
+        this.name = "label@" + label.hashCode();
     }
 
     public LabelNode(com.facebook.presto.byteCode.instruction.LabelNode labelNode)
     {
-        this.name = "label@" + System.identityHashCode(this);
-        label = labelNode.getLabel();
+        this.label = labelNode.getLabel();
+        this.name = "label@" + label.hashCode();
     }
 
     public LabelNode(String name)
     {
-        this.name = name + "@" + System.identityHashCode(this);
-        label = new Label();
+        this.label = new Label();
+        this.name = name + "@" + label.hashCode();
     }
 
     public String getName()

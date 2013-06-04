@@ -1,5 +1,6 @@
 package com.facebook.presto.byteCode;
 
+import com.facebook.presto.byteCode.control.CaseStatement;
 import com.facebook.presto.byteCode.instruction.VariableInstruction.IncrementVariableInstruction;
 import com.google.common.base.Joiner;
 import com.facebook.presto.byteCode.control.DoWhileLoop;
@@ -291,7 +292,15 @@ public class DumpByteCodeVisitor extends ByteCodeVisitor<Void>
     @Override
     public Void visitLookupSwitch(ByteCodeNode parent, LookupSwitch lookupSwitch)
     {
-        return super.visitLookupSwitch(parent, lookupSwitch);
+        printLine("switch {");
+        indentLevel++;
+        for (CaseStatement caseStatement : lookupSwitch.getCases()) {
+            printLine("case %s: goto %s", caseStatement.getKey(), caseStatement.getLabel().getName());
+        }
+        printLine("default: goto %s", lookupSwitch.getDefaultCase().getName());
+        indentLevel--;
+        printLine("}");
+        return null;
     }
 
     //

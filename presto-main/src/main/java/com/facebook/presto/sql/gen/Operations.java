@@ -4,6 +4,9 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.operator.scalar.MathFunctions;
+import com.google.common.primitives.Booleans;
+import com.google.common.primitives.Doubles;
+import com.google.common.primitives.Longs;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
@@ -39,6 +42,11 @@ public final class Operations
         return left == right;
     }
 
+    public static int hashCode(boolean value)
+    {
+        return Booleans.hashCode(value);
+    }
+
     public static boolean notEqual(boolean left, boolean right)
     {
         return left != right;
@@ -47,6 +55,11 @@ public final class Operations
     public static boolean equal(long left, long right)
     {
         return left == right;
+    }
+
+    public static int hashCode(long value)
+    {
+        return Longs.hashCode(value);
     }
 
     public static long add(long left, long right)
@@ -149,6 +162,11 @@ public final class Operations
         return left == right;
     }
 
+    public static int hashCode(double value)
+    {
+        return Doubles.hashCode(value);
+    }
+
     public static boolean notEqual(double left, double right)
     {
         return left != right;
@@ -182,6 +200,11 @@ public final class Operations
     public static boolean equal(Slice left, Slice right)
     {
         return left.equals(right);
+    }
+
+    public static int hashCode(Slice value)
+    {
+        return value.hashCode();
     }
 
     public static boolean notEqual(Slice left, Slice right)
