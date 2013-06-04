@@ -225,9 +225,10 @@ public class PlanSanityChecker
         @Override
         public Void visitUnion(UnionNode node, Void context)
         {
-            for (PlanNode planNode : node.getSources()) {
-                Preconditions.checkArgument(planNode.getOutputSymbols().size() == node.getOutputSymbols().size(), "Each UNION query must have the same number of columns");
-                planNode.accept(this, context); // visit child
+            for (int i = 0; i < node.getSources().size(); i++) {
+                PlanNode subplan = node.getSources().get(i);
+                Preconditions.checkArgument(subplan.getOutputSymbols().containsAll(node.sourceOutputLayout(i)), "UNION subplan must provide all of the necessary symbols");
+                subplan.accept(this, context); // visit child
             }
 
             verifyUniqueId(node);

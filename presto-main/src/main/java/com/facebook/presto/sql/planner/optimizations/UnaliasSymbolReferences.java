@@ -1,11 +1,11 @@
 package com.facebook.presto.sql.planner.optimizations;
 
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.metadata.FunctionHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -30,11 +30,14 @@ import com.facebook.presto.sql.tree.TreeRewriter;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -233,7 +236,8 @@ public class UnaliasSymbolReferences
             for (PlanNode source : node.getSources()) {
                 rewrittenSources.add(planRewriter.rewrite(source, context));
             }
-            return new UnionNode(node.getId(), rewrittenSources.build(), canonicalize(node.getOutputSymbols()));
+
+            return new UnionNode(node.getId(), rewrittenSources.build(), canonicalizeUnionSymbolMap(node.getSymbolMapping()));
         }
 
         private void map(Symbol symbol, Symbol canonical)
@@ -276,6 +280,15 @@ public class UnaliasSymbolReferences
                 builder.add(new JoinNode.EquiJoinClause(canonicalize(clause.getLeft()), canonicalize(clause.getRight())));
             }
 
+            return builder.build();
+        }
+
+        private ListMultimap<Symbol, Symbol> canonicalizeUnionSymbolMap(ListMultimap<Symbol, Symbol> unionSymbolMap)
+        {
+            ImmutableListMultimap.Builder<Symbol, Symbol> builder = ImmutableListMultimap.builder();
+            for (Map.Entry<Symbol, Collection<Symbol>> entry : unionSymbolMap.asMap().entrySet()) {
+                builder.putAll(canonicalize(entry.getKey()), Iterables.transform(entry.getValue(), canonicalizeFunction()));
+            }
             return builder.build();
         }
 

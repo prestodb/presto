@@ -10,7 +10,10 @@ import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
 import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.Iterables;
 
+import java.util.Collection;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -43,18 +46,28 @@ public class SetFlatteningOptimizer
         public PlanNode rewriteUnion(UnionNode node, Boolean upstreamDistinct, PlanRewriter<Boolean> planRewriter)
         {
             ImmutableList.Builder<PlanNode> flattenedSources = ImmutableList.builder();
-            for (PlanNode source : node.getSources()) {
-                PlanNode rewrittenSource = planRewriter.rewrite(source, upstreamDistinct);
+            ImmutableListMultimap.Builder<Symbol, Symbol> flattenedSymbolMap = ImmutableListMultimap.builder();
+            for (int i = 0; i < node.getSources().size(); i++) {
+                PlanNode subplan = node.getSources().get(i);
+                PlanNode rewrittenSource = planRewriter.rewrite(subplan, upstreamDistinct);
 
                 if (rewrittenSource instanceof UnionNode) {
                     // Absorb source's subplans if it is also a UnionNode
-                    flattenedSources.addAll(rewrittenSource.getSources());
+                    UnionNode rewrittenUnion = (UnionNode) rewrittenSource;
+                    flattenedSources.addAll(rewrittenUnion.getSources());
+                    for (Map.Entry<Symbol, Collection<Symbol>> entry : node.getSymbolMapping().asMap().entrySet()) {
+                        Symbol inputSymbol = Iterables.get(entry.getValue(), i);
+                        flattenedSymbolMap.putAll(entry.getKey(), rewrittenUnion.getSymbolMapping().get(inputSymbol));
+                    }
                 }
                 else {
                     flattenedSources.add(rewrittenSource);
+                    for (Map.Entry<Symbol, Collection<Symbol>> entry : node.getSymbolMapping().asMap().entrySet()) {
+                        flattenedSymbolMap.put(entry.getKey(), Iterables.get(entry.getValue(), i));
+                    }
                 }
             }
-            return new UnionNode(node.getId(), flattenedSources.build(), node.getOutputSymbols());
+            return new UnionNode(node.getId(), flattenedSources.build(), flattenedSymbolMap.build());
         }
 
         @Override
@@ -65,6 +78,7 @@ public class SetFlatteningOptimizer
             PlanNode rewrittenNode = planRewriter.rewrite(node.getSource(), distinct);
 
             if (upstreamDistinct && distinct) {
+                // Assumes underlying node has same output symbols as this distinct node
                 return rewrittenNode;
             }
 
