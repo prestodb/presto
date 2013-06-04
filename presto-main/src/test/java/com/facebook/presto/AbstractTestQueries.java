@@ -1308,7 +1308,7 @@ public abstract class AbstractTestQueries
                 "SELECT sum(CASE WHEN NULLIF(orderstatus, 'F') <> 'F' THEN totalprice ELSE 5.1 END) FROM orders");
     }
 
-    @Test(enabled =  false)
+    @Test
     public void testIn()
             throws Exception
     {

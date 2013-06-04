@@ -1,14 +1,16 @@
 package com.facebook.presto.byteCode.control;
 
-import com.google.common.collect.ImmutableList;
-import org.objectweb.asm.Label;
-import org.objectweb.asm.MethodVisitor;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ByteCodeVisitor;
 import com.facebook.presto.byteCode.instruction.LabelNode;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSortedSet;
+import org.objectweb.asm.Label;
+import org.objectweb.asm.MethodVisitor;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.SortedSet;
 
 public class LookupSwitch implements FlowControl
 {
@@ -47,12 +49,22 @@ public class LookupSwitch implements FlowControl
     }
 
     private final LabelNode defaultCase;
-    private final List<CaseStatement> cases;
+    private final SortedSet<CaseStatement> cases;
 
     private LookupSwitch(LabelNode defaultCase, Iterable<CaseStatement> cases)
     {
         this.defaultCase = defaultCase;
-        this.cases = ImmutableList.copyOf(cases);
+        this.cases = ImmutableSortedSet.copyOf(cases);
+    }
+
+    public SortedSet<CaseStatement> getCases()
+    {
+        return cases;
+    }
+
+    public LabelNode getDefaultCase()
+    {
+        return defaultCase;
     }
 
     @Override
@@ -60,9 +72,12 @@ public class LookupSwitch implements FlowControl
     {
         int[] keys = new int[cases.size()];
         Label[] labels = new Label[cases.size()];
-        for (int i = 0; i < cases.size(); i++) {
-            keys[i] = cases.get(i).getKey();
-            labels[i] = cases.get(i).getLabel().getLabel();
+
+        int index = 0;
+        for (CaseStatement caseStatement : cases) {
+            keys[index] = caseStatement.getKey();
+            labels[index] = caseStatement.getLabel().getLabel();
+            index++;
         }
         visitor.visitLookupSwitchInsn(defaultCase.getLabel(), keys, labels);
     }

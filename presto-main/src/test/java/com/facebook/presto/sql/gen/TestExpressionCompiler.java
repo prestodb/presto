@@ -37,6 +37,7 @@ import java.util.Set;
 import static com.facebook.presto.sql.parser.SqlParser.createExpression;
 import static com.facebook.presto.tuple.Tuples.createTuple;
 import static com.google.common.base.Charsets.UTF_8;
+import static java.lang.Math.cos;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -495,6 +496,63 @@ public class TestExpressionCompiler
                     assertExecute(expressions, expected);
                 }
             }
+        }
+    }
+
+    @Test
+    public void testIn()
+            throws Exception
+    {
+        for (Boolean value : booleanValues) {
+            assertExecute(generateExpression("%s in (true)", value), value == null ? null : value == Boolean.TRUE);
+            assertExecute(generateExpression("%s in (null, true)", value), value == null ? null : value == Boolean.TRUE ? true : null);
+            assertExecute(generateExpression("%s in (false)", value), value == null ? null : value == Boolean.FALSE);
+            assertExecute(generateExpression("%s in (null, false)", value), value == null ? null : value == Boolean.FALSE ? true : null);
+            assertExecute(generateExpression("%s in (null)", value), null);
+        }
+
+        for (Long value : longLefts) {
+            List<Long> testValues = Arrays.asList(33L, 9L, -9L, -33L);
+            assertExecute(generateExpression("%s in (33, 9, -9, -33)", value),
+                    value == null ? null : testValues.contains(value));
+            assertExecute(generateExpression("%s in (null, 33, 9, -9, -33)", value),
+                    value == null ? null : testValues.contains(value) ? true : null);
+
+            // compare a long to in containing doubles
+            assertExecute(generateExpression("%s in (33, 9.0, -9, -33)", value),
+                    value == null ? null : testValues.contains(value));
+            assertExecute(generateExpression("%s in (null, 33, 9.0, -9, -33)", value),
+                    value == null ? null : testValues.contains(value) ? true : null);
+
+        }
+
+        for (Double value : doubleLefts) {
+            List<Double> testValues = Arrays.asList(33.0, 9.0, -9.0, -33.0);
+            assertExecute(generateExpression("%s in (33.0, 9.0, -9.0, -33.0)", value),
+                    value == null ? null : testValues.contains(value));
+            assertExecute(generateExpression("%s in (null, 33.0, 9.0, -9.0, -33.0)", value),
+                    value == null ? null : testValues.contains(value) ? true : null);
+
+            // compare a double to in containing longs
+            assertExecute(generateExpression("%s in (33.0, 9, -9, -33.0)", value),
+                    value == null ? null : testValues.contains(value));
+            assertExecute(generateExpression("%s in (null, 33.0, 9, -9, -33.0)", value),
+                    value == null ? null : testValues.contains(value) ? true : null);
+
+            // compare to dynamically computed values
+            testValues = Arrays.asList(33.0, cos(9.0), cos(-9.0), -33.0);
+            assertExecute(generateExpression("cos(%s) in (33.0, cos(9.0), cos(-9.0), -33.0)", value),
+                    value == null ? null : testValues.contains(cos(value)));
+            assertExecute(generateExpression("cos(%s) in (null, 33.0, cos(9.0), cos(-9.0), -33.0)", value),
+                    value == null ? null : testValues.contains(cos(value)) ? true : null);
+        }
+
+        for (String value : stringLefts) {
+            List<String> testValues = Arrays.asList("what?", "foo", "mellow", "end");
+            assertExecute(generateExpression("%s in ('what?', 'foo', 'mellow', 'end')", value),
+                    value == null ? null : testValues.contains(value));
+            assertExecute(generateExpression("%s in (null, 'what?', 'foo', 'mellow', 'end')", value),
+                    value == null ? null : testValues.contains(value) ? true : null);
         }
     }
 
