@@ -280,7 +280,13 @@ public class DumpByteCodeVisitor extends ByteCodeVisitor<Void>
     @Override
     public Void visitWhile(ByteCodeNode parent, WhileLoop whileLoop)
     {
-        return super.visitWhile(parent, whileLoop);
+        printLine("while {");
+        indentLevel++;
+        whileLoop.getCondition().accept(whileLoop, this);
+        whileLoop.getBody().accept(whileLoop, this);
+        indentLevel--;
+        printLine("}");
+        return null;
     }
 
     @Override

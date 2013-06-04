@@ -29,8 +29,8 @@ public class WhileLoop implements FlowControl
         private final LabelNode beginLabel = new LabelNode("begin");
         private final LabelNode endLabel = new LabelNode("end");
 
-        private Block condition;
-        private Block body;
+        private ByteCodeNode condition;
+        private ByteCodeNode body;
 
         public WhileLoopBuilder(CompilerContext context)
         {
@@ -38,9 +38,21 @@ public class WhileLoop implements FlowControl
             context.pushIterationScope(beginLabel, endLabel);
         }
 
+        public WhileLoopBuilder condition(ByteCodeNode condition)
+        {
+            this.condition = buildBlock(context, condition, "condition");
+            return this;
+        }
+
         public WhileLoopBuilder condition(ByteCodeNodeFactory condition)
         {
             this.condition = buildBlock(context, condition, BOOLEAN, "condition");
+            return this;
+        }
+
+        public WhileLoopBuilder body(ByteCodeNode body)
+        {
+            this.body = buildBlock(context, body, "body");
             return this;
         }
 
@@ -59,19 +71,29 @@ public class WhileLoop implements FlowControl
     }
 
     private final CompilerContext context;
-    private final Block condition;
-    private final Block body;
+    private final ByteCodeNode condition;
+    private final ByteCodeNode body;
 
     private final LabelNode beginLabel;
     private final LabelNode endLabel;
 
-    private WhileLoop(CompilerContext context, Block condition, Block body, LabelNode beginLabel, LabelNode endLabel)
+    private WhileLoop(CompilerContext context, ByteCodeNode condition, ByteCodeNode body, LabelNode beginLabel, LabelNode endLabel)
     {
         this.context = context;
         this.condition = condition;
         this.body = body;
         this.beginLabel = beginLabel;
         this.endLabel = endLabel;
+    }
+
+    public ByteCodeNode getCondition()
+    {
+        return condition;
+    }
+
+    public ByteCodeNode getBody()
+    {
+        return body;
     }
 
     @Override
@@ -91,7 +113,7 @@ public class WhileLoop implements FlowControl
     @Override
     public List<ByteCodeNode> getChildNodes()
     {
-        return ImmutableList.<ByteCodeNode>of(condition, body);
+        return ImmutableList.of(condition, body);
     }
 
     @Override
