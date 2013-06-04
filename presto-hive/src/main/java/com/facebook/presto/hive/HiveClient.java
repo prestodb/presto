@@ -1,5 +1,6 @@
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hadoop.HadoopNative;
 import com.facebook.presto.hive.util.AsyncRecursiveWalker;
 import com.facebook.presto.hive.util.BoundedExecutor;
 import com.facebook.presto.hive.util.FileStatusCallback;
@@ -110,6 +111,10 @@ import static org.apache.hadoop.hive.metastore.Warehouse.makePartName;
 public class HiveClient
         implements ConnectorMetadata, ConnectorSplitManager, ConnectorRecordSetProvider, ConnectorHandleResolver
 {
+    static {
+        HadoopNative.requireHadoopNative();
+    }
+
     private static final Logger log = Logger.get(HiveClient.class);
 
     private final String connectorId;

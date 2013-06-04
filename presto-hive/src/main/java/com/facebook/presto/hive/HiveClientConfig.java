@@ -38,6 +38,7 @@ public class HiveClientConfig
     private int minGlobalSamples = 100;
     private DataSize minStreamRate = new DataSize(10, Unit.KILOBYTE);
     private int slowStreamPercentile = 5;
+    private String domainSocketPath;
 
     @NotNull
     public DataSize getMaxSplitSize()
@@ -275,6 +276,18 @@ public class HiveClientConfig
     public HiveClientConfig setSlowStreamPercentile(int slowStreamPercentile)
     {
         this.slowStreamPercentile = slowStreamPercentile;
+        return this;
+    }
+
+    public String getDomainSocketPath()
+    {
+        return domainSocketPath;
+    }
+
+    @Config("dfs.domain-socket-path")
+    public HiveClientConfig setDomainSocketPath(String domainSocketPath)
+    {
+        this.domainSocketPath = domainSocketPath;
         return this;
     }
 }
