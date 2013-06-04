@@ -138,7 +138,7 @@ public class ExpressionCompiler
     private final Method bootstrapMethod;
     private final BootstrapFunctionBinder bootstrapFunctionBinder;
 
-    private final LoadingCache<OperatorCacheKey, Function<Operator, Operator>> operatorFactories = CacheBuilder.newBuilder().build(
+    private final LoadingCache<OperatorCacheKey, Function<Operator, Operator>> operatorFactories = CacheBuilder.newBuilder().maximumSize(1000).build(
             new CacheLoader<OperatorCacheKey, Function<Operator, Operator>>()
             {
                 @Override
@@ -149,7 +149,7 @@ public class ExpressionCompiler
                 }
             });
 
-    private final LoadingCache<ExpressionCacheKey, FilterFunction> filters = CacheBuilder.newBuilder().build(new CacheLoader<ExpressionCacheKey, FilterFunction>()
+    private final LoadingCache<ExpressionCacheKey, FilterFunction> filters = CacheBuilder.newBuilder().maximumSize(1000).build(new CacheLoader<ExpressionCacheKey, FilterFunction>()
     {
         @Override
         public FilterFunction load(ExpressionCacheKey key)
@@ -159,7 +159,7 @@ public class ExpressionCompiler
         }
     });
 
-    private final LoadingCache<ExpressionCacheKey, ProjectionFunction> projections = CacheBuilder.newBuilder().build(new CacheLoader<ExpressionCacheKey, ProjectionFunction>()
+    private final LoadingCache<ExpressionCacheKey, ProjectionFunction> projections = CacheBuilder.newBuilder().maximumSize(1000).build(new CacheLoader<ExpressionCacheKey, ProjectionFunction>()
     {
         @Override
         public ProjectionFunction load(ExpressionCacheKey key)
@@ -180,7 +180,7 @@ public class ExpressionCompiler
             ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(null),
                     a(PUBLIC, FINAL),
                     typeFromPathName("Bootstrap" + CLASS_ID.incrementAndGet()),
-                    type(AbstractFilterAndProjectIterator.class));
+                    type(Object.class));
 
             FieldDefinition bootstrapField = classDefinition.declareField(a(PUBLIC, STATIC, FINAL), "BOOTSTRAP", type(AtomicReference.class, BootstrapFunctionBinder.class));
 
@@ -209,7 +209,7 @@ public class ExpressionCompiler
                     .invokeVirtual(BootstrapFunctionBinder.class, "bootstrap", CallSite.class, String.class, MethodType.class, long.class)
                     .retObject();
 
-            Class<?> bootstrapClass = defineClasses(ImmutableList.of(classDefinition)).values().iterator().next();
+            Class<?> bootstrapClass = defineClasses(ImmutableList.of(classDefinition), new DynamicClassLoader()).values().iterator().next();
 
             AtomicReference<BootstrapFunctionBinder> bootstrapReference = (AtomicReference<BootstrapFunctionBinder>) bootstrapClass.getField("BOOTSTRAP").get(null);
             bootstrapReference.set(bootstrapFunctionBinder);
@@ -239,17 +239,27 @@ public class ExpressionCompiler
     @VisibleForTesting
     public Function<Operator, Operator> internalCompileFilterAndProjectOperator(Expression filter, List<Expression> projections, Map<Input, Type> inputTypes)
     {
+        DynamicClassLoader classLoader = createClassLoader();
+
         // create filter and project page iterator class
-        TypedPageIteratorClass typedPageIteratorClass = compileFilterAndProjectIterator(filter, projections, inputTypes);
+        TypedPageIteratorClass typedPageIteratorClass = compileFilterAndProjectIterator(filter, projections, inputTypes, classLoader);
 
         // create and operator for the class
-        Class<? extends Operator> operatorClass = compileOperatorClass(typedPageIteratorClass.getPageIteratorClass());
+        Class<? extends Operator> operatorClass = compileOperatorClass(typedPageIteratorClass.getPageIteratorClass(), classLoader);
 
         // create an factory for the operator
-        return compileOperatorFactoryClass(typedPageIteratorClass.getTupleInfos(), operatorClass);
+        return compileOperatorFactoryClass(typedPageIteratorClass.getTupleInfos(), operatorClass, classLoader);
     }
 
-    private TypedPageIteratorClass compileFilterAndProjectIterator(Expression filter, List<Expression> projections, Map<Input, Type> inputTypes)
+    private DynamicClassLoader createClassLoader()
+    {
+        return new DynamicClassLoader(bootstrapMethod.getDeclaringClass().getClassLoader());
+    }
+
+    private TypedPageIteratorClass compileFilterAndProjectIterator(Expression filter,
+            List<Expression> projections,
+            Map<Input, Type> inputTypes,
+            DynamicClassLoader classLoader)
     {
         ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(bootstrapMethod),
                 a(PUBLIC, FINAL),
@@ -282,7 +292,8 @@ public class ExpressionCompiler
         int projectionIndex = 0;
         for (Expression projection : projections) {
             Class<?> type = generateProjectMethod(classDefinition, "project_" + projectionIndex, projection, inputTypes);
-            if (type == long.class || type == void.class) {
+            // todo remove assumption that void and boolean is a long
+            if (type == long.class || type == void.class || type == boolean.class) {
                 tupleInfos.add(TupleInfo.SINGLE_LONG);
             }
             else if (type == double.class) {
@@ -290,11 +301,13 @@ public class ExpressionCompiler
             }
             else if (type == Slice.class) {
                 tupleInfos.add(TupleInfo.SINGLE_VARBINARY);
+            } else {
+                throw new IllegalStateException("Type " + type.getName() + "can be output");
             }
             projectionIndex++;
         }
 
-        Class<? extends PageIterator> filterAndProjectClass = defineClasses(ImmutableList.of(classDefinition)).values().iterator().next().asSubclass(PageIterator.class);
+        Class<? extends PageIterator> filterAndProjectClass = defineClasses(ImmutableList.of(classDefinition), classLoader).values().iterator().next().asSubclass(PageIterator.class);
         return new TypedPageIteratorClass(filterAndProjectClass, tupleInfos);
     }
 
@@ -414,7 +427,7 @@ public class ExpressionCompiler
         filterAndProjectMethod.getBody().ret();
     }
 
-    private Function<Operator, Operator> compileOperatorFactoryClass(final List<TupleInfo> tupleInfos, final Class<? extends Operator> operatorClass)
+    private Function<Operator, Operator> compileOperatorFactoryClass(List<TupleInfo> tupleInfos, Class<? extends Operator> operatorClass, DynamicClassLoader classLoader)
     {
         Constructor<? extends Operator> constructor;
         try {
@@ -458,8 +471,8 @@ public class ExpressionCompiler
                 .invokeConstructor(constructor)
                 .retObject();
 
-        Class<? extends Function<Operator, Operator>> factoryClass =
-                (Class<? extends Function<Operator, Operator>>) defineClasses(ImmutableList.of(classDefinition)).values().iterator().next().asSubclass(Function.class);
+        Class<? extends Function<Operator, Operator>> factoryClass = (Class<? extends Function<Operator, Operator>>)
+                defineClasses(ImmutableList.of(classDefinition), classLoader).values().iterator().next().asSubclass(Function.class);
 
         try {
             Constructor<? extends Function<Operator, Operator>> factoryConstructor = factoryClass.getConstructor(List.class);
@@ -471,7 +484,7 @@ public class ExpressionCompiler
         }
     }
 
-    private Class<? extends Operator> compileOperatorClass(Class<? extends PageIterator> iteratorClass)
+    private Class<? extends Operator> compileOperatorClass(Class<? extends PageIterator> iteratorClass, DynamicClassLoader classLoader)
     {
         ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(bootstrapMethod),
                 a(PUBLIC, FINAL),
@@ -502,7 +515,7 @@ public class ExpressionCompiler
                 .invokeConstructor(iteratorClass, Iterable.class, PageIterator.class)
                 .retObject();
 
-        return defineClasses(ImmutableList.of(classDefinition)).values().iterator().next().asSubclass(Operator.class);
+        return defineClasses(ImmutableList.of(classDefinition), classLoader).values().iterator().next().asSubclass(Operator.class);
     }
 
     @VisibleForTesting
@@ -546,7 +559,7 @@ public class ExpressionCompiler
         generateFilterMethod(classDefinition, expression, inputTypes);
 
         // define the class
-        Class<? extends FilterFunction> filterClass = defineClasses(ImmutableList.of(classDefinition)).values().iterator().next().asSubclass(FilterFunction.class);
+        Class<? extends FilterFunction> filterClass = defineClasses(ImmutableList.of(classDefinition), createClassLoader()).values().iterator().next().asSubclass(FilterFunction.class);
 
         // create instance
         try {
@@ -563,10 +576,10 @@ public class ExpressionCompiler
             Map<Input, Type> inputTypes)
     {
         MethodDefinition filterMethod = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
-                a(PUBLIC),
-                "filter",
-                type(boolean.class),
-                toTupleReaderParameters(inputTypes));
+                    a(PUBLIC),
+                    "filter",
+                    type(boolean.class),
+                    toTupleReaderParameters(inputTypes));
 
         filterMethod.getCompilerContext().declareVariable(type(boolean.class), "wasNull");
         TypedByteCodeNode body = new Visitor(bootstrapFunctionBinder, inputTypes).process(filter, filterMethod.getCompilerContext());
@@ -660,9 +673,8 @@ public class ExpressionCompiler
             throw new IllegalStateException("Type " + type.getName() + "can be output");
         }
 
-
         // define the class
-        Class<? extends ProjectionFunction> projectionClass = defineClasses(ImmutableList.of(classDefinition)).values().iterator().next().asSubclass(ProjectionFunction.class);
+        Class<? extends ProjectionFunction> projectionClass = defineClasses(ImmutableList.of(classDefinition), createClassLoader()).values().iterator().next().asSubclass(ProjectionFunction.class);
 
         // create instance
         try {
@@ -679,16 +691,15 @@ public class ExpressionCompiler
             Expression projection,
             Map<Input, Type> inputTypes)
     {
-        ImmutableList.Builder<NamedParameterDefinition> parameters = ImmutableList.builder();
-        parameters.addAll(toTupleReaderParameters(inputTypes));
-        parameters.add(arg("output", BlockBuilder.class));
+            ImmutableList.Builder<NamedParameterDefinition> parameters = ImmutableList.builder();
+            parameters.addAll(toTupleReaderParameters(inputTypes));
+            parameters.add(arg("output", BlockBuilder.class));
 
         MethodDefinition projectionMethod = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
-                a(PUBLIC),
-                methodName,
-                type(void.class),
-                parameters.build());
-
+                    a(PUBLIC),
+                    methodName,
+                    type(void.class),
+                    parameters.build());
 
         // generate body code
         CompilerContext context = projectionMethod.getCompilerContext();
@@ -770,9 +781,7 @@ public class ExpressionCompiler
         return parameters.build();
     }
 
-    private static final DynamicClassLoader classLoader = new DynamicClassLoader();
-
-    private static Map<String, Class<?>> defineClasses(List<ClassDefinition> classDefinitions)
+    private static Map<String, Class<?>> defineClasses(List<ClassDefinition> classDefinitions, DynamicClassLoader classLoader)
     {
         ClassInfoLoader classInfoLoader = ClassInfoLoader.createClassInfoLoader(classDefinitions, classLoader);
 
