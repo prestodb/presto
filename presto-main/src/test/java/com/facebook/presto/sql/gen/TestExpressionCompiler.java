@@ -1,10 +1,12 @@
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.operator.ProjectionFunction;
+import com.facebook.presto.operator.Operator;
+import com.facebook.presto.operator.OperatorStats;
+import com.facebook.presto.operator.Page;
+import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.operator.scalar.StringFunctions;
 import com.facebook.presto.operator.scalar.UnixTimeFunctions;
@@ -12,11 +14,12 @@ import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.LikeUtils;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolToInputRewriter;
+import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Extract.Field;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.sql.tree.TreeRewriter;
-import com.facebook.presto.tuple.TupleReadable;
+import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -34,12 +37,16 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
+import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
+import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
+import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
+import static com.facebook.presto.operator.OperatorAssertions.createOperator;
 import static com.facebook.presto.sql.parser.SqlParser.createExpression;
-import static com.facebook.presto.tuple.Tuples.createTuple;
 import static com.google.common.base.Charsets.UTF_8;
 import static java.lang.Math.cos;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestExpressionCompiler
@@ -881,33 +888,38 @@ public class TestExpressionCompiler
                 new Symbol("bound_pattern"), new Input(4, 0)
         )), parsedExpression);
 
-        ProjectionFunction projectionFunction;
+        Function<Operator,Operator> operatorFactory;
         try {
-            projectionFunction = compiler.compileProjectionFunction(parsedExpression, ImmutableMap.<Input, Type>of(
-                    new Input(0, 0), Type.LONG,
-                    new Input(1, 0), Type.STRING,
-                    new Input(2, 0), Type.DOUBLE,
-                    new Input(3, 0), Type.LONG,
-                    new Input(4, 0), Type.STRING));
+            operatorFactory = compiler.compileFilterAndProjectOperator(BooleanLiteral.TRUE_LITERAL,
+                    ImmutableList.of(parsedExpression),
+                    ImmutableMap.<Input, Type>of(
+                            new Input(0, 0), Type.LONG,
+                            new Input(1, 0), Type.STRING,
+                            new Input(2, 0), Type.DOUBLE,
+                            new Input(3, 0), Type.LONG,
+                            new Input(4, 0), Type.STRING));
         }
         catch (Throwable e) {
             throw new RuntimeException("Error compiling " + expression, e);
         }
 
+        Operator source = createOperator(new Page(
+                createLongsBlock(1234L),
+                createStringsBlock("hello"),
+                createDoublesBlock(12.34),
+                createLongsBlock(MILLISECONDS.toSeconds(new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis())),
+                createStringsBlock("%el%")));
 
-        BlockBuilder output = new BlockBuilder(projectionFunction.getTupleInfo());
-        projectionFunction.project(
-                new TupleReadable[]{
-                        createTuple(1234L),
-                        createTuple("hello"),
-                        createTuple(12.34),
-                        createTuple(MILLISECONDS.toSeconds(new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis())),
-                        createTuple("%el%")
-                },
-                output
-        );
+        Operator operator = operatorFactory.apply(source);
+        PageIterator pageIterator = operator.iterator(new OperatorStats());
+        assertTrue(pageIterator.hasNext());
+        Page page = pageIterator.next();
+        assertFalse(pageIterator.hasNext());
 
-        UncompressedBlock block = output.build();
+        assertEquals(page.getPositionCount(), 1);
+        assertEquals(page.getChannelCount(), 1);
+
+        Block block = page.getBlock(0);
         assertEquals(block.getPositionCount(), 1);
         assertEquals(block.getTupleInfo().getFieldCount(), 1);
 
