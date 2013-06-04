@@ -7,7 +7,9 @@ import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageIterator;
+import com.facebook.presto.operator.scalar.JsonFunctions;
 import com.facebook.presto.operator.scalar.MathFunctions;
+import com.facebook.presto.operator.scalar.RegexpFunctions;
 import com.facebook.presto.operator.scalar.StringFunctions;
 import com.facebook.presto.operator.scalar.UnixTimeFunctions;
 import com.facebook.presto.sql.analyzer.Type;
@@ -25,6 +27,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -63,6 +66,22 @@ public class TestExpressionCompiler
     private static final Double[] doubleRights = {3.0, -3.0, 3.1, -3.1, null};
     private static final String[] stringLefts = {"hello", "foo", "mellow", "fellow", "", null};
     private static final String[] stringRights = {"hello", "foo", "bar", "baz", "", null};
+
+    private static final String[] jsonValues = {
+            "{}",
+            "{\"fuu\": {\"bar\": 1}}",
+            "{\"fuu\": null}",
+            "{\"fuu\": 1}",
+            "{\"fuu\": 1, \"bar\": \"abc\"}",
+            null
+    };
+    private static final String[] jsonPatterns = {
+            "$",
+            "$.fuu",
+            "$.fuu[0]",
+            "$.bar",
+            null
+    };
 
     @Test
     public void smokeTest()
@@ -605,6 +624,31 @@ public class TestExpressionCompiler
                 }
             }
         }
+
+        for (String value : stringLefts) {
+            for (String pattern : stringRights) {
+                assertExecute(generateExpression("regexp_like(%s, %s)", value, pattern),
+                        value == null || pattern == null ? null : RegexpFunctions.regexpLike(Slices.copiedBuffer(value, UTF_8), Slices.copiedBuffer(pattern, UTF_8)));
+                assertExecute(generateExpression("regexp_replace(%s, %s)", value, pattern),
+                        value == null || pattern == null ? null : RegexpFunctions.regexpReplace(Slices.copiedBuffer(value, UTF_8), Slices.copiedBuffer(pattern, UTF_8)));
+                assertExecute(generateExpression("regexp_extract(%s, %s)", value, pattern),
+                        value == null || pattern == null ? null : RegexpFunctions.regexpExtract(Slices.copiedBuffer(value, UTF_8), Slices.copiedBuffer(pattern, UTF_8)));
+            }
+        }
+
+        for (String value : jsonValues) {
+            for (String pattern : jsonPatterns) {
+                assertExecute(generateExpression("json_extract(%s, %s)", value, pattern),
+                        value == null || pattern == null ? null : JsonFunctions.jsonExtract(Slices.copiedBuffer(value, UTF_8), Slices.copiedBuffer(pattern, UTF_8)));
+                assertExecute(generateExpression("json_extract_scalar(%s, %s)", value, pattern),
+                        value == null || pattern == null ? null : JsonFunctions.jsonExtractScalar(Slices.copiedBuffer(value, UTF_8), Slices.copiedBuffer(pattern, UTF_8)));
+
+                assertExecute(generateExpression("json_extract(%s, %s || '')", value, pattern),
+                        value == null || pattern == null ? null : JsonFunctions.jsonExtract(Slices.copiedBuffer(value, UTF_8), Slices.copiedBuffer(pattern, UTF_8)));
+                assertExecute(generateExpression("json_extract_scalar(%s, %s || '')", value, pattern),
+                        value == null || pattern == null ? null : JsonFunctions.jsonExtractScalar(Slices.copiedBuffer(value, UTF_8), Slices.copiedBuffer(pattern, UTF_8)));
+            }
+        }
     }
 
     @Test
@@ -864,6 +908,10 @@ public class TestExpressionCompiler
     {
         if (expected instanceof Boolean) {
             expected = ((Boolean) expected) ? TRUE : FALSE;
+        }
+
+        if (expected instanceof Slice) {
+            expected = ((Slice) expected).toString(UTF_8);
         }
 
         for (String expression : expressions) {

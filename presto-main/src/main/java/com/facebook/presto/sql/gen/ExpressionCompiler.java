@@ -1019,6 +1019,12 @@ public class ExpressionCompiler
                 block.append(ifWasNullPopAndGoto(context, end, methodType.returnType(), Lists.reverse(stackTypes)));
             }
             block.invokeDynamic(functionBinding.getName(), methodType, functionBinding.getBindingId());
+            if (functionBinding.isNullable()) {
+                block.dup(methodType.returnType())
+                        .ifNotNullGoto(end)
+                        .loadConstant(true)
+                        .storeVariable("wasNull");
+            }
             block.visitLabel(end);
 
             return typedByteCodeNode(block, methodType.returnType());
