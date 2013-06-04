@@ -3,7 +3,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.HiveClientConfig;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 import io.airlift.configuration.testing.ConfigAssertions;
@@ -38,7 +37,8 @@ public class TestHiveClientConfig
                 .setMinStreamSamplingTime(new Duration(4, TimeUnit.SECONDS))
                 .setMinGlobalSamples(100)
                 .setMinStreamRate(new DataSize(10, Unit.KILOBYTE))
-                .setSlowStreamPercentile(5));
+                .setSlowStreamPercentile(5)
+                .setDomainSocketPath(null));
     }
 
     @Test
@@ -63,6 +63,7 @@ public class TestHiveClientConfig
                 .put("hive.slow-datanode-switcher.min-global-samples", "10")
                 .put("hive.slow-datanode-switcher.min-stream-rate", "10B")
                 .put("hive.slow-datanode-switcher.slow-stream-percentile", "25")
+                .put("dfs.domain-socket-path", "/foo")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -83,7 +84,8 @@ public class TestHiveClientConfig
                 .setMinStreamSamplingTime(new Duration(1, TimeUnit.HOURS))
                 .setMinGlobalSamples(10)
                 .setMinStreamRate(new DataSize(10, Unit.BYTE))
-                .setSlowStreamPercentile(25);
+                .setSlowStreamPercentile(25)
+                .setDomainSocketPath("/foo");
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

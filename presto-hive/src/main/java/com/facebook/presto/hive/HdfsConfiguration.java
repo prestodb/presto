@@ -22,6 +22,7 @@ public class HdfsConfiguration
 {
     private final HostAndPort socksProxy;
     private final Duration dfsTimeout;
+    private final String domainSocketPath;
 
     private final ThreadLocal<Configuration> hadoopConfiguration = new ThreadLocal<Configuration>()
     {
@@ -40,6 +41,7 @@ public class HdfsConfiguration
 
         this.socksProxy = hiveClientConfig.getMetastoreSocksProxy();
         this.dfsTimeout = hiveClientConfig.getDfsTimeout();
+        this.domainSocketPath = hiveClientConfig.getDomainSocketPath();
     }
 
     public Configuration getConfiguration()
@@ -58,6 +60,12 @@ public class HdfsConfiguration
             config.setClass("hadoop.rpc.socket.factory.class.default", SocksSocketFactory.class, SocketFactory.class);
             config.set("hadoop.socks.server", socksProxy.toString());
         }
+
+        config.setBoolean("dfs.client.read.shortcircuit", true);
+        if (domainSocketPath != null) {
+            config.setStrings("dfs.domain.socket.path", domainSocketPath);
+        }
+
         config.setBoolean("dfs.read.shortcircuit", true);
         config.setBoolean("dfs.read.shortcircuit.fallbackwhenfail", true);
         config.setInt("dfs.socket.timeout", Ints.saturatedCast((long) dfsTimeout.toMillis()));
