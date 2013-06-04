@@ -153,21 +153,26 @@ public class NodeScheduler
                     }
                 }
 
-                if (split.isRemotelyAccessible()) {
-                    InetAddress address;
-                    try {
-                        address = hint.toInetAddress();
-                    }
-                    catch (UnknownHostException e) {
-                        // skip addresses that don't resolve
-                        continue;
-                    }
+                InetAddress address;
+                try {
+                    address = hint.toInetAddress();
+                }
+                catch (UnknownHostException e) {
+                    // skip addresses that don't resolve
+                    continue;
+                }
+
+                // consider a split with a host hint without a port as being accessible
+                // by all nodes in that host
+                if (!hint.hasPort() || split.isRemotelyAccessible()) {
                     for (Node node : nodeMap.getNodesByHost().get(address)) {
                         if (chosen.add(node)) {
                             scheduleLocal.incrementAndGet();
                         }
                     }
+                }
 
+                if (split.isRemotelyAccessible()) {
                     for (Node node : nodeMap.getNodesByRack().get(Rack.of(address))) {
                         if (chosen.add(node)) {
                             scheduleRack.incrementAndGet();
