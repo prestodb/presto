@@ -12,13 +12,15 @@ public class FunctionBinding
     private final String name;
     private final CallSite callSite;
     private final List<TypedByteCodeNode> arguments;
+    private final boolean nullable;
 
-    public FunctionBinding(long bindingId, String name, CallSite callSite, List<TypedByteCodeNode> arguments)
+    public FunctionBinding(long bindingId, String name, CallSite callSite, List<TypedByteCodeNode> arguments, boolean nullable)
     {
         this.bindingId = bindingId;
         this.name = name;
         this.callSite = callSite;
         this.arguments = arguments;
+        this.nullable = nullable;
     }
 
     public long getBindingId()
@@ -39,6 +41,11 @@ public class FunctionBinding
     public List<TypedByteCodeNode> getArguments()
     {
         return arguments;
+    }
+
+    public boolean isNullable()
+    {
+        return nullable;
     }
 
     @Override
@@ -68,6 +75,7 @@ public class FunctionBinding
                 .add("name", name)
                 .add("callSite", callSite)
                 .add("arguments", arguments)
+                .add("nullable", nullable)
                 .toString();
     }
 }

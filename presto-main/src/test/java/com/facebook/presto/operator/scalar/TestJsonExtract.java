@@ -14,7 +14,6 @@ import static com.facebook.presto.operator.scalar.JsonExtract.JsonExtractor;
 import static com.facebook.presto.operator.scalar.JsonExtract.JsonValueJsonExtractor;
 import static com.facebook.presto.operator.scalar.JsonExtract.ObjectFieldJsonExtractor;
 import static com.facebook.presto.operator.scalar.JsonExtract.ScalarValueJsonExtractor;
-import static com.facebook.presto.operator.scalar.JsonExtract.extract;
 import static com.facebook.presto.operator.scalar.JsonExtract.generateExtractor;
 import static org.testng.Assert.assertEquals;
 
@@ -176,7 +175,7 @@ public class TestJsonExtract
     private static String doScalarExtract(String inputJson, String jsonPath)
             throws IOException
     {
-        Slice value = extract(generateExtractor(jsonPath, true), Slices.wrappedBuffer(inputJson.getBytes(Charsets.UTF_8)));
+        Slice value = JsonExtract.extractInternal(Slices.wrappedBuffer(inputJson.getBytes(Charsets.UTF_8)), generateExtractor(jsonPath, true));
         return (value == null) ? null : value.toString(Charsets.UTF_8);
 
     }
@@ -184,7 +183,7 @@ public class TestJsonExtract
     private static String doJsonExtract(String inputJson, String jsonPath)
             throws IOException
     {
-        Slice value = extract(generateExtractor(jsonPath, false), Slices.wrappedBuffer(inputJson.getBytes(Charsets.UTF_8)));
+        Slice value = JsonExtract.extractInternal(Slices.wrappedBuffer(inputJson.getBytes(Charsets.UTF_8)), generateExtractor(jsonPath, false));
         return (value == null) ? null : value.toString(Charsets.UTF_8);
 
     }

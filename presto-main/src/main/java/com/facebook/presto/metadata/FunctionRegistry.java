@@ -21,6 +21,7 @@ import com.facebook.presto.operator.window.RowNumberFunction;
 import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
+import com.facebook.presto.sql.gen.FunctionBinder;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -33,9 +34,10 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import io.airlift.slice.Slice;
 
+import javax.annotation.Nullable;
 import javax.inject.Provider;
-
 import java.lang.invoke.MethodHandle;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
@@ -237,14 +239,14 @@ public class FunctionRegistry
             return this;
         }
 
-        public FunctionListBuilder scalar(String name, MethodHandle function, boolean deterministic)
+        public FunctionListBuilder scalar(String name, MethodHandle function, boolean deterministic, FunctionBinder functionBinder)
         {
             name = name.toLowerCase();
 
             int id = functions.size() + 1;
             Type returnType = type(function.type().returnType());
             List<Type> argumentTypes = types(function);
-            functions.add(new FunctionInfo(id, QualifiedName.of(name), returnType, argumentTypes, function, deterministic));
+            functions.add(new FunctionInfo(id, QualifiedName.of(name), returnType, argumentTypes, function, deterministic, functionBinder));
             return this;
         }
 
@@ -263,9 +265,10 @@ public class FunctionRegistry
                     if (name.isEmpty()) {
                         name = camelToSnake(method.getName());
                     }
-                    scalar(name, methodHandle, scalarFunction.deterministic());
+                    FunctionBinder functionBinder = createFunctionBinder(method, scalarFunction);
+                    scalar(name, methodHandle, scalarFunction.deterministic(), functionBinder);
                     for (String alias : scalarFunction.alias()) {
-                        scalar(alias, methodHandle, scalarFunction.deterministic());
+                        scalar(alias, methodHandle, scalarFunction.deterministic(), functionBinder);
                     }
                     foundOne = true;
                 }
@@ -275,6 +278,27 @@ public class FunctionRegistry
                 throw Throwables.propagate(e);
             }
             return this;
+        }
+
+        private FunctionBinder createFunctionBinder(Method method, ScalarFunction scalarFunction)
+        {
+            Class<? extends FunctionBinder> functionBinderClass = scalarFunction.functionBinder();
+            try {
+                // look for <init>(MethodHandle,boolean)
+                Constructor<? extends FunctionBinder> constructor = functionBinderClass.getConstructor(MethodHandle.class, boolean.class);
+                return constructor.newInstance(lookup().unreflect(method), method.isAnnotationPresent(Nullable.class));
+            }
+            catch (Exception e) {
+            }
+
+            try {
+                // try with default constructor
+                return functionBinderClass.newInstance();
+            }
+            catch (Exception e) {
+            }
+
+            throw new IllegalArgumentException("Unable to create function binder " + functionBinderClass.getName() + " for function " + method);
         }
 
         private static String camelToSnake(String name)

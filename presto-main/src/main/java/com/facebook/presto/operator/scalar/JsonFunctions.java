@@ -1,15 +1,34 @@
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.byteCode.instruction.Constant;
+import com.facebook.presto.operator.scalar.JsonExtract.JsonExtractJsonCache;
+import com.facebook.presto.operator.scalar.JsonExtract.JsonExtractScalarCache;
+import com.facebook.presto.operator.scalar.JsonExtract.JsonExtractor;
+import com.facebook.presto.sql.gen.DefaultFunctionBinder;
+import com.facebook.presto.sql.gen.ExpressionCompiler.TypedByteCodeNode;
+import com.facebook.presto.sql.gen.FunctionBinder;
+import com.facebook.presto.sql.gen.FunctionBinding;
+import com.facebook.presto.util.ThreadLocalCache;
+import com.google.common.base.Charsets;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
 import java.io.IOException;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.util.ArrayList;
+import java.util.List;
+
+import static com.facebook.presto.operator.scalar.JsonExtract.generateExtractor;
+import static java.lang.invoke.MethodHandles.lookup;
+import static java.lang.invoke.MethodType.methodType;
 
 public final class JsonFunctions
 {
     private JsonFunctions() {}
 
-    @ScalarFunction
+    @ScalarFunction(functionBinder = JsonFunctionBinder.class)
     public static Slice jsonExtractScalar(Slice json, Slice jsonPath)
     {
         try {
@@ -20,7 +39,7 @@ public final class JsonFunctions
         }
     }
 
-    @ScalarFunction
+    @ScalarFunction(functionBinder = JsonFunctionBinder.class)
     public static Slice jsonExtract(Slice json, Slice jsonPath)
     {
         try {
@@ -30,4 +49,68 @@ public final class JsonFunctions
             throw Throwables.propagate(e);
         }
     }
+    public static class JsonFunctionBinder
+            implements FunctionBinder
+    {
+        private static final MethodHandle constantJsonExtract;
+        private static final MethodHandle dynamicJsonExtract;
+
+        static {
+            try {
+                constantJsonExtract = lookup().findStatic(JsonExtract.class, "extract", methodType(Slice.class, Slice.class, JsonExtractor.class));
+                dynamicJsonExtract = lookup().findStatic(JsonExtract.class, "extract", methodType(Slice.class, ThreadLocalCache.class, Slice.class, Slice.class));
+            }
+            catch (Exception e) {
+                throw Throwables.propagate(e);
+            }
+        }
+
+        public FunctionBinding bindFunction(long bindingId, String name, List<TypedByteCodeNode> arguments)
+        {
+            TypedByteCodeNode patternNode = arguments.get(1);
+
+            MethodHandle methodHandle;
+            if (patternNode.getNode() instanceof Constant) {
+                Slice patternSlice = (Slice) ((Constant) patternNode.getNode()).getValue();
+                String pattern = patternSlice.toString(Charsets.UTF_8);
+
+                JsonExtractor jsonExtractor;
+                switch(name) {
+                    case "json_extract_scalar":
+                        jsonExtractor = generateExtractor(pattern, true);
+                        break;
+                    case "json_extract":
+                        jsonExtractor = generateExtractor(pattern, false);
+                        break;
+                    default:
+                        throw new IllegalArgumentException("Unsupported method " + name);
+                }
+
+                methodHandle = MethodHandles.insertArguments(constantJsonExtract, 1, jsonExtractor);
+
+                // remove the pattern argument
+                arguments = new ArrayList<>(arguments);
+                arguments.remove(1);
+                arguments = ImmutableList.copyOf(arguments);
+            }
+            else {
+                ThreadLocalCache<Slice, JsonExtractor> cache;
+                switch(name) {
+                    case "json_extract_scalar":
+                        cache = new JsonExtractScalarCache();
+                        break;
+                    case "json_extract":
+                        cache = new JsonExtractJsonCache();
+                        break;
+                    default:
+                        throw new IllegalArgumentException("Unsupported method " + name);
+                }
+
+                methodHandle = dynamicJsonExtract.bindTo(cache);
+            }
+
+            return DefaultFunctionBinder.bindConstantArguments(bindingId, name, arguments, methodHandle, true);
+        }
+    }
+
 }

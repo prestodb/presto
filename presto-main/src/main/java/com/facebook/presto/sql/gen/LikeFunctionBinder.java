@@ -64,7 +64,7 @@ public class LikeFunctionBinder
         }
 
         CallSite callSite = new ConstantCallSite(methodHandle);
-        return new FunctionBinding(bindingId, name, callSite, arguments);
+        return new FunctionBinding(bindingId, name, callSite, arguments, false);
     }
 
 }

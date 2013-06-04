@@ -16,7 +16,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import javax.annotation.Nullable;
-
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
@@ -100,22 +99,8 @@ public final class JsonExtract
     private static final JsonFactory JSON_FACTORY = new JsonFactory();
 
     // Stand-in caches for compiled JSON paths until we have something more formalized
-    private static final ThreadLocalCache<Slice, JsonExtractor> SCALAR_CACHE = new ThreadLocalCache<Slice, JsonExtractor>(20)
-    {
-        @Override
-        protected JsonExtractor load(Slice jsonPath)
-        {
-            return generateExtractor(jsonPath.toString(Charsets.UTF_8), true);
-        }
-    };
-    private static final ThreadLocalCache<Slice, JsonExtractor> JSON_CACHE = new ThreadLocalCache<Slice, JsonExtractor>(20)
-    {
-        @Override
-        protected JsonExtractor load(Slice jsonPath)
-        {
-            return generateExtractor(jsonPath.toString(Charsets.UTF_8), false);
-        }
-    };
+    private static final JsonExtractScalarCache SCALAR_CACHE = new JsonExtractScalarCache();
+    private static final JsonExtractJsonCache JSON_CACHE = new JsonExtractJsonCache();
 
     private JsonExtract() {}
 
@@ -131,7 +116,7 @@ public final class JsonExtract
     public static Slice extractScalar(@Nullable Slice jsonInput, Slice jsonPath)
             throws IOException
     {
-        return extract(jsonInput, jsonPath, SCALAR_CACHE);
+        return extract(SCALAR_CACHE, jsonInput, jsonPath);
     }
 
     /**
@@ -146,10 +131,10 @@ public final class JsonExtract
     public static Slice extractJson(@Nullable Slice jsonInput, Slice jsonPath)
             throws IOException
     {
-        return extract(jsonInput, jsonPath, JSON_CACHE);
+        return extract(JSON_CACHE, jsonInput, jsonPath);
     }
 
-    private static Slice extract(@Nullable Slice jsonInput, Slice jsonPath, ThreadLocalCache<Slice, JsonExtractor> cache)
+    public static Slice extract(ThreadLocalCache<Slice, JsonExtractor> cache, @Nullable Slice jsonInput, Slice jsonPath)
             throws IOException
     {
         checkNotNull(jsonPath, "jsonPath is null");
@@ -158,7 +143,19 @@ public final class JsonExtract
         }
 
         try {
-            return extract(cache.get(jsonPath), jsonInput);
+            return extractInternal(jsonInput, cache.get(jsonPath));
+        }
+        catch (JsonParseException e) {
+            // Return null if we failed to parse something
+            return null;
+        }
+    }
+
+    public static Slice extract(Slice jsonInput, JsonExtractor jsonExtractor)
+            throws IOException
+    {
+        try {
+            return extractInternal(jsonInput, jsonExtractor);
         }
         catch (JsonParseException e) {
             // Return null if we failed to parse something
@@ -167,7 +164,7 @@ public final class JsonExtract
     }
 
     @VisibleForTesting
-    static Slice extract(JsonExtractor jsonExtractor, Slice jsonInput)
+    static Slice extractInternal(Slice jsonInput, JsonExtractor jsonExtractor)
             throws IOException
     {
         checkNotNull(jsonInput, "jsonInput is null");
@@ -192,8 +189,7 @@ public final class JsonExtract
         return DOT_SPLITTER.split(path);
     }
 
-    @VisibleForTesting
-    static JsonExtractor generateExtractor(String path, boolean scalarValue)
+    public static JsonExtractor generateExtractor(String path, boolean scalarValue)
     {
         Iterator<String> iterator = tokenizePath(path).iterator();
         checkArgument(iterator.hasNext() && iterator.next().equals("$"), "JSON path must begin with root: '$'");
@@ -367,6 +363,36 @@ public final class JsonExtract
         public String replace(String target)
         {
             return pattern.matcher(target).replaceAll(replacement);
+        }
+    }
+
+    public static class JsonExtractScalarCache
+            extends ThreadLocalCache<Slice, JsonExtractor>
+    {
+        public JsonExtractScalarCache()
+        {
+            super(20);
+        }
+
+        @Override
+        protected JsonExtractor load(Slice jsonPath)
+        {
+            return generateExtractor(jsonPath.toString(Charsets.UTF_8), true);
+        }
+    }
+
+    public static class JsonExtractJsonCache
+            extends ThreadLocalCache<Slice, JsonExtractor>
+    {
+        public JsonExtractJsonCache()
+        {
+            super(20);
+        }
+
+        @Override
+        protected JsonExtractor load(Slice jsonPath)
+        {
+            return generateExtractor(jsonPath.toString(Charsets.UTF_8), false);
         }
     }
 }

@@ -19,13 +19,20 @@ public class DefaultFunctionBinder
         implements FunctionBinder
 {
     private final MethodHandle methodHandle;
+    private final boolean nullable;
 
-    public DefaultFunctionBinder(MethodHandle methodHandle)
+    public DefaultFunctionBinder(MethodHandle methodHandle, boolean nullable)
     {
         this.methodHandle = methodHandle;
+        this.nullable = nullable;
     }
 
     public FunctionBinding bindFunction(long bindingId, String name, List<TypedByteCodeNode> arguments)
+    {
+        return bindConstantArguments(bindingId, name, arguments, this.methodHandle, nullable);
+    }
+
+    public static FunctionBinding bindConstantArguments(long bindingId, String name, List<TypedByteCodeNode> arguments, MethodHandle methodHandle, boolean nullable)
     {
         // extract constant arguments
         SortedMap<Integer, Object> constantArguments = new TreeMap<>(Ordering.natural().reverse());
@@ -39,7 +46,6 @@ public class DefaultFunctionBinder
         }
 
         // bind constant arguments
-        MethodHandle methodHandle = this.methodHandle;
         arguments = new ArrayList<>(arguments);
         for (Entry<Integer, Object> entry : constantArguments.entrySet()) {
             methodHandle = MethodHandles.insertArguments(methodHandle, entry.getKey(), entry.getValue());
@@ -47,6 +53,6 @@ public class DefaultFunctionBinder
         }
 
         CallSite callSite = new ConstantCallSite(methodHandle);
-        return new FunctionBinding(bindingId, name, callSite, arguments);
+        return new FunctionBinding(bindingId, name, callSite, arguments, nullable);
     }
 }

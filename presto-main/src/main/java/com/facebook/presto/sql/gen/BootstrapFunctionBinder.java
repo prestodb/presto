@@ -38,8 +38,7 @@ public class BootstrapFunctionBinder
         FunctionInfo function = metadata.getFunction(name, argumentTypes);
         checkArgument(function != null, "Unknown function %s%s", name, argumentTypes);
 
-        FunctionBinder defaultFunctionBinder = new DefaultFunctionBinder(function.getScalarFunction());
-        FunctionBinding functionBinding = bindFunction(name.toString(), arguments, defaultFunctionBinder);
+        FunctionBinding functionBinding = bindFunction(name.toString(), arguments, function.getFunctionBinder());
 
         return functionBinding;
     }

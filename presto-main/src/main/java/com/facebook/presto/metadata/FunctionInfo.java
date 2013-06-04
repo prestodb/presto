@@ -4,6 +4,7 @@ import com.facebook.presto.operator.AggregationFunctionDefinition;
 import com.facebook.presto.operator.aggregation.AggregationFunction;
 import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.sql.analyzer.Type;
+import com.facebook.presto.sql.gen.FunctionBinder;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Function;
@@ -37,6 +38,7 @@ public class FunctionInfo implements Comparable<FunctionInfo>
 
     private final MethodHandle scalarFunction;
     private final boolean deterministic;
+    private final FunctionBinder functionBinder;
 
     private final boolean isWindow;
     private final Provider<WindowFunction> windowFunction;
@@ -53,6 +55,7 @@ public class FunctionInfo implements Comparable<FunctionInfo>
         this.intermediateType = null;
         this.aggregationFunction = null;
         this.scalarFunction = null;
+        this.functionBinder = null;
 
         this.isWindow = true;
         this.windowFunction = checkNotNull(windowFunction, "windowFunction is null");
@@ -69,17 +72,19 @@ public class FunctionInfo implements Comparable<FunctionInfo>
         this.isAggregate = true;
         this.scalarFunction = null;
         this.deterministic = true;
+        this.functionBinder = null;
         this.isWindow = false;
         this.windowFunction = null;
     }
 
-    public FunctionInfo(int id, QualifiedName name, Type returnType, List<Type> argumentTypes, MethodHandle function, boolean deterministic)
+    public FunctionInfo(int id, QualifiedName name, Type returnType, List<Type> argumentTypes, MethodHandle function, boolean deterministic, FunctionBinder functionBinder)
     {
         this.id = id;
         this.name = name;
         this.returnType = returnType;
         this.argumentTypes = argumentTypes;
         this.deterministic = deterministic;
+        this.functionBinder = functionBinder;
 
         this.isAggregate = false;
         this.intermediateType = null;
@@ -152,6 +157,11 @@ public class FunctionInfo implements Comparable<FunctionInfo>
     public boolean isDeterministic()
     {
         return deterministic;
+    }
+
+    public FunctionBinder getFunctionBinder()
+    {
+        return functionBinder;
     }
 
     @Override
