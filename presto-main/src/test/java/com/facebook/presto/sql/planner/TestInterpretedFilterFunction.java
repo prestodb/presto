@@ -4,6 +4,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
@@ -183,7 +184,13 @@ public class TestInterpretedFilterFunction
     {
         Expression parsed = SqlParser.createExpression(expression);
         Session session = new Session("user", "test", DEFAULT_CATALOG, DEFAULT_SCHEMA, null, null);
-        InterpretedFilterFunction filterFunction = new InterpretedFilterFunction(parsed, ImmutableMap.<Symbol, Input>of(), DUAL_METADATA_MANAGER, session);
+
+        InterpretedFilterFunction filterFunction = new InterpretedFilterFunction(parsed,
+                ImmutableMap.<Symbol, Input>of(),
+                DUAL_METADATA_MANAGER,
+                session,
+                ImmutableMap.<Input, Type>of());
+
         boolean result = filterFunction.filter();
         assertEquals(result, expectedValue);
     }

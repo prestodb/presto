@@ -4,7 +4,9 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.block.Block;
+import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.ingest.RecordProjectOperator;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.FilterFunction;
@@ -14,6 +16,14 @@ import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.operator.ProjectionFunction;
+import com.facebook.presto.operator.TableScanOperator;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnType;
+import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.InMemoryRecordSet;
+import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.Split;
+import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
@@ -38,6 +48,7 @@ import io.airlift.slice.Slice;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 
+import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
@@ -56,30 +67,30 @@ import static org.testng.Assert.assertTrue;
 
 public final class FunctionAssertions
 {
+    public static final Session SESSION = new Session("user", "source", "catalog", "schema", "address", "agent");
+
     private static final ExpressionCompiler compiler = new ExpressionCompiler(new MetadataManager());
 
-    public static final Operator SOURCE = createOperator(new Page(
+    private static final Operator SOURCE = createOperator(new Page(
             createLongsBlock(1234L),
             createStringsBlock("hello"),
             createDoublesBlock(12.34),
             createLongsBlock(MILLISECONDS.toSeconds(new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis())),
             createStringsBlock("%el%")));
 
-    public static final Map<Input, Type> INPUT_TYPES = ImmutableMap.of(
+    private static final Map<Input, Type> INPUT_TYPES = ImmutableMap.of(
             new Input(0, 0), Type.LONG,
             new Input(1, 0), Type.STRING,
             new Input(2, 0), Type.DOUBLE,
             new Input(3, 0), Type.LONG,
             new Input(4, 0), Type.STRING);
 
-    public static final Map<Symbol, Input> INPUT_MAPPING = ImmutableMap.of(
+    private static final Map<Symbol, Input> INPUT_MAPPING = ImmutableMap.of(
             new Symbol("bound_long"), new Input(0, 0),
             new Symbol("bound_string"), new Input(1, 0),
             new Symbol("bound_double"), new Input(2, 0),
             new Symbol("bound_timestamp"), new Input(3, 0),
-            new Symbol("bound_pattern"), new Input(4, 0)
-    );
-    public static final Session SESSION = new Session("user", "source", "catalog", "schema", "address", "agent");
+            new Symbol("bound_pattern"), new Input(4, 0));
 
     private FunctionAssertions() {}
 
@@ -114,7 +125,7 @@ public final class FunctionAssertions
         checkNotNull(projection, "projection is null");
 
         // compile
-        Operator compiledOperator = createCompiledOperator(projection, SESSION);
+        Operator compiledOperator = createCompiledOperatorFactory(projection).createOperator(SOURCE, SESSION);
         return execute(compiledOperator);
     }
 
@@ -156,17 +167,29 @@ public final class FunctionAssertions
     {
         checkNotNull(projection, "projection is null");
 
-        // compile
-        Operator compiledOperator = createCompiledOperator(projection, session);
-        Object compiledValue = execute(compiledOperator);
-        Type expressionType = Type.fromRaw(compiledOperator.getTupleInfos().get(0).getTypes().get(0));
+        // compile operator
+        OperatorFactory operatorFactory = createCompiledOperatorFactory(projection);
+
+        // execute using table scan over plain old operator
+        Operator operator = operatorFactory.createOperator(createTableScanOperator(SOURCE), session);
+        Object directOperatorValue = execute(operator);
+        Type expressionType = Type.fromRaw(operator.getTupleInfos().get(0).getTypes().get(0));
+
+        // execute using table scan over record set
+        Object recordValue = execute(operatorFactory.createOperator(createTableScanOperator(createRecordProjectOperator()), session));
+        assertEquals(recordValue, directOperatorValue);
+
+        // compile projection function
+        ProjectionFunction projectFunction = createCompiledProjectFunction(projection, session);
+        Object projectedValue = execute(projectFunction);
+        assertEquals(projectedValue, directOperatorValue);
 
         // interpret
         FilterAndProjectOperator interpretedOperator = createInterpretedOperator(projection, expressionType, session);
         Object interpretedValue = execute(interpretedOperator);
 
         // verify interpreted and compiled value are the same
-        assertEquals(interpretedValue, compiledValue);
+        assertEquals(interpretedValue, directOperatorValue);
 
         //
         // If the projection does not need bound values, execute query using full engine
@@ -184,10 +207,10 @@ public final class FunctionAssertions
             assertEquals(result.getTupleInfo().getFieldCount(), 1);
             assertEquals(result.getMaterializedTuples().size(), 1);
             Object queryResult = Iterables.getOnlyElement(result.getMaterializedTuples()).getField(0);
-            assertEquals(compiledValue, queryResult);
+            assertEquals(directOperatorValue, queryResult);
         }
 
-        return compiledValue;
+        return directOperatorValue;
     }
 
     public static FilterAndProjectOperator createInterpretedOperator(String projection, Type expressionType)
@@ -201,16 +224,23 @@ public final class FunctionAssertions
                 createExpression(projection),
                 INPUT_MAPPING,
                 new MetadataManager(),
-                session);
+                session,
+                INPUT_TYPES);
+
         return new FilterAndProjectOperator(SOURCE, FilterFunctions.TRUE_FUNCTION, ImmutableList.of(projectionFunction));
     }
 
     public static Operator createCompiledOperator(String projection)
     {
-        return createCompiledOperator(projection, SESSION);
+        return createCompiledOperatorFactory(projection).createOperator(SOURCE, SESSION);
     }
 
     public static Operator createCompiledOperator(String projection, Session session)
+    {
+        return createCompiledOperatorFactory(projection).createOperator(SOURCE, session);
+    }
+
+    private static OperatorFactory createCompiledOperatorFactory(String projection)
     {
         Expression parsedExpression = parseExpression(projection);
 
@@ -225,7 +255,23 @@ public final class FunctionAssertions
             }
             throw new RuntimeException("Error compiling " + parsedExpression + ": " + e.getMessage(), e);
         }
-        return operatorFactory.createOperator(SOURCE, session);
+        return operatorFactory;
+    }
+
+    public static ProjectionFunction createCompiledProjectFunction(String projection, Session session)
+    {
+        Expression parsedExpression = parseExpression(projection);
+
+        // compile and execute
+        try {
+            return compiler.compileProjectionFunction(parsedExpression, INPUT_TYPES, session);
+        }
+        catch (Throwable e) {
+            if (e instanceof UncheckedExecutionException) {
+                e = e.getCause();
+            }
+            throw new RuntimeException("Error compiling " + parsedExpression + ": " + e.getMessage(), e);
+        }
     }
 
     public static Object execute(Operator operator)
@@ -238,7 +284,24 @@ public final class FunctionAssertions
         assertEquals(page.getPositionCount(), 1);
         assertEquals(page.getChannelCount(), 1);
 
-        Block block = page.getBlock(0);
+        return getSingleCellValue(page.getBlock(0));
+    }
+
+    public static Object execute(ProjectionFunction projectionFunction)
+    {
+        RecordCursor cursor = createRecordProjectOperator().cursor();
+        assertTrue(cursor.advanceNextPosition());
+
+        BlockBuilder output = new BlockBuilder(projectionFunction.getTupleInfo());
+        projectionFunction.project(cursor, output);
+
+        assertFalse(cursor.advanceNextPosition());
+
+        return getSingleCellValue(output.build());
+    }
+
+    private static Object getSingleCellValue(Block block)
+    {
         assertEquals(block.getPositionCount(), 1);
         assertEquals(block.getTupleInfo().getFieldCount(), 1);
 
@@ -258,5 +321,60 @@ public final class FunctionAssertions
 
         parsedExpression = TreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), parsedExpression);
         return parsedExpression;
+    }
+
+    private static RecordProjectOperator createRecordProjectOperator()
+    {
+        return new RecordProjectOperator(new InMemoryRecordSet(
+                ImmutableList.of(
+                        ColumnType.LONG,
+                        ColumnType.STRING,
+                        ColumnType.DOUBLE,
+                        ColumnType.LONG,
+                        ColumnType.STRING),
+                ImmutableList.of(ImmutableList.<Object>of(
+                        1234L,
+                        "hello",
+                        12.34,
+                        MILLISECONDS.toSeconds(new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis()),
+                        "%el%"))));
+    }
+
+    private static TableScanOperator createTableScanOperator(final Operator source)
+    {
+        TableScanOperator tableScanOperator = new TableScanOperator(
+                new DataStreamProvider()
+                {
+                    @Override
+                    public Operator createDataStream(Split split, List<ColumnHandle> columns)
+                    {
+                        return source;
+                    }
+                },
+                source.getTupleInfos(),
+                ImmutableList.<ColumnHandle>of());
+
+        tableScanOperator.addSplit(new Split()
+        {
+            @Override
+            public boolean isRemotelyAccessible()
+            {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public List<HostAddress> getAddresses()
+            {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public Object getInfo()
+            {
+                throw new UnsupportedOperationException();
+            }
+        });
+
+        return tableScanOperator;
     }
 }

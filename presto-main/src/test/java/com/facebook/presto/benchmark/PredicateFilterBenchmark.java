@@ -6,6 +6,7 @@ import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.serde.BlocksFileEncoding;
+import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.tuple.TupleReadable;
@@ -41,6 +42,12 @@ public class PredicateFilterBenchmark
         public boolean filter(TupleReadable... cursors)
         {
             return cursors[0].getDouble(0) >= minValue;
+        }
+
+        @Override
+        public boolean filter(RecordCursor cursor)
+        {
+            return cursor.getDouble(0) >= minValue;
         }
     }
 

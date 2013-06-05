@@ -2,6 +2,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleReadable;
 import org.testng.annotations.Test;
@@ -30,6 +31,13 @@ public class TestFilterAndProjectOperator
             public boolean filter(TupleReadable... cursors)
             {
                 long value = cursors[1].getLong(0);
+                return 10 <= value && value < 20;
+            }
+
+            @Override
+            public boolean filter(RecordCursor cursor)
+            {
+                long value = cursor.getLong(0);
                 return 10 <= value && value < 20;
             }
         }, ProjectionFunctions.concat(singleColumn(VARIABLE_BINARY, 0, 0), singleColumn(FIXED_INT_64, 1, 0)));

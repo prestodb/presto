@@ -473,9 +473,9 @@ public class LocalExecutionPlanner
             }
             catch (Exception e) {
                 // compilation failed, use interpreter
-                log.info("Compile failed for filter=%s inputTypes=%s error=%s", node.getPredicate(), inputTypes, e);
+                log.error(e, "Compile failed for filter=%s inputTypes=%s error=%s", node.getPredicate(), inputTypes, e);
 
-                FilterFunction filter = new InterpretedFilterFunction(node.getPredicate(), source.getLayout(), metadata, context.getSession());
+                FilterFunction filter = new InterpretedFilterFunction(node.getPredicate(), source.getLayout(), metadata, context.getSession(), inputTypes);
                 IdentityProjectionInfo mappings = computeIdentityMapping(node.getOutputSymbols(), source.getLayout(), context.getTypes());
                 Operator operator = new FilterAndProjectOperator(source.getOperator(), filter, mappings.getProjections());
                 return new PhysicalOperation(operator, mappings.getOutputLayout());
@@ -518,11 +518,11 @@ public class LocalExecutionPlanner
             }
             catch (Exception e) {
                 // compilation failed, use interpreter
-                log.info("Compile failed for filter=%s projections=%s inputTypes=%s error=%s", filterExpression, expressions, inputTypes, e);
+                log.error(e, "Compile failed for filter=%s projections=%s inputTypes=%s error=%s", filterExpression, node.getExpressions(), inputTypes, e);
 
                 FilterFunction filter;
                 if (filterExpression != BooleanLiteral.TRUE_LITERAL) {
-                    filter = new InterpretedFilterFunction(filterExpression, source.getLayout(), metadata, context.getSession());
+                    filter = new InterpretedFilterFunction(filterExpression, source.getLayout(), metadata, context.getSession(), inputTypes);
                 } else {
                     filter = FilterFunctions.TRUE_FUNCTION;
                 }
@@ -540,7 +540,7 @@ public class LocalExecutionPlanner
                         function = ProjectionFunctions.singleColumn(context.getTypes().get(reference).getRawType(), source.getLayout().get(symbol));
                     }
                     else {
-                        function = new InterpretedProjectionFunction(context.getTypes().get(symbol), expression, source.getLayout(), metadata, context.getSession());
+                        function = new InterpretedProjectionFunction(context.getTypes().get(symbol), expression, source.getLayout(), metadata, context.getSession(), inputTypes);
                     }
                     projections.add(function);
 

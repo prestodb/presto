@@ -4,6 +4,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
@@ -83,6 +84,33 @@ public class ProjectionFunctions
                 throw new IllegalStateException("Unsupported type info " + info);
             }
         }
+
+
+        @Override
+        public void project(RecordCursor cursor, BlockBuilder output)
+        {
+            // record cursors have each value in a separate field
+            Preconditions.checkArgument(fieldIndex == 0, "field must be 0 for a record cursor projection");
+            if (cursor.isNull(channelIndex)) {
+                output.appendNull();
+            }
+            else {
+                switch (columnType) {
+                    case BOOLEAN:
+                        output.append(cursor.getBoolean(channelIndex));
+                        break;
+                    case FIXED_INT_64:
+                        output.append(cursor.getLong(channelIndex));
+                        break;
+                    case VARIABLE_BINARY:
+                        output.append(cursor.getString(channelIndex));
+                        break;
+                    case DOUBLE:
+                        output.append(cursor.getDouble(channelIndex));
+                        break;
+                }
+            }
+        }
     }
 
     public static ProjectionFunction concat(ProjectionFunction... projectionFunctions)
@@ -122,6 +150,35 @@ public class ProjectionFunctions
         {
             for (ProjectionFunction projection : projections) {
                 projection.project(cursors, output);
+            }
+        }
+
+
+        @Override
+        public void project(RecordCursor cursor, BlockBuilder output)
+        {
+            int field = 0;
+            for (Type type : tupleInfo.getTypes()) {
+                if (cursor.isNull(field)) {
+                    output.appendNull();
+                }
+                else {
+                    switch (type) {
+                        case BOOLEAN:
+                            output.append(cursor.getBoolean(field));
+                            break;
+                        case FIXED_INT_64:
+                            output.append(cursor.getLong(field));
+                            break;
+                        case VARIABLE_BINARY:
+                            output.append(cursor.getString(field));
+                            break;
+                        case DOUBLE:
+                            output.append(cursor.getDouble(field));
+                            break;
+                    }
+                }
+                field++;
             }
         }
     }

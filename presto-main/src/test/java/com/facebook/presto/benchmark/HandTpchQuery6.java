@@ -11,6 +11,7 @@ import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.serde.BlocksFileEncoding;
+import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.tpch.TpchBlocksProvider;
@@ -149,6 +150,12 @@ public class HandTpchQuery6
                         !discountCursor.isNull(0) && discountCursor.getDouble(0) >= 0.05 &&
                         !discountCursor.isNull(0) && discountCursor.getDouble(0) <= 0.07 &&
                         !quantityCursor.isNull(0) && quantityCursor.getDouble(0) < 24;
+            }
+
+            @Override
+            protected void filterAndProjectRowOriented(RecordCursor cursor, PageBuilder pageBuilder)
+            {
+                throw new UnsupportedOperationException();
             }
         }
     }

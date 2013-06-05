@@ -5,6 +5,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
 
@@ -83,6 +84,20 @@ public class FilterAndProjectOperator
 
             for (BlockCursor cursor : cursors) {
                 checkState(!cursor.advanceNextPosition());
+            }
+        }
+
+        @Override
+        protected void filterAndProjectRowOriented(RecordCursor cursor, PageBuilder pageBuilder)
+        {
+            while (!pageBuilder.isFull() && cursor.advanceNextPosition()) {
+                if (filterFunction.filter(cursor)) {
+                    pageBuilder.declarePosition();
+                    for (int i = 0; i < projections.size(); i++) {
+                        // todo: if the projection function increases the size of the data significantly, this could cause the servers to OOM
+                        projections.get(i).project(cursor, pageBuilder.getBlockBuilder(i));
+                    }
+                }
             }
         }
     }

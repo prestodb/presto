@@ -3,7 +3,9 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.ingest.RecordProjectOperator;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.tuple.TupleInfo;
@@ -65,5 +67,15 @@ public class TableScanOperator
             delegate = this.delegate;
         }
         return delegate.iterator(operatorStats);
+    }
+
+    public RecordCursor cursor()
+    {
+        RecordProjectOperator delegate;
+        synchronized (this) {
+            Preconditions.checkState(this.delegate != null, "Table scan split must be set");
+            delegate = (RecordProjectOperator) this.delegate;
+        }
+        return delegate.cursor();
     }
 }
