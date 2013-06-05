@@ -252,6 +252,8 @@ public class TestExpressionCompiler
                 assertExecute(generateExpression("%s >= %s", left, right), left == null || right == null ? null : left.compareTo(right) >= 0);
                 assertExecute(generateExpression("%s <= %s", left, right), left == null || right == null ? null : left.compareTo(right) <= 0);
 
+                assertExecute(generateExpression("%s || %s", left, right), left == null || right == null ? null : left + right);
+
                 assertExecute(generateExpression("nullif(%s, %s)", left, right), nullIf(String.class, left, right));
             }
         }

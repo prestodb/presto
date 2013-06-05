@@ -30,6 +30,7 @@ public class DoWhileLoop
         private final LabelNode continueLabel = new LabelNode("continue");
         private final LabelNode endLabel = new LabelNode("end");
 
+        private String comment;
         private Block body;
         private Block condition;
 
@@ -37,6 +38,12 @@ public class DoWhileLoop
         {
             this.context = context;
             context.pushIterationScope(continueLabel, endLabel);
+        }
+
+        public DoWhileLoopBuilder comment(String format, Object... args)
+        {
+            this.comment = String.format(format, args);
+            return this;
         }
 
         public DoWhileLoopBuilder body(ByteCodeNodeFactory body)
@@ -53,13 +60,14 @@ public class DoWhileLoop
 
         public DoWhileLoop build()
         {
-            DoWhileLoop doWhileLoop = new DoWhileLoop(context, body, condition, continueLabel, endLabel);
+            DoWhileLoop doWhileLoop = new DoWhileLoop(context, comment, body, condition, continueLabel, endLabel);
             context.popIterationScope();
             return doWhileLoop;
         }
     }
 
     private final CompilerContext context;
+    private final String comment;
     private final Block body;
     private final Block condition;
 
@@ -67,14 +75,20 @@ public class DoWhileLoop
     private final LabelNode continueLabel;
     private final LabelNode endLabel;
 
-    private DoWhileLoop(CompilerContext context, Block body, Block condition, LabelNode continueLabel, LabelNode endLabel)
+    private DoWhileLoop(CompilerContext context, String comment, Block body, Block condition, LabelNode continueLabel, LabelNode endLabel)
     {
         this.context = context;
+        this.comment = comment;
         this.body = body;
         this.condition = condition;
 
         this.continueLabel = continueLabel;
         this.endLabel = endLabel;
+    }
+
+    public String getComment()
+    {
+        return comment;
     }
 
     @Override

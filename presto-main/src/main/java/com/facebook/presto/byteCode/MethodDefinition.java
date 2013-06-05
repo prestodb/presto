@@ -45,6 +45,7 @@ public class MethodDefinition
     private final List<LocalVariableNode> localVariableNodes = new ArrayList<>();
 
     private final Block body;
+    private String comment;
 
     public MethodDefinition(
             CompilerContext compilerContext, ClassDefinition declaringClass,
@@ -151,6 +152,17 @@ public class MethodDefinition
     {
         exceptions.add(type(exceptionClass));
         return this;
+    }
+
+    public MethodDefinition comment(String format, Object... args)
+    {
+        this.comment = String.format(format, args);
+        return this;
+    }
+
+    public String getComment()
+    {
+        return comment;
     }
 
     public CompilerContext getCompilerContext()

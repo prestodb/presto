@@ -29,6 +29,7 @@ public class ForLoop implements FlowControl
         private final LabelNode continueLabel = new LabelNode("continue");
         private final LabelNode endLabel = new LabelNode("end");
 
+        private String comment;
         private ByteCodeNode initialize;
         private ByteCodeNode condition;
         private ByteCodeNode update;
@@ -38,6 +39,12 @@ public class ForLoop implements FlowControl
         {
             this.context = context;
             context.pushIterationScope(continueLabel, endLabel);
+        }
+
+        public ForLoopBuilder comment(String format, Object... args)
+        {
+            this.comment = String.format(format, args);
+            return this;
         }
 
         public ForLoopBuilder initialize(ByteCodeNode initialize)
@@ -90,13 +97,14 @@ public class ForLoop implements FlowControl
 
         public ForLoop build()
         {
-            ForLoop forLoop = new ForLoop(context, initialize, condition, update, body, continueLabel, endLabel);
+            ForLoop forLoop = new ForLoop(context, comment, initialize, condition, update, body, continueLabel, endLabel);
             context.popIterationScope();
             return forLoop;
         }
     }
 
     private final CompilerContext context;
+    private final String comment;
     private final ByteCodeNode initialize;
     private final ByteCodeNode condition;
     private final ByteCodeNode update;
@@ -106,15 +114,28 @@ public class ForLoop implements FlowControl
     private final LabelNode continueLabel;
     private final LabelNode endLabel;
 
-    private ForLoop(CompilerContext context, ByteCodeNode initialize, ByteCodeNode condition, ByteCodeNode update, ByteCodeNode body, LabelNode continueLabel, LabelNode endLabel)
+    private ForLoop(CompilerContext context,
+            String comment,
+            ByteCodeNode initialize,
+            ByteCodeNode condition,
+            ByteCodeNode update,
+            ByteCodeNode body,
+            LabelNode continueLabel,
+            LabelNode endLabel)
     {
         this.context = context;
+        this.comment = comment;
         this.initialize = initialize;
         this.condition = condition;
         this.update = update;
         this.body = body;
         this.continueLabel = continueLabel;
         this.endLabel = endLabel;
+    }
+
+    public String getComment()
+    {
+        return comment;
     }
 
     public ByteCodeNode getInitialize()

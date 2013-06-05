@@ -26,6 +26,7 @@ public class IfStatement implements FlowControl
     {
         private final CompilerContext context;
 
+        private String comment;
         private ByteCodeNode condition;
         private ByteCodeNode ifTrue;
         private ByteCodeNode ifFalse;
@@ -33,6 +34,12 @@ public class IfStatement implements FlowControl
         public IfStatementBuilder(CompilerContext context)
         {
             this.context = context;
+        }
+
+        public IfStatementBuilder comment(String format, Object... args)
+        {
+            this.comment = String.format(format, args);
+            return this;
         }
 
         public IfStatementBuilder condition(ByteCodeNode condition)
@@ -73,12 +80,13 @@ public class IfStatement implements FlowControl
 
         public IfStatement build()
         {
-            IfStatement ifStatement = new IfStatement(context, condition, ifTrue, ifFalse);
+            IfStatement ifStatement = new IfStatement(context, comment, condition, ifTrue, ifFalse);
             return ifStatement;
         }
     }
 
     private final CompilerContext context;
+    private final String comment;
     private final ByteCodeNode condition;
     private final ByteCodeNode ifTrue;
     private final ByteCodeNode ifFalse;
@@ -88,10 +96,21 @@ public class IfStatement implements FlowControl
 
     public IfStatement(CompilerContext context, ByteCodeNode condition, ByteCodeNode ifTrue, ByteCodeNode ifFalse)
     {
+        this(context, null, condition, ifTrue, ifFalse);
+    }
+
+    public IfStatement(CompilerContext context, String comment, ByteCodeNode condition, ByteCodeNode ifTrue, ByteCodeNode ifFalse)
+    {
         this.context = context;
+        this.comment = comment;
         this.condition = condition;
         this.ifTrue = ifTrue;
         this.ifFalse = ifFalse;
+    }
+
+    public String getComment()
+    {
+        return comment;
     }
 
     public ByteCodeNode getCondition()

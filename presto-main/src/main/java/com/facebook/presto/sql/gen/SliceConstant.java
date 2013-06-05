@@ -52,4 +52,10 @@ public class SliceConstant
     {
         return visitor.visitConstant(parent, this);
     }
+
+    @Override
+    public String toString()
+    {
+        return "load constant '" + value.toString(UTF_8) + "'";
+    }
 }
