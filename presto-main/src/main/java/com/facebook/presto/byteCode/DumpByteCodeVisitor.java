@@ -111,6 +111,9 @@ public class DumpByteCodeVisitor extends ByteCodeVisitor<Void>
     @Override
     public Void visitMethod(ClassDefinition classDefinition, MethodDefinition methodDefinition)
     {
+        if (methodDefinition.getComment() != null) {
+            printLine("// %s", methodDefinition.getComment());
+        }
         // print annotations first
         for (AnnotationDefinition annotationDefinition : methodDefinition.getAnnotations()) {
             visitAnnotation(methodDefinition, annotationDefinition);
@@ -134,6 +137,14 @@ public class DumpByteCodeVisitor extends ByteCodeVisitor<Void>
         methodDefinition.getBody().accept(null, this);
 
         printLine();
+        return null;
+    }
+
+    @Override
+    public Void visitComment(ByteCodeNode parent, Comment node)
+    {
+        printLine();
+        printLine("// %s", node.getComment());
         return null;
     }
 
@@ -251,6 +262,10 @@ public class DumpByteCodeVisitor extends ByteCodeVisitor<Void>
     @Override
     public Void visitIf(ByteCodeNode parent, IfStatement ifStatement)
     {
+        if (ifStatement.getComment() != null) {
+            printLine();
+            printLine("// %s", ifStatement.getComment());
+        }
         printLine("if {");
         indentLevel++;
         ifStatement.getCondition().accept(ifStatement, this);
@@ -266,6 +281,10 @@ public class DumpByteCodeVisitor extends ByteCodeVisitor<Void>
     @Override
     public Void visitFor(ByteCodeNode parent, ForLoop forLoop)
     {
+        if (forLoop.getComment() != null) {
+            printLine();
+            printLine("// %s", forLoop.getComment());
+        }
         printLine("for {");
         indentLevel++;
         forLoop.getInitialize().accept(forLoop, this);
@@ -280,6 +299,10 @@ public class DumpByteCodeVisitor extends ByteCodeVisitor<Void>
     @Override
     public Void visitWhile(ByteCodeNode parent, WhileLoop whileLoop)
     {
+        if (whileLoop.getComment() != null) {
+            printLine();
+            printLine("// %s", whileLoop.getComment());
+        }
         printLine("while {");
         indentLevel++;
         whileLoop.getCondition().accept(whileLoop, this);
@@ -292,12 +315,20 @@ public class DumpByteCodeVisitor extends ByteCodeVisitor<Void>
     @Override
     public Void visitDoWhile(ByteCodeNode parent, DoWhileLoop doWhileLoop)
     {
+        if (doWhileLoop.getComment() != null) {
+            printLine();
+            printLine("// %s", doWhileLoop.getComment());
+        }
         return super.visitDoWhile(parent, doWhileLoop);
     }
 
     @Override
     public Void visitLookupSwitch(ByteCodeNode parent, LookupSwitch lookupSwitch)
     {
+        if (lookupSwitch.getComment() != null) {
+            printLine();
+            printLine("// %s", lookupSwitch.getComment());
+        }
         printLine("switch {");
         indentLevel++;
         for (CaseStatement caseStatement : lookupSwitch.getCases()) {

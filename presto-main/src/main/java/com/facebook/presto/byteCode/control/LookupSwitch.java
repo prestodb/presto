@@ -22,11 +22,18 @@ public class LookupSwitch implements FlowControl
     public static class LookupSwitchBuilder
     {
         private final List<CaseStatement> cases = new ArrayList<>();
+        private String comment;
         private LabelNode defaultCase;
 
         public LookupSwitchBuilder defaultCase(LabelNode defaultCase)
         {
             this.defaultCase = defaultCase;
+            return this;
+        }
+
+        public LookupSwitchBuilder comment(String format, Object... args)
+        {
+            this.comment = String.format(format, args);
             return this;
         }
 
@@ -44,17 +51,24 @@ public class LookupSwitch implements FlowControl
 
         public LookupSwitch build()
         {
-            return new LookupSwitch(defaultCase, cases);
+            return new LookupSwitch(comment, defaultCase, cases);
         }
     }
 
+    private final String comment;
     private final LabelNode defaultCase;
     private final SortedSet<CaseStatement> cases;
 
-    private LookupSwitch(LabelNode defaultCase, Iterable<CaseStatement> cases)
+    private LookupSwitch(String comment, LabelNode defaultCase, Iterable<CaseStatement> cases)
     {
+        this.comment = comment;
         this.defaultCase = defaultCase;
         this.cases = ImmutableSortedSet.copyOf(cases);
+    }
+
+    public String getComment()
+    {
+        return comment;
     }
 
     public SortedSet<CaseStatement> getCases()

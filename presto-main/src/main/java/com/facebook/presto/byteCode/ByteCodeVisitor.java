@@ -81,6 +81,15 @@ public class ByteCodeVisitor<T>
     }
 
     //
+    // Comment
+    //
+
+    public T visitComment(ByteCodeNode parent, Comment node)
+    {
+        return visitNode(parent, node);
+    }
+
+    //
     // Block
     //
 

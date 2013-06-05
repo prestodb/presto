@@ -29,6 +29,7 @@ public class WhileLoop implements FlowControl
         private final LabelNode beginLabel = new LabelNode("begin");
         private final LabelNode endLabel = new LabelNode("end");
 
+        private String comment;
         private ByteCodeNode condition;
         private ByteCodeNode body;
 
@@ -36,6 +37,12 @@ public class WhileLoop implements FlowControl
         {
             this.context = context;
             context.pushIterationScope(beginLabel, endLabel);
+        }
+
+        public WhileLoopBuilder comment(String format, Object... args)
+        {
+            this.comment = String.format(format, args);
+            return this;
         }
 
         public WhileLoopBuilder condition(ByteCodeNode condition)
@@ -64,26 +71,33 @@ public class WhileLoop implements FlowControl
 
         public WhileLoop build()
         {
-            WhileLoop whileLoop = new WhileLoop(context, condition, body, beginLabel, endLabel);
+            WhileLoop whileLoop = new WhileLoop(context, comment, condition, body, beginLabel, endLabel);
             context.popIterationScope();
             return whileLoop;
         }
     }
 
     private final CompilerContext context;
+    private final String comment;
     private final ByteCodeNode condition;
     private final ByteCodeNode body;
 
     private final LabelNode beginLabel;
     private final LabelNode endLabel;
 
-    private WhileLoop(CompilerContext context, ByteCodeNode condition, ByteCodeNode body, LabelNode beginLabel, LabelNode endLabel)
+    private WhileLoop(CompilerContext context, String comment, ByteCodeNode condition, ByteCodeNode body, LabelNode beginLabel, LabelNode endLabel)
     {
         this.context = context;
+        this.comment = comment;
         this.condition = condition;
         this.body = body;
         this.beginLabel = beginLabel;
         this.endLabel = endLabel;
+    }
+
+    public String getComment()
+    {
+        return comment;
     }
 
     public ByteCodeNode getCondition()

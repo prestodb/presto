@@ -48,7 +48,6 @@ public class Block implements ByteCodeNode
 //    private final List<TryCatchBlockNode> tryCatchBlocks = new ArrayList<>();
 
     private String description;
-    private String comment;
 
     public Block(CompilerContext context)
     {
@@ -66,17 +65,6 @@ public class Block implements ByteCodeNode
         return this;
     }
 
-    public String getComment()
-    {
-        return comment;
-    }
-
-    public Block setComment(String comment)
-    {
-        this.comment = comment;
-        return this;
-    }
-
     @Override
     public List<ByteCodeNode> getChildNodes()
     {
@@ -88,6 +76,18 @@ public class Block implements ByteCodeNode
         if (node != OpCodes.NOP && !(node instanceof Block && ((Block) node).isEmpty())) {
             nodes.add(node);
         }
+        return this;
+    }
+
+    public Block comment(String comment)
+    {
+        nodes.add(new Comment(comment));
+        return this;
+    }
+
+    public Block comment(String comment, Object... args)
+    {
+        nodes.add(new Comment(String.format(comment,args)));
         return this;
     }
 
