@@ -22,10 +22,15 @@ import com.facebook.presto.sql.tree.Extract.Field;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.sql.tree.TreeRewriter;
 import com.google.common.base.Function;
+import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ContiguousSet;
+import com.google.common.collect.DiscreteDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -583,6 +588,45 @@ public class TestExpressionCompiler
     }
 
     @Test
+    public void testHugeIn()
+            throws Exception
+    {
+        ContiguousSet<Integer> longValues = Range.openClosed(2000, 7000).asSet(DiscreteDomain.integers());
+        assertExecute("bound_long in (1234, " + Joiner.on(", ").join(longValues) + ")", true);
+        assertExecute("bound_long in (" + Joiner.on(", ").join(longValues) + ")", false);
+
+        Iterable<Object> doubleValues = Iterables.transform(Range.openClosed(2000, 7000).asSet(DiscreteDomain.integers()), new Function<Integer, Object>()
+        {
+            @Override
+            public Object apply(Integer i)
+            {
+                if (i % 2 == 0) {
+                    return i;
+                }
+                else {
+                    return (double) i;
+                }
+            }
+        });
+        assertExecute("bound_double in (12.34, " + Joiner.on(", ").join(doubleValues) + ")", true);
+        assertExecute("bound_double in (" + Joiner.on(", ").join(doubleValues) + ")", false);
+
+
+        Iterable<Object> stringValues = Iterables.transform(Range.openClosed(2000, 7000).asSet(DiscreteDomain.integers()), new Function<Integer, Object>()
+        {
+            @Override
+            public Object apply(Integer i)
+            {
+                return "'" + i + "'";
+            }
+        });
+        assertExecute("bound_string in ('hello', " + Joiner.on(", ").join(stringValues) + ")", true);
+        assertExecute("bound_string in (" + Joiner.on(", ").join(stringValues) + ")", false);
+
+
+    }
+
+    @Test
     public void testFunctionCall()
             throws Exception
     {
@@ -901,6 +945,14 @@ public class TestExpressionCompiler
 
     private static void assertExecute(String actual, Object expected)
     {
+        if (expected instanceof Boolean) {
+            expected = ((Boolean) expected) ? TRUE : FALSE;
+        }
+
+        if (expected instanceof Slice) {
+            expected = ((Slice) expected).toString(UTF_8);
+        }
+
         assertEquals(execute(actual), expected);
     }
 

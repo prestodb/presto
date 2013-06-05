@@ -90,6 +90,8 @@ import org.objectweb.asm.util.TraceClassVisitor;
 import javax.inject.Inject;
 import java.io.PrintWriter;
 import java.lang.invoke.CallSite;
+import java.lang.invoke.ConstantCallSite;
+import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Constructor;
@@ -121,6 +123,7 @@ import static com.facebook.presto.byteCode.control.LookupSwitch.lookupSwitchBuil
 import static com.facebook.presto.byteCode.instruction.Constant.loadBoolean;
 import static com.facebook.presto.byteCode.instruction.Constant.loadDouble;
 import static com.facebook.presto.byteCode.instruction.Constant.loadLong;
+import static com.facebook.presto.byteCode.instruction.JumpInstruction.jump;
 import static com.facebook.presto.sql.gen.ExpressionCompiler.TypedByteCodeNode.typedByteCodeNode;
 import static com.facebook.presto.sql.gen.SliceConstant.sliceConstant;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -129,6 +132,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
+import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Collections.nCopies;
 
 public class ExpressionCompiler
@@ -1634,12 +1638,14 @@ public class ExpressionCompiler
                     .add(value)
                     .addAll(values.build()).build());
 
-            ImmutableListMultimap.Builder<Integer, TypedByteCodeNode> hashBuckets = ImmutableListMultimap.builder();
+            ImmutableListMultimap.Builder<Integer, TypedByteCodeNode> hashBucketsBuilder = ImmutableListMultimap.builder();
             ImmutableList.Builder<TypedByteCodeNode> defaultBucket = ImmutableList.builder();
+            ImmutableSet.Builder<Object> constantValuesBuilder = ImmutableSet.builder();
             for (TypedByteCodeNode testNode : values.build()) {
                 if (testNode.node instanceof Constant) {
                     Constant constant = (Constant) testNode.node;
                     Object testValue = constant.getValue();
+                    constantValuesBuilder.add(testValue);
                     int hashCode;
                     if (type == boolean.class) {
                         // boolean constant is actually and integer type
@@ -1658,12 +1664,14 @@ public class ExpressionCompiler
                         throw new IllegalStateException("Error processing in statement: unsupported type " + testValue.getClass().getSimpleName());
                     }
 
-                    hashBuckets.put(hashCode, coerceToType(context, testNode, type));
+                    hashBucketsBuilder.put(hashCode, coerceToType(context, testNode, type));
                 }
                 else {
                     defaultBucket.add(coerceToType(context, testNode, type));
                 }
             }
+            ImmutableListMultimap<Integer, TypedByteCodeNode> hashBuckets = hashBucketsBuilder.build();
+            ImmutableSet<Object> constantValues = constantValuesBuilder.build();
 
             LabelNode end = new LabelNode("end");
             LabelNode match = new LabelNode("match");
@@ -1671,28 +1679,41 @@ public class ExpressionCompiler
 
             LabelNode defaultLabel = new LabelNode("default");
 
-            Block switchCaseBlocks = new Block(context);
-            LookupSwitchBuilder switchBuilder = lookupSwitchBuilder();
-            for (Entry<Integer, Collection<TypedByteCodeNode>> bucket : hashBuckets.build().asMap().entrySet()) {
-                LabelNode label = new LabelNode("inHash" + bucket.getKey());
-                switchBuilder.addCase(bucket.getKey(), label);
-                Collection<TypedByteCodeNode> testValues = bucket.getValue();
+            ByteCodeNode switchBlock;
+            if (constantValues.size() < 1000) {
+                Block switchCaseBlocks = new Block(context);
+                LookupSwitchBuilder switchBuilder = lookupSwitchBuilder();
+                for (Entry<Integer, Collection<TypedByteCodeNode>> bucket : hashBuckets.asMap().entrySet()) {
+                    LabelNode label = new LabelNode("inHash" + bucket.getKey());
+                    switchBuilder.addCase(bucket.getKey(), label);
+                    Collection<TypedByteCodeNode> testValues = bucket.getValue();
 
-                Block caseBlock = buildCase(context, type, label, match, defaultLabel, testValues, false);
-                switchCaseBlocks.append(caseBlock.setDescription("case " + bucket.getKey()));
+                    Block caseBlock = buildCase(context, type, label, match, defaultLabel, testValues, false);
+                    switchCaseBlocks.append(caseBlock.setDescription("case " + bucket.getKey()));
+                }
+                switchBuilder.defaultCase(defaultLabel);
+
+                switchBlock = new Block(context)
+                        .dup(type)
+                        .invokeStatic(Operations.class, "hashCode", int.class, type)
+                        .append(switchBuilder.build())
+                        .append(switchCaseBlocks);
+            }
+            else {
+                FunctionBinding functionBinding = bootstrapFunctionBinder.bindFunction("in", ImmutableList.<TypedByteCodeNode>of(), new InFunctionBinder(type, constantValues));
+                switchBlock = new IfStatement(context,
+                        new Block(context).dup(type).invokeDynamic(functionBinding.getName(), functionBinding.getCallSite().type(), functionBinding.getBindingId()),
+                        jump(match),
+                        NOP);
             }
 
-            switchBuilder.defaultCase(defaultLabel);
-            Block caseBlock = buildCase(context, type, defaultLabel, match, noMatch, defaultBucket.build(), true);
-            switchCaseBlocks.append(caseBlock.setDescription("default"));
+            Block defaultCaseBlock = buildCase(context, type, defaultLabel, match, noMatch, defaultBucket.build(), true).setDescription("default");
 
             Block block = new Block(context)
                     .append(coerceToType(context, value, type).node)
                     .append(ifWasNullPopAndGoto(context, end, boolean.class, type))
-                    .dup(type)
-                    .invokeStatic(Operations.class, "hashCode", int.class, type)
-                    .append(switchBuilder.build())
-                    .append(switchCaseBlocks);
+                    .append(switchBlock)
+                    .append(defaultCaseBlock);
 
             Block matchBlock = new Block(context)
                     .setDescription("match")
@@ -1880,6 +1901,43 @@ public class ExpressionCompiler
                     return when.value;
                 }
             };
+        }
+
+        public static class InFunctionBinder
+                implements FunctionBinder
+        {
+            private static final MethodHandle inMethod;
+
+            static {
+                try {
+                    inMethod = lookup().findStatic(InFunctionBinder.class, "in", MethodType.methodType(boolean.class, ImmutableSet.class, Object.class));
+                }
+                catch (Exception e) {
+                    throw Throwables.propagate(e);
+                }
+            }
+
+            private final Class<?> valueType;
+            private final ImmutableSet<Object> constantValues;
+
+            public InFunctionBinder(Class<?> valueType, ImmutableSet<Object> constantValues)
+            {
+                this.valueType = valueType;
+                this.constantValues = constantValues;
+            }
+
+            @Override
+            public FunctionBinding bindFunction(long bindingId, String name, List<TypedByteCodeNode> arguments)
+            {
+                MethodHandle methodHandle = inMethod.bindTo(constantValues);
+                methodHandle = methodHandle.asType(MethodType.methodType(boolean.class, valueType));
+                return new FunctionBinding(bindingId, name, new ConstantCallSite(methodHandle), arguments, false);
+            }
+
+            public static boolean in(ImmutableSet<?> set, Object value)
+            {
+                return set.contains(value);
+            }
         }
 
         private class TypedWhenClause
