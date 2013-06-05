@@ -241,8 +241,8 @@ class TupleAnalyzer
     @Override
     protected TupleDescriptor visitJoin(Join node, AnalysisContext context)
     {
-        if (node.getType() != Join.Type.INNER) {
-            throw new SemanticException(NOT_SUPPORTED, node, "Only inner joins are supported");
+        if (node.getType() != Join.Type.INNER && node.getType() != Join.Type.LEFT) {
+            throw new SemanticException(NOT_SUPPORTED, node, "Only inner and left joins are supported");
         }
 
         JoinCriteria criteria = node.getCriteria();

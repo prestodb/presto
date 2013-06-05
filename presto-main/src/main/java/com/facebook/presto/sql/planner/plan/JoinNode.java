@@ -1,6 +1,7 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.tree.Join;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Function;
@@ -14,27 +15,67 @@ import java.util.List;
 
 @Immutable
 public class JoinNode
-    extends PlanNode
+        extends PlanNode
 {
+    private final Type type;
     private final PlanNode left;
     private final PlanNode right;
     private final List<EquiJoinClause> criteria;
 
     @JsonCreator
     public JoinNode(@JsonProperty("id") PlanNodeId id,
+            @JsonProperty("type") Type type,
             @JsonProperty("left") PlanNode left,
             @JsonProperty("right") PlanNode right,
             @JsonProperty("criteria") List<EquiJoinClause> criteria)
     {
         super(id);
 
+        Preconditions.checkNotNull(type, "type is null");
         Preconditions.checkNotNull(left, "left is null");
         Preconditions.checkNotNull(right, "right is null");
         Preconditions.checkNotNull(criteria, "criteria is null");
 
+        this.type = type;
         this.left = left;
         this.right = right;
         this.criteria = criteria;
+    }
+
+    public enum Type
+    {
+        INNER("InnerJoin"),
+        LEFT("LeftJoin");
+
+        private final String joinLabel;
+
+        private Type(String joinLabel)
+        {
+            this.joinLabel = joinLabel;
+        }
+
+        public String getJoinLabel()
+        {
+            return joinLabel;
+        }
+
+        public static Type typeConvert(Join.Type joinType)
+        {
+            switch (joinType) {
+                case INNER:
+                    return Type.INNER;
+                case LEFT:
+                    return Type.LEFT;
+                default:
+                    throw new UnsupportedOperationException("Unsupported join type: " + joinType);
+            }
+        }
+    }
+
+    @JsonProperty("type")
+    public Type getType()
+    {
+        return type;
     }
 
     @JsonProperty("left")

@@ -210,7 +210,7 @@ public final class GraphvizPrinter
             }
 
             String criteria = Joiner.on(" AND ").join(joinExpressions);
-            printNode(node, "Join", criteria);
+            printNode(node, node.getType().getJoinLabel(), criteria);
 
             node.getLeft().accept(this, context);
             node.getRight().accept(this, context);

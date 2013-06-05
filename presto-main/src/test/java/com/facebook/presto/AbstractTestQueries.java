@@ -809,6 +809,28 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testSimpleLeftJoin()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*) FROM lineitem LEFT JOIN orders ON lineitem.orderkey = orders.orderkey");
+        assertQuery("SELECT COUNT(*) FROM lineitem LEFT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey");
+    }
+
+    @Test
+    public void testBuildFilteredLeftJoin()
+            throws Exception
+    {
+        assertQuery("SELECT * FROM lineitem LEFT JOIN (SELECT * FROM orders WHERE orderkey % 2 = 0) a ON lineitem.orderkey = a.orderkey");
+    }
+
+    @Test
+    public void testProbeFilteredLeftJoin()
+            throws Exception
+    {
+        assertQuery("SELECT * FROM (SELECT * FROM lineitem WHERE orderkey % 2 = 0) a LEFT JOIN orders ON a.orderkey = orders.orderkey");
+    }
+
+    @Test
     public void testOrderBy()
             throws Exception
     {

@@ -77,7 +77,7 @@ public class PlanPrinter
                         new QualifiedNameReference(clause.getRight().toQualifiedName())));
             }
 
-            print(indent, "- Join[%s] => [%s]", Joiner.on(" AND ").join(joinExpressions), formatOutputs(node.getOutputSymbols()));
+            print(indent, "- %s[%s] => [%s]", node.getType().getJoinLabel(), Joiner.on(" AND ").join(joinExpressions), formatOutputs(node.getOutputSymbols()));
             node.getLeft().accept(this, indent + 1);
             node.getRight().accept(this, indent + 1);
 

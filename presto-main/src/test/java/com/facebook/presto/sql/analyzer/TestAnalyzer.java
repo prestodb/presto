@@ -235,13 +235,6 @@ public class TestAnalyzer
     }
 
     @Test
-    public void testOuterJoinNotSupported()
-            throws Exception
-    {
-        assertFails(NOT_SUPPORTED, "SELECT * FROM t1 LEFT OUTER JOIN t2 USING (a)");
-    }
-
-    @Test
     public void testNestedWindowFunctions()
             throws Exception
     {
