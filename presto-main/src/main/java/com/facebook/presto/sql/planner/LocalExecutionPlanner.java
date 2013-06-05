@@ -628,8 +628,20 @@ public class LocalExecutionPlanner
                 outputMappings.put(entry.getKey(), new Input(offset + input.getChannel(), input.getField()));
             }
 
-            HashJoinOperator operator = new HashJoinOperator(hashProvider, leftSource.getOperator(), probeChannel);
+            HashJoinOperator operator = createJoinOperator(node.getType(), hashProvider, leftSource.getOperator(), probeChannel);
             return new PhysicalOperation(operator, outputMappings.build());
+        }
+
+        private HashJoinOperator createJoinOperator(JoinNode.Type type, SourceHashProvider hashProvider, Operator probeSource, int probeJoinChannel)
+        {
+            switch (type) {
+                case INNER:
+                    return HashJoinOperator.innerJoin(hashProvider, probeSource, probeJoinChannel);
+                case LEFT:
+                    return HashJoinOperator.probeOuterjoin(hashProvider, probeSource, probeJoinChannel);
+                default:
+                    throw new UnsupportedOperationException("Unsupported join type: " + type);
+            }
         }
 
         @Override

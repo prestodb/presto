@@ -91,7 +91,7 @@ public class PruneUnreferencedOutputs
             PlanNode left = planRewriter.rewrite(node.getLeft(), leftInputs);
             PlanNode right = planRewriter.rewrite(node.getRight(), rightInputs);
 
-            return new JoinNode(node.getId(), left, right, node.getCriteria());
+            return new JoinNode(node.getId(), node.getType(), left, right, node.getCriteria());
         }
 
         @Override

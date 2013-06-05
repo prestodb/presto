@@ -261,7 +261,7 @@ public final class PlanRewriter<C>
             PlanNode right = rewrite(node.getRight(), context.get());
 
             if (left != node.getLeft() || right != node.getRight()) {
-                return new JoinNode(node.getId(), left, right, node.getCriteria());
+                return new JoinNode(node.getId(), node.getType(), left, right, node.getCriteria());
             }
 
             return node;

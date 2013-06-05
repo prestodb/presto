@@ -298,14 +298,14 @@ public class DistributedLogicalPlanner
                 right.setRoot(new SinkNode(idAllocator.getNextId(), right.getRoot(), right.getRoot().getOutputSymbols()));
 
                 ExchangeNode exchange = new ExchangeNode(idAllocator.getNextId(), right.getId(), right.getRoot().getOutputSymbols());
-                JoinNode join = new JoinNode(node.getId(), left.getRoot(), exchange, node.getCriteria());
+                JoinNode join = new JoinNode(node.getId(), node.getType(), left.getRoot(), exchange, node.getCriteria());
                 left.setRoot(join)
                         .addChild(right.build());
 
                 return left;
             }
             else {
-                JoinNode join = new JoinNode(node.getId(), left.getRoot(), right.getRoot(), node.getCriteria());
+                JoinNode join = new JoinNode(node.getId(), node.getType(), left.getRoot(), right.getRoot(), node.getCriteria());
                 return newSubPlan(join)
                         .setUnpartitionedSource()
                         .setChildren(Iterables.concat(left.getChildren(), right.getChildren()));
