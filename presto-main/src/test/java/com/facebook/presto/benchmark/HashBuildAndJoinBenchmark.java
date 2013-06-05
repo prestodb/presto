@@ -44,7 +44,7 @@ public class HashBuildAndJoinBenchmark
 //        AlignmentOperator lineItemTableScan = new AlignmentOperator(concat(nCopies(100, lineItemOrderKey)), concat(nCopies(100, lineNumber)));
 //        LimitOperator lineItemLimit = new LimitOperator(lineItemTableScan, 10_000_000);
 
-        return new HashJoinOperator(sourceHashProvider, lineItemTableScan, 0);
+        return HashJoinOperator.innerJoin(sourceHashProvider, lineItemTableScan, 0);
     }
 
     @Override

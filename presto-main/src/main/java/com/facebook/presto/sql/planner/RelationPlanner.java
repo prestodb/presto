@@ -126,7 +126,7 @@ class RelationPlanner
                 .addAll(rightPlan.getOutputSymbols())
                 .build();
 
-        return new RelationPlan(new JoinNode(idAllocator.getNextId(), leftPlanBuilder.getRoot(), rightPlanBuilder.getRoot(), clauses.build()), analysis.getOutputDescriptor(node), outputSymbols);
+        return new RelationPlan(new JoinNode(idAllocator.getNextId(), JoinNode.Type.typeConvert(node.getType()), leftPlanBuilder.getRoot(), rightPlanBuilder.getRoot(), clauses.build()), analysis.getOutputDescriptor(node), outputSymbols);
     }
 
     @Override

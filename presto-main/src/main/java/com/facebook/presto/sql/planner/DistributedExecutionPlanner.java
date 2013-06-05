@@ -161,13 +161,15 @@ public class DistributedExecutionPlanner
                 }
             }
 
+            // Predicates cannot be naively pushed down through a LEFT join
+            // TODO: fix this with proper predicate push down
             Expression leftPredicate = BooleanLiteral.TRUE_LITERAL;
-            if (!leftConjuncts.isEmpty()) {
+            if (!leftConjuncts.isEmpty() && node.getType() != JoinNode.Type.LEFT) {
                 leftPredicate = ExpressionUtils.and(leftConjuncts);
             }
 
             Expression rightPredicate = BooleanLiteral.TRUE_LITERAL;
-            if (!rightConjuncts.isEmpty()) {
+            if (!rightConjuncts.isEmpty() && node.getType() != JoinNode.Type.LEFT) {
                 rightPredicate = ExpressionUtils.and(rightConjuncts);
             }
 
