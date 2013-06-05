@@ -9,8 +9,10 @@ import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.operator.ProjectionFunction;
+import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.tuple.TupleReadable;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
@@ -197,6 +199,34 @@ public class MaterializedResult
         {
             for (TupleReadable cursor : cursors) {
                 output.append(cursor.getTuple());
+            }
+        }
+
+        @Override
+        public void project(RecordCursor cursor, BlockBuilder output)
+        {
+            int field = 0;
+            for (Type type : tupleInfo.getTypes()) {
+                if (cursor.isNull(field)) {
+                    output.appendNull();
+                }
+                else {
+                    switch (type) {
+                        case BOOLEAN:
+                            output.append(cursor.getBoolean(field));
+                            break;
+                        case FIXED_INT_64:
+                            output.append(cursor.getLong(field));
+                            break;
+                        case VARIABLE_BINARY:
+                            output.append(cursor.getString(field));
+                            break;
+                        case DOUBLE:
+                            output.append(cursor.getDouble(field));
+                            break;
+                    }
+                }
+                field++;
             }
         }
     }

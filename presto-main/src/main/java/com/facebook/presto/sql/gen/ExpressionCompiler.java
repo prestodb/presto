@@ -23,6 +23,8 @@ import com.facebook.presto.byteCode.control.ForLoop.ForLoopBuilder;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.byteCode.control.IfStatement.IfStatementBuilder;
 import com.facebook.presto.byteCode.control.LookupSwitch.LookupSwitchBuilder;
+import com.facebook.presto.byteCode.control.WhileLoop;
+import com.facebook.presto.byteCode.control.WhileLoop.WhileLoopBuilder;
 import com.facebook.presto.byteCode.instruction.Constant;
 import com.facebook.presto.byteCode.instruction.LabelNode;
 import com.facebook.presto.metadata.Metadata;
@@ -33,6 +35,7 @@ import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.operator.ProjectionFunction;
+import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
@@ -89,6 +92,7 @@ import com.google.common.io.Files;
 import com.google.common.primitives.Primitives;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.util.CheckClassAdapter;
@@ -310,12 +314,14 @@ public class ExpressionCompiler
                 .putField(classDefinition.getType(), sessionField)
                 .ret();
 
-        generateFilterAndProjectMethod(classDefinition, projections, inputTypes);
+        generateFilterAndProjectCursorMethod(classDefinition, projections);
+        generateFilterAndProjectIteratorMethod(classDefinition, projections, inputTypes);
 
         //
         // filter method
         //
-        generateFilterMethod(classDefinition, filter, inputTypes);
+        generateFilterMethod(classDefinition, filter, inputTypes, true);
+        generateFilterMethod(classDefinition, filter, inputTypes, false);
 
         //
         // project methods
@@ -323,7 +329,8 @@ public class ExpressionCompiler
         List<TupleInfo> tupleInfos = new ArrayList<>();
         int projectionIndex = 0;
         for (Expression projection : projections) {
-            Class<?> type = generateProjectMethod(classDefinition, "project_" + projectionIndex, projection, inputTypes);
+            Class<?> type = generateProjectMethod(classDefinition, "project_" + projectionIndex, projection, inputTypes, true);
+            generateProjectMethod(classDefinition, "project_" + projectionIndex, projection, inputTypes, false);
             if (type == boolean.class) {
                 tupleInfos.add(TupleInfo.SINGLE_BOOLEAN);
             }
@@ -336,7 +343,8 @@ public class ExpressionCompiler
             }
             else if (type == Slice.class) {
                 tupleInfos.add(TupleInfo.SINGLE_VARBINARY);
-            } else {
+            }
+            else {
                 throw new IllegalStateException("Type " + type.getName() + "can be output");
             }
             projectionIndex++;
@@ -346,7 +354,7 @@ public class ExpressionCompiler
         return new TypedPageIteratorClass(filterAndProjectClass, tupleInfos);
     }
 
-    private void generateFilterAndProjectMethod(ClassDefinition classDefinition,
+    private void generateFilterAndProjectIteratorMethod(ClassDefinition classDefinition,
             List<Expression> projections,
             Map<Input, Type> inputTypes)
     {
@@ -430,7 +438,7 @@ public class ExpressionCompiler
         else {
             // pageBuilder.getBlockBuilder(0).append(cursor.getDouble(0);
             for (int projectionIndex = 0; projectionIndex < projections.size(); projectionIndex++) {
-                trueBlock.comment("project_%s(cursors..., pageBuilder.getBlockBuilder(%s)", projectionIndex, projectionIndex);
+                trueBlock.comment("project_%s(cursors..., pageBuilder.getBlockBuilder(%s))", projectionIndex, projectionIndex);
                 trueBlock.loadThis();
                 for (int channel = 0; channel < channels; channel++) {
                     trueBlock.loadVariable("cursor_" + channel);
@@ -466,6 +474,74 @@ public class ExpressionCompiler
                     .invokeStatic(Operations.class, "not", boolean.class, boolean.class)
                     .invokeStatic(Preconditions.class, "checkState", void.class, boolean.class);
         }
+
+        filterAndProjectMethod.getBody().ret();
+    }
+
+    private void generateFilterAndProjectCursorMethod(ClassDefinition classDefinition, List<Expression> projections)
+    {
+        MethodDefinition filterAndProjectMethod = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
+                a(PUBLIC),
+                "filterAndProjectRowOriented",
+                type(void.class),
+                arg("cursor", RecordCursor.class),
+                arg("pageBuilder", PageBuilder.class));
+
+        CompilerContext compilerContext = filterAndProjectMethod.getCompilerContext();
+
+        //
+        // while loop body
+        //
+
+        // while (!pageBuilder.isFull() && cursor.advanceNextPosition())
+        LabelNode done = new LabelNode("done");
+        WhileLoopBuilder whileLoop = WhileLoop.whileLoopBuilder(compilerContext)
+                .condition(new Block(compilerContext)
+                        .loadVariable("pageBuilder")
+                        .invokeVirtual(PageBuilder.class, "isFull", boolean.class)
+                        .ifNotZeroGoto(done)
+                        .loadVariable("cursor")
+                        .invokeInterface(RecordCursor.class, "advanceNextPosition", boolean.class));
+
+        Block whileLoopBody = new Block(compilerContext);
+
+        // if (filter(cursor))
+        IfStatementBuilder ifStatement = new IfStatementBuilder(compilerContext);
+        ifStatement.condition(new Block(compilerContext)
+                .loadThis()
+                .loadVariable("cursor")
+                .invokeVirtual(classDefinition.getType(), "filter", type(boolean.class), type(RecordCursor.class)));
+
+        Block trueBlock = new Block(compilerContext);
+        if (projections.isEmpty()) {
+            // pageBuilder.declarePosition();
+            trueBlock.loadVariable("pageBuilder").invokeVirtual(PageBuilder.class, "declarePosition", void.class);
+        }
+        else {
+            // project_43(cursor_0, cursor_1, pageBuilder.getBlockBuilder(42)));
+            for (int projectionIndex = 0; projectionIndex < projections.size(); projectionIndex++) {
+                trueBlock.loadThis();
+                trueBlock.loadVariable("cursor");
+
+                // pageBuilder.getBlockBuilder(0)
+                trueBlock.loadVariable("pageBuilder")
+                        .loadConstant(projectionIndex)
+                        .invokeVirtual(PageBuilder.class, "getBlockBuilder", BlockBuilder.class, int.class);
+
+                // project(cursor_0, cursor_1, blockBuilder)
+                trueBlock.invokeVirtual(classDefinition.getType(),
+                        "project_" + projectionIndex,
+                        type(void.class),
+                        type(RecordCursor.class),
+                        type(BlockBuilder.class));
+            }
+        }
+        ifStatement.ifTrue(trueBlock);
+
+        whileLoopBody.append(ifStatement.build());
+        filterAndProjectMethod.getBody()
+                .append(whileLoop.body(whileLoopBody).build())
+                .visitLabel(done);
 
         filterAndProjectMethod.getBody().ret();
     }
@@ -624,7 +700,8 @@ public class ExpressionCompiler
         filterMethod.getBody().retBoolean();
 
         // filter method with unrolled channels
-        generateFilterMethod(classDefinition, expression, inputTypes);
+        generateFilterMethod(classDefinition, expression, inputTypes, false);
+        generateFilterMethod(classDefinition, expression, inputTypes, true);
 
         // define the class
         Class<? extends FilterFunction> filterClass = defineClasses(ImmutableList.of(classDefinition), createClassLoader()).values().iterator().next().asSubclass(FilterFunction.class);
@@ -654,19 +731,30 @@ public class ExpressionCompiler
 
     private void generateFilterMethod(ClassDefinition classDefinition,
             Expression filter,
-            Map<Input, Type> inputTypes)
+            Map<Input, Type> inputTypes,
+            boolean sourceIsCursor)
     {
-        MethodDefinition filterMethod = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
+        MethodDefinition filterMethod;
+        if (sourceIsCursor) {
+            filterMethod = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
+                    a(PUBLIC),
+                    "filter",
+                    type(boolean.class),
+                    arg("cursor", RecordCursor.class));
+        }
+        else {
+            filterMethod = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
                     a(PUBLIC),
                     "filter",
                     type(boolean.class),
                     toTupleReaderParameters(inputTypes));
+        }
 
         filterMethod.comment("Filter: %s", filter.toString());
 
         filterMethod.getCompilerContext().declareVariable(type(boolean.class), "wasNull");
         Block getSessionByteCode = new Block(filterMethod.getCompilerContext()).loadThis().getField(classDefinition.getType(), "session", type(Session.class));
-        TypedByteCodeNode body = new Visitor(bootstrapFunctionBinder, inputTypes, getSessionByteCode).process(filter, filterMethod.getCompilerContext());
+        TypedByteCodeNode body = new Visitor(bootstrapFunctionBinder, inputTypes, getSessionByteCode, sourceIsCursor).process(filter, filterMethod.getCompilerContext());
 
         if (body.type == void.class) {
             filterMethod
@@ -742,8 +830,8 @@ public class ExpressionCompiler
         projectionMethod.getBody().ret();
 
         // projection with unrolled channels
-        Class<?> type = generateProjectMethod(classDefinition, "project", expression, inputTypes);
-
+        Class<?> type = generateProjectMethod(classDefinition, "project", expression, inputTypes, false);
+        generateProjectMethod(classDefinition, "project", expression, inputTypes, true);
 
         // TupleInfo getTupleInfo();
         MethodDefinition getTupleInfoMethod = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
@@ -756,7 +844,7 @@ public class ExpressionCompiler
                     .getStaticField(type(TupleInfo.class), "SINGLE_BOOLEAN", type(TupleInfo.class))
                     .retObject();
         }
-        // todo remove assumption that void and boolean is a long
+        // todo remove assumption that void is a long
         else if (type == long.class || type == void.class) {
             getTupleInfoMethod.getBody()
                     .getStaticField(type(TupleInfo.class), "SINGLE_LONG", type(TupleInfo.class))
@@ -806,17 +894,29 @@ public class ExpressionCompiler
     private Class<?> generateProjectMethod(ClassDefinition classDefinition,
             String methodName,
             Expression projection,
-            Map<Input, Type> inputTypes)
+            Map<Input, Type> inputTypes,
+            boolean sourceIsCursor)
     {
+        MethodDefinition projectionMethod;
+        if (sourceIsCursor) {
+            projectionMethod = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
+                    a(PUBLIC),
+                    methodName,
+                    type(void.class),
+                    arg("cursor", RecordCursor.class),
+                    arg("output", BlockBuilder.class));
+        }
+        else {
             ImmutableList.Builder<NamedParameterDefinition> parameters = ImmutableList.builder();
             parameters.addAll(toTupleReaderParameters(inputTypes));
             parameters.add(arg("output", BlockBuilder.class));
 
-        MethodDefinition projectionMethod = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
+            projectionMethod = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
                     a(PUBLIC),
                     methodName,
                     type(void.class),
                     parameters.build());
+        }
 
         projectionMethod.comment("Projection: %s", projection.toString());
 
@@ -824,7 +924,7 @@ public class ExpressionCompiler
         CompilerContext context = projectionMethod.getCompilerContext();
         context.declareVariable(type(boolean.class), "wasNull");
         Block getSessionByteCode = new Block(context).loadThis().getField(classDefinition.getType(), "session", type(Session.class));
-        TypedByteCodeNode body = new Visitor(bootstrapFunctionBinder, inputTypes, getSessionByteCode).process(projection, context);
+        TypedByteCodeNode body = new Visitor(bootstrapFunctionBinder, inputTypes, getSessionByteCode, sourceIsCursor).process(projection, context);
 
         if (body.type != void.class) {
             projectionMethod
@@ -992,12 +1092,14 @@ public class ExpressionCompiler
         private final BootstrapFunctionBinder bootstrapFunctionBinder;
         private final Map<Input, Type> inputTypes;
         private final ByteCodeNode getSessionByteCode;
+        private final boolean sourceIsCursor;
 
-        public Visitor(BootstrapFunctionBinder bootstrapFunctionBinder, Map<Input, Type> inputTypes, ByteCodeNode getSessionByteCode)
+        public Visitor(BootstrapFunctionBinder bootstrapFunctionBinder, Map<Input, Type> inputTypes, ByteCodeNode getSessionByteCode, boolean sourceIsCursor)
         {
             this.bootstrapFunctionBinder = bootstrapFunctionBinder;
             this.inputTypes = inputTypes;
             this.getSessionByteCode = getSessionByteCode;
+            this.sourceIsCursor = sourceIsCursor;
         }
 
         @Override
@@ -1039,48 +1141,138 @@ public class ExpressionCompiler
             Type type = inputTypes.get(input);
             checkState(type != null, "No type for input %s", input);
 
-            int field = input.getField();
-            Block isNullCheck = new Block(context)
-                    .setDescription(format("channel_%d.get%s(%d)", channel, type, field))
-                    .loadVariable("channel_" + channel)
-                    .loadConstant(field)
-                    .invokeInterface(TupleReadable.class, "isNull", boolean.class, int.class);
+            if (sourceIsCursor) {
+                int field = input.getField();
+                Block isNullCheck = new Block(context)
+                        .setDescription(format("cursor.get%s(%d)", type, field))
+                        .loadVariable("cursor")
+                        .loadConstant(field)
+                        .invokeInterface(RecordCursor.class, "isNull", boolean.class, int.class);
 
-            Block isNull = new Block(context)
-                    .loadConstant(true)
-                    .storeVariable("wasNull");
 
-            Block notNull = new Block(context)
-                    .loadVariable("channel_" + channel)
-                    .loadConstant(field);
+                switch (type) {
+                    case BOOLEAN: {
+                        Block isNull = new Block(context)
+                                .loadConstant(true)
+                                .storeVariable("wasNull")
+                                .loadJavaDefault(boolean.class);
 
-            Class<?> nodeType;
-            switch (type) {
-                case BOOLEAN:
-                    isNull.loadConstant(0L);
-                    notNull.invokeInterface(TupleReadable.class, "getBoolean", boolean.class, int.class);
-                    nodeType = boolean.class;
-                    break;
-                case LONG:
-                    isNull.loadConstant(0L);
-                    notNull.invokeInterface(TupleReadable.class, "getLong", long.class, int.class);
-                    nodeType = long.class;
-                    break;
-                case DOUBLE:
-                    isNull.loadConstant(0.0);
-                    notNull.invokeInterface(TupleReadable.class, "getDouble", double.class, int.class);
-                    nodeType = double.class;
-                    break;
-                case STRING:
-                    isNull.loadNull();
-                    notNull.invokeInterface(TupleReadable.class, "getSlice", Slice.class, int.class);
-                    nodeType = Slice.class;
-                    break;
-                default:
-                    throw new UnsupportedOperationException("not yet implemented: " + type);
+                        Block isNotNull = new Block(context)
+                                .loadVariable("cursor")
+                                .loadConstant(channel)
+                                .invokeInterface(RecordCursor.class, "getBoolean", boolean.class, int.class);
+
+                        return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, isNotNull), boolean.class);
+                    }
+                    case LONG: {
+                        Block isNull = new Block(context)
+                                .loadConstant(true)
+                                .storeVariable("wasNull")
+                                .loadJavaDefault(long.class);
+
+                        Block isNotNull = new Block(context)
+                                .loadVariable("cursor")
+                                .loadConstant(channel)
+                                .invokeInterface(RecordCursor.class, "getLong", long.class, int.class);
+
+                        return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, isNotNull), long.class);
+                    }
+                    case DOUBLE: {
+                        Block isNull = new Block(context)
+                                .loadConstant(true)
+                                .storeVariable("wasNull")
+                                .loadJavaDefault(double.class);
+
+                        Block isNotNull = new Block(context)
+                                .loadVariable("cursor")
+                                .loadConstant(channel)
+                                .invokeInterface(RecordCursor.class, "getDouble", double.class, int.class);
+
+                        return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, isNotNull), double.class);
+                    }
+                    case STRING: {
+                        Block isNull = new Block(context)
+                                .loadConstant(true)
+                                .storeVariable("wasNull")
+                                .loadJavaDefault(Slice.class);
+
+                        Block isNotNull = new Block(context)
+                                .loadVariable("cursor")
+                                .loadConstant(channel)
+                                .invokeInterface(RecordCursor.class, "getString", byte[].class, int.class)
+                                .invokeStatic(Slices.class, "wrappedBuffer", Slice.class, byte[].class);
+
+                        return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, isNotNull), Slice.class);
+                    }
+                    default:
+                        throw new UnsupportedOperationException("not yet implemented: " + type);
+                }
             }
+            else {
+                int field = input.getField();
+                Block isNullCheck = new Block(context)
+                        .setDescription(format("channel_%d.get%s(%d)", channel, type, field))
+                        .loadVariable("channel_" + channel)
+                        .loadConstant(field)
+                        .invokeInterface(TupleReadable.class, "isNull", boolean.class, int.class);
 
-            return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, notNull), nodeType);
+                switch (type) {
+                    case BOOLEAN: {
+                        Block isNull = new Block(context)
+                                .loadConstant(true)
+                                .storeVariable("wasNull")
+                                .loadJavaDefault(boolean.class);
+
+                        Block isNotNull = new Block(context)
+                                .loadVariable("channel_" + channel)
+                                .loadConstant(field)
+                                .invokeInterface(TupleReadable.class, "getBoolean", boolean.class, int.class);
+
+                        return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, isNotNull), boolean.class);
+                    }
+                    case LONG: {
+                        Block isNull = new Block(context)
+                                .loadConstant(true)
+                                .storeVariable("wasNull")
+                                .loadJavaDefault(long.class);
+
+                        Block isNotNull = new Block(context)
+                                .loadVariable("channel_" + channel)
+                                .loadConstant(field)
+                                .invokeInterface(TupleReadable.class, "getLong", long.class, int.class);
+
+                        return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, isNotNull), long.class);
+                    }
+                    case DOUBLE: {
+                        Block isNull = new Block(context)
+                                .loadConstant(true)
+                                .storeVariable("wasNull")
+                                .loadJavaDefault(double.class);
+
+                        Block isNotNull = new Block(context)
+                                .loadVariable("channel_" + channel)
+                                .loadConstant(field)
+                                .invokeInterface(TupleReadable.class, "getDouble", double.class, int.class);
+
+                        return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, isNotNull), double.class);
+                    }
+                    case STRING: {
+                        Block isNull = new Block(context)
+                                .loadConstant(true)
+                                .storeVariable("wasNull")
+                                .loadJavaDefault(Slice.class);
+
+                        Block isNotNull = new Block(context)
+                                .loadVariable("channel_" + channel)
+                                .loadConstant(field)
+                                .invokeInterface(TupleReadable.class, "getSlice", Slice.class, int.class);
+
+                        return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, isNotNull), Slice.class);
+                    }
+                    default:
+                        throw new UnsupportedOperationException("not yet implemented: " + type);
+                }
+            }
         }
 
         @Override
