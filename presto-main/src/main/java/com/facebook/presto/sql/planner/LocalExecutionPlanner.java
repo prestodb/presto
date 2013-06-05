@@ -9,7 +9,6 @@ import com.facebook.presto.operator.AggregationOperator;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.ExchangeOperator;
 import com.facebook.presto.operator.FilterAndProjectOperator;
-import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.operator.FilterFunctions;
 import com.facebook.presto.operator.HashAggregationOperator;
 import com.facebook.presto.operator.HashJoinOperator;
@@ -55,6 +54,7 @@ import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Input;
+import com.facebook.presto.sql.tree.InputReference;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.TreeRewriter;
@@ -66,7 +66,6 @@ import com.facebook.presto.util.MoreFunctions;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -446,20 +445,25 @@ public class LocalExecutionPlanner
         {
             PhysicalOperation source = node.getSource().accept(this, context);
 
-            FilterFunction filter;
-            try {
-                Expression filterExpression = node.getPredicate();
-                filterExpression = TreeRewriter.rewriteWith(new SymbolToInputRewriter(source.getLayout()), filterExpression);
-                filter = compiler.compileFilterFunction(filterExpression, getInputTypes(source.getLayout(), source.getOperator().getTupleInfos()));
-            }
-            catch (Exception e) {
-                throw Throwables.propagate(e);
-            }
+            Expression filterExpression = TreeRewriter.rewriteWith(new SymbolToInputRewriter(source.getLayout()), node.getPredicate());
+            List<Expression> projections = new ArrayList<>();
+            Map<Symbol, Input> outputMappings = new HashMap<>();
 
-            IdentityProjectionInfo mappings = computeIdentityMapping(node.getOutputSymbols(), source.getLayout(), context.getTypes());
+            for (int i = 0; i < node.getOutputSymbols().size(); i++) {
+                Symbol symbol = node.getOutputSymbols().get(i);
 
-            FilterAndProjectOperator operator = new FilterAndProjectOperator(source.getOperator(), filter, mappings.getProjections());
-            return new PhysicalOperation(operator, mappings.getOutputLayout());
+                Input input = source.getLayout().get(symbol);
+                Preconditions.checkArgument(input != null, "Cannot resolve symbol %s", symbol.getName());
+
+                projections.add(new InputReference(input));
+                outputMappings.put(symbol, new Input(i, 0)); // one field per channel
+            }
+            ImmutableMap<Input, Type> inputTypes = getInputTypes(source.getLayout(), source.getOperator().getTupleInfos());
+
+            Function<Operator, Operator> operatorFactory = compiler.compileFilterAndProjectOperator(filterExpression, projections, inputTypes);
+
+            Operator operator = operatorFactory.apply(source.getOperator());
+            return new PhysicalOperation(operator, outputMappings);
         }
 
         @Override
