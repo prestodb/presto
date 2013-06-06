@@ -25,7 +25,6 @@ import org.weakref.jmx.Nested;
 
 import javax.annotation.concurrent.NotThreadSafe;
 import javax.inject.Inject;
-
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -208,10 +207,9 @@ public class SlowDatanodeSwitcher
                 if (streamByteRate.getMillis() > minStreamSamplingTime.toMillis()) {
                     List<Long> percentileValues = globalDistribution.getPercentiles(ImmutableList.of(slowStreamPercentile / 100.0, 0.50));
                     if (streamByteRate.getBytesPerSecond() < minStreamRate.toBytes() || globalDistribution.getCount() > minGlobalSamples && streamByteRate.getBytesPerSecond() < percentileValues.get(0)) {
-                        log.warn("Stream ID: %s, Slow Node: %s, Current Block ID: %s, Avg File Stream Rate: %sB/s, Stream Data: %sB, Stream Time: %ss, Last Read Rate: %sB/s, Last Read Size %sB, p%s Rate: %sB/s, p50 Rate: %sB/s, Read Distribution Count: %s",
+                        log.warn("Stream ID: %s, Slow Node: %s, Avg File Stream Rate: %sB/s, Stream Data: %sB, Stream Time: %ss, Last Read Rate: %sB/s, Last Read Size %sB, p%s Rate: %sB/s, p50 Rate: %sB/s, Read Distribution Count: %s",
                                 System.identityHashCode(this),
                                 dfsDataInputStream.getCurrentDatanode().getName(),
-                                dfsDataInputStream.getCurrentBlock().getBlockName(),
                                 (long) streamByteRate.getBytesPerSecond(),
                                 (long) streamByteRate.getBytes(),
                                 streamByteRate.getMillis() / 1000,
