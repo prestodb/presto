@@ -60,8 +60,6 @@ import static org.testng.Assert.assertTrue;
 public class TestExpressionCompiler
 {
     private static final ExpressionCompiler compiler = new ExpressionCompiler(new MetadataManager());
-    private static final long TRUE = 1L;
-    private static final long FALSE = 0L;
 
     private static final Boolean[] booleanValues = {true, false, null};
     private static final Long[] longLefts = {9L, 10L, 11L, -9L, -10L, -11L, /*Long.MIN_VALUE,*/ Long.MAX_VALUE, null};
@@ -92,8 +90,8 @@ public class TestExpressionCompiler
     public void smokeTest()
             throws Exception
     {
-        assertExecute("true", TRUE);
-        assertExecute("false", FALSE);
+        assertExecute("true", true);
+        assertExecute("false", false);
         assertExecute("42", 42L);
         assertExecute("'foo'", "foo");
         assertExecute("4.2", 4.2);
@@ -110,32 +108,32 @@ public class TestExpressionCompiler
     @Test
     public void testUnaryOperators()
     {
-        assertExecute("cast(null as boolean) is null", TRUE);
+        assertExecute("cast(null as boolean) is null", true);
 
         for (Boolean value : booleanValues) {
-            assertExecute(generateExpression("%s", value), value == null ? null : (value ? TRUE : FALSE));
-            assertExecute(generateExpression("%s is null", value), (value == null ? TRUE : FALSE));
-            assertExecute(generateExpression("%s is not null", value), (value != null ? TRUE : FALSE));
+            assertExecute(generateExpression("%s", value), value == null ? null : (value ? true : false));
+            assertExecute(generateExpression("%s is null", value), (value == null ? true : false));
+            assertExecute(generateExpression("%s is not null", value), (value != null ? true : false));
         }
 
         for (Long value : longLefts) {
             assertExecute(generateExpression("%s", value), value == null ? null : value);
             assertExecute(generateExpression("- (%s)", value), value == null ? null : -value);
-            assertExecute(generateExpression("%s is null", value), (value == null ? TRUE : FALSE));
-            assertExecute(generateExpression("%s is not null", value), (value != null ? TRUE : FALSE));
+            assertExecute(generateExpression("%s is null", value), (value == null ? true : false));
+            assertExecute(generateExpression("%s is not null", value), (value != null ? true : false));
         }
 
         for (Double value : doubleLefts) {
             assertExecute(generateExpression("%s", value), value == null ? null : value);
             assertExecute(generateExpression("- (%s)", value), value == null ? null : -value);
-            assertExecute(generateExpression("%s is null", value), (value == null ? TRUE : FALSE));
-            assertExecute(generateExpression("%s is not null", value), (value != null ? TRUE : FALSE));
+            assertExecute(generateExpression("%s is null", value), (value == null ? true : false));
+            assertExecute(generateExpression("%s is not null", value), (value != null ? true : false));
         }
 
         for (String value : stringLefts) {
             assertExecute(generateExpression("%s", value), value == null ? null : value);
-            assertExecute(generateExpression("%s is null", value), (value == null ? TRUE : FALSE));
-            assertExecute(generateExpression("%s is not null", value), (value != null ? TRUE : FALSE));
+            assertExecute(generateExpression("%s is null", value), (value == null ? true : false));
+            assertExecute(generateExpression("%s is not null", value), (value != null ? true : false));
         }
     }
 
@@ -327,37 +325,37 @@ public class TestExpressionCompiler
     public void testCast()
     {
         for (Boolean value : booleanValues) {
-            assertExecute(generateExpression("cast(%s as boolean)", value), value == null ? null : (value ? TRUE : FALSE));
-            assertExecute(generateExpression("cast(%s as bigint)", value), value == null ? null : (value ? TRUE : FALSE));
+            assertExecute(generateExpression("cast(%s as boolean)", value), value == null ? null : (value ? true : false));
+            assertExecute(generateExpression("cast(%s as bigint)", value), value == null ? null : (value ? 1L : 0L));
             assertExecute(generateExpression("cast(%s as double)", value), value == null ? null : (value ? 1.0 : 0.0));
             assertExecute(generateExpression("cast(%s as varchar)", value), value == null ? null : (value ? "true" : "false"));
         }
 
         for (Long value : longLefts) {
-            assertExecute(generateExpression("cast(%s as boolean)", value), value == null ? null : (value != 0L ? TRUE : FALSE));
+            assertExecute(generateExpression("cast(%s as boolean)", value), value == null ? null : (value != 0L ? true : false));
             assertExecute(generateExpression("cast(%s as bigint)", value), value == null ? null : value);
             assertExecute(generateExpression("cast(%s as double)", value), value == null ? null : value.doubleValue());
             assertExecute(generateExpression("cast(%s as varchar)", value), value == null ? null : String.valueOf(value));
         }
 
         for (Double value : doubleLefts) {
-            assertExecute(generateExpression("cast(%s as boolean)", value), value == null ? null : (value != 0.0 ? TRUE : FALSE));
+            assertExecute(generateExpression("cast(%s as boolean)", value), value == null ? null : (value != 0.0 ? true : false));
             assertExecute(generateExpression("cast(%s as bigint)", value), value == null ? null : value.longValue());
             assertExecute(generateExpression("cast(%s as double)", value), value == null ? null : value);
             assertExecute(generateExpression("cast(%s as varchar)", value), value == null ? null : String.valueOf(value));
         }
 
-        assertExecute("cast('true' as boolean)", TRUE);
-        assertExecute("cast('true' as BOOLEAN)", TRUE);
-        assertExecute("cast('tRuE' as BOOLEAN)", TRUE);
-        assertExecute("cast('false' as BOOLEAN)", FALSE);
-        assertExecute("cast('fAlSe' as BOOLEAN)", FALSE);
-        assertExecute("cast('t' as BOOLEAN)", TRUE);
-        assertExecute("cast('T' as BOOLEAN)", TRUE);
-        assertExecute("cast('f' as BOOLEAN)", FALSE);
-        assertExecute("cast('F' as BOOLEAN)", FALSE);
-        assertExecute("cast('1' as BOOLEAN)", TRUE);
-        assertExecute("cast('0' as BOOLEAN)", FALSE);
+        assertExecute("cast('true' as boolean)", true);
+        assertExecute("cast('true' as BOOLEAN)", true);
+        assertExecute("cast('tRuE' as BOOLEAN)", true);
+        assertExecute("cast('false' as BOOLEAN)", false);
+        assertExecute("cast('fAlSe' as BOOLEAN)", false);
+        assertExecute("cast('t' as BOOLEAN)", true);
+        assertExecute("cast('T' as BOOLEAN)", true);
+        assertExecute("cast('f' as BOOLEAN)", false);
+        assertExecute("cast('F' as BOOLEAN)", false);
+        assertExecute("cast('1' as BOOLEAN)", true);
+        assertExecute("cast('0' as BOOLEAN)", false);
 
         for (Long value : longLefts) {
             if (value != null) {
@@ -378,21 +376,21 @@ public class TestExpressionCompiler
     public void testAnd()
             throws Exception
     {
-        assertExecute("true and true", TRUE);
-        assertExecute("true and false", FALSE);
-        assertExecute("false and true", FALSE);
-        assertExecute("false and false", FALSE);
+        assertExecute("true and true", true);
+        assertExecute("true and false", false);
+        assertExecute("false and true", false);
+        assertExecute("false and false", false);
 
         assertExecute("true and cast(null as boolean)", null);
-        assertExecute("false and cast(null as boolean)", FALSE);
+        assertExecute("false and cast(null as boolean)", false);
         assertExecute("cast(null as boolean) and true", null);
-        assertExecute("cast(null as boolean) and false", FALSE);
+        assertExecute("cast(null as boolean) and false", false);
         assertExecute("cast(null as boolean) and cast(null as boolean)", null);
 
         assertExecute("true and null", null);
-        assertExecute("false and null", FALSE);
+        assertExecute("false and null", false);
         assertExecute("null and true", null);
-        assertExecute("null and false", FALSE);
+        assertExecute("null and false", false);
         assertExecute("null and null", null);
     }
 
@@ -400,20 +398,20 @@ public class TestExpressionCompiler
     public void testOr()
             throws Exception
     {
-        assertExecute("true or true", TRUE);
-        assertExecute("true or false", TRUE);
-        assertExecute("false or true", TRUE);
-        assertExecute("false or false", FALSE);
+        assertExecute("true or true", true);
+        assertExecute("true or false", true);
+        assertExecute("false or true", true);
+        assertExecute("false or false", false);
 
-        assertExecute("true or cast(null as boolean)", TRUE);
+        assertExecute("true or cast(null as boolean)", true);
         assertExecute("false or cast(null as boolean)", null);
-        assertExecute("cast(null as boolean) or true", TRUE);
+        assertExecute("cast(null as boolean) or true", true);
         assertExecute("cast(null as boolean) or false", null);
         assertExecute("cast(null as boolean) or cast(null as boolean)", null);
 
-        assertExecute("true or null", TRUE);
+        assertExecute("true or null", true);
         assertExecute("false or null", null);
-        assertExecute("null or true", TRUE);
+        assertExecute("null or true", true);
         assertExecute("null or false", null);
         assertExecute("null or null", null);
     }
@@ -422,8 +420,8 @@ public class TestExpressionCompiler
     public void testNot()
             throws Exception
     {
-        assertExecute("not true", FALSE);
-        assertExecute("not false", TRUE);
+        assertExecute("not true", false);
+        assertExecute("not false", true);
 
         assertExecute("not cast(null as boolean)", null);
 
@@ -970,7 +968,7 @@ public class TestExpressionCompiler
     private static void assertExecute(String actual, Object expected)
     {
         if (expected instanceof Boolean) {
-            expected = ((Boolean) expected) ? TRUE : FALSE;
+            expected = ((Boolean) expected) ? true : false;
         }
 
         if (expected instanceof Slice) {
@@ -983,7 +981,7 @@ public class TestExpressionCompiler
     private static void assertExecute(List<String> expressions, Object expected)
     {
         if (expected instanceof Boolean) {
-            expected = ((Boolean) expected) ? TRUE : FALSE;
+            expected = ((Boolean) expected) ? true : false;
         }
 
         if (expected instanceof Slice) {

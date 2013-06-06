@@ -86,6 +86,12 @@ public class LongSequenceCursor
     }
 
     @Override
+    public boolean getBoolean(int index)
+    {
+        throw new UnsupportedOperationException("Cursor can only produce LONG");
+    }
+
+    @Override
     public long getLong(int field)
     {
         checkReadablePosition();

@@ -2,5 +2,5 @@ package com.facebook.presto.spi;
 
 public enum ColumnType
 {
-    LONG, DOUBLE, STRING
+    BOOLEAN, LONG, DOUBLE, STRING
 }

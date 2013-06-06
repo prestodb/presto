@@ -3,6 +3,7 @@ package com.facebook.presto.block.snappy;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.uncompressed.UncompressedBlockCursor;
+import com.facebook.presto.block.uncompressed.UncompressedBooleanBlockCursor;
 import com.facebook.presto.block.uncompressed.UncompressedDoubleBlockCursor;
 import com.facebook.presto.block.uncompressed.UncompressedLongBlockCursor;
 import com.facebook.presto.block.uncompressed.UncompressedSliceBlockCursor;
@@ -87,6 +88,9 @@ public class SnappyBlock
     {
         if (tupleInfo.getFieldCount() == 1) {
             Type type = tupleInfo.getTypes().get(0);
+            if (type == Type.BOOLEAN) {
+                return new UncompressedBooleanBlockCursor(positionCount, getUncompressedSlice());
+            }
             if (type == Type.FIXED_INT_64) {
                 return new UncompressedLongBlockCursor(positionCount, getUncompressedSlice());
             }

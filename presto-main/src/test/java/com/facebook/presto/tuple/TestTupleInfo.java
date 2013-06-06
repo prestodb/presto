@@ -5,6 +5,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.tuple.TupleInfo.Type.BOOLEAN;
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
@@ -19,6 +20,91 @@ import static org.testng.Assert.assertTrue;
 
 public class TestTupleInfo
 {
+    @Test
+    public void testSingleBooleanLength()
+    {
+        TupleInfo info = new TupleInfo(BOOLEAN);
+
+        Tuple tuple = info.builder()
+                .append(true)
+                .build();
+
+        assertEquals(tuple.getBoolean(0), true);
+        assertEquals(tuple.size(), SIZE_OF_BYTE + SIZE_OF_BYTE);
+
+        tuple = info.builder()
+                .append(false)
+                .build();
+
+        assertFalse(tuple.isNull(0));
+        assertEquals(tuple.getBoolean(0), false);
+        assertEquals(tuple.size(), SIZE_OF_BYTE + SIZE_OF_BYTE);
+    }
+
+    /**
+     * The following classes depend on this exact memory layout
+     * @see com.facebook.presto.block.uncompressed.UncompressedBooleanBlockCursor
+     * @see com.facebook.presto.block.uncompressed.UncompressedBlock
+     */
+    @Test
+    public void testOnlySingleBooleanMemoryLayout()
+    {
+        TupleInfo info = new TupleInfo(BOOLEAN);
+
+        Tuple tuple = info.builder()
+                .append(true)
+                .build();
+
+        Slice tupleSlice = tuple.getTupleSlice();
+        assertEquals(tupleSlice.length(), SIZE_OF_BYTE + SIZE_OF_BYTE);
+        // null bit set is in first byte
+        assertEquals(tupleSlice.getByte(0), 0);
+        assertEquals(tupleSlice.getByte(SIZE_OF_BYTE), 1);
+
+        tuple = info.builder()
+                .append(false)
+                .build();
+
+        tupleSlice = tuple.getTupleSlice();
+        assertEquals(tupleSlice.length(), SIZE_OF_BYTE + SIZE_OF_BYTE);
+        // null bit set is in first byte
+        assertEquals(tupleSlice.getByte(0), 0);
+        assertEquals(tupleSlice.getByte(SIZE_OF_BYTE), 0);
+    }
+
+    @Test
+    public void testSingleBooleanLengthNull()
+    {
+        Tuple tuple = TupleInfo.SINGLE_BOOLEAN.builder()
+                .appendNull()
+                .build();
+
+        assertTrue(tuple.isNull(0));
+        // value of a null boolean is false
+        assertEquals(tuple.getBoolean(0), false);
+        assertEquals(tuple.size(), SIZE_OF_BYTE + SIZE_OF_BYTE);
+    }
+
+    /**
+     * The following classes depend on this exact memory layout
+     * @see com.facebook.presto.block.uncompressed.UncompressedBooleanBlockCursor
+     * @see com.facebook.presto.block.uncompressed.UncompressedBlock
+     */
+    @Test
+    public void testSingleBooleanLengthNullMemoryLayout()
+    {
+        Tuple tuple = TupleInfo.SINGLE_BOOLEAN.builder()
+                .appendNull()
+                .build();
+
+        Slice tupleSlice = tuple.getTupleSlice();
+        assertEquals(tupleSlice.length(), SIZE_OF_BYTE + SIZE_OF_BYTE);
+        // null bit set is in first byte
+        assertEquals(tupleSlice.getByte(0), 0b0000_0001);
+        // value of a null boolean is 0
+        assertEquals(tupleSlice.getByte(SIZE_OF_BYTE), 0,0);
+    }
+
     @Test
     public void testSingleLongLength()
     {

@@ -390,8 +390,8 @@ public class HiveClient
             if (filterPrefix.size() == i) {
                 Object value = bindings.get(columnHandle);
                 if (value != null) {
-                    Preconditions.checkArgument(value instanceof String || value instanceof Double || value instanceof Long,
-                            "Only String, Double and Long partition keys are supported");
+                    Preconditions.checkArgument(value instanceof Boolean || value instanceof String || value instanceof Double || value instanceof Long,
+                            "Only Boolean, String, Double and Long partition keys are supported");
                     filterPrefix.add(value.toString());
                 }
             }
@@ -961,12 +961,17 @@ public class HiveClient
 
                         String value = entry.getValue();
                         switch (hiveColumnHandle.getType()) {
+                            case BOOLEAN:
+                                if (value.length() == 0) {
+                                    builder.put(columnHandle, false);
+                                }
+                                else {
+                                    builder.put(columnHandle, parseBoolean(value));
+                                }
+                                break;
                             case LONG:
                                 if (value.length() == 0) {
                                     builder.put(columnHandle, 0L);
-                                }
-                                else if (hiveColumnHandle.getHiveType() == HiveType.BOOLEAN) {
-                                    builder.put(columnHandle, parseBoolean(value));
                                 }
                                 else if (hiveColumnHandle.getHiveType() == HiveType.TIMESTAMP) {
                                     builder.put(columnHandle, MILLISECONDS.toSeconds(HIVE_TIMESTAMP_PARSER.parseMillis(value)));

@@ -92,6 +92,14 @@ public interface BlockCursor
      * @throws IllegalStateException if this cursor is not at a valid position
      */
     @Override
+    boolean getBoolean(int field);
+
+    /**
+     * Gets a field from the current tuple.
+     *
+     * @throws IllegalStateException if this cursor is not at a valid position
+     */
+    @Override
     long getLong(int field);
 
     /**

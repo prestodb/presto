@@ -155,6 +155,9 @@ public class PagesIndex
                 // todo add support for nulls first, nulls last
                 int comparison;
                 switch (type) {
+                    case BOOLEAN:
+                        comparison = Boolean.compare(tupleInfo.getBoolean(leftSlice, leftOffset, field), tupleInfo.getBoolean(rightSlice, rightOffset, field));
+                        break;
                     case FIXED_INT_64:
                         comparison = Long.compare(tupleInfo.getLong(leftSlice, leftOffset, field), tupleInfo.getLong(rightSlice, rightOffset, field));
                         break;

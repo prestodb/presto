@@ -67,6 +67,9 @@ public class ProjectionFunctions
             }
             else {
                 switch (columnType) {
+                    case BOOLEAN:
+                        output.append(cursors[channelIndex].getBoolean(fieldIndex));
+                        return;
                     case FIXED_INT_64:
                         output.append(cursors[channelIndex].getLong(fieldIndex));
                         return;

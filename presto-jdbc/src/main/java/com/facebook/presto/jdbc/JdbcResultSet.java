@@ -113,7 +113,8 @@ public class JdbcResultSet
     public boolean getBoolean(int columnIndex)
             throws SQLException
     {
-        throw new UnsupportedOperationException("getBoolean");
+        Object value = column(columnIndex);
+        return (value != null) ? (Boolean) value : false;
     }
 
     @Override
@@ -232,7 +233,8 @@ public class JdbcResultSet
     public boolean getBoolean(String columnLabel)
             throws SQLException
     {
-        throw new UnsupportedOperationException("getBoolean");
+        Object value = column(columnLabel);
+        return (value != null) ? (Boolean) value : false;
     }
 
     @Override
@@ -1583,6 +1585,10 @@ public class JdbcResultSet
     private static void setTypeInfo(ColumnInfo.Builder builder, String type)
     {
         switch (type) {
+            case "boolean":
+                builder.setColumnType(Types.BOOLEAN);
+                builder.setColumnDisplaySize(5);
+                break;
             case "bigint":
                 builder.setColumnType(Types.BIGINT);
                 builder.setSigned(true);

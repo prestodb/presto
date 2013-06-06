@@ -45,9 +45,9 @@ public class TestAggregationOperator
                         aggregation(LONG_AVERAGE, new Input(1, 0)),
                         aggregation(VAR_BINARY_MAX, new Input(2, 0)),
                         aggregation(COUNT_COLUMN, new Input(0, 0)),
-                        aggregation(LONG_SUM, new Input(3, 0)),
-                        aggregation(DOUBLE_SUM, new Input(3, 1)),
-                        aggregation(VAR_BINARY_MAX, new Input(3, 2))));
+                        aggregation(LONG_SUM, new Input(3, 1)),
+                        aggregation(DOUBLE_SUM, new Input(3, 2)),
+                        aggregation(VAR_BINARY_MAX, new Input(3, 3))));
 
         Page expectedPage = new Page(
                 new BlockBuilder(SINGLE_LONG)

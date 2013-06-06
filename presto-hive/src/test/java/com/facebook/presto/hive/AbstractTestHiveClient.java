@@ -204,7 +204,7 @@ public abstract class AbstractTestHiveClient
         assertPrimitiveField(map, "t_bigint", ColumnType.LONG, false);
         assertPrimitiveField(map, "t_float", ColumnType.DOUBLE, false);
         assertPrimitiveField(map, "t_double", ColumnType.DOUBLE, false);
-        assertPrimitiveField(map, "t_boolean", ColumnType.LONG, false);
+        assertPrimitiveField(map, "t_boolean", ColumnType.BOOLEAN, false);
         assertPrimitiveField(map, "t_timestamp", ColumnType.LONG, false);
         assertPrimitiveField(map, "t_binary", ColumnType.STRING, false);
         assertPrimitiveField(map, "t_array_string", ColumnType.STRING, false); // Currently mapped as a string
@@ -399,7 +399,7 @@ public abstract class AbstractTestHiveClient
                         assertTrue(cursor.isNull(columnIndex.get("t_boolean")));
                     }
                     else {
-                        assertEquals(cursor.getLong(columnIndex.get("t_boolean")), rowNumber % 3, String.format("row = %s", rowNumber));
+                        assertEquals(cursor.getBoolean(columnIndex.get("t_boolean")), rowNumber % 3 != 0, String.format("row = %s", rowNumber));
                     }
 
                     if (rowNumber % 17 == 0) {
@@ -574,6 +574,9 @@ public abstract class AbstractTestHiveClient
             ColumnMetadata column = schema.get(columnIndex);
             if (!cursor.isNull(columnIndex)) {
                 switch (column.getType()) {
+                    case BOOLEAN:
+                        cursor.getBoolean(columnIndex);
+                        break;
                     case LONG:
                         cursor.getLong(columnIndex);
                         break;

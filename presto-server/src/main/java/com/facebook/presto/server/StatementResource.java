@@ -419,6 +419,9 @@ public class StatementResource
                 String name = names.get(i);
                 Type type = types.get(i);
                 switch (type) {
+                    case BOOLEAN:
+                        list.add(new Column(name, "boolean"));
+                        break;
                     case FIXED_INT_64:
                         list.add(new Column(name, "bigint"));
                         break;

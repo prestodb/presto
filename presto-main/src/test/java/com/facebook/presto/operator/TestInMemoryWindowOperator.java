@@ -17,6 +17,7 @@ import static com.facebook.presto.operator.CancelTester.assertCancel;
 import static com.facebook.presto.operator.CancelTester.createCancelableDataSource;
 import static com.facebook.presto.operator.OperatorAssertions.assertOperatorEquals;
 import static com.facebook.presto.operator.OperatorAssertions.createOperator;
+import static com.facebook.presto.tuple.TupleInfo.Type.BOOLEAN;
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
@@ -53,17 +54,17 @@ public class TestInMemoryWindowOperator
     public void testRowNumberPartition()
             throws Exception
     {
-        TupleInfo tupleInfo = new TupleInfo(VARIABLE_BINARY, FIXED_INT_64, DOUBLE);
+        TupleInfo tupleInfo = new TupleInfo(VARIABLE_BINARY, FIXED_INT_64, DOUBLE, BOOLEAN);
 
         Operator source = createOperator(
                 new Page(new BlockBuilder(tupleInfo)
-                        .append("b").append(-1).append(-0.1)
-                        .append("a").append(2).append(0.3)
-                        .append("a").append(4).append(0.2)
+                        .append("b").append(-1).append(-0.1).append(true)
+                        .append("a").append(2).append(0.3).append(false)
+                        .append("a").append(4).append(0.2).append(true)
                         .build()),
                 new Page(new BlockBuilder(tupleInfo)
-                        .append("b").append(5).append(0.4)
-                        .append("a").append(6).append(0.1)
+                        .append("b").append(5).append(0.4).append(false)
+                        .append("a").append(6).append(0.1).append(true)
                         .build())
         );
 
@@ -72,11 +73,11 @@ public class TestInMemoryWindowOperator
 
         Operator expected = createOperator(new Page(
                 new BlockBuilder(tupleInfo)
-                        .append("a").append(2).append(0.3)
-                        .append("a").append(4).append(0.2)
-                        .append("a").append(6).append(0.1)
-                        .append("b").append(-1).append(-0.1)
-                        .append("b").append(5).append(0.4)
+                        .append("a").append(2).append(0.3).append(false)
+                        .append("a").append(4).append(0.2).append(true)
+                        .append("a").append(6).append(0.1).append(true)
+                        .append("b").append(-1).append(-0.1).append(true)
+                        .append("b").append(5).append(0.4).append(false)
                         .build(),
                 createLongsBlock(1, 2, 3, 1, 2)
         ));

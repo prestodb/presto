@@ -84,12 +84,18 @@ public class JmxDataStreamProvider
                     }
                     else {
                         switch (entry.getValue()) {
+                            case BOOLEAN:
+                                if (value instanceof Boolean) {
+                                    row.add(value);
+                                }
+                                else {
+                                    // mbeans can lie about types
+                                    row.add(null);
+                                }
+                                break;
                             case LONG:
                                 if (value instanceof Number) {
                                     row.add(((Number) value).longValue());
-                                }
-                                else if (value instanceof Boolean) {
-                                    row.add(((Boolean) value) ? 1L : 0L);
                                 }
                                 else {
                                     // mbeans can lie about types

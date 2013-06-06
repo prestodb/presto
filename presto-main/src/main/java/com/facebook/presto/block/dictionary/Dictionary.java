@@ -50,6 +50,11 @@ public class Dictionary
         return new Tuple(getTupleSlice(dictionaryKey), tupleInfo);
     }
 
+    public boolean getBoolean(int dictionaryKey, int field)
+    {
+        return tupleInfo.getBoolean(getTupleSlice(dictionaryKey), field);
+    }
+
     public long getLong(int dictionaryKey, int field)
     {
         return tupleInfo.getLong(getTupleSlice(dictionaryKey), field);

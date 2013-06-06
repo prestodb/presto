@@ -72,6 +72,9 @@ public class Casts
         if (value instanceof Double) {
             return value;
         }
+        else if (value instanceof Boolean) {
+            return ((Boolean) value) ? 1.0 : 0.0;
+        }
         else if (value instanceof Long) {
             return ((Long) value).doubleValue();
         }

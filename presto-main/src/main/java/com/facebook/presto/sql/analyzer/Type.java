@@ -11,7 +11,7 @@ public enum Type
     LONG(TupleInfo.Type.FIXED_INT_64),
     DOUBLE(TupleInfo.Type.DOUBLE),
     STRING(TupleInfo.Type.VARIABLE_BINARY),
-    BOOLEAN(null),
+    BOOLEAN(TupleInfo.Type.BOOLEAN),
     NULL(null);
 
     private final TupleInfo.Type rawType;

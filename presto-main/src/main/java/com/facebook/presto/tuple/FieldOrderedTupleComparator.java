@@ -38,6 +38,9 @@ public class FieldOrderedTupleComparator
 
             int comparison;
             switch (type) {
+                case BOOLEAN:
+                    comparison = Boolean.compare(o1.getBoolean(field), o2.getBoolean(field));
+                    break;
                 case FIXED_INT_64:
                     comparison = Long.compare(o1.getLong(field), o2.getLong(field));
                     break;

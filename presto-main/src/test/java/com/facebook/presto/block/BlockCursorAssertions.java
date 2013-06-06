@@ -39,6 +39,21 @@ public class BlockCursorAssertions
         for (int index = 0; index < tupleInfo.getFieldCount(); index++) {
             assertEquals(cursor.isNull(index), tuple.isNull(index));
             switch (tupleInfo.getTypes().get(index)) {
+                case BOOLEAN:
+                    assertEquals(cursor.getBoolean(index), tuple.getBoolean(index));
+                    try {
+                        cursor.getSlice(index);
+                        fail("Expected IllegalStateException or UnsupportedOperationException");
+                    }
+                    catch (IllegalStateException | UnsupportedOperationException expected) {
+                    }
+                    try {
+                        cursor.getSlice(index);
+                        fail("Expected IllegalStateException or UnsupportedOperationException");
+                    }
+                    catch (IllegalStateException | UnsupportedOperationException expected) {
+                    }
+                    break;
                 case FIXED_INT_64:
                     assertEquals(cursor.getLong(index), tuple.getLong(index));
                     try {
