@@ -99,6 +99,13 @@ public final class RunLengthEncodedBlockCursor implements BlockCursor
     }
 
     @Override
+    public boolean getBoolean(int field)
+    {
+        checkReadablePosition();
+        return value.getBoolean(field);
+    }
+
+    @Override
     public long getLong(int field)
     {
         checkReadablePosition();

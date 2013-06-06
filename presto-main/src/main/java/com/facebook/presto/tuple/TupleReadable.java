@@ -8,6 +8,8 @@ public interface TupleReadable
 
     Tuple getTuple();
 
+    boolean getBoolean(int index);
+
     long getLong(int index);
 
     double getDouble(int index);

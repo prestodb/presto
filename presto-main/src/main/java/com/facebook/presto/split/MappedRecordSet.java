@@ -74,6 +74,12 @@ public class MappedRecordSet
         }
 
         @Override
+        public boolean getBoolean(int field)
+        {
+            return delegate.getBoolean(userFieldToSystemField(field));
+        }
+
+        @Override
         public long getLong(int field)
         {
             return delegate.getLong(userFieldToSystemField(field));

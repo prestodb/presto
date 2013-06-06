@@ -60,6 +60,9 @@ public class UncompressedBlock
     {
         if (tupleInfo.getFieldCount() == 1) {
             Type type = tupleInfo.getTypes().get(0);
+            if (type == Type.BOOLEAN) {
+                return new UncompressedBooleanBlockCursor(positionCount, slice);
+            }
             if (type == Type.FIXED_INT_64) {
                 return new UncompressedLongBlockCursor(positionCount, slice);
             }

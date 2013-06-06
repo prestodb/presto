@@ -9,21 +9,20 @@ import com.google.common.base.Preconditions;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
+import static com.facebook.presto.tuple.TupleInfo.SINGLE_BOOLEAN;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
-import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 
-public class UncompressedDoubleBlockCursor
+public class UncompressedBooleanBlockCursor
         implements BlockCursor
 {
-    private static final int ENTRY_SIZE = SIZE_OF_DOUBLE + SIZE_OF_BYTE;
+    private static final int ENTRY_SIZE = SIZE_OF_BYTE + SIZE_OF_BYTE;
     private final Slice slice;
     private final int positionCount;
 
     private int position;
     private int offset;
 
-    public UncompressedDoubleBlockCursor(int positionCount, Slice slice)
+    public UncompressedBooleanBlockCursor(int positionCount, Slice slice)
     {
         Preconditions.checkArgument(positionCount >= 0, "positionCount is negative");
         Preconditions.checkNotNull(positionCount, "positionCount is null");
@@ -40,7 +39,7 @@ public class UncompressedDoubleBlockCursor
     @Override
     public TupleInfo getTupleInfo()
     {
-        return TupleInfo.SINGLE_DOUBLE;
+        return SINGLE_BOOLEAN;
     }
 
     @Override
@@ -108,7 +107,7 @@ public class UncompressedDoubleBlockCursor
         position += length;
 
         Slice newSlice = slice.slice(startOffset, length * ENTRY_SIZE);
-        return new UncompressedBlock(length, SINGLE_DOUBLE, newSlice);
+        return new UncompressedBlock(length, SINGLE_BOOLEAN, newSlice);
     }
 
     @Override
@@ -127,13 +126,15 @@ public class UncompressedDoubleBlockCursor
         Slice copy = Slices.allocate(ENTRY_SIZE);
         copy.setBytes(0, slice, offset, ENTRY_SIZE);
 
-        return new Tuple(copy, TupleInfo.SINGLE_DOUBLE);
+        return new Tuple(copy, SINGLE_BOOLEAN);
     }
 
     @Override
     public boolean getBoolean(int index)
     {
-        throw new UnsupportedOperationException();
+        checkReadablePosition();
+        Preconditions.checkElementIndex(0, 1, "field");
+        return slice.getByte(offset + SIZE_OF_BYTE) != 0;
     }
 
     @Override
@@ -145,9 +146,7 @@ public class UncompressedDoubleBlockCursor
     @Override
     public double getDouble(int field)
     {
-        checkReadablePosition();
-        Preconditions.checkElementIndex(0, 1, "field");
-        return slice.getDouble(offset + SIZE_OF_BYTE);
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -169,7 +168,7 @@ public class UncompressedDoubleBlockCursor
     {
         checkReadablePosition();
         Slice tupleSlice = value.getTupleSlice();
-        return tupleSlice.length() == ENTRY_SIZE && slice.getDouble(offset + SIZE_OF_BYTE) == tupleSlice.getDouble(SIZE_OF_BYTE);
+        return tupleSlice.length() == ENTRY_SIZE && slice.getByte(offset + SIZE_OF_BYTE) == tupleSlice.getByte(SIZE_OF_BYTE);
     }
 
     @Override

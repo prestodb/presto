@@ -91,6 +91,9 @@ public class RecordProjectOperator
                     }
                     else {
                         switch (getTupleInfos().get(column).getTypes().get(0)) {
+                            case BOOLEAN:
+                                output.append(cursor.getBoolean(column));
+                                break;
                             case FIXED_INT_64:
                                 output.append(cursor.getLong(column));
                                 break;

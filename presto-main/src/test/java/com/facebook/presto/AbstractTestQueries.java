@@ -974,8 +974,7 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         // whole expression in group by
-        // TODO: enable once we support booleans
-        // assertQuery("SELECT orderkey BETWEEN 1 AND 100 FROM orders GROUP BY orderkey BETWEEN 1 AND 100 ");
+        assertQuery("SELECT orderkey BETWEEN 1 AND 100 FROM orders GROUP BY orderkey BETWEEN 1 AND 100 ");
 
         // expression in group by
         assertQuery("SELECT CAST(orderkey BETWEEN 1 AND 100 AS BIGINT) FROM orders GROUP BY orderkey");
@@ -1111,6 +1110,7 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT CAST(totalprice AS BIGINT) FROM orders");
         assertQuery("SELECT CAST(orderkey AS DOUBLE) FROM orders");
         assertQuery("SELECT CAST(orderkey AS VARCHAR) FROM orders");
+        assertQuery("SELECT CAST(orderkey AS BOOLEAN) FROM orders");
     }
 
     @Test
@@ -1761,6 +1761,15 @@ public abstract class AbstractTestQueries
                 for (int i = 1; i <= count; i++) {
                     TupleInfo.Type type = types.get(i - 1);
                     switch (type) {
+                        case BOOLEAN:
+                            boolean booleanValue = resultSet.getBoolean(i);
+                            if (resultSet.wasNull()) {
+                                builder.appendNull();
+                            }
+                            else {
+                                builder.append(booleanValue);
+                            }
+                            break;
                         case FIXED_INT_64:
                             long longValue = resultSet.getLong(i);
                             if (resultSet.wasNull()) {
@@ -1815,6 +1824,9 @@ public abstract class AbstractTestQueries
                 for (int column = 0; column < tableMetadata.getColumns().size(); column++) {
                     ColumnMetadata columnMetadata = tableMetadata.getColumns().get(column);
                     switch (columnMetadata.getType()) {
+                        case BOOLEAN:
+                            part.bind(column, cursor.getBoolean(column));
+                            break;
                         case LONG:
                             part.bind(column, cursor.getLong(column));
                             break;

@@ -47,6 +47,7 @@ class BytesHiveRecordCursor<K>
 
     private final int[] hiveColumnIndexes;
 
+    private final boolean[] booleans;
     private final long[] longs;
     private final double[] doubles;
     private final byte[][] strings;
@@ -78,6 +79,7 @@ class BytesHiveRecordCursor<K>
 
         this.hiveColumnIndexes = new int[size];
 
+        this.booleans = new boolean[size];
         this.longs = new long[size];
         this.doubles = new double[size];
         this.strings = new byte[size][];
@@ -201,18 +203,18 @@ class BytesHiveRecordCursor<K>
     private void parsePrimitiveColumn(int column, byte[] bytes, int start, int length)
     {
         switch (types[column]) {
+            case BOOLEAN:
+                Boolean bool = parseHiveBoolean(bytes, start, length);
+                if (bool == null) {
+                    nulls[column] = true;
+                }
+                else {
+                    booleans[column] = bool;
+                }
+                break;
             case LONG:
                 if (length == 0) {
                     nulls[column] = true;
-                }
-                else if (hiveTypes[column] == HiveType.BOOLEAN) {
-                    Boolean bool = parseHiveBoolean(bytes, start, length);
-                    if (bool == null) {
-                        nulls[column] = true;
-                    }
-                    else {
-                        longs[column] = bool ? 1 : 0;
-                    }
                 }
                 else if (hiveTypes[column] == HiveType.TIMESTAMP) {
                     String value = new String(bytes, start, length);
@@ -240,6 +242,13 @@ class BytesHiveRecordCursor<K>
                 }
                 break;
         }
+    }
+
+    @Override
+    public boolean getBoolean(int field)
+    {
+        validateType(field, ColumnType.BOOLEAN);
+        return booleans[field];
     }
 
     @Override

@@ -65,6 +65,13 @@ public class InfiniteRecordSet
         }
 
         @Override
+        public boolean getBoolean(int field)
+        {
+            Preconditions.checkNotNull(record.get(field), "value is null");
+            return (Boolean) record.get(field);
+        }
+
+        @Override
         public long getLong(int field)
         {
             Preconditions.checkNotNull(record.get(field), "value is null");

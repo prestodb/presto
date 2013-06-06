@@ -9,6 +9,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.serde.TupleInfoSerde.readTupleInfo;
 import static com.facebook.presto.serde.TupleInfoSerde.writeTupleInfo;
+import static com.facebook.presto.tuple.TupleInfo.Type.BOOLEAN;
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
@@ -19,7 +20,7 @@ public class TestTupleInfoSerde
     @Test
     public void testRoundTrip()
     {
-        TupleInfo expectedTupleInfo = new TupleInfo(FIXED_INT_64, VARIABLE_BINARY, DOUBLE);
+        TupleInfo expectedTupleInfo = new TupleInfo(BOOLEAN, FIXED_INT_64, VARIABLE_BINARY, DOUBLE);
 
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
         writeTupleInfo(sliceOutput, expectedTupleInfo);

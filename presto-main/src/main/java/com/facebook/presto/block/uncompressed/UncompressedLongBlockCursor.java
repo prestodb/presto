@@ -131,6 +131,12 @@ public class UncompressedLongBlockCursor
     }
 
     @Override
+    public boolean getBoolean(int index)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public long getLong(int field)
     {
         checkReadablePosition();

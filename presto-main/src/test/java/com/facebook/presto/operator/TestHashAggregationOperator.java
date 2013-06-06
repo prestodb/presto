@@ -172,9 +172,9 @@ public class TestHashAggregationOperator
                         aggregation(LONG_AVERAGE, new Input(3, 0)),
                         aggregation(VAR_BINARY_MAX, new Input(2, 0)),
                         aggregation(COUNT_COLUMN, new Input(0, 0)),
-                        aggregation(LONG_SUM, new Input(4, 0)),
-                        aggregation(DOUBLE_SUM, new Input(4, 1)),
-                        aggregation(VAR_BINARY_MAX, new Input(4, 2))),
+                        aggregation(LONG_SUM, new Input(4, 1)),
+                        aggregation(DOUBLE_SUM, new Input(4, 2)),
+                        aggregation(VAR_BINARY_MAX, new Input(4, 3))),
                 100_000,
                 new DataSize(100, Unit.MEGABYTE));
 

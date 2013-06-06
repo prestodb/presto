@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.tuple.TupleInfo.Type.BOOLEAN;
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
@@ -26,6 +27,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.uniqueIndex;
+import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
@@ -57,6 +59,7 @@ import static java.util.Arrays.asList;
  */
 public class TupleInfo
 {
+    public static final TupleInfo SINGLE_BOOLEAN = new TupleInfo(BOOLEAN);
     public static final TupleInfo SINGLE_LONG = new TupleInfo(FIXED_INT_64);
     public static final TupleInfo SINGLE_VARBINARY = new TupleInfo(VARIABLE_BINARY);
     public static final TupleInfo SINGLE_DOUBLE = new TupleInfo(DOUBLE);
@@ -66,7 +69,8 @@ public class TupleInfo
     {
         FIXED_INT_64(SIZE_OF_LONG, "long"),
         VARIABLE_BINARY(-1, "string"),
-        DOUBLE(SIZE_OF_DOUBLE, "double");
+        DOUBLE(SIZE_OF_DOUBLE, "double"),
+        BOOLEAN(SIZE_OF_BYTE, "boolean");
 
         private static final Map<String, Type> NAMES = uniqueIndex(asList(values()), nameGetter());
 
@@ -99,12 +103,14 @@ public class TupleInfo
         public ColumnType toColumnType()
         {
             switch (this) {
+                case BOOLEAN:
+                    return ColumnType.BOOLEAN;
                 case FIXED_INT_64:
                     return ColumnType.LONG;
-                case VARIABLE_BINARY:
-                    return ColumnType.STRING;
                 case DOUBLE:
                     return ColumnType.DOUBLE;
+                case VARIABLE_BINARY:
+                    return ColumnType.STRING;
                 default:
                     throw new IllegalStateException("Unknown type " + this);
             }
@@ -113,6 +119,8 @@ public class TupleInfo
         public static Type fromColumnType(ColumnType type)
         {
             switch (type) {
+                case BOOLEAN:
+                    return BOOLEAN;
                 case DOUBLE:
                     return DOUBLE;
                 case LONG:
@@ -308,6 +316,35 @@ public class TupleInfo
         return tupleSize;
     }
 
+    public boolean getBoolean(Slice slice, int field)
+    {
+        return getBoolean(slice, 0, field);
+    }
+
+    public boolean getBoolean(Slice slice, int offset, int field)
+    {
+        checkState(types.get(field) == BOOLEAN, "Expected BOOLEAN, but is %s", types.get(field));
+
+        return slice.getByte(offset + getOffset(field)) != 0;
+    }
+
+    public void setBoolean(Slice slice, int field, boolean value)
+    {
+        setBoolean(slice, 0, field, value);
+    }
+
+    /**
+     * Sets the specified field to the specified boolean value.
+     * <p/>
+     * Note: this DOES NOT modify the null flag of this field.
+     */
+    public void setBoolean(Slice slice, int offset, int field, boolean value)
+    {
+        checkState(types.get(field) == BOOLEAN, "Expected BOOLEAN, but is %s", types.get(field));
+
+        slice.setByte(offset + getOffset(field), value ? 1 : 0);
+    }
+
     public long getLong(Slice slice, int field)
     {
         return getLong(slice, 0, field);
@@ -315,7 +352,7 @@ public class TupleInfo
 
     public long getLong(Slice slice, int offset, int field)
     {
-        checkState(types.get(field) == FIXED_INT_64, "Expected FIXED_INT_64");
+        checkState(types.get(field) == FIXED_INT_64, "Expected FIXED_INT_64, but is %s", types.get(field));
 
         return slice.getLong(offset + getOffset(field));
     }
@@ -332,7 +369,7 @@ public class TupleInfo
      */
     public void setLong(Slice slice, int offset, int field, long value)
     {
-        checkState(types.get(field) == FIXED_INT_64, "Expected FIXED_INT_64");
+        checkState(types.get(field) == FIXED_INT_64, "Expected FIXED_INT_64, but is %s", types.get(field));
 
         slice.setLong(offset + getOffset(field), value);
     }
@@ -344,7 +381,7 @@ public class TupleInfo
 
     public double getDouble(Slice slice, int offset, int field)
     {
-        checkState(types.get(field) == DOUBLE, "Expected DOUBLE");
+        checkState(types.get(field) == DOUBLE, "Expected DOUBLE, but is %s", types.get(field));
 
         return slice.getDouble(offset + getOffset(field));
     }
@@ -361,7 +398,7 @@ public class TupleInfo
      */
     public void setDouble(Slice slice, int offset, int field, double value)
     {
-        checkState(types.get(field) == DOUBLE, "Expected DOUBLE");
+        checkState(types.get(field) == DOUBLE, "Expected DOUBLE, but is %s", types.get(field));
 
         slice.setDouble(offset + getOffset(field), value);
     }
@@ -373,7 +410,7 @@ public class TupleInfo
 
     public Slice getSlice(Slice slice, int offset, int field)
     {
-        checkState(types.get(field) == VARIABLE_BINARY, "Expected VARIABLE_BINARY");
+        checkState(types.get(field) == VARIABLE_BINARY, "Expected VARIABLE_BINARY, but is %s", types.get(field));
 
         int start;
         int end;
@@ -534,6 +571,16 @@ public class TupleInfo
             fixedBuffer = Slices.allocate(size < 0 ? getOffset(secondVariableLengthField) : size);
         }
 
+        public Builder append(boolean value)
+        {
+            checkState(TupleInfo.this.getTypes().get(currentField) == BOOLEAN, "Cannot append boolean. Current field (%s) is of type %s", currentField, TupleInfo.this.getTypes().get(currentField));
+
+            fixedBuffer.setByte(getOffset(currentField), value ? 1 : 0);
+            currentField++;
+
+            return this;
+        }
+
         public Builder append(long value)
         {
             checkState(TupleInfo.this.getTypes().get(currentField) == FIXED_INT_64, "Cannot append long. Current field (%s) is of type %s", currentField, TupleInfo.this.getTypes().get(currentField));
@@ -605,6 +652,9 @@ public class TupleInfo
             }
             else {
                 switch (type) {
+                    case BOOLEAN:
+                        append(tuple.getBoolean(index));
+                        break;
                     case FIXED_INT_64:
                         append(tuple.getLong(index));
                         break;

@@ -24,6 +24,8 @@ public class TupleInputResolver
         }
 
         switch (tuple.getTupleInfo().getTypes().get(field)) {
+            case BOOLEAN:
+                return tuple.getBoolean(field);
             case FIXED_INT_64:
                 return tuple.getLong(field);
             case DOUBLE:

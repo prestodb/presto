@@ -195,6 +195,8 @@ public class JmxMetadata
         switch (attribute.getType()) {
             case "boolean":
             case "java.lang.Boolean":
+                columnType = ColumnType.BOOLEAN;
+                break;
             case "byte":
             case "java.lang.Byte":
             case "short":

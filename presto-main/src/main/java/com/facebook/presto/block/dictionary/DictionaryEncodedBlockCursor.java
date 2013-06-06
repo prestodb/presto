@@ -74,6 +74,12 @@ public class DictionaryEncodedBlockCursor implements BlockCursor
     }
 
     @Override
+    public boolean getBoolean(int field)
+    {
+        return dictionary.getBoolean(getDictionaryKey(), field);
+    }
+
+    @Override
     public long getLong(int field)
     {
         return dictionary.getLong(getDictionaryKey(), field);

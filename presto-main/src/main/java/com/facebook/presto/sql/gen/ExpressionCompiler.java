@@ -119,7 +119,6 @@ import static com.facebook.presto.byteCode.Access.PUBLIC;
 import static com.facebook.presto.byteCode.Access.STATIC;
 import static com.facebook.presto.byteCode.Access.a;
 import static com.facebook.presto.byteCode.NamedParameterDefinition.arg;
-import static com.facebook.presto.byteCode.OpCodes.I2L;
 import static com.facebook.presto.byteCode.OpCodes.L2D;
 import static com.facebook.presto.byteCode.OpCodes.NOP;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
@@ -312,8 +311,11 @@ public class ExpressionCompiler
         int projectionIndex = 0;
         for (Expression projection : projections) {
             Class<?> type = generateProjectMethod(classDefinition, "project_" + projectionIndex, projection, inputTypes);
-            // todo remove assumption that void and boolean is a long
-            if (type == long.class || type == void.class || type == boolean.class) {
+            if (type == boolean.class) {
+                tupleInfos.add(TupleInfo.SINGLE_BOOLEAN);
+            }
+            // todo remove assumption that void is a long
+            else if (type == long.class || type == void.class) {
                 tupleInfos.add(TupleInfo.SINGLE_LONG);
             }
             else if (type == double.class) {
@@ -689,8 +691,13 @@ public class ExpressionCompiler
                 "getTupleInfo",
                 type(TupleInfo.class));
 
+        if (type == boolean.class) {
+            getTupleInfoMethod.getBody()
+                    .getStaticField(type(TupleInfo.class), "SINGLE_BOOLEAN", type(TupleInfo.class))
+                    .retObject();
+        }
         // todo remove assumption that void and boolean is a long
-        if (type == long.class || type == void.class || type == boolean.class) {
+        else if (type == long.class || type == void.class) {
             getTupleInfoMethod.getBody()
                     .getStaticField(type(TupleInfo.class), "SINGLE_LONG", type(TupleInfo.class))
                     .retObject();
@@ -756,9 +763,8 @@ public class ExpressionCompiler
             Block notNullBlock = new Block(context);
             if (body.type == boolean.class) {
                 notNullBlock
-                        .comment("output.append((double) <longStackValue>);")
-                        .append(I2L)
-                        .invokeVirtual(BlockBuilder.class, "append", BlockBuilder.class, long.class);
+                        .comment("output.append(<booleanStackValue>);")
+                        .invokeVirtual(BlockBuilder.class, "append", BlockBuilder.class, boolean.class);
             }
             else if (body.type == long.class) {
                 notNullBlock
@@ -974,6 +980,10 @@ public class ExpressionCompiler
             Class<?> nodeType;
             switch (type) {
                 case BOOLEAN:
+                    isNull.loadConstant(0L);
+                    notNull.invokeInterface(TupleReadable.class, "getBoolean", boolean.class, int.class);
+                    nodeType = boolean.class;
+                    break;
                 case LONG:
                     isNull.loadConstant(0L);
                     notNull.invokeInterface(TupleReadable.class, "getLong", long.class, int.class);

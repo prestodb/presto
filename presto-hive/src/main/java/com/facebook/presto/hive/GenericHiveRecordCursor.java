@@ -49,6 +49,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
 
     private final boolean[] isPartitionColumn;
 
+    private final boolean[] booleans;
     private final long[] longs;
     private final double[] doubles;
     private final byte[][] strings;
@@ -90,6 +91,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
 
         this.isPartitionColumn = new boolean[size];
 
+        this.booleans = new boolean[size];
         this.longs = new long[size];
         this.doubles = new double[size];
         this.strings = new byte[size][];
@@ -188,8 +190,11 @@ class GenericHiveRecordCursor<K, V extends Writable>
                 Object fieldValue = ((PrimitiveObjectInspector) fieldInspectors[outputColumnIndex]).getPrimitiveJavaObject(fieldData);
                 checkState(fieldValue != null, "fieldValue should not be null");
                 switch (types[outputColumnIndex]) {
+                    case BOOLEAN:
+                        booleans[outputColumnIndex] = (Boolean) fieldValue;
+                        break;
                     case LONG:
-                        longs[outputColumnIndex] = getLongOrBoolean(fieldValue);
+                        longs[outputColumnIndex] = getLongOrTimestamp(fieldValue);
                         break;
                     case DOUBLE:
                         doubles[outputColumnIndex] = ((Number) fieldValue).doubleValue();
@@ -210,11 +215,8 @@ class GenericHiveRecordCursor<K, V extends Writable>
         }
     }
 
-    private static long getLongOrBoolean(Object value)
+    private static long getLongOrTimestamp(Object value)
     {
-        if (value instanceof Boolean) {
-            return ((boolean) value) ? 1 : 0;
-        }
         if (value instanceof Timestamp) {
             return MILLISECONDS.toSeconds(((Timestamp) value).getTime());
         }
@@ -224,18 +226,18 @@ class GenericHiveRecordCursor<K, V extends Writable>
     private void parseColumn(int column, byte[] bytes, int start, int length)
     {
         switch (types[column]) {
+            case BOOLEAN:
+                Boolean bool = parseHiveBoolean(bytes, start, length);
+                if (bool == null) {
+                    nulls[column] = true;
+                }
+                else {
+                    booleans[column] = bool;
+                }
+                break;
             case LONG:
                 if (length == 0) {
                     nulls[column] = true;
-                }
-                else if (hiveTypes[column] == HiveType.BOOLEAN) {
-                    Boolean bool = parseHiveBoolean(bytes, start, length);
-                    if (bool == null) {
-                        nulls[column] = true;
-                    }
-                    else {
-                        longs[column] = bool ? 1 : 0;
-                    }
                 }
                 else {
                     longs[column] = parseLong(bytes, start, length);
@@ -253,6 +255,13 @@ class GenericHiveRecordCursor<K, V extends Writable>
                 strings[column] = Arrays.copyOfRange(bytes, start, start + length);
                 break;
         }
+    }
+
+    @Override
+    public boolean getBoolean(int fieldId)
+    {
+        validateType(fieldId, ColumnType.BOOLEAN);
+        return booleans[fieldId];
     }
 
     @Override

@@ -2,7 +2,6 @@ package com.facebook.presto.util;
 
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.FilterFunctions;
 import com.facebook.presto.operator.Operator;
@@ -151,7 +150,10 @@ public class MaterializedResult
 
         private void append(Object value)
         {
-            if ((value instanceof Long) || (value instanceof Integer)) {
+            if (value instanceof Boolean) {
+                builder.append((Boolean) value);
+            }
+            else if ((value instanceof Long) || (value instanceof Integer)) {
                 builder.append(((Number) value).longValue());
             }
             else if (value instanceof Double) {
