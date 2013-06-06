@@ -19,6 +19,7 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
+import com.facebook.presto.sql.tree.InputReference;
 import com.facebook.presto.sql.tree.IntervalLiteral;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
@@ -123,7 +124,7 @@ public final class ExpressionFormatter
         @Override
         protected String visitBooleanLiteral(BooleanLiteral node, Void context)
         {
-            return node.getValue();
+            return String.valueOf(node.getValue());
         }
 
         @Override
@@ -195,6 +196,13 @@ public final class ExpressionFormatter
                 parts.add(formatIdentifier(part));
             }
             return Joiner.on('.').join(parts);
+        }
+
+        @Override
+        public String visitInputReference(InputReference node, Void context)
+        {
+            // add colon so this won't parse
+            return ":input(" + node.getInput().getChannel() + ", "  + node.getInput().getField() + ")";
         }
 
         @Override

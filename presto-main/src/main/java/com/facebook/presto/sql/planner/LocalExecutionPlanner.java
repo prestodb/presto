@@ -1,5 +1,6 @@
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.metadata.Metadata;
@@ -32,6 +33,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
+import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -49,11 +51,14 @@ import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
+import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Input;
+import com.facebook.presto.sql.tree.InputReference;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.SortItem;
+import com.facebook.presto.sql.tree.TreeRewriter;
 import com.facebook.presto.tuple.FieldOrderedTupleComparator;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleReadable;
@@ -65,15 +70,18 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMap.Builder;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import com.google.inject.Provider;
+import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.DataSize;
 
+import javax.inject.Inject;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -91,54 +99,94 @@ import static com.google.common.base.Predicates.not;
 
 public class LocalExecutionPlanner
 {
-    private final Session session;
+    private static final Logger log = Logger.get(LocalExecutionPlanner.class);
+
     private final NodeInfo nodeInfo;
     private final Metadata metadata;
-    private final Map<Symbol, Type> types;
 
-    private final OperatorStats operatorStats;
-
-    private final SourceHashProviderFactory joinHashFactory;
     private final DataSize maxOperatorMemoryUsage;
 
     private final DataStreamProvider dataStreamProvider;
     private final LocalStorageManager storageManager;
     private final Provider<ExchangeClient> exchangeClientProvider;
+    private final ExpressionCompiler compiler;
 
-    public LocalExecutionPlanner(Session session,
-            NodeInfo nodeInfo,
+    @Inject
+    public LocalExecutionPlanner(NodeInfo nodeInfo,
             Metadata metadata,
-            Map<Symbol, Type> types,
-            OperatorStats operatorStats,
-            SourceHashProviderFactory joinHashFactory,
+            QueryManagerConfig config,
+            DataStreamProvider dataStreamProvider,
+            LocalStorageManager storageManager,
+            Provider<ExchangeClient> exchangeClientProvider,
+            ExpressionCompiler compiler)
+    {
+        this(nodeInfo, metadata, config.getMaxOperatorMemoryUsage(), dataStreamProvider, storageManager, exchangeClientProvider, compiler);
+    }
+
+    public LocalExecutionPlanner(NodeInfo nodeInfo,
+            Metadata metadata,
             DataSize maxOperatorMemoryUsage,
             DataStreamProvider dataStreamProvider,
             LocalStorageManager storageManager,
-            Provider<ExchangeClient> exchangeClientProvider)
+            Provider<ExchangeClient> exchangeClientProvider,
+            ExpressionCompiler compiler)
     {
         this.nodeInfo = checkNotNull(nodeInfo, "nodeInfo is null");
         this.dataStreamProvider = dataStreamProvider;
         this.exchangeClientProvider = exchangeClientProvider;
-        this.session = checkNotNull(session, "session is null");
-        this.operatorStats = Preconditions.checkNotNull(operatorStats, "operatorStats is null");
         this.metadata = checkNotNull(metadata, "metadata is null");
-        this.types = checkNotNull(types, "types is null");
-        this.joinHashFactory = checkNotNull(joinHashFactory, "joinHashFactory is null");
         this.maxOperatorMemoryUsage = Preconditions.checkNotNull(maxOperatorMemoryUsage, "maxOperatorMemoryUsage is null");
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
+        this.compiler = checkNotNull(compiler, "compiler is null");
     }
 
-    public LocalExecutionPlan plan(PlanNode plan)
+    public LocalExecutionPlan plan(Session session, PlanNode plan, Map<Symbol, Type> types, SourceHashProviderFactory joinHashFactory, OperatorStats operatorStats)
     {
-        LocalExecutionPlanContext context = new LocalExecutionPlanContext();
+        LocalExecutionPlanContext context = new LocalExecutionPlanContext(session, types, joinHashFactory, operatorStats);
         Operator rootOperator = plan.accept(new Visitor(), context).getOperator();
         return new LocalExecutionPlan(rootOperator, context.getSourceOperators(), context.getOutputOperators());
     }
 
     private static class LocalExecutionPlanContext
     {
+        private final Session session;
+        private final Map<Symbol, Type> types;
+        private final SourceHashProviderFactory joinHashFactory;
+        private final OperatorStats operatorStats;
+
         private final Map<PlanNodeId, SourceOperator> sourceOperators = new HashMap<>();
         private final Map<PlanNodeId, OutputProducingOperator<?>> outputOperators = new HashMap<>();
+
+        public LocalExecutionPlanContext(Session session,
+                Map<Symbol, Type> types,
+                SourceHashProviderFactory joinHashFactory,
+                OperatorStats operatorStats)
+        {
+            this.session = session;
+            this.types = types;
+            this.joinHashFactory = joinHashFactory;
+            this.operatorStats = operatorStats;
+        }
+
+        public Session getSession()
+        {
+            return session;
+        }
+
+        public Map<Symbol, Type> getTypes()
+        {
+            return types;
+        }
+
+        public SourceHashProviderFactory getJoinHashFactory()
+        {
+            return joinHashFactory;
+        }
+
+        public OperatorStats getOperatorStats()
+        {
+            return operatorStats;
+        }
 
         private void addSourceOperator(PlanNode node, SourceOperator sourceOperator)
         {
@@ -154,6 +202,7 @@ public class LocalExecutionPlanner
         {
             return ImmutableMap.copyOf(sourceOperators);
         }
+
         private Map<PlanNodeId, OutputProducingOperator<?>> getOutputOperators()
         {
             return ImmutableMap.copyOf(outputOperators);
@@ -197,7 +246,7 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitExchange(ExchangeNode node, LocalExecutionPlanContext context)
         {
-            List<TupleInfo> tupleInfo = getSourceOperatorTupleInfos(node);
+            List<TupleInfo> tupleInfo = getSourceOperatorTupleInfos(node, context.getTypes());
 
             SourceOperator operator = new ExchangeOperator(exchangeClientProvider, tupleInfo);
             context.addSourceOperator(node, operator);
@@ -235,7 +284,7 @@ public class LocalExecutionPlanner
             }
 
             // otherwise, introduce a projection to match the expected output
-            IdentityProjectionInfo mappings = computeIdentityMapping(resultSymbols, source.getLayout(), types);
+            IdentityProjectionInfo mappings = computeIdentityMapping(resultSymbols, source.getLayout(), context.getTypes());
 
             FilterAndProjectOperator operator = new FilterAndProjectOperator(source.getOperator(), FilterFunctions.TRUE_FUNCTION, mappings.getProjections());
             return new PhysicalOperation(operator, mappings.getOutputLayout());
@@ -254,7 +303,7 @@ public class LocalExecutionPlanner
 
             // insert a projection to put all the sort fields in a single channel if necessary
             if (!orderingSymbols.isEmpty()) {
-                source = packIfNecessary(orderingSymbols, source);
+                source = packIfNecessary(orderingSymbols, source, context.getTypes());
             }
 
             // find channel that fields were packed into if there is an ordering
@@ -326,7 +375,7 @@ public class LocalExecutionPlanner
             List<Symbol> orderBySymbols = node.getOrderBy();
 
             // insert a projection to put all the sort fields in a single channel if necessary
-            source = packIfNecessary(orderBySymbols, source);
+            source = packIfNecessary(orderBySymbols, source, context.getTypes());
 
             int orderByChannel = Iterables.getOnlyElement(getChannelsForSymbols(orderBySymbols, source.getLayout()));
 
@@ -339,7 +388,7 @@ public class LocalExecutionPlanner
 
             Ordering<TupleReadable> ordering = Ordering.from(new FieldOrderedTupleComparator(sortFields, sortOrders));
 
-            IdentityProjectionInfo mappings = computeIdentityMapping(node.getOutputSymbols(), source.getLayout(), types);
+            IdentityProjectionInfo mappings = computeIdentityMapping(node.getOutputSymbols(), source.getLayout(), context.getTypes());
 
             TopNOperator operator = new TopNOperator(source.getOperator(), (int) node.getCount(), orderByChannel, mappings.getProjections(), ordering, maxOperatorMemoryUsage);
             return new PhysicalOperation(operator, mappings.getOutputLayout());
@@ -353,7 +402,7 @@ public class LocalExecutionPlanner
             List<Symbol> orderBySymbols = node.getOrderBy();
 
             // insert a projection to put all the sort fields in a single channel if necessary
-            source = packIfNecessary(orderBySymbols, source);
+            source = packIfNecessary(orderBySymbols, source, context.getTypes());
 
             int orderByChannel = Iterables.getOnlyElement(getChannelsForSymbols(orderBySymbols, source.getLayout()));
 
@@ -392,20 +441,44 @@ public class LocalExecutionPlanner
                 return planGlobalAggregation(node, source);
             }
 
-            return planGroupByAggregation(node, source);
+            return planGroupByAggregation(node, source, context);
         }
 
         @Override
         public PhysicalOperation visitFilter(FilterNode node, LocalExecutionPlanContext context)
         {
             PhysicalOperation source = node.getSource().accept(this, context);
+            ImmutableMap<Input, Type> inputTypes = getInputTypes(source.getLayout(), source.getOperator().getTupleInfos());
 
-            FilterFunction filter = new InterpretedFilterFunction(node.getPredicate(), source.getLayout(), metadata, session);
+            try {
+                Expression filterExpression = TreeRewriter.rewriteWith(new SymbolToInputRewriter(source.getLayout()), node.getPredicate());
 
-            IdentityProjectionInfo mappings = computeIdentityMapping(node.getOutputSymbols(), source.getLayout(), types);
+                Map<Symbol, Input> outputMappings = new HashMap<>();
+                List<Expression> projections = new ArrayList<>();
+                for (int i = 0; i < node.getOutputSymbols().size(); i++) {
+                    Symbol symbol = node.getOutputSymbols().get(i);
 
-            FilterAndProjectOperator operator = new FilterAndProjectOperator(source.getOperator(), filter, mappings.getProjections());
-            return new PhysicalOperation(operator, mappings.getOutputLayout());
+                    Input input = source.getLayout().get(symbol);
+                    Preconditions.checkArgument(input != null, "Cannot resolve symbol %s", symbol.getName());
+
+                    projections.add(new InputReference(input));
+                    outputMappings.put(symbol, new Input(i, 0)); // one field per channel
+                }
+
+                Function<Operator, Operator> operatorFactory = compiler.compileFilterAndProjectOperator(filterExpression, projections, inputTypes);
+
+                Operator operator = operatorFactory.apply(source.getOperator());
+                return new PhysicalOperation(operator, outputMappings);
+            }
+            catch (Exception e) {
+                // compilation failed, use interpreter
+                log.info("Compile failed for filter=%s inputTypes=%s error=%s", node.getPredicate(), inputTypes, e);
+
+                FilterFunction filter = new InterpretedFilterFunction(node.getPredicate(), source.getLayout(), metadata, context.getSession());
+                IdentityProjectionInfo mappings = computeIdentityMapping(node.getOutputSymbols(), source.getLayout(), context.getTypes());
+                Operator operator = new FilterAndProjectOperator(source.getOperator(), filter, mappings.getProjections());
+                return new PhysicalOperation(operator, mappings.getOutputLayout());
+            }
         }
 
         @Override
@@ -413,38 +486,90 @@ public class LocalExecutionPlanner
         {
             // collapse project on filter to a single operator
             PhysicalOperation source;
-            FilterFunction filter;
+            Expression filterExpression;
             if (node.getSource() instanceof FilterNode) {
                 FilterNode filterNode = (FilterNode) node.getSource();
                 source = filterNode.getSource().accept(this, context);
-                filter = new InterpretedFilterFunction(filterNode.getPredicate(), source.getLayout(), metadata, session);
-            } else {
+                filterExpression = filterNode.getPredicate();
+            }
+            else {
                 source = node.getSource().accept(this, context);
-                filter = FilterFunctions.TRUE_FUNCTION;
+                filterExpression = BooleanLiteral.TRUE_LITERAL;
             }
 
-            Map<Symbol, Input> outputMappings = new HashMap<>();
-            List<ProjectionFunction> projections = new ArrayList<>();
-            for (int i = 0; i < node.getExpressions().size(); i++) {
-                Symbol symbol = node.getOutputSymbols().get(i);
-                Expression expression = node.getExpressions().get(i);
+            ImmutableMap<Input, Type> inputTypes = null;
+            try {
+                Expression rewrittenFilterExpression = TreeRewriter.rewriteWith(new SymbolToInputRewriter(source.getLayout()), filterExpression);
 
-                ProjectionFunction function;
-                if (expression instanceof QualifiedNameReference) {
-                    // fast path when we know it's a direct symbol reference
-                    Symbol reference = Symbol.fromQualifiedName(((QualifiedNameReference) expression).getName());
-                    function = ProjectionFunctions.singleColumn(types.get(reference).getRawType(), source.getLayout().get(symbol));
+                Map<Symbol, Input> outputMappings = new HashMap<>();
+                List<Expression> projections = new ArrayList<>();
+                for (int i = 0; i < node.getExpressions().size(); i++) {
+                    Symbol symbol = node.getOutputSymbols().get(i);
+                    projections.add(TreeRewriter.rewriteWith(new SymbolToInputRewriter(source.getLayout()), node.getExpressions().get(i)));
+                    outputMappings.put(symbol, new Input(i, 0)); // one field per channel
                 }
-                else {
-                    function = new InterpretedProjectionFunction(types.get(symbol), expression, source.getLayout(), metadata, session);
-                }
-                projections.add(function);
 
-                outputMappings.put(symbol, new Input(i, 0)); // one field per channel
+                inputTypes = getInputTypes(source.getLayout(), source.getOperator().getTupleInfos());
+                Function<Operator, Operator> operatorFactory = compiler.compileFilterAndProjectOperator(rewrittenFilterExpression, projections, inputTypes);
+                Operator operator = operatorFactory.apply(source.getOperator());
+                return new PhysicalOperation(operator, outputMappings);
             }
+            catch (Exception e) {
+                // compilation failed, use interpreter
+                log.info("Compile failed for filter=%s projections=%s inputTypes=%s error=%s", filterExpression, node.getExpressions(), inputTypes, e);
 
-            FilterAndProjectOperator operator = new FilterAndProjectOperator(source.getOperator(), filter, projections);
-            return new PhysicalOperation(operator, outputMappings);
+                FilterFunction filter;
+                if (filterExpression != BooleanLiteral.TRUE_LITERAL) {
+                    filter = new InterpretedFilterFunction(filterExpression, source.getLayout(), metadata, context.getSession());
+                } else {
+                    filter = FilterFunctions.TRUE_FUNCTION;
+                }
+
+                Map<Symbol, Input> outputMappings = new HashMap<>();
+                List<ProjectionFunction> projections = new ArrayList<>();
+                for (int i = 0; i < node.getExpressions().size(); i++) {
+                    Symbol symbol = node.getOutputSymbols().get(i);
+                    Expression expression = node.getExpressions().get(i);
+
+                    ProjectionFunction function;
+                    if (expression instanceof QualifiedNameReference) {
+                        // fast path when we know it's a direct symbol reference
+                        Symbol reference = Symbol.fromQualifiedName(((QualifiedNameReference) expression).getName());
+                        function = ProjectionFunctions.singleColumn(context.getTypes().get(reference).getRawType(), source.getLayout().get(symbol));
+                    }
+                    else {
+                        function = new InterpretedProjectionFunction(context.getTypes().get(symbol), expression, source.getLayout(), metadata, context.getSession());
+                    }
+                    projections.add(function);
+
+                    outputMappings.put(symbol, new Input(i, 0)); // one field per channel
+                }
+
+                FilterAndProjectOperator operator = new FilterAndProjectOperator(source.getOperator(), filter, projections);
+                return new PhysicalOperation(operator, outputMappings);
+            }
+        }
+
+        private ImmutableMap<Input, Type> getInputTypes(Map<Symbol, Input> layout, List<TupleInfo> tupleInfos)
+        {
+            Builder<Input, Type> inputTypes = ImmutableMap.builder();
+            for (Input input : layout.values()) {
+                 TupleInfo.Type type = tupleInfos.get(input.getChannel()).getTypes().get(input.getField());
+                 switch (type) {
+                     case FIXED_INT_64:
+                         inputTypes.put(input, Type.LONG);
+                         break;
+                     case VARIABLE_BINARY:
+                         inputTypes.put(input, Type.STRING);
+                         break;
+                     case DOUBLE:
+                         inputTypes.put(input, Type.DOUBLE);
+                         break;
+                     default:
+                         throw new IllegalArgumentException("Unsupported type " + type);
+                 }
+            }
+            return inputTypes.build();
         }
 
         @Override
@@ -461,7 +586,7 @@ public class LocalExecutionPlanner
                 channel++;
             }
 
-            List<TupleInfo> tupleInfos = getSourceOperatorTupleInfos(node);
+            List<TupleInfo> tupleInfos = getSourceOperatorTupleInfos(node, context.getTypes());
             TableScanOperator operator = new TableScanOperator(dataStreamProvider, tupleInfos, columns);
             context.addSourceOperator(node, operator);
             return new PhysicalOperation(operator, mappings);
@@ -475,17 +600,17 @@ public class LocalExecutionPlanner
             // introduce a projection to put all fields from the left side into a single channel if necessary
             PhysicalOperation leftSource = node.getLeft().accept(this, context);
             List<Symbol> leftSymbols = Lists.transform(clauses, leftGetter());
-            leftSource = packIfNecessary(leftSymbols, leftSource);
+            leftSource = packIfNecessary(leftSymbols, leftSource, context.getTypes());
 
             // do the same on the right side
             PhysicalOperation rightSource = node.getRight().accept(this, context);
             List<Symbol> rightSymbols = Lists.transform(clauses, rightGetter());
-            rightSource = packIfNecessary(rightSymbols, rightSource);
+            rightSource = packIfNecessary(rightSymbols, rightSource, context.getTypes());
 
             int probeChannel = Iterables.getOnlyElement(getChannelsForSymbols(leftSymbols, leftSource.getLayout()));
             int buildChannel = Iterables.getOnlyElement(getChannelsForSymbols(rightSymbols, rightSource.getLayout()));
 
-            SourceHashProvider hashProvider = joinHashFactory.getSourceHashProvider(node, rightSource.getOperator(), buildChannel, operatorStats);
+            SourceHashProvider hashProvider = context.getJoinHashFactory().getSourceHashProvider(node, rightSource.getOperator(), buildChannel, context.getOperatorStats());
 
             ImmutableMap.Builder<Symbol, Input> outputMappings = ImmutableMap.builder();
             outputMappings.putAll(leftSource.getLayout());
@@ -521,7 +646,7 @@ public class LocalExecutionPlanner
                     .any(not(equalTo(0)));
 
             if (hasMultiFieldChannels || !projectionMatchesOutput) {
-                IdentityProjectionInfo mappings = computeIdentityMapping(node.getOutputSymbols(), source.getLayout(), types);
+                IdentityProjectionInfo mappings = computeIdentityMapping(node.getOutputSymbols(), source.getLayout(), context.getTypes());
                 Operator operator = new FilterAndProjectOperator(source.getOperator(), FilterFunctions.TRUE_FUNCTION, mappings.getProjections());
                 // NOTE: the generated output layout may not be completely accurate if the same field was projected as multiple inputs.
                 // However, this should not affect the operation of the sink.
@@ -545,7 +670,7 @@ public class LocalExecutionPlanner
 
 
             // introduce a projection to match the expected output
-            IdentityProjectionInfo mappings = computeIdentityMapping(symbols.build(), query.getLayout(), types);
+            IdentityProjectionInfo mappings = computeIdentityMapping(symbols.build(), query.getLayout(), context.getTypes());
             Operator sourceOperator = new FilterAndProjectOperator(query.getOperator(), FilterFunctions.TRUE_FUNCTION, mappings.getProjections());
 
             Symbol outputSymbol = Iterables.getOnlyElement(node.getOutputSymbols());
@@ -578,7 +703,7 @@ public class LocalExecutionPlanner
                         .equals(expectedLayout);
 
                 if (!projectionMatchesOutput) {
-                    IdentityProjectionInfo mappings = computeIdentityMapping(expectedLayout, source.getLayout(), types);
+                    IdentityProjectionInfo mappings = computeIdentityMapping(expectedLayout, source.getLayout(), context.getTypes());
                     operatorBuilder.add(new FilterAndProjectOperator(source.getOperator(), FilterFunctions.TRUE_FUNCTION, mappings.getProjections()));
                 }
                 else {
@@ -603,7 +728,7 @@ public class LocalExecutionPlanner
             throw new UnsupportedOperationException("not yet implemented");
         }
 
-        private List<TupleInfo> getSourceOperatorTupleInfos(PlanNode node)
+        private List<TupleInfo> getSourceOperatorTupleInfos(PlanNode node, Map<Symbol, Type> types)
         {
             // Fow now, we assume that remote plans always produce one symbol per channel. TODO: remove this assumption
             return ImmutableList.copyOf(IterableTransformer.on(node.getOutputSymbols())
@@ -648,12 +773,12 @@ public class LocalExecutionPlanner
             return new PhysicalOperation(operator, outputMappings.build());
         }
 
-        private PhysicalOperation planGroupByAggregation(AggregationNode node, PhysicalOperation source)
+        private PhysicalOperation planGroupByAggregation(AggregationNode node, PhysicalOperation source, LocalExecutionPlanContext context)
         {
             List<Symbol> groupBySymbols = node.getGroupBy();
 
             // introduce a projection to put all group by fields from the source into a single channel if necessary
-            source = packIfNecessary(groupBySymbols, source);
+            source = packIfNecessary(groupBySymbols, source, context.getTypes());
 
             List<Symbol> aggregationOutputSymbols = new ArrayList<>();
             List<AggregationFunctionDefinition> functionDefinitions = new ArrayList<>();
@@ -707,7 +832,7 @@ public class LocalExecutionPlanner
     /**
      * Inserts a projection if the provided symbols are not in a single channel by themselves
      */
-    private PhysicalOperation packIfNecessary(List<Symbol> symbols, PhysicalOperation source)
+    private PhysicalOperation packIfNecessary(List<Symbol> symbols, PhysicalOperation source, Map<Symbol, Type> types)
     {
         Set<Integer> channels = getChannelsForSymbols(symbols, source.getLayout());
         List<TupleInfo> tupleInfos = source.getOperator().getTupleInfos();
@@ -810,7 +935,8 @@ public class LocalExecutionPlanner
 
     private static Ordering<Input> inputOrdering()
     {
-        return Ordering.from(new Comparator<Input>() {
+        return Ordering.from(new Comparator<Input>()
+        {
             @Override
             public int compare(Input o1, Input o2)
             {

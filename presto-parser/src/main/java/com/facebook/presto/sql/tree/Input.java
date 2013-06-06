@@ -30,6 +30,25 @@ public class Input
     }
 
     @Override
+    public int hashCode()
+    {
+        return Objects.hashCode(channel, field);
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        final Input other = (Input) obj;
+        return Objects.equal(this.channel, other.channel) && Objects.equal(this.field, other.field);
+    }
+
+    @Override
     public String toString()
     {
         return Objects.toStringHelper(this)

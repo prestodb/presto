@@ -8,6 +8,7 @@ import com.facebook.presto.connector.informationSchema.InformationSchemaSplitMan
 import com.facebook.presto.connector.system.NodesSystemTable;
 import com.facebook.presto.connector.system.SystemDataStreamProvider;
 import com.facebook.presto.connector.system.SystemSplitManager;
+import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.connector.system.SystemTablesManager;
 import com.facebook.presto.connector.system.SystemTablesMetadata;
@@ -18,7 +19,6 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.MockLocalStorageManager;
 import com.facebook.presto.operator.Operator;
-import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.SourceHashProviderFactory;
 import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.spi.ConnectorSplitManager;
@@ -30,6 +30,7 @@ import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DistributedLogicalPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
@@ -75,11 +76,12 @@ import static org.testng.Assert.assertTrue;
 
 public class LocalQueryRunner
 {
-    private final DataStreamProvider dataStreamProvider;
     private final Metadata metadata;
+    private final SplitManager splitManager;
+    private final DataStreamProvider dataStreamProvider;
     private final LocalStorageManager storageManager;
     private final Session session;
-    private final SplitManager splitManager;
+    private final ExpressionCompiler compiler;
     private boolean printPlan;
 
     public LocalQueryRunner(Metadata metadata,
@@ -93,6 +95,7 @@ public class LocalQueryRunner
         this.dataStreamProvider = checkNotNull(dataStreamProvider, "dataStreamProvider is null");
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
         this.session = checkNotNull(session, "session is null");
+        this.compiler = new ExpressionCompiler(metadata);
     }
 
     public LocalQueryRunner printPlan()
@@ -129,20 +132,22 @@ public class LocalQueryRunner
         assertTrue(subplan.getChildren().isEmpty(), "Expected subplan to have no children");
 
         DataSize maxOperatorMemoryUsage = new DataSize(256, MEGABYTE);
-        LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(session,
+        LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(
                 new NodeInfo(new NodeConfig()
                         .setEnvironment("test")
                         .setNodeId("test-node")),
                 metadata,
-                plan.getTypes(),
-                new OperatorStats(),
-                new SourceHashProviderFactory(maxOperatorMemoryUsage),
                 maxOperatorMemoryUsage,
                 dataStreamProvider,
                 storageManager,
-                null);
+                null,
+                compiler);
 
-        LocalExecutionPlan localExecutionPlan = executionPlanner.plan(subplan.getFragment().getRoot());
+        LocalExecutionPlan localExecutionPlan = executionPlanner.plan(session,
+                subplan.getFragment().getRoot(),
+                plan.getTypes(),
+                new SourceHashProviderFactory(maxOperatorMemoryUsage),
+                new OperatorStats());
 
         // add the splits to the sources
         Map<PlanNodeId, SourceOperator> sourceOperators = localExecutionPlan.getSourceOperators();
