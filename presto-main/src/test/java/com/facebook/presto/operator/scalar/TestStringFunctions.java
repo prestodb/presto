@@ -102,6 +102,47 @@ public class TestStringFunctions
     }
 
     @Test
+    public void testSplitPart()
+    {
+        assertFunction("SPLIT_PART('abc-@-def-@-ghi', '-@-', 1)", "abc");
+        assertFunction("SPLIT_PART('abc-@-def-@-ghi', '-@-', 2)", "def");
+        assertFunction("SPLIT_PART('abc-@-def-@-ghi', '-@-', 3)", "ghi");
+        assertFunction("SPLIT_PART('abc-@-def-@-ghi', '-@-', 4)", null);
+        assertFunction("SPLIT_PART('abc-@-def-@-ghi', '-@-', 99)", null);
+        assertFunction("SPLIT_PART('abc', 'abc', 1)", "");
+        assertFunction("SPLIT_PART('abc', 'abc', 2)", "");
+        assertFunction("SPLIT_PART('abc', 'abc', 3)", null);
+        assertFunction("SPLIT_PART('abc', '-@-', 1)", "abc");
+        assertFunction("SPLIT_PART('abc', '-@-', 2)", null);
+        assertFunction("SPLIT_PART('', 'abc', 1)", "");
+        assertFunction("SPLIT_PART('', '', 1)", null);
+        assertFunction("SPLIT_PART('abc', '', 1)", "a");
+        assertFunction("SPLIT_PART('abc', '', 2)", "b");
+        assertFunction("SPLIT_PART('abc', '', 3)", "c");
+        assertFunction("SPLIT_PART('abc', '', 4)", null);
+        assertFunction("SPLIT_PART('abc', '', 99)", null);
+        assertFunction("SPLIT_PART('abc', 'abcd', 1)", "abc");
+        assertFunction("SPLIT_PART('abc', 'abcd', 2)", null);
+        assertFunction("SPLIT_PART('abc--@--def', '-@-', 1)", "abc-");
+        assertFunction("SPLIT_PART('abc--@--def', '-@-', 2)", "-def");
+        assertFunction("SPLIT_PART('abc-@-@-@-def', '-@-', 1)", "abc");
+        assertFunction("SPLIT_PART('abc-@-@-@-def', '-@-', 2)", "@");
+        assertFunction("SPLIT_PART('abc-@-@-@-def', '-@-', 3)", "def");
+        assertFunction("SPLIT_PART(' ', ' ', 1)", "");
+        assertFunction("SPLIT_PART('abcdddddef', 'dd', 1)", "abc");
+        assertFunction("SPLIT_PART('abcdddddef', 'dd', 2)", "");
+        assertFunction("SPLIT_PART('abcdddddef', 'dd', 3)", "def");
+        assertFunction("SPLIT_PART('a/b/c', '/', 4)", null);
+        assertFunction("SPLIT_PART('a/b/c/', '/', 4)", "");
+    }
+
+    @Test(expectedExceptions = RuntimeException.class)
+    public void testSplitPartInvalid()
+    {
+        assertFunction("SPLIT_PART('abc-@-def-@-ghi', '-@-', 0)", "");
+    }
+
+    @Test
     public void testLeftTrim()
     {
         assertFunction("LTRIM('')", "");

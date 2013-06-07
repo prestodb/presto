@@ -6,6 +6,8 @@ import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 public final class StringFunctions
 {
     private StringFunctions() {}
@@ -102,11 +104,49 @@ public final class StringFunctions
         if ((start + length) > slice.length()) {
             length = slice.length() - start;
         }
+
         if (start >= slice.length()) {
             return Slices.EMPTY_SLICE;
         }
 
         return slice.slice((int) start, (int) length);
+    }
+
+    // TODO: Implement a more efficient string search
+    @ScalarFunction
+    public static Slice splitPart(Slice string, Slice delimiter, long index)
+    {
+        checkArgument(index > 0, "Index must be greater than zero");
+
+        if (delimiter.length() == 0) {
+            if (index > string.length()) {
+                // index is too big, null is returned
+                return null;
+            }
+            return string.slice((int) (index - 1), 1);
+        }
+
+        int previousIndex = 0;
+        int matchCount = 0;
+
+        for (int i = 0; i <= (string.length() - delimiter.length()); i++) {
+            if (string.equals(i, delimiter.length(), delimiter, 0, delimiter.length())) {
+                matchCount++;
+                if (matchCount == index) {
+                    return string.slice(previousIndex, i - previousIndex);
+                }
+                i += (delimiter.length() - 1);
+                previousIndex = i + 1;
+            }
+        }
+
+        if (matchCount == index - 1) {
+            // returns last section of the split
+            return string.slice(previousIndex, string.length() - previousIndex);
+        }
+
+        // index is too big, null is returned
+        return null;
     }
 
     @ScalarFunction("ltrim")
