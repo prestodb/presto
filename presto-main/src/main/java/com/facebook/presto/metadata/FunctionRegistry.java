@@ -48,6 +48,8 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.metadata.FunctionInfo.isAggregationPredicate;
+import static com.facebook.presto.operator.aggregation.BooleanMaxAggregation.BOOLEAN_MAX;
+import static com.facebook.presto.operator.aggregation.BooleanMinAggregation.BOOLEAN_MIN;
 import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
 import static com.facebook.presto.operator.aggregation.CountColumnAggregation.COUNT_COLUMN;
 import static com.facebook.presto.operator.aggregation.DoubleAverageAggregation.DOUBLE_AVERAGE;
@@ -92,9 +94,11 @@ public class FunctionRegistry
                 .aggregate("sum", DOUBLE, ImmutableList.of(DOUBLE), DOUBLE, DOUBLE_SUM)
                 .aggregate("avg", DOUBLE, ImmutableList.of(DOUBLE), STRING, DOUBLE_AVERAGE)
                 .aggregate("avg", DOUBLE, ImmutableList.of(LONG), STRING, LONG_AVERAGE)
+                .aggregate("max", BOOLEAN, ImmutableList.of(BOOLEAN), BOOLEAN, BOOLEAN_MAX)
                 .aggregate("max", LONG, ImmutableList.of(LONG), LONG, LONG_MAX)
                 .aggregate("max", DOUBLE, ImmutableList.of(DOUBLE), DOUBLE, DOUBLE_MAX)
                 .aggregate("max", STRING, ImmutableList.of(STRING), STRING, VAR_BINARY_MAX)
+                .aggregate("min", BOOLEAN, ImmutableList.of(BOOLEAN), BOOLEAN, BOOLEAN_MIN)
                 .aggregate("min", LONG, ImmutableList.of(LONG), LONG, LONG_MIN)
                 .aggregate("min", DOUBLE, ImmutableList.of(DOUBLE), DOUBLE, DOUBLE_MIN)
                 .aggregate("min", STRING, ImmutableList.of(STRING), STRING, VAR_BINARY_MIN)
