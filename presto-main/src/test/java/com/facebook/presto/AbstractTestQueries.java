@@ -146,7 +146,7 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         assertQuery(
-                "SELECT custkey, orderstatus, -COUNT(*) a FROM ORDERS GROUP BY custkey, orderstatus");
+                "SELECT orderstatus, a, custkey, b FROM (SELECT custkey, orderstatus, -COUNT(*) a, MAX(orderkey) b FROM ORDERS WHERE orderkey = 1 GROUP BY custkey, orderstatus) T");
     }
 
     @Test
@@ -1107,7 +1107,7 @@ public abstract class AbstractTestQueries
     public void testCast()
             throws Exception
     {
-//        assertQuery("SELECT CAST('1' AS BIGINT) FROM orders");
+        assertQuery("SELECT CAST('1' AS BIGINT) FROM orders");
         assertQuery("SELECT CAST(totalprice AS BIGINT) FROM orders");
         assertQuery("SELECT CAST(orderkey AS DOUBLE) FROM orders");
         assertQuery("SELECT CAST(orderkey AS VARCHAR) FROM orders");

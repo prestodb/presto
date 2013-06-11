@@ -278,7 +278,7 @@ public class TestExpressionCompiler
     }
 
     @Test
-    public void testTrinaryOperators()
+    public void testTernaryOperators()
     {
         for (Long first : longLefts) {
             for (Long second : longLefts) {
@@ -343,9 +343,13 @@ public class TestExpressionCompiler
 
         assertExecute("cast('true' as boolean)", TRUE);
         assertExecute("cast('true' as BOOLEAN)", TRUE);
+        assertExecute("cast('tRuE' as BOOLEAN)", TRUE);
         assertExecute("cast('false' as BOOLEAN)", FALSE);
+        assertExecute("cast('fAlSe' as BOOLEAN)", FALSE);
         assertExecute("cast('t' as BOOLEAN)", TRUE);
+        assertExecute("cast('T' as BOOLEAN)", TRUE);
         assertExecute("cast('f' as BOOLEAN)", FALSE);
+        assertExecute("cast('F' as BOOLEAN)", FALSE);
         assertExecute("cast('1' as BOOLEAN)", TRUE);
         assertExecute("cast('0' as BOOLEAN)", FALSE);
 
@@ -539,6 +543,7 @@ public class TestExpressionCompiler
         for (Boolean value : booleanValues) {
             assertExecute(generateExpression("%s in (true)", value), value == null ? null : value == Boolean.TRUE);
             assertExecute(generateExpression("%s in (null, true)", value), value == null ? null : value == Boolean.TRUE ? true : null);
+            assertExecute(generateExpression("%s in (true, null)", value), value == null ? null : value == Boolean.TRUE ? true : null);
             assertExecute(generateExpression("%s in (false)", value), value == null ? null : value == Boolean.FALSE);
             assertExecute(generateExpression("%s in (null, false)", value), value == null ? null : value == Boolean.FALSE ? true : null);
             assertExecute(generateExpression("%s in (null)", value), null);
@@ -551,10 +556,15 @@ public class TestExpressionCompiler
             assertExecute(generateExpression("%s in (null, 33, 9, -9, -33)", value),
                     value == null ? null : testValues.contains(value) ? true : null);
 
+            assertExecute(generateExpression("%s in (33, null, 9, -9, -33)", value),
+                    value == null ? null : testValues.contains(value) ? true : null);
+
             // compare a long to in containing doubles
             assertExecute(generateExpression("%s in (33, 9.0, -9, -33)", value),
                     value == null ? null : testValues.contains(value));
             assertExecute(generateExpression("%s in (null, 33, 9.0, -9, -33)", value),
+                    value == null ? null : testValues.contains(value) ? true : null);
+            assertExecute(generateExpression("%s in (33.0, null, 9.0, -9, -33)", value),
                     value == null ? null : testValues.contains(value) ? true : null);
 
         }
@@ -565,11 +575,15 @@ public class TestExpressionCompiler
                     value == null ? null : testValues.contains(value));
             assertExecute(generateExpression("%s in (null, 33.0, 9.0, -9.0, -33.0)", value),
                     value == null ? null : testValues.contains(value) ? true : null);
+            assertExecute(generateExpression("%s in (33.0, null, 9.0, -9.0, -33.0)", value),
+                    value == null ? null : testValues.contains(value) ? true : null);
 
             // compare a double to in containing longs
             assertExecute(generateExpression("%s in (33.0, 9, -9, -33.0)", value),
                     value == null ? null : testValues.contains(value));
             assertExecute(generateExpression("%s in (null, 33.0, 9, -9, -33.0)", value),
+                    value == null ? null : testValues.contains(value) ? true : null);
+            assertExecute(generateExpression("%s in (33.0, null, 9, -9, -33.0)", value),
                     value == null ? null : testValues.contains(value) ? true : null);
 
             // compare to dynamically computed values
@@ -585,6 +599,8 @@ public class TestExpressionCompiler
             assertExecute(generateExpression("%s in ('what?', 'foo', 'mellow', 'end')", value),
                     value == null ? null : testValues.contains(value));
             assertExecute(generateExpression("%s in (null, 'what?', 'foo', 'mellow', 'end')", value),
+                    value == null ? null : testValues.contains(value) ? true : null);
+            assertExecute(generateExpression("%s in ('what?', null, 'foo', 'mellow', 'end')", value),
                     value == null ? null : testValues.contains(value) ? true : null);
         }
     }

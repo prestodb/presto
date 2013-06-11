@@ -254,8 +254,7 @@ public final class Operations
 
     public static boolean castToBoolean(Slice value)
     {
-        if (value.length() == 1)
-        {
+        if (value.length() == 1) {
             byte character = toUpperCase(value.getByte(0));
             if (character == 'T' || character == '1') {
                 return true;

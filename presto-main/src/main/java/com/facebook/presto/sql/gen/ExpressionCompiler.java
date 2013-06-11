@@ -66,6 +66,7 @@ import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleReadable;
+import com.facebook.presto.util.IterableTransformer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
@@ -78,17 +79,22 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
+import com.google.common.io.Files;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.util.CheckClassAdapter;
 import org.objectweb.asm.util.TraceClassVisitor;
 
 import javax.inject.Inject;
+
+import java.io.File;
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.lang.invoke.CallSite;
 import java.lang.invoke.ConstantCallSite;
@@ -131,7 +137,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.not;
-import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
@@ -139,7 +144,14 @@ import static java.util.Collections.nCopies;
 
 public class ExpressionCompiler
 {
+    private static final Logger log = Logger.get(ExpressionCompiler.class);
+
     private static final AtomicLong CLASS_ID = new AtomicLong();
+
+    private static final boolean DUMP_BYTE_CODE_TREE = false;
+    private static final boolean DUMP_BYTE_CODE_RAW = false;
+    private static final boolean RUN_ASM_VERIFIER = false; // verifier doesn't work right now
+    private static final AtomicReference<String> DUMP_CLASS_FILES_TO = new AtomicReference<>();
 
     private final Method bootstrapMethod;
     private final BootstrapFunctionBinder bootstrapFunctionBinder;
@@ -233,12 +245,12 @@ public class ExpressionCompiler
         return operatorFactories.getUnchecked(new OperatorCacheKey(filter, projections, inputTypes));
     }
 
-    public FilterFunction compileFilterFunction(Expression expression, ImmutableMap<Input, Type> inputTypes)
+    public FilterFunction compileFilterFunction(Expression expression, Map<Input, Type> inputTypes)
     {
         return filters.getUnchecked(new ExpressionCacheKey(expression, inputTypes));
     }
 
-    public ProjectionFunction compileProjectionFunction(Expression expression, ImmutableMap<Input, Type> inputTypes)
+    public ProjectionFunction compileProjectionFunction(Expression expression, Map<Input, Type> inputTypes)
     {
         return projections.getUnchecked(new ExpressionCacheKey(expression, inputTypes));
     }
@@ -251,10 +263,10 @@ public class ExpressionCompiler
         // create filter and project page iterator class
         TypedPageIteratorClass typedPageIteratorClass = compileFilterAndProjectIterator(filter, projections, inputTypes, classLoader);
 
-        // create and operator for the class
+        // create an operator for the class
         Class<? extends Operator> operatorClass = compileOperatorClass(typedPageIteratorClass.getPageIteratorClass(), classLoader);
 
-        // create an factory for the operator
+        // create a factory for the operator
         return compileOperatorFactoryClass(typedPageIteratorClass.getTupleInfos(), operatorClass, classLoader);
     }
 
@@ -824,7 +836,7 @@ public class ExpressionCompiler
     {
         ClassInfoLoader classInfoLoader = ClassInfoLoader.createClassInfoLoader(classDefinitions, classLoader);
 
-        if (false) {
+        if (DUMP_BYTE_CODE_TREE) {
             DumpByteCodeVisitor dumpByteCode = new DumpByteCodeVisitor(System.out);
             for (ClassDefinition classDefinition : classDefinitions) {
                 dumpByteCode.visitClass(classDefinition);
@@ -836,26 +848,28 @@ public class ExpressionCompiler
             ClassWriter cw = new SmartClassWriter(classInfoLoader);
             classDefinition.visit(cw);
             byte[] byteCode = cw.toByteArray();
-//            if (true) {
-//                ClassReader reader = new ClassReader(byteCode);
-//                CheckClassAdapter.verify(reader, classLoader, true, new PrintWriter(System.out));
-//            }
+            if (RUN_ASM_VERIFIER) {
+                ClassReader reader = new ClassReader(byteCode);
+                CheckClassAdapter.verify(reader, classLoader, true, new PrintWriter(System.out));
+            }
             byteCodes.put(classDefinition.getType(), byteCode);
         }
-//        if (classDebugPath.isPresent()) {
-//            for (Entry<ParameterizedType, byte[]> entry : byteCodes.entrySet()) {
-//                try {
-//                    File file = new File(classDebugPath.get(), entry.getKey().getClassName() + ".class");
-//                    System.err.println("ClassFile: " + file.getAbsolutePath());
-//                    Files.createParentDirs(file);
-//                    Files.write(entry.getValue(), file);
-//                }
-//                catch (IOException e) {
-//                    System.err.println("failed writing file: " + e.getMessage());
-//                }
-//            }
-//        }
-        if (false) {
+
+        String dumpClassPath = DUMP_CLASS_FILES_TO.get();
+        if (dumpClassPath != null) {
+            for (Entry<ParameterizedType, byte[]> entry : byteCodes.entrySet()) {
+                File file = new File(dumpClassPath, entry.getKey().getClassName() + ".class");
+                try {
+                    log.debug("ClassFile: " + file.getAbsolutePath());
+                    Files.createParentDirs(file);
+                    Files.write(entry.getValue(), file);
+                }
+                catch (IOException e) {
+                    log.error(e, "Failed to write generated class file to: %s" + file.getAbsolutePath());
+                }
+            }
+        }
+        if (DUMP_BYTE_CODE_RAW) {
             for (byte[] byteCode : byteCodes.values()) {
                 ClassReader classReader = new ClassReader(byteCode);
                 classReader.accept(new TraceClassVisitor(new PrintWriter(System.err)), ClassReader.SKIP_FRAMES);
@@ -1042,8 +1056,7 @@ public class ExpressionCompiler
 
         private TypedByteCodeNode visitFunctionBinding(CompilerContext context, FunctionBinding functionBinding, String comment)
         {
-            List<TypedByteCodeNode> arguments;
-            arguments = functionBinding.getArguments();
+            List<TypedByteCodeNode> arguments = functionBinding.getArguments();
             MethodType methodType = functionBinding.getCallSite().type();
 
             LabelNode end = new LabelNode("end");
@@ -1230,10 +1243,10 @@ public class ExpressionCompiler
 
             LabelNode end = new LabelNode("end");
             ifLeftIsNull.ifTrue(new Block(context)
-                    .comment("clear the null flag, and push left null flag on the stack (true)")
+                    .comment("clear the null flag, pop left value off stack, and push left null flag on the stack (true)")
                     .loadConstant(false)
                     .storeVariable("wasNull")
-                    .pop()
+                    .pop(left.type) // discard left value
                     .loadConstant(true));
 
             LabelNode leftIsTrue = new LabelNode("leftIsTrue");
@@ -1244,9 +1257,12 @@ public class ExpressionCompiler
                     .gotoLabel(end)
                     .comment("left was true; push left null flag on the stack (false)")
                     .visitLabel(leftIsTrue)
-                    .append(loadBoolean(false)));
+                    .loadConstant(false));
 
             block.append(ifLeftIsNull.build());
+
+            // At this point we know the left expression was either NULL or TRUE.  The stack contains a single boolean
+            // value for this expression which indicates if the left value was NULL.
 
             // eval right!
             block.append(right.node);
@@ -1256,20 +1272,21 @@ public class ExpressionCompiler
                     .condition(new Block(context).loadVariable("wasNull"));
 
             ifRightIsNull.ifTrue(new Block(context)
-                    .comment("right was null, simply pop one of the two booleans on the stack")
-                    .pop());
+                    .comment("right was null, pop the right value off the stack; wasNull flag remains set to TRUE")
+                    // this leaves a single boolean on the stack which is ignored since the value in NULL
+                    .pop(right.type));
 
             LabelNode rightIsTrue = new LabelNode("rightIsTrue");
             ifRightIsNull.ifFalse(new Block(context)
                     .comment("if right is false, pop left null flag off stack, push false and goto end")
                     .ifNotZeroGoto(rightIsTrue)
-                    .pop()
+                    .pop(boolean.class)
                     .loadConstant(false)
                     .gotoLabel(end)
                     .comment("right was true; store left null flag (on stack) in wasNull variable, and push true")
                     .visitLabel(rightIsTrue)
                     .storeVariable("wasNull")
-                    .append(loadBoolean(true)));
+                    .loadConstant(true));
 
             block.append(ifRightIsNull.build())
                     .visitLabel(end);
@@ -1291,10 +1308,10 @@ public class ExpressionCompiler
 
             LabelNode end = new LabelNode("end");
             ifLeftIsNull.ifTrue(new Block(context)
-                    .comment("clear the null flag, and push left null flag on the stack (true)")
+                    .comment("clear the null flag, pop left value off stack, and push left null flag on the stack (true)")
                     .loadConstant(false)
                     .storeVariable("wasNull")
-                    .pop()
+                    .pop(left.type) // discard left value
                     .loadConstant(true));
 
             LabelNode leftIsFalse = new LabelNode("leftIsFalse");
@@ -1305,9 +1322,12 @@ public class ExpressionCompiler
                     .gotoLabel(end)
                     .comment("left was false; push left null flag on the stack (false)")
                     .visitLabel(leftIsFalse)
-                    .append(loadBoolean(false)));
+                    .loadConstant(false));
 
             block.append(ifLeftIsNull.build());
+
+            // At this point we know the left expression was either NULL or FALSE.  The stack contains a single boolean
+            // value for this expression which indicates if the left value was NULL.
 
             // eval right!
             block.append(right.node);
@@ -1317,20 +1337,21 @@ public class ExpressionCompiler
                     .condition(new Block(context).loadVariable("wasNull"));
 
             ifRightIsNull.ifTrue(new Block(context)
-                    .comment("right was null, simply pop one of the two booleans on the stack")
-                    .pop());
+                    .comment("right was null, pop the right value off the stack; wasNull flag remains set to TRUE")
+                    // this leaves a single boolean on the stack which is ignored since the value in NULL
+                    .pop(right.type));
 
             LabelNode rightIsTrue = new LabelNode("rightIsTrue");
             ifRightIsNull.ifFalse(new Block(context)
                     .comment("if right is true, pop left null flag off stack, push true and goto end")
                     .ifZeroGoto(rightIsTrue)
-                    .pop()
+                    .pop(boolean.class)
                     .loadConstant(true)
                     .gotoLabel(end)
                     .comment("right was false; store left null flag (on stack) in wasNull variable, and push false")
                     .visitLabel(rightIsTrue)
                     .storeVariable("wasNull")
-                    .append(loadBoolean(false)));
+                    .loadConstant(false));
 
             block.append(ifRightIsNull.build())
                     .visitLabel(end);
@@ -1548,6 +1569,7 @@ public class ExpressionCompiler
             Class<?> type = getType(ImmutableList.<TypedByteCodeNode>builder().addAll(transform(whenClauses, whenValueGetter())).add(elseValue).build());
 
             elseValue = coerceToType(context, elseValue, type);
+            // reverse list because current if statement builder doesn't support if/else so we need to build the if statements bottom up
             for (TypedWhenClause whenClause : Lists.reverse(new ArrayList<>(whenClauses))) {
                 if (whenClause.condition.type == void.class) {
                     continue;
@@ -1605,6 +1627,7 @@ public class ExpressionCompiler
 
             // build the statements
             elseValue = typedByteCodeNode(new Block(context).visitLabel(nullValue).append(coerceToType(context, elseValue, resultType).node), resultType);
+            // reverse list because current if statement builder doesn't support if/else so we need to build the if statements bottom up
             for (TypedWhenClause whenClause : Lists.reverse(new ArrayList<>(whenClauses))) {
                 LabelNode nullCondition = new LabelNode("nullCondition");
                 Block condition = new Block(context)
@@ -1671,6 +1694,7 @@ public class ExpressionCompiler
             Class<?> type = getType(operands);
 
             TypedByteCodeNode nullValue = coerceToType(context, process(new NullLiteral(), context), type);
+            // reverse list because current if statement builder doesn't support if/else so we need to build the if statements bottom up
             for (TypedByteCodeNode operand : Lists.reverse(operands)) {
                 Block condition = new Block(context)
                         .append(coerceToType(context, operand, type).node)
@@ -1824,7 +1848,8 @@ public class ExpressionCompiler
                 LabelNode caseLabel,
                 LabelNode matchLabel,
                 LabelNode noMatchLabel,
-                Collection<TypedByteCodeNode> testValues, boolean checkForNulls)
+                Collection<TypedByteCodeNode> testValues,
+                boolean checkForNulls)
         {
             Variable caseWasNull = null;
             if (checkForNulls) {
@@ -1963,7 +1988,11 @@ public class ExpressionCompiler
 
         private Class<?> getType(Iterable<TypedByteCodeNode> nodes)
         {
-            Set<Class<?>> types = ImmutableSet.copyOf(filter(transform(nodes, nodeTypeGetter()), not(Predicates.<Class<?>>equalTo(void.class))));
+            Set<Class<?>> types = IterableTransformer.on(nodes)
+                    .transform(nodeTypeGetter())
+                    .select(not(Predicates.<Class<?>>equalTo(void.class)))
+                    .set();
+
             if (types.isEmpty()) {
                 return void.class;
             }

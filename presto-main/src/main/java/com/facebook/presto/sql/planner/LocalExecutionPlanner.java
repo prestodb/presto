@@ -448,7 +448,7 @@ public class LocalExecutionPlanner
         public PhysicalOperation visitFilter(FilterNode node, LocalExecutionPlanContext context)
         {
             PhysicalOperation source = node.getSource().accept(this, context);
-            ImmutableMap<Input, Type> inputTypes = getInputTypes(source.getLayout(), source.getOperator().getTupleInfos());
+            Map<Input, Type> inputTypes = getInputTypes(source.getLayout(), source.getOperator().getTupleInfos());
 
             try {
                 Expression filterExpression = TreeRewriter.rewriteWith(new SymbolToInputRewriter(source.getLayout()), node.getPredicate());
@@ -497,7 +497,7 @@ public class LocalExecutionPlanner
                 filterExpression = BooleanLiteral.TRUE_LITERAL;
             }
 
-            ImmutableMap<Input, Type> inputTypes = null;
+            Map<Input, Type> inputTypes = null;
             try {
                 Expression rewrittenFilterExpression = TreeRewriter.rewriteWith(new SymbolToInputRewriter(source.getLayout()), filterExpression);
 
@@ -550,7 +550,7 @@ public class LocalExecutionPlanner
             }
         }
 
-        private ImmutableMap<Input, Type> getInputTypes(Map<Symbol, Input> layout, List<TupleInfo> tupleInfos)
+        private Map<Input, Type> getInputTypes(Map<Symbol, Input> layout, List<TupleInfo> tupleInfos)
         {
             Builder<Input, Type> inputTypes = ImmutableMap.builder();
             for (Input input : layout.values()) {

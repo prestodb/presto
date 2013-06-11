@@ -7,7 +7,7 @@ public class PredicateFilterSqlBenchmark
 {
     public PredicateFilterSqlBenchmark(TpchBlocksProvider tpchBlocksProvider)
     {
-        super(tpchBlocksProvider, "sql_predicate_filter", 5, 50, "select totalprice + 10 from orders where totalprice > 50000");
+        super(tpchBlocksProvider, "sql_predicate_filter", 5, 50, "select totalprice from orders where totalprice > 50000");
     }
 
     public static void main(String[] args)
