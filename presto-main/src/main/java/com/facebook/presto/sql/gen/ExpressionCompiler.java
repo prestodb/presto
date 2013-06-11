@@ -139,6 +139,7 @@ import static com.facebook.presto.byteCode.instruction.Constant.loadLong;
 import static com.facebook.presto.byteCode.instruction.JumpInstruction.jump;
 import static com.facebook.presto.sql.gen.ExpressionCompiler.TypedByteCodeNode.typedByteCodeNode;
 import static com.facebook.presto.sql.gen.SliceConstant.sliceConstant;
+import static com.google.common.base.Objects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -349,6 +350,17 @@ public class ExpressionCompiler
             }
             projectionIndex++;
         }
+
+        //
+        // toString method
+        //
+        classDefinition.declareMethod(new CompilerContext(bootstrapMethod), a(PUBLIC), "toString", type(String.class))
+                .getBody()
+                .loadString(toStringHelper(classDefinition.getType().getJavaClassName())
+                        .add("filter", filter)
+                        .add("projections", projections)
+                        .toString())
+                .retObject();
 
         Class<? extends PageIterator> filterAndProjectClass = defineClasses(ImmutableList.of(classDefinition), classLoader).values().iterator().next().asSubclass(PageIterator.class);
         return new TypedPageIteratorClass(filterAndProjectClass, tupleInfos);
@@ -667,7 +679,9 @@ public class ExpressionCompiler
         // declare session field
         FieldDefinition sessionField = classDefinition.declareField(a(PRIVATE, FINAL), "session", Session.class);
 
+        //
         // constructor
+        //
         classDefinition.declareConstructor(new CompilerContext(bootstrapMethod), a(PUBLIC), arg("session", Session.class))
                 .getBody()
                 .loadThis()
@@ -678,7 +692,9 @@ public class ExpressionCompiler
                 .putField(classDefinition.getType(), sessionField)
                 .ret();
 
+        //
         // filter function
+        //
         MethodDefinition filterMethod = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
                 a(PUBLIC),
                 "filter",
@@ -699,9 +715,21 @@ public class ExpressionCompiler
 
         filterMethod.getBody().retBoolean();
 
+        //
         // filter method with unrolled channels
+        //
         generateFilterMethod(classDefinition, expression, inputTypes, false);
         generateFilterMethod(classDefinition, expression, inputTypes, true);
+
+        //
+        // toString method
+
+        classDefinition.declareMethod(new CompilerContext(bootstrapMethod), a(PUBLIC), "toString", type(String.class))
+                .getBody()
+                .loadString(toStringHelper(classDefinition.getType().getJavaClassName())
+                        .add("filter", expression)
+                        .toString())
+                .retObject();
 
         // define the class
         Class<? extends FilterFunction> filterClass = defineClasses(ImmutableList.of(classDefinition), createClassLoader()).values().iterator().next().asSubclass(FilterFunction.class);
@@ -788,10 +816,14 @@ public class ExpressionCompiler
                 type(Object.class),
                 type(ProjectionFunction.class));
 
+        //
         // declare session field
+        //
         FieldDefinition sessionField = classDefinition.declareField(a(PRIVATE, FINAL), "session", Session.class);
 
+        //
         // constructor
+        //
         classDefinition.declareConstructor(new CompilerContext(bootstrapMethod), a(PUBLIC), arg("session", Session.class))
                 .getBody()
                 .loadThis()
@@ -802,7 +834,9 @@ public class ExpressionCompiler
                 .putField(classDefinition.getType(), sessionField)
                 .ret();
 
+        //
         // void project(TupleReadable[] channels, BlockBuilder output)
+        //
         MethodDefinition projectionMethod = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
                 a(PUBLIC),
                 "project",
@@ -829,11 +863,15 @@ public class ExpressionCompiler
                         ImmutableList.<ParameterizedType>builder().addAll(nCopies(channels, type(TupleReadable.class))).add(type(BlockBuilder.class)).build());
         projectionMethod.getBody().ret();
 
+        //
         // projection with unrolled channels
+        //
         Class<?> type = generateProjectMethod(classDefinition, "project", expression, inputTypes, false);
         generateProjectMethod(classDefinition, "project", expression, inputTypes, true);
 
+        //
         // TupleInfo getTupleInfo();
+        //
         MethodDefinition getTupleInfoMethod = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
                 a(PUBLIC),
                 "getTupleInfo",
@@ -863,6 +901,16 @@ public class ExpressionCompiler
         else {
             throw new IllegalStateException("Type " + type.getName() + "can be output");
         }
+
+        //
+        // toString method
+        //
+        classDefinition.declareMethod(new CompilerContext(bootstrapMethod), a(PUBLIC), "toString", type(String.class))
+                .getBody()
+                .loadString(toStringHelper(classDefinition.getType().getJavaClassName())
+                        .add("projection", expression)
+                        .toString())
+                .retObject();
 
         // define the class
         Class<? extends ProjectionFunction> projectionClass = defineClasses(ImmutableList.of(classDefinition), createClassLoader()).values().iterator().next().asSubclass(ProjectionFunction.class);
@@ -2494,7 +2542,7 @@ public class ExpressionCompiler
         @Override
         public String toString()
         {
-            return Objects.toStringHelper(this)
+            return toStringHelper(this)
                     .add("expression", expression)
                     .add("inputTypes", inputTypes)
                     .toString();
@@ -2551,7 +2599,7 @@ public class ExpressionCompiler
         @Override
         public String toString()
         {
-            return Objects.toStringHelper(this)
+            return toStringHelper(this)
                     .add("filter", filter)
                     .add("projections", projections)
                     .add("inputTypes", inputTypes)
