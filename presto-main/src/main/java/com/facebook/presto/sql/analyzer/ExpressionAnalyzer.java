@@ -123,10 +123,10 @@ public class ExpressionAnalyzer
         {
             List<Integer> matches = tupleDescriptor.resolveFieldIndexes(node.getName());
             if (matches.isEmpty()) {
-                throw new SemanticException(MISSING_ATTRIBUTE, node, "Attribute '%s' cannot be resolved", node.getName());
+                throw new SemanticException(MISSING_ATTRIBUTE, node, "Column '%s' cannot be resolved", node.getName());
             }
             else if (matches.size() > 1) {
-                throw new SemanticException(AMBIGUOUS_ATTRIBUTE, node, "Attribute '%s' is ambiguous", node.getName());
+                throw new SemanticException(AMBIGUOUS_ATTRIBUTE, node, "Column '%s' is ambiguous", node.getName());
             }
 
             int fieldIndex = Iterables.getOnlyElement(matches);
