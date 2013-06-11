@@ -42,6 +42,14 @@ public final class Operations
         return left == right;
     }
 
+    public static boolean isDistinctFrom(boolean left, boolean leftWasNull, boolean right, boolean rightWasNull)
+    {
+        if (leftWasNull) {
+            return !rightWasNull;
+        }
+        return rightWasNull || left != right;
+    }
+
     public static int hashCode(boolean value)
     {
         return Booleans.hashCode(value);
@@ -55,6 +63,14 @@ public final class Operations
     public static boolean equal(long left, long right)
     {
         return left == right;
+    }
+
+    public static boolean isDistinctFrom(long left, boolean leftWasNull, long right, boolean rightWasNull)
+    {
+        if (leftWasNull) {
+            return !rightWasNull;
+        }
+        return rightWasNull || left != right;
     }
 
     public static int hashCode(long value)
@@ -162,6 +178,14 @@ public final class Operations
         return left == right;
     }
 
+    public static boolean isDistinctFrom(double left, boolean leftWasNull, double right, boolean rightWasNull)
+    {
+        if (leftWasNull) {
+            return !rightWasNull;
+        }
+        return rightWasNull || left != right;
+    }
+
     public static int hashCode(double value)
     {
         return Doubles.hashCode(value);
@@ -200,6 +224,14 @@ public final class Operations
     public static boolean equal(Slice left, Slice right)
     {
         return left.equals(right);
+    }
+
+    public static boolean isDistinctFrom(Slice left, boolean leftWasNull, Slice right, boolean rightWasNull)
+    {
+        if (leftWasNull) {
+            return !rightWasNull;
+        }
+        return rightWasNull || !left.equals(right);
     }
 
     public static int hashCode(Slice value)

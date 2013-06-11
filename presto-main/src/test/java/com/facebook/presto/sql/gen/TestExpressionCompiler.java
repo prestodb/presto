@@ -148,6 +148,7 @@ public class TestExpressionCompiler
                 assertExecute(generateExpression("%s <> %s", left, right), left == null || right == null ? null : left != right);
 
                 assertExecute(generateExpression("nullif(%s, %s)", left, right), nullIf(boolean.class, left, right));
+                assertExecute(generateExpression("%s is distinct from %s", left, right), !Objects.equals(left, right));
             }
         }
 
@@ -161,6 +162,7 @@ public class TestExpressionCompiler
                 assertExecute(generateExpression("%s <= %s", left, right), left == null || right == null ? null : (long) left <= right);
 
                 assertExecute(generateExpression("nullif(%s, %s)", left, right), nullIf(long.class, left, right));
+                assertExecute(generateExpression("%s is distinct from %s", left, right), !Objects.equals(left, right));
 
                 assertExecute(generateExpression("%s + %s", left, right), left == null || right == null ? null : left + right);
                 assertExecute(generateExpression("%s - %s", left, right), left == null || right == null ? null : left - right);
@@ -196,6 +198,7 @@ public class TestExpressionCompiler
                     }
                 }
 
+                assertExecute(generateExpression("%s is distinct from %s", left, right), !Objects.equals(left == null ? null : left.doubleValue(), right));
 
                 assertExecute(generateExpression("%s + %s", left, right), left == null || right == null ? null : left + right);
                 assertExecute(generateExpression("%s - %s", left, right), left == null || right == null ? null : left - right);
@@ -215,6 +218,7 @@ public class TestExpressionCompiler
                 assertExecute(generateExpression("%s <= %s", left, right), left == null || right == null ? null : left <= (double) right);
 
                 assertExecute(generateExpression("nullif(%s, %s)", left, right), nullIf(double.class, left, right));
+                assertExecute(generateExpression("%s is distinct from %s", left, right), !Objects.equals(left, right == null ? null : right.doubleValue()));
 
                 assertExecute(generateExpression("%s + %s", left, right), left == null || right == null ? null : left + right);
                 assertExecute(generateExpression("%s - %s", left, right), left == null || right == null ? null : left - right);
@@ -234,6 +238,7 @@ public class TestExpressionCompiler
                 assertExecute(generateExpression("%s <= %s", left, right), left == null || right == null ? null : (double) left <= right);
 
                 assertExecute(generateExpression("nullif(%s, %s)", left, right), nullIf(double.class, left, right));
+                assertExecute(generateExpression("%s is distinct from %s", left, right), !Objects.equals(left, right));
 
                 assertExecute(generateExpression("%s + %s", left, right), left == null || right == null ? null : left + right);
                 assertExecute(generateExpression("%s - %s", left, right), left == null || right == null ? null : left - right);
@@ -253,6 +258,7 @@ public class TestExpressionCompiler
                 assertExecute(generateExpression("%s <= %s", left, right), left == null || right == null ? null : left.compareTo(right) <= 0);
 
                 assertExecute(generateExpression("%s || %s", left, right), left == null || right == null ? null : left + right);
+                assertExecute(generateExpression("%s is distinct from %s", left, right), !Objects.equals(left, right));
 
                 assertExecute(generateExpression("nullif(%s, %s)", left, right), nullIf(String.class, left, right));
             }

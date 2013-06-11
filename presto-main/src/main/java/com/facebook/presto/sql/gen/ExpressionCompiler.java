@@ -1378,6 +1378,11 @@ public class ExpressionCompiler
         @Override
         protected TypedByteCodeNode visitComparisonExpression(ComparisonExpression node, CompilerContext context)
         {
+            // distinct requires special null handling rules
+            if (node.getType() == ComparisonExpression.Type.IS_DISTINCT_FROM) {
+                return visitIsDistinctFrom(node, context);
+            }
+
             TypedByteCodeNode left = process(node.getLeft(), context);
             if (left.type == void.class) {
                 return left;
@@ -1430,6 +1435,36 @@ public class ExpressionCompiler
 
             block.invokeStatic(Operations.class, function, boolean.class, type, type);
             return typedByteCodeNode(block.visitLabel(end), boolean.class);
+        }
+
+        private TypedByteCodeNode visitIsDistinctFrom(ComparisonExpression node, CompilerContext context)
+        {
+            TypedByteCodeNode left = process(node.getLeft(), context);
+            TypedByteCodeNode right = process(node.getRight(), context);
+
+            Class<?> type = getType(left, right);
+            if (type == void.class) {
+                // both left and right are literal nulls, which are not "distinct from" each other
+                return new TypedByteCodeNode(loadBoolean(false), boolean.class);
+            }
+
+            Block block = new Block(context)
+                    .comment(node.toString())
+                    .comment("left")
+                    .append(coerceToType(context, left, type).node)
+                    .loadVariable("wasNull")
+                    .comment("clear was null")
+                    .loadConstant(false)
+                    .storeVariable("wasNull")
+                    .comment("right")
+                    .append(coerceToType(context, right, type).node)
+                    .loadVariable("wasNull")
+                    .comment("clear was null")
+                    .loadConstant(false)
+                    .storeVariable("wasNull")
+                    .invokeStatic(Operations.class, "isDistinctFrom", boolean.class, type, boolean.class, type, boolean.class);
+
+            return new TypedByteCodeNode(block, boolean.class);
         }
 
         @Override
