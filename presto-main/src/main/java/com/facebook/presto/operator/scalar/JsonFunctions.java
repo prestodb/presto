@@ -1,8 +1,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.byteCode.instruction.Constant;
-import com.facebook.presto.operator.scalar.JsonExtract.JsonExtractJsonCache;
-import com.facebook.presto.operator.scalar.JsonExtract.JsonExtractScalarCache;
+import com.facebook.presto.operator.scalar.JsonExtract.JsonExtractCache;
 import com.facebook.presto.operator.scalar.JsonExtract.JsonExtractor;
 import com.facebook.presto.sql.gen.DefaultFunctionBinder;
 import com.facebook.presto.sql.gen.ExpressionCompiler.TypedByteCodeNode;
@@ -26,9 +25,12 @@ import static java.lang.invoke.MethodType.methodType;
 
 public final class JsonFunctions
 {
+    private static final String JSON_EXTRACT_SCALAR_FUNCTION_NAME = "json_extract_scalar";
+    private static final String JSON_EXTRACT_FUNCTION_NAME = "json_extract";
+
     private JsonFunctions() {}
 
-    @ScalarFunction(functionBinder = JsonFunctionBinder.class)
+    @ScalarFunction(value = JSON_EXTRACT_SCALAR_FUNCTION_NAME, functionBinder = JsonFunctionBinder.class)
     public static Slice jsonExtractScalar(Slice json, Slice jsonPath)
     {
         try {
@@ -39,7 +41,7 @@ public final class JsonFunctions
         }
     }
 
-    @ScalarFunction(functionBinder = JsonFunctionBinder.class)
+    @ScalarFunction(value = JSON_EXTRACT_FUNCTION_NAME, functionBinder = JsonFunctionBinder.class)
     public static Slice jsonExtract(Slice json, Slice jsonPath)
     {
         try {
@@ -76,10 +78,10 @@ public final class JsonFunctions
 
                 JsonExtractor jsonExtractor;
                 switch(name) {
-                    case "json_extract_scalar":
+                    case JSON_EXTRACT_SCALAR_FUNCTION_NAME:
                         jsonExtractor = generateExtractor(pattern, true);
                         break;
-                    case "json_extract":
+                    case JSON_EXTRACT_FUNCTION_NAME:
                         jsonExtractor = generateExtractor(pattern, false);
                         break;
                     default:
@@ -96,11 +98,11 @@ public final class JsonFunctions
             else {
                 ThreadLocalCache<Slice, JsonExtractor> cache;
                 switch(name) {
-                    case "json_extract_scalar":
-                        cache = new JsonExtractScalarCache();
+                    case JSON_EXTRACT_SCALAR_FUNCTION_NAME:
+                        cache = new JsonExtractCache(20, true);
                         break;
-                    case "json_extract":
-                        cache = new JsonExtractJsonCache();
+                    case JSON_EXTRACT_FUNCTION_NAME:
+                        cache = new JsonExtractCache(20, false);
                         break;
                     default:
                         throw new IllegalArgumentException("Unsupported method " + name);

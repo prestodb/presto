@@ -99,8 +99,8 @@ public final class JsonExtract
     private static final JsonFactory JSON_FACTORY = new JsonFactory();
 
     // Stand-in caches for compiled JSON paths until we have something more formalized
-    private static final JsonExtractScalarCache SCALAR_CACHE = new JsonExtractScalarCache();
-    private static final JsonExtractJsonCache JSON_CACHE = new JsonExtractJsonCache();
+    private static final JsonExtractCache SCALAR_CACHE = new JsonExtractCache(20, true);
+    private static final JsonExtractCache JSON_CACHE = new JsonExtractCache(20, false);
 
     private JsonExtract() {}
 
@@ -339,11 +339,8 @@ public final class JsonExtract
             }
 
             DynamicSliceOutput dynamicSliceOutput = new DynamicSliceOutput(ESTIMATED_JSON_OUTPUT_SIZE);
-            JsonGenerator jsonGenerator = JSON_FACTORY.createJsonGenerator(dynamicSliceOutput);
-            try {
+            try (JsonGenerator jsonGenerator = JSON_FACTORY.createJsonGenerator(dynamicSliceOutput)) {
                 jsonGenerator.copyCurrentStructure(jsonParser);
-            } finally {
-                jsonGenerator.close();
             }
             return dynamicSliceOutput.slice();
         }
@@ -366,33 +363,21 @@ public final class JsonExtract
         }
     }
 
-    public static class JsonExtractScalarCache
+    public static class JsonExtractCache
             extends ThreadLocalCache<Slice, JsonExtractor>
     {
-        public JsonExtractScalarCache()
+        private final boolean isScalarValue;
+
+        public JsonExtractCache(int sizePerThread, boolean isScalarValue)
         {
-            super(20);
+            super(sizePerThread);
+            this.isScalarValue = isScalarValue;
         }
 
         @Override
         protected JsonExtractor load(Slice jsonPath)
         {
-            return generateExtractor(jsonPath.toString(Charsets.UTF_8), true);
-        }
-    }
-
-    public static class JsonExtractJsonCache
-            extends ThreadLocalCache<Slice, JsonExtractor>
-    {
-        public JsonExtractJsonCache()
-        {
-            super(20);
-        }
-
-        @Override
-        protected JsonExtractor load(Slice jsonPath)
-        {
-            return generateExtractor(jsonPath.toString(Charsets.UTF_8), false);
+            return generateExtractor(jsonPath.toString(Charsets.UTF_8), isScalarValue);
         }
     }
 }

@@ -15,7 +15,7 @@ import java.util.concurrent.ConcurrentMap;
 
 public class DynamicClassLoader extends ClassLoader
 {
-    private ConcurrentMap<ParameterizedType, byte[]> pendingClasses = new ConcurrentHashMap<>();
+    private final ConcurrentMap<ParameterizedType, byte[]> pendingClasses = new ConcurrentHashMap<>();
 
     public DynamicClassLoader()
     {
@@ -36,27 +36,32 @@ public class DynamicClassLoader extends ClassLoader
     {
         SetView<ParameterizedType> conflicts = Sets.intersection(pendingClasses.keySet(), newClasses.keySet());
         Preconditions.checkArgument(conflicts.isEmpty(), "The classes %s have already been defined", conflicts);
-        pendingClasses.putAll(newClasses);
 
-        Map<String, Class<?>> classes = new HashMap<>();
-        for (ParameterizedType type : newClasses.keySet()) {
-            try {
-                Class<?> clazz = loadClass(type.getJavaClassName());
-                classes.put(type.getJavaClassName(), clazz);
+        pendingClasses.putAll(newClasses);
+        try {
+            Map<String, Class<?>> classes = new HashMap<>();
+            for (ParameterizedType type : newClasses.keySet()) {
+                try {
+                    Class<?> clazz = loadClass(type.getJavaClassName());
+                    classes.put(type.getJavaClassName(), clazz);
+                }
+                catch (ClassNotFoundException e) {
+                    // this should never happen
+                    throw Throwables.propagate(e);
+                }
             }
-            catch (ClassNotFoundException e) {
-                // this should never happen
-                throw Throwables.propagate(e);
-            }
+            return classes;
         }
-        return classes;
+        finally {
+            pendingClasses.keySet().removeAll(newClasses.keySet());
+        }
     }
 
     @Override
     protected Class<?> findClass(String name)
             throws ClassNotFoundException
     {
-        byte[] byteCode = pendingClasses.remove(ParameterizedType.typeFromJavaClassName(name));
+        byte[] byteCode = pendingClasses.get(ParameterizedType.typeFromJavaClassName(name));
         if (byteCode == null) {
             throw new ClassNotFoundException(name);
         }
