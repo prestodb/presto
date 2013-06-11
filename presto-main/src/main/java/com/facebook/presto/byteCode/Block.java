@@ -156,6 +156,16 @@ public class Block implements ByteCodeNode
         return this;
     }
 
+    public Block ifFalseGoto(LabelNode label)
+    {
+        return ifZeroGoto(label);
+    }
+
+    public Block ifTrueGoto(LabelNode label)
+    {
+        return ifNotZeroGoto(label);
+    }
+
     public Block ifZeroGoto(LabelNode label)
     {
         nodes.add(JumpInstruction.jumpIfEqualZero(label));
@@ -269,18 +279,6 @@ public class Block implements ByteCodeNode
     public Block longToInt()
     {
         nodes.add(OpCodes.L2I);
-        return this;
-    }
-
-    public Block loadThis()
-    {
-        loadVariable("this");
-        return this;
-    }
-
-    public Block loadObject(int slot)
-    {
-        nodes.add(VariableInstruction.loadVariable(slot));
         return this;
     }
 
@@ -723,82 +721,88 @@ public class Block implements ByteCodeNode
     // Load constants
     //
 
-    public Block loadNull()
+    public Block pushThis()
+    {
+        getVariable("this");
+        return this;
+    }
+
+    public Block pushNull()
     {
         nodes.add(OpCodes.ACONST_NULL);
         return this;
     }
 
-    public Block loadConstant(Class<?> type)
+    public Block push(Class<?> type)
     {
         nodes.add(loadClass(type));
         return this;
     }
 
-    public Block loadConstant(ParameterizedType type)
+    public Block push(ParameterizedType type)
     {
         nodes.add(loadClass(type));
         return this;
     }
 
-    public Block loadString(String value)
+    public Block push(String value)
     {
         nodes.add(Constant.loadString(value));
         return this;
     }
 
-    public Block loadConstant(Number value)
+    public Block push(Number value)
     {
         nodes.add(loadNumber(value));
         return this;
     }
 
-    public Block loadConstant(int value)
+    public Block push(int value)
     {
         nodes.add(loadInt(value));
         return this;
     }
 
-    public Block loadConstant(boolean value)
+    public Block push(boolean value)
     {
         nodes.add(loadBoolean(value));
         return this;
     }
 
-    public Block loadJavaDefault(Class<?> type)
+    public Block pushJavaDefault(Class<?> type)
     {
         if (type == void.class) {
             return this;
         }
         if (type == boolean.class || type == byte.class || type == char.class || type == short.class || type == int.class) {
-            return loadConstant(0);
+            return push(0);
         }
         if (type == long.class) {
-            return loadConstant(0L);
+            return push(0L);
         }
         if (type == float.class) {
-            return loadConstant(0.0f);
+            return push(0.0f);
         }
         if (type == double.class) {
-            return loadConstant(0.0d);
+            return push(0.0d);
         }
-        return loadNull();
+        return pushNull();
     }
 
-    public Block loadVariable(String name)
+    public Block getVariable(String name)
     {
         append(context.getVariable(name).getValue());
         return this;
     }
 
-    public Block loadVariable(String name, ParameterizedType type)
+    public Block getVariable(String name, ParameterizedType type)
     {
-        loadVariable(name);
+        getVariable(name);
         checkCast(type);
         return this;
     }
 
-    public Block initializeLocalVariable(LocalVariableDefinition variable)
+    public Block initializeVariable(LocalVariableDefinition variable)
     {
         ParameterizedType type = variable.getType();
         if (type.getType().length() == 1) {
@@ -832,21 +836,105 @@ public class Block implements ByteCodeNode
         return this;
     }
 
-    public Block loadVariable(LocalVariableDefinition variable)
+    public Block getVariable(LocalVariableDefinition variable)
     {
         nodes.add(VariableInstruction.loadVariable(variable));
         return this;
     }
 
-    public Block storeVariable(String name)
+    public Block putVariable(String name)
     {
         append(context.getVariable(name).setValue());
         return this;
     }
 
-    public Block storeVariable(LocalVariableDefinition variable)
+    public Block putVariable(String name, Class<?> type)
+    {
+        nodes.add(loadClass(type));
+        putVariable(name);
+        return this;
+    }
+
+    public Block putVariable(String name, ParameterizedType type)
+    {
+        nodes.add(loadClass(type));
+        putVariable(name);
+        return this;
+    }
+
+    public Block putVariable(String name, String value)
+    {
+        nodes.add(Constant.loadString(value));
+        putVariable(name);
+        return this;
+    }
+
+    public Block putVariable(String name, Number value)
+    {
+        nodes.add(loadNumber(value));
+        putVariable(name);
+        return this;
+    }
+
+    public Block putVariable(String name, int value)
+    {
+        nodes.add(loadInt(value));
+        putVariable(name);
+        return this;
+    }
+
+    public Block putVariable(String name, boolean value)
+    {
+        nodes.add(loadBoolean(value));
+        putVariable(name);
+        return this;
+    }
+
+    public Block putVariable(LocalVariableDefinition variable)
     {
         nodes.add(VariableInstruction.storeVariable(variable));
+        return this;
+    }
+
+    public Block putVariable(LocalVariableDefinition variable, Class<?> type)
+    {
+        nodes.add(loadClass(type));
+        putVariable(variable);
+        return this;
+    }
+
+    public Block putVariable(LocalVariableDefinition variable, ParameterizedType type)
+    {
+        nodes.add(loadClass(type));
+        putVariable(variable);
+        return this;
+    }
+
+    public Block putVariable(LocalVariableDefinition variable, String value)
+    {
+        nodes.add(Constant.loadString(value));
+        putVariable(variable);
+        return this;
+    }
+
+    public Block putVariable(LocalVariableDefinition variable, Number value)
+    {
+        nodes.add(loadNumber(value));
+        putVariable(variable);
+        return this;
+    }
+
+    public Block putVariable(LocalVariableDefinition variable, int value)
+    {
+        nodes.add(loadInt(value));
+        putVariable(variable);
+        return this;
+    }
+
+    public Block putVariable(LocalVariableDefinition variable, boolean value)
+    {
+        nodes.add(loadBoolean(value));
+        putVariable(variable);
         return this;
     }
 
@@ -856,13 +944,13 @@ public class Block implements ByteCodeNode
         return this;
     }
 
-    public Block loadObjectArray()
+    public Block getObjectArrayElement()
     {
         nodes.add(OpCodes.AALOAD);
         return this;
     }
 
-    public Block storeObjectArray()
+    public Block putObjectArrayElement()
     {
         nodes.add(OpCodes.AASTORE);
         return this;
