@@ -130,7 +130,7 @@ public final class ExpressionFormatter
         @Override
         protected String visitStringLiteral(StringLiteral node, Void context)
         {
-            return "'" + node.getValue() + "'";
+            return "'" + node.getValue().replace("'", "''") + "'";
         }
 
         @Override
