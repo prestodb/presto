@@ -86,9 +86,15 @@ public class DoubleSequenceCursor
     }
 
     @Override
+    public boolean getBoolean(int index)
+    {
+        throw new UnsupportedOperationException("Cursor can only produce DOUBLE");
+    }
+
+    @Override
     public long getLong(int field)
     {
-        throw new UnsupportedOperationException("Cursor can only produce LONG");
+        throw new UnsupportedOperationException("Cursor can only produce DOUBLE");
     }
 
     @Override
@@ -102,7 +108,7 @@ public class DoubleSequenceCursor
     @Override
     public Slice getSlice(int field)
     {
-        throw new UnsupportedOperationException("Cursor can only produce LONG");
+        throw new UnsupportedOperationException("Cursor can only produce DOUBLE");
     }
 
     @Override

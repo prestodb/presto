@@ -35,6 +35,9 @@ public class DirectFieldOrderedTupleComparator
             Type type = types[field];
             int comparison;
             switch (type) {
+                case BOOLEAN:
+                    comparison = Boolean.compare(tupleInfo.getBoolean(slice, left, field), tupleInfo.getBoolean(slice, right, field));
+                    break;
                 case FIXED_INT_64:
                     comparison = Long.compare(tupleInfo.getLong(slice, left, field), tupleInfo.getLong(slice, right, field));
                     break;

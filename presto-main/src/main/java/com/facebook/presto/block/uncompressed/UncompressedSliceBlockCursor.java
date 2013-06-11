@@ -138,6 +138,12 @@ public class UncompressedSliceBlockCursor
     }
 
     @Override
+    public boolean getBoolean(int index)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public long getLong(int field)
     {
         throw new UnsupportedOperationException();

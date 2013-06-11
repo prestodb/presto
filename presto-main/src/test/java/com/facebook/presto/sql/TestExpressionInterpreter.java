@@ -345,8 +345,8 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("cast(null as DOUBLE)", "null");
 
         // boolean
-        assertInvalidCast("cast(true as DOUBLE)");
-        assertInvalidCast("cast(false as DOUBLE)");
+        assertOptimizedEquals("cast(true as DOUBLE)", "1.0");
+        assertOptimizedEquals("cast(false as DOUBLE)", "0.0");
     }
 
     @Test

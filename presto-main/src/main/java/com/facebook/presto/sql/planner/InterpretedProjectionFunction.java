@@ -49,6 +49,9 @@ public class InterpretedProjectionFunction
         }
         else {
             switch (type) {
+                case BOOLEAN:
+                    output.append((Boolean) value);
+                    break;
                 case LONG:
                     output.append((Long) value);
                     break;

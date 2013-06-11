@@ -48,6 +48,8 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.metadata.FunctionInfo.isAggregationPredicate;
+import static com.facebook.presto.operator.aggregation.BooleanMaxAggregation.BOOLEAN_MAX;
+import static com.facebook.presto.operator.aggregation.BooleanMinAggregation.BOOLEAN_MIN;
 import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
 import static com.facebook.presto.operator.aggregation.CountColumnAggregation.COUNT_COLUMN;
 import static com.facebook.presto.operator.aggregation.DoubleAverageAggregation.DOUBLE_AVERAGE;
@@ -84,6 +86,7 @@ public class FunctionRegistry
                 .window("percent_rank", DOUBLE, ImmutableList.<Type>of(), provider(PercentRankFunction.class))
                 .window("cume_dist", DOUBLE, ImmutableList.<Type>of(), provider(CumulativeDistributionFunction.class))
                 .aggregate("count", LONG, ImmutableList.<Type>of(), LONG, COUNT)
+                .aggregate("count", LONG, ImmutableList.<Type>of(BOOLEAN), LONG, COUNT_COLUMN)
                 .aggregate("count", LONG, ImmutableList.<Type>of(LONG), LONG, COUNT_COLUMN)
                 .aggregate("count", LONG, ImmutableList.<Type>of(DOUBLE), LONG, COUNT_COLUMN)
                 .aggregate("count", LONG, ImmutableList.<Type>of(STRING), LONG, COUNT_COLUMN)
@@ -91,9 +94,11 @@ public class FunctionRegistry
                 .aggregate("sum", DOUBLE, ImmutableList.of(DOUBLE), DOUBLE, DOUBLE_SUM)
                 .aggregate("avg", DOUBLE, ImmutableList.of(DOUBLE), STRING, DOUBLE_AVERAGE)
                 .aggregate("avg", DOUBLE, ImmutableList.of(LONG), STRING, LONG_AVERAGE)
+                .aggregate("max", BOOLEAN, ImmutableList.of(BOOLEAN), BOOLEAN, BOOLEAN_MAX)
                 .aggregate("max", LONG, ImmutableList.of(LONG), LONG, LONG_MAX)
                 .aggregate("max", DOUBLE, ImmutableList.of(DOUBLE), DOUBLE, DOUBLE_MAX)
                 .aggregate("max", STRING, ImmutableList.of(STRING), STRING, VAR_BINARY_MAX)
+                .aggregate("min", BOOLEAN, ImmutableList.of(BOOLEAN), BOOLEAN, BOOLEAN_MIN)
                 .aggregate("min", LONG, ImmutableList.of(LONG), LONG, LONG_MIN)
                 .aggregate("min", DOUBLE, ImmutableList.of(DOUBLE), DOUBLE, DOUBLE_MIN)
                 .aggregate("min", STRING, ImmutableList.of(STRING), STRING, VAR_BINARY_MIN)
@@ -109,6 +114,7 @@ public class FunctionRegistry
                 .aggregate("stddev_samp", DOUBLE, ImmutableList.of(LONG), STRING, LongStdDevAggregation.STDDEV_INSTANCE)
                 .aggregate("stddev", DOUBLE, ImmutableList.of(DOUBLE), STRING, DoubleStdDevAggregation.STDDEV_INSTANCE)
                 .aggregate("stddev", DOUBLE, ImmutableList.of(LONG), STRING, LongStdDevAggregation.STDDEV_INSTANCE)
+                .aggregate("approx_distinct", LONG, ImmutableList.of(BOOLEAN), STRING, ApproximateCountDistinctAggregation.LONG_INSTANCE)
                 .aggregate("approx_distinct", LONG, ImmutableList.of(LONG), STRING, ApproximateCountDistinctAggregation.LONG_INSTANCE)
                 .aggregate("approx_distinct", LONG, ImmutableList.of(DOUBLE), STRING, ApproximateCountDistinctAggregation.DOUBLE_INSTANCE)
                 .aggregate("approx_distinct", LONG, ImmutableList.of(STRING), STRING, ApproximateCountDistinctAggregation.VARBINARY_INSTANCE)

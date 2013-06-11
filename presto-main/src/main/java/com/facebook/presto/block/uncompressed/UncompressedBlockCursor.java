@@ -136,6 +136,13 @@ public class UncompressedBlockCursor
     }
 
     @Override
+    public boolean getBoolean(int field)
+    {
+        checkReadablePosition();
+        return tupleInfo.getBoolean(slice, offset, field);
+    }
+
+    @Override
     public long getLong(int field)
     {
         checkReadablePosition();

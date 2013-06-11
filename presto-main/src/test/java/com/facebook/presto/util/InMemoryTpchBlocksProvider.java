@@ -140,6 +140,9 @@ public class InMemoryTpchBlocksProvider
 
                 while (!builder.isFull() && cursor.advanceNextPosition()) {
                     switch (fieldType) {
+                        case BOOLEAN:
+                            builder.append(cursor.getBoolean(fieldIndex));
+                            break;
                         case FIXED_INT_64:
                             builder.append(cursor.getLong(fieldIndex));
                             break;

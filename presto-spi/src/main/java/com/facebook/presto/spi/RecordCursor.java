@@ -11,6 +11,8 @@ public interface RecordCursor
 
     boolean advanceNextPosition();
 
+    boolean getBoolean(int field);
+
     long getLong(int field);
 
     double getDouble(int field);

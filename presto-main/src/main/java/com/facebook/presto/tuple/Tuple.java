@@ -42,6 +42,12 @@ public class Tuple
     }
 
     @Override
+    public boolean getBoolean(int index)
+    {
+        return tupleInfo.getBoolean(slice, index);
+    }
+
+    @Override
     public long getLong(int index)
     {
         return tupleInfo.getLong(slice, index);
@@ -89,6 +95,9 @@ public class Tuple
             }
             else {
                 switch (type) {
+                    case BOOLEAN:
+                        values.add(getBoolean(index));
+                        break;
                     case FIXED_INT_64:
                         values.add(getLong(index));
                         break;

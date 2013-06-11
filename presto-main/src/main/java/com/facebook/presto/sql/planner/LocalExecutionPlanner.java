@@ -556,6 +556,9 @@ public class LocalExecutionPlanner
             for (Input input : layout.values()) {
                  TupleInfo.Type type = tupleInfos.get(input.getChannel()).getTypes().get(input.getField());
                  switch (type) {
+                     case BOOLEAN:
+                         inputTypes.put(input, Type.BOOLEAN);
+                         break;
                      case FIXED_INT_64:
                          inputTypes.put(input, Type.LONG);
                          break;

@@ -174,6 +174,7 @@ public class JdbcResultSetMetaData
             case Types.NUMERIC:
             case Types.DECIMAL:
                 return BigDecimal.class.getName();
+            case Types.BOOLEAN:
             case Types.BIT:
                 return Boolean.class.getName();
             case Types.TINYINT:

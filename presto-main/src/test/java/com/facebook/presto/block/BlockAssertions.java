@@ -141,6 +141,22 @@ public class BlockAssertions
         return builder.build();
     }
 
+    public static Block createBooleansBlock(@Nullable Boolean... values)
+    {
+        BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_BOOLEAN);
+
+        for (Boolean value : values) {
+            if (value == null) {
+                builder.appendNull();
+            }
+            else {
+                builder.append(value);
+            }
+        }
+
+        return builder.build();
+    }
+
     // This method makes it easy to create blocks without having to add an L to every value
     public static Block createLongsBlock(int... values)
     {
@@ -191,10 +207,11 @@ public class BlockAssertions
 
     public static Block createCompositeTupleSequenceBlock(int start, int end)
     {
-        BlockBuilder builder = new BlockBuilder(new TupleInfo(Type.FIXED_INT_64, Type.DOUBLE, Type.VARIABLE_BINARY));
+        BlockBuilder builder = new BlockBuilder(new TupleInfo(Type.BOOLEAN, Type.FIXED_INT_64, Type.DOUBLE, Type.VARIABLE_BINARY));
 
         for (int i = start; i < end; i++) {
-            builder.append((long) i)
+            builder.append(i % 2 == 0)
+                    .append((long) i)
                     .append((double) i)
                     .append(Long.toString(i));
         }

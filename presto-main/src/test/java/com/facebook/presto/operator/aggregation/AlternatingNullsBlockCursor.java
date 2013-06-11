@@ -85,6 +85,15 @@ public class AlternatingNullsBlockCursor
     }
 
     @Override
+    public boolean getBoolean(int field)
+    {
+        if (isNullPosition()) {
+            return false;
+        }
+        return delegate.getBoolean(field);
+    }
+
+    @Override
     public long getLong(int field)
     {
         if (isNullPosition()) {

@@ -112,6 +112,12 @@ public class DelimitedRecordSet
         }
 
         @Override
+        public boolean getBoolean(int field)
+        {
+            return Boolean.parseBoolean(getField(field));
+        }
+
+        @Override
         public long getLong(int field)
         {
             return Long.parseLong(getField(field));

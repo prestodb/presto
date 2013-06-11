@@ -67,6 +67,14 @@ public class InMemoryRecordSet
         }
 
         @Override
+        public boolean getBoolean(int field)
+        {
+            checkState(record != null, "no current record");
+            checkNotNull(record.get(field), "value is null");
+            return (Boolean) record.get(field);
+        }
+
+        @Override
         public long getLong(int field)
         {
             checkState(record != null, "no current record");
@@ -151,6 +159,9 @@ public class InMemoryRecordSet
                     continue;
                 }
                 switch (types.get(i)) {
+                    case BOOLEAN:
+                        checkArgument(value instanceof Boolean, "Expected value %d to be an instance of Boolean, but is a %s", i, value.getClass().getSimpleName());
+                        break;
                     case LONG:
                         checkArgument(value instanceof Long, "Expected value %d to be an instance of Long, but is a %s", i, value.getClass().getSimpleName());
                         break;

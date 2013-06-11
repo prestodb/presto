@@ -78,6 +78,13 @@ public class BlockBuilder
         return maxBlockSize - sliceOutput.size();
     }
 
+    public BlockBuilder append(boolean value)
+    {
+        tupleBuilder.append(value);
+        flushTupleIfNecessary();
+        return this;
+    }
+
     public BlockBuilder append(long value)
     {
         tupleBuilder.append(value);

@@ -235,6 +235,8 @@ public class TestDistributedQueries
             public Type apply(String type)
             {
                 switch (type) {
+                    case "boolean":
+                        return Type.BOOLEAN;
                     case "bigint":
                         return Type.FIXED_INT_64;
                     case "double":
@@ -264,6 +266,9 @@ public class TestDistributedQueries
                     }
                     Type type = tupleInfo.getTypes().get(i);
                     switch (type) {
+                        case BOOLEAN:
+                            tuple.append((Boolean) value);
+                            break;
                         case FIXED_INT_64:
                             tuple.append(((Number) value).longValue());
                             break;

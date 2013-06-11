@@ -22,7 +22,7 @@ import static org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspe
 
 public enum HiveType
 {
-    BOOLEAN(ColumnType.LONG),
+    BOOLEAN(ColumnType.BOOLEAN),
     BYTE(ColumnType.LONG),
     SHORT(ColumnType.LONG),
     INT(ColumnType.LONG),
