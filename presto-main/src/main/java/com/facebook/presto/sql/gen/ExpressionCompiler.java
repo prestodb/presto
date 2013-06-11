@@ -231,9 +231,9 @@ public class ExpressionCompiler
                     .getStaticField(bootstrapField)
                     .invokeVirtual(AtomicReference.class, "get", Object.class)
                     .checkCast(BootstrapFunctionBinder.class)
-                    .loadVariable("name")
-                    .loadVariable("type")
-                    .loadVariable("bindingId")
+                    .getVariable("name")
+                    .getVariable("type")
+                    .getVariable("bindingId")
                     .invokeVirtual(BootstrapFunctionBinder.class, "bootstrap", CallSite.class, String.class, MethodType.class, long.class)
                     .retObject();
 
@@ -305,13 +305,13 @@ public class ExpressionCompiler
                 arg("session", Session.class))
                 .getBody()
                 .comment("super(tupleInfos, pageIterator);")
-                .loadThis()
-                .loadVariable("tupleInfos")
-                .loadVariable("pageIterator")
+                .pushThis()
+                .getVariable("tupleInfos")
+                .getVariable("pageIterator")
                 .invokeConstructor(AbstractFilterAndProjectIterator.class, Iterable.class, PageIterator.class)
                 .comment("this.session = session;")
-                .loadThis()
-                .loadVariable("session")
+                .pushThis()
+                .getVariable("session")
                 .putField(classDefinition.getType(), sessionField)
                 .ret();
 
@@ -356,7 +356,7 @@ public class ExpressionCompiler
         //
         classDefinition.declareMethod(new CompilerContext(bootstrapMethod), a(PUBLIC), "toString", type(String.class))
                 .getBody()
-                .loadString(toStringHelper(classDefinition.getType().getJavaClassName())
+                .push(toStringHelper(classDefinition.getType().getJavaClassName())
                         .add("filter", filter)
                         .add("projections", projections)
                         .toString())
@@ -384,11 +384,11 @@ public class ExpressionCompiler
         LocalVariableDefinition rowsVariable = compilerContext.declareVariable(int.class, "rows");
         filterAndProjectMethod.getBody()
                 .comment("int rows = blocks[0].getPositionCount();")
-                .loadVariable("blocks")
-                .loadConstant(0)
-                .loadObjectArray()
+                .getVariable("blocks")
+                .push(0)
+                .getObjectArrayElement()
                 .invokeInterface(com.facebook.presto.block.Block.class, "getPositionCount", int.class)
-                .storeVariable(rowsVariable);
+                .putVariable(rowsVariable);
 
 
         List<LocalVariableDefinition> cursorVariables = new ArrayList<>();
@@ -398,11 +398,11 @@ public class ExpressionCompiler
             cursorVariables.add(cursorVariable);
             filterAndProjectMethod.getBody()
                     .comment("BlockCursor %s = blocks[%s].cursor();", cursorVariable.getName(), i)
-                    .loadVariable("blocks")
-                    .loadConstant(i)
-                    .loadObjectArray()
+                    .getVariable("blocks")
+                    .push(i)
+                    .getObjectArrayElement()
                     .invokeInterface(com.facebook.presto.block.Block.class, "cursor", BlockCursor.class)
-                    .storeVariable(cursorVariable);
+                    .putVariable(cursorVariable);
         }
 
         //
@@ -412,10 +412,10 @@ public class ExpressionCompiler
         // for (position = 0; position < rows; position++)
         ForLoopBuilder forLoop = forLoopBuilder(compilerContext)
                 .comment("for (position = 0; position < rows; position++)")
-                .initialize(new Block(compilerContext).loadConstant(0).storeVariable(positionVariable))
+                .initialize(new Block(compilerContext).putVariable(positionVariable, 0))
                 .condition(new Block(compilerContext)
-                        .loadVariable(positionVariable)
-                        .loadVariable(rowsVariable)
+                        .getVariable(positionVariable)
+                        .getVariable(rowsVariable)
                         .invokeStatic(Operations.class, "lessThan", boolean.class, int.class, int.class))
                 .update(new Block(compilerContext).incrementVariable(positionVariable, (byte) 1));
 
@@ -425,7 +425,7 @@ public class ExpressionCompiler
         for (LocalVariableDefinition cursorVariable : cursorVariables) {
             forLoopBody
                     .comment("checkState(%s.advanceNextPosition());", cursorVariable.getName())
-                    .loadVariable(cursorVariable)
+                    .getVariable(cursorVariable)
                     .invokeInterface(BlockCursor.class, "advanceNextPosition", boolean.class)
                     .invokeStatic(Preconditions.class, "checkState", void.class, boolean.class);
         }
@@ -433,9 +433,9 @@ public class ExpressionCompiler
         IfStatementBuilder ifStatement = new IfStatementBuilder(compilerContext)
                 .comment("if (filter(cursors...)");
         Block condition = new Block(compilerContext);
-        condition.loadThis();
+        condition.pushThis();
         for (int channel = 0; channel < channels; channel++) {
-            condition.loadVariable("cursor_" + channel);
+            condition.getVariable("cursor_" + channel);
         }
         condition.invokeVirtual(classDefinition.getType(), "filter", type(boolean.class), nCopies(channels, type(TupleReadable.class)));
         ifStatement.condition(condition);
@@ -444,21 +444,21 @@ public class ExpressionCompiler
         if (projections.isEmpty()) {
             trueBlock
                     .comment("pageBuilder.declarePosition()")
-                    .loadVariable("pageBuilder")
+                    .getVariable("pageBuilder")
                     .invokeVirtual(PageBuilder.class, "declarePosition", void.class);
         }
         else {
             // pageBuilder.getBlockBuilder(0).append(cursor.getDouble(0);
             for (int projectionIndex = 0; projectionIndex < projections.size(); projectionIndex++) {
                 trueBlock.comment("project_%s(cursors..., pageBuilder.getBlockBuilder(%s))", projectionIndex, projectionIndex);
-                trueBlock.loadThis();
+                trueBlock.pushThis();
                 for (int channel = 0; channel < channels; channel++) {
-                    trueBlock.loadVariable("cursor_" + channel);
+                    trueBlock.getVariable("cursor_" + channel);
                 }
 
                 // pageBuilder.getBlockBuilder(0)
-                trueBlock.loadVariable("pageBuilder")
-                        .loadConstant(projectionIndex)
+                trueBlock.getVariable("pageBuilder")
+                        .push(projectionIndex)
                         .invokeVirtual(PageBuilder.class, "getBlockBuilder", BlockBuilder.class, int.class);
 
                 // project(cursor_0, cursor_1, blockBuilder)
@@ -481,7 +481,7 @@ public class ExpressionCompiler
         for (LocalVariableDefinition cursorVariable : cursorVariables) {
             filterAndProjectMethod.getBody()
                     .comment("checkState(not(%s.advanceNextPosition))", cursorVariable.getName())
-                    .loadVariable(cursorVariable)
+                    .getVariable(cursorVariable)
                     .invokeInterface(BlockCursor.class, "advanceNextPosition", boolean.class)
                     .invokeStatic(Operations.class, "not", boolean.class, boolean.class)
                     .invokeStatic(Preconditions.class, "checkState", void.class, boolean.class);
@@ -509,10 +509,10 @@ public class ExpressionCompiler
         LabelNode done = new LabelNode("done");
         WhileLoopBuilder whileLoop = WhileLoop.whileLoopBuilder(compilerContext)
                 .condition(new Block(compilerContext)
-                        .loadVariable("pageBuilder")
+                        .getVariable("pageBuilder")
                         .invokeVirtual(PageBuilder.class, "isFull", boolean.class)
                         .ifNotZeroGoto(done)
-                        .loadVariable("cursor")
+                        .getVariable("cursor")
                         .invokeInterface(RecordCursor.class, "advanceNextPosition", boolean.class));
 
         Block whileLoopBody = new Block(compilerContext);
@@ -520,24 +520,24 @@ public class ExpressionCompiler
         // if (filter(cursor))
         IfStatementBuilder ifStatement = new IfStatementBuilder(compilerContext);
         ifStatement.condition(new Block(compilerContext)
-                .loadThis()
-                .loadVariable("cursor")
+                .pushThis()
+                .getVariable("cursor")
                 .invokeVirtual(classDefinition.getType(), "filter", type(boolean.class), type(RecordCursor.class)));
 
         Block trueBlock = new Block(compilerContext);
         if (projections.isEmpty()) {
             // pageBuilder.declarePosition();
-            trueBlock.loadVariable("pageBuilder").invokeVirtual(PageBuilder.class, "declarePosition", void.class);
+            trueBlock.getVariable("pageBuilder").invokeVirtual(PageBuilder.class, "declarePosition", void.class);
         }
         else {
             // project_43(cursor_0, cursor_1, pageBuilder.getBlockBuilder(42)));
             for (int projectionIndex = 0; projectionIndex < projections.size(); projectionIndex++) {
-                trueBlock.loadThis();
-                trueBlock.loadVariable("cursor");
+                trueBlock.pushThis();
+                trueBlock.getVariable("cursor");
 
                 // pageBuilder.getBlockBuilder(0)
-                trueBlock.loadVariable("pageBuilder")
-                        .loadConstant(projectionIndex)
+                trueBlock.getVariable("pageBuilder")
+                        .push(projectionIndex)
                         .invokeVirtual(PageBuilder.class, "getBlockBuilder", BlockBuilder.class, int.class);
 
                 // project(cursor_0, cursor_1, blockBuilder)
@@ -580,11 +580,11 @@ public class ExpressionCompiler
         classDefinition.declareConstructor(new CompilerContext(bootstrapMethod), a(PUBLIC), arg("tupleInfos", type(List.class, TupleInfo.class)))
                 .getBody()
                 .comment("super();")
-                .loadThis()
+                .pushThis()
                 .invokeConstructor(Object.class)
                 .comment("this.tupleInfos = tupleInfos;")
-                .loadThis()
-                .loadVariable("tupleInfos")
+                .pushThis()
+                .getVariable("tupleInfos")
                 .putField(classDefinition.getType(), tupleInfoField)
                 .ret();
 
@@ -600,10 +600,10 @@ public class ExpressionCompiler
                 .comment("return new %s(this.tupleInfo, source, session);", operatorClass.getName())
                 .newObject(operatorClass)
                 .dup()
-                .loadThis()
+                .pushThis()
                 .getField(classDefinition.getType(), tupleInfoField)
-                .loadVariable("source")
-                .loadVariable("session")
+                .getVariable("source")
+                .getVariable("session")
                 .invokeConstructor(constructor)
                 .retObject();
 
@@ -636,13 +636,13 @@ public class ExpressionCompiler
                 arg("session", Session.class))
                 .getBody()
                 .comment("super(tupleInfos, source);")
-                .loadThis()
-                .loadVariable("tupleInfos")
-                .loadVariable("source")
+                .pushThis()
+                .getVariable("tupleInfos")
+                .getVariable("source")
                 .invokeConstructor(AbstractFilterAndProjectOperator.class, List.class, Operator.class)
                 .comment("this.session = session;")
-                .loadThis()
-                .loadVariable("session")
+                .pushThis()
+                .getVariable("session")
                 .putField(classDefinition.getType(), sessionField)
                 .ret();
 
@@ -656,10 +656,10 @@ public class ExpressionCompiler
                 .comment("return new %s(getTupleInfos(), source);", iteratorClass.getName())
                 .newObject(iteratorClass)
                 .dup()
-                .loadThis()
+                .pushThis()
                 .invokeInterface(Operator.class, "getTupleInfos", List.class)
-                .loadVariable("source")
-                .loadThis()
+                .getVariable("source")
+                .pushThis()
                 .getField(classDefinition.getType(), sessionField)
                 .invokeConstructor(iteratorClass, Iterable.class, PageIterator.class, Session.class)
                 .retObject();
@@ -684,11 +684,11 @@ public class ExpressionCompiler
         //
         classDefinition.declareConstructor(new CompilerContext(bootstrapMethod), a(PUBLIC), arg("session", Session.class))
                 .getBody()
-                .loadThis()
+                .pushThis()
                 .invokeConstructor(Object.class)
                 .comment("this.session = session;")
-                .loadThis()
-                .loadVariable("session")
+                .pushThis()
+                .getVariable("session")
                 .putField(classDefinition.getType(), sessionField)
                 .ret();
 
@@ -701,14 +701,14 @@ public class ExpressionCompiler
                 type(boolean.class),
                 arg("channels", TupleReadable[].class));
 
-        filterMethod.getBody().loadThis();
+        filterMethod.getBody().pushThis();
 
         int channels = Ordering.natural().max(transform(inputTypes.keySet(), Input.channelGetter())) + 1;
         for (int i = 0; i < channels; i++) {
             filterMethod.getBody()
-                    .loadVariable("channels")
-                    .loadConstant(i)
-                    .loadObjectArray();
+                    .getVariable("channels")
+                    .push(i)
+                    .getObjectArrayElement();
         }
         filterMethod.getBody()
                 .invokeVirtual(classDefinition.getType(), "filter", type(boolean.class), nCopies(channels, type(TupleReadable.class)));
@@ -726,7 +726,7 @@ public class ExpressionCompiler
 
         classDefinition.declareMethod(new CompilerContext(bootstrapMethod), a(PUBLIC), "toString", type(String.class))
                 .getBody()
-                .loadString(toStringHelper(classDefinition.getType().getJavaClassName())
+                .push(toStringHelper(classDefinition.getType().getJavaClassName())
                         .add("filter", expression)
                         .toString())
                 .retObject();
@@ -781,13 +781,13 @@ public class ExpressionCompiler
         filterMethod.comment("Filter: %s", filter.toString());
 
         filterMethod.getCompilerContext().declareVariable(type(boolean.class), "wasNull");
-        Block getSessionByteCode = new Block(filterMethod.getCompilerContext()).loadThis().getField(classDefinition.getType(), "session", type(Session.class));
+        Block getSessionByteCode = new Block(filterMethod.getCompilerContext()).pushThis().getField(classDefinition.getType(), "session", type(Session.class));
         TypedByteCodeNode body = new Visitor(bootstrapFunctionBinder, inputTypes, getSessionByteCode, sourceIsCursor).process(filter, filterMethod.getCompilerContext());
 
         if (body.type == void.class) {
             filterMethod
                     .getBody()
-                    .loadConstant(false)
+                    .push(false)
                     .retBoolean();
         }
         else {
@@ -795,13 +795,12 @@ public class ExpressionCompiler
             filterMethod
                     .getBody()
                     .comment("boolean wasNull = false;")
-                    .loadConstant(false)
-                    .storeVariable("wasNull")
+                    .putVariable("wasNull", false)
                     .append(body.node)
-                    .loadVariable("wasNull")
-                    .ifZeroGoto(end)
+                    .getVariable("wasNull")
+                    .ifFalseGoto(end)
                     .pop(boolean.class)
-                    .loadConstant(false)
+                    .push(false)
                     .visitLabel(end)
                     .retBoolean();
         }
@@ -826,11 +825,11 @@ public class ExpressionCompiler
         //
         classDefinition.declareConstructor(new CompilerContext(bootstrapMethod), a(PUBLIC), arg("session", Session.class))
                 .getBody()
-                .loadThis()
+                .pushThis()
                 .invokeConstructor(Object.class)
                 .comment("this.session = session;")
-                .loadThis()
-                .loadVariable("session")
+                .pushThis()
+                .getVariable("session")
                 .putField(classDefinition.getType(), sessionField)
                 .ret();
 
@@ -844,17 +843,17 @@ public class ExpressionCompiler
                 arg("channels", TupleReadable[].class),
                 arg("output", BlockBuilder.class));
 
-        projectionMethod.getBody().loadThis();
+        projectionMethod.getBody().pushThis();
 
         int channels = Ordering.natural().max(transform(inputTypes.keySet(), Input.channelGetter())) + 1;
         for (int i = 0; i < channels; i++) {
             projectionMethod.getBody()
-                    .loadVariable("channels")
-                    .loadConstant(i)
-                    .loadObjectArray();
+                    .getVariable("channels")
+                    .push(i)
+                    .getObjectArrayElement();
         }
 
-        projectionMethod.getBody().loadVariable("output");
+        projectionMethod.getBody().getVariable("output");
 
         projectionMethod.getBody()
                 .invokeVirtual(classDefinition.getType(),
@@ -907,7 +906,7 @@ public class ExpressionCompiler
         //
         classDefinition.declareMethod(new CompilerContext(bootstrapMethod), a(PUBLIC), "toString", type(String.class))
                 .getBody()
-                .loadString(toStringHelper(classDefinition.getType().getJavaClassName())
+                .push(toStringHelper(classDefinition.getType().getJavaClassName())
                         .add("projection", expression)
                         .toString())
                 .retObject();
@@ -971,16 +970,15 @@ public class ExpressionCompiler
         // generate body code
         CompilerContext context = projectionMethod.getCompilerContext();
         context.declareVariable(type(boolean.class), "wasNull");
-        Block getSessionByteCode = new Block(context).loadThis().getField(classDefinition.getType(), "session", type(Session.class));
+        Block getSessionByteCode = new Block(context).pushThis().getField(classDefinition.getType(), "session", type(Session.class));
         TypedByteCodeNode body = new Visitor(bootstrapFunctionBinder, inputTypes, getSessionByteCode, sourceIsCursor).process(projection, context);
 
         if (body.type != void.class) {
             projectionMethod
                     .getBody()
                     .comment("boolean wasNull = false;")
-                    .loadConstant(false)
-                    .storeVariable("wasNull")
-                    .loadVariable("output")
+                    .putVariable("wasNull", false)
+                    .getVariable("output")
                     .append(body.node);
 
             Block notNullBlock = new Block(context);
@@ -1015,14 +1013,14 @@ public class ExpressionCompiler
 
             projectionMethod.getBody()
                     .comment("if the result was null, appendNull; otherwise append the value")
-                    .append(new IfStatement(context, new Block(context).loadVariable("wasNull"), nullBlock, notNullBlock))
+                    .append(new IfStatement(context, new Block(context).getVariable("wasNull"), nullBlock, notNullBlock))
                     .ret();
         }
         else {
             projectionMethod
                     .getBody()
                     .comment("output.appendNull();")
-                    .loadVariable("output")
+                    .getVariable("output")
                     .invokeVirtual(BlockBuilder.class, "appendNull", BlockBuilder.class)
                     .ret();
         }
@@ -1178,7 +1176,7 @@ public class ExpressionCompiler
         protected TypedByteCodeNode visitNullLiteral(NullLiteral node, CompilerContext context)
         {
             // todo this should be the real type of the expression
-            return typedByteCodeNode(new Block(context).loadConstant(true).storeVariable("wasNull"), void.class);
+            return typedByteCodeNode(new Block(context).putVariable("wasNull", true), void.class);
         }
 
         @Override
@@ -1193,60 +1191,56 @@ public class ExpressionCompiler
                 int field = input.getField();
                 Block isNullCheck = new Block(context)
                         .setDescription(format("cursor.get%s(%d)", type, field))
-                        .loadVariable("cursor")
-                        .loadConstant(field)
+                        .getVariable("cursor")
+                        .push(field)
                         .invokeInterface(RecordCursor.class, "isNull", boolean.class, int.class);
 
 
                 switch (type) {
                     case BOOLEAN: {
                         Block isNull = new Block(context)
-                                .loadConstant(true)
-                                .storeVariable("wasNull")
-                                .loadJavaDefault(boolean.class);
+                                .putVariable("wasNull", true)
+                                .pushJavaDefault(boolean.class);
 
                         Block isNotNull = new Block(context)
-                                .loadVariable("cursor")
-                                .loadConstant(channel)
+                                .getVariable("cursor")
+                                .push(channel)
                                 .invokeInterface(RecordCursor.class, "getBoolean", boolean.class, int.class);
 
                         return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, isNotNull), boolean.class);
                     }
                     case LONG: {
                         Block isNull = new Block(context)
-                                .loadConstant(true)
-                                .storeVariable("wasNull")
-                                .loadJavaDefault(long.class);
+                                .putVariable("wasNull", true)
+                                .pushJavaDefault(long.class);
 
                         Block isNotNull = new Block(context)
-                                .loadVariable("cursor")
-                                .loadConstant(channel)
+                                .getVariable("cursor")
+                                .push(channel)
                                 .invokeInterface(RecordCursor.class, "getLong", long.class, int.class);
 
                         return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, isNotNull), long.class);
                     }
                     case DOUBLE: {
                         Block isNull = new Block(context)
-                                .loadConstant(true)
-                                .storeVariable("wasNull")
-                                .loadJavaDefault(double.class);
+                                .putVariable("wasNull", true)
+                                .pushJavaDefault(double.class);
 
                         Block isNotNull = new Block(context)
-                                .loadVariable("cursor")
-                                .loadConstant(channel)
+                                .getVariable("cursor")
+                                .push(channel)
                                 .invokeInterface(RecordCursor.class, "getDouble", double.class, int.class);
 
                         return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, isNotNull), double.class);
                     }
                     case STRING: {
                         Block isNull = new Block(context)
-                                .loadConstant(true)
-                                .storeVariable("wasNull")
-                                .loadJavaDefault(Slice.class);
+                                .putVariable("wasNull", true)
+                                .pushJavaDefault(Slice.class);
 
                         Block isNotNull = new Block(context)
-                                .loadVariable("cursor")
-                                .loadConstant(channel)
+                                .getVariable("cursor")
+                                .push(channel)
                                 .invokeInterface(RecordCursor.class, "getString", byte[].class, int.class)
                                 .invokeStatic(Slices.class, "wrappedBuffer", Slice.class, byte[].class);
 
@@ -1260,59 +1254,55 @@ public class ExpressionCompiler
                 int field = input.getField();
                 Block isNullCheck = new Block(context)
                         .setDescription(format("channel_%d.get%s(%d)", channel, type, field))
-                        .loadVariable("channel_" + channel)
-                        .loadConstant(field)
+                        .getVariable("channel_" + channel)
+                        .push(field)
                         .invokeInterface(TupleReadable.class, "isNull", boolean.class, int.class);
 
                 switch (type) {
                     case BOOLEAN: {
                         Block isNull = new Block(context)
-                                .loadConstant(true)
-                                .storeVariable("wasNull")
-                                .loadJavaDefault(boolean.class);
+                                .putVariable("wasNull", true)
+                                .pushJavaDefault(boolean.class);
 
                         Block isNotNull = new Block(context)
-                                .loadVariable("channel_" + channel)
-                                .loadConstant(field)
+                                .getVariable("channel_" + channel)
+                                .push(field)
                                 .invokeInterface(TupleReadable.class, "getBoolean", boolean.class, int.class);
 
                         return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, isNotNull), boolean.class);
                     }
                     case LONG: {
                         Block isNull = new Block(context)
-                                .loadConstant(true)
-                                .storeVariable("wasNull")
-                                .loadJavaDefault(long.class);
+                                .putVariable("wasNull", true)
+                                .pushJavaDefault(long.class);
 
                         Block isNotNull = new Block(context)
-                                .loadVariable("channel_" + channel)
-                                .loadConstant(field)
+                                .getVariable("channel_" + channel)
+                                .push(field)
                                 .invokeInterface(TupleReadable.class, "getLong", long.class, int.class);
 
                         return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, isNotNull), long.class);
                     }
                     case DOUBLE: {
                         Block isNull = new Block(context)
-                                .loadConstant(true)
-                                .storeVariable("wasNull")
-                                .loadJavaDefault(double.class);
+                                .putVariable("wasNull", true)
+                                .pushJavaDefault(double.class);
 
                         Block isNotNull = new Block(context)
-                                .loadVariable("channel_" + channel)
-                                .loadConstant(field)
+                                .getVariable("channel_" + channel)
+                                .push(field)
                                 .invokeInterface(TupleReadable.class, "getDouble", double.class, int.class);
 
                         return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, isNotNull), double.class);
                     }
                     case STRING: {
                         Block isNull = new Block(context)
-                                .loadConstant(true)
-                                .storeVariable("wasNull")
-                                .loadJavaDefault(Slice.class);
+                                .putVariable("wasNull", true)
+                                .pushJavaDefault(Slice.class);
 
                         Block isNotNull = new Block(context)
-                                .loadVariable("channel_" + channel)
-                                .loadConstant(field)
+                                .getVariable("channel_" + channel)
+                                .push(field)
                                 .invokeInterface(TupleReadable.class, "getSlice", Slice.class, int.class);
 
                         return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, isNotNull), Slice.class);
@@ -1355,7 +1345,7 @@ public class ExpressionCompiler
 
             if (node.getField() == Extract.Field.TIMEZONE_HOUR || node.getField() == Extract.Field.TIMEZONE_MINUTE) {
                 // TODO: we assume all times are UTC for now
-                return new TypedByteCodeNode(new Block(context).append(expression.node).pop(long.class).loadConstant(0L), long.class);
+                return new TypedByteCodeNode(new Block(context).append(expression.node).pop(long.class).push(0L), long.class);
             }
 
             QualifiedName functionName = QualifiedName.of(node.getField().name().toLowerCase());
@@ -1413,11 +1403,10 @@ public class ExpressionCompiler
                     LabelNode notNull = new LabelNode("notNull");
                     block.dup(methodType.returnType())
                             .ifNotNullGoto(notNull)
-                            .loadConstant(true)
-                            .storeVariable("wasNull")
+                            .putVariable("wasNull", true)
                             .comment("swap boxed null with unboxed default")
                             .pop(methodType.returnType())
-                            .loadJavaDefault(unboxedReturnType)
+                            .pushJavaDefault(unboxedReturnType)
                             .gotoLabel(end)
                             .visitLabel(notNull)
                             .append(unboxPrimitive(context, unboxedReturnType));
@@ -1425,8 +1414,7 @@ public class ExpressionCompiler
                 else {
                     block.dup(methodType.returnType())
                             .ifNotNullGoto(end)
-                            .loadConstant(true)
-                            .storeVariable("wasNull");
+                            .putVariable("wasNull", true);
                 }
             }
             block.visitLabel(end);
@@ -1460,16 +1448,16 @@ public class ExpressionCompiler
             if (value.type == void.class) {
                 switch (node.getType()) {
                     case "BOOLEAN":
-                        block.loadJavaDefault(boolean.class);
+                        block.pushJavaDefault(boolean.class);
                         return typedByteCodeNode(block, boolean.class);
                     case "BIGINT":
-                        block.loadJavaDefault(long.class);
+                        block.pushJavaDefault(long.class);
                         return typedByteCodeNode(block, long.class);
                     case "DOUBLE":
-                        block.loadJavaDefault(double.class);
+                        block.pushJavaDefault(double.class);
                         return typedByteCodeNode(block, double.class);
                     case "VARCHAR":
-                        block.loadJavaDefault(Slice.class);
+                        block.pushJavaDefault(Slice.class);
                         return typedByteCodeNode(block, Slice.class);
                 }
             }
@@ -1604,25 +1592,24 @@ public class ExpressionCompiler
 
             IfStatementBuilder ifLeftIsNull = ifStatementBuilder(context)
                     .comment("if left wasNull...")
-                    .condition(new Block(context).loadVariable("wasNull"));
+                    .condition(new Block(context).getVariable("wasNull"));
 
             LabelNode end = new LabelNode("end");
             ifLeftIsNull.ifTrue(new Block(context)
                     .comment("clear the null flag, pop left value off stack, and push left null flag on the stack (true)")
-                    .loadConstant(false)
-                    .storeVariable("wasNull")
+                    .putVariable("wasNull", false)
                     .pop(left.type) // discard left value
-                    .loadConstant(true));
+                    .push(true));
 
             LabelNode leftIsTrue = new LabelNode("leftIsTrue");
             ifLeftIsNull.ifFalse(new Block(context)
                     .comment("if left is false, push false, and goto end")
-                    .ifNotZeroGoto(leftIsTrue)
-                    .loadConstant(false)
+                    .ifTrueGoto(leftIsTrue)
+                    .push(false)
                     .gotoLabel(end)
                     .comment("left was true; push left null flag on the stack (false)")
                     .visitLabel(leftIsTrue)
-                    .loadConstant(false));
+                    .push(false));
 
             block.append(ifLeftIsNull.build());
 
@@ -1634,7 +1621,7 @@ public class ExpressionCompiler
 
             IfStatementBuilder ifRightIsNull = ifStatementBuilder(context)
                     .comment("if right wasNull...")
-                    .condition(new Block(context).loadVariable("wasNull"));
+                    .condition(new Block(context).getVariable("wasNull"));
 
             ifRightIsNull.ifTrue(new Block(context)
                     .comment("right was null, pop the right value off the stack; wasNull flag remains set to TRUE")
@@ -1644,14 +1631,14 @@ public class ExpressionCompiler
             LabelNode rightIsTrue = new LabelNode("rightIsTrue");
             ifRightIsNull.ifFalse(new Block(context)
                     .comment("if right is false, pop left null flag off stack, push false and goto end")
-                    .ifNotZeroGoto(rightIsTrue)
+                    .ifTrueGoto(rightIsTrue)
                     .pop(boolean.class)
-                    .loadConstant(false)
+                    .push(false)
                     .gotoLabel(end)
                     .comment("right was true; store left null flag (on stack) in wasNull variable, and push true")
                     .visitLabel(rightIsTrue)
-                    .storeVariable("wasNull")
-                    .loadConstant(true));
+                    .putVariable("wasNull")
+                    .push(true));
 
             block.append(ifRightIsNull.build())
                     .visitLabel(end);
@@ -1669,25 +1656,24 @@ public class ExpressionCompiler
 
             IfStatementBuilder ifLeftIsNull = ifStatementBuilder(context)
                     .comment("if left wasNull...")
-                    .condition(new Block(context).loadVariable("wasNull"));
+                    .condition(new Block(context).getVariable("wasNull"));
 
             LabelNode end = new LabelNode("end");
             ifLeftIsNull.ifTrue(new Block(context)
                     .comment("clear the null flag, pop left value off stack, and push left null flag on the stack (true)")
-                    .loadConstant(false)
-                    .storeVariable("wasNull")
+                    .putVariable("wasNull", false)
                     .pop(left.type) // discard left value
-                    .loadConstant(true));
+                    .push(true));
 
             LabelNode leftIsFalse = new LabelNode("leftIsFalse");
             ifLeftIsNull.ifFalse(new Block(context)
                     .comment("if left is true, push true, and goto end")
-                    .ifZeroGoto(leftIsFalse)
-                    .loadConstant(true)
+                    .ifFalseGoto(leftIsFalse)
+                    .push(true)
                     .gotoLabel(end)
                     .comment("left was false; push left null flag on the stack (false)")
                     .visitLabel(leftIsFalse)
-                    .loadConstant(false));
+                    .push(false));
 
             block.append(ifLeftIsNull.build());
 
@@ -1699,7 +1685,7 @@ public class ExpressionCompiler
 
             IfStatementBuilder ifRightIsNull = ifStatementBuilder(context)
                     .comment("if right wasNull...")
-                    .condition(new Block(context).loadVariable("wasNull"));
+                    .condition(new Block(context).getVariable("wasNull"));
 
             ifRightIsNull.ifTrue(new Block(context)
                     .comment("right was null, pop the right value off the stack; wasNull flag remains set to TRUE")
@@ -1709,14 +1695,14 @@ public class ExpressionCompiler
             LabelNode rightIsTrue = new LabelNode("rightIsTrue");
             ifRightIsNull.ifFalse(new Block(context)
                     .comment("if right is true, pop left null flag off stack, push true and goto end")
-                    .ifZeroGoto(rightIsTrue)
+                    .ifFalseGoto(rightIsTrue)
                     .pop(boolean.class)
-                    .loadConstant(true)
+                    .push(true)
                     .gotoLabel(end)
                     .comment("right was false; store left null flag (on stack) in wasNull variable, and push false")
                     .visitLabel(rightIsTrue)
-                    .storeVariable("wasNull")
-                    .loadConstant(false));
+                    .putVariable("wasNull")
+                    .push(false));
 
             block.append(ifRightIsNull.build())
                     .visitLabel(end);
@@ -1817,16 +1803,14 @@ public class ExpressionCompiler
                     .comment(node.toString())
                     .comment("left")
                     .append(coerceToType(context, left, type).node)
-                    .loadVariable("wasNull")
+                    .getVariable("wasNull")
                     .comment("clear was null")
-                    .loadConstant(false)
-                    .storeVariable("wasNull")
+                    .putVariable("wasNull", false)
                     .comment("right")
                     .append(coerceToType(context, right, type).node)
-                    .loadVariable("wasNull")
+                    .getVariable("wasNull")
                     .comment("clear was null")
-                    .loadConstant(false)
-                    .storeVariable("wasNull")
+                    .putVariable("wasNull", false)
                     .invokeStatic(Operations.class, "isDistinctFrom", boolean.class, type, boolean.class, type, boolean.class);
 
             return new TypedByteCodeNode(block, boolean.class);
@@ -1883,12 +1867,11 @@ public class ExpressionCompiler
                     .comment(node.toString())
                     .append(value.node)
                     .pop(value.type)
-                    .loadVariable("wasNull")
+                    .getVariable("wasNull")
                     .invokeStatic(Operations.class, "not", boolean.class, boolean.class);
 
             // clear the null flag
-            block.loadConstant(false)
-                    .storeVariable("wasNull");
+            block.putVariable("wasNull", false);
 
             return typedByteCodeNode(block, boolean.class);
         }
@@ -1906,11 +1889,10 @@ public class ExpressionCompiler
                     .comment(node.toString())
                     .append(value.node)
                     .pop(value.type)
-                    .loadVariable("wasNull");
+                    .getVariable("wasNull");
 
             // clear the null flag
-            block.loadConstant(false)
-                    .storeVariable("wasNull");
+            block.putVariable("wasNull", false);
 
             return typedByteCodeNode(block, boolean.class);
         }
@@ -1931,8 +1913,7 @@ public class ExpressionCompiler
             Block condition = new Block(context)
                     .comment(node.toString())
                     .append(conditionValue.node)
-                    .loadConstant(false)
-                    .storeVariable("wasNull");
+                    .putVariable("wasNull", false);
 
             Class<?> type = getType(trueValue, falseValue);
             if (type == void.class) {
@@ -1979,8 +1960,7 @@ public class ExpressionCompiler
                 // clear null flag after evaluating condition
                 Block condition = new Block(context)
                         .append(whenClause.condition.node)
-                        .loadConstant(false)
-                        .storeVariable("wasNull");
+                        .putVariable("wasNull", false);
 
                 elseValue = typedByteCodeNode(new IfStatement(context, condition, coerceToType(context, whenClause.value, type).node, elseValue.node), type);
             }
@@ -2023,7 +2003,7 @@ public class ExpressionCompiler
             Block block = new Block(context)
                     .append(coerceToType(context, value, valueType).node)
                     .append(ifWasNullClearPopAndGoto(context, nullValue, void.class, valueType))
-                    .storeVariable(tempVariable.getLocalVariableDefinition());
+                    .putVariable(tempVariable.getLocalVariableDefinition());
 
             // build the statements
             elseValue = typedByteCodeNode(new Block(context).visitLabel(nullValue).append(coerceToType(context, elseValue, resultType).node), resultType);
@@ -2033,11 +2013,10 @@ public class ExpressionCompiler
                 Block condition = new Block(context)
                         .append(coerceToType(context, whenClause.condition, valueType).node)
                         .append(ifWasNullPopAndGoto(context, nullCondition, boolean.class, valueType))
-                        .loadVariable(tempVariable.getLocalVariableDefinition())
+                        .getVariable(tempVariable.getLocalVariableDefinition())
                         .invokeStatic(Operations.class, "equal", boolean.class, valueType, valueType)
                         .visitLabel(nullCondition)
-                        .loadConstant(false)
-                        .storeVariable("wasNull");
+                        .putVariable("wasNull", false);
 
                 elseValue = typedByteCodeNode(new IfStatement(context,
                         format("when %s", whenClause),
@@ -2073,10 +2052,9 @@ public class ExpressionCompiler
                     .invokeStatic(Operations.class, "equal", boolean.class, comparisonType, comparisonType);
 
             Block trueBlock = new Block(context)
-                    .loadConstant(true)
-                    .storeVariable("wasNull")
+                    .putVariable("wasNull", true)
                     .pop(first.type)
-                    .loadJavaDefault(first.type);
+                    .pushJavaDefault(first.type);
 
             block.append(new IfStatement(context, conditionBlock, trueBlock, notMatch));
 
@@ -2098,13 +2076,12 @@ public class ExpressionCompiler
             for (TypedByteCodeNode operand : Lists.reverse(operands)) {
                 Block condition = new Block(context)
                         .append(coerceToType(context, operand, type).node)
-                        .loadVariable("wasNull");
+                        .getVariable("wasNull");
 
                 // if value was null, pop the null value, clear the null flag, and process the next operand
                 Block nullBlock = new Block(context)
                         .pop(type)
-                        .loadConstant(false)
-                        .storeVariable("wasNull")
+                        .putVariable("wasNull", false)
                         .append(nullValue.node);
 
                 nullValue = typedByteCodeNode(new IfStatement(context, condition, nullBlock, NOP), type);
@@ -2229,9 +2206,8 @@ public class ExpressionCompiler
                     .setDescription("match")
                     .visitLabel(match)
                     .pop(type)
-                    .loadConstant(false)
-                    .storeVariable("wasNull")
-                    .loadConstant(true)
+                    .putVariable("wasNull", false)
+                    .push(true)
                     .gotoLabel(end);
             block.append(matchBlock);
 
@@ -2239,7 +2215,7 @@ public class ExpressionCompiler
                     .setDescription("noMatch")
                     .visitLabel(noMatch)
                     .pop(type)
-                    .loadConstant(false)
+                    .push(false)
                     .gotoLabel(end);
             block.append(noMatchBlock);
 
@@ -2265,8 +2241,7 @@ public class ExpressionCompiler
                     .visitLabel(caseLabel);
 
             if (checkForNulls) {
-                caseBlock.loadConstant(false)
-                        .storeVariable(caseWasNull.getLocalVariableDefinition());
+                caseBlock.putVariable(caseWasNull.getLocalVariableDefinition(), false);
             }
 
             LabelNode elseLabel = new LabelNode("else");
@@ -2274,8 +2249,8 @@ public class ExpressionCompiler
                     .visitLabel(elseLabel);
 
             if (checkForNulls) {
-                elseBlock.loadVariable(caseWasNull.getLocalVariableDefinition())
-                        .storeVariable("wasNull");
+                elseBlock.getVariable(caseWasNull.getLocalVariableDefinition())
+                        .putVariable("wasNull");
             }
 
             elseBlock.gotoLabel(noMatchLabel);
@@ -2291,8 +2266,8 @@ public class ExpressionCompiler
                         .append(coerceToType(context, testNode, type).node);
 
                 if (checkForNulls) {
-                    condition.loadVariable("wasNull")
-                            .storeVariable(caseWasNull.getLocalVariableDefinition())
+                    condition.getVariable("wasNull")
+                            .putVariable(caseWasNull.getLocalVariableDefinition())
                             .append(ifWasNullPopAndGoto(context, elseLabel, void.class, type, type));
                 }
                 condition.invokeStatic(Operations.class, "equal", boolean.class, type, type);
@@ -2345,11 +2320,11 @@ public class ExpressionCompiler
         {
             Block nullCheck = new Block(context)
                     .setDescription("ifWasNullGoto")
-                    .loadVariable("wasNull");
+                    .getVariable("wasNull");
 
             String clearComment = null;
             if (clearNullFlag) {
-                nullCheck.loadConstant(false).storeVariable("wasNull");
+                nullCheck.putVariable("wasNull", false);
                 clearComment = "clear wasNull";
             }
 
@@ -2358,7 +2333,7 @@ public class ExpressionCompiler
                 isNull.pop(parameterType);
             }
 
-            isNull.loadJavaDefault(returnType);
+            isNull.pushJavaDefault(returnType);
             String loadDefaultComment = null;
             if (returnType != void.class) {
                 loadDefaultComment = format("loadJavaDefault(%s)", returnType.getName());
@@ -2378,7 +2353,7 @@ public class ExpressionCompiler
         private TypedByteCodeNode coerceToType(CompilerContext context, TypedByteCodeNode node, Class<?> type)
         {
             if (node.type == void.class) {
-                return typedByteCodeNode(new Block(context).append(node.node).loadJavaDefault(type), type);
+                return typedByteCodeNode(new Block(context).append(node.node).pushJavaDefault(type), type);
             }
             if (node.type == long.class && type == double.class) {
                 return typedByteCodeNode(new Block(context).append(node.node).append(L2D), type);
