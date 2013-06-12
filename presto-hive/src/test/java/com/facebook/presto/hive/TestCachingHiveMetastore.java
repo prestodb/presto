@@ -1,6 +1,9 @@
 package com.facebook.presto.hive;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.airlift.units.Duration;
 import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
 import org.apache.hadoop.hive.metastore.api.Table;
@@ -8,6 +11,7 @@ import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.MockHiveMetastoreClient.BAD_DATABASE;
@@ -30,7 +34,8 @@ public class TestCachingHiveMetastore
     {
         mockClient = new MockHiveMetastoreClient();
         mockHiveCluster = new MockHiveCluster(mockClient);
-        metastore = new CachingHiveMetastore(mockHiveCluster, new Duration(5, TimeUnit.MINUTES));
+        ListeningExecutorService executor = MoreExecutors.listeningDecorator(Executors.newCachedThreadPool(new ThreadFactoryBuilder().setDaemon(true).build()));
+        metastore = new CachingHiveMetastore(mockHiveCluster, executor, new Duration(5, TimeUnit.MINUTES), new Duration(1, TimeUnit.MINUTES));
     }
 
     @Test
