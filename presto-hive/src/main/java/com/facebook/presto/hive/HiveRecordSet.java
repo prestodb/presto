@@ -151,7 +151,13 @@ public class HiveRecordSet
             return inputFormat.getRecordReader(fileSplit, jobConf, Reporter.NULL);
         }
         catch (IOException e) {
-            throw new RuntimeException("Unable to create record reader for input format " + getInputFormatName(split.getSchema()), e);
+            throw new RuntimeException(String.format("Error opening Hive split %s (offset=%s, length=%s) using %s: %s",
+                    split.getPath(),
+                    split.getStart(),
+                    split.getLength(),
+                    getInputFormatName(split.getSchema()),
+                    e.getMessage()),
+                    e);
         }
     }
 
