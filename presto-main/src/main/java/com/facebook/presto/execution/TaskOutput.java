@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.OperatorStats.SplitExecutionStats;
@@ -187,9 +188,8 @@ public class TaskOutput
 
     public void queryFailed(Throwable cause)
     {
-        if (taskState.get() == TaskState.FAILED || transitionToDoneState(TaskState.FAILED)) {
-            failureCauses.add(cause);
-        }
+        failureCauses.add(cause);
+        transitionToDoneState(TaskState.FAILED);
     }
 
     private void updateFinishedState()
@@ -251,15 +251,22 @@ public class TaskOutput
 
         SharedBufferInfo sharedBufferInfo = sharedBuffer.getInfo();
         synchronized (this) {
+            TaskState state = getState();
+
+            List<FailureInfo> failures = ImmutableList.of();
+            if (state == TaskState.FAILED) {
+                failures = toFailures(failureCauses);
+            }
+
             return new TaskInfo(taskId,
                     nextTaskInfoVersion.getAndIncrement(),
-                    getState(),
+                    state,
                     location,
                     sharedBufferInfo,
                     getNoMoreSplits(),
                     stats.snapshot(full),
                     splitStats,
-                    toFailures(failureCauses),
+                    failures,
                     getOutputs());
         }
     }
