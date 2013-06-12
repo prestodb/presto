@@ -141,6 +141,12 @@ public class TestSqlParser
         SqlParser.createStatement("select 1x from dual");
     }
 
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:15: identifiers must not contain a colon; use '@' instead of ':' for table links")
+    public void testIdentifierWithColon()
+    {
+        SqlParser.createStatement("select * from foo:bar");
+    }
+
     @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:35: no viable alternative at input 'order'")
     public void testParseErrorDualOrderBy()
     {
