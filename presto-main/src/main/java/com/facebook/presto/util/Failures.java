@@ -1,6 +1,7 @@
 package com.facebook.presto.util;
 
 import com.facebook.presto.client.ErrorLocation;
+import com.facebook.presto.client.Failure;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.google.common.base.Function;
@@ -25,7 +26,15 @@ public final class Failures
             return null;
         }
         // todo prevent looping with suppressed cause loops and such
-        return new FailureInfo(failure.getClass().getCanonicalName(),
+        String type;
+        if (failure instanceof Failure) {
+            type = ((Failure) failure).getType();
+        }
+        else {
+            type = failure.getClass().getCanonicalName();
+        }
+
+        return new FailureInfo(type,
                 failure.getMessage(),
                 toFailure(failure.getCause()),
                 toFailures(asList(failure.getSuppressed())),

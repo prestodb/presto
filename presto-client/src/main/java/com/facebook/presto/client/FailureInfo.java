@@ -134,30 +134,4 @@ public class FailureInfo
         return new StackTraceElement("Unknown", stack, null, -1);
     }
 
-    private static class Failure
-            extends RuntimeException
-    {
-        private final String type;
-
-        private Failure(String type, String message, Failure cause)
-        {
-            super(message, cause, true, true);
-            this.type = type;
-        }
-
-        public String getType()
-        {
-            return type;
-        }
-
-        @Override
-        public String toString()
-        {
-            String message = getMessage();
-            if (message != null) {
-                return type + ": " + message;
-            }
-            return type;
-        }
-    }
 }
