@@ -1,10 +1,14 @@
 package com.facebook.presto.hive;
 
 import com.google.common.net.HostAndPort;
+import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.airlift.units.Duration;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Parameters;
+
+import java.util.concurrent.Executors;
 
 public class TestHiveClient
         extends AbstractTestHiveClient
@@ -29,9 +33,10 @@ public class TestHiveClient
                 hiveClientConfig).get();
 
         HiveCluster hiveCluster = new TestingHiveCluster(hiveClientConfig, host, port);
+        ListeningExecutorService executor = MoreExecutors.listeningDecorator(Executors.newCachedThreadPool(new ThreadFactoryBuilder().setDaemon(true).build()));
         HiveClient client = new HiveClient(
                 new HiveConnectorId(CONNECTOR_ID),
-                new CachingHiveMetastore(hiveCluster, Duration.valueOf("1m")),
+                new CachingHiveMetastore(hiveCluster, executor, Duration.valueOf("1m"), Duration.valueOf("15s")),
                 new HdfsEnvironment(new HdfsConfiguration(hiveClientConfig), fileSystemWrapper),
                 MoreExecutors.sameThreadExecutor(),
                 hiveClientConfig.getMaxSplitSize(),

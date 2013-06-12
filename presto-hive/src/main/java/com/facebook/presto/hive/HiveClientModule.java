@@ -57,8 +57,18 @@ public class HiveClientModule
     @ForHiveClient
     @Singleton
     @Provides
-    public ExecutorService createCachingHiveMetastore(HiveConnectorId hiveClientId, HiveClientConfig hiveClientConfig)
+    public ExecutorService createHiveClientExecutor(HiveConnectorId hiveClientId)
     {
         return Executors.newCachedThreadPool(new ThreadFactoryBuilder().setDaemon(true).setNameFormat("hive-" + hiveClientId + "-%d").build());
+    }
+
+    @ForHiveMetastore
+    @Singleton
+    @Provides
+    public ExecutorService createCachingHiveMetastoreExecutor(HiveConnectorId hiveClientId, HiveClientConfig hiveClientConfig)
+    {
+        return Executors.newFixedThreadPool(
+                hiveClientConfig.getMaxMetastoreRefreshThreads(),
+                new ThreadFactoryBuilder().setDaemon(true).setNameFormat("hive-metastore-" + hiveClientId + "-%d").build());
     }
 }
