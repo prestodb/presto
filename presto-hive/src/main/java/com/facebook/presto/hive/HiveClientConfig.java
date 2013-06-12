@@ -23,6 +23,8 @@ public class HiveClientConfig
     private int maxSplitIteratorThreads = 50;
     private int partitionBatchSize = 500;
     private Duration metastoreCacheTtl = new Duration(1, TimeUnit.HOURS);
+    private Duration metastoreRefreshInterval = new Duration(2, TimeUnit.MINUTES);
+    private int maxMetastoreRefreshThreads = 100;
     private HostAndPort metastoreSocksProxy;
     private Duration metastoreTimeout = new Duration(10, TimeUnit.SECONDS);
 
@@ -92,6 +94,32 @@ public class HiveClientConfig
     public HiveClientConfig setMetastoreCacheTtl(Duration metastoreCacheTtl)
     {
         this.metastoreCacheTtl = metastoreCacheTtl;
+        return this;
+    }
+
+    @NotNull
+    public Duration getMetastoreRefreshInterval()
+    {
+        return metastoreRefreshInterval;
+    }
+
+    @Config("hive.metastore-refresh-interval")
+    public HiveClientConfig setMetastoreRefreshInterval(Duration metastoreRefreshInterval)
+    {
+        this.metastoreRefreshInterval = metastoreRefreshInterval;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxMetastoreRefreshThreads()
+    {
+        return maxMetastoreRefreshThreads;
+    }
+
+    @Config("hive.metastore-refresh-max-threads")
+    public HiveClientConfig setMaxMetastoreRefreshThreads(int maxMetastoreRefreshThreads)
+    {
+        this.maxMetastoreRefreshThreads = maxMetastoreRefreshThreads;
         return this;
     }
 
