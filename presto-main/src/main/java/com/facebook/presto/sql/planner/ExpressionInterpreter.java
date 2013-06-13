@@ -45,6 +45,7 @@ import com.facebook.presto.sql.tree.WhenClause;
 import com.google.common.base.Charsets;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -674,7 +675,7 @@ public class ExpressionInterpreter
                 return node;
             }
             else {
-                throw new RuntimeException("Unhandled value type: " + value.getClass().getName());
+                throw new UnsupportedOperationException("Unhandled value type: " + value.getClass().getName());
             }
             argumentValues.add(value);
             argumentTypes.add(type);
@@ -692,7 +693,9 @@ public class ExpressionInterpreter
             return handle.invokeWithArguments(argumentValues);
         }
         catch (Throwable throwable) {
-            throw new RuntimeException("Exception from function invocation", throwable);
+            Throwables.propagateIfInstanceOf(throwable, RuntimeException.class);
+            Throwables.propagateIfInstanceOf(throwable, Error.class);
+            throw new RuntimeException(throwable.getMessage(), throwable);
         }
     }
 
