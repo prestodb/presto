@@ -405,6 +405,7 @@ public class HashAggregationOperator
         private final Input input;
         private final Step step;
         private final ObjectArrayList<T> intermediateValues;
+        private long totalElementSizeInBytes;
 
         private VariableWidthAggregator(VariableWidthAggregationFunction<T> function, Input input, Step step,
                 int expectedGroups)
@@ -418,7 +419,7 @@ public class HashAggregationOperator
         @Override
         public long getEstimatedSize()
         {
-            return SizeOf.sizeOf(intermediateValues.elements()) + (intermediateValues.size() * 32);
+            return SizeOf.sizeOf(intermediateValues.elements()) + totalElementSizeInBytes;
         }
 
         @Override
@@ -456,6 +457,11 @@ public class HashAggregationOperator
 
             // if this is a final aggregation, the input is an intermediate value
             T oldValue = intermediateValues.get(position);
+            long oldSize = 0;
+            if (oldValue != null) {
+                oldSize = function.estimateSizeInBytes(oldValue);
+            }
+
             T newValue;
             if (step == Step.FINAL) {
                 newValue = function.addIntermediate(cursor, field, oldValue);
@@ -464,6 +470,8 @@ public class HashAggregationOperator
                 newValue = function.addInput(cursor, field, oldValue);
             }
             intermediateValues.set(position, newValue);
+
+            totalElementSizeInBytes += function.estimateSizeInBytes(newValue) - oldSize;
         }
 
         @Override
