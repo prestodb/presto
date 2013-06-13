@@ -32,10 +32,12 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
+import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 
 import javax.annotation.Nullable;
 import javax.inject.Provider;
+
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
@@ -208,6 +210,7 @@ public class FunctionRegistry
 
     private static Type type(Class<?> clazz)
     {
+        clazz = Primitives.unwrap(clazz);
         if (clazz == long.class) {
             return LONG;
         }
@@ -265,7 +268,7 @@ public class FunctionRegistry
                     if (scalarFunction == null) {
                         continue;
                     }
-                    checkArgument(isValidMethod(method), "@ScalarFunction method %s is not valid", method);
+                    checkValidMethod(method);
                     MethodHandle methodHandle = lookup().unreflect(method);
                     String name = scalarFunction.value();
                     if (name.isEmpty()) {
@@ -314,20 +317,23 @@ public class FunctionRegistry
 
         private static final Set<Class<?>> SUPPORTED_TYPES = ImmutableSet.<Class<?>>of(long.class, double.class, Slice.class, boolean.class);
 
-        private static boolean isValidMethod(Method method)
+        private static void checkValidMethod(Method method)
         {
-            if (!Modifier.isStatic(method.getModifiers())) {
-                return false;
+            String message = "@ScalarFunction method %s is not valid: ";
+
+            checkArgument(Modifier.isStatic(method.getModifiers()), message + "must be static", method);
+
+            checkArgument(SUPPORTED_TYPES.contains(Primitives.unwrap(method.getReturnType())), message + "return type not supported", method);
+            if (method.getAnnotation(Nullable.class) != null) {
+                checkArgument(!method.getReturnType().isPrimitive(), message + "annotated with @Nullable but has primitive return type", method);
             }
-            if (! SUPPORTED_TYPES.contains(method.getReturnType())) {
-                return false;
+            else {
+                checkArgument(!Primitives.isWrapperType(method.getReturnType()), "not annotated with @Nullable but has boxed primitive return type", method);
             }
+
             for (Class<?> type : getParameterTypes(method.getParameterTypes())) {
-                if (! SUPPORTED_TYPES.contains(type)) {
-                    return false;
-                }
+                checkArgument(SUPPORTED_TYPES.contains(type), message + "parameter type [%s] not supported", method, type.getName());
             }
-            return true;
         }
 
         public ImmutableList<FunctionInfo> build()

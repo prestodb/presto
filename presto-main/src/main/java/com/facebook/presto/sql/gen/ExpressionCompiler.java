@@ -84,6 +84,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import com.google.common.io.Files;
+import com.google.common.primitives.Primitives;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import org.objectweb.asm.ClassReader;
@@ -1083,15 +1084,47 @@ public class ExpressionCompiler
                 block.append(ifWasNullPopAndGoto(context, end, methodType.returnType(), Lists.reverse(stackTypes)));
             }
             block.invokeDynamic(functionBinding.getName(), methodType, functionBinding.getBindingId());
+
+            Class<?> unboxedReturnType = Primitives.unwrap(methodType.returnType());
             if (functionBinding.isNullable()) {
-                block.dup(methodType.returnType())
-                        .ifNotNullGoto(end)
-                        .loadConstant(true)
-                        .storeVariable("wasNull");
+                if (unboxedReturnType.isPrimitive()) {
+                    LabelNode notNull = new LabelNode("notNull");
+                    block.dup(methodType.returnType())
+                            .ifNotNullGoto(notNull)
+                            .loadConstant(true)
+                            .storeVariable("wasNull")
+                            .comment("swap boxed null with unboxed default")
+                            .pop(methodType.returnType())
+                            .loadJavaDefault(unboxedReturnType)
+                            .gotoLabel(end)
+                            .visitLabel(notNull)
+                            .append(unboxPrimitive(context, unboxedReturnType));
+                }
+                else {
+                    block.dup(methodType.returnType())
+                            .ifNotNullGoto(end)
+                            .loadConstant(true)
+                            .storeVariable("wasNull");
+                }
             }
             block.visitLabel(end);
 
-            return typedByteCodeNode(block, methodType.returnType());
+            return typedByteCodeNode(block, unboxedReturnType);
+        }
+
+        private static ByteCodeNode unboxPrimitive(CompilerContext context, Class<?> unboxedType)
+        {
+            Block block = new Block(context).comment("unbox primitive");
+            if (unboxedType == long.class) {
+                return block.invokeVirtual(Long.class, "longValue", long.class);
+            }
+            if (unboxedType == double.class) {
+                return block.invokeVirtual(Double.class, "doubleValue", double.class);
+            }
+            if (unboxedType == boolean.class) {
+                return block.invokeVirtual(Boolean.class, "booleanValue", boolean.class);
+            }
+            throw new UnsupportedOperationException("not yet implemented: " + unboxedType);
         }
 
         @Override

@@ -8,10 +8,16 @@ import com.facebook.presto.sql.gen.ExpressionCompiler.TypedByteCodeNode;
 import com.facebook.presto.sql.gen.FunctionBinder;
 import com.facebook.presto.sql.gen.FunctionBinding;
 import com.facebook.presto.util.ThreadLocalCache;
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonToken;
 import com.google.common.base.Charsets;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Doubles;
 import io.airlift.slice.Slice;
+
+import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.lang.invoke.MethodHandle;
@@ -20,6 +26,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.facebook.presto.operator.scalar.JsonExtract.generateExtractor;
+import static com.fasterxml.jackson.core.JsonParser.NumberType;
+import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
+import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
+import static com.fasterxml.jackson.core.JsonToken.VALUE_FALSE;
+import static com.fasterxml.jackson.core.JsonToken.VALUE_NUMBER_FLOAT;
+import static com.fasterxml.jackson.core.JsonToken.VALUE_NUMBER_INT;
+import static com.fasterxml.jackson.core.JsonToken.VALUE_STRING;
+import static com.fasterxml.jackson.core.JsonToken.VALUE_TRUE;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.lang.invoke.MethodType.methodType;
 
@@ -28,7 +42,169 @@ public final class JsonFunctions
     private static final String JSON_EXTRACT_SCALAR_FUNCTION_NAME = "json_extract_scalar";
     private static final String JSON_EXTRACT_FUNCTION_NAME = "json_extract";
 
+    private static final JsonFactory JSON_FACTORY = new JsonFactory();
+
     private JsonFunctions() {}
+
+    @Nullable
+    @ScalarFunction
+    public static Long jsonArrayLength(Slice json)
+    {
+        try {
+            JsonParser parser = JSON_FACTORY.createJsonParser(json.getInput());
+            if (parser.nextToken() != START_ARRAY) {
+                return null;
+            }
+
+            long length = 0;
+            while (true) {
+                JsonToken token = parser.nextToken();
+                if (token == null) {
+                    return null;
+                }
+                if (token == END_ARRAY) {
+                    return length;
+                }
+                parser.skipChildren();
+
+                length++;
+            }
+        }
+        catch (IOException e) {
+            return null;
+        }
+    }
+
+    @Nullable
+    @ScalarFunction
+    public static Boolean jsonArrayContains(Slice json, boolean value)
+    {
+        try {
+            JsonParser parser = JSON_FACTORY.createJsonParser(json.getInput());
+            if (parser.nextToken() != START_ARRAY) {
+                return null;
+            }
+
+            while (true) {
+                JsonToken token = parser.nextToken();
+                if (token == null) {
+                    return null;
+                }
+                if (token == END_ARRAY) {
+                    return false;
+                }
+                parser.skipChildren();
+
+                if (((token == VALUE_TRUE) && value) ||
+                        ((token == VALUE_FALSE) && (!value))) {
+                    return true;
+                }
+            }
+        }
+        catch (IOException e) {
+            return null;
+        }
+    }
+
+    @Nullable
+    @ScalarFunction
+    public static Boolean jsonArrayContains(Slice json, long value)
+    {
+        try {
+            JsonParser parser = JSON_FACTORY.createJsonParser(json.getInput());
+            if (parser.nextToken() != START_ARRAY) {
+                return null;
+            }
+
+            while (true) {
+                JsonToken token = parser.nextToken();
+                if (token == null) {
+                    return null;
+                }
+                if (token == END_ARRAY) {
+                    return false;
+                }
+                parser.skipChildren();
+
+                if ((token == VALUE_NUMBER_INT) &&
+                        ((parser.getNumberType() == NumberType.INT) || (parser.getNumberType() == NumberType.LONG)) &&
+                        (parser.getLongValue() == value)) {
+                    return true;
+                }
+            }
+        }
+        catch (IOException e) {
+            return null;
+        }
+    }
+
+    @Nullable
+    @ScalarFunction
+    public static Boolean jsonArrayContains(Slice json, double value)
+    {
+        if (!Doubles.isFinite(value)) {
+            return false;
+        }
+
+        try {
+            JsonParser parser = JSON_FACTORY.createJsonParser(json.getInput());
+            if (parser.nextToken() != START_ARRAY) {
+                return null;
+            }
+
+            while (true) {
+                JsonToken token = parser.nextToken();
+                if (token == null) {
+                    return null;
+                }
+                if (token == END_ARRAY) {
+                    return false;
+                }
+                parser.skipChildren();
+
+                // noinspection FloatingPointEquality
+                if ((token == VALUE_NUMBER_FLOAT) && (parser.getDoubleValue() == value) &&
+                        (Doubles.isFinite(parser.getDoubleValue()))) {
+                    return true;
+                }
+            }
+        }
+        catch (IOException e) {
+            return null;
+        }
+    }
+
+    @Nullable
+    @ScalarFunction
+    public static Boolean jsonArrayContains(Slice json, Slice value)
+    {
+        String valueString = value.toString(Charsets.UTF_8);
+
+        try {
+            JsonParser parser = JSON_FACTORY.createJsonParser(json.getInput());
+            if (parser.nextToken() != START_ARRAY) {
+                return null;
+            }
+
+            while (true) {
+                JsonToken token = parser.nextToken();
+                if (token == null) {
+                    return null;
+                }
+                if (token == END_ARRAY) {
+                    return false;
+                }
+                parser.skipChildren();
+
+                if (token == VALUE_STRING && valueString.equals(parser.getValueAsString())) {
+                    return true;
+                }
+            }
+        }
+        catch (IOException e) {
+            return null;
+        }
+    }
 
     @ScalarFunction(value = JSON_EXTRACT_SCALAR_FUNCTION_NAME, functionBinder = JsonFunctionBinder.class)
     public static Slice jsonExtractScalar(Slice json, Slice jsonPath)
@@ -51,6 +227,7 @@ public final class JsonFunctions
             throw Throwables.propagate(e);
         }
     }
+
     public static class JsonFunctionBinder
             implements FunctionBinder
     {
@@ -67,6 +244,7 @@ public final class JsonFunctions
             }
         }
 
+        @Override
         public FunctionBinding bindFunction(long bindingId, String name, List<TypedByteCodeNode> arguments)
         {
             TypedByteCodeNode patternNode = arguments.get(1);
@@ -77,7 +255,7 @@ public final class JsonFunctions
                 String pattern = patternSlice.toString(Charsets.UTF_8);
 
                 JsonExtractor jsonExtractor;
-                switch(name) {
+                switch (name) {
                     case JSON_EXTRACT_SCALAR_FUNCTION_NAME:
                         jsonExtractor = generateExtractor(pattern, true);
                         break;
@@ -97,7 +275,7 @@ public final class JsonFunctions
             }
             else {
                 ThreadLocalCache<Slice, JsonExtractor> cache;
-                switch(name) {
+                switch (name) {
                     case JSON_EXTRACT_SCALAR_FUNCTION_NAME:
                         cache = new JsonExtractCache(20, true);
                         break;
@@ -114,5 +292,4 @@ public final class JsonFunctions
             return DefaultFunctionBinder.bindConstantArguments(bindingId, name, arguments, methodHandle, true);
         }
     }
-
 }
