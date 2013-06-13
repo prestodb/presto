@@ -21,6 +21,7 @@ public class QueryCompletionEvent
     private final QueryId queryId;
     private final String user;
     private final String source;
+    private final String environment;
     private final String catalog;
     private final String schema;
     private final String remoteClientAddress;
@@ -50,9 +51,13 @@ public class QueryCompletionEvent
     public QueryCompletionEvent(
             QueryId queryId,
             String user,
-            String source, String catalog,
+            String source,
+            String environment,
+            String catalog,
             String schema,
-            String remoteClientAddress, String userAgent, QueryState queryState,
+            String remoteClientAddress,
+            String userAgent,
+            QueryState queryState,
             URI uri,
             List<String> fieldNames,
             String query,
@@ -73,6 +78,7 @@ public class QueryCompletionEvent
         this.queryId = queryId;
         this.user = user;
         this.source = source;
+        this.environment = environment;
         this.catalog = catalog;
         this.schema = schema;
         this.remoteClientAddress = remoteClientAddress;
@@ -130,6 +136,12 @@ public class QueryCompletionEvent
     public String getSource()
     {
         return source;
+    }
+
+    @EventField
+    public String getEnvironment()
+    {
+        return environment;
     }
 
     @EventField

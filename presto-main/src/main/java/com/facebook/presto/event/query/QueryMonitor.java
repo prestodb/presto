@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Throwables;
 import com.google.inject.Inject;
 import io.airlift.event.client.EventClient;
+import io.airlift.node.NodeInfo;
 
 import static com.facebook.presto.execution.StageInfo.globalExecutionStats;
 import static com.facebook.presto.operator.OperatorStats.SplitExecutionStats;
@@ -17,12 +18,14 @@ public class QueryMonitor
 {
     private final ObjectMapper objectMapper;
     private final EventClient eventClient;
+    private final String environment;
 
     @Inject
-    public QueryMonitor(ObjectMapper objectMapper, EventClient eventClient)
+    public QueryMonitor(ObjectMapper objectMapper, EventClient eventClient, NodeInfo nodeInfo)
     {
         this.objectMapper = checkNotNull(objectMapper, "objectMapper is null");
         this.eventClient = checkNotNull(eventClient, "eventClient is null");
+        this.environment = checkNotNull(nodeInfo, "nodeInfo is null").getEnvironment();
     }
 
     public void createdEvent(QueryInfo queryInfo)
@@ -32,6 +35,7 @@ public class QueryMonitor
                         queryInfo.getQueryId(),
                         queryInfo.getSession().getUser(),
                         queryInfo.getSession().getSource(),
+                        environment,
                         queryInfo.getSession().getCatalog(),
                         queryInfo.getSession().getSchema(),
                         queryInfo.getSession().getRemoteUserAddress(),
@@ -52,6 +56,7 @@ public class QueryMonitor
                             queryInfo.getQueryId(),
                             queryInfo.getSession().getUser(),
                             queryInfo.getSession().getSource(),
+                            environment,
                             queryInfo.getSession().getCatalog(),
                             queryInfo.getSession().getSchema(),
                             queryInfo.getSession().getRemoteUserAddress(),
@@ -89,6 +94,7 @@ public class QueryMonitor
                             taskInfo.getTaskId().getQueryId(),
                             taskInfo.getTaskId().getStageId(),
                             taskInfo.getTaskId(),
+                            environment,
                             splitExecutionStats.getQueuedTime(),
                             splitExecutionStats.getExecutionStartTime(),
                             splitExecutionStats.getTimeToFirstByte(),
