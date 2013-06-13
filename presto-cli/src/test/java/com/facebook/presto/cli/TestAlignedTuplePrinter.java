@@ -27,16 +27,16 @@ public class TestAlignedTuplePrinter
         printer.finish();
 
         String expected = "" +
-                "   first   │ last  │ quantity \n" +
-                "───────────┼───────┼──────────\n" +
-                " hello     │ world │      123 \n" +
-                " a         │ NULL  │      4.5 \n" +
-                " some long+│ more +│     4567 \n" +
-                " text that+│ text  │          \n" +
-                " does not +│       │          \n" +
-                " fit on   +│       │          \n" +
-                " one line  │       │          \n" +
-                " bye       │ done  │      -15 \n" +
+                "   first   | last  | quantity \n" +
+                "-----------+-------+----------\n" +
+                " hello     | world |      123 \n" +
+                " a         | NULL  |      4.5 \n" +
+                " some long+| more +|     4567 \n" +
+                " text that+| text  |          \n" +
+                " does not +|       |          \n" +
+                " fit on   +|       |          \n" +
+                " one line  |       |          \n" +
+                " bye       | done  |      -15 \n" +
                 "(4 rows)\n";
 
         assertEquals(writer.getBuffer().toString(), expected);
@@ -53,8 +53,8 @@ public class TestAlignedTuplePrinter
         printer.finish();
 
         String expected = "" +
-                " first │ last \n" +
-                "───────┼──────\n" +
+                " first | last \n" +
+                "-------+------\n" +
                 "(0 rows)\n";
 
         assertEquals(writer.getBuffer().toString(), expected);
