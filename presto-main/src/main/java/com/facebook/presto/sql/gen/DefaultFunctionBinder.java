@@ -15,6 +15,8 @@ import java.util.Map.Entry;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 public class DefaultFunctionBinder
         implements FunctionBinder
 {
@@ -40,7 +42,12 @@ public class DefaultFunctionBinder
         for (TypedByteCodeNode argument : arguments) {
             ByteCodeNode node = argument.getNode();
             if (node instanceof Constant) {
-                constantArguments.put(argIndex, ((Constant) node).getValue());
+                Object value = ((Constant) node).getValue();
+                if (argument.getType() == boolean.class) {
+                    checkArgument(value instanceof Integer, "boolean should be represented as an integer");
+                    value = (value != 0);
+                }
+                constantArguments.put(argIndex, value);
             }
             argIndex++;
         }

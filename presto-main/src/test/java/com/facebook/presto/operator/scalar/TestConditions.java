@@ -7,7 +7,6 @@ import com.facebook.presto.sql.analyzer.SemanticException;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.operator.scalar.FunctionAssertions.assertFunction;
-import static com.facebook.presto.operator.scalar.FunctionAssertions.selectBooleanValue;
 import static com.facebook.presto.operator.scalar.FunctionAssertions.selectSingleValue;
 import static org.testng.Assert.fail;
 
@@ -30,15 +29,15 @@ public class TestConditions
 
         assertFunction("'*?.(){}+|^$,\\' like '*?.(){}+|^$,\\' escape ''", true);
 
-        assertFunction("null like 'monkey'", false);
-        assertFunction("'monkey' like null", false);
-        assertFunction("'monkey' like 'monkey' escape null", false);
+        assertFunction("null like 'monkey'", null);
+        assertFunction("'monkey' like null", null);
+        assertFunction("'monkey' like 'monkey' escape null", null);
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "escape must be empty or a single character.*")
     public void testLikeInvalidEscape()
     {
-        selectBooleanValue("'monkey' like 'monkey' escape 'foo'");
+        selectSingleValue("'monkey' like 'monkey' escape 'foo'");
     }
 
     @Test
@@ -51,9 +50,9 @@ public class TestConditions
         assertFunction("3 between 4 and 2", false);
         assertFunction("2 between 3 and 4", false);
         assertFunction("5 between 3 and 4", false);
-        assertFunction("null between 2 and 4", false);
-        assertFunction("3 between null and 4", false);
-        assertFunction("3 between 2 and null", false);
+        assertFunction("null between 2 and 4", null);
+        assertFunction("3 between null and 4", null);
+        assertFunction("3 between 2 and null", null);
 
         assertFunction("'c' between 'b' and 'd'", true);
         assertFunction("'c' between 'c' and 'c'", true);
@@ -62,9 +61,9 @@ public class TestConditions
         assertFunction("'c' between 'd' and 'b'", false);
         assertFunction("'b' between 'c' and 'd'", false);
         assertFunction("'e' between 'c' and 'd'", false);
-        assertFunction("null between 'b' and 'd'", false);
-        assertFunction("'c' between null and 'd'", false);
-        assertFunction("'c' between 'b' and null", false);
+        assertFunction("null between 'b' and 'd'", null);
+        assertFunction("'c' between null and 'd'", null);
+        assertFunction("'c' between 'b' and null", null);
     }
 
     @Test
@@ -88,7 +87,7 @@ public class TestConditions
     @Test(expectedExceptions = ArithmeticException.class)
     public void testInDoesNotShortCircuit()
     {
-        selectBooleanValue("3 in (2, 4, 3, 5 / 0)");
+        selectSingleValue("3 in (2, 4, 3, 5 / 0)");
     }
 
     @Test

@@ -715,6 +715,13 @@ public class TestExpressionCompiler
                         value == null || pattern == null ? null : JsonFunctions.jsonExtractScalar(Slices.copiedBuffer(value, UTF_8), Slices.copiedBuffer(pattern, UTF_8)));
             }
         }
+
+        assertExecute("json_array_contains('[1, 2, 3]', 2)", true);
+        assertExecute("json_array_contains('[2.5]', 2.5)", true);
+        assertExecute("json_array_contains('[false, true]', true)", true);
+        assertExecute("json_array_contains('[5]', 3)", false);
+        assertExecute("json_array_contains('[', 9)", null);
+        assertExecute("json_array_length('[')", null);
     }
 
     @Test
