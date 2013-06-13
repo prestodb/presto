@@ -22,6 +22,8 @@ public class SplitCompletionEvent
     private final StageId stageId;
     private final TaskId taskId;
 
+    private final String environment;
+
     private final Duration queuedTimeMs;
     private final DateTime executionStartTime;
 
@@ -41,6 +43,7 @@ public class SplitCompletionEvent
             QueryId queryId,
             StageId stageId,
             TaskId taskId,
+            String environment,
             Duration queuedTimeMs,
             @Nullable DateTime executionStartTime,
             @Nullable Duration timeToFirstByte,
@@ -62,6 +65,7 @@ public class SplitCompletionEvent
         this.queryId = queryId;
         this.stageId = stageId;
         this.taskId = taskId;
+        this.environment = environment;
         this.queuedTimeMs = queuedTimeMs;
         this.executionStartTime = executionStartTime;
         this.timeToFirstByteMs = durationToMillis(timeToFirstByte);
@@ -99,6 +103,12 @@ public class SplitCompletionEvent
     public String getTaskId()
     {
         return taskId.toString();
+    }
+
+    @EventField
+    public String getEnvironment()
+    {
+        return environment;
     }
 
     @EventField
