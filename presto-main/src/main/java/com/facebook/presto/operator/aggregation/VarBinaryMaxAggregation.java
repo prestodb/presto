@@ -81,4 +81,10 @@ public class VarBinaryMaxAggregation
             output.appendNull();
         }
     }
+
+    @Override
+    public long estimateSizeInBytes(Slice value)
+    {
+        return value.length();
+    }
 }

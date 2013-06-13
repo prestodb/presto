@@ -46,4 +46,6 @@ public interface VariableWidthAggregationFunction<T>
      * Converts the current value to a final value and adds it to the specified output.
      */
     void evaluateFinal(T currentValue, BlockBuilder output);
+
+    long estimateSizeInBytes(T value);
 }

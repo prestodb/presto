@@ -80,4 +80,10 @@ public class VarBinaryMinAggregation
             output.appendNull();
         }
     }
+
+    @Override
+    public long estimateSizeInBytes(Slice value)
+    {
+        return value.length();
+    }
 }
