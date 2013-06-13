@@ -33,7 +33,7 @@ public final class FunctionAssertions
 
     public static void assertFunction(String projection, boolean expected)
     {
-        assertEquals(selectBooleanValue(projection), expected);
+        assertEquals(selectSingleValue(projection), expected);
     }
 
     public static Object selectSingleValue(String projection)
@@ -56,15 +56,5 @@ public final class FunctionAssertions
         assertEquals(result.getMaterializedTuples().size(), 1);
 
         return Iterables.getOnlyElement(result.getMaterializedTuples()).getField(0);
-    }
-
-    public static Object selectBooleanValue(String projection)
-    {
-        checkNotNull(projection, "projection is null");
-
-        LocalQueryRunner runner = createDualLocalQueryRunner();
-        MaterializedResult result = runner.execute("SELECT 1 FROM dual where " + projection);
-
-        return !result.getMaterializedTuples().isEmpty();
     }
 }
