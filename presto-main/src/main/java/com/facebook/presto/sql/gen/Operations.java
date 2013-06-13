@@ -310,7 +310,7 @@ public final class Operations
                 (toUpperCase(value.getByte(4)) == 'E')) {
             return false;
         }
-        throw new IllegalArgumentException(String.format("Cannot cast %s to BOOLEAN", value.toString(UTF_8)));
+        throw new IllegalArgumentException(String.format("Cannot cast '%s' to BOOLEAN", value.toString(UTF_8)));
     }
 
     private static byte toUpperCase(byte b)
@@ -340,31 +340,34 @@ public final class Operations
 
     public static long castToLong(Slice slice)
     {
-        if (slice.length() < 1) {
-            throw new IllegalArgumentException("Can not convert " + slice.toString(UTF_8) + " to BIGINT");
+        if (slice.length() >= 1) {
+            try {
+                int start = 0;
+                int sign = slice.getByte(start) == '-' ? -1 : 1;
+
+                if (sign == -1 || slice.getByte(start) == '+') {
+                    start++;
+                }
+
+                long value = getDecimalValue(slice, start++);
+                while (start < slice.length()) {
+                    value = value * 10 + (getDecimalValue(slice, start));
+                    start++;
+                }
+
+                return value * sign;
+            }
+            catch (Exception ignored) {
+            }
         }
-
-        int start = 0;
-        int sign = slice.getByte(start) == '-' ? -1 : 1;
-
-        if (sign == -1 || slice.getByte(start) == '+') {
-            start++;
-        }
-
-        long value = getDecimalValue(slice, start++);
-        while (start < slice.length()) {
-            value = value * 10 + (getDecimalValue(slice, start));
-            start++;
-        }
-
-        return value * sign;
+        throw new IllegalArgumentException(String.format("Can not cast '%s' to BIGINT", slice.toString(UTF_8)));
     }
 
     private static int getDecimalValue(Slice slice, int start)
     {
         int decimal = slice.getByte(start) - '0';
         if (decimal < 0 || decimal > 9) {
-            throw new IllegalArgumentException("Can not convert " + slice.toString(UTF_8) + " to BIGINT");
+            throw new NumberFormatException();
         }
         return decimal;
     }
@@ -386,12 +389,19 @@ public final class Operations
 
     public static double castToDouble(Slice value)
     {
-        char[] chars = new char[value.length()];
-        for (int pos = 0; pos < value.length(); pos++) {
-            chars[pos] = (char) value.getByte(pos);
+        if (value.length() >= 1) {
+            try {
+                char[] chars = new char[value.length()];
+                for (int pos = 0; pos < value.length(); pos++) {
+                    chars[pos] = (char) value.getByte(pos);
+                }
+                String string = new String(chars);
+                return Double.parseDouble(string);
+            }
+            catch (Exception e) {
+            }
         }
-        String string = new String(chars);
-        return Double.parseDouble(string);
+        throw new IllegalArgumentException(String.format("Can not cast '%s' to DOUBLE", value.toString(UTF_8)));
     }
 
     public static Slice castToSlice(boolean value)
