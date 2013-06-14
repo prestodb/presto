@@ -11,6 +11,7 @@ import com.google.common.collect.Iterables;
 import static com.facebook.presto.util.LocalQueryRunner.createDualLocalQueryRunner;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNull;
 
 public final class FunctionAssertions
 {
@@ -34,6 +35,11 @@ public final class FunctionAssertions
     public static void assertFunction(String projection, boolean expected)
     {
         assertEquals(selectSingleValue(projection), expected);
+    }
+
+    public static void assertFunctionNull(String projection)
+    {
+        assertNull(selectSingleValue(projection));
     }
 
     public static Object selectSingleValue(String projection)

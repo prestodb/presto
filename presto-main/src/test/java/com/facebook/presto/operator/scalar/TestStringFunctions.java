@@ -72,53 +72,6 @@ public class TestStringFunctions
         assertFunction("STRPOS('', '')", 1);
     }
 
-    private void validateUrlExtract(String url, String host, String path, String query, String fragment, String protocol, String authority, String file, String userinfo)
-    {
-        assertFunction("url_extract('" + url + "', 'host')", host);
-        assertFunction("url_extract('" + url + "', 'path')", path);
-        assertFunction("url_extract('" + url + "', 'query')", query);
-        assertFunction("url_extract('" + url + "', 'ref')", fragment);
-        assertFunction("url_extract('" + url + "', 'fragment')", fragment);
-        assertFunction("url_extract('" + url + "', 'protocol')", protocol);
-        assertFunction("url_extract('" + url + "', 'authority')", authority);
-        assertFunction("url_extract('" + url + "', 'file')", file);
-        assertFunction("url_extract('" + url + "', 'userinfo')", userinfo);
-    }
-
-    @Test
-    public void testUrlExtract()
-    {
-        validateUrlExtract("http://facebook.com/path1/p.php?k1=v1&k2=v2#Ref1", "facebook.com", "/path1/p.php", "k1=v1&k2=v2", "Ref1", "http", "facebook.com", "/path1/p.php?k1=v1&k2=v2", "");
-        validateUrlExtract("http://facebook.com/path1/p.php?", "facebook.com", "/path1/p.php", "", "", "http", "facebook.com", "/path1/p.php?", "");
-        validateUrlExtract("http://facebook.com/path1/p.php", "facebook.com", "/path1/p.php", "", "", "http", "facebook.com", "/path1/p.php", "");
-        validateUrlExtract("http://facebook.com:8080/path1/p.php?k1=v1&k2=v2#Ref1", "facebook.com", "/path1/p.php", "k1=v1&k2=v2", "Ref1", "http", "facebook.com:8080", "/path1/p.php?k1=v1&k2=v2", "");
-        validateUrlExtract("https://username@example.com", "example.com", "", "", "", "https", "username@example.com", "", "username");
-        validateUrlExtract("https://username:password@example.com", "example.com", "", "", "", "https", "username:password@example.com", "", "username:password");
-        validateUrlExtract("mailto:someone@example.com,someoneelse@example.com", "", "", "", "", "mailto", "", "", "");
-        validateUrlExtract("foo", "", "foo", "", "", "", "", "foo", "");
-        validateUrlExtract("http://facebook.com/^", null, null, null, null, null, null, null, null);
-    }
-
-    @Test(expectedExceptions = RuntimeException.class)
-    public void testUrlExtractInvalid()
-    {
-        assertFunction("url_extract('http://facebook.com', 'blah')", "");
-    }
-
-    @Test
-    public void testUrlExtractParam()
-    {
-        assertFunction("url_extract_param('http://facebook.com/path1/p.php?k1=v1&k2=v2&k3&k4#Ref1', 'k1')", "v1");
-        assertFunction("url_extract_param('http://facebook.com/path1/p.php?k1=v1&k2=v2&k3&k4#Ref1', 'k2')", "v2");
-        assertFunction("url_extract_param('http://facebook.com/path1/p.php?k1=v1&k2=v2&k3&k4#Ref1', 'k3')", "");
-        assertFunction("url_extract_param('http://facebook.com/path1/p.php?k1=v1&k2=v2&k3&k4#Ref1', 'k4')", "");
-        assertFunction("url_extract_param('http://facebook.com/path1/p.php?k1=v1&k2=v2&k3&k4#Ref1', 'k5')", null);
-        assertFunction("url_extract_param('http://facebook.com/path1/p.php?k1=v1&k1=v2&k1&k1#Ref1', 'k1')", "v1");
-        assertFunction("url_extract_param('http://facebook.com/path1/p.php?k1&k1=v1&k1&k1#Ref1', 'k1')", "");
-        assertFunction("url_extract_param('http://facebook.com/path1/p.php?k=a=b=c&x=y#Ref1', 'k')", "a=b=c");
-        assertFunction("url_extract_param('foo', 'k1')", null);
-    }
-
     @Test
     public void testSubstring()
     {

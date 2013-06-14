@@ -1,0 +1,117 @@
+package com.facebook.presto.operator.scalar;
+
+import com.google.common.base.Charsets;
+import com.google.common.base.Splitter;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
+
+import javax.annotation.Nullable;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.Iterator;
+
+import static com.google.common.base.Strings.nullToEmpty;
+
+public final class UrlFunctions
+{
+    private static final Splitter QUERY_SPLITTER = Splitter.on('&');
+    private static final Splitter ARG_SPLITTER = Splitter.on('=').limit(2);
+
+    private UrlFunctions() {}
+
+    @Nullable
+    @ScalarFunction
+    public static Slice urlExtractProtocol(Slice url)
+    {
+        URI uri = parseUrl(url);
+        return (uri == null) ? null : slice(uri.getScheme());
+    }
+
+    @Nullable
+    @ScalarFunction
+    public static Slice urlExtractHost(Slice url)
+    {
+        URI uri = parseUrl(url);
+        return (uri == null) ? null : slice(uri.getHost());
+    }
+
+    @Nullable
+    @ScalarFunction
+    public static Long urlExtractPort(Slice url)
+    {
+        URI uri = parseUrl(url);
+        if ((uri == null) || (uri.getPort() < 0))  {
+            return null;
+        }
+        return (long) uri.getPort();
+    }
+
+    @Nullable
+    @ScalarFunction
+    public static Slice urlExtractPath(Slice url)
+    {
+        URI uri = parseUrl(url);
+        return (uri == null) ? null : slice(uri.getPath());
+    }
+
+    @Nullable
+    @ScalarFunction
+    public static Slice urlExtractQuery(Slice url)
+    {
+        URI uri = parseUrl(url);
+        return (uri == null) ? null : slice(uri.getQuery());
+    }
+
+    @Nullable
+    @ScalarFunction
+    public static Slice urlExtractFragment(Slice url)
+    {
+        URI uri = parseUrl(url);
+        return (uri == null) ? null : slice(uri.getFragment());
+    }
+
+    @Nullable
+    @ScalarFunction
+    public static Slice urlExtractParameter(Slice url, Slice parameterName)
+    {
+        URI uri = parseUrl(url);
+        if ((uri == null) || (uri.getQuery() == null)) {
+            return null;
+        }
+
+        Slice query = slice(uri.getQuery());
+        String parameter = parameterName.toString(Charsets.UTF_8);
+        Iterable<String> queryArgs = QUERY_SPLITTER.split(query.toString(Charsets.UTF_8));
+
+        for (String queryArg : queryArgs) {
+            Iterator<String> arg = ARG_SPLITTER.split(queryArg).iterator();
+            if (arg.next().equals(parameter)) {
+                if (arg.hasNext()) {
+                    return Slices.copiedBuffer(arg.next(), Charsets.UTF_8);
+                }
+                // first matched key is empty
+                return Slices.EMPTY_SLICE;
+            }
+        }
+
+        // no key matched
+        return null;
+    }
+
+    private static Slice slice(@Nullable String s)
+    {
+        return Slices.copiedBuffer(nullToEmpty(s), Charsets.UTF_8);
+    }
+
+    @Nullable
+    private static URI parseUrl(Slice url)
+    {
+        try {
+            return new URI(url.toString(Charsets.UTF_8));
+        }
+        catch (URISyntaxException e) {
+            return null;
+        }
+    }
+}
