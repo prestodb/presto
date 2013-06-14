@@ -2,14 +2,24 @@ package com.facebook.presto.operator.scalar;
 
 import com.google.common.base.Ascii;
 import com.google.common.base.Charsets;
+import com.google.common.base.Splitter;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.Iterator;
+
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Strings.nullToEmpty;
 
 public final class StringFunctions
 {
+    private static final Splitter QUERY_SPLITTER = Splitter.on('&');
+    private static final Splitter ARG_SPLITTER = Splitter.on('=').limit(2);
+    private static final Slice QUERY_SLICE = Slices.copiedBuffer("query", Charsets.UTF_8);
+
     private StringFunctions() {}
 
     @ScalarFunction
@@ -74,6 +84,71 @@ public final class StringFunctions
         }
 
         return 0;
+    }
+
+    @ScalarFunction
+    public static Slice urlExtract(Slice url, Slice part)
+    {
+        URI uri;
+        try {
+            uri = new URI(url.toString(Charsets.UTF_8));
+        }
+        catch (URISyntaxException e) {
+            return null;
+        }
+
+        String extractedPart = extractUriPart(uri, part.toString(Charsets.UTF_8));
+        return Slices.copiedBuffer(nullToEmpty(extractedPart), Charsets.UTF_8);
+    }
+
+    private static String extractUriPart(URI uri, String part)
+    {
+        switch (part.toLowerCase()) {
+            case "host":
+                return uri.getHost();
+            case "path":
+                return uri.getPath();
+            case "query":
+                return uri.getQuery();
+            case "ref":
+            case "fragment":
+                return uri.getFragment();
+            case "protocol":
+                return uri.getScheme();
+            case "authority":
+                return uri.getAuthority();
+            case "file":
+                if (uri.getQuery() == null) {
+                    return uri.getPath();
+                }
+                return nullToEmpty(uri.getPath()) + "?" + uri.getQuery();
+            case "userinfo":
+                return uri.getUserInfo();
+            default:
+                throw new IllegalArgumentException("Invalid URL part: " + part);
+        }
+    }
+
+    @ScalarFunction
+    public static Slice urlExtractParam(Slice url, Slice keyToExtract)
+    {
+        Slice query = urlExtract(url, QUERY_SLICE);
+        String key = keyToExtract.toString(Charsets.UTF_8);
+        Iterable<String> queryArgs = QUERY_SPLITTER.split(query.toString(Charsets.UTF_8));
+
+        for (String queryArg : queryArgs) {
+            Iterator<String> arg = ARG_SPLITTER.split(queryArg).iterator();
+            if (arg.next().equals(key)) {
+                if (arg.hasNext()) {
+                    return Slices.copiedBuffer(arg.next(), Charsets.UTF_8);
+                }
+                // first matched key is empty
+                return Slices.EMPTY_SLICE;
+            }
+        }
+
+        // no key matched
+        return null;
     }
 
     @ScalarFunction
