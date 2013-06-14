@@ -4,10 +4,10 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 
-import static com.facebook.presto.operator.aggregation.BooleanSumAggregation.BOOLEAN_SUM;
+import static com.facebook.presto.operator.aggregation.CountIfAggregation.COUNT_IF;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_BOOLEAN;
 
-public class TestBooleanSumAggregation
+public class TestCountIfAggregation
         extends AbstractTestAggregationFunction
 {
     @Override
@@ -23,23 +23,19 @@ public class TestBooleanSumAggregation
     @Override
     public AggregationFunction getFunction()
     {
-        return BOOLEAN_SUM;
+        return COUNT_IF;
     }
 
     @Override
     public Number getExpectedValue(int start, int length)
     {
-        if (length == 0) {
-            return null;
-        }
-
-        long sum = 0;
+        long count = 0;
         for (int i = start; i < start + length; i++) {
             if (i % 2 == 0) {
-                sum++;
+                count++;
             }
         }
-        return sum;
+        return count;
     }
 
 }
