@@ -9,10 +9,8 @@ import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ComparisonChain;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 
 import javax.inject.Provider;
@@ -139,13 +137,7 @@ public class FunctionInfo implements Comparable<FunctionInfo>
     public AggregationFunctionDefinition bind(List<Input> inputs)
     {
         checkState(isAggregate, "function is not an aggregate");
-        if (inputs.isEmpty()) {
-            return aggregation(aggregationFunction, null);
-        }
-        else {
-            Preconditions.checkArgument(inputs.size() == 1, "expected at most one input");
-            return aggregation(aggregationFunction, Iterables.getOnlyElement(inputs));
-        }
+        return aggregation(aggregationFunction, inputs);
     }
 
     public MethodHandle getScalarFunction()
