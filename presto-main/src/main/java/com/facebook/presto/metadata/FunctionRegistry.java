@@ -13,6 +13,7 @@ import com.facebook.presto.operator.scalar.RegexpFunctions;
 import com.facebook.presto.operator.scalar.ScalarFunction;
 import com.facebook.presto.operator.scalar.StringFunctions;
 import com.facebook.presto.operator.scalar.UnixTimeFunctions;
+import com.facebook.presto.operator.scalar.UrlFunctions;
 import com.facebook.presto.operator.window.CumulativeDistributionFunction;
 import com.facebook.presto.operator.window.DenseRankFunction;
 import com.facebook.presto.operator.window.PercentRankFunction;
@@ -124,6 +125,7 @@ public class FunctionRegistry
                 .aggregate("approx_distinct", LONG, ImmutableList.of(STRING), STRING, ApproximateCountDistinctAggregation.VARBINARY_INSTANCE)
                 .scalar(StringFunctions.class)
                 .scalar(RegexpFunctions.class)
+                .scalar(UrlFunctions.class)
                 .scalar(MathFunctions.class)
                 .scalar(UnixTimeFunctions.class)
                 .scalar(JsonFunctions.class)
