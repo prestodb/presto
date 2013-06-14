@@ -34,35 +34,27 @@ public class VarBinaryMaxAggregation
     }
 
     @Override
-    public Slice addInput(int positionCount, Block block, int field, Slice currentMax)
+    public Slice addInput(int positionCount, Block[] blocks, int[] fields, Slice currentMax)
     {
-        BlockCursor cursor = block.cursor();
+        BlockCursor cursor = blocks[0].cursor();
+
         while (cursor.advanceNextPosition()) {
-            currentMax = addInput(cursor, field, currentMax);
+            currentMax = addInternal(cursor, fields[0], currentMax);
         }
+
         return currentMax;
     }
 
     @Override
-    public Slice addInput(BlockCursor cursor, int field, Slice currentMax)
+    public Slice addInput(BlockCursor[] cursors, int[] fields, Slice currentMax)
     {
-        if (cursor.isNull(field)) {
-            return currentMax;
-        }
-
-        Slice value = cursor.getSlice(field);
-        if (currentMax == null) {
-            return value;
-        }
-        else {
-            return Ordering.natural().max(currentMax, value);
-        }
+        return addInternal(cursors[0], fields[0], currentMax);
     }
 
     @Override
-    public Slice addIntermediate(BlockCursor cursor, int field, Slice currentMax)
+    public Slice addIntermediate(BlockCursor[] cursors, int[] fields, Slice currentMax)
     {
-        return addInput(cursor, field, currentMax);
+        return addInternal(cursors[0], fields[0], currentMax);
     }
 
     @Override
@@ -86,5 +78,20 @@ public class VarBinaryMaxAggregation
     public long estimateSizeInBytes(Slice value)
     {
         return value.length();
+    }
+
+    private Slice addInternal(BlockCursor cursor, int field, Slice currentMax)
+    {
+        if (cursor.isNull(field)) {
+            return currentMax;
+        }
+
+        Slice value = cursor.getSlice(field);
+        if (currentMax == null) {
+            return value;
+        }
+        else {
+            return Ordering.natural().max(currentMax, value);
+        }
     }
 }
