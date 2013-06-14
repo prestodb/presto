@@ -8,10 +8,10 @@ import io.airlift.slice.Slice;
 
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 
-public class BooleanSumAggregation
+public class CountIfAggregation
         implements FixedWidthAggregationFunction
 {
-    public static final BooleanSumAggregation BOOLEAN_SUM = new BooleanSumAggregation();
+    public static final CountIfAggregation COUNT_IF = new CountIfAggregation();
 
     @Override
     public int getFixedSize()
@@ -34,8 +34,7 @@ public class BooleanSumAggregation
     @Override
     public void initialize(Slice valueSlice, int valueOffset)
     {
-        // mark value null
-        SINGLE_LONG.setNull(valueSlice, valueOffset, 0);
+        SINGLE_LONG.setLong(valueSlice, valueOffset, 0, 0);
     }
 
     @Override
@@ -45,14 +44,10 @@ public class BooleanSumAggregation
             return;
         }
 
-        // mark value not null
-        SINGLE_LONG.setNotNull(valueSlice, valueOffset, 0);
-
         // if true increment value
         if (cursor.getBoolean(field)) {
-            long value = SINGLE_LONG.getLong(valueSlice, valueOffset, 0);
-            value++;
-            SINGLE_LONG.setLong(valueSlice, valueOffset, 0, value);
+            long currentValue = SINGLE_LONG.getLong(valueSlice, valueOffset, 0);
+            SINGLE_LONG.setLong(valueSlice, valueOffset, 0, currentValue + 1);
         }
     }
 
@@ -60,25 +55,20 @@ public class BooleanSumAggregation
     public void addInput(int positionCount, Block block, int field, Slice valueSlice, int valueOffset)
     {
         // initialize with current value
-        boolean hasNonNull = !SINGLE_LONG.isNull(valueSlice, valueOffset);
-        long sum = SINGLE_LONG.getLong(valueSlice, valueOffset, 0);
+        long count = SINGLE_LONG.getLong(valueSlice, valueOffset, 0);
 
         // process block
         BlockCursor cursor = block.cursor();
         while (cursor.advanceNextPosition()) {
             if (!cursor.isNull(field)) {
-                hasNonNull = true;
                 if (cursor.getBoolean(field)) {
-                    sum++;
+                    count++;
                 }
             }
         }
 
         // write new value
-        if (hasNonNull) {
-            SINGLE_LONG.setNotNull(valueSlice, valueOffset, 0);
-            SINGLE_LONG.setLong(valueSlice, valueOffset, 0, sum);
-        }
+        SINGLE_LONG.setLong(valueSlice, valueOffset, 0, count);
     }
 
     @Override
@@ -87,9 +77,6 @@ public class BooleanSumAggregation
         if (cursor.isNull(field)) {
             return;
         }
-
-        // mark value not null
-        SINGLE_LONG.setNotNull(valueSlice, valueOffset, 0);
 
         // update current value
         long currentValue = SINGLE_LONG.getLong(valueSlice, valueOffset, 0);
@@ -106,12 +93,7 @@ public class BooleanSumAggregation
     @Override
     public void evaluateFinal(Slice valueSlice, int valueOffset, BlockBuilder output)
     {
-        if (!SINGLE_LONG.isNull(valueSlice, valueOffset, 0)) {
-            long currentValue = SINGLE_LONG.getLong(valueSlice, valueOffset, 0);
-            output.append(currentValue);
-        }
-        else {
-            output.appendNull();
-        }
+        long currentValue = SINGLE_LONG.getLong(valueSlice, valueOffset, 0);
+        output.append(currentValue);
     }
 }

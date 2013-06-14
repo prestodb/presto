@@ -54,6 +54,7 @@ import static com.facebook.presto.operator.aggregation.BooleanMaxAggregation.BOO
 import static com.facebook.presto.operator.aggregation.BooleanMinAggregation.BOOLEAN_MIN;
 import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
 import static com.facebook.presto.operator.aggregation.CountColumnAggregation.COUNT_COLUMN;
+import static com.facebook.presto.operator.aggregation.CountIfAggregation.COUNT_IF;
 import static com.facebook.presto.operator.aggregation.DoubleAverageAggregation.DOUBLE_AVERAGE;
 import static com.facebook.presto.operator.aggregation.DoubleMaxAggregation.DOUBLE_MAX;
 import static com.facebook.presto.operator.aggregation.DoubleMinAggregation.DOUBLE_MIN;
@@ -92,6 +93,7 @@ public class FunctionRegistry
                 .aggregate("count", LONG, ImmutableList.<Type>of(LONG), LONG, COUNT_COLUMN)
                 .aggregate("count", LONG, ImmutableList.<Type>of(DOUBLE), LONG, COUNT_COLUMN)
                 .aggregate("count", LONG, ImmutableList.<Type>of(STRING), LONG, COUNT_COLUMN)
+                .aggregate("count_if", LONG, ImmutableList.<Type>of(BOOLEAN), LONG, COUNT_IF)
                 .aggregate("sum", LONG, ImmutableList.of(LONG), LONG, LONG_SUM)
                 .aggregate("sum", DOUBLE, ImmutableList.of(DOUBLE), DOUBLE, DOUBLE_SUM)
                 .aggregate("avg", DOUBLE, ImmutableList.of(DOUBLE), STRING, DOUBLE_AVERAGE)
