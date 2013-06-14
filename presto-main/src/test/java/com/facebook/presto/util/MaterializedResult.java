@@ -150,7 +150,10 @@ public class MaterializedResult
 
         private void append(Object value)
         {
-            if (value instanceof Boolean) {
+            if (value == null) {
+                builder.appendNull();
+            }
+            else if (value instanceof Boolean) {
                 builder.append((Boolean) value);
             }
             else if ((value instanceof Long) || (value instanceof Integer)) {

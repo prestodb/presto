@@ -96,7 +96,7 @@ public class BlockAssertions
         return tuples.build();
     }
 
-    private static boolean advanceAllCursorsToNextPosition(BlockCursor... cursors)
+    public static boolean advanceAllCursorsToNextPosition(BlockCursor... cursors)
     {
         boolean allAdvanced = true;
         for (BlockCursor cursor : cursors) {
