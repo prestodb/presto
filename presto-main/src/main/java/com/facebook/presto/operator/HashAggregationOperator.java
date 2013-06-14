@@ -12,6 +12,7 @@ import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -272,10 +273,15 @@ public class HashAggregationOperator
     {
         AggregationFunction function = functionDefinition.getFunction();
         if (function instanceof VariableWidthAggregationFunction) {
-            return new VariableWidthAggregator((VariableWidthAggregationFunction) functionDefinition.getFunction(), functionDefinition.getInput(), step, expectedGroups);
+            return new VariableWidthAggregator((VariableWidthAggregationFunction) functionDefinition.getFunction(), functionDefinition.getInputs(), step, expectedGroups);
         }
         else {
-            return new FixedWidthAggregator((FixedWidthAggregationFunction) functionDefinition.getFunction(), functionDefinition.getInput(), step);
+            Input input = null;
+            if (!functionDefinition.getInputs().isEmpty()) {
+                input = Iterables.getOnlyElement(functionDefinition.getInputs());
+            }
+
+            return new FixedWidthAggregator((FixedWidthAggregationFunction) functionDefinition.getFunction(), input, step);
         }
     }
 
@@ -402,18 +408,27 @@ public class HashAggregationOperator
             implements Aggregator
     {
         private final VariableWidthAggregationFunction<T> function;
-        private final Input input;
+        private final List<Input> inputs;
         private final Step step;
         private final ObjectArrayList<T> intermediateValues;
         private long totalElementSizeInBytes;
 
-        private VariableWidthAggregator(VariableWidthAggregationFunction<T> function, Input input, Step step,
-                int expectedGroups)
+        private final BlockCursor[] blockCursors;
+        private final int[] fields;
+
+        private VariableWidthAggregator(VariableWidthAggregationFunction<T> function, List<Input> inputs, Step step, int expectedGroups)
         {
             this.function = function;
-            this.input = input;
+            this.inputs = inputs;
             this.step = step;
             this.intermediateValues = new ObjectArrayList<>(expectedGroups);
+
+            this.blockCursors = new BlockCursor[inputs.size()];
+            this.fields = new int[inputs.size()];
+
+            for (int i = 0; i < fields.length; i++) {
+                fields[i] = inputs.get(i).getField();
+            }
         }
 
         @Override
@@ -444,15 +459,8 @@ public class HashAggregationOperator
         @Override
         public void addValue(BlockCursor[] cursors, int position)
         {
-            BlockCursor cursor;
-            int field;
-            if (input != null) {
-                cursor = cursors[input.getChannel()];
-                field = input.getField();
-            }
-            else {
-                cursor = null;
-                field = -1;
+            for (int i = 0; i < blockCursors.length; i++) {
+                blockCursors[i] = cursors[inputs.get(i).getChannel()];
             }
 
             // if this is a final aggregation, the input is an intermediate value
@@ -464,10 +472,10 @@ public class HashAggregationOperator
 
             T newValue;
             if (step == Step.FINAL) {
-                newValue = function.addIntermediate(cursor, field, oldValue);
+                newValue = function.addIntermediate(blockCursors, fields, oldValue);
             }
             else {
-                newValue = function.addInput(cursor, field, oldValue);
+                newValue = function.addInput(blockCursors, fields, oldValue);
             }
             intermediateValues.set(position, newValue);
 

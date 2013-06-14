@@ -14,6 +14,7 @@ public class VarBinaryMinAggregation
         implements VariableWidthAggregationFunction<Slice>
 {
     public static final VarBinaryMinAggregation VAR_BINARY_MIN = new VarBinaryMinAggregation();
+
     @Override
     public TupleInfo getFinalTupleInfo()
     {
@@ -33,35 +34,27 @@ public class VarBinaryMinAggregation
     }
 
     @Override
-    public Slice addInput(int positionCount, Block block, int field, Slice currentMin)
+    public Slice addInput(int positionCount, Block[] blocks, int[] fields, Slice currentMax)
     {
-        BlockCursor cursor = block.cursor();
+        BlockCursor cursor = blocks[0].cursor();
+
         while (cursor.advanceNextPosition()) {
-            currentMin = addInput(cursor, field, currentMin);
+            currentMax = addInternal(cursor, fields[0], currentMax);
         }
-        return currentMin;
+
+        return currentMax;
     }
 
     @Override
-    public Slice addInput(BlockCursor cursor, int field, Slice currentMin)
+    public Slice addInput(BlockCursor[] cursors, int[] fields, Slice currentMax)
     {
-        if (cursor.isNull(field)) {
-            return currentMin;
-        }
-
-        Slice value = cursor.getSlice(field);
-        if (currentMin == null) {
-            return value;
-        }
-        else {
-            return Ordering.natural().min(currentMin, value);
-        }
+        return addInternal(cursors[0], fields[0], currentMax);
     }
 
     @Override
-    public Slice addIntermediate(BlockCursor cursor, int field, Slice currentMin)
+    public Slice addIntermediate(BlockCursor[] cursors, int[] fields, Slice currentMax)
     {
-        return addInput(cursor, field, currentMin);
+        return addInternal(cursors[0], fields[0], currentMax);
     }
 
     @Override
@@ -85,5 +78,20 @@ public class VarBinaryMinAggregation
     public long estimateSizeInBytes(Slice value)
     {
         return value.length();
+    }
+
+    private Slice addInternal(BlockCursor cursor, int field, Slice currentMin)
+    {
+        if (cursor.isNull(field)) {
+            return currentMin;
+        }
+
+        Slice value = cursor.getSlice(field);
+        if (currentMin == null) {
+            return value;
+        }
+        else {
+            return Ordering.natural().min(currentMin, value);
+        }
     }
 }

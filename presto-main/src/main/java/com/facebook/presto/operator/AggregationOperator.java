@@ -12,6 +12,7 @@ import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
@@ -132,10 +133,14 @@ public class AggregationOperator
     {
         AggregationFunction function = functionDefinition.getFunction();
         if (function instanceof VariableWidthAggregationFunction) {
-            return new VariableWidthAggregator<>((VariableWidthAggregationFunction<Object>) functionDefinition.getFunction(), functionDefinition.getInput(), step);
+            return new VariableWidthAggregator<>((VariableWidthAggregationFunction<Object>) functionDefinition.getFunction(), functionDefinition.getInputs(), step);
         }
         else {
-            return new FixedWidthAggregator((FixedWidthAggregationFunction) functionDefinition.getFunction(), functionDefinition.getInput(), step);
+            Input input = null;
+            if (!functionDefinition.getInputs().isEmpty()) {
+                input = Iterables.getOnlyElement(functionDefinition.getInputs());
+            }
+            return new FixedWidthAggregator((FixedWidthAggregationFunction) functionDefinition.getFunction(), input, step);
         }
     }
 
@@ -227,18 +232,31 @@ public class AggregationOperator
             implements Aggregator
     {
         private final VariableWidthAggregationFunction<T> function;
-        private final Input input;
+        private final List<Input> inputs;
         private final Step step;
         private T intermediateValue;
 
-        private VariableWidthAggregator(VariableWidthAggregationFunction<T> function, Input input, Step step)
+        private final Block[] blocks;
+        private final BlockCursor[] blockCursors;
+        private final int[] fields;
+
+        private VariableWidthAggregator(VariableWidthAggregationFunction<T> function, List<Input> inputs, Step step)
         {
             Preconditions.checkNotNull(function, "function is null");
             Preconditions.checkNotNull(step, "step is null");
+
             this.function = function;
-            this.input = input;
+            this.inputs = inputs;
             this.step = step;
             this.intermediateValue = function.initialize();
+
+            this.blocks = new Block[inputs.size()];
+            this.blockCursors = new BlockCursor[inputs.size()];
+            this.fields = new int[inputs.size()];
+
+            for (int i = 0; i < fields.length; i++) {
+                fields[i] = inputs.get(i).getField();
+            }
         }
 
         @Override
@@ -246,37 +264,35 @@ public class AggregationOperator
         {
             // if this is a final aggregation, the input is an intermediate value
             if (step == Step.FINAL) {
-                BlockCursor cursor = page.getBlock(input.getChannel()).cursor();
-                while (cursor.advanceNextPosition()) {
-                    intermediateValue = function.addIntermediate(cursor, 0, intermediateValue);
+                for (int i = 0; i < blockCursors.length; i++) {
+                    blockCursors[i] = page.getBlock(inputs.get(i).getChannel()).cursor();
+                }
+
+                while (advanceAll(blockCursors)) {
+                    intermediateValue = function.addIntermediate(blockCursors, fields, intermediateValue);
                 }
             }
             else {
-                Block block;
-                int field;
-                if (input != null) {
-                    block = page.getBlock(input.getChannel());
-                    field = input.getField();
+                for (int i = 0; i < blocks.length; i++) {
+                    blocks[i] = page.getBlock(inputs.get(i).getChannel());
                 }
-                else {
-                    block = null;
-                    field = -1;
-                }
-                intermediateValue = function.addInput(page.getPositionCount(), block, field, intermediateValue);
+                intermediateValue = function.addInput(page.getPositionCount(), blocks, fields, intermediateValue);
             }
         }
 
         @Override
         public void addValue(BlockCursor... cursors)
         {
-            BlockCursor cursor = cursors[input.getChannel()];
+            for (int i = 0; i < blockCursors.length; i++) {
+                blockCursors[i] = cursors[inputs.get(i).getChannel()];
+            }
 
             // if this is a final aggregation, the input is an intermediate value
             if (step == Step.FINAL) {
-                intermediateValue = function.addIntermediate(cursor, input.getField(), intermediateValue);
+                intermediateValue = function.addIntermediate(blockCursors, fields, intermediateValue);
             }
             else {
-                intermediateValue = function.addInput(cursor, input.getField(), intermediateValue);
+                intermediateValue = function.addInput(blockCursors, fields, intermediateValue);
             }
         }
 
@@ -295,6 +311,15 @@ public class AggregationOperator
                 function.evaluateFinal(intermediateValue, output);
                 return output.build();
             }
+        }
+
+        private static boolean advanceAll(BlockCursor... cursors)
+        {
+            boolean allAdvanced = true;
+            for (BlockCursor cursor : cursors) {
+                allAdvanced = cursor.advanceNextPosition() && allAdvanced;
+            }
+            return allAdvanced;
         }
     }
 }
