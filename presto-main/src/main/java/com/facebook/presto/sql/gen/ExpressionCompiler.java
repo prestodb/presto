@@ -629,12 +629,18 @@ public class ExpressionCompiler
                     .retBoolean();
         }
         else {
+            LabelNode end = new LabelNode("end");
             filterMethod
                     .getBody()
                     .comment("boolean wasNull = false;")
                     .loadConstant(false)
                     .storeVariable("wasNull")
                     .append(body.node)
+                    .loadVariable("wasNull")
+                    .ifZeroGoto(end)
+                    .pop(boolean.class)
+                    .loadConstant(false)
+                    .visitLabel(end)
                     .retBoolean();
         }
     }

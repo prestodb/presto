@@ -80,6 +80,16 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testWhereNull()
+            throws Exception
+    {
+        // This query is has this strange shape to force the compiler to leave a true on the stack
+        // with the null flag set so if the filter method is not handling nulls correctly, this
+        // query will fail
+        assertQuery("SELECT custkey FROM orders WHERE custkey = custkey AND cast(nullif(custkey, custkey) as boolean) AND cast(nullif(custkey, custkey) as boolean)");
+    }
+
+    @Test
     public void testSumOfNulls()
             throws Exception
     {
