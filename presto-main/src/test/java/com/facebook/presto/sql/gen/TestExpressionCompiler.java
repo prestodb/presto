@@ -62,8 +62,8 @@ public class TestExpressionCompiler
     private static final ExpressionCompiler compiler = new ExpressionCompiler(new MetadataManager());
 
     private static final Boolean[] booleanValues = {true, false, null};
-    private static final Long[] longLefts = {9L, 10L, 11L, -9L, -10L, -11L, /*Long.MIN_VALUE,*/ Long.MAX_VALUE, null};
-    private static final Long[] longRights = {3L, -3L, null};
+    private static final Long[] longLefts = {9L, 10L, 11L, -9L, -10L, -11L, 10151082135029368L, /*Long.MIN_VALUE,*/ Long.MAX_VALUE, null};
+    private static final Long[] longRights = {3L, -3L, 10151082135029369L, null};
     private static final Double[] doubleLefts = {9.0, 10.0, 11.0, -9.0, -10.0, -11.0, 9.1, 10.1, 11.1, -9.1, -10.1, -11.1,
             Double.MIN_VALUE, Double.MAX_VALUE, Double.MIN_NORMAL, null};
     private static final Double[] doubleRights = {3.0, -3.0, 3.1, -3.1, null};
