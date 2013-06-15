@@ -3,6 +3,7 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
@@ -50,6 +51,7 @@ import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.operator.OperatorAssertions.createOperator;
 import static com.facebook.presto.sql.parser.SqlParser.createExpression;
+import static com.facebook.presto.tuple.Tuples.createTuple;
 import static com.google.common.base.Charsets.UTF_8;
 import static java.lang.Math.cos;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -103,6 +105,22 @@ public class TestExpressionCompiler
         assertExecute("bound_pattern", "%el%");
 
         assertExecute("null", null);
+    }
+
+    @Test
+    public void filterFunction()
+            throws Exception
+    {
+        assertFilter("true", true);
+        assertFilter("false", false);
+        assertFilter("bound_long = 1234", true);
+        assertFilter("bound_long = 5678", false);
+
+        assertFilter("null", false);
+        assertFilter("cast(null as boolean)", false);
+        assertFilter("nullif(true, true)", false);
+
+        assertFilter("true AND cast(null as boolean) AND true", false);
     }
 
     @Test
@@ -1007,15 +1025,7 @@ public class TestExpressionCompiler
 
     private static Object execute(String expression)
     {
-        Expression parsedExpression = createExpression(expression);
-
-        parsedExpression = TreeRewriter.rewriteWith(new SymbolToInputRewriter(ImmutableMap.of(
-                new Symbol("bound_long"), new Input(0, 0),
-                new Symbol("bound_string"), new Input(1, 0),
-                new Symbol("bound_double"), new Input(2, 0),
-                new Symbol("bound_timestamp"), new Input(3, 0),
-                new Symbol("bound_pattern"), new Input(4, 0)
-        )), parsedExpression);
+        Expression parsedExpression = parseExpression(expression);
 
         Function<Operator,Operator> operatorFactory;
         try {
@@ -1060,5 +1070,46 @@ public class TestExpressionCompiler
         else {
             return cursor.getTuple().toValues().get(0);
         }
+    }
+
+    private static void assertFilter(String expression, boolean expected)
+    {
+        Expression parsedExpression = parseExpression(expression);
+
+        FilterFunction filterFunction;
+        try {
+            filterFunction = compiler.compileFilterFunction(parsedExpression,
+                    ImmutableMap.<Input, Type>of(
+                            new Input(0, 0), Type.LONG,
+                            new Input(1, 0), Type.STRING,
+                            new Input(2, 0), Type.DOUBLE,
+                            new Input(3, 0), Type.LONG,
+                            new Input(4, 0), Type.STRING));
+        }
+        catch (Throwable e) {
+            throw new RuntimeException("Error compiling " + expression, e);
+        }
+
+
+        boolean value = filterFunction.filter(createTuple(1234L),
+                createTuple("hello"),
+                createTuple(12.34),
+                createTuple(MILLISECONDS.toSeconds(new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis())),
+                createTuple("%el%"));
+        assertEquals(value, expected);
+    }
+
+    private static Expression parseExpression(String expression)
+    {
+        Expression parsedExpression = createExpression(expression);
+
+        parsedExpression = TreeRewriter.rewriteWith(new SymbolToInputRewriter(ImmutableMap.of(
+                new Symbol("bound_long"), new Input(0, 0),
+                new Symbol("bound_string"), new Input(1, 0),
+                new Symbol("bound_double"), new Input(2, 0),
+                new Symbol("bound_timestamp"), new Input(3, 0),
+                new Symbol("bound_pattern"), new Input(4, 0)
+        )), parsedExpression);
+        return parsedExpression;
     }
 }
