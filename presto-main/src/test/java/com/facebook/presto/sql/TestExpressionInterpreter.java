@@ -91,6 +91,8 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("boundDouble = 12.34", "true");
         assertOptimizedEquals("boundString = 'hello'", "true");
         assertOptimizedEquals("boundLong = a", "1234 = a");
+
+        assertOptimizedEquals("10151082135029368 = 10151082135029369", "false");
     }
 
     @Test
@@ -104,6 +106,7 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("3 is distinct from null", "true");
         assertOptimizedEquals("null is distinct from 3", "true");
 
+        assertOptimizedEquals("10151082135029368 is distinct from 10151082135029369", "true");
     }
 
     @Test

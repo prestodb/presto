@@ -461,6 +461,9 @@ public class ExpressionInterpreter
             else if (left == null || right == null) {
                 return true;
             }
+            else if (left instanceof Long && right instanceof Long) {
+                return ((Number) left).longValue() != ((Number) right).longValue();
+            }
             else if (left instanceof Number && right instanceof Number) {
                 return ((Number) left).doubleValue() != ((Number) right).doubleValue();
             }
@@ -480,6 +483,24 @@ public class ExpressionInterpreter
             return null;
         }
 
+        if (left instanceof Long && right instanceof Long) {
+            switch (node.getType()) {
+                case EQUAL:
+                    return ((Number) left).longValue() == ((Number) right).longValue();
+                case NOT_EQUAL:
+                    return ((Number) left).longValue() != ((Number) right).longValue();
+                case LESS_THAN:
+                    return ((Number) left).longValue() < ((Number) right).longValue();
+                case LESS_THAN_OR_EQUAL:
+                    return ((Number) left).longValue() <= ((Number) right).longValue();
+                case GREATER_THAN:
+                    return ((Number) left).longValue() > ((Number) right).longValue();
+                case GREATER_THAN_OR_EQUAL:
+                    return ((Number) left).longValue() >= ((Number) right).longValue();
+            }
+            throw new UnsupportedOperationException("unhandled type: " + node.getType());
+        }
+
         if (left instanceof Number && right instanceof Number) {
             switch (node.getType()) {
                 case EQUAL:
@@ -495,8 +516,10 @@ public class ExpressionInterpreter
                 case GREATER_THAN_OR_EQUAL:
                     return ((Number) left).doubleValue() >= ((Number) right).doubleValue();
             }
+            throw new UnsupportedOperationException("unhandled type: " + node.getType());
         }
-        else if (left instanceof Slice && right instanceof Slice) {
+
+        if (left instanceof Slice && right instanceof Slice) {
             switch (node.getType()) {
                 case EQUAL:
                     return left.equals(right);
@@ -511,6 +534,7 @@ public class ExpressionInterpreter
                 case GREATER_THAN_OR_EQUAL:
                     return ((Slice) left).compareTo((Slice) right) >= 0;
             }
+            throw new UnsupportedOperationException("unhandled type: " + node.getType());
         }
 
         return new ComparisonExpression(node.getType(), toExpression(left), toExpression(right));
