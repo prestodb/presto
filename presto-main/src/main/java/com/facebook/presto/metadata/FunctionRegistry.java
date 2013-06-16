@@ -2,8 +2,10 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.operator.aggregation.AggregationFunction;
 import com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregation;
+import com.facebook.presto.operator.aggregation.DoubleApproximatePercentileAggregation;
 import com.facebook.presto.operator.aggregation.DoubleStdDevAggregation;
 import com.facebook.presto.operator.aggregation.DoubleVarianceAggregation;
+import com.facebook.presto.operator.aggregation.LongApproximatePercentileAggregation;
 import com.facebook.presto.operator.aggregation.LongStdDevAggregation;
 import com.facebook.presto.operator.aggregation.LongVarianceAggregation;
 import com.facebook.presto.operator.scalar.ColorFunctions;
@@ -123,6 +125,8 @@ public class FunctionRegistry
                 .aggregate("approx_distinct", LONG, ImmutableList.of(LONG), STRING, ApproximateCountDistinctAggregation.LONG_INSTANCE)
                 .aggregate("approx_distinct", LONG, ImmutableList.of(DOUBLE), STRING, ApproximateCountDistinctAggregation.DOUBLE_INSTANCE)
                 .aggregate("approx_distinct", LONG, ImmutableList.of(STRING), STRING, ApproximateCountDistinctAggregation.VARBINARY_INSTANCE)
+                .aggregate("approx_percentile", LONG, ImmutableList.of(LONG, DOUBLE), STRING, LongApproximatePercentileAggregation.INSTANCE)
+                .aggregate("approx_percentile", DOUBLE, ImmutableList.of(DOUBLE, DOUBLE), STRING, DoubleApproximatePercentileAggregation.INSTANCE)
                 .scalar(StringFunctions.class)
                 .scalar(RegexpFunctions.class)
                 .scalar(UrlFunctions.class)

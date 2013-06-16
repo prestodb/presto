@@ -11,11 +11,14 @@ import com.facebook.presto.util.MaterializedResult;
 import com.facebook.presto.util.MaterializedTuple;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
+import com.google.common.collect.Ordering;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.airlift.slice.Slices;
@@ -57,6 +60,41 @@ import static org.testng.Assert.fail;
 public abstract class AbstractTestQueries
 {
     private Handle handle;
+
+    @Test
+    public void testApproxPercentile()
+            throws Exception
+    {
+        MaterializedResult raw = computeActual("SELECT orderstatus, orderkey, totalprice FROM ORDERS");
+
+        Multimap<String, Long> orderKeyByStatus = ArrayListMultimap.create();
+        Multimap<String, Double> totalPriceByStatus = ArrayListMultimap.create();
+        for (MaterializedTuple tuple : raw.getMaterializedTuples()) {
+            orderKeyByStatus.put((String) tuple.getField(0), (Long) tuple.getField(1));
+            totalPriceByStatus.put((String) tuple.getField(0), (Double) tuple.getField(2));
+        }
+
+        MaterializedResult actual = computeActual("" +
+                "SELECT orderstatus, approx_percentile(orderkey, 0.5), approx_percentile(totalprice, 0.5)\n" +
+                "FROM ORDERS\n" +
+                "GROUP BY orderstatus");
+
+        for (MaterializedTuple tuple : actual.getMaterializedTuples()) {
+            String status = (String) tuple.getField(0);
+            Long orderKey = (Long) tuple.getField(1);
+            Double totalPrice = (Double) tuple.getField(2);
+
+            List<Long> orderKeys = Ordering.natural().sortedCopy(orderKeyByStatus.get(status));
+            List<Double> totalPrices = Ordering.natural().sortedCopy(totalPriceByStatus.get(status));
+
+            // verify real rank of returned value is within 1% of requested rank
+            assertTrue(orderKey >= orderKeys.get((int) (0.49 * orderKeys.size())));
+            assertTrue(orderKey <= orderKeys.get((int) (0.51 * orderKeys.size())));
+
+            assertTrue(totalPrice >= totalPrices.get((int) (0.49 * totalPrices.size())));
+            assertTrue(totalPrice <= totalPrices.get((int) (0.51 * totalPrices.size())));
+        }
+    }
 
     @Test
     public void testComplexQuery()
