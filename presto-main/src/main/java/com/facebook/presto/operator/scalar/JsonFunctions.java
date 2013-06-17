@@ -1,5 +1,6 @@
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.instruction.Constant;
 import com.facebook.presto.operator.scalar.JsonExtract.JsonExtractCache;
 import com.facebook.presto.operator.scalar.JsonExtract.JsonExtractor;
@@ -245,7 +246,7 @@ public final class JsonFunctions
         }
 
         @Override
-        public FunctionBinding bindFunction(long bindingId, String name, List<TypedByteCodeNode> arguments)
+        public FunctionBinding bindFunction(long bindingId, String name, ByteCodeNode getSessionByteCode, List<TypedByteCodeNode> arguments)
         {
             TypedByteCodeNode patternNode = arguments.get(1);
 
@@ -289,7 +290,7 @@ public final class JsonFunctions
                 methodHandle = dynamicJsonExtract.bindTo(cache);
             }
 
-            return DefaultFunctionBinder.bindConstantArguments(bindingId, name, arguments, methodHandle, true);
+            return DefaultFunctionBinder.bindConstantArguments(bindingId, name, getSessionByteCode, arguments, methodHandle, true);
         }
     }
 }

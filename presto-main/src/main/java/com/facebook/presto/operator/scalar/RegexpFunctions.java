@@ -1,5 +1,6 @@
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.instruction.Constant;
 import com.facebook.presto.sql.gen.DefaultFunctionBinder;
 import com.facebook.presto.sql.gen.ExpressionCompiler.TypedByteCodeNode;
@@ -131,7 +132,7 @@ public final class RegexpFunctions
             }
         }
     
-        public FunctionBinding bindFunction(long bindingId, String name, List<TypedByteCodeNode> arguments)
+        public FunctionBinding bindFunction(long bindingId, String name, ByteCodeNode getSessionByteCode, List<TypedByteCodeNode> arguments)
         {
             MethodHandle methodHandle;
             boolean nullable = false;
@@ -194,7 +195,7 @@ public final class RegexpFunctions
                 methodHandle = methodHandle.bindTo(new PatternCache(100));
             }
     
-            return DefaultFunctionBinder.bindConstantArguments(bindingId, name, arguments, methodHandle, nullable);
+            return DefaultFunctionBinder.bindConstantArguments(bindingId, name, getSessionByteCode, arguments, methodHandle, nullable);
         }
     }
 

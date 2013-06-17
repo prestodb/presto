@@ -17,6 +17,7 @@ import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
+import com.facebook.presto.sql.gen.OperatorFactory;
 import com.facebook.presto.sql.planner.InterpretedProjectionFunction;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolToInputRewriter;
@@ -29,7 +30,6 @@ import com.facebook.presto.sql.tree.TreeRewriter;
 import com.facebook.presto.util.LocalQueryRunner;
 import com.facebook.presto.util.MaterializedResult;
 import com.google.common.base.Charsets;
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -79,6 +79,7 @@ public final class FunctionAssertions
             new Symbol("bound_timestamp"), new Input(3, 0),
             new Symbol("bound_pattern"), new Input(4, 0)
     );
+    public static final Session SESSION = new Session("user", "source", "catalog", "schema", "address", "agent");
 
     private FunctionAssertions() {}
 
@@ -100,12 +101,12 @@ public final class FunctionAssertions
 
     public static Object selectSingleValue(String projection)
     {
-        return selectSingleValue(projection, createDualLocalQueryRunner());
+        return selectSingleValue(projection, createDualLocalQueryRunner(), SESSION);
     }
 
     public static Object selectSingleValue(String projection, Session session)
     {
-        return selectSingleValue(projection, createDualLocalQueryRunner(session));
+        return selectSingleValue(projection, createDualLocalQueryRunner(session), session);
     }
 
     public static Object selectCompiledSingleValue(String projection)
@@ -113,7 +114,7 @@ public final class FunctionAssertions
         checkNotNull(projection, "projection is null");
 
         // compile
-        Operator compiledOperator = createCompiledOperator(projection);
+        Operator compiledOperator = createCompiledOperator(projection, SESSION);
         return execute(compiledOperator);
     }
 
@@ -122,17 +123,22 @@ public final class FunctionAssertions
         checkNotNull(projection, "projection is null");
 
         // compile
-        FilterAndProjectOperator interpretedOperator = createInterpretedOperator(projection, expressionType);
+        FilterAndProjectOperator interpretedOperator = createInterpretedOperator(projection, expressionType, SESSION);
         return execute(interpretedOperator);
     }
 
     public static void assertFilter(String expression, boolean expected)
     {
+        assertFilter(expression, expected, SESSION);
+    }
+
+    public static void assertFilter(String expression, boolean expected, Session session)
+    {
         Expression parsedExpression = FunctionAssertions.parseExpression(expression);
 
         FilterFunction filterFunction;
         try {
-            filterFunction = compiler.compileFilterFunction(parsedExpression, INPUT_TYPES);
+            filterFunction = compiler.compileFilterFunction(parsedExpression, INPUT_TYPES, session);
         }
         catch (Throwable e) {
             throw new RuntimeException("Error compiling " + expression, e);
@@ -146,17 +152,17 @@ public final class FunctionAssertions
         assertEquals(value, expected);
     }
 
-    private static Object selectSingleValue(String projection, LocalQueryRunner runner)
+    private static Object selectSingleValue(String projection, LocalQueryRunner runner, Session session)
     {
         checkNotNull(projection, "projection is null");
 
         // compile
-        Operator compiledOperator = createCompiledOperator(projection);
+        Operator compiledOperator = createCompiledOperator(projection, session);
         Object compiledValue = execute(compiledOperator);
         Type expressionType = Type.fromRaw(compiledOperator.getTupleInfos().get(0).getTypes().get(0));
 
         // interpret
-        FilterAndProjectOperator interpretedOperator = createInterpretedOperator(projection, expressionType);
+        FilterAndProjectOperator interpretedOperator = createInterpretedOperator(projection, expressionType, session);
         Object interpretedValue = execute(interpretedOperator);
 
         // verify interpreted and compiled value are the same
@@ -186,20 +192,30 @@ public final class FunctionAssertions
 
     public static FilterAndProjectOperator createInterpretedOperator(String projection, Type expressionType)
     {
+        return createInterpretedOperator(projection, expressionType, SESSION);
+    }
+
+    public static FilterAndProjectOperator createInterpretedOperator(String projection, Type expressionType, Session session)
+    {
         ProjectionFunction projectionFunction = new InterpretedProjectionFunction(expressionType,
                 createExpression(projection),
                 INPUT_MAPPING,
                 new MetadataManager(),
-                new Session("user", "source", "catalog", "schema", "address", "agent"));
+                session);
         return new FilterAndProjectOperator(SOURCE, FilterFunctions.TRUE_FUNCTION, ImmutableList.of(projectionFunction));
     }
 
     public static Operator createCompiledOperator(String projection)
     {
+        return createCompiledOperator(projection, SESSION);
+    }
+
+    public static Operator createCompiledOperator(String projection, Session session)
+    {
         Expression parsedExpression = parseExpression(projection);
 
         // compile and execute
-        Function<Operator,Operator> operatorFactory;
+        OperatorFactory operatorFactory;
         try {
             operatorFactory = compiler.compileFilterAndProjectOperator(BooleanLiteral.TRUE_LITERAL, ImmutableList.of(parsedExpression), INPUT_TYPES);
         }
@@ -209,7 +225,7 @@ public final class FunctionAssertions
             }
             throw new RuntimeException("Error compiling " + parsedExpression + ": " + e.getMessage(), e);
         }
-        return buildOperator(operatorFactory);
+        return operatorFactory.createOperator(SOURCE, session);
     }
 
     public static Object execute(Operator operator)
@@ -234,12 +250,6 @@ public final class FunctionAssertions
         else {
             return cursor.getTuple().toValues().get(0);
         }
-    }
-
-    private static Operator buildOperator(Function<Operator, Operator> operatorFactory)
-    {
-
-        return operatorFactory.apply(SOURCE);
     }
 
     public static Expression parseExpression(String expression)

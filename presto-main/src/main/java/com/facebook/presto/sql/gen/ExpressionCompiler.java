@@ -33,6 +33,7 @@ import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.operator.ProjectionFunction;
+import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
@@ -41,6 +42,7 @@ import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.CurrentTime;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Extract;
@@ -156,36 +158,38 @@ public class ExpressionCompiler
     private final Method bootstrapMethod;
     private final BootstrapFunctionBinder bootstrapFunctionBinder;
 
-    private final LoadingCache<OperatorCacheKey, Function<Operator, Operator>> operatorFactories = CacheBuilder.newBuilder().maximumSize(1000).build(
-            new CacheLoader<OperatorCacheKey, Function<Operator, Operator>>()
+    private final LoadingCache<OperatorCacheKey, OperatorFactory> operatorFactories = CacheBuilder.newBuilder().maximumSize(1000).build(
+            new CacheLoader<OperatorCacheKey, OperatorFactory>()
             {
                 @Override
-                public Function<Operator, Operator> load(OperatorCacheKey key)
+                public OperatorFactory load(OperatorCacheKey key)
                         throws Exception
                 {
                     return internalCompileFilterAndProjectOperator(key.getFilter(), key.getProjections(), key.getInputTypes());
                 }
             });
 
-    private final LoadingCache<ExpressionCacheKey, FilterFunction> filters = CacheBuilder.newBuilder().maximumSize(1000).build(new CacheLoader<ExpressionCacheKey, FilterFunction>()
-    {
-        @Override
-        public FilterFunction load(ExpressionCacheKey key)
-                throws Exception
-        {
-            return internalCompileFilterFunction(key.getExpression(), key.getInputTypes());
-        }
-    });
+    private final LoadingCache<ExpressionCacheKey, Function<Session, FilterFunction>> filters = CacheBuilder.newBuilder().maximumSize(1000).build(
+            new CacheLoader<ExpressionCacheKey, Function<Session, FilterFunction>>()
+            {
+                @Override
+                public Function<Session, FilterFunction> load(ExpressionCacheKey key)
+                        throws Exception
+                {
+                    return internalCompileFilterFunction(key.getExpression(), key.getInputTypes());
+                }
+            });
 
-    private final LoadingCache<ExpressionCacheKey, ProjectionFunction> projections = CacheBuilder.newBuilder().maximumSize(1000).build(new CacheLoader<ExpressionCacheKey, ProjectionFunction>()
-    {
-        @Override
-        public ProjectionFunction load(ExpressionCacheKey key)
-                throws Exception
-        {
-            return internalCompileProjectionFunction(key.getExpression(), key.getInputTypes());
-        }
-    });
+    private final LoadingCache<ExpressionCacheKey, Function<Session, ProjectionFunction>> projections = CacheBuilder.newBuilder().maximumSize(1000).build(
+            new CacheLoader<ExpressionCacheKey, Function<Session, ProjectionFunction>>()
+            {
+                @Override
+                public Function<Session, ProjectionFunction> load(ExpressionCacheKey key)
+                        throws Exception
+                {
+                    return internalCompileProjectionFunction(key.getExpression(), key.getInputTypes());
+                }
+            });
 
 
     @Inject
@@ -240,23 +244,23 @@ public class ExpressionCompiler
         }
     }
 
-    public Function<Operator, Operator> compileFilterAndProjectOperator(Expression filter, List<Expression> projections, Map<Input, Type> inputTypes)
+    public OperatorFactory compileFilterAndProjectOperator(Expression filter, List<Expression> projections, Map<Input, Type> inputTypes)
     {
         return operatorFactories.getUnchecked(new OperatorCacheKey(filter, projections, inputTypes));
     }
 
-    public FilterFunction compileFilterFunction(Expression expression, Map<Input, Type> inputTypes)
+    public FilterFunction compileFilterFunction(Expression expression, Map<Input, Type> inputTypes, Session session)
     {
-        return filters.getUnchecked(new ExpressionCacheKey(expression, inputTypes));
+        return filters.getUnchecked(new ExpressionCacheKey(expression, inputTypes)).apply(session);
     }
 
-    public ProjectionFunction compileProjectionFunction(Expression expression, Map<Input, Type> inputTypes)
+    public ProjectionFunction compileProjectionFunction(Expression expression, Map<Input, Type> inputTypes, Session session)
     {
-        return projections.getUnchecked(new ExpressionCacheKey(expression, inputTypes));
+        return projections.getUnchecked(new ExpressionCacheKey(expression, inputTypes)).apply(session);
     }
 
     @VisibleForTesting
-    public Function<Operator, Operator> internalCompileFilterAndProjectOperator(Expression filter, List<Expression> projections, Map<Input, Type> inputTypes)
+    public OperatorFactory internalCompileFilterAndProjectOperator(Expression filter, List<Expression> projections, Map<Input, Type> inputTypes)
     {
         DynamicClassLoader classLoader = createClassLoader();
 
@@ -285,17 +289,25 @@ public class ExpressionCompiler
                 typeFromPathName("FilterAndProjectIterator_" + CLASS_ID.incrementAndGet()),
                 type(AbstractFilterAndProjectIterator.class));
 
+        // declare session field
+        FieldDefinition sessionField = classDefinition.declareField(a(PRIVATE, FINAL), "session", Session.class);
+
         // constructor
         classDefinition.declareConstructor(new CompilerContext(bootstrapMethod),
                 a(PUBLIC),
                 arg("tupleInfos", type(Iterable.class, TupleInfo.class)),
-                arg("pageIterator", PageIterator.class))
+                arg("pageIterator", PageIterator.class),
+                arg("session", Session.class))
                 .getBody()
                 .comment("super(tupleInfos, pageIterator);")
                 .loadThis()
                 .loadVariable("tupleInfos")
                 .loadVariable("pageIterator")
                 .invokeConstructor(AbstractFilterAndProjectIterator.class, Iterable.class, PageIterator.class)
+                .comment("this.session = session;")
+                .loadThis()
+                .loadVariable("session")
+                .putField(classDefinition.getType(), sessionField)
                 .ret();
 
         generateFilterAndProjectMethod(classDefinition, projections, inputTypes);
@@ -458,11 +470,11 @@ public class ExpressionCompiler
         filterAndProjectMethod.getBody().ret();
     }
 
-    private Function<Operator, Operator> compileOperatorFactoryClass(List<TupleInfo> tupleInfos, Class<? extends Operator> operatorClass, DynamicClassLoader classLoader)
+    private OperatorFactory compileOperatorFactoryClass(List<TupleInfo> tupleInfos, Class<? extends Operator> operatorClass, DynamicClassLoader classLoader)
     {
         Constructor<? extends Operator> constructor;
         try {
-            constructor = operatorClass.getConstructor(List.class, Operator.class);
+            constructor = operatorClass.getConstructor(List.class, Operator.class, Session.class);
         }
         catch (NoSuchMethodException e) {
             throw new IllegalArgumentException(e);
@@ -472,7 +484,7 @@ public class ExpressionCompiler
                 a(PUBLIC, FINAL),
                 typeFromPathName("FilterAndProjectOperatorFactory_" + CLASS_ID.incrementAndGet()),
                 type(Object.class),
-                type(Function.class, Operator.class, Operator.class));
+                type(OperatorFactory.class));
 
         FieldDefinition tupleInfoField = classDefinition.declareField(a(PRIVATE, FINAL), "tupleInfo", type(List.class, TupleInfo.class));
 
@@ -488,29 +500,30 @@ public class ExpressionCompiler
                 .putField(classDefinition.getType(), tupleInfoField)
                 .ret();
 
-        // apply method
+        // createOperator method
         MethodDefinition applyMethod = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
                 a(PUBLIC),
-                "apply",
-                type(Object.class),
-                arg("source", Object.class));
+                "createOperator",
+                type(Operator.class),
+                arg("source", Operator.class),
+                arg("session", Session.class));
 
         applyMethod.getBody()
-                .comment("return new %s(this.tupleInfo, source);", operatorClass.getName())
+                .comment("return new %s(this.tupleInfo, source, session);", operatorClass.getName())
                 .newObject(operatorClass)
                 .dup()
                 .loadThis()
                 .getField(classDefinition.getType(), tupleInfoField)
                 .loadVariable("source")
+                .loadVariable("session")
                 .invokeConstructor(constructor)
                 .retObject();
 
-        Class<? extends Function<Operator, Operator>> factoryClass = (Class<? extends Function<Operator, Operator>>)
-                defineClasses(ImmutableList.of(classDefinition), classLoader).values().iterator().next().asSubclass(Function.class);
+        Class<? extends OperatorFactory> factoryClass = defineClasses(ImmutableList.of(classDefinition), classLoader).values().iterator().next().asSubclass(OperatorFactory.class);
 
         try {
-            Constructor<? extends Function<Operator, Operator>> factoryConstructor = factoryClass.getConstructor(List.class);
-            Function<Operator, Operator> factory = factoryConstructor.newInstance(tupleInfos);
+            Constructor<? extends OperatorFactory> factoryConstructor = factoryClass.getConstructor(List.class);
+            OperatorFactory factory = factoryConstructor.newInstance(tupleInfos);
             return factory;
         }
         catch (Throwable e) {
@@ -525,14 +538,24 @@ public class ExpressionCompiler
                 typeFromPathName("FilterAndProjectOperator_" + CLASS_ID.incrementAndGet()),
                 type(AbstractFilterAndProjectOperator.class));
 
+        FieldDefinition sessionField = classDefinition.declareField(a(PRIVATE, FINAL), "session", Session.class);
+
         // constructor
-        classDefinition.declareConstructor(new CompilerContext(bootstrapMethod), a(PUBLIC), arg("tupleInfos", type(List.class, TupleInfo.class)), arg("source", Operator.class))
+        classDefinition.declareConstructor(new CompilerContext(bootstrapMethod),
+                a(PUBLIC),
+                arg("tupleInfos", type(List.class, TupleInfo.class)),
+                arg("source", Operator.class),
+                arg("session", Session.class))
                 .getBody()
                 .comment("super(tupleInfos, source);")
                 .loadThis()
                 .loadVariable("tupleInfos")
                 .loadVariable("source")
                 .invokeConstructor(AbstractFilterAndProjectOperator.class, List.class, Operator.class)
+                .comment("this.session = session;")
+                .loadThis()
+                .loadVariable("session")
+                .putField(classDefinition.getType(), sessionField)
                 .ret();
 
         MethodDefinition iteratorMethod = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
@@ -548,14 +571,16 @@ public class ExpressionCompiler
                 .loadThis()
                 .invokeInterface(Operator.class, "getTupleInfos", List.class)
                 .loadVariable("source")
-                .invokeConstructor(iteratorClass, Iterable.class, PageIterator.class)
+                .loadThis()
+                .getField(classDefinition.getType(), sessionField)
+                .invokeConstructor(iteratorClass, Iterable.class, PageIterator.class, Session.class)
                 .retObject();
 
         return defineClasses(ImmutableList.of(classDefinition), classLoader).values().iterator().next().asSubclass(Operator.class);
     }
 
     @VisibleForTesting
-    public FilterFunction internalCompileFilterFunction(Expression expression, Map<Input, Type> inputTypes)
+    public Function<Session, FilterFunction> internalCompileFilterFunction(Expression expression, Map<Input, Type> inputTypes)
     {
         ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(bootstrapMethod),
                 a(PUBLIC, FINAL),
@@ -563,11 +588,18 @@ public class ExpressionCompiler
                 type(Object.class),
                 type(FilterFunction.class));
 
+        // declare session field
+        FieldDefinition sessionField = classDefinition.declareField(a(PRIVATE, FINAL), "session", Session.class);
+
         // constructor
-        classDefinition.declareConstructor(new CompilerContext(bootstrapMethod), a(PUBLIC))
+        classDefinition.declareConstructor(new CompilerContext(bootstrapMethod), a(PUBLIC), arg("session", Session.class))
                 .getBody()
                 .loadThis()
                 .invokeConstructor(Object.class)
+                .comment("this.session = session;")
+                .loadThis()
+                .loadVariable("session")
+                .putField(classDefinition.getType(), sessionField)
                 .ret();
 
         // filter function
@@ -599,8 +631,21 @@ public class ExpressionCompiler
 
         // create instance
         try {
-            FilterFunction function = filterClass.newInstance();
-            return function;
+            final Constructor<? extends FilterFunction> constructor = filterClass.getConstructor(Session.class);
+            return new Function<Session, FilterFunction>()
+            {
+                @Override
+                public FilterFunction apply(Session session)
+                {
+                    try {
+                        FilterFunction function = constructor.newInstance(session);
+                        return function;
+                    }
+                    catch (Throwable e) {
+                        throw Throwables.propagate(e);
+                    }
+                }
+            };
         }
         catch (Throwable e) {
             throw Throwables.propagate(e);
@@ -620,7 +665,8 @@ public class ExpressionCompiler
         filterMethod.comment("Filter: %s", filter.toString());
 
         filterMethod.getCompilerContext().declareVariable(type(boolean.class), "wasNull");
-        TypedByteCodeNode body = new Visitor(bootstrapFunctionBinder, inputTypes).process(filter, filterMethod.getCompilerContext());
+        Block getSessionByteCode = new Block(filterMethod.getCompilerContext()).loadThis().getField(classDefinition.getType(), "session", type(Session.class));
+        TypedByteCodeNode body = new Visitor(bootstrapFunctionBinder, inputTypes, getSessionByteCode).process(filter, filterMethod.getCompilerContext());
 
         if (body.type == void.class) {
             filterMethod
@@ -646,7 +692,7 @@ public class ExpressionCompiler
     }
 
     @VisibleForTesting
-    public ProjectionFunction internalCompileProjectionFunction(Expression expression, Map<Input, Type> inputTypes)
+    public Function<Session, ProjectionFunction> internalCompileProjectionFunction(Expression expression, Map<Input, Type> inputTypes)
     {
         ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(bootstrapMethod),
                 a(PUBLIC, FINAL),
@@ -654,11 +700,18 @@ public class ExpressionCompiler
                 type(Object.class),
                 type(ProjectionFunction.class));
 
+        // declare session field
+        FieldDefinition sessionField = classDefinition.declareField(a(PRIVATE, FINAL), "session", Session.class);
+
         // constructor
-        classDefinition.declareConstructor(new CompilerContext(bootstrapMethod), a(PUBLIC))
+        classDefinition.declareConstructor(new CompilerContext(bootstrapMethod), a(PUBLIC), arg("session", Session.class))
                 .getBody()
                 .loadThis()
                 .invokeConstructor(Object.class)
+                .comment("this.session = session;")
+                .loadThis()
+                .loadVariable("session")
+                .putField(classDefinition.getType(), sessionField)
                 .ret();
 
         // void project(TupleReadable[] channels, BlockBuilder output)
@@ -728,8 +781,22 @@ public class ExpressionCompiler
 
         // create instance
         try {
-            ProjectionFunction function = projectionClass.newInstance();
-            return function;
+            final Constructor<? extends ProjectionFunction> constructor = projectionClass.getConstructor(Session.class);
+            return new Function<Session, ProjectionFunction>()
+            {
+                @Override
+                public ProjectionFunction apply(Session session)
+                {
+                    try {
+                        ProjectionFunction function = constructor.newInstance(session);
+                        return function;
+                    }
+                    catch (Throwable e) {
+                        throw Throwables.propagate(e);
+                    }
+
+                }
+            };
         }
         catch (Throwable e) {
             throw Throwables.propagate(e);
@@ -756,7 +823,8 @@ public class ExpressionCompiler
         // generate body code
         CompilerContext context = projectionMethod.getCompilerContext();
         context.declareVariable(type(boolean.class), "wasNull");
-        TypedByteCodeNode body = new Visitor(bootstrapFunctionBinder, inputTypes).process(projection, context);
+        Block getSessionByteCode = new Block(context).loadThis().getField(classDefinition.getType(), "session", type(Session.class));
+        TypedByteCodeNode body = new Visitor(bootstrapFunctionBinder, inputTypes, getSessionByteCode).process(projection, context);
 
         if (body.type != void.class) {
             projectionMethod
@@ -923,11 +991,13 @@ public class ExpressionCompiler
     {
         private final BootstrapFunctionBinder bootstrapFunctionBinder;
         private final Map<Input, Type> inputTypes;
+        private final ByteCodeNode getSessionByteCode;
 
-        public Visitor(BootstrapFunctionBinder bootstrapFunctionBinder, Map<Input, Type> inputTypes)
+        public Visitor(BootstrapFunctionBinder bootstrapFunctionBinder, Map<Input, Type> inputTypes, ByteCodeNode getSessionByteCode)
         {
             this.bootstrapFunctionBinder = bootstrapFunctionBinder;
             this.inputTypes = inputTypes;
+            this.getSessionByteCode = getSessionByteCode;
         }
 
         @Override
@@ -1014,6 +1084,12 @@ public class ExpressionCompiler
         }
 
         @Override
+        protected TypedByteCodeNode visitCurrentTime(CurrentTime node, CompilerContext context)
+        {
+            return visitFunctionCall(new FunctionCall(new QualifiedName("now"), ImmutableList.<Expression>of()), context);
+        }
+
+        @Override
         protected TypedByteCodeNode visitFunctionCall(FunctionCall node, CompilerContext context)
         {
             List<TypedByteCodeNode> arguments = new ArrayList<>();
@@ -1025,7 +1101,7 @@ public class ExpressionCompiler
                 arguments.add(typedByteCodeNode);
             }
 
-            FunctionBinding functionBinding = bootstrapFunctionBinder.bindFunction(node.getName(), arguments);
+            FunctionBinding functionBinding = bootstrapFunctionBinder.bindFunction(node.getName(), getSessionByteCode, arguments);
             return visitFunctionBinding(context, functionBinding, node.toString());
         }
 
@@ -1043,7 +1119,7 @@ public class ExpressionCompiler
             }
 
             QualifiedName functionName = QualifiedName.of(node.getField().name().toLowerCase());
-            FunctionBinding functionBinding = bootstrapFunctionBinder.bindFunction(functionName, ImmutableList.of(expression));
+            FunctionBinding functionBinding = bootstrapFunctionBinder.bindFunction(functionName, getSessionByteCode, ImmutableList.of(expression));
             return visitFunctionBinding(context, functionBinding, node.toString());
         }
 
@@ -1067,7 +1143,7 @@ public class ExpressionCompiler
                 arguments.add(typedByteCodeNode);
             }
 
-            FunctionBinding functionBinding = bootstrapFunctionBinder.bindFunction("like", arguments, new LikeFunctionBinder());
+            FunctionBinding functionBinding = bootstrapFunctionBinder.bindFunction("like", getSessionByteCode, arguments, new LikeFunctionBinder());
             return visitFunctionBinding(context, functionBinding, node.toString());
         }
 
@@ -1886,7 +1962,12 @@ public class ExpressionCompiler
             }
             else {
                 // for huge IN lists, use a Set
-                FunctionBinding functionBinding = bootstrapFunctionBinder.bindFunction("in", ImmutableList.<TypedByteCodeNode>of(), new InFunctionBinder(type, constantValues));
+                FunctionBinding functionBinding = bootstrapFunctionBinder.bindFunction(
+                        "in",
+                        getSessionByteCode,
+                        ImmutableList.<TypedByteCodeNode>of(),
+                        new InFunctionBinder(type, constantValues));
+
                 switchBlock = new Block(context)
                         .comment("inListSet.contains(<stackValue>)")
                         .append(new IfStatement(context,
@@ -2135,7 +2216,7 @@ public class ExpressionCompiler
             }
 
             @Override
-            public FunctionBinding bindFunction(long bindingId, String name, List<TypedByteCodeNode> arguments)
+            public FunctionBinding bindFunction(long bindingId, String name, ByteCodeNode getSessionByteCode, List<TypedByteCodeNode> arguments)
             {
                 MethodHandle methodHandle = inMethod.bindTo(constantValues);
                 methodHandle = methodHandle.asType(MethodType.methodType(boolean.class, valueType));

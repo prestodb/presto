@@ -630,8 +630,7 @@ public class Block implements ByteCodeNode
         return this;
     }
 
-    public Block getField(ParameterizedType target, String fieldName, ParameterizedType fieldType
-    )
+    public Block getField(ParameterizedType target, String fieldName, ParameterizedType fieldType)
     {
         nodes.add(getFieldInstruction(target, fieldName, fieldType));
         return this;
