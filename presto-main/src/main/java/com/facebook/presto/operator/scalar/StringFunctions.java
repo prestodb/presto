@@ -6,6 +6,8 @@ import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
+import javax.annotation.Nullable;
+
 import static com.google.common.base.Preconditions.checkArgument;
 
 public final class StringFunctions
@@ -113,6 +115,7 @@ public final class StringFunctions
     }
 
     // TODO: Implement a more efficient string search
+    @Nullable
     @ScalarFunction
     public static Slice splitPart(Slice string, Slice delimiter, long index)
     {

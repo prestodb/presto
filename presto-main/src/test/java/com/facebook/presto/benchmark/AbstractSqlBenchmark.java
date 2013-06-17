@@ -24,6 +24,7 @@ public abstract class AbstractSqlBenchmark
     @Override
     protected Operator createBenchmarkedOperator()
     {
-        return tpchLocalQueryRunner.plan(query);
+        Operator operator = tpchLocalQueryRunner.plan(query);
+        return operator;
     }
 }

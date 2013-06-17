@@ -48,7 +48,7 @@ public class LikeFunctionBinder
             Slice pattern = (Slice) ((Constant) patternNode.getNode()).getValue();
             Slice escapeSlice = null;
             if (escapeNode != null) {
-                escapeSlice = (Slice) ((Constant) patternNode.getNode()).getValue();
+                escapeSlice = (Slice) ((Constant) escapeNode.getNode()).getValue();
             }
 
             Regex regex = LikeUtils.likeToPattern(pattern, escapeSlice);

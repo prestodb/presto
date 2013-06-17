@@ -1075,6 +1075,7 @@ public class ExpressionCompiler
         {
             List<TypedByteCodeNode> arguments = functionBinding.getArguments();
             MethodType methodType = functionBinding.getCallSite().type();
+            Class<?> unboxedReturnType = Primitives.unwrap(methodType.returnType());
 
             LabelNode end = new LabelNode("end");
             Block block = new Block(context)
@@ -1087,11 +1088,10 @@ public class ExpressionCompiler
                 block.append(coerceToType(context, argument, argumentType).node);
 
                 stackTypes.add(argument.type);
-                block.append(ifWasNullPopAndGoto(context, end, methodType.returnType(), Lists.reverse(stackTypes)));
+                block.append(ifWasNullPopAndGoto(context, end, unboxedReturnType, Lists.reverse(stackTypes)));
             }
             block.invokeDynamic(functionBinding.getName(), methodType, functionBinding.getBindingId());
 
-            Class<?> unboxedReturnType = Primitives.unwrap(methodType.returnType());
             if (functionBinding.isNullable()) {
                 if (unboxedReturnType.isPrimitive()) {
                     LabelNode notNull = new LabelNode("notNull");
@@ -1738,33 +1738,33 @@ public class ExpressionCompiler
         {
             TypedByteCodeNode first = process(node.getFirst(), context);
             TypedByteCodeNode second = process(node.getSecond(), context);
-            if (first.type == void.class || second.type == void.class) {
+            if (first.type == void.class) {
                 return first;
             }
 
-            Class<?> type = getType(first, second);
+            Class<?> comparisonType = getType(first, second);
 
             LabelNode notMatch = new LabelNode("notMatch");
             Block block = new Block(context)
                     .comment(node.toString())
-                    .append(coerceToType(context, first, type).node)
-                    .dup(type)
-                    .append(ifWasNullPopAndGoto(context, notMatch, void.class, type))
-                    .append(coerceToType(context, second, type).node)
-                    .append(ifWasNullClearPopAndGoto(context, notMatch, void.class, type, type));
+                    .append(first.node)
+                    .append(ifWasNullPopAndGoto(context, notMatch, void.class))
+                    .append(coerceToType(context, typedByteCodeNode(new Block(context).dup(first.type), first.type), comparisonType).node)
+                    .append(coerceToType(context, second, comparisonType).node)
+                    .append(ifWasNullClearPopAndGoto(context, notMatch, void.class, comparisonType, comparisonType));
 
             Block conditionBlock = new Block(context)
-                    .invokeStatic(Operations.class, "equal", boolean.class, type, type);
+                    .invokeStatic(Operations.class, "equal", boolean.class, comparisonType, comparisonType);
 
             Block trueBlock = new Block(context)
                     .loadConstant(true)
                     .storeVariable("wasNull")
-                    .pop(type)
-                    .loadJavaDefault(type);
+                    .pop(first.type)
+                    .loadJavaDefault(first.type);
 
             block.append(new IfStatement(context, conditionBlock, trueBlock, notMatch));
 
-            return typedByteCodeNode(block, type);
+            return typedByteCodeNode(block, first.type);
         }
 
         @Override
