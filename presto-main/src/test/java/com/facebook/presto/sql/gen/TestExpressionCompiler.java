@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
+import static com.facebook.presto.operator.scalar.FunctionAssertions.SESSION;
 import static com.facebook.presto.operator.scalar.FunctionAssertions.assertFilter;
 import static com.facebook.presto.operator.scalar.FunctionAssertions.createCompiledOperator;
 import static com.facebook.presto.operator.scalar.FunctionAssertions.createInterpretedOperator;
@@ -730,6 +731,14 @@ public class TestExpressionCompiler
         assertExecute("json_array_contains('[5]', 3)", false);
         assertExecute("json_array_contains('[', 9)", null);
         assertExecute("json_array_length('[')", null);
+    }
+
+    @Test
+    public void testFunctionWithSessionCall()
+            throws Exception
+    {
+        assertExecute("now()", MILLISECONDS.toSeconds(SESSION.getStartTime()));
+        assertExecute("current_timestamp", MILLISECONDS.toSeconds(SESSION.getStartTime()));
     }
 
     @Test

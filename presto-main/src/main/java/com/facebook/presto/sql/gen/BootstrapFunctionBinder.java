@@ -1,5 +1,6 @@
 package com.facebook.presto.sql.gen;
 
+import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.analyzer.Type;
@@ -32,21 +33,21 @@ public class BootstrapFunctionBinder
         this.metadata = checkNotNull(metadata, "metadata is null");
     }
 
-    public FunctionBinding bindFunction(QualifiedName name, List<TypedByteCodeNode> arguments)
+    public FunctionBinding bindFunction(QualifiedName name, ByteCodeNode getSessionByteCode, List<TypedByteCodeNode> arguments)
     {
         List<Type> argumentTypes = Lists.transform(arguments, toTupleType());
         FunctionInfo function = metadata.getFunction(name, argumentTypes);
         checkArgument(function != null, "Unknown function %s%s", name, argumentTypes);
 
-        FunctionBinding functionBinding = bindFunction(name.toString(), arguments, function.getFunctionBinder());
+        FunctionBinding functionBinding = bindFunction(name.toString(), getSessionByteCode, arguments, function.getFunctionBinder());
 
         return functionBinding;
     }
 
-    public FunctionBinding bindFunction(String name, List<TypedByteCodeNode> arguments, FunctionBinder defaultFunctionBinder)
+    public FunctionBinding bindFunction(String name, ByteCodeNode getSessionByteCode, List<TypedByteCodeNode> arguments, FunctionBinder defaultFunctionBinder)
     {
         // perform binding
-        FunctionBinding functionBinding = defaultFunctionBinder.bindFunction(NEXT_BINDING_ID.getAndIncrement(), name, arguments);
+        FunctionBinding functionBinding = defaultFunctionBinder.bindFunction(NEXT_BINDING_ID.getAndIncrement(), name, getSessionByteCode, arguments);
 
         // record binding
         functionBindings.put(functionBinding.getBindingId(), functionBinding);

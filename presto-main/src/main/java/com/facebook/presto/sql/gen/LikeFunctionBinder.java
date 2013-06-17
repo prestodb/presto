@@ -1,5 +1,6 @@
 package com.facebook.presto.sql.gen;
 
+import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.instruction.Constant;
 import com.facebook.presto.sql.gen.ExpressionCompiler.TypedByteCodeNode;
 import com.facebook.presto.sql.planner.LikeUtils;
@@ -34,7 +35,7 @@ public class LikeFunctionBinder
         }
     }
 
-    public FunctionBinding bindFunction(long bindingId, String name, List<TypedByteCodeNode> arguments)
+    public FunctionBinding bindFunction(long bindingId, String name, ByteCodeNode getSessionByteCode, List<TypedByteCodeNode> arguments)
     {
         TypedByteCodeNode valueNode = arguments.get(0);
         TypedByteCodeNode patternNode = arguments.get(1);

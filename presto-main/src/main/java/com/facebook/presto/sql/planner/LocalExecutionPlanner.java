@@ -34,6 +34,7 @@ import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
+import com.facebook.presto.sql.gen.OperatorFactory;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -465,9 +466,9 @@ public class LocalExecutionPlanner
                     outputMappings.put(symbol, new Input(i, 0)); // one field per channel
                 }
 
-                Function<Operator, Operator> operatorFactory = compiler.compileFilterAndProjectOperator(filterExpression, projections, inputTypes);
+                OperatorFactory operatorFactory = compiler.compileFilterAndProjectOperator(filterExpression, projections, inputTypes);
 
-                Operator operator = operatorFactory.apply(source.getOperator());
+                Operator operator = operatorFactory.createOperator(source.getOperator(), context.getSession());
                 return new PhysicalOperation(operator, outputMappings);
             }
             catch (Exception e) {
@@ -511,8 +512,8 @@ public class LocalExecutionPlanner
                 }
 
                 inputTypes = getInputTypes(source.getLayout(), source.getOperator().getTupleInfos());
-                Function<Operator, Operator> operatorFactory = compiler.compileFilterAndProjectOperator(rewrittenFilterExpression, projections, inputTypes);
-                Operator operator = operatorFactory.apply(source.getOperator());
+                OperatorFactory operatorFactory = compiler.compileFilterAndProjectOperator(rewrittenFilterExpression, projections, inputTypes);
+                Operator operator = operatorFactory.createOperator(source.getOperator(), context.getSession());
                 return new PhysicalOperation(operator, outputMappings);
             }
             catch (Exception e) {
