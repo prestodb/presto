@@ -252,6 +252,10 @@ tableSubquery returns [TableSubquery value]
     : ^(TABLE_SUBQUERY query) { $value = new TableSubquery($query.value); }
     ;
 
+singleExpression returns [Expression value]
+    : expr EOF { $value = $expr.value; }
+    ;
+
 expr returns [Expression value]
     : NULL                  { $value = new NullLiteral(); }
     | qname                 { $value = new QualifiedNameReference($qname.value); }
