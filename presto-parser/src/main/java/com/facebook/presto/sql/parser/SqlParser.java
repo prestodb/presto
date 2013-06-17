@@ -44,7 +44,7 @@ public final class SqlParser
         TreeNodeStream stream = new BufferedTreeNodeStream(tree);
         StatementBuilder builder = new StatementBuilder(stream);
         try {
-            return builder.expr().value;
+            return builder.singleExpression().value;
         }
         catch (RecognitionException e) {
             throw new AssertionError(e); // RecognitionException is not thrown

@@ -1,5 +1,6 @@
 package com.facebook.presto.sql.parser;
 
+import com.facebook.presto.sql.tree.CurrentTime;
 import com.facebook.presto.sql.tree.DateLiteral;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
@@ -201,6 +202,13 @@ public class TestSqlParser
             throws Exception
     {
         assertExpression("TIME '03:04:05'", new TimeLiteral("03:04:05"));
+    }
+
+    @Test
+    public void testCurrentTimestamp()
+            throws Exception
+    {
+        assertExpression("CURRENT_TIMESTAMP", new CurrentTime(CurrentTime.Type.TIMESTAMP));
     }
 
     private static void assertStatement(String query, Statement expected)
