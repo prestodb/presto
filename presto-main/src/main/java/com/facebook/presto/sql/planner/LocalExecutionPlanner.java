@@ -497,15 +497,16 @@ public class LocalExecutionPlanner
                 filterExpression = BooleanLiteral.TRUE_LITERAL;
             }
 
+            List<Expression> expressions = node.getExpressions();
             Map<Input, Type> inputTypes = null;
             try {
                 Expression rewrittenFilterExpression = TreeRewriter.rewriteWith(new SymbolToInputRewriter(source.getLayout()), filterExpression);
 
                 Map<Symbol, Input> outputMappings = new HashMap<>();
                 List<Expression> projections = new ArrayList<>();
-                for (int i = 0; i < node.getExpressions().size(); i++) {
+                for (int i = 0; i < expressions.size(); i++) {
                     Symbol symbol = node.getOutputSymbols().get(i);
-                    projections.add(TreeRewriter.rewriteWith(new SymbolToInputRewriter(source.getLayout()), node.getExpressions().get(i)));
+                    projections.add(TreeRewriter.rewriteWith(new SymbolToInputRewriter(source.getLayout()), expressions.get(i)));
                     outputMappings.put(symbol, new Input(i, 0)); // one field per channel
                 }
 
@@ -516,7 +517,7 @@ public class LocalExecutionPlanner
             }
             catch (Exception e) {
                 // compilation failed, use interpreter
-                log.info("Compile failed for filter=%s projections=%s inputTypes=%s error=%s", filterExpression, node.getExpressions(), inputTypes, e);
+                log.info("Compile failed for filter=%s projections=%s inputTypes=%s error=%s", filterExpression, expressions, inputTypes, e);
 
                 FilterFunction filter;
                 if (filterExpression != BooleanLiteral.TRUE_LITERAL) {
@@ -527,9 +528,9 @@ public class LocalExecutionPlanner
 
                 Map<Symbol, Input> outputMappings = new HashMap<>();
                 List<ProjectionFunction> projections = new ArrayList<>();
-                for (int i = 0; i < node.getExpressions().size(); i++) {
+                for (int i = 0; i < expressions.size(); i++) {
                     Symbol symbol = node.getOutputSymbols().get(i);
-                    Expression expression = node.getExpressions().get(i);
+                    Expression expression = expressions.get(i);
 
                     ProjectionFunction function;
                     if (expression instanceof QualifiedNameReference) {

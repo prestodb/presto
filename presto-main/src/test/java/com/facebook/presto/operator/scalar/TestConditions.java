@@ -15,6 +15,8 @@ public class TestConditions
     @Test
     public void testLike()
     {
+        assertFunction("'_monkey_' like 'X_monkeyX_' escape 'X'", true);
+
         assertFunction("'monkey' like 'monkey'", true);
         assertFunction("'monkey' like 'mon%'", true);
         assertFunction("'monkey' like 'mon_ey'", true);
@@ -34,7 +36,7 @@ public class TestConditions
         assertFunction("'monkey' like 'monkey' escape null", null);
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "escape must be empty or a single character.*")
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*escape must be empty or a single character.*")
     public void testLikeInvalidEscape()
     {
         selectSingleValue("'monkey' like 'monkey' escape 'foo'");
@@ -137,7 +139,7 @@ public class TestConditions
                     "end");
             fail("Expected SemanticException");
         }
-        catch (SemanticException expected) {
+        catch (ClassCastException | SemanticException expected) {
         }
     }
 
@@ -184,7 +186,7 @@ public class TestConditions
                 "when true then 1 " +
                 "else 33 " +
                 "end",
-                null);
+                33);
 
         // todo coercion to double
         try {
@@ -194,7 +196,7 @@ public class TestConditions
                     "end");
             fail("Expected SemanticException");
         }
-        catch (SemanticException expected) {
+        catch (ClassCastException | SemanticException expected) {
         }
     }
 }

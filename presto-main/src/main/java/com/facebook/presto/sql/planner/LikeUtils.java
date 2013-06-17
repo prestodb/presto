@@ -69,8 +69,7 @@ public final class LikeUtils
         String patternString = pattern.toString(UTF_8);
         char escapeChar = '\\';
         if (escapeSlice != null) {
-            Slice escape = null;
-            escapeChar = getEscapeChar(escape);
+            escapeChar = getEscapeChar(escapeSlice);
         }
 
         return likeToPattern(patternString, escapeChar);

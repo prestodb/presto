@@ -1,13 +1,7 @@
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.operator.FilterFunction;
+import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.Operator;
-import com.facebook.presto.operator.OperatorStats;
-import com.facebook.presto.operator.Page;
-import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.operator.scalar.JsonFunctions;
 import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.operator.scalar.RegexpFunctions;
@@ -15,20 +9,14 @@ import com.facebook.presto.operator.scalar.StringFunctions;
 import com.facebook.presto.operator.scalar.UnixTimeFunctions;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.LikeUtils;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolToInputRewriter;
-import com.facebook.presto.sql.tree.BooleanLiteral;
-import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Extract.Field;
-import com.facebook.presto.sql.tree.Input;
-import com.facebook.presto.sql.tree.TreeRewriter;
+import com.google.common.base.Charsets;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ContiguousSet;
 import com.google.common.collect.DiscreteDomain;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Range;
@@ -46,29 +34,26 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
-import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
-import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
-import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
-import static com.facebook.presto.operator.OperatorAssertions.createOperator;
-import static com.facebook.presto.sql.parser.SqlParser.createExpression;
-import static com.facebook.presto.tuple.Tuples.createTuple;
+import static com.facebook.presto.operator.scalar.FunctionAssertions.assertFilter;
+import static com.facebook.presto.operator.scalar.FunctionAssertions.createCompiledOperator;
+import static com.facebook.presto.operator.scalar.FunctionAssertions.createInterpretedOperator;
+import static com.facebook.presto.operator.scalar.FunctionAssertions.execute;
 import static com.google.common.base.Charsets.UTF_8;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.cos;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestExpressionCompiler
 {
-    private static final ExpressionCompiler compiler = new ExpressionCompiler(new MetadataManager());
-
     private static final Boolean[] booleanValues = {true, false, null};
     private static final Long[] longLefts = {9L, 10L, 11L, -9L, -10L, -11L, 10151082135029368L, /*Long.MIN_VALUE,*/ Long.MAX_VALUE, null};
     private static final Long[] longRights = {3L, -3L, 10151082135029369L, null};
+    private static final Long[] longMiddle = {9L, -3L, 88L, null};
     private static final Double[] doubleLefts = {9.0, 10.0, 11.0, -9.0, -10.0, -11.0, 9.1, 10.1, 11.1, -9.1, -10.1, -11.1,
             Double.MIN_VALUE, Double.MAX_VALUE, Double.MIN_NORMAL, null};
     private static final Double[] doubleRights = {3.0, -3.0, 3.1, -3.1, null};
+    private static final Double[] doubleMiddle = {9.0, -3.1, 88.0, null};
     private static final String[] stringLefts = {"hello", "foo", "mellow", "fellow", "", null};
     private static final String[] stringRights = {"hello", "foo", "bar", "baz", "", null};
 
@@ -163,7 +148,7 @@ public class TestExpressionCompiler
                 assertExecute(generateExpression("%s = %s", left, right), left == null || right == null ? null : left == right);
                 assertExecute(generateExpression("%s <> %s", left, right), left == null || right == null ? null : left != right);
 
-                assertExecute(generateExpression("nullif(%s, %s)", left, right), nullIf(boolean.class, left, right));
+                assertExecute(generateExpression("nullif(%s, %s)", left, right), nullIf(left, right));
                 assertExecute(generateExpression("%s is distinct from %s", left, right), !Objects.equals(left, right));
             }
         }
@@ -177,7 +162,7 @@ public class TestExpressionCompiler
                 assertExecute(generateExpression("%s >= %s", left, right), left == null || right == null ? null : (long) left >= right);
                 assertExecute(generateExpression("%s <= %s", left, right), left == null || right == null ? null : (long) left <= right);
 
-                assertExecute(generateExpression("nullif(%s, %s)", left, right), nullIf(long.class, left, right));
+                assertExecute(generateExpression("nullif(%s, %s)", left, right), nullIf(left, right));
                 assertExecute(generateExpression("%s is distinct from %s", left, right), !Objects.equals(left, right));
 
                 assertExecute(generateExpression("%s + %s", left, right), left == null || right == null ? null : left + right);
@@ -197,10 +182,10 @@ public class TestExpressionCompiler
                 assertExecute(generateExpression("%s >= %s", left, right), left == null || right == null ? null : (double) left >= right);
                 assertExecute(generateExpression("%s <= %s", left, right), left == null || right == null ? null : (double) left <= right);
 
-                Object expectedNullIf = nullIf(double.class, left, right);
+                Object expectedNullIf = nullIf(left, right);
                 for (String expression : generateExpression("nullif(%s, %s)", left, right)) {
                     try {
-                        Object actual = execute(expression);
+                        Object actual = selectSingleValue(expression);
                         if (!Objects.equals(actual, expectedNullIf)) {
                             if (left != null && right == null) {
                                 expectedNullIf = ((Number) expectedNullIf).doubleValue();
@@ -233,7 +218,7 @@ public class TestExpressionCompiler
                 assertExecute(generateExpression("%s >= %s", left, right), left == null || right == null ? null : left >= (double) right);
                 assertExecute(generateExpression("%s <= %s", left, right), left == null || right == null ? null : left <= (double) right);
 
-                assertExecute(generateExpression("nullif(%s, %s)", left, right), nullIf(double.class, left, right));
+                assertExecute(generateExpression("nullif(%s, %s)", left, right), nullIf(left, right));
                 assertExecute(generateExpression("%s is distinct from %s", left, right), !Objects.equals(left, right == null ? null : right.doubleValue()));
 
                 assertExecute(generateExpression("%s + %s", left, right), left == null || right == null ? null : left + right);
@@ -253,7 +238,7 @@ public class TestExpressionCompiler
                 assertExecute(generateExpression("%s >= %s", left, right), left == null || right == null ? null : (double) left >= right);
                 assertExecute(generateExpression("%s <= %s", left, right), left == null || right == null ? null : (double) left <= right);
 
-                assertExecute(generateExpression("nullif(%s, %s)", left, right), nullIf(double.class, left, right));
+                assertExecute(generateExpression("nullif(%s, %s)", left, right), nullIf(left, right));
                 assertExecute(generateExpression("%s is distinct from %s", left, right), !Objects.equals(left, right));
 
                 assertExecute(generateExpression("%s + %s", left, right), left == null || right == null ? null : left + right);
@@ -276,26 +261,29 @@ public class TestExpressionCompiler
                 assertExecute(generateExpression("%s || %s", left, right), left == null || right == null ? null : left + right);
                 assertExecute(generateExpression("%s is distinct from %s", left, right), !Objects.equals(left, right));
 
-                assertExecute(generateExpression("nullif(%s, %s)", left, right), nullIf(String.class, left, right));
+                assertExecute(generateExpression("nullif(%s, %s)", left, right), nullIf(left, right));
             }
         }
     }
 
-    private static Object nullIf(Class<?> expectedType, Object left, Object right)
+    private static Object nullIf(Object left, Object right)
     {
-        if (left != null && right != null) {
-            if (left instanceof Double || right instanceof Double) {
-                left = ((Number) left).doubleValue();
-                right = ((Number) right).doubleValue();
-            }
-            if (left.equals(right)) {
+        if (left == null) {
+            return null;
+        }
+        if (right == null) {
+            return left;
+        }
+
+        if (left instanceof Double || right instanceof Double) {
+            if (((Number) left).doubleValue() == ((Number) right).doubleValue()) {
                 return null;
             }
         }
-
-        if (expectedType == double.class && left != null) {
-            left = ((Number) left).doubleValue();
+        else if (left.equals(right)) {
+            return null;
         }
+
         return left;
     }
 
@@ -464,7 +452,7 @@ public class TestExpressionCompiler
             throws Exception
     {
         for (Double value : doubleLefts) {
-            for (Long firstTest : longLefts) {
+            for (Double firstTest : doubleMiddle) {
                 for (Double secondTest : doubleRights) {
                     String expected;
                     if (value == null) {
@@ -483,17 +471,17 @@ public class TestExpressionCompiler
                 }
             }
         }
-        for (Double value : doubleLefts) {
-            for (Long firstTest : longLefts) {
-                for (Double secondTest : doubleRights) {
+        for (Long value : longLefts) {
+            for (Long firstTest : longMiddle) {
+                for (Long secondTest : longRights) {
                     String expected;
                     if (value == null) {
                         expected = null;
                     }
-                    else if (firstTest != null && (double) value == firstTest) {
+                    else if (firstTest != null && value == firstTest) {
                         expected = "first";
                     }
-                    else if (secondTest != null && (double) value == secondTest) {
+                    else if (secondTest != null && value == secondTest) {
                         expected = "second";
                     }
                     else {
@@ -581,13 +569,14 @@ public class TestExpressionCompiler
             assertExecute(generateExpression("%s in (33, null, 9, -9, -33)", value),
                     value == null ? null : testValues.contains(value) ? true : null);
 
+            // todo mixed types are not currently allowed
             // compare a long to in containing doubles
-            assertExecute(generateExpression("%s in (33, 9.0, -9, -33)", value),
-                    value == null ? null : testValues.contains(value));
-            assertExecute(generateExpression("%s in (null, 33, 9.0, -9, -33)", value),
-                    value == null ? null : testValues.contains(value) ? true : null);
-            assertExecute(generateExpression("%s in (33.0, null, 9.0, -9, -33)", value),
-                    value == null ? null : testValues.contains(value) ? true : null);
+            // assertExecute(generateExpression("%s in (33, 9.0, -9, -33)", value),
+            //         value == null ? null : testValues.contains(value));
+            // assertExecute(generateExpression("%s in (null, 33, 9.0, -9, -33)", value),
+            //         value == null ? null : testValues.contains(value) ? true : null);
+            // assertExecute(generateExpression("%s in (33.0, null, 9.0, -9, -33)", value),
+            //         value == null ? null : testValues.contains(value) ? true : null);
 
         }
 
@@ -600,13 +589,14 @@ public class TestExpressionCompiler
             assertExecute(generateExpression("%s in (33.0, null, 9.0, -9.0, -33.0)", value),
                     value == null ? null : testValues.contains(value) ? true : null);
 
+            // todo mixed types are not currently allowed
             // compare a double to in containing longs
-            assertExecute(generateExpression("%s in (33.0, 9, -9, -33.0)", value),
-                    value == null ? null : testValues.contains(value));
-            assertExecute(generateExpression("%s in (null, 33.0, 9, -9, -33.0)", value),
-                    value == null ? null : testValues.contains(value) ? true : null);
-            assertExecute(generateExpression("%s in (33.0, null, 9, -9, -33.0)", value),
-                    value == null ? null : testValues.contains(value) ? true : null);
+            // assertExecute(generateExpression("%s in (33.0, 9, -9, -33.0)", value),
+            //         value == null ? null : testValues.contains(value));
+            // assertExecute(generateExpression("%s in (null, 33.0, 9, -9, -33.0)", value),
+            //         value == null ? null : testValues.contains(value) ? true : null);
+            // assertExecute(generateExpression("%s in (33.0, null, 9, -9, -33.0)", value),
+            //         value == null ? null : testValues.contains(value) ? true : null);
 
             // compare to dynamically computed values
             testValues = Arrays.asList(33.0, cos(9.0), cos(-9.0), -33.0);
@@ -990,126 +980,42 @@ public class TestExpressionCompiler
         return expressions.build();
     }
 
-    private static void assertExecute(String actual, Object expected)
+    private static void assertExecute(String expression, Object expected)
     {
-        if (expected instanceof Boolean) {
-            expected = ((Boolean) expected) ? true : false;
+        try {
+            assertEquals(selectSingleValue(expression), expected);
         }
-
-        if (expected instanceof Slice) {
-            expected = ((Slice) expected).toString(UTF_8);
+        catch (Throwable e) {
+            throw new RuntimeException("Error processing " + expression, e);
         }
-
-        assertEquals(execute(actual), expected);
     }
 
     private static void assertExecute(List<String> expressions, Object expected)
     {
-        if (expected instanceof Boolean) {
-            expected = ((Boolean) expected) ? true : false;
-        }
-
         if (expected instanceof Slice) {
-            expected = ((Slice) expected).toString(UTF_8);
+            expected = ((Slice) expected).toString(Charsets.UTF_8);
         }
-
         for (String expression : expressions) {
-            try {
-                assertEquals(execute(expression), expected, expression);
-            }
-            catch (Exception e) {
-                throw new RuntimeException("Error processing " + expression, e);
-            }
+            assertExecute(expression, expected);
         }
     }
 
-    private static Object execute(String expression)
+    private static Object selectSingleValue(String projection)
     {
-        Expression parsedExpression = parseExpression(expression);
+        checkNotNull(projection, "projection is null");
 
-        Function<Operator,Operator> operatorFactory;
-        try {
-            operatorFactory = compiler.compileFilterAndProjectOperator(BooleanLiteral.TRUE_LITERAL,
-                    ImmutableList.of(parsedExpression),
-                    ImmutableMap.<Input, Type>of(
-                            new Input(0, 0), Type.LONG,
-                            new Input(1, 0), Type.STRING,
-                            new Input(2, 0), Type.DOUBLE,
-                            new Input(3, 0), Type.LONG,
-                            new Input(4, 0), Type.STRING));
-        }
-        catch (Throwable e) {
-            throw new RuntimeException("Error compiling " + expression, e);
-        }
+        // compile
+        Operator compiledOperator = createCompiledOperator(projection);
+        Object compiledValue = execute(compiledOperator);
+        Type expressionType = Type.fromRaw(compiledOperator.getTupleInfos().get(0).getTypes().get(0));
 
-        Operator source = createOperator(new Page(
-                createLongsBlock(1234L),
-                createStringsBlock("hello"),
-                createDoublesBlock(12.34),
-                createLongsBlock(MILLISECONDS.toSeconds(new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis())),
-                createStringsBlock("%el%")));
+        // interpret
+        FilterAndProjectOperator interpretedOperator = createInterpretedOperator(projection, expressionType);
+        Object interpretedValue = execute(interpretedOperator);
 
-        Operator operator = operatorFactory.apply(source);
-        PageIterator pageIterator = operator.iterator(new OperatorStats());
-        assertTrue(pageIterator.hasNext());
-        Page page = pageIterator.next();
-        assertFalse(pageIterator.hasNext());
+        // verify interpreted and compiled value are the same
+        assertEquals(interpretedValue, compiledValue);
 
-        assertEquals(page.getPositionCount(), 1);
-        assertEquals(page.getChannelCount(), 1);
-
-        Block block = page.getBlock(0);
-        assertEquals(block.getPositionCount(), 1);
-        assertEquals(block.getTupleInfo().getFieldCount(), 1);
-
-        BlockCursor cursor = block.cursor();
-        assertTrue(cursor.advanceNextPosition());
-        if (cursor.isNull(0)) {
-            return null;
-        }
-        else {
-            return cursor.getTuple().toValues().get(0);
-        }
-    }
-
-    private static void assertFilter(String expression, boolean expected)
-    {
-        Expression parsedExpression = parseExpression(expression);
-
-        FilterFunction filterFunction;
-        try {
-            filterFunction = compiler.compileFilterFunction(parsedExpression,
-                    ImmutableMap.<Input, Type>of(
-                            new Input(0, 0), Type.LONG,
-                            new Input(1, 0), Type.STRING,
-                            new Input(2, 0), Type.DOUBLE,
-                            new Input(3, 0), Type.LONG,
-                            new Input(4, 0), Type.STRING));
-        }
-        catch (Throwable e) {
-            throw new RuntimeException("Error compiling " + expression, e);
-        }
-
-
-        boolean value = filterFunction.filter(createTuple(1234L),
-                createTuple("hello"),
-                createTuple(12.34),
-                createTuple(MILLISECONDS.toSeconds(new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis())),
-                createTuple("%el%"));
-        assertEquals(value, expected);
-    }
-
-    private static Expression parseExpression(String expression)
-    {
-        Expression parsedExpression = createExpression(expression);
-
-        parsedExpression = TreeRewriter.rewriteWith(new SymbolToInputRewriter(ImmutableMap.of(
-                new Symbol("bound_long"), new Input(0, 0),
-                new Symbol("bound_string"), new Input(1, 0),
-                new Symbol("bound_double"), new Input(2, 0),
-                new Symbol("bound_timestamp"), new Input(3, 0),
-                new Symbol("bound_pattern"), new Input(4, 0)
-        )), parsedExpression);
-        return parsedExpression;
+        return compiledValue;
     }
 }

@@ -290,7 +290,9 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("cast(null as BOOLEAN)", "null");
 
         // double
-        assertInvalidCast("cast(123.0 as BOOLEAN)");
+        assertOptimizedEquals("cast(123.45 as BOOLEAN)", "true");
+        assertOptimizedEquals("cast(-123.45 as BOOLEAN)", "true");
+        assertOptimizedEquals("cast(0.0 as BOOLEAN)", "false");
     }
 
     @Test

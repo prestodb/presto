@@ -242,34 +242,33 @@ public class ExpressionInterpreter
     protected Object visitSimpleCaseExpression(SimpleCaseExpression node, Void context)
     {
         Object operand = process(node.getOperand(), context);
-        if (operand == null) {
-            return null;
-        }
         if (operand instanceof Expression) {
             return node;
         }
 
         Expression resultClause = node.getDefaultValue();
-        for (WhenClause whenClause : node.getWhenClauses()) {
-            Object value = process(whenClause.getOperand(), context);
-            if (value instanceof Expression) {
-                // TODO: optimize this case
-                return node;
-            }
+        if (operand != null) {
+            for (WhenClause whenClause : node.getWhenClauses()) {
+                Object value = process(whenClause.getOperand(), context);
+                if (value instanceof Expression) {
+                    // TODO: optimize this case
+                    return node;
+                }
 
-            if (operand instanceof Long && value instanceof  Long) {
-                if (((Long) operand).doubleValue() == ((Long) value).doubleValue()) {
+                if (operand instanceof Long && value instanceof  Long) {
+                    if (((Long) operand).longValue() == ((Long) value).longValue()) {
+                        resultClause = whenClause.getResult();
+                        break;
+                    }
+                } else if (operand instanceof Number && value instanceof  Number) {
+                    if (((Number) operand).doubleValue() == ((Number) value).doubleValue()) {
+                        resultClause = whenClause.getResult();
+                        break;
+                    }
+                } else if (operand.equals(value)) {
                     resultClause = whenClause.getResult();
                     break;
                 }
-            } else if (operand instanceof Number && value instanceof  Number) {
-                if (((Number) operand).doubleValue() == ((Number) value).doubleValue()) {
-                    resultClause = whenClause.getResult();
-                    break;
-                }
-            } else if (operand.equals(value)) {
-                resultClause = whenClause.getResult();
-                break;
             }
         }
         if (resultClause == null) {
@@ -467,6 +466,9 @@ public class ExpressionInterpreter
             else if (left instanceof Number && right instanceof Number) {
                 return ((Number) left).doubleValue() != ((Number) right).doubleValue();
             }
+            else if (left instanceof Boolean && right instanceof Boolean) {
+                return !left.equals(right);
+            }
             else if (left instanceof Slice && right instanceof Slice) {
                 return !left.equals(right);
             }
@@ -537,6 +539,16 @@ public class ExpressionInterpreter
             throw new UnsupportedOperationException("unhandled type: " + node.getType());
         }
 
+        if (left instanceof Boolean && right instanceof Boolean) {
+            switch (node.getType()) {
+                case EQUAL:
+                    return left.equals(right);
+                case NOT_EQUAL:
+                    return !left.equals(right);
+            }
+            throw new UnsupportedOperationException("unhandled type: " + node.getType());
+        }
+
         return new ComparisonExpression(node.getType(), toExpression(left), toExpression(right));
     }
 
@@ -575,11 +587,17 @@ public class ExpressionInterpreter
         }
         Object second = process(node.getSecond(), context);
         if (second == null) {
-            return null;
+            return first;
         }
 
-        if (first instanceof Number && second instanceof Number) {
+        if (first instanceof Long && second instanceof Long) {
+            return ((Long) first).longValue() == ((Long) second).longValue() ? null : first;
+        }
+        else if (first instanceof Number && second instanceof Number) {
             return ((Number) first).doubleValue() == ((Number) second).doubleValue() ? null : first;
+        }
+        else if (first instanceof Boolean && second instanceof Boolean) {
+            return first.equals(second) ? null : first;
         }
         else if (first instanceof Slice && second instanceof Slice) {
             return first.equals(second) ? null : first;

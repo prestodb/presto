@@ -117,10 +117,10 @@ public class TestInterpretedProjectionFunction
 
         assertProjection(LONG, "NULLIF(NULL, NULL)", null);
 
-        assertProjection(LONG, "NULLIF(42, NULL)", null);
+        assertProjection(LONG, "NULLIF(42, NULL)", 42L);
         assertProjection(LONG, "NULLIF(NULL, 42)", null);
 
-        assertProjection(DOUBLE, "NULLIF(11.1, NULL)", null);
+        assertProjection(DOUBLE, "NULLIF(11.1, NULL)", 11.1);
         assertProjection(DOUBLE, "NULLIF(NULL, 11.1)", null);
     }
 
