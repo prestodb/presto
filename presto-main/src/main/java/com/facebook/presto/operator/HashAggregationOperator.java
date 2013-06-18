@@ -479,7 +479,12 @@ public class HashAggregationOperator
             }
             intermediateValues.set(position, newValue);
 
-            totalElementSizeInBytes += function.estimateSizeInBytes(newValue) - oldSize;
+            long newSize = 0;
+            if (newValue != null) {
+                newSize = function.estimateSizeInBytes(newValue);
+            }
+            totalElementSizeInBytes += newSize - oldSize;
+
         }
 
         @Override

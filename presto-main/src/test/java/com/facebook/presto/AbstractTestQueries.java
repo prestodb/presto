@@ -62,6 +62,13 @@ public abstract class AbstractTestQueries
     private Handle handle;
 
     @Test
+    public void testMaxMinStringWithNulls()
+            throws Exception
+    {
+        assertQuery("SELECT custkey, MAX(NULLIF(orderstatus, 'O')), MIN(NULLIF(orderstatus, 'O')) FROM orders GROUP BY custkey");
+    }
+
+    @Test
     public void testApproxPercentile()
             throws Exception
     {
