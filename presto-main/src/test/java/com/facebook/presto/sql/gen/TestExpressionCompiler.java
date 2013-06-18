@@ -87,6 +87,7 @@ public class TestExpressionCompiler
         assertExecute("bound_long", 1234L);
         assertExecute("bound_string", "hello");
         assertExecute("bound_double", 12.34);
+        assertExecute("bound_boolean", true);
         assertExecute("bound_timestamp", MILLISECONDS.toSeconds(new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis()));
         assertExecute("bound_pattern", "%el%");
 

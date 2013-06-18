@@ -51,6 +51,7 @@ import org.joda.time.DateTimeZone;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
@@ -75,22 +76,27 @@ public final class FunctionAssertions
             createLongsBlock(1234L),
             createStringsBlock("hello"),
             createDoublesBlock(12.34),
+            createBooleansBlock(true),
             createLongsBlock(MILLISECONDS.toSeconds(new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis())),
             createStringsBlock("%el%")));
 
-    private static final Map<Input, Type> INPUT_TYPES = ImmutableMap.of(
-            new Input(0, 0), Type.LONG,
-            new Input(1, 0), Type.STRING,
-            new Input(2, 0), Type.DOUBLE,
-            new Input(3, 0), Type.LONG,
-            new Input(4, 0), Type.STRING);
+    private static final Map<Input, Type> INPUT_TYPES = ImmutableMap.<Input, Type>builder()
+            .put(new Input(0, 0), Type.LONG)
+            .put(new Input(1, 0), Type.STRING)
+            .put(new Input(2, 0), Type.DOUBLE)
+            .put(new Input(3, 0), Type.BOOLEAN)
+            .put(new Input(4, 0), Type.LONG)
+            .put(new Input(5, 0), Type.STRING)
+            .build();
 
-    private static final Map<Symbol, Input> INPUT_MAPPING = ImmutableMap.of(
-            new Symbol("bound_long"), new Input(0, 0),
-            new Symbol("bound_string"), new Input(1, 0),
-            new Symbol("bound_double"), new Input(2, 0),
-            new Symbol("bound_timestamp"), new Input(3, 0),
-            new Symbol("bound_pattern"), new Input(4, 0));
+    private static final Map<Symbol, Input> INPUT_MAPPING = ImmutableMap.<Symbol, Input>builder()
+            .put(new Symbol("bound_long"), new Input(0, 0))
+            .put(new Symbol("bound_string"), new Input(1, 0))
+            .put(new Symbol("bound_double"), new Input(2, 0))
+            .put(new Symbol("bound_boolean"), new Input(3, 0))
+            .put(new Symbol("bound_timestamp"), new Input(4, 0))
+            .put(new Symbol("bound_pattern"), new Input(5, 0))
+            .build();
 
     private FunctionAssertions() {}
 
@@ -158,6 +164,7 @@ public final class FunctionAssertions
         boolean value = filterFunction.filter(createTuple(1234L),
                 createTuple("hello"),
                 createTuple(12.34),
+                createTuple(true),
                 createTuple(MILLISECONDS.toSeconds(new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis())),
                 createTuple("%el%"));
         assertEquals(value, expected);
