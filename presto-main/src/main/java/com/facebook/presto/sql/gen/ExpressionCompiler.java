@@ -985,22 +985,26 @@ public class ExpressionCompiler
             if (body.type == boolean.class) {
                 notNullBlock
                         .comment("output.append(<booleanStackValue>);")
-                        .invokeVirtual(BlockBuilder.class, "append", BlockBuilder.class, boolean.class);
+                        .invokeVirtual(BlockBuilder.class, "append", BlockBuilder.class, boolean.class)
+                        .pop();
             }
             else if (body.type == long.class) {
                 notNullBlock
                         .comment("output.append(<longStackValue>);")
-                        .invokeVirtual(BlockBuilder.class, "append", BlockBuilder.class, long.class);
+                        .invokeVirtual(BlockBuilder.class, "append", BlockBuilder.class, long.class)
+                        .pop();
             }
             else if (body.type == double.class) {
                 notNullBlock
                         .comment("output.append(<doubleStackValue>);")
-                        .invokeVirtual(BlockBuilder.class, "append", BlockBuilder.class, double.class);
+                        .invokeVirtual(BlockBuilder.class, "append", BlockBuilder.class, double.class)
+                        .pop();
             }
             else if (body.type == Slice.class) {
                 notNullBlock
                         .comment("output.append(<sliceStackValue>);")
-                        .invokeVirtual(BlockBuilder.class, "append", BlockBuilder.class, Slice.class);
+                        .invokeVirtual(BlockBuilder.class, "append", BlockBuilder.class, Slice.class)
+                        .pop();
             }
             else {
                 throw new UnsupportedOperationException("Type " + body.type + " can not be output yet");
@@ -1009,7 +1013,8 @@ public class ExpressionCompiler
             Block nullBlock = new Block(context)
                     .comment("output.appendNull();")
                     .pop(body.type)
-                    .invokeVirtual(BlockBuilder.class, "appendNull", BlockBuilder.class);
+                    .invokeVirtual(BlockBuilder.class, "appendNull", BlockBuilder.class)
+                    .pop();
 
             projectionMethod.getBody()
                     .comment("if the result was null, appendNull; otherwise append the value")
@@ -1022,6 +1027,7 @@ public class ExpressionCompiler
                     .comment("output.appendNull();")
                     .getVariable("output")
                     .invokeVirtual(BlockBuilder.class, "appendNull", BlockBuilder.class)
+                    .pop()
                     .ret();
         }
         return body.type;
