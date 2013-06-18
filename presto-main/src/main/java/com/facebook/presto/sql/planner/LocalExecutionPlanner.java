@@ -811,7 +811,7 @@ public class LocalExecutionPlanner
                     Iterables.getOnlyElement(getChannelsForSymbols(groupBySymbols, source.getLayout())),
                     node.getStep(),
                     functionDefinitions,
-                    100_000,
+                    10_000,
                     maxOperatorMemoryUsage);
 
             return new PhysicalOperation(aggregationOperator, outputMappings.build());
