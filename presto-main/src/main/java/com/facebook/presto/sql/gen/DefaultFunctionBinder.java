@@ -2,18 +2,16 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.instruction.Constant;
+import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.gen.ExpressionCompiler.TypedByteCodeNode;
-import com.google.common.collect.Ordering;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableList.Builder;
 
 import java.lang.invoke.CallSite;
 import java.lang.invoke.ConstantCallSite;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map.Entry;
-import java.util.SortedMap;
-import java.util.TreeMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -29,16 +27,23 @@ public class DefaultFunctionBinder
         this.nullable = nullable;
     }
 
-    public FunctionBinding bindFunction(long bindingId, String name, List<TypedByteCodeNode> arguments)
+    public FunctionBinding bindFunction(long bindingId, String name, ByteCodeNode getSessionByteCode, List<TypedByteCodeNode> arguments)
     {
-        return bindConstantArguments(bindingId, name, arguments, this.methodHandle, nullable);
+        return bindConstantArguments(bindingId, name, getSessionByteCode, arguments, this.methodHandle, nullable);
     }
 
-    public static FunctionBinding bindConstantArguments(long bindingId, String name, List<TypedByteCodeNode> arguments, MethodHandle methodHandle, boolean nullable)
+    public static FunctionBinding bindConstantArguments(long bindingId, String name, ByteCodeNode getSessionByteCode, List<TypedByteCodeNode> arguments, MethodHandle methodHandle, boolean nullable)
     {
-        // extract constant arguments
-        SortedMap<Integer, Object> constantArguments = new TreeMap<>(Ordering.natural().reverse());
+        Builder<TypedByteCodeNode> unboundArguments = ImmutableList.builder();
+
         int argIndex = 0;
+
+        // bind session
+        if (methodHandle.type().parameterCount() > 0 && methodHandle.type().parameterType(0) == Session.class) {
+            unboundArguments.add(TypedByteCodeNode.typedByteCodeNode(getSessionByteCode, Session.class));
+            argIndex++;
+        }
+
         for (TypedByteCodeNode argument : arguments) {
             ByteCodeNode node = argument.getNode();
             if (node instanceof Constant) {
@@ -47,19 +52,16 @@ public class DefaultFunctionBinder
                     checkArgument(value instanceof Integer, "boolean should be represented as an integer");
                     value = (value != 0);
                 }
-                constantArguments.put(argIndex, value);
+                // bind constant argument
+                methodHandle = MethodHandles.insertArguments(methodHandle, argIndex, value);
+                // we bound an argument so don't increment the argIndex
+            } else {
+                unboundArguments.add(argument);
+                argIndex++;
             }
-            argIndex++;
-        }
-
-        // bind constant arguments
-        arguments = new ArrayList<>(arguments);
-        for (Entry<Integer, Object> entry : constantArguments.entrySet()) {
-            methodHandle = MethodHandles.insertArguments(methodHandle, entry.getKey(), entry.getValue());
-            arguments.remove((int) entry.getKey());
         }
 
         CallSite callSite = new ConstantCallSite(methodHandle);
-        return new FunctionBinding(bindingId, name, callSite, arguments, nullable);
+        return new FunctionBinding(bindingId, name, callSite, unboundArguments.build(), nullable);
     }
 }

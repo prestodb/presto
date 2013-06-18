@@ -21,6 +21,9 @@ public class Casts
             else if (value instanceof Long) {
                 return ((Long) value).longValue() != 0;
             }
+            else if (value instanceof Double) {
+                return ((Double) value).doubleValue() != 0;
+            }
             else if (value instanceof Slice) {
                 String stringValue = ((Slice) value).toString(UTF_8).toLowerCase();
                 if (stringValue.equals("t") || stringValue.equals("true") || stringValue.equals("1")) {
