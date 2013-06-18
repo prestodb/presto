@@ -371,7 +371,7 @@ public class DumpByteCodeVisitor extends ByteCodeVisitor<Void>
     @Override
     public Void visitBoxedIntegerConstant(ByteCodeNode parent, BoxedIntegerConstant boxedIntegerConstant)
     {
-        printLine("load constant %s", boxedIntegerConstant.getValue());
+        printLine("load constant new Integer(%s)", boxedIntegerConstant.getValue());
         return null;
     }
 
@@ -385,7 +385,7 @@ public class DumpByteCodeVisitor extends ByteCodeVisitor<Void>
     @Override
     public Void visitBoxedFloatConstant(ByteCodeNode parent, BoxedFloatConstant boxedFloatConstant)
     {
-        printLine("load constant %s", boxedFloatConstant.getValue());
+        printLine("load constant new Float(%sf)", boxedFloatConstant.getValue());
         return null;
     }
 
@@ -399,7 +399,7 @@ public class DumpByteCodeVisitor extends ByteCodeVisitor<Void>
     @Override
     public Void visitBoxedLongConstant(ByteCodeNode parent, BoxedLongConstant boxedLongConstant)
     {
-        printLine("load constant %s", boxedLongConstant.getValue());
+        printLine("load constant new Long(%sL)", boxedLongConstant.getValue());
         return null;
     }
 
@@ -413,7 +413,7 @@ public class DumpByteCodeVisitor extends ByteCodeVisitor<Void>
     @Override
     public Void visitBoxedDoubleConstant(ByteCodeNode parent, BoxedDoubleConstant boxedDoubleConstant)
     {
-        printLine("load constant %s", boxedDoubleConstant.getValue());
+        printLine("load constant new Double(%s)", boxedDoubleConstant.getValue());
         return null;
     }
 

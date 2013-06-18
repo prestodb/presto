@@ -1057,7 +1057,7 @@ public class ExpressionCompiler
             Class<?> nodeType;
             switch (type) {
                 case BOOLEAN:
-                    isNull.loadConstant(0L);
+                    isNull.loadConstant(false);
                     notNull.invokeInterface(TupleReadable.class, "getBoolean", boolean.class, int.class);
                     nodeType = boolean.class;
                     break;
