@@ -82,7 +82,11 @@ public abstract class AbstractTestQueries
         }
 
         MaterializedResult actual = computeActual("" +
-                "SELECT orderstatus, approx_percentile(orderkey, 0.5), approx_percentile(totalprice, 0.5)\n" +
+                "SELECT orderstatus, " +
+                "   approx_percentile(orderkey, 0.5), " +
+                "   approx_percentile(totalprice, 0.5)," +
+                "   approx_percentile(orderkey, 2, 0.5)," +
+                "   approx_percentile(totalprice, 2, 0.5)\n" +
                 "FROM ORDERS\n" +
                 "GROUP BY orderstatus");
 
@@ -90,6 +94,8 @@ public abstract class AbstractTestQueries
             String status = (String) tuple.getField(0);
             Long orderKey = (Long) tuple.getField(1);
             Double totalPrice = (Double) tuple.getField(2);
+            Long orderKeyWeighted = (Long) tuple.getField(3);
+            Double totalPriceWeighted = (Double) tuple.getField(4);
 
             List<Long> orderKeys = Ordering.natural().sortedCopy(orderKeyByStatus.get(status));
             List<Double> totalPrices = Ordering.natural().sortedCopy(totalPriceByStatus.get(status));
@@ -98,8 +104,14 @@ public abstract class AbstractTestQueries
             assertTrue(orderKey >= orderKeys.get((int) (0.49 * orderKeys.size())));
             assertTrue(orderKey <= orderKeys.get((int) (0.51 * orderKeys.size())));
 
+            assertTrue(orderKeyWeighted >= orderKeys.get((int) (0.49 * orderKeys.size())));
+            assertTrue(orderKeyWeighted <= orderKeys.get((int) (0.51 * orderKeys.size())));
+
             assertTrue(totalPrice >= totalPrices.get((int) (0.49 * totalPrices.size())));
             assertTrue(totalPrice <= totalPrices.get((int) (0.51 * totalPrices.size())));
+
+            assertTrue(totalPriceWeighted >= totalPrices.get((int) (0.49 * totalPrices.size())));
+            assertTrue(totalPriceWeighted <= totalPrices.get((int) (0.51 * totalPrices.size())));
         }
     }
 
