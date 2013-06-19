@@ -13,6 +13,7 @@ import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleReadable;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMap.Builder;
 import com.google.common.collect.Iterables;
 import org.testng.annotations.Test;
 
@@ -151,11 +152,32 @@ public class TestInterpretedProjectionFunction
             Map<Symbol, Input> symbolToInputMappings,
             TupleReadable... channels)
     {
+        Builder<Input, Type> inputTypes = ImmutableMap.builder();
+        for (Input input : symbolToInputMappings.values()) {
+            TupleInfo.Type type = channels[input.getChannel()].getTupleInfo().getTypes().get(input.getField());
+            switch (type) {
+                case BOOLEAN:
+                    inputTypes.put(input, BOOLEAN);
+                    break;
+                case FIXED_INT_64:
+                    inputTypes.put(input, LONG);
+                    break;
+                case VARIABLE_BINARY:
+                    inputTypes.put(input, STRING);
+                    break;
+                case DOUBLE:
+                    inputTypes.put(input, DOUBLE);
+                    break;
+                default:
+                    throw new IllegalStateException("Unsupported type");
+            }
+        }
         InterpretedProjectionFunction projectionFunction = new InterpretedProjectionFunction(outputType,
                 expression,
                 symbolToInputMappings,
                 DUAL_METADATA_MANAGER,
-                new Session("user", "test", Session.DEFAULT_CATALOG, Session.DEFAULT_SCHEMA, null, null));
+                new Session("user", "test", Session.DEFAULT_CATALOG, Session.DEFAULT_SCHEMA, null, null),
+                inputTypes.build());
 
         // create output
         BlockBuilder builder = new BlockBuilder(new TupleInfo(outputType.getRawType()));

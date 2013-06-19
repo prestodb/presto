@@ -55,10 +55,15 @@ public class RecordProjectOperator
     @Override
     public PageIterator iterator(OperatorStats operatorStats)
     {
-        return new RecordProjectionOperator(source.cursor(), tupleInfos, operatorStats);
+        return new RecordProjectionIterator(source.cursor(), tupleInfos, operatorStats);
     }
 
-    private static class RecordProjectionOperator
+    public RecordCursor cursor()
+    {
+        return source.cursor();
+    }
+
+    public static class RecordProjectionIterator
             extends AbstractPageIterator
     {
         private final RecordCursor cursor;
@@ -66,7 +71,7 @@ public class RecordProjectOperator
         private long currentCompletedSize;
         private final PageBuilder pageBuilder;
 
-        public RecordProjectionOperator(RecordCursor cursor, List<TupleInfo> tupleInfos, OperatorStats operatorStats)
+        public RecordProjectionIterator(RecordCursor cursor, List<TupleInfo> tupleInfos, OperatorStats operatorStats)
         {
             super(tupleInfos);
 
@@ -74,6 +79,11 @@ public class RecordProjectOperator
             this.operatorStats = operatorStats;
             operatorStats.addDeclaredSize(cursor.getTotalBytes());
             pageBuilder = new PageBuilder(getTupleInfos());
+        }
+
+        public RecordCursor getCursor()
+        {
+            return cursor;
         }
 
         protected Page computeNext()
