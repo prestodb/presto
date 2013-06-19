@@ -50,7 +50,7 @@ public class DefaultFunctionBinder
                 Object value = ((Constant) node).getValue();
                 if (argument.getType() == boolean.class) {
                     checkArgument(value instanceof Integer, "boolean should be represented as an integer");
-                    value = (value != 0);
+                    value = (((Integer) value) != 0);
                 }
                 // bind constant argument
                 methodHandle = MethodHandles.insertArguments(methodHandle, argIndex, value);

@@ -1907,8 +1907,8 @@ public class ExpressionCompiler
                     constantValuesBuilder.add(testValue);
                     int hashCode;
                     if (type == boolean.class) {
-                        // boolean constant is actually and integer type
-                        hashCode = Operations.hashCode(testValue != 0);
+                        // boolean constant is actually an integer type
+                        hashCode = Operations.hashCode(((Number) testValue).intValue() != 0);
                     }
                     else if (type == long.class) {
                         hashCode = Operations.hashCode((long) testValue);
