@@ -124,7 +124,7 @@ public class CreateAliasExecution
         QualifiedTableName remoteTableName = createQualifiedTableName(stateMachine.getSession(), statement.getRemote());
 
         Optional<TableHandle> remoteTableHandle = metadataManager.getTableHandle(remoteTableName);
-        checkState(!remoteTableHandle.isPresent(), "Table %s does not exist", remoteTableName);
+        checkState(remoteTableHandle.isPresent(), "Table %s does not exist", remoteTableName);
         Optional<String> remoteConnectorId = metadataManager.getConnectorId(remoteTableHandle.get());
         Preconditions.checkArgument(remoteConnectorId.isPresent(), "Table %s can not be aliased", remoteTableName);
 
