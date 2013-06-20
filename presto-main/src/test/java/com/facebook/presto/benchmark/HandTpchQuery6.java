@@ -94,7 +94,7 @@ public class HandTpchQuery6
 
             public TpchQuery6Iterator(PageIterator pageIterator)
             {
-                super(ImmutableList.of(TupleInfo.SINGLE_DOUBLE), pageIterator);
+                super(ImmutableList.of(TupleInfo.SINGLE_DOUBLE), pageIterator, new OperatorStats());
             }
 
             @Override

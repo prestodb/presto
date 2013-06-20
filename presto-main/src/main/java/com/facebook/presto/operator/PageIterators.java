@@ -122,18 +122,25 @@ public final class PageIterators
 
     public static PageIterator createPageIterator(Iterable<? extends Page> pages)
     {
+        return createPageIterator(pages, new OperatorStats());
+    }
+
+    public static PageIterator createPageIterator(Iterable<? extends Page> pages, OperatorStats operatorStats)
+    {
         Preconditions.checkNotNull(pages, "pages is null");
         Preconditions.checkArgument(!Iterables.isEmpty(pages), "pages is empty");
-        return new PageIteratorAdapter(pages);
+        return new PageIteratorAdapter(operatorStats, pages);
     }
 
     private static class PageIteratorAdapter extends AbstractPageIterator
     {
         private final Iterator<? extends Page> iterator;
+        private final OperatorStats operatorStats;
 
-        public PageIteratorAdapter(Iterable<? extends Page> pages)
+        public PageIteratorAdapter(OperatorStats operatorStats, Iterable<? extends Page> pages)
         {
             super(toTupleInfo(pages.iterator().next()));
+            this.operatorStats = operatorStats;
             iterator = pages.iterator();
         }
 
@@ -143,7 +150,12 @@ public final class PageIterators
             if (!iterator.hasNext()) {
                 return endOfData();
             }
-            return iterator.next();
+
+            Page page = iterator.next();
+            operatorStats.addCompletedPositions(page.getPositionCount());
+            operatorStats.addCompletedDataSize(page.getDataSize().toBytes());
+
+            return page;
         }
 
         @Override

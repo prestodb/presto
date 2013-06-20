@@ -13,6 +13,7 @@ import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.operator.FilterFunctions;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
+import com.facebook.presto.operator.OperatorStats.SplitExecutionStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.operator.ProjectionFunction;
@@ -63,6 +64,7 @@ import static com.facebook.presto.tuple.Tuples.createTuple;
 import static com.facebook.presto.tuple.Tuples.nullTuple;
 import static com.facebook.presto.util.LocalQueryRunner.createDualLocalQueryRunner;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static io.airlift.testing.Assertions.assertGreaterThan;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -290,13 +292,19 @@ public final class FunctionAssertions
 
     public static Object execute(Operator operator)
     {
-        PageIterator pageIterator = operator.iterator(new OperatorStats());
+        OperatorStats operatorStats = new OperatorStats();
+
+        PageIterator pageIterator = operator.iterator(operatorStats);
         assertTrue(pageIterator.hasNext());
         Page page = pageIterator.next();
         assertFalse(pageIterator.hasNext());
 
         assertEquals(page.getPositionCount(), 1);
         assertEquals(page.getChannelCount(), 1);
+
+        SplitExecutionStats snapshot = operatorStats.snapshot();
+        assertEquals(snapshot.getCompletedPositions().getTotalCount(), 1);
+        assertGreaterThan(snapshot.getCompletedDataSize().getTotalCount(), 1L);
 
         return getSingleCellValue(page.getBlock(0));
     }

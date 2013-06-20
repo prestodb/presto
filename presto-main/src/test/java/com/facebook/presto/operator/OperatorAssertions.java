@@ -65,7 +65,7 @@ public final class OperatorAssertions
         @Override
         public PageIterator iterator(OperatorStats operatorStats)
         {
-            return PageIterators.createPageIterator(pages);
+            return PageIterators.createPageIterator(pages, operatorStats);
         }
     }
 
