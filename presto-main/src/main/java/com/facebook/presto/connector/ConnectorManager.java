@@ -76,7 +76,7 @@ public class ConnectorManager
         Preconditions.checkArgument(connectorFactory != null, "No factory for connector %s", connectorName);
 
         Connector connector = connectorFactory.create(connectorId, properties);
-        connectors.put(connectorName, connector);
+        connectors.put(connectorId, connector);
 
         addConnector(catalogName, connectorId, connector);
     }
