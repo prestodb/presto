@@ -30,6 +30,7 @@ import org.skife.jdbi.v2.PreparedBatch;
 import org.skife.jdbi.v2.PreparedBatchPart;
 import org.skife.jdbi.v2.StatementContext;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
+import org.testng.Assert;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -1704,6 +1705,156 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         assertQuery("SELECT 1, 1, 'a', 'a' UNION ALL SELECT 1, 2, 'a', 'b'");
+    }
+
+    @Test
+    public void testPredicatePushdown()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT *\n" +
+                "FROM (\n" +
+                "  SELECT orderkey+1 as a FROM orders WHERE orderstatus = 'F' UNION ALL \n" +
+                "  SELECT orderkey FROM orders WHERE orderkey % 2 = 0 UNION ALL \n" +
+                "  (SELECT orderkey+custkey FROM orders ORDER BY orderkey LIMIT 10)\n" +
+                ") \n" +
+                "WHERE a < 20 OR a > 100 \n" +
+                "ORDER BY a");
+    }
+
+    @Test
+    public void testJoinPredicatePushdown()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT COUNT(*)\n" +
+                "FROM lineitem \n" +
+                "JOIN (\n" +
+                "  SELECT * FROM orders\n" +
+                ") orders \n" +
+                "ON lineitem.orderkey = orders.orderkey \n" +
+                "WHERE orders.orderkey % 4 = 0\n" +
+                "  AND lineitem.suppkey > orders.orderkey");
+    }
+
+    @Test
+    public void testLeftJoinAsInnerPredicatePushdown()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT COUNT(*)\n" +
+                "FROM lineitem \n" +
+                "LEFT JOIN (\n" +
+                "  SELECT * FROM orders WHERE orders.orderkey % 2 = 0\n" +
+                ") orders \n" +
+                "ON lineitem.orderkey = orders.orderkey \n" +
+                "WHERE orders.orderkey % 4 = 0\n" +
+                "  AND (lineitem.suppkey % 2 = orders.orderkey % 2 OR orders.custkey IS NULL)");
+    }
+
+    @Test
+    public void testPlainLeftJoinPredicatePushdown()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT COUNT(*)\n" +
+                "FROM lineitem \n" +
+                "LEFT JOIN (\n" +
+                "  SELECT * FROM orders WHERE orders.orderkey % 2 = 0\n" +
+                ") orders \n" +
+                "ON lineitem.orderkey = orders.orderkey \n" +
+                "WHERE lineitem.orderkey % 4 = 0\n" +
+                "  AND (lineitem.suppkey % 2 = orders.orderkey % 2 OR orders.orderkey IS NULL)");
+    }
+
+    @Test
+    public void testLeftJoinPredicatePushdownWithSelfEquality()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT COUNT(*)\n" +
+                "FROM lineitem \n" +
+                "LEFT JOIN (\n" +
+                "  SELECT * FROM orders WHERE orders.orderkey % 2 = 0\n" +
+                ") orders \n" +
+                "ON lineitem.orderkey = orders.orderkey \n" +
+                "WHERE orders.orderkey = orders.orderkey\n" +
+                "  AND lineitem.orderkey % 4 = 0\n" +
+                "  AND (lineitem.suppkey % 2 = orders.orderkey % 2 OR orders.orderkey IS NULL)");
+    }
+
+    @Test
+    public void testPredicatePushdownJoinEqualityGroups()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT *\n" +
+                "FROM (\n" +
+                "  SELECT custkey custkey1, custkey%4 custkey1a, custkey%8 custkey1b, custkey%16 custkey1c\n" +
+                "  FROM orders\n" +
+                ") orders1 \n" +
+                "JOIN (\n" +
+                "  SELECT custkey custkey2, custkey%4 custkey2a, custkey%8 custkey2b\n" +
+                "  FROM orders\n" +
+                ") orders2 ON orders1.custkey1 = orders2.custkey2\n" +
+                "WHERE custkey2a = custkey2b\n" +
+                "  AND custkey1 = custkey1a\n" +
+                "  AND custkey2 = custkey2a\n" +
+                "  AND custkey1a = custkey1c\n" +
+                "  AND custkey1b = custkey1c\n" +
+                "  AND custkey1b % 2 = 0");
+    }
+
+    @Test
+    public void testGroupByKeyPredicatePushdown()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT *\n" +
+                "FROM (\n" +
+                "  SELECT custkey1, orderstatus1, SUM(totalprice1) totalprice, MAX(custkey2) maxcustkey\n" +
+                "  FROM (\n" +
+                "    SELECT *\n" +
+                "    FROM (\n" +
+                "      SELECT custkey custkey1, orderstatus orderstatus1, CAST(totalprice AS BIGINT) totalprice1, orderkey orderkey1\n" +
+                "      FROM orders\n" +
+                "    ) orders1 \n" +
+                "    JOIN (\n" +
+                "      SELECT custkey custkey2, orderstatus orderstatus2, CAST(totalprice AS BIGINT) totalprice2, orderkey orderkey2\n" +
+                "      FROM orders\n" +
+                "    ) orders2 ON orders1.orderkey1 = orders2.orderkey2\n" +
+                "  ) \n" +
+                "  GROUP BY custkey1, orderstatus1\n" +
+                ")\n" +
+                "WHERE custkey1 = maxcustkey\n" +
+                "AND maxcustkey % 2 = 0 \n" +
+                "AND orderstatus1 = 'F'\n" +
+                "AND totalprice > 10000\n" +
+                "ORDER BY custkey1, orderstatus1, totalprice, maxcustkey");
+    }
+
+    @Test
+    public void testNonDeterministicJoinPredicatePushdown()
+            throws Exception
+    {
+        MaterializedResult materializedResult = computeActual("" +
+                "SELECT COUNT(*)\n" +
+                "FROM (\n" +
+                "  SELECT DISTINCT *\n" +
+                "  FROM (\n" +
+                "    SELECT 'abc' as col1a, 500 as col1b FROM lineitem limit 1\n" +
+                "  ) table1\n" +
+                "  JOIN (\n" +
+                "    SELECT 'abc' as col2a FROM lineitem limit 1000000\n" +
+                "  ) table2\n" +
+                "  ON table1.col1a = table2.col2a\n" +
+                "  WHERE rand() * 1000 > table1.col1b\n" +
+                ")");
+        MaterializedTuple tuple = Iterables.getOnlyElement(materializedResult.getMaterializedTuples());
+        Assert.assertEquals(tuple.getFieldCount(), 1);
+        long count = (Long) tuple.getField(0);
+        // Technically non-deterministic unit test but has essentially a next to impossible chance of a false positive
+        Assert.assertTrue(count > 0 && count < 1000000);
     }
 
     @BeforeClass(alwaysRun = true)

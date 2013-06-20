@@ -30,6 +30,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 
 import java.util.Collection;
 import java.util.Map;
@@ -38,6 +40,8 @@ import java.util.Set;
 import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.leftGetter;
 import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.rightGetter;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Predicates.in;
 import static com.google.common.collect.Iterables.concat;
 
 /**
@@ -149,28 +153,23 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode rewriteTableScan(TableScanNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
         {
-            boolean empty = true;
-
-            ImmutableMap.Builder<Symbol, ColumnHandle> assignments = ImmutableMap.builder();
-            for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
-                Symbol symbol = entry.getKey();
-
-                if (expectedOutputs.contains(symbol) || expectedOutputs.isEmpty() && Type.isNumeric(types.get(symbol))) { // heuristic: numeric fields are cheaper if we have to choose an arbitrary one
-                    assignments.put(symbol, entry.getValue());
-                    empty = false;
-
-                    if (expectedOutputs.isEmpty()) {
+            if (expectedOutputs.isEmpty()) {
+                for (Symbol symbol : node.getOutputSymbols()) {
+                    if (Type.isNumeric(types.get(symbol))) {
+                        expectedOutputs = ImmutableSet.of(symbol);
                         break;
                     }
                 }
+                if (expectedOutputs.isEmpty()) {
+                    expectedOutputs = ImmutableSet.of(node.getOutputSymbols().get(0));
+                }
             }
+            checkState(!expectedOutputs.isEmpty());
 
-            if (empty) {
-                Map.Entry<Symbol, ColumnHandle> first = Iterables.getFirst(node.getAssignments().entrySet(), null);
-                assignments.put(first.getKey(), first.getValue());
-            }
+            Set<Symbol> requiredSymbols = Sets.union(expectedOutputs, DependencyExtractor.extract(node.getPartitionPredicate()));
+            Map<Symbol, ColumnHandle> newAssignments = Maps.filterKeys(node.getAssignments(), in(requiredSymbols));
 
-            return new TableScanNode(node.getId(), node.getTable(), assignments.build());
+            return new TableScanNode(node.getId(), node.getTable(), ImmutableList.copyOf(expectedOutputs), newAssignments, node.getPartitionPredicate(), node.getUpstreamPredicateHint());
         }
         @Override
         public PlanNode rewriteFilter(FilterNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)

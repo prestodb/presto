@@ -1,8 +1,11 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.util.IterableTransformer;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.Iterables;
@@ -11,7 +14,9 @@ import com.google.common.collect.ListMultimap;
 import javax.annotation.concurrent.Immutable;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
+import static com.facebook.presto.sql.ExpressionUtils.symbolToQualifiedNameReference;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -70,11 +75,29 @@ public class UnionNode
     public List<Symbol> sourceOutputLayout(int sourceIndex)
     {
         // Make sure the sourceOutputLayout symbols are listed in the same order as the corresponding output symbols
-        ImmutableList.Builder<Symbol> builder = ImmutableList.builder();
-        for (Symbol outputSymbol : getOutputSymbols()) {
-            builder.add(Iterables.get(symbolMapping.get(outputSymbol), sourceIndex));
-        }
-        return builder.build();
+        return IterableTransformer.<Symbol>on(getOutputSymbols())
+                .transform(outputToSourceSymbolFunction(sourceIndex))
+                .list();
+    }
+
+    public Map<Symbol, QualifiedNameReference> sourceSymbolMap(int sourceIndex)
+    {
+        return IterableTransformer.<Symbol>on(getOutputSymbols())
+                .toMap(outputToSourceSymbolFunction(sourceIndex))
+                .<QualifiedNameReference>transformValues(symbolToQualifiedNameReference())
+                .immutableMap();
+    }
+
+    private Function<Symbol, Symbol> outputToSourceSymbolFunction(final int sourceIndex)
+    {
+        return new Function<Symbol, Symbol>()
+        {
+            @Override
+            public Symbol apply(Symbol outputSymbol)
+            {
+                return Iterables.get(symbolMapping.get(outputSymbol), sourceIndex);
+            }
+        };
     }
 
     @Override

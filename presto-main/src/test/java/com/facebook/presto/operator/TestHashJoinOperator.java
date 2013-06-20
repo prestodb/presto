@@ -64,7 +64,7 @@ public class TestHashJoinOperator
                 createLongSequenceBlock(1000, 2000),
                 createLongSequenceBlock(2000, 3000)));
 
-        HashJoinOperator joinOperator = HashJoinOperator.probeOuterjoin(new SourceHashProvider(buildSource, 0, 10, new DataSize(1, MEGABYTE), new OperatorStats()), probeSource, 0);
+        HashJoinOperator joinOperator = HashJoinOperator.outerjoin(new SourceHashProvider(buildSource, 0, 10, new DataSize(1, MEGABYTE), new OperatorStats()), probeSource, 0);
 
         Operator expected = createOperator(new Page(
                 createStringSequenceBlock(0, 1000),

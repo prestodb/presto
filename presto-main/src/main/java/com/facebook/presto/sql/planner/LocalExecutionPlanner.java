@@ -638,7 +638,7 @@ public class LocalExecutionPlanner
                 case INNER:
                     return HashJoinOperator.innerJoin(hashProvider, probeSource, probeJoinChannel);
                 case LEFT:
-                    return HashJoinOperator.probeOuterjoin(hashProvider, probeSource, probeJoinChannel);
+                    return HashJoinOperator.outerjoin(hashProvider, probeSource, probeJoinChannel);
                 default:
                     throw new UnsupportedOperationException("Unsupported join type: " + type);
             }

@@ -194,7 +194,7 @@ public final class GraphvizPrinter
                 builder.append(format("%s := %s\\n", entry.getValue(), entry.getKey()));
             }
 
-            printNode(node, format("TableScan[%s]", node.getTable()), builder.toString());
+            printNode(node, format("TableScan[%s, partition predicate=%s, upstream predicate=%s]", node.getTable(), node.getPartitionPredicate(), node.getUpstreamPredicateHint()), builder.toString());
 
             return null;
         }

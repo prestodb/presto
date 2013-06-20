@@ -139,7 +139,7 @@ public class TableAliasSelector
                 newAssignmentsBuilder.put(assignmentEntry.getKey(), aliasedColumnHandle);
             }
 
-            return new TableScanNode(node.getId(), aliasTableHandle.get(), newAssignmentsBuilder.build());
+            return new TableScanNode(node.getId(), aliasTableHandle.get(), node.getOutputSymbols(), newAssignmentsBuilder.build(), node.getPartitionPredicate(), node.getUpstreamPredicateHint());
         }
 
         private boolean allNodesPresent(long tableId)

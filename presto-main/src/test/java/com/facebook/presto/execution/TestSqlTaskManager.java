@@ -45,6 +45,7 @@ import java.net.URI;
 import java.util.NoSuchElementException;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
@@ -100,7 +101,7 @@ public class TestSqlTaskManager
         testFragment = new PlanFragment(new PlanFragmentId("fragment"),
                 tableScanNodeId,
                 ImmutableMap.<Symbol, Type>of(symbol, Type.STRING),
-                new TableScanNode(tableScanNodeId, tableHandle, ImmutableMap.of(symbol, columnHandle)));
+                new TableScanNode(tableScanNodeId, tableHandle, ImmutableList.of(symbol), ImmutableMap.of(symbol, columnHandle), TRUE_LITERAL, TRUE_LITERAL));
 
         taskId = new TaskId("query", "stage", "task");
         session = new Session("user", "test", "default", "default", "test", "test");

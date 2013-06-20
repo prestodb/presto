@@ -8,6 +8,7 @@ import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.sql.planner.optimizations.LimitPushDown;
 import com.facebook.presto.sql.planner.optimizations.MergeProjections;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
+import com.facebook.presto.sql.planner.optimizations.PredicatePushDown;
 import com.facebook.presto.sql.planner.optimizations.PruneRedundantProjections;
 import com.facebook.presto.sql.planner.optimizations.PruneUnreferencedOutputs;
 import com.facebook.presto.sql.planner.optimizations.SetFlatteningOptimizer;
@@ -40,9 +41,11 @@ public class PlanOptimizersFactory
                 new PruneUnreferencedOutputs(),
                 new UnaliasSymbolReferences(),
                 new PruneRedundantProjections(),
-                new MergeProjections(),
                 new SetFlatteningOptimizer(),
-                new LimitPushDown()); // Run the LimitPushDown after flattening set operators to make it easier to do the set flattening
+                new LimitPushDown(), // Run the LimitPushDown after flattening set operators to make it easier to do the set flattening
+                new PredicatePushDown(metadata),
+                new MergeProjections(),
+                new SimplifyExpressions(metadata)); // Re-run the SimplifyExpressions to simplify any recomposed expressions from other optimizations
         // TODO: figure out how to improve the set flattening optimizer so that it can run at any point
 
         this.optimizers = builder.build();

@@ -2,6 +2,7 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
+import com.facebook.presto.sql.planner.ExpressionInliner;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -9,9 +10,6 @@ import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
 import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.NodeRewriter;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.TreeRewriter;
 import com.google.common.collect.ImmutableMap;
 
@@ -47,7 +45,7 @@ public class MergeProjections
             if (source instanceof ProjectNode) {
                 ImmutableMap.Builder<Symbol, Expression> projections = ImmutableMap.builder();
                 for (Map.Entry<Symbol, Expression> projection : node.getOutputMap().entrySet()) {
-                    Expression inlined = TreeRewriter.rewriteWith(new Inliner(((ProjectNode) source).getOutputMap()), projection.getValue());
+                    Expression inlined = TreeRewriter.rewriteWith(new ExpressionInliner(((ProjectNode) source).getOutputMap()), projection.getValue());
                     projections.put(projection.getKey(), inlined);
                 }
 
@@ -55,23 +53,6 @@ public class MergeProjections
             }
 
             return new ProjectNode(node.getId(), source, node.getOutputMap());
-        }
-    }
-
-    private static class Inliner
-            extends NodeRewriter<Void>
-    {
-        private final Map<Symbol, Expression> mappings;
-
-        public Inliner(Map<Symbol, Expression> mappings)
-        {
-            this.mappings = mappings;
-        }
-
-        @Override
-        public Node rewriteQualifiedNameReference(QualifiedNameReference node, Void context, TreeRewriter<Void> treeRewriter)
-        {
-            return mappings.get(Symbol.fromQualifiedName(node.getName()));
         }
     }
 }
