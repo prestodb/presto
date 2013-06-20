@@ -48,6 +48,7 @@ import io.airlift.slice.Slice;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -57,7 +58,9 @@ import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.operator.OperatorAssertions.createOperator;
 import static com.facebook.presto.sql.parser.SqlParser.createExpression;
+import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 import static com.facebook.presto.tuple.Tuples.createTuple;
+import static com.facebook.presto.tuple.Tuples.nullTuple;
 import static com.facebook.presto.util.LocalQueryRunner.createDualLocalQueryRunner;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -72,13 +75,14 @@ public final class FunctionAssertions
 
     private static final ExpressionCompiler compiler = new ExpressionCompiler(new MetadataManager());
 
-    private static final Operator SOURCE = createOperator(new Page(
+    public static final Operator SOURCE = createOperator(new Page(
             createLongsBlock(1234L),
             createStringsBlock("hello"),
             createDoublesBlock(12.34),
             createBooleansBlock(true),
             createLongsBlock(MILLISECONDS.toSeconds(new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis())),
-            createStringsBlock("%el%")));
+            createStringsBlock("%el%"),
+            createStringsBlock((String) null)));
 
     private static final Map<Input, Type> INPUT_TYPES = ImmutableMap.<Input, Type>builder()
             .put(new Input(0, 0), Type.LONG)
@@ -87,6 +91,7 @@ public final class FunctionAssertions
             .put(new Input(3, 0), Type.BOOLEAN)
             .put(new Input(4, 0), Type.LONG)
             .put(new Input(5, 0), Type.STRING)
+            .put(new Input(6, 0), Type.STRING)
             .build();
 
     private static final Map<Symbol, Input> INPUT_MAPPING = ImmutableMap.<Symbol, Input>builder()
@@ -96,6 +101,7 @@ public final class FunctionAssertions
             .put(new Symbol("bound_boolean"), new Input(3, 0))
             .put(new Symbol("bound_timestamp"), new Input(4, 0))
             .put(new Symbol("bound_pattern"), new Input(5, 0))
+            .put(new Symbol("bound_null_string"), new Input(6, 0))
             .build();
 
     private FunctionAssertions() {}
@@ -166,7 +172,8 @@ public final class FunctionAssertions
                 createTuple(12.34),
                 createTuple(true),
                 createTuple(MILLISECONDS.toSeconds(new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis())),
-                createTuple("%el%"));
+                createTuple("%el%"),
+                nullTuple(SINGLE_VARBINARY));
         assertEquals(value, expected);
     }
 
@@ -247,7 +254,7 @@ public final class FunctionAssertions
         return createCompiledOperatorFactory(projection).createOperator(SOURCE, session);
     }
 
-    private static OperatorFactory createCompiledOperatorFactory(String projection)
+    public static OperatorFactory createCompiledOperatorFactory(String projection)
     {
         Expression parsedExpression = parseExpression(projection);
 
@@ -330,24 +337,28 @@ public final class FunctionAssertions
         return parsedExpression;
     }
 
-    private static RecordProjectOperator createRecordProjectOperator()
+    public static RecordProjectOperator createRecordProjectOperator()
     {
         return new RecordProjectOperator(new InMemoryRecordSet(
                 ImmutableList.of(
                         ColumnType.LONG,
                         ColumnType.STRING,
                         ColumnType.DOUBLE,
+                        ColumnType.BOOLEAN,
                         ColumnType.LONG,
+                        ColumnType.STRING,
                         ColumnType.STRING),
-                ImmutableList.of(ImmutableList.<Object>of(
+                ImmutableList.of(Arrays.<Object>asList(
                         1234L,
                         "hello",
                         12.34,
+                        true,
                         MILLISECONDS.toSeconds(new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis()),
-                        "%el%"))));
+                        "%el%",
+                        null))));
     }
 
-    private static TableScanOperator createTableScanOperator(final Operator source)
+    public static TableScanOperator createTableScanOperator(final Operator source)
     {
         TableScanOperator tableScanOperator = new TableScanOperator(
                 new DataStreamProvider()
