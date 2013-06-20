@@ -41,9 +41,9 @@ public class FilterAndProjectOperator
     }
 
     @Override
-    protected PageIterator iterator(PageIterator source)
+    protected PageIterator iterator(PageIterator source, OperatorStats operatorStats)
     {
-        return new FilterAndProjectIterator(source, filter, projections);
+        return new FilterAndProjectIterator(source, filter, projections, operatorStats);
     }
 
     public static class FilterAndProjectIterator
@@ -51,12 +51,15 @@ public class FilterAndProjectOperator
     {
         private final FilterFunction filterFunction;
         private final List<ProjectionFunction> projections;
+        private final OperatorStats operatorStats;
+        private long currentCompletedSize;
 
-        public FilterAndProjectIterator(PageIterator pageIterator, FilterFunction filterFunction, List<ProjectionFunction> projections)
+        public FilterAndProjectIterator(PageIterator pageIterator, FilterFunction filterFunction, List<ProjectionFunction> projections, OperatorStats operatorStats)
         {
-            super(toTupleInfos(projections), pageIterator);
+            super(toTupleInfos(projections), pageIterator, operatorStats);
             this.filterFunction = filterFunction;
             this.projections = projections;
+            this.operatorStats = operatorStats;
         }
 
         protected void filterAndProjectRowOriented(Block[] blocks, PageBuilder pageBuilder)
@@ -90,7 +93,9 @@ public class FilterAndProjectOperator
         @Override
         protected void filterAndProjectRowOriented(RecordCursor cursor, PageBuilder pageBuilder)
         {
+            long completedPositions = 0;
             while (!pageBuilder.isFull() && cursor.advanceNextPosition()) {
+                completedPositions++;
                 if (filterFunction.filter(cursor)) {
                     pageBuilder.declarePosition();
                     for (int i = 0; i < projections.size(); i++) {
@@ -99,6 +104,13 @@ public class FilterAndProjectOperator
                     }
                 }
             }
+
+            long completedDataSize = cursor.getCompletedBytes();
+            if (completedDataSize > currentCompletedSize) {
+                operatorStats.addCompletedDataSize(completedDataSize - currentCompletedSize);
+                currentCompletedSize = completedDataSize;
+            }
+            operatorStats.addCompletedPositions(completedPositions);
         }
     }
 }

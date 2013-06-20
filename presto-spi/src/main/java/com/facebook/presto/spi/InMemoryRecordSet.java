@@ -13,11 +13,18 @@ public class InMemoryRecordSet
 {
     private final List<ColumnType> types;
     private final Iterable<? extends List<?>> records;
+    private final long totalBytes;
 
     public InMemoryRecordSet(Collection<ColumnType> types, Collection<? extends List<?>> records)
     {
         this.types = Collections.unmodifiableList(new ArrayList<>(types));
         this.records = records;
+
+        long totalBytes = 0;
+        for (List<?> record : records) {
+            totalBytes += sizeOf(record);
+        }
+        this.totalBytes = totalBytes;
     }
 
     @Override
@@ -29,30 +36,34 @@ public class InMemoryRecordSet
     @Override
     public RecordCursor cursor()
     {
-        return new InMemoryRecordCursor(records.iterator());
+        return new InMemoryRecordCursor(records.iterator(), totalBytes);
     }
 
     private static class InMemoryRecordCursor
             implements RecordCursor
     {
         private final Iterator<? extends List<?>> records;
+        private final long totalBytes;
         private List<?> record;
+        private long completedBytes;
 
-        private InMemoryRecordCursor(Iterator<? extends List<?>> records)
+        private InMemoryRecordCursor(Iterator<? extends List<?>> records, long totalBytes)
         {
             this.records = records;
+
+            this.totalBytes = totalBytes;
         }
 
         @Override
         public long getTotalBytes()
         {
-            return 0;
+            return totalBytes;
         }
 
         @Override
         public long getCompletedBytes()
         {
-            return 0;
+            return completedBytes;
         }
 
         @Override
@@ -63,6 +74,8 @@ public class InMemoryRecordSet
                 return false;
             }
             record = records.next();
+            completedBytes += sizeOf(record);
+
             return true;
         }
 
@@ -169,7 +182,8 @@ public class InMemoryRecordSet
                         checkArgument(value instanceof Double, "Expected value %d to be an instance of Double, but is a %s", i, value.getClass().getSimpleName());
                         break;
                     case STRING:
-                        checkArgument(value instanceof String, "Expected value %d to be an instance of String, but is a %s", i, value.getClass().getSimpleName());
+                        checkArgument(value instanceof String || value instanceof byte[],
+                                "Expected value %d to be an instance of String or byte[], but is a %s", i, value.getClass().getSimpleName());
                         break;
                     default:
                         throw new IllegalStateException("Unsupported column type " + types.get(i));
@@ -205,5 +219,28 @@ public class InMemoryRecordSet
         if (!test) {
             throw new IllegalStateException(message);
         }
-    }    
+    }
+
+    private static long sizeOf(List<?> record)
+    {
+        long completedBytes = 0;
+        for (Object value : record) {
+            if (value instanceof Boolean) {
+                completedBytes++;
+            }
+            else if (value instanceof Long) {
+                completedBytes += 8;
+            }
+            else if (value instanceof Double) {
+                completedBytes += 8;
+            }
+            else if (value instanceof String) {
+                completedBytes += ((String) value).length();
+            }
+            else if (value instanceof byte[]) {
+                completedBytes += ((byte[]) value).length;
+            }
+        }
+        return completedBytes;
+    }
 }

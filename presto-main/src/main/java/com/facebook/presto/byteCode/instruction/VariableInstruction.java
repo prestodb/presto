@@ -1,6 +1,7 @@
 package com.facebook.presto.byteCode.instruction;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Type;
@@ -115,6 +116,8 @@ public abstract class VariableInstruction implements InstructionNode
         public IncrementVariableInstruction(LocalVariableDefinition variable, byte increment)
         {
             super(variable);
+            String type = variable.getType().getClassName();
+            Preconditions.checkArgument(ImmutableList.of("byte", "short", "int").contains(type), "variable must be an byte, short or int, but is %s", type);
             this.increment = increment;
         }
 

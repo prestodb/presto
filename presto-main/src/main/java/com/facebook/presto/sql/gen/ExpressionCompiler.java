@@ -32,6 +32,7 @@ import com.facebook.presto.operator.AbstractFilterAndProjectOperator;
 import com.facebook.presto.operator.AbstractFilterAndProjectOperator.AbstractFilterAndProjectIterator;
 import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.operator.Operator;
+import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.operator.ProjectionFunction;
@@ -294,28 +295,36 @@ public class ExpressionCompiler
                 typeFromPathName("FilterAndProjectIterator_" + CLASS_ID.incrementAndGet()),
                 type(AbstractFilterAndProjectIterator.class));
 
-        // declare session field
+        // declare fields
         FieldDefinition sessionField = classDefinition.declareField(a(PRIVATE, FINAL), "session", Session.class);
+        FieldDefinition operatorStatsField = classDefinition.declareField(a(PRIVATE, FINAL), "operatorStats", OperatorStats.class);
+        FieldDefinition currentCompletedSizeField = classDefinition.declareField(a(PRIVATE), "currentCompletedSize", long.class);
 
         // constructor
         classDefinition.declareConstructor(new CompilerContext(bootstrapMethod),
                 a(PUBLIC),
                 arg("tupleInfos", type(Iterable.class, TupleInfo.class)),
                 arg("pageIterator", PageIterator.class),
-                arg("session", Session.class))
+                arg("session", Session.class),
+                arg("operatorStats", OperatorStats.class))
                 .getBody()
                 .comment("super(tupleInfos, pageIterator);")
                 .pushThis()
                 .getVariable("tupleInfos")
                 .getVariable("pageIterator")
-                .invokeConstructor(AbstractFilterAndProjectIterator.class, Iterable.class, PageIterator.class)
+                .getVariable("operatorStats")
+                .invokeConstructor(AbstractFilterAndProjectIterator.class, Iterable.class, PageIterator.class, OperatorStats.class)
                 .comment("this.session = session;")
                 .pushThis()
                 .getVariable("session")
-                .putField(classDefinition.getType(), sessionField)
+                .putField(sessionField)
+                .comment("this.operatorStats = operatorStats;")
+                .pushThis()
+                .getVariable("operatorStats")
+                .putField(operatorStatsField)
                 .ret();
 
-        generateFilterAndProjectCursorMethod(classDefinition, projections);
+        generateFilterAndProjectCursorMethod(classDefinition, projections, operatorStatsField, currentCompletedSizeField);
         generateFilterAndProjectIteratorMethod(classDefinition, projections, inputTypes);
 
         //
@@ -490,7 +499,10 @@ public class ExpressionCompiler
         filterAndProjectMethod.getBody().ret();
     }
 
-    private void generateFilterAndProjectCursorMethod(ClassDefinition classDefinition, List<Expression> projections)
+    private void generateFilterAndProjectCursorMethod(ClassDefinition classDefinition,
+            List<Expression> projections,
+            FieldDefinition operatorStatsField,
+            FieldDefinition currentCompletedSizeField)
     {
         MethodDefinition filterAndProjectMethod = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
                 a(PUBLIC),
@@ -500,6 +512,11 @@ public class ExpressionCompiler
                 arg("pageBuilder", PageBuilder.class));
 
         CompilerContext compilerContext = filterAndProjectMethod.getCompilerContext();
+
+        LocalVariableDefinition completedPositionsVariable = compilerContext.declareVariable(long.class, "completedPositions");
+        filterAndProjectMethod.getBody()
+                .comment("long completedPositions = 0;")
+                .putVariable(completedPositionsVariable, 0L);
 
         //
         // while loop body
@@ -516,6 +533,13 @@ public class ExpressionCompiler
                         .invokeInterface(RecordCursor.class, "advanceNextPosition", boolean.class));
 
         Block whileLoopBody = new Block(compilerContext);
+
+        whileLoopBody
+                .comment("completedPositions++")
+                .getVariable(completedPositionsVariable)
+                .push(1L)
+                .invokeStatic(Operations.class, "add", long.class, long.class, long.class)
+                .putVariable(completedPositionsVariable);
 
         // if (filter(cursor))
         IfStatementBuilder ifStatement = new IfStatementBuilder(compilerContext);
@@ -555,6 +579,54 @@ public class ExpressionCompiler
                 .append(whileLoop.body(whileLoopBody).build())
                 .visitLabel(done);
 
+        //
+        // Update completed data size in operator stats
+        //
+        LocalVariableDefinition completedDataSizeVariable = compilerContext.declareVariable(long.class, "completedDataSize");
+        filterAndProjectMethod.getBody()
+                .comment("long completedDataSize = cursor.getCompletedBytes();")
+                .getVariable("cursor")
+                .invokeInterface(RecordCursor.class, "getCompletedBytes", long.class)
+                .putVariable(completedDataSizeVariable);
+
+        Block shouldUpdateCompletedDataSize = new Block(compilerContext)
+                .comment("completedDataSize > this.currentCompletedSize")
+                .getVariable(completedDataSizeVariable)
+                .pushThis()
+                .getField(currentCompletedSizeField)
+                .invokeStatic(Operations.class, "greaterThan", boolean.class, long.class, long.class);
+
+        Block updateCompletedDataSize = new Block(compilerContext);
+
+        updateCompletedDataSize
+                .comment("operatorStats.addCompletedDataSize(completedDataSize - this.currentCompletedSize);")
+                .pushThis()
+                .getField(operatorStatsField)
+                .getVariable(completedDataSizeVariable)
+                .pushThis()
+                .getField(currentCompletedSizeField)
+                .invokeStatic(Operations.class, "subtract", long.class, long.class, long.class)
+                .invokeVirtual(OperatorStats.class, "addCompletedDataSize", void.class, long.class);
+
+        updateCompletedDataSize
+                .comment("this.currentCompletedSize = completedDataSize")
+                .pushThis()
+                .getVariable(completedDataSizeVariable)
+                .putField(currentCompletedSizeField);
+
+        filterAndProjectMethod.getBody().append(new IfStatement(compilerContext, shouldUpdateCompletedDataSize, updateCompletedDataSize, NOP));
+
+        //
+        // Update completed positions in operator stats
+        //
+        filterAndProjectMethod
+                .getBody()
+                .comment("operatorStats.addCompletedPositions(completedPositions);")
+                .pushThis()
+                .getField(operatorStatsField)
+                .getVariable(completedPositionsVariable)
+                .invokeVirtual(OperatorStats.class, "addCompletedPositions", void.class, long.class);
+
         filterAndProjectMethod.getBody().ret();
     }
 
@@ -585,7 +657,7 @@ public class ExpressionCompiler
                 .comment("this.tupleInfos = tupleInfos;")
                 .pushThis()
                 .getVariable("tupleInfos")
-                .putField(classDefinition.getType(), tupleInfoField)
+                .putField(tupleInfoField)
                 .ret();
 
         // createOperator method
@@ -601,7 +673,7 @@ public class ExpressionCompiler
                 .newObject(operatorClass)
                 .dup()
                 .pushThis()
-                .getField(classDefinition.getType(), tupleInfoField)
+                .getField(tupleInfoField)
                 .getVariable("source")
                 .getVariable("session")
                 .invokeConstructor(constructor)
@@ -643,14 +715,15 @@ public class ExpressionCompiler
                 .comment("this.session = session;")
                 .pushThis()
                 .getVariable("session")
-                .putField(classDefinition.getType(), sessionField)
+                .putField(sessionField)
                 .ret();
 
         MethodDefinition iteratorMethod = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
                 a(PUBLIC),
                 "iterator",
                 type(PageIterator.class),
-                arg("source", PageIterator.class));
+                arg("source", PageIterator.class),
+                arg("operatorStats", OperatorStats.class));
 
         iteratorMethod.getBody()
                 .comment("return new %s(getTupleInfos(), source);", iteratorClass.getName())
@@ -660,8 +733,9 @@ public class ExpressionCompiler
                 .invokeInterface(Operator.class, "getTupleInfos", List.class)
                 .getVariable("source")
                 .pushThis()
-                .getField(classDefinition.getType(), sessionField)
-                .invokeConstructor(iteratorClass, Iterable.class, PageIterator.class, Session.class)
+                .getField(sessionField)
+                .getVariable("operatorStats")
+                .invokeConstructor(iteratorClass, Iterable.class, PageIterator.class, Session.class, OperatorStats.class)
                 .retObject();
 
         return defineClasses(ImmutableList.of(classDefinition), classLoader).values().iterator().next().asSubclass(Operator.class);
@@ -689,7 +763,7 @@ public class ExpressionCompiler
                 .comment("this.session = session;")
                 .pushThis()
                 .getVariable("session")
-                .putField(classDefinition.getType(), sessionField)
+                .putField(sessionField)
                 .ret();
 
         //
@@ -830,7 +904,7 @@ public class ExpressionCompiler
                 .comment("this.session = session;")
                 .pushThis()
                 .getVariable("session")
-                .putField(classDefinition.getType(), sessionField)
+                .putField(sessionField)
                 .ret();
 
         //
