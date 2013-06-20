@@ -1194,11 +1194,10 @@ public class ExpressionCompiler
             checkState(type != null, "No type for input %s", input);
 
             if (sourceIsCursor) {
-                int field = input.getField();
                 Block isNullCheck = new Block(context)
-                        .setDescription(format("cursor.get%s(%d)", type, field))
+                        .setDescription(format("cursor.get%s(%d)", type, channel))
                         .getVariable("cursor")
-                        .push(field)
+                        .push(channel)
                         .invokeInterface(RecordCursor.class, "isNull", boolean.class, int.class);
 
 
