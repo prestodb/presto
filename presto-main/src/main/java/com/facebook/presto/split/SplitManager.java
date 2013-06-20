@@ -1,16 +1,15 @@
 package com.facebook.presto.split;
 
-import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.execution.DataSource;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.LookupSymbolResolver;
-import com.facebook.presto.sql.planner.SymbolResolver;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
@@ -18,7 +17,6 @@ import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.inject.Inject;
 
@@ -27,8 +25,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static com.facebook.presto.sql.ExpressionUtils.and;
+import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Predicates.in;
 import static com.google.common.collect.Iterables.filter;
 
 public class SplitManager
@@ -48,9 +47,9 @@ public class SplitManager
         splitManagers.add(connectorSplitManager);
     }
 
-    public DataSource getSplits(Session session, TableHandle handle, Expression predicate, Predicate<Partition> partitionPredicate, Map<Symbol, ColumnHandle> mappings)
+    public DataSource getSplits(Session session, TableHandle handle, Expression predicate, Expression upstreamHint, Predicate<Partition> partitionPredicate, Map<Symbol, ColumnHandle> mappings)
     {
-        List<Partition> partitions = getPartitions(session, handle, predicate, partitionPredicate, mappings);
+        List<Partition> partitions = getPartitions(session, handle, and(predicate, upstreamHint), partitionPredicate, mappings);
         ConnectorSplitManager connectorSplitManager = getConnectorSplitManager(handle);
 
         String connectorId = connectorSplitManager.getConnectorId();
@@ -101,26 +100,36 @@ public class SplitManager
 
     private List<Partition> prunePartitions(Session session, List<Partition> partitions, Expression predicate, Map<ColumnHandle, Symbol> columnToSymbol)
     {
-        ImmutableList.Builder<Partition> builder = ImmutableList.builder();
+        ImmutableList.Builder<Partition> partitionBuilder = ImmutableList.builder();
         for (Partition partition : partitions) {
-            // translate assignments from column->value to symbol->value
-            // only bind partition keys that appear in the predicate
-            Map<ColumnHandle, Object> relevantFields = Maps.filterKeys(partition.getKeys(), in(columnToSymbol.keySet()));
-
-            ImmutableMap.Builder<Symbol, Object> assignments = ImmutableMap.builder();
-            for (Map.Entry<ColumnHandle, Object> entry : relevantFields.entrySet()) {
-                Symbol symbol = columnToSymbol.get(entry.getKey());
-                assignments.put(symbol, entry.getValue());
-            }
-
-            SymbolResolver resolver = new LookupSymbolResolver(assignments.build());
-            Object optimized = ExpressionInterpreter.expressionOptimizer(resolver, metadata, session).process(predicate, null);
-            if (!Boolean.FALSE.equals(optimized) && optimized != null) {
-                builder.add(partition);
+            if (!shouldPrunePartition(session, partition, predicate, columnToSymbol)) {
+                partitionBuilder.add(partition);
             }
         }
+        return partitionBuilder.build();
+    }
 
-        return builder.build();
+    private boolean shouldPrunePartition(Session session, Partition partition, Expression predicate, Map<ColumnHandle, Symbol> columnToSymbol)
+    {
+        // translate assignments from column->value to symbol->value
+        ImmutableMap.Builder<Symbol, Object> assignments = ImmutableMap.builder();
+        for (Map.Entry<ColumnHandle, Object> entry : partition.getKeys().entrySet()) {
+            ColumnHandle columnHandle = entry.getKey();
+            if (columnToSymbol.containsKey(columnHandle)) {
+                Symbol symbol = columnToSymbol.get(columnHandle);
+                assignments.put(symbol, entry.getValue());
+            }
+        }
+        ExpressionInterpreter optimizer = ExpressionInterpreter.expressionOptimizer(new LookupSymbolResolver(assignments.build()), metadata, session);
+
+        // If any conjuncts evaluate to FALSE or null, then the whole predicate will never be true and so the partition should be pruned
+        for (Expression expression : extractConjuncts(predicate)) {
+            Object optimized = optimizer.process(expression, null);
+            if (Boolean.FALSE.equals(optimized) || optimized == null) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private ConnectorSplitManager getConnectorSplitManager(TableHandle handle)

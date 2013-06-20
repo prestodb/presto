@@ -6,6 +6,7 @@ import com.fasterxml.jackson.annotation.JsonValue;
 import com.google.common.base.Preconditions;
 
 public class Symbol
+        implements Comparable<Symbol>
 {
     private final String name;
 
@@ -62,5 +63,11 @@ public class Symbol
     public int hashCode()
     {
         return name.hashCode();
+    }
+
+    @Override
+    public int compareTo(Symbol o)
+    {
+        return name.compareTo(o.name);
     }
 }

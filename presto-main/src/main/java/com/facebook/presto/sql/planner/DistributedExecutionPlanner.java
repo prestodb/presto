@@ -5,7 +5,6 @@ import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.split.SplitManager;
-import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
@@ -13,7 +12,6 @@ import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
-import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
@@ -24,22 +22,16 @@ import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
-import com.facebook.presto.sql.tree.BooleanLiteral;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import javax.inject.Inject;
-import java.util.ArrayList;
+
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -55,32 +47,28 @@ public class DistributedExecutionPlanner
             Session session,
             ShardManager shardManager)
     {
-        this.splitManager = splitManager;
-        this.session = session;
+        this.splitManager = checkNotNull(splitManager, "splitManager is null");
+        this.session = checkNotNull(session, "session is null");
         this.shardManager = checkNotNull(shardManager, "databaseShardManager is null");
     }
 
     public StageExecutionPlan plan(SubPlan root)
     {
-        return plan(root, VisitorContext.INITIAL_VISITOR_CONTEXT);
+        return plan(root, Predicates.<Partition>alwaysTrue());
     }
 
-    public StageExecutionPlan plan(SubPlan root, VisitorContext context)
+    public StageExecutionPlan plan(SubPlan root, Predicate<Partition> tableWriterPartitionPredicate)
     {
         PlanFragment currentFragment = root.getFragment();
 
         // get splits for this fragment, this is lazy so split assignments aren't actually calculated here
         Visitor visitor = new Visitor();
-        NodeSplits nodeSplits = currentFragment.getRoot().accept(visitor, context);
+        NodeSplits nodeSplits = currentFragment.getRoot().accept(visitor, tableWriterPartitionPredicate);
 
         // create child stages
         ImmutableList.Builder<StageExecutionPlan> dependencies = ImmutableList.builder();
         for (SubPlan childPlan : root.getChildren()) {
-            Expression predicate = visitor.getInheritedPredicatesBySourceFragmentId().get(childPlan.getFragment().getId());
-            Preconditions.checkNotNull(predicate, "Expected to find a predicate for fragment %s", childPlan.getFragment().getId());
-
-            StageExecutionPlan dependency = plan(childPlan, new VisitorContext(predicate, context.getPartitionPredicate()));
-            dependencies.add(dependency);
+            dependencies.add(plan(childPlan, tableWriterPartitionPredicate));
         }
 
         return new StageExecutionPlan(currentFragment,
@@ -89,40 +77,9 @@ public class DistributedExecutionPlanner
                 visitor.getOutputReceivers());
     }
 
-    public static final class VisitorContext
-    {
-        private static final VisitorContext INITIAL_VISITOR_CONTEXT = new VisitorContext(BooleanLiteral.TRUE_LITERAL, Predicates.<Partition>alwaysTrue());
-
-        private final Expression inheritedPredicate;
-        private final Predicate<Partition> partitionPredicate;
-
-        public VisitorContext(Expression inheritedPredicate, Predicate<Partition> partitionPredicate)
-        {
-            this.inheritedPredicate = inheritedPredicate;
-            this.partitionPredicate = partitionPredicate;
-        }
-
-        public Expression getInheritedPredicate()
-        {
-            return inheritedPredicate;
-        }
-
-        public Predicate<Partition> getPartitionPredicate()
-        {
-            return partitionPredicate;
-        }
-    }
-
     private final class Visitor
-            extends PlanVisitor<VisitorContext, NodeSplits>
+            extends PlanVisitor<Predicate<Partition>, NodeSplits>
     {
-        private final Map<PlanFragmentId, Expression> inheritedPredicatesBySourceFragmentId = new HashMap<>();
-
-        public Map<PlanFragmentId, Expression> getInheritedPredicatesBySourceFragmentId()
-        {
-            return inheritedPredicatesBySourceFragmentId;
-        }
-
         private final Map<PlanNodeId, OutputReceiver> outputReceivers = new HashMap<>();
 
         public Map<PlanNodeId, OutputReceiver> getOutputReceivers()
@@ -131,50 +88,24 @@ public class DistributedExecutionPlanner
         }
 
         @Override
-        public NodeSplits visitTableScan(TableScanNode node, VisitorContext context)
+        public NodeSplits visitTableScan(TableScanNode node, Predicate<Partition> tableWriterPartitionPredicate)
         {
             // get dataSource for table
             DataSource dataSource = splitManager.getSplits(session,
                     node.getTable(),
-                    context.getInheritedPredicate(),
-                    context.getPartitionPredicate(),
+                    node.getPartitionPredicate(),
+                    node.getUpstreamPredicateHint(),
+                    tableWriterPartitionPredicate,
                     node.getAssignments());
 
             return new NodeSplits(node.getId(), dataSource);
         }
 
         @Override
-        public NodeSplits visitJoin(JoinNode node, VisitorContext context)
+        public NodeSplits visitJoin(JoinNode node, Predicate<Partition> tableWriterPartitionPredicate)
         {
-            List<Expression> leftConjuncts = new ArrayList<>();
-            List<Expression> rightConjuncts = new ArrayList<>();
-
-            for (Expression conjunct : ExpressionUtils.extractConjuncts(context.getInheritedPredicate())) {
-                Set<Symbol> symbols = DependencyExtractor.extract(conjunct);
-
-                // is the expression "fully bound" by the either side? If so, it's safe to push it down
-                if (node.getLeft().getOutputSymbols().containsAll(symbols)) {
-                    leftConjuncts.add(conjunct);
-                }
-                else if (node.getRight().getOutputSymbols().containsAll(symbols)) {
-                    rightConjuncts.add(conjunct);
-                }
-            }
-
-            // Predicates cannot be naively pushed down through a LEFT join
-            // TODO: fix this with proper predicate push down
-            Expression leftPredicate = BooleanLiteral.TRUE_LITERAL;
-            if (!leftConjuncts.isEmpty() && node.getType() != JoinNode.Type.LEFT) {
-                leftPredicate = ExpressionUtils.and(leftConjuncts);
-            }
-
-            Expression rightPredicate = BooleanLiteral.TRUE_LITERAL;
-            if (!rightConjuncts.isEmpty() && node.getType() != JoinNode.Type.LEFT) {
-                rightPredicate = ExpressionUtils.and(rightConjuncts);
-            }
-
-            NodeSplits leftSplits = node.getLeft().accept(this, new VisitorContext(leftPredicate, context.getPartitionPredicate()));
-            NodeSplits rightSplits = node.getRight().accept(this, new VisitorContext(rightPredicate, context.getPartitionPredicate()));
+            NodeSplits leftSplits = node.getLeft().accept(this, tableWriterPartitionPredicate);
+            NodeSplits rightSplits = node.getRight().accept(this, tableWriterPartitionPredicate);
             if (leftSplits.dataSource.isPresent() && rightSplits.dataSource.isPresent()) {
                 throw new IllegalArgumentException("Both left and right join nodes are partitioned"); // TODO: "partitioned" may not be the right term
             }
@@ -187,83 +118,73 @@ public class DistributedExecutionPlanner
         }
 
         @Override
-        public NodeSplits visitExchange(ExchangeNode node, VisitorContext context)
+        public NodeSplits visitExchange(ExchangeNode node, Predicate<Partition> tableWriterPartitionPredicate)
         {
-            for (PlanFragmentId planFragmentId : node.getSourceFragmentIds()) {
-                inheritedPredicatesBySourceFragmentId.put(planFragmentId, context.getInheritedPredicate());
-            }
-
             // exchange node does not have splits
             return new NodeSplits(node.getId());
         }
 
         @Override
-        public NodeSplits visitFilter(FilterNode node, VisitorContext context)
+        public NodeSplits visitFilter(FilterNode node, Predicate<Partition> tableWriterPartitionPredicate)
         {
-            Expression inheritedPredicate = context.getInheritedPredicate();
-            Expression predicate = node.getPredicate();
-            if (!inheritedPredicate.equals(BooleanLiteral.TRUE_LITERAL)) {
-                predicate = new LogicalBinaryExpression(LogicalBinaryExpression.Type.AND, predicate, inheritedPredicate);
-            }
-
-            return node.getSource().accept(this, new VisitorContext(predicate, context.getPartitionPredicate()));
+            return node.getSource().accept(this, tableWriterPartitionPredicate);
         }
 
         @Override
-        public NodeSplits visitAggregation(AggregationNode node, VisitorContext context)
+        public NodeSplits visitAggregation(AggregationNode node, Predicate<Partition> tableWriterPartitionPredicate)
         {
-            return node.getSource().accept(this, new VisitorContext(BooleanLiteral.TRUE_LITERAL, context.getPartitionPredicate()));
+            return node.getSource().accept(this, tableWriterPartitionPredicate);
         }
 
         @Override
-        public NodeSplits visitWindow(WindowNode node, VisitorContext context)
+        public NodeSplits visitWindow(WindowNode node, Predicate<Partition> tableWriterPartitionPredicate)
         {
-            return node.getSource().accept(this, context);
+            return node.getSource().accept(this, tableWriterPartitionPredicate);
         }
 
         @Override
-        public NodeSplits visitProject(ProjectNode node, VisitorContext context)
+        public NodeSplits visitProject(ProjectNode node, Predicate<Partition> tableWriterPartitionPredicate)
         {
-            return node.getSource().accept(this, context);
+            return node.getSource().accept(this, tableWriterPartitionPredicate);
         }
 
         @Override
-        public NodeSplits visitTopN(TopNNode node, VisitorContext context)
+        public NodeSplits visitTopN(TopNNode node, Predicate<Partition> tableWriterPartitionPredicate)
         {
-            return node.getSource().accept(this, context);
+            return node.getSource().accept(this, tableWriterPartitionPredicate);
         }
 
         @Override
-        public NodeSplits visitOutput(OutputNode node, VisitorContext context)
+        public NodeSplits visitOutput(OutputNode node, Predicate<Partition> tableWriterPartitionPredicate)
         {
-            return node.getSource().accept(this, context);
+            return node.getSource().accept(this, tableWriterPartitionPredicate);
         }
 
         @Override
-        public NodeSplits visitLimit(LimitNode node, VisitorContext context)
+        public NodeSplits visitLimit(LimitNode node, Predicate<Partition> tableWriterPartitionPredicate)
         {
-            return node.getSource().accept(this, context);
+            return node.getSource().accept(this, tableWriterPartitionPredicate);
         }
 
         @Override
-        public NodeSplits visitSort(SortNode node, VisitorContext context)
+        public NodeSplits visitSort(SortNode node, Predicate<Partition> tableWriterPartitionPredicate)
         {
-            return node.getSource().accept(this, context);
+            return node.getSource().accept(this, tableWriterPartitionPredicate);
         }
 
         @Override
-        public NodeSplits visitSink(SinkNode node, VisitorContext context)
+        public NodeSplits visitSink(SinkNode node, Predicate<Partition> tableWriterPartitionPredicate)
         {
-            return node.getSource().accept(this, context);
+            return node.getSource().accept(this, tableWriterPartitionPredicate);
         }
 
         @Override
-        public NodeSplits visitTableWriter(final TableWriterNode node, VisitorContext context)
+        public NodeSplits visitTableWriter(final TableWriterNode node, Predicate<Partition> tableWriterPartitionPredicate)
         {
             TableWriter tableWriter = new TableWriter(node, shardManager);
 
             // get source splits
-            NodeSplits nodeSplits = node.getSource().accept(this, new VisitorContext(context.getInheritedPredicate(), tableWriter.getPartitionPredicate()));
+            NodeSplits nodeSplits = node.getSource().accept(this, tableWriterPartitionPredicate);
             checkState(nodeSplits.dataSource.isPresent(), "No splits present for import");
             DataSource dataSource = nodeSplits.dataSource.get();
 
@@ -276,7 +197,7 @@ public class DistributedExecutionPlanner
         }
 
         @Override
-        protected NodeSplits visitPlan(PlanNode node, VisitorContext context)
+        protected NodeSplits visitPlan(PlanNode node, Predicate<Partition> tableWriterPartitionPredicate)
         {
             throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
         }

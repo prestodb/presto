@@ -8,8 +8,6 @@ import com.facebook.presto.connector.informationSchema.InformationSchemaSplitMan
 import com.facebook.presto.connector.system.NodesSystemTable;
 import com.facebook.presto.connector.system.SystemDataStreamProvider;
 import com.facebook.presto.connector.system.SystemSplitManager;
-import com.facebook.presto.operator.OperatorStats;
-import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.connector.system.SystemTablesManager;
 import com.facebook.presto.connector.system.SystemTablesMetadata;
 import com.facebook.presto.importer.MockPeriodicImportManager;
@@ -19,11 +17,13 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.MockLocalStorageManager;
 import com.facebook.presto.operator.Operator;
+import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.SourceHashProviderFactory;
 import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.Split;
+import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.split.DataStreamManager;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.split.SplitManager;
@@ -44,7 +44,6 @@ import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
-import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.storage.MockStorageManager;
 import com.facebook.presto.tpch.TpchBlocksProvider;
@@ -55,6 +54,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import io.airlift.node.NodeConfig;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.DataSize;
@@ -158,13 +158,16 @@ public class LocalQueryRunner
 
             List<Split> splits = ImmutableList.copyOf(splitManager.getSplits(session,
                     tableScan.getTable(),
-                    BooleanLiteral.TRUE_LITERAL,
+                    tableScan.getPartitionPredicate(),
+                    tableScan.getUpstreamPredicateHint(),
                     Predicates.<Partition>alwaysTrue(),
                     tableScan.getAssignments()).getSplits());
 
-            checkState(splits.size() == 1, "expected a single split");
+            checkState(splits.size() <= 1, "expected at most a single split");
 
-            sourceOperator.addSplit(splits.get(0));
+            if (!splits.isEmpty()) {
+                sourceOperator.addSplit(Iterables.getOnlyElement(splits));
+            }
         }
         for (SourceOperator sourceOperator : sourceOperators.values()) {
             sourceOperator.noMoreSplits();
