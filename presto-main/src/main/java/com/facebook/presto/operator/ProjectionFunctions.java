@@ -153,32 +153,11 @@ public class ProjectionFunctions
             }
         }
 
-
         @Override
         public void project(RecordCursor cursor, BlockBuilder output)
         {
-            int field = 0;
-            for (Type type : tupleInfo.getTypes()) {
-                if (cursor.isNull(field)) {
-                    output.appendNull();
-                }
-                else {
-                    switch (type) {
-                        case BOOLEAN:
-                            output.append(cursor.getBoolean(field));
-                            break;
-                        case FIXED_INT_64:
-                            output.append(cursor.getLong(field));
-                            break;
-                        case VARIABLE_BINARY:
-                            output.append(cursor.getString(field));
-                            break;
-                        case DOUBLE:
-                            output.append(cursor.getDouble(field));
-                            break;
-                    }
-                }
-                field++;
+            for (ProjectionFunction projection : projections) {
+                projection.project(cursor, output);
             }
         }
     }
