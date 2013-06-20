@@ -38,6 +38,7 @@ import java.util.List;
 
 import static com.facebook.presto.sql.analyzer.EquiJoinClause.leftGetter;
 import static com.facebook.presto.sql.analyzer.EquiJoinClause.rightGetter;
+import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.base.Preconditions.checkArgument;
 
 class RelationPlanner
@@ -78,17 +79,18 @@ class RelationPlanner
         TupleDescriptor descriptor = analysis.getOutputDescriptor(node);
         TableHandle handle = analysis.getTableHandle(node);
 
-        ImmutableList.Builder<Symbol> outputSymbols = ImmutableList.builder();
+        ImmutableList.Builder<Symbol> outputSymbolsBuilder = ImmutableList.builder();
         ImmutableMap.Builder<Symbol, ColumnHandle> columns = ImmutableMap.builder();
         for (int i = 0; i < descriptor.getFields().size(); i++) {
             Field field = descriptor.getFields().get(i);
             Symbol symbol = symbolAllocator.newSymbol(field.getName().get(), field.getType());
 
-            outputSymbols.add(symbol);
+            outputSymbolsBuilder.add(symbol);
             columns.put(symbol, analysis.getColumn(field));
         }
 
-        return new RelationPlan(new TableScanNode(idAllocator.getNextId(), handle, columns.build()), descriptor, outputSymbols.build());
+        ImmutableList<Symbol> outputSymbols = outputSymbolsBuilder.build();
+        return new RelationPlan(new TableScanNode(idAllocator.getNextId(), handle, outputSymbols, columns.build(), TRUE_LITERAL, TRUE_LITERAL), descriptor, outputSymbols);
     }
 
     @Override

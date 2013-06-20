@@ -146,7 +146,7 @@ public class PlanPrinter
         @Override
         public Void visitTableScan(TableScanNode node, Integer indent)
         {
-            print(indent, "- TableScan[%s] => [%s]", node.getTable(), formatOutputs(node.getOutputSymbols()));
+            print(indent, "- TableScan[%s, partition predicate=%s, upstream predicate=%s] => [%s]", node.getTable(), node.getPartitionPredicate(), node.getUpstreamPredicateHint(), formatOutputs(node.getOutputSymbols()));
             for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
                 print(indent + 2, "%s := %s", entry.getKey(), entry.getValue());
             }

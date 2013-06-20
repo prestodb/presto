@@ -142,7 +142,7 @@ public class UnaliasSymbolReferences
                 builder.put(canonicalize(entry.getKey()), entry.getValue());
             }
 
-            return new TableScanNode(node.getId(), node.getTable(), builder.build());
+            return new TableScanNode(node.getId(), node.getTable(), canonicalize(node.getOutputSymbols()), builder.build(), canonicalize(node.getPartitionPredicate()), canonicalize(node.getUpstreamPredicateHint()));
         }
 
         @Override

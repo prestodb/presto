@@ -41,9 +41,8 @@ public class TableScanOperator
     }
 
     @Override
-    public synchronized void noMoreSplits()
+    public void noMoreSplits()
     {
-        Preconditions.checkState(delegate != null, "Table scan requires a single split");
     }
 
     @Override
@@ -63,8 +62,11 @@ public class TableScanOperator
     {
         Operator delegate;
         synchronized (this) {
-            Preconditions.checkState(this.delegate != null, "Table scan split must be set");
             delegate = this.delegate;
+        }
+        if (delegate == null) {
+            // No splits were added
+            return PageIterators.emptyIterator(tupleInfos);
         }
         return delegate.iterator(operatorStats);
     }
