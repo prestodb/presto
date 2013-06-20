@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.byteCode;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.MethodVisitor;
 import com.facebook.presto.byteCode.debug.LineNumberNode;
@@ -610,15 +611,9 @@ public class Block implements ByteCodeNode
         return getField(field.getDeclaringClass(), field.getName(), field.getType());
     }
 
-    public Block getField(Class<?> target, FieldDefinition field)
+    public Block getField(FieldDefinition field)
     {
-        getField(type(target), field.getName(), field.getType());
-        return this;
-    }
-
-    public Block getField(ParameterizedType target, FieldDefinition field)
-    {
-        getField(target, field.getName(), field.getType());
+        getField(field.getDeclaringClass().getType(), field.getName(), field.getType());
         return this;
     }
 
@@ -639,21 +634,16 @@ public class Block implements ByteCodeNode
         return putField(field.getDeclaringClass(), field.getName(), field.getType());
     }
 
-    public Block putField(Class<?> target, FieldDefinition field)
-    {
-        return putField(type(target), field);
-    }
-
     public Block putField(Class<?> target, String fieldName, Class<?> fieldType)
     {
         putField(type(target), fieldName, type(fieldType));
         return this;
     }
 
-    public Block putField(ParameterizedType target, FieldDefinition field)
+    public Block putField(FieldDefinition field)
     {
         checkArgument(!field.getAccess().contains(STATIC), "Field is static: %s", field);
-        putField(target, field.getName(), field.getType());
+        putField(field.getDeclaringClass().getType(), field.getName(), field.getType());
         return this;
     }
 
@@ -940,6 +930,8 @@ public class Block implements ByteCodeNode
 
     public Block incrementVariable(LocalVariableDefinition variable, byte increment)
     {
+        String type = variable.getType().getClassName();
+        Preconditions.checkArgument(ImmutableList.of("byte", "short", "int").contains(type), "variable must be an byte, short or int, but is %s", type);
         nodes.add(VariableInstruction.incrementVariable(variable, increment));
         return this;
     }
