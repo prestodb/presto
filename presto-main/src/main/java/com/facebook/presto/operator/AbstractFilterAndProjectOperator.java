@@ -36,10 +36,10 @@ public abstract class AbstractFilterAndProjectOperator
     @Override
     public PageIterator iterator(OperatorStats operatorStats)
     {
-        return iterator(source.iterator(operatorStats));
+        return iterator(source.iterator(operatorStats), operatorStats);
     }
 
-    protected abstract PageIterator iterator(PageIterator source);
+    protected abstract PageIterator iterator(PageIterator source, OperatorStats operatorStats);
 
     public abstract static class AbstractFilterAndProjectIterator
             extends AbstractPageIterator
@@ -48,12 +48,13 @@ public abstract class AbstractFilterAndProjectOperator
         protected final RecordCursor cursor;
         protected final PageBuilder pageBuilder;
 
-        public AbstractFilterAndProjectIterator(Iterable<TupleInfo> tupleInfos, PageIterator pageIterator)
+        public AbstractFilterAndProjectIterator(Iterable<TupleInfo> tupleInfos, PageIterator pageIterator, OperatorStats operatorStats)
         {
             super(tupleInfos);
             this.pageIterator = pageIterator;
             if (pageIterator instanceof RecordProjectionIterator) {
                 this.cursor = ((RecordProjectionIterator) pageIterator).getCursor();
+                operatorStats.addDeclaredSize(cursor.getTotalBytes());
             }
             else {
                 this.cursor = null;
