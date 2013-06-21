@@ -1,5 +1,7 @@
 package com.facebook.presto.execution;
 
+import com.facebook.presto.metadata.TablePartition;
+
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.importer.PeriodicImportManager;
 import com.facebook.presto.importer.PersistentPeriodicImportJob;
@@ -144,9 +146,9 @@ public class DropTableExecution
             }
         });
 
-        Set<String> partitions = shardManager.getPartitions(tableHandle.get());
-        for (String partition : partitions) {
-            shardManager.dropPartition(tableHandle.get(), partition);
+        Set<TablePartition> partitions = shardManager.getPartitions(tableHandle.get());
+        for (TablePartition partition : partitions) {
+            shardManager.dropPartition(tableHandle.get(), partition.getPartitionName());
         }
 
         metadataManager.dropTable(tableHandle.get());

@@ -213,6 +213,12 @@ public class MetadataUtil
             return this;
         }
 
+        public TableMetadataBuilder partitionKeyColumn(String columnName, ColumnType type)
+        {
+            columns.add(new ColumnMetadata(columnName, type, ordinalPosition++, true));
+            return this;
+        }
+
         public TableMetadata build()
         {
             return new TableMetadata(tableName, columns.build());

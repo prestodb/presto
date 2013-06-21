@@ -13,17 +13,20 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.google.inject.Inject;
+import io.airlift.log.Logger;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
@@ -32,6 +35,8 @@ import static com.google.common.collect.Iterables.filter;
 
 public class SplitManager
 {
+    private static final Logger log = Logger.get(SplitManager.class);
+
     private final Metadata metadata;
     private final Set<ConnectorSplitManager> splitManagers = Sets.newSetFromMap(new ConcurrentHashMap<ConnectorSplitManager, Boolean>());
 
@@ -50,6 +55,7 @@ public class SplitManager
     public DataSource getSplits(Session session, TableHandle handle, Expression predicate, Expression upstreamHint, Predicate<Partition> partitionPredicate, Map<Symbol, ColumnHandle> mappings)
     {
         List<Partition> partitions = getPartitions(session, handle, and(predicate, upstreamHint), partitionPredicate, mappings);
+
         ConnectorSplitManager connectorSplitManager = getConnectorSplitManager(handle);
 
         String connectorId = connectorSplitManager.getConnectorId();
@@ -62,17 +68,26 @@ public class SplitManager
             Predicate<Partition> partitionPredicate,
             Map<Symbol, ColumnHandle> mappings)
     {
+        Stopwatch partitionTimer = new Stopwatch();
+        partitionTimer.start();
+
         BiMap<Symbol, ColumnHandle> symbolToColumn = ImmutableBiMap.copyOf(mappings);
 
         // First find candidate partitions -- try to push down the predicate to the underlying API
         List<Partition> partitions = getCandidatePartitions(table, predicate, symbolToColumn);
 
+        log.debug("Partition retrieval, table %s (%d partitions): %dms", table, partitions.size(), partitionTimer.elapsed(TimeUnit.MILLISECONDS));
+
         // filter partitions using the specified predicate
         partitions = ImmutableList.copyOf(filter(partitions, partitionPredicate));
+
+        log.debug("Partition filter, table %s (%d partitions): %dms", table, partitions.size(), partitionTimer.elapsed(TimeUnit.MILLISECONDS));
 
         // Next, prune the list in case we got more partitions that necessary because parts of the predicate
         // could not be pushed down
         partitions = prunePartitions(session, partitions, predicate, symbolToColumn.inverse());
+
+        log.debug("Partition pruning, table %s (%d partitions): %dms", table, partitions.size(), partitionTimer.elapsed(TimeUnit.MILLISECONDS));
 
         return partitions;
     }

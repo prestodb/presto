@@ -1,5 +1,6 @@
 package com.facebook.presto.metadata;
 
+import com.google.common.base.Objects;
 import org.skife.jdbi.v2.StatementContext;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
 
@@ -12,11 +13,15 @@ public class ShardNode
 {
     private final long shardId;
     private final String nodeIdentifier;
+    private final long tableId;
+    private final long partitionId;
 
-    public ShardNode(long shardId, String nodeIdentifier)
+    public ShardNode(long shardId, String nodeIdentifier, long tableId, long partitionId)
     {
         this.shardId = shardId;
         this.nodeIdentifier = checkNotNull(nodeIdentifier, "nodeIdentifier is null");
+        this.tableId = tableId;
+        this.partitionId = partitionId;
     }
 
     public long getShardId()
@@ -29,6 +34,27 @@ public class ShardNode
         return nodeIdentifier;
     }
 
+    public long getTableId()
+    {
+        return tableId;
+    }
+
+    public long getPartitionId()
+    {
+        return partitionId;
+    }
+
+    @Override
+    public String toString()
+    {
+        return Objects.toStringHelper(this)
+                .add("shardId", shardId)
+                .add("nodeIdentifier", nodeIdentifier)
+                .add("tableId", tableId)
+                .add("partitionId", partitionId)
+                .toString();
+    }
+
     public static class Mapper
             implements ResultSetMapper<ShardNode>
     {
@@ -37,7 +63,9 @@ public class ShardNode
                 throws SQLException
         {
             return new ShardNode(r.getLong("shard_id"),
-                    r.getString("node_identifier"));
+                    r.getString("node_identifier"),
+                    r.getLong("table_id"),
+                    r.getLong("partition_id"));
         }
     }
 }
