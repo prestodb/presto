@@ -1,5 +1,6 @@
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.split.NativePartitionKey;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.skife.jdbi.v2.exceptions.UnableToObtainConnectionException;
@@ -48,6 +49,17 @@ public interface ShardManagerDao
             ")")
     void createTablePartitions();
 
+    @SqlUpdate("CREATE TABLE IF NOT EXISTS partition_keys (\n" +
+            "  partition_key_id BIGINT PRIMARY KEY AUTO_INCREMENT,\n" +
+            "  table_id BIGINT NOT NULL,\n" +
+            "  partition_name VARCHAR(255) NOT NULL,\n" +
+            "  key_name VARCHAR(255) NOT NULL,\n" +
+            "  key_type VARCHAR(255) NOT NULL,\n" +
+            "  key_value VARCHAR(255) NOT NULL,\n" +
+            "  UNIQUE (table_id, partition_name, key_name, key_type, key_value)\n" +
+            ")")
+    void createPartitionKeys();
+
     @SqlUpdate("CREATE TABLE IF NOT EXISTS partition_shards (\n" +
             "  shard_id BIGINT NOT NULL,\n" +
             "  table_id BIGINT NOT NULL,\n" +
@@ -73,6 +85,16 @@ public interface ShardManagerDao
             @Bind("shardId") long shardId,
             @Bind("nodeId") long nodeId);
 
+    @SqlUpdate("INSERT INTO partition_keys (table_id, partition_name, key_name, key_type, key_value)\n" +
+            "VALUES (:tableId, :partitionName, :keyName, :keyType, :keyValue)")
+    @GetGeneratedKeys
+    long insertPartitionKey(
+            @Bind("tableId") long tableId,
+            @Bind("partitionName") String partitionName,
+            @Bind("keyName") String keyName,
+            @Bind("keyType") String keyType,
+            @Bind("keyValue") String keyValue);
+
     @SqlUpdate("INSERT INTO table_partitions (partition_name, table_id)\n" +
             "VALUES (:partitionName, :tableId)\n")
     @GetGeneratedKeys
@@ -93,22 +115,39 @@ public interface ShardManagerDao
     @SqlQuery("SELECT node_id FROM nodes WHERE node_identifier = :nodeIdentifier")
     Long getNodeId(@Bind("nodeIdentifier") String nodeIdentifier);
 
-    @SqlQuery("SELECT partition_name\n" +
+    @SqlQuery("SELECT *\n" +
+            " FROM partition_keys\n" +
+            " WHERE table_id = :tableId")
+    @Mapper(NativePartitionKey.Mapper.class)
+    Set<NativePartitionKey> getPartitionKeys(@Bind("tableId") long tableId);
+
+    @SqlQuery("SELECT *\n" +
             " FROM table_partitions\n" +
             " WHERE table_id = :tableId\n")
-    Set<String> getPartitions(@Bind("tableId") long tableId);
+    @Mapper(TablePartition.Mapper.class)
+    Set<TablePartition> getPartitions(@Bind("tableId") long tableId);
 
-    @SqlQuery("SELECT s.shard_id, n.node_identifier\n" +
+    @SqlQuery("SELECT s.shard_id, n.node_identifier, ps.table_id, ps.partition_id\n" +
             "FROM shard_nodes sn\n" +
             "JOIN shards s ON (sn.shard_id = s.shard_id)\n" +
             "JOIN nodes n ON (sn.node_id = n.node_id)\n" +
+            "JOIN partition_shards ps ON (ps.table_id = s.table_id AND ps.shard_id = s.shard_id)\n" +
             "WHERE s.committed IS TRUE\n" +
-            "  AND s.shard_id IN (SELECT shard_id from partition_shards ps WHERE ps.table_id = s.table_id)\n" +
-            "  AND s.table_id = :tableId\n")
+            "  AND ps.partition_id = :partitionId")
     @Mapper(ShardNode.Mapper.class)
-    List<ShardNode> getCommittedShardNodes(@Bind("tableId") long tableId);
+    List<ShardNode> getCommittedShardNodesByPartitionId(@Bind("partitionId") long partitionId);
 
-    @SqlQuery("SELECT sn.shard_id, n.node_identifier\n" +
+    @SqlQuery("SELECT s.shard_id, n.node_identifier, ps.table_id, ps.partition_id\n" +
+            "FROM shard_nodes sn\n" +
+            "JOIN shards s ON (sn.shard_id = s.shard_id)\n" +
+            "JOIN nodes n ON (sn.node_id = n.node_id)\n" +
+            "JOIN partition_shards ps ON (ps.table_id = s.table_id AND ps.shard_id = s.shard_id)\n" +
+            "WHERE s.committed IS TRUE\n" +
+            "  AND ps.table_id = :tableId\n")
+    @Mapper(ShardNode.Mapper.class)
+    List<ShardNode> getCommittedShardNodesByTableId(@Bind("tableId") long tableId);
+
+    @SqlQuery("SELECT sn.shard_id, n.node_identifier, tp.table_id, tp.partition_id\n" +
             "FROM table_partitions tp\n" +
             "JOIN partition_shards ps ON (tp.partition_id = ps.partition_id)\n" +
             "JOIN shard_nodes sn ON (ps.shard_id = sn.shard_id)\n" +
@@ -127,6 +166,7 @@ public interface ShardManagerDao
             "WHERE tp.table_id = :tableId\n" +
             "  AND tp.partition_name = :partitionName\n")
     List<Long> getAllShards(@Bind("tableId") long tableId, @Bind("partitionName") String partitionName);
+
 
     @SqlUpdate("DELETE FROM shard_nodes\n" +
             "WHERE shard_id = :shardId\n")
@@ -149,6 +189,11 @@ public interface ShardManagerDao
             "WHERE table_id = :tableId\n" +
             "  AND partition_name = :partitionName\n")
     void dropPartition(@Bind("tableId") long tableId, @Bind("partitionName") String partitionName);
+
+    @SqlUpdate("DELETE FROM partition_keys\n" +
+            "WHERE table_id = :tableId\n" +
+            "  AND partition_name = :partitionName\n")
+    void dropPartitionKeys(@Bind("tableId") long tableId, @Bind("partitionName") String partitionName);
 
     @SqlQuery("SELECT s.shard_id FROM shards s\n" +
             " LEFT JOIN shard_nodes sn ON (s.shard_id = sn.shard_id)\n" +
@@ -195,6 +240,7 @@ public interface ShardManagerDao
             dao.createTableShards();
             dao.createTableShardNodes();
             dao.createTablePartitions();
+            dao.createPartitionKeys();
             dao.createPartitionShards();
         }
     }

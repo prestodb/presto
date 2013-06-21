@@ -1,7 +1,8 @@
 package com.facebook.presto.tpch;
 
-import com.facebook.presto.spi.PartitionedSplit;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.PartitionKey;
+import com.facebook.presto.spi.PartitionedSplit;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
@@ -75,6 +76,12 @@ public class TpchSplit
     public boolean isLastSplit()
     {
         return true;
+    }
+
+    @Override
+    public List<PartitionKey> getPartitionKeys()
+    {
+        return ImmutableList.of();
     }
 
     @Override

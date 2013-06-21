@@ -1,12 +1,15 @@
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.PartitionKey;
 import com.facebook.presto.spi.TableHandle;
 import com.google.common.base.Optional;
-import com.facebook.presto.spi.Split;
 import com.google.common.collect.Multimap;
 
 import javax.annotation.Nullable;
+
+import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 public interface ShardManager
@@ -35,21 +38,31 @@ public interface ShardManager
     /**
      * Commit a partition for a table.
      */
-    void commitPartition(TableHandle tableHandle, String partition, Map<Long, String> shards);
+    void commitPartition(TableHandle tableHandle, String partition, List<? extends PartitionKey> partitionKeys, Map<Long, String> shards);
 
     /**
      * Get the names of all partitions that have been successfully imported.
      *
      * @return list of partition names
      */
-    Set<String> getPartitions(TableHandle tableHandle);
+    Set<TablePartition> getPartitions(TableHandle tableHandle);
 
     /**
-     * Get all complete shards in table
+     * Get all partition keys by Partition for a given table handle.
+     */
+    Multimap<String, ? extends PartitionKey> getAllPartitionKeys(TableHandle tableHandle);
+
+    /**
+     * Return a map with all partition names to committed shard nodes for a given table.
+     */
+    Multimap<Long, Entry<Long, String>> getCommittedPartitionShardNodes(TableHandle tableHandle);
+
+    /**
+     * Get all complete shards in a table
      *
      * @return mapping of shard ID to node identifier
      */
-    Multimap<Long, String> getCommittedShardNodes(long tableId);
+    Multimap<Long, String> getCommittedShardNodesByTableId(TableHandle tableHandle);
 
     /**
      * Get all complete shards in table partition
