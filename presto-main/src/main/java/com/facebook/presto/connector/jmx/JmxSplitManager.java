@@ -61,7 +61,9 @@ public class JmxSplitManager
     public Iterable<Split> getPartitionSplits(List<Partition> partitions)
     {
         checkNotNull(partitions, "partitions is null");
-        Preconditions.checkArgument(!partitions.isEmpty(), "partitions is empty");
+        if (partitions.isEmpty()) {
+            return ImmutableList.of();
+        }
 
         Partition partition = Iterables.getOnlyElement(partitions);
         checkArgument(partition instanceof JmxPartition, "Partition must be an jmx partition");

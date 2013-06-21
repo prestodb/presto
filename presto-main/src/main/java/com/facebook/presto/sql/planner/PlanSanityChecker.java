@@ -1,5 +1,6 @@
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -188,6 +189,10 @@ public class PlanSanityChecker
         public Void visitTableScan(TableScanNode node, Void context)
         {
             verifyUniqueId(node);
+
+            Preconditions.checkArgument(node.getAssignments().keySet().containsAll(node.getOutputSymbols()), "Assignments must contain mappings for output symbols");
+            Set<Symbol> predicateSymbols = DependencyExtractor.extract(node.getPartitionPredicate());
+            Preconditions.checkArgument(node.getAssignments().keySet().containsAll(predicateSymbols), "Assignments must contain mappings for all partition predicate symbols");
 
             return null;
         }

@@ -6,8 +6,8 @@ import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.FieldOrExpression;
@@ -41,6 +41,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nullable;
+
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
@@ -48,6 +49,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.sql.tree.FunctionCall.argumentsGetter;
 import static com.facebook.presto.sql.tree.SortItem.sortKeyGetter;
 import static com.google.common.base.Preconditions.checkState;
@@ -167,7 +169,8 @@ class QueryPlanner
             columns.put(symbol, columnHandles.get(column.getName()));
         }
 
-        TableScanNode tableScan = new TableScanNode(idAllocator.getNextId(), table, columns.build());
+        ImmutableMap<Symbol, ColumnHandle> assignments = columns.build();
+        TableScanNode tableScan = new TableScanNode(idAllocator.getNextId(), table, ImmutableList.copyOf(assignments.keySet()), assignments, TRUE_LITERAL, TRUE_LITERAL);
 
         return new RelationPlan(tableScan, new TupleDescriptor(), ImmutableList.<Symbol>of());
     }

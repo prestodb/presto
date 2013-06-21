@@ -34,6 +34,7 @@ import com.google.common.collect.Iterables;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.base.Preconditions.checkState;
 
 public class LogicalPlanner
@@ -113,7 +114,7 @@ public class LogicalPlanner
             TableMetadata sourceTableMetadata = metadata.getTableMetadata(sourceTableHandle);
             Map<String,ColumnHandle> sourceTableColumns = metadata.getColumnHandles(sourceTableHandle);
 
-            ImmutableList.Builder<Symbol> outputSymbols = ImmutableList.builder();
+            ImmutableList.Builder<Symbol> outputSymbolsBuilder = ImmutableList.builder();
             ImmutableMap.Builder<Symbol, ColumnHandle> columns = ImmutableMap.builder();
             ImmutableList.Builder<Field> fields = ImmutableList.builder();
             ImmutableList.Builder<ColumnHandle> columnHandleBuilder = ImmutableList.builder();
@@ -126,10 +127,11 @@ public class LogicalPlanner
                 columns.put(symbol, columnHandle);
                 fields.add(field);
                 columnHandleBuilder.add(columnHandle);
-                outputSymbols.add(symbol);
+                outputSymbolsBuilder.add(symbol);
             }
 
-            plan = new RelationPlan(new TableScanNode(idAllocator.getNextId(), sourceTableHandle, columns.build()), new TupleDescriptor(fields.build()), outputSymbols.build());
+            ImmutableList<Symbol> outputSymbols = outputSymbolsBuilder.build();
+            plan = new RelationPlan(new TableScanNode(idAllocator.getNextId(), sourceTableHandle, outputSymbols, columns.build(), TRUE_LITERAL, TRUE_LITERAL), new TupleDescriptor(fields.build()), outputSymbols);
 
             columnHandles = columnHandleBuilder.build();
         }
