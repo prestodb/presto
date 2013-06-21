@@ -30,6 +30,7 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.Calendar;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -1460,7 +1461,7 @@ public class JdbcResultSet
     {
         checkOpen();
         checkValidRow();
-        if ((index <= 0) || (index > fieldMap.size())) {
+        if ((index <= 0) || (index > resultSetMetaData.getColumnCount())) {
             throw new SQLException("Invalid column index: " + index);
         }
         return row.get().get(index - 1);
@@ -1556,11 +1557,14 @@ public class JdbcResultSet
 
     private static Map<String, Integer> getFieldMap(List<Column> columns)
     {
-        ImmutableMap.Builder<String, Integer> map = ImmutableMap.builder();
+        Map<String, Integer> map = new HashMap<>();
         for (int i = 0; i < columns.size(); i++) {
-            map.put(columns.get(i).getName().toLowerCase(), i + 1);
+            String name = columns.get(i).getName().toLowerCase();
+            if (!map.containsKey(name)) {
+                map.put(name, i + 1);
+            }
         }
-        return map.build();
+        return ImmutableMap.copyOf(map);
     }
 
     private static List<ColumnInfo> getColumnInfo(List<Column> columns)
