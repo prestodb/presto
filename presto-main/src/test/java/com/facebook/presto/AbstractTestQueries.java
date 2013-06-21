@@ -1,9 +1,21 @@
 package com.facebook.presto;
 
+import com.facebook.presto.connector.dual.DualMetadata;
+import com.facebook.presto.importer.MockPeriodicImportManager;
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.TableMetadata;
+import com.facebook.presto.sql.analyzer.QueryExplainer;
+import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.parser.StatementBuilder;
+import com.facebook.presto.sql.planner.PlanOptimizersFactory;
+import com.facebook.presto.sql.planner.PlanPrinter;
+import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
+import com.facebook.presto.sql.tree.Query;
+import com.facebook.presto.storage.MockStorageManager;
 import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
@@ -39,6 +51,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
 
+import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
+import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
 import static com.facebook.presto.tpch.TpchMetadata.TPCH_LINEITEM_METADATA;
 import static com.facebook.presto.tpch.TpchMetadata.TPCH_LINEITEM_NAME;
 import static com.facebook.presto.tpch.TpchMetadata.TPCH_ORDERS_METADATA;
@@ -315,7 +329,6 @@ public abstract class AbstractTestQueries
     {
         MaterializedResult actual = computeActual("SELECT orderkey FROM ORDERS LIMIT 10");
         MaterializedResult all = computeExpected("SELECT orderkey FROM ORDERS", actual.getTupleInfo());
-
 
         assertEquals(actual.getMaterializedTuples().size(), 10);
         assertTrue(all.getMaterializedTuples().containsAll(actual.getMaterializedTuples()));
@@ -904,7 +917,6 @@ public abstract class AbstractTestQueries
                 "SELECT CASE WHEN orderstatus = 'O' THEN 'a' ELSE 'b' END, count(*)\n" +
                         "FROM orders\n" +
                         "GROUP BY CASE WHEN orderstatus = 'O' THEN 'a' ELSE 'b' END");
-
     }
 
     @Test
@@ -1501,6 +1513,15 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testExplain()
+    {
+        String query = "SELECT 123 FROM dual";
+        MaterializedResult result = computeActual("EXPLAIN " + query);
+        String actual = Iterables.getOnlyElement(transform(result.getMaterializedTuples(), onlyColumnGetter()));
+        assertEquals(actual, getExplainPlan(query));
+    }
+
+    @Test
     public void testShowTables()
             throws Exception
     {
@@ -1668,7 +1689,6 @@ public abstract class AbstractTestQueries
     {
         assertQuery("(SELECT * FROM orders ORDER BY orderkey LIMIT 10) UNION ALL TABLE orders", "(SELECT * FROM orders ORDER BY orderkey LIMIT 10) UNION ALL SELECT * FROM orders");
     }
-
 
     @Test
     public void testTableAsSubquery()
@@ -1943,6 +1963,7 @@ public abstract class AbstractTestQueries
     }
 
     private static final Logger log = Logger.get(AbstractTestQueries.class);
+
     private void assertQuery(@Language("SQL") String actual, @Language("SQL") String expected, boolean ensureOrdering)
             throws Exception
     {
@@ -2095,4 +2116,15 @@ public abstract class AbstractTestQueries
             }
         };
     }
+
+    private static String getExplainPlan(String query)
+    {
+        Session session = new Session("user", "test", DEFAULT_CATALOG, DEFAULT_SCHEMA, null, null);
+        MetadataManager metadata = new MetadataManager();
+        metadata.addInternalSchemaMetadata(new DualMetadata());
+        List<PlanOptimizer> optimizers = new PlanOptimizersFactory(metadata).get();
+        QueryExplainer explainer = new QueryExplainer(session, optimizers, metadata, new MockPeriodicImportManager(), new MockStorageManager());
+        return explainer.getPlan((Query) SqlParser.createStatement(query));
+    }
+
 }
