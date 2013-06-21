@@ -10,10 +10,10 @@ import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.tree.DropAlias;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
 import io.airlift.units.Duration;
 
 import javax.inject.Inject;
+
 import java.net.URI;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
@@ -21,6 +21,7 @@ import java.util.concurrent.Executors;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedTableName;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -115,13 +116,13 @@ public class DropAliasExecution
         QualifiedTableName remoteTableName = createQualifiedTableName(stateMachine.getSession(), statement.getRemote());
 
         Optional<TableHandle> remoteTableHandle = metadataManager.getTableHandle(remoteTableName);
-        checkState(!remoteTableHandle.isPresent(), "Table %s does not exist", remoteTableName);
+        checkState(remoteTableHandle.isPresent(), "Table %s does not exist", remoteTableName);
         Optional<String> remoteConnectorId = metadataManager.getConnectorId(remoteTableHandle.get());
-        Preconditions.checkArgument(remoteConnectorId.isPresent(), "Table %s can not an alias", remoteTableName);
+        checkArgument(remoteConnectorId.isPresent(), "Alias table %s does not exist", remoteTableName);
 
         TableAlias tableAlias = aliasDao.getAlias(remoteConnectorId.get(), remoteTableName.getSchemaName(), remoteTableName.getTableName());
 
-        checkState(tableAlias != null, "Table %s is not an alias", remoteTableName);
+        checkState(tableAlias != null, "Table %s has no alias assigned", remoteTableName);
 
         aliasDao.dropAlias(tableAlias);
 
