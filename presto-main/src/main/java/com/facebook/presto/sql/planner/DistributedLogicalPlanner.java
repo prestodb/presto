@@ -295,14 +295,31 @@ public class DistributedLogicalPlanner
             SubPlanBuilder right = node.getRight().accept(this, context);
 
             if (left.isPartitioned() || right.isPartitioned()) {
-                right.setRoot(new SinkNode(idAllocator.getNextId(), right.getRoot(), right.getRoot().getOutputSymbols()));
+                switch (node.getType()) {
+                    case INNER:
+                    case LEFT:
+                        right.setRoot(new SinkNode(idAllocator.getNextId(), right.getRoot(), right.getRoot().getOutputSymbols()));
+                        left.setRoot(new JoinNode(node.getId(),
+                                node.getType(),
+                                left.getRoot(),
+                                new ExchangeNode(idAllocator.getNextId(), right.getId(), right.getRoot().getOutputSymbols()),
+                                node.getCriteria()));
+                        left.addChild(right.build());
 
-                ExchangeNode exchange = new ExchangeNode(idAllocator.getNextId(), right.getId(), right.getRoot().getOutputSymbols());
-                JoinNode join = new JoinNode(node.getId(), node.getType(), left.getRoot(), exchange, node.getCriteria());
-                left.setRoot(join)
-                        .addChild(right.build());
+                        return left;
+                    case RIGHT:
+                        left.setRoot(new SinkNode(idAllocator.getNextId(), left.getRoot(), left.getRoot().getOutputSymbols()));
+                        right.setRoot(new JoinNode(node.getId(),
+                                node.getType(),
+                                new ExchangeNode(idAllocator.getNextId(), left.getId(), left.getRoot().getOutputSymbols()),
+                                right.getRoot(),
+                                node.getCriteria()));
+                        right.addChild(left.build());
 
-                return left;
+                        return right;
+                    default:
+                        throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
+                }
             }
             else {
                 JoinNode join = new JoinNode(node.getId(), node.getType(), left.getRoot(), right.getRoot(), node.getCriteria());

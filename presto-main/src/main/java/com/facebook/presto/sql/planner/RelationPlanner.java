@@ -107,6 +107,7 @@ class RelationPlanner
     @Override
     protected RelationPlan visitJoin(Join node, Void context)
     {
+        // TODO: translate the RIGHT join into a mirrored LEFT join when we refactor (@martint)
         RelationPlan leftPlan = process(node.getLeft(), context);
         RelationPlan rightPlan = process(node.getRight(), context);
 

@@ -91,6 +91,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.leftGetter;
 import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.rightGetter;
@@ -310,7 +311,7 @@ public class LocalExecutionPlanner
             // find channel that fields were packed into if there is an ordering
             int orderByChannel = 0;
             if (!orderingSymbols.isEmpty()) {
-                orderByChannel = Iterables.getOnlyElement(ImmutableSet.copyOf(getChannelsForSymbols(orderingSymbols, source.getLayout())));
+                orderByChannel = Iterables.getOnlyElement(getChannelSetForSymbols(orderingSymbols, source.getLayout()));
             }
 
             int[] partitionFields = new int[partitionBySymbols.size()];
@@ -378,7 +379,7 @@ public class LocalExecutionPlanner
             // insert a projection to put all the sort fields in a single channel if necessary
             source = packIfNecessary(orderBySymbols, source, context.getTypes());
 
-            int orderByChannel = Iterables.getOnlyElement(ImmutableSet.copyOf(getChannelsForSymbols(orderBySymbols, source.getLayout())));
+            int orderByChannel = Iterables.getOnlyElement(getChannelSetForSymbols(orderBySymbols, source.getLayout()));
 
             List<Integer> sortFields = new ArrayList<>();
             List<SortItem.Ordering> sortOrders = new ArrayList<>();
@@ -412,7 +413,7 @@ public class LocalExecutionPlanner
             // insert a projection to put all the sort fields in a single channel if necessary
             source = packIfNecessary(orderBySymbols, source, context.getTypes());
 
-            int orderByChannel = Iterables.getOnlyElement(ImmutableSet.copyOf(getChannelsForSymbols(orderBySymbols, source.getLayout())));
+            int orderByChannel = Iterables.getOnlyElement(getChannelSetForSymbols(orderBySymbols, source.getLayout()));
 
             int[] sortFields = new int[orderBySymbols.size()];
             boolean[] sortOrder = new boolean[orderBySymbols.size()];
@@ -621,30 +622,48 @@ public class LocalExecutionPlanner
             // introduce a projection to put all fields from the left side into a single channel if necessary
             PhysicalOperation leftSource = node.getLeft().accept(this, context);
             List<Symbol> leftSymbols = Lists.transform(clauses, leftGetter());
-            leftSource = packIfNecessary(leftSymbols, leftSource, context.getTypes());
 
             // do the same on the right side
             PhysicalOperation rightSource = node.getRight().accept(this, context);
             List<Symbol> rightSymbols = Lists.transform(clauses, rightGetter());
-            rightSource = packIfNecessary(rightSymbols, rightSource, context.getTypes());
 
-            int probeChannel = Iterables.getOnlyElement(ImmutableSet.copyOf(getChannelsForSymbols(leftSymbols, leftSource.getLayout())));
-            int buildChannel = Iterables.getOnlyElement(ImmutableSet.copyOf(getChannelsForSymbols(rightSymbols, rightSource.getLayout())));
+            switch (node.getType())
+            {
+                case INNER:
+                case LEFT:
+                    return createJoinOperator(node, leftSource, leftSymbols, rightSource, rightSymbols, context);
+                case RIGHT:
+                    return createJoinOperator(node, rightSource, rightSymbols, leftSource, leftSymbols, context);
+                default:
+                    throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
+            }
+        }
 
-            SourceHashProvider hashProvider = context.getJoinHashFactory().getSourceHashProvider(node, rightSource.getOperator(), buildChannel, context.getOperatorStats());
+        private PhysicalOperation createJoinOperator(JoinNode node, PhysicalOperation probeSource, List<Symbol> probeSymbols, PhysicalOperation buildSource, List<Symbol> buildSymbols, LocalExecutionPlanContext context)
+        {
+            // introduce a projection to put all fields from the probe side into a single channel if necessary
+            probeSource = packIfNecessary(probeSymbols, probeSource, context.getTypes());
+
+            // do the same on the build side
+            buildSource = packIfNecessary(buildSymbols, buildSource, context.getTypes());
+
+            int probeChannel = Iterables.getOnlyElement(getChannelSetForSymbols(probeSymbols, probeSource.getLayout()));
+            int buildChannel = Iterables.getOnlyElement(getChannelSetForSymbols(buildSymbols, buildSource.getLayout()));
+
+            SourceHashProvider hashProvider = context.getJoinHashFactory().getSourceHashProvider(node, buildSource.getOperator(), buildChannel, context.getOperatorStats());
 
             ImmutableMultimap.Builder<Symbol, Input> outputMappings = ImmutableMultimap.builder();
-            outputMappings.putAll(leftSource.getLayout());
+            outputMappings.putAll(probeSource.getLayout());
 
-            // inputs from right side of the join are laid out following the input from the left side,
+            // inputs from build side of the join are laid out following the input from the probe side,
             // so adjust the channel ids but keep the field layouts intact
-            int offset = leftSource.getOperator().getChannelCount();
-            for (Map.Entry<Symbol, Input> entry : rightSource.getLayout().entries()) {
+            int offset = probeSource.getOperator().getChannelCount();
+            for (Map.Entry<Symbol, Input> entry : buildSource.getLayout().entries()) {
                 Input input = entry.getValue();
                 outputMappings.put(entry.getKey(), new Input(offset + input.getChannel(), input.getField()));
             }
 
-            HashJoinOperator operator = createJoinOperator(node.getType(), hashProvider, leftSource.getOperator(), probeChannel);
+            HashJoinOperator operator = createJoinOperator(node.getType(), hashProvider, probeSource.getOperator(), probeChannel);
             return new PhysicalOperation(operator, outputMappings.build());
         }
 
@@ -654,6 +673,7 @@ public class LocalExecutionPlanner
                 case INNER:
                     return HashJoinOperator.innerJoin(hashProvider, probeSource, probeJoinChannel);
                 case LEFT:
+                case RIGHT:
                     return HashJoinOperator.outerjoin(hashProvider, probeSource, probeJoinChannel);
                 default:
                     throw new UnsupportedOperationException("Unsupported join type: " + type);
@@ -835,7 +855,7 @@ public class LocalExecutionPlanner
                 channel++;
             }
 
-            Integer groupByChannel = Iterables.getOnlyElement(ImmutableSet.copyOf(getChannelsForSymbols(groupBySymbols, source.getLayout())));
+            Integer groupByChannel = Iterables.getOnlyElement(getChannelSetForSymbols(groupBySymbols, source.getLayout()));
             Operator aggregationOperator = new HashAggregationOperator(
                     source.getOperator(),
                     groupByChannel,
@@ -917,6 +937,11 @@ public class LocalExecutionPlanner
             builder.add(getFirst(layout.get(symbol)).getChannel());
         }
         return builder.build();
+    }
+
+    private static Set<Integer> getChannelSetForSymbols(List<Symbol> symbols, Multimap<Symbol, Input> layout)
+    {
+        return ImmutableSet.copyOf(getChannelsForSymbols(symbols, layout));
     }
 
     private static Map<Symbol, Input> convertLayoutToInputMap(Multimap<Symbol, Input> layout)

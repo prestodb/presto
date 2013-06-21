@@ -41,6 +41,7 @@ import com.facebook.presto.sql.tree.Window;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
@@ -50,6 +51,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 
 import java.util.Collection;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -241,8 +243,8 @@ class TupleAnalyzer
     @Override
     protected TupleDescriptor visitJoin(Join node, AnalysisContext context)
     {
-        if (node.getType() != Join.Type.INNER && node.getType() != Join.Type.LEFT) {
-            throw new SemanticException(NOT_SUPPORTED, node, "Only inner and left joins are supported");
+        if (!EnumSet.of(Join.Type.INNER, Join.Type.LEFT, Join.Type.RIGHT).contains(node.getType())) {
+            throw new SemanticException(NOT_SUPPORTED, node, "Only inner, left, and right joins are supported");
         }
 
         JoinCriteria criteria = node.getCriteria();
