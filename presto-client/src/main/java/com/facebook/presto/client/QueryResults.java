@@ -13,10 +13,13 @@ import javax.annotation.concurrent.Immutable;
 import javax.validation.constraints.NotNull;
 
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.unmodifiableIterable;
+import static java.util.Collections.unmodifiableList;
 
 @Immutable
 public class QueryResults
@@ -41,7 +44,7 @@ public class QueryResults
             @JsonProperty("stats") StatementStats stats,
             @JsonProperty("error") QueryError error)
     {
-        this(id, infoUri, partialCancelUri, nextUri, columns, (Iterable<List<Object>>) data, stats, error);
+        this(id, infoUri, partialCancelUri, nextUri, columns, fixData(columns, data), stats, error);
     }
 
     public QueryResults(
@@ -133,5 +136,47 @@ public class QueryResults
                 .add("stats", stats)
                 .add("error", error)
                 .toString();
+    }
+
+    private static Iterable<List<Object>> fixData(List<Column> columns, List<List<Object>> data)
+    {
+        if (data == null) {
+            return null;
+        }
+        checkNotNull(columns, "columns is null");
+        ImmutableList.Builder<List<Object>> rows = ImmutableList.builder();
+        for (List<Object> row : data) {
+            checkArgument(row.size() == columns.size(), "row/column size mismatch");
+            List<Object> newRow = new ArrayList<>();
+            for (int i = 0; i < row.size(); i++) {
+                newRow.add(fixValue(columns.get(i).getType(), row.get(i)));
+            }
+            rows.add(unmodifiableList(newRow)); // allow nulls in list
+        }
+        return rows.build();
+    }
+
+    /**
+     * Force values coming from Jackson to have the expected object type.
+     */
+    private static Object fixValue(String type, Object value)
+    {
+        if (value == null) {
+            return null;
+        }
+        switch (type) {
+            case "bigint":
+                return ((Number) value).longValue();
+            case "double":
+                if (value instanceof String) {
+                    return Double.parseDouble((String) value);
+                }
+                return ((Number) value).doubleValue();
+            case "boolean":
+                return Boolean.class.cast(value);
+            case "varchar":
+                return String.class.cast(value);
+        }
+        throw new AssertionError("unimplemented type: " + type);
     }
 }
