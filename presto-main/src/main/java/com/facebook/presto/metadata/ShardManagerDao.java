@@ -93,10 +93,22 @@ public interface ShardManagerDao
     @SqlQuery("SELECT node_id FROM nodes WHERE node_identifier = :nodeIdentifier")
     Long getNodeId(@Bind("nodeIdentifier") String nodeIdentifier);
 
-    @SqlQuery("SELECT partition_name\n" +
+    @SqlQuery("SELECT *\n" +
             " FROM table_partitions\n" +
             " WHERE table_id = :tableId\n")
-    Set<String> getPartitions(@Bind("tableId") long tableId);
+    @Mapper(TablePartition.Mapper.class)
+    Set<TablePartition> getPartitions(@Bind("tableId") long tableId);
+
+    @SqlQuery("SELECT s.shard_id, n.node_identifier, tp.partition_id\n" +
+            "FROM shard_nodes sn\n" +
+            "JOIN shards s ON (sn.shard_id = s.shard_id)\n" +
+            "JOIN nodes n ON (sn.node_id = n.node_id)\n" +
+            "JOIN table_partitions tp ON (s.table_id = tp.table_id)\n" +
+            "WHERE s.committed IS TRUE\n" +
+            "  AND tp.partition_id = :partitionId\n" +
+            "  AND s.shard_id IN (SELECT shard_id from partition_shards ps WHERE ps.partition_id = tp.partition_id)")
+    @Mapper(ShardNode.Mapper.class)
+    List<ShardNode> getCommittedShardNodesByPartitionId(@Bind("partitionId") long partitionId);
 
     @SqlQuery("SELECT s.shard_id, n.node_identifier\n" +
             "FROM shard_nodes sn\n" +
@@ -106,7 +118,7 @@ public interface ShardManagerDao
             "  AND s.shard_id IN (SELECT shard_id from partition_shards ps WHERE ps.table_id = s.table_id)\n" +
             "  AND s.table_id = :tableId\n")
     @Mapper(ShardNode.Mapper.class)
-    List<ShardNode> getCommittedShardNodes(@Bind("tableId") long tableId);
+    List<ShardNode> getCommittedShardNodesByTableId(@Bind("tableId") long tableId);
 
     @SqlQuery("SELECT sn.shard_id, n.node_identifier\n" +
             "FROM table_partitions tp\n" +

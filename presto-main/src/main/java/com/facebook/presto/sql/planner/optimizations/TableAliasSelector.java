@@ -145,7 +145,7 @@ public class TableAliasSelector
         private boolean allNodesPresent(long tableId)
         {
             Set<String> nodesActive = ImmutableSet.copyOf(Collections2.transform(nodeManager.getActiveNodes(), Node.getIdentifierFunction()));
-            Set<String> nodesRequired = ImmutableSet.copyOf(shardManager.getCommittedShardNodes(tableId).values());
+            Set<String> nodesRequired = ImmutableSet.copyOf(shardManager.getCommittedShardNodesByTableId(tableId).values());
 
             return nodesActive.containsAll(nodesRequired);
         }
