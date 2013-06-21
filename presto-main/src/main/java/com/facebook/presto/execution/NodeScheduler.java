@@ -29,6 +29,7 @@ import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class NodeScheduler
 {
@@ -113,18 +114,28 @@ public class NodeScheduler
     public class NodeSelector
     {
         private final Comparator<Node> nodeComparator;
-        private final Supplier<NodeMap> nodeMap;
+        private final AtomicReference<Supplier<NodeMap>> nodeMap;
 
         public NodeSelector(Comparator<Node> nodeComparator, Supplier<NodeMap> nodeMap)
         {
             this.nodeComparator = nodeComparator;
-            this.nodeMap = nodeMap;
+            this.nodeMap = new AtomicReference<>(nodeMap);
+        }
+
+        public void lockDownNodes()
+        {
+            nodeMap.set(Suppliers.ofInstance(nodeMap.get().get()));
+        }
+
+        public List<Node> allNodes()
+        {
+            return ImmutableList.copyOf(nodeMap.get().get().getNodesByHostAndPort().values());
         }
 
         public Node selectRandomNode()
         {
             // create a single partition on a random node for this fragment
-            ArrayList<Node> nodes = new ArrayList<>(nodeMap.get().getNodesByHostAndPort().values());
+            ArrayList<Node> nodes = new ArrayList<>(nodeMap.get().get().getNodesByHostAndPort().values());
             Preconditions.checkState(!nodes.isEmpty(), "Cluster does not have any active nodes");
             Collections.shuffle(nodes, ThreadLocalRandom.current());
             return nodes.get(0);
@@ -133,7 +144,7 @@ public class NodeScheduler
         public Node selectNode(Split split)
         {
             // select 10 acceptable nodes
-            List<Node> nodes = selectNodes(nodeMap.get(), split, 10);
+            List<Node> nodes = selectNodes(nodeMap.get().get(), split, 10);
 
             Preconditions.checkState(!nodes.isEmpty(), "No nodes available to run query");
 
