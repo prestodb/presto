@@ -99,14 +99,14 @@ public interface ShardManagerDao
     @Mapper(TablePartition.Mapper.class)
     Set<TablePartition> getPartitions(@Bind("tableId") long tableId);
 
-    @SqlQuery("SELECT s.shard_id, n.node_identifier\n" +
+    @SqlQuery("SELECT s.shard_id, n.node_identifier, tp.partition_id\n" +
             "FROM shard_nodes sn\n" +
             "JOIN shards s ON (sn.shard_id = s.shard_id)\n" +
             "JOIN nodes n ON (sn.node_id = n.node_id)\n" +
             "JOIN table_partitions tp ON (s.table_id = tp.table_id)\n" +
             "WHERE s.committed IS TRUE\n" +
-            "  AND s.shard_id IN (SELECT shard_id from partition_shards ps WHERE ps.table_id = s.table_id)\n" +
-            "  AND tp.partition_id = :partitionId\n")
+            "  AND tp.partition_id = :partitionId\n" +
+            "  AND s.shard_id IN (SELECT shard_id from partition_shards ps WHERE ps.partition_id = tp.partition_id)")
     @Mapper(ShardNode.Mapper.class)
     List<ShardNode> getCommittedShardNodesByPartitionId(@Bind("partitionId") long partitionId);
 
