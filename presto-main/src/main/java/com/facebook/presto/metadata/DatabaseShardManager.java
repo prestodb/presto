@@ -1,9 +1,12 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.metadata.ShardManagerDao.Utils;
+import com.facebook.presto.spi.PartitionKey;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.split.NativePartitionKey;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
@@ -12,8 +15,10 @@ import org.skife.jdbi.v2.VoidTransactionCallback;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
+
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import static com.facebook.presto.util.SqlUtils.runIgnoringConstraintViolation;
@@ -63,9 +68,13 @@ public class DatabaseShardManager
     }
 
     @Override
-    public void commitPartition(TableHandle tableHandle, final String partition, final Map<Long, String> shards)
+    public void commitPartition(TableHandle tableHandle, final String partition, final List<? extends PartitionKey> partitionKeys, final Map<Long, String> shards)
     {
         checkNotNull(tableHandle, "tableHandle is null");
+        checkNotNull(partition, "partition is null");
+        checkNotNull(partitionKeys, "partitionKeys is null");
+        checkNotNull(shards, "shards is null");
+
         checkState(tableHandle instanceof NativeTableHandle, "can only commit partitions for native tables");
         final long tableId = ((NativeTableHandle) tableHandle).getTableId();
 
@@ -76,6 +85,10 @@ public class DatabaseShardManager
             {
                 ShardManagerDao dao = handle.attach(ShardManagerDao.class);
                 long partitionId = dao.insertPartition(tableId, partition);
+
+                for (PartitionKey partitionKey : partitionKeys) {
+                    dao.insertPartitionKey(tableId, partition, partitionKey.getName(), partitionKey.getType().toString(), partitionKey.getValue());
+                }
 
                 for (Map.Entry<Long, String> entry : shards.entrySet()) {
                     long nodeId = getOrCreateNodeId(entry.getValue());
@@ -110,7 +123,7 @@ public class DatabaseShardManager
     }
 
     @Override
-    public Set<String> getPartitions(TableHandle tableHandle)
+    public Set<TablePartition> getPartitions(TableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         checkState(tableHandle instanceof NativeTableHandle, "can only commit partitions for native tables");
@@ -119,10 +132,47 @@ public class DatabaseShardManager
     }
 
     @Override
-    public Multimap<Long, String> getCommittedShardNodes(long tableId)
+    public Multimap<String, ? extends PartitionKey> getAllPartitionKeys(TableHandle tableHandle)
     {
+        checkNotNull(tableHandle, "tableHandle is null");
+        checkState(tableHandle instanceof NativeTableHandle, "can only commit partitions for native tables");
+        final long tableId = ((NativeTableHandle) tableHandle).getTableId();
+
+        Set<NativePartitionKey> partitionKeys = dao.getPartitionKeys(tableId);
+        ImmutableMultimap.Builder<String, PartitionKey> builder = ImmutableMultimap.builder();
+        for (NativePartitionKey partitionKey : partitionKeys) {
+            builder.put(partitionKey.getPartitionName(), partitionKey);
+        }
+
+        return builder.build();
+    }
+
+
+    @Override
+    public Multimap<Long, Entry<Long, String>> getCommittedPartitionShardNodes(TableHandle tableHandle)
+    {
+        checkNotNull(tableHandle, "tableHandle is null");
+        checkState(tableHandle instanceof NativeTableHandle, "tableHandle not a native table");
+        final long tableId = ((NativeTableHandle) tableHandle).getTableId();
+
+        ImmutableMultimap.Builder<Long, Entry<Long, String>> map = ImmutableMultimap.builder();
+
+        List<ShardNode> shardNodes = dao.getCommittedShardNodesByTableId(tableId);
+        for (ShardNode shardNode : shardNodes) {
+            map.put(shardNode.getPartitionId(), Maps.immutableEntry(shardNode.getShardId(), shardNode.getNodeIdentifier()));
+        }
+        return map.build();
+    }
+
+    @Override
+    public Multimap<Long, String> getCommittedShardNodesByTableId(TableHandle tableHandle)
+    {
+        checkNotNull(tableHandle, "tableHandle is null");
+        checkState(tableHandle instanceof NativeTableHandle, "tableHandle not a native table");
+        final long tableId = ((NativeTableHandle) tableHandle).getTableId();
+
         ImmutableMultimap.Builder<Long, String> map = ImmutableMultimap.builder();
-        for (ShardNode shardNode : dao.getCommittedShardNodes(tableId)) {
+        for (ShardNode shardNode : dao.getCommittedShardNodesByTableId(tableId)) {
             map.put(shardNode.getShardId(), shardNode.getNodeIdentifier());
         }
         return map.build();
@@ -162,6 +212,7 @@ public class DatabaseShardManager
                 for (Long shardId : shardIds) {
                     dao.deleteShardFromPartitionShards(shardId);
                 }
+                dao.dropPartitionKeys(tableId, partitionName);
                 dao.dropPartition(tableId, partitionName);
             }
         });

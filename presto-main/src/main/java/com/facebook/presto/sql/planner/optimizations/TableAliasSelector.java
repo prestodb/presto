@@ -122,7 +122,7 @@ public class TableAliasSelector
                 return node;
             }
 
-            if (!allNodesPresent(((NativeTableHandle) aliasTableHandle.get()).getTableId())) {
+            if (!allNodesPresent(aliasTableHandle.get())) {
                 return node;
             }
 
@@ -142,10 +142,10 @@ public class TableAliasSelector
             return new TableScanNode(node.getId(), aliasTableHandle.get(), node.getOutputSymbols(), newAssignmentsBuilder.build(), node.getPartitionPredicate(), node.getUpstreamPredicateHint());
         }
 
-        private boolean allNodesPresent(long tableId)
+        private boolean allNodesPresent(TableHandle tableHandle)
         {
             Set<String> nodesActive = ImmutableSet.copyOf(Collections2.transform(nodeManager.getAllNodes().getActiveNodes(), Node.getIdentifierFunction()));
-            Set<String> nodesRequired = ImmutableSet.copyOf(shardManager.getCommittedShardNodes(tableId).values());
+            Set<String> nodesRequired = ImmutableSet.copyOf(shardManager.getCommittedShardNodesByTableId(tableHandle).values());
 
             return nodesActive.containsAll(nodesRequired);
         }
