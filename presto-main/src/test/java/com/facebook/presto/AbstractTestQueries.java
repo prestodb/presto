@@ -940,6 +940,72 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testSimpleRightJoin()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*) FROM lineitem RIGHT JOIN orders ON lineitem.orderkey = orders.orderkey");
+        assertQuery("SELECT COUNT(*) FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey");
+    }
+
+    @Test
+    public void testRightJoinWithRightConstantEquality()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*) FROM (SELECT * FROM lineitem WHERE orderkey % 1024 = 0) lineitem RIGHT JOIN orders ON lineitem.orderkey = 2");
+    }
+
+    @Test
+    public void testRightJoinWithLeftConstantEquality()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*) FROM (SELECT * FROM lineitem WHERE orderkey % 1024 = 0) lineitem RIGHT JOIN orders ON orders.orderkey = 2");
+    }
+
+    @Test
+    public void testSimpleRightJoinWithLeftConstantEquality()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*) FROM lineitem RIGHT JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.orderkey = 2");
+    }
+
+    @Test
+    public void testSimpleRightJoinWithRightConstantEquality()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*) FROM lineitem RIGHT JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.orderkey = 2");
+    }
+
+    @Test
+    public void testRightJoinDoubleClauseWithLeftOverlap()
+            throws Exception
+    {
+        // Checks to make sure that we properly handle duplicate field references in join clauses
+        assertQuery("SELECT COUNT(*) FROM lineitem RIGHT JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.orderkey = orders.custkey");
+    }
+
+    @Test
+    public void testRightJoinDoubleClauseWithRightOverlap()
+            throws Exception
+    {
+        // Checks to make sure that we properly handle duplicate field references in join clauses
+        assertQuery("SELECT COUNT(*) FROM lineitem RIGHT JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.orderkey = lineitem.partkey");
+    }
+
+    @Test
+    public void testBuildFilteredRightJoin()
+            throws Exception
+    {
+        assertQuery("SELECT custkey, linestatus, tax, totalprice, orderstatus FROM (SELECT * FROM lineitem WHERE orderkey % 2 = 0) a RIGHT JOIN orders ON a.orderkey = orders.orderkey");
+    }
+
+    @Test
+    public void testProbeFilteredRightJoin()
+            throws Exception
+    {
+        assertQuery("SELECT custkey, linestatus, tax, totalprice, orderstatus FROM lineitem RIGHT JOIN (SELECT *  FROM orders WHERE orderkey % 2 = 0) a ON lineitem.orderkey = a.orderkey");
+    }
+
+    @Test
     public void testOrderBy()
             throws Exception
     {
@@ -1901,6 +1967,52 @@ public abstract class AbstractTestQueries
                 "LEFT JOIN (\n" +
                 "  SELECT * FROM orders WHERE orders.orderkey % 2 = 0\n" +
                 ") orders \n" +
+                "ON lineitem.orderkey = orders.orderkey \n" +
+                "WHERE orders.orderkey = orders.orderkey\n" +
+                "  AND lineitem.orderkey % 4 = 0\n" +
+                "  AND (lineitem.suppkey % 2 = orders.orderkey % 2 OR orders.orderkey IS NULL)");
+    }
+
+    @Test
+    public void testRightJoinAsInnerPredicatePushdown()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT COUNT(*)\n" +
+                "FROM (\n" +
+                "  SELECT * FROM orders WHERE orders.orderkey % 2 = 0\n" +
+                ") orders\n" +
+                "RIGHT JOIN lineitem\n" +
+                "ON lineitem.orderkey = orders.orderkey \n" +
+                "WHERE orders.orderkey % 4 = 0\n" +
+                "  AND (lineitem.suppkey % 2 = orders.orderkey % 2 OR orders.custkey IS NULL)");
+    }
+
+    @Test
+    public void testPlainRightJoinPredicatePushdown()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT COUNT(*)\n" +
+                "FROM (\n" +
+                "  SELECT * FROM orders WHERE orders.orderkey % 2 = 0\n" +
+                ") orders \n" +
+                "RIGHT JOIN lineitem\n" +
+                "ON lineitem.orderkey = orders.orderkey \n" +
+                "WHERE lineitem.orderkey % 4 = 0\n" +
+                "  AND (lineitem.suppkey % 2 = orders.orderkey % 2 OR orders.orderkey IS NULL)");
+    }
+
+    @Test
+    public void testRightJoinPredicatePushdownWithSelfEquality()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT COUNT(*)\n" +
+                "FROM (\n" +
+                "  SELECT * FROM orders WHERE orders.orderkey % 2 = 0\n" +
+                ") orders \n" +
+                "RIGHT JOIN lineitem\n" +
                 "ON lineitem.orderkey = orders.orderkey \n" +
                 "WHERE orders.orderkey = orders.orderkey\n" +
                 "  AND lineitem.orderkey % 4 = 0\n" +

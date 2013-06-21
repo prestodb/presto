@@ -30,6 +30,7 @@ import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.TreeRewriter;
 import com.facebook.presto.util.MapTransformer;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
@@ -44,6 +45,7 @@ import com.google.common.collect.Sets;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -154,22 +156,8 @@ public class PredicatePushDown
         @Override
         public PlanNode rewriteJoin(JoinNode node, Expression inheritedPredicate, PlanRewriter<Expression> planRewriter)
         {
-            if (node.getType() == JoinNode.Type.LEFT) {
-                Set<Symbol> rightSymbols = ImmutableSet.copyOf(node.getRight().getOutputSymbols());
-                for (Expression conjunct : extractConjuncts(inheritedPredicate)) {
-                    if (DeterminismEvaluator.isDeterministic(conjunct)) {
-                        // Ignore a conjunct for this test if we can not deterministically get responses from it
-                        Object response = nullInputEvaluator(rightSymbols, conjunct);
-                        if (response == null || BooleanLiteral.FALSE_LITERAL.equals(response)) {
-                            // If there is a single conjunct that returns FALSE or NULL given all NULL inputs for right side symbols
-                            // then this conjunct removes all effects of the outer join, and effectively turns this into an equivalent of an inner join.
-                            // So, let's just rewrite this join as an INNER join
-                            node = new JoinNode(node.getId(), JoinNode.Type.INNER, node.getLeft(), node.getRight(), node.getCriteria());
-                            break;
-                        }
-                    }
-                }
-            }
+            // See if we can rewrite outer joins in terms of a plain inner join
+            node = tryNormalizeToInnerJoin(node, inheritedPredicate);
 
             // Generate equality inferences
             EqualityInference.Builder inferenceBuilder = new EqualityInference.Builder();
@@ -226,6 +214,23 @@ public class PredicatePushDown
                         postJoinConjuncts.add(conjunct);
                     }
                 }
+                else if (node.getType() == JoinNode.Type.RIGHT) {
+                    // Assuming that no predicate has turned this RIGHT join into an INNER join
+                    // We can only push down predicates bound to the right side
+
+                    Set<Symbol> symbols = DependencyExtractor.extract(conjunct);
+                    if (node.getRight().getOutputSymbols().containsAll(symbols)) {
+                        rightConjuncts.add(conjunct);
+
+                        Expression leftRewrittenConjunct = inferenceWithJoin.rewritePredicate(conjunct, in(node.getLeft().getOutputSymbols()));
+                        if (leftRewrittenConjunct != null) {
+                            leftConjuncts.add(leftRewrittenConjunct);
+                        }
+                    }
+                    else {
+                        postJoinConjuncts.add(conjunct);
+                    }
+                }
                 else {
                     throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
                 }
@@ -242,6 +247,11 @@ public class PredicatePushDown
                     // Cannot push down join predicates on outer side, but ok for inner side
                     leftConjuncts.addAll(inferenceWithoutJoin.scopedEqualityPredicates(in(node.getLeft().getOutputSymbols())));
                     rightConjuncts.addAll(inferenceWithJoin.scopedEqualityPredicates(in(node.getRight().getOutputSymbols())));
+                    break;
+                case RIGHT:
+                    // Cannot push down join predicates on outer side, but ok for inner side
+                    leftConjuncts.addAll(inferenceWithJoin.scopedEqualityPredicates(in(node.getLeft().getOutputSymbols())));
+                    rightConjuncts.addAll(inferenceWithoutJoin.scopedEqualityPredicates(in(node.getRight().getOutputSymbols())));
                     break;
                 default:
                     throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
@@ -264,6 +274,36 @@ public class PredicatePushDown
                 output = new FilterNode(idAllocator.getNextId(), output, and(postJoinConjuncts));
             }
             return output;
+        }
+
+        private JoinNode tryNormalizeToInnerJoin(JoinNode node, Expression inheritedPredicate)
+        {
+            Preconditions.checkArgument(EnumSet.of(JoinNode.Type.INNER, JoinNode.Type.RIGHT, JoinNode.Type.LEFT).contains(node.getType()), "Unsupported join type: %s", node.getType());
+
+            if (node.getType() == JoinNode.Type.INNER ||
+                node.getType() == JoinNode.Type.LEFT && !canConvertOuterToInner(node.getRight().getOutputSymbols(), inheritedPredicate) ||
+                node.getType() == JoinNode.Type.RIGHT && !canConvertOuterToInner(node.getLeft().getOutputSymbols(), inheritedPredicate)) {
+                return node;
+            }
+            return new JoinNode(node.getId(), JoinNode.Type.INNER, node.getLeft(), node.getRight(), node.getCriteria());
+        }
+
+        private boolean canConvertOuterToInner(List<Symbol> innerSymbolsForOuterJoin, Expression inheritedPredicate)
+        {
+            Set<Symbol> innerSymbols = ImmutableSet.copyOf(innerSymbolsForOuterJoin);
+            for (Expression conjunct : extractConjuncts(inheritedPredicate)) {
+                if (DeterminismEvaluator.isDeterministic(conjunct)) {
+                    // Ignore a conjunct for this test if we can not deterministically get responses from it
+                    Object response = nullInputEvaluator(innerSymbols, conjunct);
+                    if (response == null || BooleanLiteral.FALSE_LITERAL.equals(response)) {
+                        // If there is a single conjunct that returns FALSE or NULL given all NULL inputs for the inner side symbols of an outer join
+                        // then this conjunct removes all effects of the outer join, and effectively turns this into an equivalent of an inner join.
+                        // So, let's just rewrite this join as an INNER join
+                        return true;
+                    }
+                }
+            }
+            return false;
         }
 
         /**
