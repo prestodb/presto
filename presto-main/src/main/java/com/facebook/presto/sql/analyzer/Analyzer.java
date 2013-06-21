@@ -1,37 +1,36 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.sql.ExpressionFormatter;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Statement;
-import com.google.common.base.Preconditions;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import java.util.IdentityHashMap;
 import java.util.List;
 
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.*;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CANNOT_HAVE_AGGREGATIONS_OR_WINDOWS;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class Analyzer
 {
     private final Metadata metadata;
     private final Session session;
+    private final Optional<QueryExplainer> queryExplainer;
 
-    public Analyzer(Session session, Metadata metadata)
+    public Analyzer(Session session, Metadata metadata, Optional<QueryExplainer> queryExplainer)
     {
-        Preconditions.checkNotNull(session, "session is null");
-        Preconditions.checkNotNull(metadata, "metadata is null");
-
-        this.session = session;
-        this.metadata = metadata;
+        this.session = checkNotNull(session, "session is null");
+        this.metadata = checkNotNull(metadata, "metadata is null");
+        this.queryExplainer = checkNotNull(queryExplainer, "query explainer is null");
     }
 
     public Analysis analyze(Statement statement)
     {
         Analysis analysis = new Analysis();
-        StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, session);
+        StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, session, queryExplainer);
         TupleDescriptor outputDescriptor = analyzer.process(statement, new AnalysisContext());
         analysis.setOutputDescriptor(outputDescriptor);
         return analysis;

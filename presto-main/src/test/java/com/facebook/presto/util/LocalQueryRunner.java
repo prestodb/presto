@@ -11,6 +11,7 @@ import com.facebook.presto.connector.system.SystemSplitManager;
 import com.facebook.presto.connector.system.SystemTablesManager;
 import com.facebook.presto.connector.system.SystemTablesMetadata;
 import com.facebook.presto.importer.MockPeriodicImportManager;
+import com.facebook.presto.importer.PeriodicImportManager;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.metadata.Metadata;
@@ -29,6 +30,7 @@ import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
+import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -50,6 +52,7 @@ import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.facebook.presto.tpch.TpchDataStreamProvider;
 import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tpch.TpchSplitManager;
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -117,15 +120,17 @@ public class LocalQueryRunner
             assertFormattedSql(statement);
         }
 
-        Analyzer analyzer = new Analyzer(session, metadata);
+        PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
+        PlanOptimizersFactory planOptimizersFactory = new PlanOptimizersFactory(metadata);
+
+        QueryExplainer queryExplainer = new QueryExplainer(session, planOptimizersFactory.get(), metadata, new MockPeriodicImportManager(), new MockStorageManager());
+        Analyzer analyzer = new Analyzer(session, metadata, Optional.of(queryExplainer));
 
         Analysis analysis = analyzer.analyze(statement);
 
-        PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
-        PlanOptimizersFactory planOptimizersFactory = new PlanOptimizersFactory(metadata);
         Plan plan = new LogicalPlanner(session, planOptimizersFactory.get(), idAllocator, metadata, new MockPeriodicImportManager(), new MockStorageManager()).plan(analysis);
         if (printPlan) {
-            new PlanPrinter().print(plan.getRoot(), plan.getTypes());
+            System.out.println(PlanPrinter.printPlan(plan.getRoot(), plan.getTypes()));
         }
 
         SubPlan subplan = new DistributedLogicalPlanner(metadata, idAllocator).createSubplans(plan, true);

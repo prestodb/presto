@@ -8,6 +8,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Statement;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeMethod;
@@ -481,7 +482,7 @@ public class TestAnalyzer
                         new ColumnMetadata("a", ColumnType.LONG, 0, false),
                         new ColumnMetadata("b", ColumnType.LONG, 1, false))));
 
-        analyzer = new Analyzer(new Session("user", "test", "tpch", "default", null, null), metadata);
+        analyzer = new Analyzer(new Session("user", "test", "tpch", "default", null, null), metadata, Optional.<QueryExplainer>absent());
     }
 
     private void analyze(@Language("SQL") String query)
