@@ -1,7 +1,6 @@
 package com.facebook.presto.jdbc;
 
 import com.facebook.presto.server.TestingPrestoServer;
-import com.google.common.io.Closeables;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -31,11 +30,10 @@ public class TestDriver
         server = new TestingPrestoServer();
     }
 
-    @SuppressWarnings("deprecation")
     @AfterMethod
     public void teardown()
     {
-        Closeables.closeQuietly(server);
+        closeQuietly(server);
     }
 
     @Test
@@ -108,5 +106,14 @@ public class TestDriver
             actual++;
         }
         assertEquals(actual, expected);
+    }
+
+    static void closeQuietly(AutoCloseable closeable)
+    {
+        try {
+            closeable.close();
+        }
+        catch (Exception ignored) {
+        }
     }
 }
