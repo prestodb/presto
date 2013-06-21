@@ -236,6 +236,11 @@ public class TaskOutput
         taskState.waitForStateChange(currentState, maxWait);
     }
 
+    public void addStateChangeListener(StateChangeListener<TaskState> stateChangeListener)
+    {
+        taskState.addStateChangeListener(stateChangeListener);
+    }
+
     public TaskInfo getTaskInfo(boolean full)
     {
         updateFinishedState();

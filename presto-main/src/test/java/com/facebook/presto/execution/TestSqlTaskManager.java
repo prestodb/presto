@@ -245,7 +245,7 @@ public class TestSqlTaskManager
         }
     }
 
-    private static class MockExchangeClientProvider
+    public static class MockExchangeClientProvider
             implements Provider<ExchangeClient>
     {
         @Override
@@ -255,19 +255,19 @@ public class TestSqlTaskManager
         }
     }
 
-    private static class MockLocationFactory
+    public static class MockLocationFactory
             implements LocationFactory
     {
         @Override
         public URI createQueryLocation(QueryId queryId)
         {
-            throw new UnsupportedOperationException();
+            return URI.create("fake://query/" + queryId);
         }
 
         @Override
         public URI createStageLocation(StageId stageId)
         {
-            throw new UnsupportedOperationException();
+            return URI.create("fake://stage/" + stageId);
         }
 
         @Override
@@ -279,7 +279,7 @@ public class TestSqlTaskManager
         @Override
         public URI createTaskLocation(Node node, TaskId taskId)
         {
-            throw new UnsupportedOperationException();
+            return URI.create("fake://task/" + node.getNodeIdentifier() + "/" + taskId);
         }
     }
 }
