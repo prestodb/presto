@@ -43,6 +43,7 @@ options {
 
 statement returns [Statement value]
     : query           { $value = $query.value; }
+    | explain         { $value = $explain.value; }
     | showTables      { $value = $showTables.value; }
     | showColumns     { $value = $showColumns.value; }
     | showPartitions  { $value = $showPartitions.value; }
@@ -426,6 +427,10 @@ caseExpression returns [Expression value]
 
 whenList returns [List<WhenClause> value = new ArrayList<>()]
     : ( ^(WHEN a=expr b=expr) { $value.add(new WhenClause($a.value, $b.value)); } )+
+    ;
+
+explain returns [Statement value]
+    : ^(EXPLAIN query) { $value = new Explain($query.value); }
     ;
 
 showTables returns [Statement value]

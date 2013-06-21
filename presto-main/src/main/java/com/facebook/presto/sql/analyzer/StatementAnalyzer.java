@@ -8,6 +8,7 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
+import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LongLiteral;
@@ -15,12 +16,12 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.RefreshMaterializedView;
-import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.ShowColumns;
 import com.facebook.presto.sql.tree.ShowFunctions;
 import com.facebook.presto.sql.tree.ShowPartitions;
 import com.facebook.presto.sql.tree.ShowTables;
+import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.With;
@@ -51,6 +52,7 @@ import static com.facebook.presto.sql.tree.QueryUtil.nameReference;
 import static com.facebook.presto.sql.tree.QueryUtil.selectAll;
 import static com.facebook.presto.sql.tree.QueryUtil.selectList;
 import static com.facebook.presto.sql.tree.QueryUtil.table;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 
@@ -60,12 +62,14 @@ class StatementAnalyzer
     private final Analysis analysis;
     private final Metadata metadata;
     private final Session session;
+    private final Optional<QueryExplainer> queryExplainer;
 
-    public StatementAnalyzer(Analysis analysis, Metadata metadata, Session session)
+    public StatementAnalyzer(Analysis analysis, Metadata metadata, Session session, Optional<QueryExplainer> queryExplainer)
     {
-        this.analysis = analysis;
-        this.metadata = metadata;
-        this.session = session;
+        this.analysis = checkNotNull(analysis, "analysis is null");
+        this.metadata = checkNotNull(metadata, "metadata is null");
+        this.session = checkNotNull(session, "session is null");
+        this.queryExplainer = checkNotNull(queryExplainer, "queryExplainer is null");
     }
 
     @Override
@@ -265,6 +269,30 @@ class StatementAnalyzer
         analysis.setDoRefresh(true);
 
         return new TupleDescriptor(Field.newUnqualified("imported_rows", Type.LONG));
+    }
+
+    @Override
+    protected TupleDescriptor visitExplain(Explain node, AnalysisContext context)
+    {
+        checkState(queryExplainer.isPresent(), "query explainer not available");
+        String queryPlan = queryExplainer.get().getPlan(node.getQuery());
+
+        Query query = new Query(
+                Optional.<With>absent(),
+                new QuerySpecification(
+                        selectList(
+                                new SingleColumn(new StringLiteral(queryPlan), "Query Plan")),
+                        null,
+                        Optional.<Expression>absent(),
+                        ImmutableList.<Expression>of(),
+                        Optional.<Expression>absent(),
+                        ImmutableList.<SortItem>of(),
+                        Optional.<String>absent()
+                ),
+                ImmutableList.<SortItem>of(),
+                Optional.<String>absent());
+
+        return process(query, context);
     }
 
     @Override

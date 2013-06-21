@@ -23,6 +23,7 @@ public class TestStatementBuilder
             throws Exception
     {
         printStatement("select * from foo");
+        printStatement("explain select * from foo");
 
         printStatement("select * from foo a (x, y, z)");
 

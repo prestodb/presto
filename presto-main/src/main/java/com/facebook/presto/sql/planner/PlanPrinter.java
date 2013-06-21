@@ -37,10 +37,23 @@ import static java.lang.String.format;
 
 public class PlanPrinter
 {
-    public void print(PlanNode plan, Map<Symbol, Type> types)
+    private final StringBuilder output = new StringBuilder();
+
+    private PlanPrinter(PlanNode plan, Map<Symbol, Type> types)
     {
         Visitor visitor = new Visitor(types);
         plan.accept(visitor, 0);
+    }
+
+    @Override
+    public String toString()
+    {
+        return output.toString();
+    }
+
+    public static String printPlan(PlanNode plan, Map<Symbol, Type> types)
+    {
+        return new PlanPrinter(plan, types).toString();
     }
 
     private void print(int indent, String format, Object... args)
@@ -53,8 +66,7 @@ public class PlanPrinter
         else {
             value = format(format, args);
         }
-
-        System.out.println(Strings.repeat("    ", indent) + value);
+        output.append(Strings.repeat("    ", indent)).append(value).append('\n');
     }
 
     private class Visitor

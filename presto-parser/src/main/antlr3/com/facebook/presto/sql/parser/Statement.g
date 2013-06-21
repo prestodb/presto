@@ -60,6 +60,7 @@ tokens {
     CURRENT_ROW;
     NEGATIVE;
     QNAME;
+    EXPLAIN;
     SHOW_TABLES;
     SHOW_COLUMNS;
     SHOW_PARTITIONS;
@@ -146,6 +147,7 @@ singleExpression
 
 statement
     : query
+    | explainStmt
     | showTablesStmt
     | showColumnsStmt
     | showPartitionsStmt
@@ -508,6 +510,10 @@ frameBound
       )
     ;
 
+explainStmt
+    : EXPLAIN query -> ^(EXPLAIN query)
+    ;
+
 showTablesStmt
     : SHOW TABLES from=showTablesFrom? like=showTablesLike? -> ^(SHOW_TABLES $from? $like?)
     ;
@@ -737,6 +743,7 @@ BIGINT: 'BIGINT';
 BOOLEAN: 'BOOLEAN';
 CONSTRAINT: 'CONSTRAINT';
 DESCRIBE: 'DESCRIBE';
+EXPLAIN: 'EXPLAIN';
 CAST: 'CAST';
 SHOW: 'SHOW';
 TABLES: 'TABLES';
