@@ -10,6 +10,7 @@ import com.facebook.presto.util.InMemoryTpchBlocksProvider;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
+import com.google.common.net.HostAndPort;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Module;
@@ -115,5 +116,10 @@ public class TestingPrestoServer
     public URI resolve(String path)
     {
         return server.getBaseUrl().resolve(path);
+    }
+
+    public HostAndPort getAddress()
+    {
+        return HostAndPort.fromParts(getBaseUrl().getHost(), getBaseUrl().getPort());
     }
 }
