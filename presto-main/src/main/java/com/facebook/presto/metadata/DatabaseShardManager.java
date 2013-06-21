@@ -12,6 +12,7 @@ import org.skife.jdbi.v2.VoidTransactionCallback;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -66,6 +67,9 @@ public class DatabaseShardManager
     public void commitPartition(TableHandle tableHandle, final String partition, final Map<Long, String> shards)
     {
         checkNotNull(tableHandle, "tableHandle is null");
+        checkNotNull(partition, "partition is null");
+        checkNotNull(shards, "shards is null");
+
         checkState(tableHandle instanceof NativeTableHandle, "can only commit partitions for native tables");
         final long tableId = ((NativeTableHandle) tableHandle).getTableId();
 
@@ -110,7 +114,7 @@ public class DatabaseShardManager
     }
 
     @Override
-    public Set<String> getPartitions(TableHandle tableHandle)
+    public Set<TablePartition> getPartitions(TableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         checkState(tableHandle instanceof NativeTableHandle, "can only commit partitions for native tables");
@@ -119,10 +123,20 @@ public class DatabaseShardManager
     }
 
     @Override
-    public Multimap<Long, String> getCommittedShardNodes(long tableId)
+    public Multimap<Long, String> getCommittedShardNodesByPartitionId(long partitionId)
     {
         ImmutableMultimap.Builder<Long, String> map = ImmutableMultimap.builder();
-        for (ShardNode shardNode : dao.getCommittedShardNodes(tableId)) {
+        for (ShardNode shardNode : dao.getCommittedShardNodesByPartitionId(partitionId)) {
+            map.put(shardNode.getShardId(), shardNode.getNodeIdentifier());
+        }
+        return map.build();
+    }
+
+    @Override
+    public Multimap<Long, String> getCommittedShardNodesByTableId(long tableId)
+    {
+        ImmutableMultimap.Builder<Long, String> map = ImmutableMultimap.builder();
+        for (ShardNode shardNode : dao.getCommittedShardNodesByTableId(tableId)) {
             map.put(shardNode.getShardId(), shardNode.getNodeIdentifier());
         }
         return map.build();

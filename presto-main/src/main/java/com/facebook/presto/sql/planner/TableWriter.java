@@ -3,10 +3,10 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.operator.TableWriterResult;
 import com.facebook.presto.spi.Partition;
+import com.facebook.presto.spi.PartitionedSplit;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.split.CollocatedSplit;
 import com.facebook.presto.split.NativeSplit;
-import com.facebook.presto.spi.PartitionedSplit;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.google.common.base.Predicate;
@@ -22,8 +22,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.facebook.presto.metadata.TablePartition.partitionNameGetter;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Collections2.transform;
 
 public class TableWriter
 {
@@ -54,7 +56,7 @@ public class TableWriter
         this.tableWriterNode = checkNotNull(tableWriterNode, "tableWriterNode is null");
         this.shardManager = checkNotNull(shardManager, "shardManager is null");
 
-        this.remainingPartitions.addAll(shardManager.getPartitions(tableWriterNode.getTable()));
+        this.remainingPartitions.addAll(transform(shardManager.getPartitions(tableWriterNode.getTable()), partitionNameGetter()));
     }
 
     public OutputReceiver getOutputReceiver()

@@ -2,10 +2,10 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.TableHandle;
 import com.google.common.base.Optional;
-import com.facebook.presto.spi.Split;
 import com.google.common.collect.Multimap;
 
 import javax.annotation.Nullable;
+
 import java.util.Map;
 import java.util.Set;
 
@@ -42,14 +42,21 @@ public interface ShardManager
      *
      * @return list of partition names
      */
-    Set<String> getPartitions(TableHandle tableHandle);
+    Set<TablePartition> getPartitions(TableHandle tableHandle);
 
     /**
-     * Get all complete shards in table
+     * Get all complete shards in a partition.
      *
      * @return mapping of shard ID to node identifier
      */
-    Multimap<Long, String> getCommittedShardNodes(long tableId);
+    Multimap<Long, String> getCommittedShardNodesByPartitionId(long partitionId);
+
+    /**
+     * Get all complete shards in a table
+     *
+     * @return mapping of shard ID to node identifier
+     */
+    Multimap<Long, String> getCommittedShardNodesByTableId(long tableId);
 
     /**
      * Get all complete shards in table partition
