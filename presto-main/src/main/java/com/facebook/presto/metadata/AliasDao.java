@@ -9,6 +9,7 @@ import org.skife.jdbi.v2.sqlobject.SqlQuery;
 import org.skife.jdbi.v2.sqlobject.SqlUpdate;
 import org.skife.jdbi.v2.sqlobject.customizers.Mapper;
 
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 public interface AliasDao
@@ -39,6 +40,10 @@ public interface AliasDao
     @SqlQuery("SELECT * FROM alias WHERE source_connector_id = :connectorId AND source_schema_name = :schemaName AND source_table_name = :tableName")
     @Mapper(TableAlias.TableAliasMapper.class)
     TableAlias getAlias(@Bind("connectorId") String connectorId, @Bind("schemaName") String schemaName, @Bind("tableName") String tableName);
+
+    @SqlQuery("SELECT * FROM alias")
+    @Mapper(TableAlias.TableAliasMapper.class)
+    List<TableAlias> getAliases();
 
     public static final class Utils
     {
