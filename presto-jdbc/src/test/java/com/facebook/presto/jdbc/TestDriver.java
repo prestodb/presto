@@ -2,12 +2,10 @@ package com.facebook.presto.jdbc;
 
 import com.facebook.presto.server.TestingPrestoServer;
 import com.google.common.io.Closeables;
-import com.google.common.net.HostAndPort;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.net.URI;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -25,15 +23,12 @@ import static org.testng.Assert.fail;
 public class TestDriver
 {
     private TestingPrestoServer server;
-    private HostAndPort address;
 
     @BeforeMethod
     public void setup()
             throws Exception
     {
         server = new TestingPrestoServer();
-        URI uri = server.getBaseUrl();
-        address = HostAndPort.fromParts(uri.getHost(), uri.getPort());
     }
 
     @SuppressWarnings("deprecation")
@@ -101,7 +96,7 @@ public class TestDriver
     private Connection createConnection()
             throws SQLException
     {
-        String url = format("jdbc:presto://%s/", address);
+        String url = format("jdbc:presto://%s/", server.getAddress());
         return DriverManager.getConnection(url, "test", null);
     }
 
