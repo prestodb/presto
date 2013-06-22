@@ -49,6 +49,14 @@ public class QueryExecutor
         httpClient.close();
     }
 
+    // TODO: replace this with a phantom reference
+    @SuppressWarnings("FinalizeDeclaration")
+    @Override
+    protected void finalize()
+    {
+        close();
+    }
+
     public static QueryExecutor create(String userAgent)
     {
         return new QueryExecutor(userAgent, jsonCodec(QueryResults.class));

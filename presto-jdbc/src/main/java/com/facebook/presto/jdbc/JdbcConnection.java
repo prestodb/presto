@@ -30,8 +30,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.jdbc.Driver.DRIVER_NAME;
-import static com.facebook.presto.jdbc.Driver.DRIVER_VERSION;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Maps.fromProperties;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilder;
@@ -48,12 +46,12 @@ public class JdbcConnection
     private final Map<String, String> clientInfo = new ConcurrentHashMap<>();
     private final QueryExecutor queryExecutor;
 
-    JdbcConnection(URI uri, String user)
+    JdbcConnection(URI uri, String user, QueryExecutor queryExecutor)
     {
         this.uri = checkNotNull(uri, "uri is null");
         this.address = HostAndPort.fromParts(uri.getHost(), uri.getPort());
         this.user = checkNotNull(user, "user is null");
-        this.queryExecutor = QueryExecutor.create(DRIVER_NAME + "/" + DRIVER_VERSION);
+        this.queryExecutor = checkNotNull(queryExecutor, "queryExecutor is null");
         catalog.set("default");
         schema.set("default");
     }
@@ -133,9 +131,7 @@ public class JdbcConnection
     public void close()
             throws SQLException
     {
-        if (!closed.getAndSet(true)) {
-            queryExecutor.close();
-        }
+        closed.set(true);
     }
 
     @Override

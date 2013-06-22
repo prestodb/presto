@@ -12,6 +12,8 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
+import java.util.ArrayList;
+import java.util.List;
 
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
@@ -66,6 +68,27 @@ public class TestDriver
                     assertFalse(rs.next());
                 }
             }
+        }
+    }
+
+    @Test
+    public void testConnectionResourceHandling()
+            throws Exception
+    {
+        List<Connection> connections = new ArrayList<>();
+
+        for (int i = 0; i < 100; i++) {
+            Connection connection = createConnection();
+            connections.add(connection);
+
+            try (Statement statement = connection.createStatement();
+                    ResultSet rs = statement.executeQuery("SELECT 123")) {
+                assertTrue(rs.next());
+            }
+        }
+
+        for (Connection connection : connections) {
+            connection.close();
         }
     }
 
