@@ -1,13 +1,10 @@
 package com.facebook.presto.jdbc;
 
 import com.facebook.presto.server.TestingPrestoServer;
-import com.google.common.io.Closeables;
-import com.google.common.net.HostAndPort;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.net.URI;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -15,6 +12,8 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
+import java.util.ArrayList;
+import java.util.List;
 
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
@@ -25,22 +24,18 @@ import static org.testng.Assert.fail;
 public class TestDriver
 {
     private TestingPrestoServer server;
-    private HostAndPort address;
 
     @BeforeMethod
     public void setup()
             throws Exception
     {
         server = new TestingPrestoServer();
-        URI uri = server.getBaseUrl();
-        address = HostAndPort.fromParts(uri.getHost(), uri.getPort());
     }
 
-    @SuppressWarnings("deprecation")
     @AfterMethod
     public void teardown()
     {
-        Closeables.closeQuietly(server);
+        closeQuietly(server);
     }
 
     @Test
@@ -76,6 +71,27 @@ public class TestDriver
         }
     }
 
+    @Test
+    public void testConnectionResourceHandling()
+            throws Exception
+    {
+        List<Connection> connections = new ArrayList<>();
+
+        for (int i = 0; i < 100; i++) {
+            Connection connection = createConnection();
+            connections.add(connection);
+
+            try (Statement statement = connection.createStatement();
+                    ResultSet rs = statement.executeQuery("SELECT 123")) {
+                assertTrue(rs.next());
+            }
+        }
+
+        for (Connection connection : connections) {
+            connection.close();
+        }
+    }
+
     @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = ".* Table .* does not exist")
     public void testBadQuery()
             throws Exception
@@ -101,7 +117,7 @@ public class TestDriver
     private Connection createConnection()
             throws SQLException
     {
-        String url = format("jdbc:presto://%s/", address);
+        String url = format("jdbc:presto://%s/", server.getAddress());
         return DriverManager.getConnection(url, "test", null);
     }
 
@@ -113,5 +129,14 @@ public class TestDriver
             actual++;
         }
         assertEquals(actual, expected);
+    }
+
+    static void closeQuietly(AutoCloseable closeable)
+    {
+        try {
+            closeable.close();
+        }
+        catch (Exception ignored) {
+        }
     }
 }
