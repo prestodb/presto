@@ -62,6 +62,7 @@ tokens {
     QNAME;
     EXPLAIN;
     SHOW_TABLES;
+    SHOW_SCHEMAS;
     SHOW_COLUMNS;
     SHOW_PARTITIONS;
     SHOW_FUNCTIONS;
@@ -149,6 +150,7 @@ statement
     : query
     | explainStmt
     | showTablesStmt
+    | showSchemasStmt
     | showColumnsStmt
     | showPartitionsStmt
     | showFunctionsStmt
@@ -526,6 +528,10 @@ showTablesLike
     : LIKE s=STRING -> ^(LIKE $s)
     ;
 
+showSchemasStmt
+    : SHOW SCHEMAS -> SHOW_SCHEMAS
+    ;
+
 showColumnsStmt
     : SHOW COLUMNS (FROM | IN) qname -> ^(SHOW_COLUMNS qname)
     | DESCRIBE qname                 -> ^(SHOW_COLUMNS qname)
@@ -647,7 +653,7 @@ integer
     ;
 
 nonReserved
-    : SHOW | TABLES | COLUMNS | PARTITIONS | FUNCTIONS
+    : SHOW | TABLES | COLUMNS | PARTITIONS | FUNCTIONS | SCHEMAS
     | OVER | PARTITION | RANGE | ROWS | PRECEDING | FOLLOWING | CURRENT | ROW
     | REFRESH | MATERIALIZED | VIEW | ALIAS
     | YEAR | MONTH | DAY | HOUR | MINUTE | SECOND
@@ -747,6 +753,7 @@ EXPLAIN: 'EXPLAIN';
 CAST: 'CAST';
 SHOW: 'SHOW';
 TABLES: 'TABLES';
+SCHEMAS: 'SCHEMAS';
 COLUMNS: 'COLUMNS';
 PARTITIONS: 'PARTITIONS';
 FUNCTIONS: 'FUNCTIONS';

@@ -90,6 +90,7 @@ import com.facebook.presto.sql.tree.Serialization.FunctionCallDeserializer;
 import com.facebook.presto.sql.tree.ShowColumns;
 import com.facebook.presto.sql.tree.ShowFunctions;
 import com.facebook.presto.sql.tree.ShowPartitions;
+import com.facebook.presto.sql.tree.ShowSchemas;
 import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.storage.DatabaseStorageManager;
@@ -288,6 +289,7 @@ public class ServerMainModule
         executionBinder.addBinding(ShowPartitions.class).to(Key.get(SqlQueryExecutionFactory.class)).in(Scopes.SINGLETON);
         executionBinder.addBinding(ShowFunctions.class).to(Key.get(SqlQueryExecutionFactory.class)).in(Scopes.SINGLETON);
         executionBinder.addBinding(ShowTables.class).to(Key.get(SqlQueryExecutionFactory.class)).in(Scopes.SINGLETON);
+        executionBinder.addBinding(ShowSchemas.class).to(Key.get(SqlQueryExecutionFactory.class)).in(Scopes.SINGLETON);
         executionBinder.addBinding(CreateMaterializedView.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         executionBinder.addBinding(RefreshMaterializedView.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
 

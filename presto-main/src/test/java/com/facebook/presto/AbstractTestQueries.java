@@ -1,6 +1,7 @@
 package com.facebook.presto;
 
 import com.facebook.presto.connector.dual.DualMetadata;
+import com.facebook.presto.connector.informationSchema.InformationSchemaMetadata;
 import com.facebook.presto.importer.MockPeriodicImportManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -10,9 +11,7 @@ import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.parser.StatementBuilder;
 import com.facebook.presto.sql.planner.PlanOptimizersFactory;
-import com.facebook.presto.sql.planner.PlanPrinter;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.storage.MockStorageManager;
@@ -57,6 +56,7 @@ import static com.facebook.presto.tpch.TpchMetadata.TPCH_LINEITEM_METADATA;
 import static com.facebook.presto.tpch.TpchMetadata.TPCH_LINEITEM_NAME;
 import static com.facebook.presto.tpch.TpchMetadata.TPCH_ORDERS_METADATA;
 import static com.facebook.presto.tpch.TpchMetadata.TPCH_ORDERS_NAME;
+import static com.facebook.presto.tpch.TpchMetadata.TPCH_SCHEMA_NAME;
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
@@ -1526,6 +1526,15 @@ public abstract class AbstractTestQueries
         MaterializedResult result = computeActual("EXPLAIN " + query);
         String actual = Iterables.getOnlyElement(transform(result.getMaterializedTuples(), onlyColumnGetter()));
         assertEquals(actual, getExplainPlan(query));
+    }
+
+    @Test
+    public void testShowSchemas()
+            throws Exception
+    {
+        MaterializedResult result = computeActual("SHOW SCHEMAS");
+        ImmutableSet<String> schemaNames = ImmutableSet.copyOf(transform(result.getMaterializedTuples(), onlyColumnGetter()));
+        assertEquals(schemaNames, ImmutableSet.of(TPCH_SCHEMA_NAME, InformationSchemaMetadata.INFORMATION_SCHEMA, "node"));
     }
 
     @Test

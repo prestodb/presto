@@ -45,6 +45,7 @@ statement returns [Statement value]
     : query           { $value = $query.value; }
     | explain         { $value = $explain.value; }
     | showTables      { $value = $showTables.value; }
+    | showSchemas     { $value = $showSchemas.value; }
     | showColumns     { $value = $showColumns.value; }
     | showPartitions  { $value = $showPartitions.value; }
     | showFunctions   { $value = $showFunctions.value; }
@@ -443,6 +444,10 @@ showTablesFrom returns [QualifiedName value]
 
 showTablesLike returns [String value]
     : ^(LIKE string) { $value = $string.value; }
+    ;
+
+showSchemas returns [Statement value]
+    : SHOW_SCHEMAS { $value = new ShowSchemas(); }
     ;
 
 showColumns returns [Statement value]
