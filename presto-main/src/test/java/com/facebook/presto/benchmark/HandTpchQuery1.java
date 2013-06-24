@@ -3,6 +3,7 @@ package com.facebook.presto.benchmark;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockIterable;
+import com.facebook.presto.execution.TaskMemoryManager;
 import com.facebook.presto.operator.AbstractPageIterator;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.HashAggregationOperator;
@@ -95,7 +96,7 @@ public class HandTpchQuery1
                         aggregation(COUNT, new Input(1, 0))
                 ),
                 10_000,
-                new DataSize(256, Unit.MEGABYTE)
+                new TaskMemoryManager(new DataSize(256, Unit.MEGABYTE))
         );
     }
 

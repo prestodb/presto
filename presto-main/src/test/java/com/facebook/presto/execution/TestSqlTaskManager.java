@@ -85,7 +85,6 @@ public class TestSqlTaskManager
         planner = new LocalExecutionPlanner(
                 new NodeInfo("test"),
                 metadata,
-                new QueryManagerConfig(),
                 new DataStreamManager(new DualDataStreamProvider()),
                 new MockLocalStorageManager(new File("target/temp")),
                 new MockExchangeClientProvider(),

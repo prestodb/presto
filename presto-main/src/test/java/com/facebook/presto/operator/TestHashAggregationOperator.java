@@ -2,6 +2,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.execution.TaskMemoryManager;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.tuple.TupleInfo;
@@ -176,7 +177,7 @@ public class TestHashAggregationOperator
                         aggregation(DOUBLE_SUM, new Input(4, 2)),
                         aggregation(VAR_BINARY_MAX, new Input(4, 3))),
                 100_000,
-                new DataSize(100, Unit.MEGABYTE));
+                new TaskMemoryManager(new DataSize(100, Unit.MEGABYTE)));
 
         PageIterator pages = actual.iterator(new OperatorStats());
 
@@ -187,7 +188,7 @@ public class TestHashAggregationOperator
         assertFalse(pages.hasNext());
     }
 
-    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "Query exceeded max operator memory size of 10B")
+    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "Task exceeded max memory size of 10B")
     public void testMemoryLimit()
     {
         Operator source = createOperator(
@@ -216,7 +217,7 @@ public class TestHashAggregationOperator
                         aggregation(LONG_AVERAGE, new Input(3, 0)),
                         aggregation(VAR_BINARY_MAX, new Input(2, 0))),
                 100_000,
-                new DataSize(10, Unit.BYTE));
+                new TaskMemoryManager(new DataSize(10, Unit.BYTE)));
 
         actual.iterator(new OperatorStats()).next();
     }
@@ -238,7 +239,7 @@ public class TestHashAggregationOperator
                 ImmutableList.of(aggregation(COUNT, new Input(0, 0)),
                         aggregation(LONG_AVERAGE, new Input(1, 0))),
                 100_000,
-                new DataSize(100, Unit.MEGABYTE));
+                new TaskMemoryManager(new DataSize(100, Unit.MEGABYTE)));
 
         actual.iterator(new OperatorStats()).next();
     }
@@ -248,7 +249,13 @@ public class TestHashAggregationOperator
             throws Exception
     {
         BlockingOperator blockingOperator = createCancelableDataSource(new TupleInfo(VARIABLE_BINARY), new TupleInfo(VARIABLE_BINARY));
-        Operator operator = new HashAggregationOperator(blockingOperator, 0, Step.SINGLE, ImmutableList.of(aggregation(COUNT, new Input(0, 0))), 10, new DataSize(1, Unit.MEGABYTE));
+        Operator operator = new HashAggregationOperator(
+                blockingOperator,
+                0,
+                Step.SINGLE,
+                ImmutableList.of(aggregation(COUNT, new Input(0, 0))),
+                10,
+                new TaskMemoryManager(new DataSize(1, Unit.MEGABYTE)));
         assertCancel(operator, blockingOperator);
     }
 

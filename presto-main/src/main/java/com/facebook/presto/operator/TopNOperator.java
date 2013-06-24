@@ -2,10 +2,10 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.execution.TaskMemoryManager;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleReadable;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import io.airlift.units.DataSize;
@@ -34,22 +34,25 @@ public class TopNOperator
     private final List<ProjectionFunction> projections;
     private final Ordering<TupleReadable> ordering;
     private final List<TupleInfo> tupleInfos;
-    private final DataSize maxSize;
+    private final TaskMemoryManager taskMemoryManager;
 
-    public TopNOperator(Operator source, int n, int keyChannelIndex, List<ProjectionFunction> projections, Ordering<TupleReadable> ordering, DataSize maxSize)
+    public TopNOperator(Operator source, int n, int keyChannelIndex, List<ProjectionFunction> projections, Ordering<TupleReadable> ordering, TaskMemoryManager taskMemoryManager)
     {
-        checkNotNull(source, "source is null");
+        this.source = checkNotNull(source, "source is null");
+
         checkArgument(n > 0, "n must be greater than zero");
-        checkArgument(keyChannelIndex >= 0, "keyChannelIndex must be at least zero");
-        checkNotNull(projections, "projections is null");
-        checkArgument(!projections.isEmpty(), "projections is empty");
-        checkNotNull(ordering, "ordering is null");
-        this.source = source;
         this.n = n;
+
+        checkArgument(keyChannelIndex >= 0, "keyChannelIndex must be at least zero");
         this.keyChannelIndex = keyChannelIndex;
-        this.projections = ImmutableList.copyOf(projections);
-        this.ordering = ordering.reverse(); // the priority queue needs to sort in reverse order to be able to remove the least element in O(1)
-        this.maxSize = maxSize;
+
+        this.projections = ImmutableList.copyOf(checkNotNull(projections, "projections is null"));
+        checkArgument(!projections.isEmpty(), "projections is empty");
+
+        // the priority queue needs to sort in reverse order to be able to remove the least element in O(1)
+        this.ordering = checkNotNull(ordering, "ordering is null").reverse();
+
+        this.taskMemoryManager = checkNotNull(taskMemoryManager, "taskMemoryManager is null");
 
         ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
         for (ProjectionFunction projection : projections) {
@@ -121,17 +124,15 @@ public class TopNOperator
 
         private Iterator<KeyAndTuples> selectTopN(PageIterator iterator)
         {
-            long currentEstimatedSize = 0;
+            long currentMemoryReservation = 0;
             PriorityQueue<KeyAndTuples> globalCandidates = new PriorityQueue<>(Math.min(n, MAX_INITIAL_PRIORITY_QUEUE_SIZE), KeyAndTuples.keyComparator(ordering));
             try (PageIterator pageIterator = iterator) {
                 while (pageIterator.hasNext()) {
                     Page page = pageIterator.next();
                     Iterable<KeyAndPosition> keyAndPositions = computePageCandidatePositions(globalCandidates, page);
                     long sizeDelta = mergeWithGlobalCandidates(globalCandidates, page, keyAndPositions);
-                    currentEstimatedSize += sizeDelta;
-                    Preconditions.checkState(currentEstimatedSize + globalCandidates.size() * OVERHEAD_PER_TUPLE.toBytes() <= maxSize.toBytes(),
-                            "Query exceeded max operator memory size of %s",
-                            maxSize.convertToMostSuccinctDataSize());
+                    // reserve size for data
+                    currentMemoryReservation = taskMemoryManager.updateOperatorReservation(currentMemoryReservation, currentMemoryReservation + sizeDelta);
                 }
             }
             ImmutableList.Builder<KeyAndTuples> minSortedGlobalCandidates = ImmutableList.builder();
@@ -182,6 +183,7 @@ public class TopNOperator
                     for (Tuple tuple : tuples) {
                         sizeDelta += tuple.size();
                     }
+                    sizeDelta += OVERHEAD_PER_TUPLE.toBytes();
                     globalCandidates.add(new KeyAndTuples(keyAndPosition.getKey(), tuples));
                 }
                 else if (ordering.compare(keyAndPosition.getKey(), globalCandidates.peek().getKey()) > 0) {

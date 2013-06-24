@@ -21,7 +21,7 @@ public class TestQueryManagerConfig
                 .setMaxQueryAge(new Duration(15, TimeUnit.MINUTES))
                 .setInfoMaxAge(new Duration(15, TimeUnit.MINUTES))
                 .setClientTimeout(new Duration(5, TimeUnit.MINUTES))
-                .setMaxOperatorMemoryUsage(new DataSize(256, Unit.MEGABYTE))
+                .setMaxTaskMemoryUsage(new DataSize(256, Unit.MEGABYTE))
                 .setMaxPendingSplitsPerNode(100)
                 .setExchangeMaxBufferSize(new DataSize(32, Unit.MEGABYTE))
                 .setExchangeConcurrentRequestMultiplier(3)
@@ -36,7 +36,7 @@ public class TestQueryManagerConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("coordinator", "false")
-                .put("query.operator.max-memory", "1GB")
+                .put("task.max-memory", "2GB")
                 .put("query.shard.max-threads", "3")
                 .put("query.info.max-age", "22m")
                 .put("query.client.timeout", "10s")
@@ -52,7 +52,7 @@ public class TestQueryManagerConfig
 
         QueryManagerConfig expected = new QueryManagerConfig()
                 .setCoordinator(false)
-                .setMaxOperatorMemoryUsage(new DataSize(1, Unit.GIGABYTE))
+                .setMaxTaskMemoryUsage(new DataSize(2, Unit.GIGABYTE))
                 .setMaxShardProcessorThreads(3)
                 .setMaxQueryAge(new Duration(30, TimeUnit.SECONDS))
                 .setInfoMaxAge(new Duration(22, TimeUnit.MINUTES))
@@ -67,4 +67,19 @@ public class TestQueryManagerConfig
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
+
+    @Test
+    public void testDeprecatedProperties()
+    {
+        Map<String, String> currentProperties = new ImmutableMap.Builder<String, String>()
+                .put("task.max-memory", "2GB")
+                .build();
+
+        Map<String, String> oldProperties = new ImmutableMap.Builder<String, String>()
+                .put("query.operator.max-memory", "2GB")
+                .build();
+
+        ConfigAssertions.assertDeprecatedEquivalence(QueryManagerConfig.class, currentProperties, oldProperties);
+    }
+
 }

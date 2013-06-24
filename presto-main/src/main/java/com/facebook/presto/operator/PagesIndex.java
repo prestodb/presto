@@ -6,9 +6,9 @@ package com.facebook.presto.operator;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
+import com.facebook.presto.execution.TaskMemoryManager;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
-import com.google.common.base.Preconditions;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
@@ -34,7 +34,7 @@ public class PagesIndex
     private final int channelCount;
     private final int positionCount;
 
-    public PagesIndex(PageIterator iterator, int expectedPositions, DataSize maxIndexSize)
+    public PagesIndex(PageIterator iterator, int expectedPositions, TaskMemoryManager taskMemoryManager)
     {
         channelCount = iterator.getChannelCount();
         indexes = new ChannelIndex[channelCount];
@@ -43,12 +43,11 @@ public class PagesIndex
             indexes[channel] = new ChannelIndex(expectedPositions, tupleInfos.get(channel));
         }
 
-        long maxIndexSizeBytes = maxIndexSize.toBytes();
+        long currentSize = 0;
         int positionCount = 0;
         try (PageIterator pageIterator = iterator) {
             while (pageIterator.hasNext()) {
-                // check size before loading more data
-                Preconditions.checkState(getEstimatedSize().toBytes() <= maxIndexSizeBytes, "Query exceeded max operator memory size of %s", maxIndexSize.convertToMostSuccinctDataSize());
+                currentSize = taskMemoryManager.updateOperatorReservation(currentSize, getEstimatedSize());
 
                 Page page = pageIterator.next();
                 positionCount += page.getPositionCount();

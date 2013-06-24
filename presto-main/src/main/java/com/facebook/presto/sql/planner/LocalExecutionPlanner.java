@@ -1,6 +1,6 @@
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.execution.QueryManagerConfig;
+import com.facebook.presto.execution.TaskMemoryManager;
 import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.metadata.Metadata;
@@ -80,9 +80,9 @@ import com.google.common.collect.Sets;
 import com.google.inject.Provider;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
-import io.airlift.units.DataSize;
 
 import javax.inject.Inject;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -105,8 +105,6 @@ public class LocalExecutionPlanner
     private final NodeInfo nodeInfo;
     private final Metadata metadata;
 
-    private final DataSize maxOperatorMemoryUsage;
-
     private final DataStreamProvider dataStreamProvider;
     private final LocalStorageManager storageManager;
     private final Provider<ExchangeClient> exchangeClientProvider;
@@ -115,18 +113,6 @@ public class LocalExecutionPlanner
     @Inject
     public LocalExecutionPlanner(NodeInfo nodeInfo,
             Metadata metadata,
-            QueryManagerConfig config,
-            DataStreamProvider dataStreamProvider,
-            LocalStorageManager storageManager,
-            Provider<ExchangeClient> exchangeClientProvider,
-            ExpressionCompiler compiler)
-    {
-        this(nodeInfo, metadata, config.getMaxOperatorMemoryUsage(), dataStreamProvider, storageManager, exchangeClientProvider, compiler);
-    }
-
-    public LocalExecutionPlanner(NodeInfo nodeInfo,
-            Metadata metadata,
-            DataSize maxOperatorMemoryUsage,
             DataStreamProvider dataStreamProvider,
             LocalStorageManager storageManager,
             Provider<ExchangeClient> exchangeClientProvider,
@@ -136,14 +122,18 @@ public class LocalExecutionPlanner
         this.dataStreamProvider = dataStreamProvider;
         this.exchangeClientProvider = exchangeClientProvider;
         this.metadata = checkNotNull(metadata, "metadata is null");
-        this.maxOperatorMemoryUsage = Preconditions.checkNotNull(maxOperatorMemoryUsage, "maxOperatorMemoryUsage is null");
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
         this.compiler = checkNotNull(compiler, "compiler is null");
     }
 
-    public LocalExecutionPlan plan(Session session, PlanNode plan, Map<Symbol, Type> types, SourceHashProviderFactory joinHashFactory, OperatorStats operatorStats)
+    public LocalExecutionPlan plan(Session session,
+            PlanNode plan,
+            Map<Symbol, Type> types,
+            SourceHashProviderFactory joinHashFactory,
+            TaskMemoryManager taskMemoryManager,
+            OperatorStats operatorStats)
     {
-        LocalExecutionPlanContext context = new LocalExecutionPlanContext(session, types, joinHashFactory, operatorStats);
+        LocalExecutionPlanContext context = new LocalExecutionPlanContext(session, types, joinHashFactory, taskMemoryManager, operatorStats);
         Operator rootOperator = plan.accept(new Visitor(), context).getOperator();
         return new LocalExecutionPlan(rootOperator, context.getSourceOperators(), context.getOutputOperators());
     }
@@ -153,6 +143,7 @@ public class LocalExecutionPlanner
         private final Session session;
         private final Map<Symbol, Type> types;
         private final SourceHashProviderFactory joinHashFactory;
+        private final TaskMemoryManager taskMemoryManager;
         private final OperatorStats operatorStats;
 
         private final Map<PlanNodeId, SourceOperator> sourceOperators = new HashMap<>();
@@ -161,11 +152,13 @@ public class LocalExecutionPlanner
         public LocalExecutionPlanContext(Session session,
                 Map<Symbol, Type> types,
                 SourceHashProviderFactory joinHashFactory,
+                TaskMemoryManager taskMemoryManager,
                 OperatorStats operatorStats)
         {
             this.session = session;
             this.types = types;
             this.joinHashFactory = joinHashFactory;
+            this.taskMemoryManager = taskMemoryManager;
             this.operatorStats = operatorStats;
         }
 
@@ -182,6 +175,11 @@ public class LocalExecutionPlanner
         public SourceHashProviderFactory getJoinHashFactory()
         {
             return joinHashFactory;
+        }
+
+        private TaskMemoryManager getTaskMemoryManager()
+        {
+            return taskMemoryManager;
         }
 
         public OperatorStats getOperatorStats()
@@ -363,7 +361,7 @@ public class LocalExecutionPlanner
                     sortFields,
                     sortOrder,
                     1_000_000,
-                    maxOperatorMemoryUsage);
+                    context.getTaskMemoryManager());
 
             return new PhysicalOperation(operator, outputMappings.build());
         }
@@ -391,7 +389,13 @@ public class LocalExecutionPlanner
 
             IdentityProjectionInfo mappings = computeIdentityMapping(node.getOutputSymbols(), source.getLayout(), context.getTypes());
 
-            TopNOperator operator = new TopNOperator(source.getOperator(), (int) node.getCount(), orderByChannel, mappings.getProjections(), ordering, maxOperatorMemoryUsage);
+            TopNOperator operator = new TopNOperator(
+                    source.getOperator(),
+                    (int) node.getCount(),
+                    orderByChannel,
+                    mappings.getProjections(),
+                    ordering,
+                    context.getTaskMemoryManager());
             return new PhysicalOperation(operator, mappings.getOutputLayout());
         }
 
@@ -421,7 +425,15 @@ public class LocalExecutionPlanner
                 outputChannels[i] = i;
             }
 
-            Operator operator = new InMemoryOrderByOperator(source.getOperator(), orderByChannel, outputChannels, 1_000_000, sortFields, sortOrder, maxOperatorMemoryUsage);
+            Operator operator = new InMemoryOrderByOperator(
+                    source.getOperator(),
+                    orderByChannel,
+                    outputChannels,
+                    10_000,
+                    sortFields,
+                    sortOrder,
+                    context.getTaskMemoryManager());
+
             return new PhysicalOperation(operator, source.getLayout());
         }
 
@@ -523,7 +535,8 @@ public class LocalExecutionPlanner
                 FilterFunction filter;
                 if (filterExpression != BooleanLiteral.TRUE_LITERAL) {
                     filter = new InterpretedFilterFunction(filterExpression, source.getLayout(), metadata, context.getSession(), inputTypes);
-                } else {
+                }
+                else {
                     filter = FilterFunctions.TRUE_FUNCTION;
                 }
 
@@ -556,23 +569,23 @@ public class LocalExecutionPlanner
         {
             Builder<Input, Type> inputTypes = ImmutableMap.builder();
             for (Input input : layout.values()) {
-                 TupleInfo.Type type = tupleInfos.get(input.getChannel()).getTypes().get(input.getField());
-                 switch (type) {
-                     case BOOLEAN:
-                         inputTypes.put(input, Type.BOOLEAN);
-                         break;
-                     case FIXED_INT_64:
-                         inputTypes.put(input, Type.LONG);
-                         break;
-                     case VARIABLE_BINARY:
-                         inputTypes.put(input, Type.STRING);
-                         break;
-                     case DOUBLE:
-                         inputTypes.put(input, Type.DOUBLE);
-                         break;
-                     default:
-                         throw new IllegalArgumentException("Unsupported type " + type);
-                 }
+                TupleInfo.Type type = tupleInfos.get(input.getChannel()).getTypes().get(input.getField());
+                switch (type) {
+                    case BOOLEAN:
+                        inputTypes.put(input, Type.BOOLEAN);
+                        break;
+                    case FIXED_INT_64:
+                        inputTypes.put(input, Type.LONG);
+                        break;
+                    case VARIABLE_BINARY:
+                        inputTypes.put(input, Type.STRING);
+                        break;
+                    case DOUBLE:
+                        inputTypes.put(input, Type.DOUBLE);
+                        break;
+                    default:
+                        throw new IllegalArgumentException("Unsupported type " + type);
+                }
             }
             return inputTypes.build();
         }
@@ -819,12 +832,13 @@ public class LocalExecutionPlanner
                 channel++;
             }
 
-            Operator aggregationOperator = new HashAggregationOperator(source.getOperator(),
+            Operator aggregationOperator = new HashAggregationOperator(
+                    source.getOperator(),
                     Iterables.getOnlyElement(getChannelsForSymbols(groupBySymbols, source.getLayout())),
                     node.getStep(),
                     functionDefinitions,
                     10_000,
-                    maxOperatorMemoryUsage);
+                    context.getTaskMemoryManager());
 
             return new PhysicalOperation(aggregationOperator, outputMappings.build());
         }

@@ -5,6 +5,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.execution.TaskMemoryManager;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
@@ -15,12 +16,11 @@ public class SourceHash
     private final PagesIndex pagesIndex;
     private final ChannelHash channelHash;
 
-    public SourceHash(PageIterator source, int hashChannel, int expectedPositions, DataSize maxSize)
+    public SourceHash(PageIterator source, int hashChannel, int expectedPositions, TaskMemoryManager taskMemoryManager)
     {
         this.hashChannel = hashChannel;
-        this.pagesIndex = new PagesIndex(source, expectedPositions, maxSize);
-        DataSize remainingSize = new DataSize(maxSize.toBytes() - pagesIndex.getEstimatedSize().toBytes(), Unit.BYTE);
-        this.channelHash = new ChannelHash(pagesIndex.getIndex(hashChannel), remainingSize);
+        this.pagesIndex = new PagesIndex(source, expectedPositions, taskMemoryManager);
+        this.channelHash = new ChannelHash(pagesIndex.getIndex(hashChannel), taskMemoryManager);
     }
 
     public SourceHash(SourceHash sourceHash)

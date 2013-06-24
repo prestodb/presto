@@ -4,8 +4,8 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.execution.TaskMemoryManager;
 import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.base.Preconditions;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
@@ -43,16 +43,16 @@ public class ChannelHash
     private final AddressToPositionMap addressToPositionMap;
     private final IntArrayList positionLinks;
 
-    public ChannelHash(ChannelIndex channelIndex, DataSize maxHashSize)
+    public ChannelHash(ChannelIndex channelIndex, TaskMemoryManager taskMemoryManager)
     {
         hashStrategy = new SliceHashStrategy(channelIndex.getTupleInfo(), channelIndex.getSlices().elements());
         addressToPositionMap = new AddressToPositionMap(channelIndex.getPositionCount(), hashStrategy);
         addressToPositionMap.defaultReturnValue(-1);
         positionLinks = new IntArrayList(new int[channelIndex.getValueAddresses().size()]);
         Arrays.fill(positionLinks.elements(), -1);
-        long maxHashSizeBytes = maxHashSize.toBytes();
+        long currentHashSize = 0;
         for (int position = 0; position < channelIndex.getValueAddresses().size(); position++) {
-            Preconditions.checkState(getEstimatedSize().toBytes() <= maxHashSizeBytes, "Query exceeded max operator memory size");
+            currentHashSize = taskMemoryManager.updateOperatorReservation(currentHashSize, getEstimatedSize());
             long sliceAddress = channelIndex.getValueAddresses().elements()[position];
             int oldPosition = addressToPositionMap.put(sliceAddress, position);
             if (oldPosition >= 0) {

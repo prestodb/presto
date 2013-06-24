@@ -1,6 +1,7 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.block.BlockIterable;
+import com.facebook.presto.execution.TaskMemoryManager;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.InMemoryOrderByOperator;
 import com.facebook.presto.operator.LimitOperator;
@@ -31,7 +32,7 @@ public class InMemoryOrderByBenchmark
         AlignmentOperator alignmentOperator = new AlignmentOperator(concat(nCopies(100, totalPrice)), concat(nCopies(100, clerk)));
 
         LimitOperator limitOperator = new LimitOperator(alignmentOperator, ROWS);
-        InMemoryOrderByOperator orderByOperator = new InMemoryOrderByOperator(limitOperator, 0, new int[]{1}, ROWS, new DataSize(256, MEGABYTE));
+        InMemoryOrderByOperator orderByOperator = new InMemoryOrderByOperator(limitOperator, 0, new int[]{1}, ROWS, new TaskMemoryManager(new DataSize(256, MEGABYTE)));
         return orderByOperator;
     }
 
