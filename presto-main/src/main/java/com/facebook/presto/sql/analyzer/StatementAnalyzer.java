@@ -20,6 +20,7 @@ import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.ShowColumns;
 import com.facebook.presto.sql.tree.ShowFunctions;
 import com.facebook.presto.sql.tree.ShowPartitions;
+import com.facebook.presto.sql.tree.ShowSchemas;
 import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SortItem;
@@ -34,6 +35,7 @@ import java.util.List;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_COLUMNS;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_INTERNAL_FUNCTIONS;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_INTERNAL_PARTITIONS;
+import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_SCHEMATA;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLES;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_MATERIALIZED_VIEW_REFRESH_INTERVAL;
@@ -109,6 +111,26 @@ class StatementAnalyzer
                         ImmutableList.<Expression>of(),
                         Optional.<Expression>absent(),
                         ImmutableList.of(ascending("table_name")),
+                        Optional.<String>absent()
+                ),
+                ImmutableList.<SortItem>of(),
+                Optional.<String>absent());
+
+        return process(query, context);
+    }
+
+    @Override
+    protected TupleDescriptor visitShowSchemas(ShowSchemas node, AnalysisContext context)
+    {
+        Query query = new Query(
+                Optional.<With>absent(),
+                new QuerySpecification(
+                        selectList(aliasedName("schema_name", "Schema")),
+                        table(QualifiedName.of(session.getCatalog(), TABLE_SCHEMATA.getSchemaName(), TABLE_SCHEMATA.getTableName())),
+                        Optional.<Expression>absent(),
+                        ImmutableList.<Expression>of(),
+                        Optional.<Expression>absent(),
+                        ImmutableList.of(ascending("schema_name")),
                         Optional.<String>absent()
                 ),
                 ImmutableList.<SortItem>of(),

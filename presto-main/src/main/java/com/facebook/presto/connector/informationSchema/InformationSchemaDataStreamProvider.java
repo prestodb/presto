@@ -88,6 +88,9 @@ public class InformationSchemaDataStreamProvider
         else if (table.equals(InformationSchemaMetadata.TABLE_TABLES)) {
             return buildTables(catalog, filters);
         }
+        else if (table.equals(InformationSchemaMetadata.TABLE_SCHEMATA)) {
+            return buildSchemata(catalog);
+        }
         else if (table.equals(InformationSchemaMetadata.TABLE_INTERNAL_FUNCTIONS)) {
             return buildFunctions();
         }
@@ -166,6 +169,18 @@ public class InformationSchemaDataStreamProvider
                     .append(Joiner.on(", ").join(arguments))
                     .append(function.getReturnType().getName())
                     .append(functionType)
+                    .build());
+        }
+        return table.build();
+    }
+
+    private InternalTable buildSchemata(String catalogName)
+    {
+        InternalTable.Builder table = InternalTable.builder(InformationSchemaMetadata.informationSchemaTableColumns(InformationSchemaMetadata.TABLE_SCHEMATA));
+        for (String schema : metadata.listSchemaNames(catalogName)) {
+            table.add(table.getTupleInfo().builder()
+                    .append(catalogName)
+                    .append(schema)
                     .build());
         }
         return table.build();
