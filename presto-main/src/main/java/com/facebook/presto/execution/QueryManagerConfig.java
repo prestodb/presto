@@ -1,6 +1,7 @@
 package com.facebook.presto.execution;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
@@ -14,7 +15,7 @@ import java.util.concurrent.TimeUnit;
 public class QueryManagerConfig
 {
     private boolean coordinator = true;
-    private DataSize maxOperatorMemoryUsage = new DataSize(256, Unit.MEGABYTE);
+    private DataSize maxTaskMemoryUsage = new DataSize(256, Unit.MEGABYTE);
     private int maxPendingSplitsPerNode = 100;
     private int maxShardProcessorThreads = Runtime.getRuntime().availableProcessors() * 4;
     private DataSize sinkMaxBufferSize = new DataSize(32, Unit.MEGABYTE);
@@ -56,15 +57,16 @@ public class QueryManagerConfig
     }
 
     @NotNull
-    public DataSize getMaxOperatorMemoryUsage()
+    public DataSize getMaxTaskMemoryUsage()
     {
-        return maxOperatorMemoryUsage;
+        return maxTaskMemoryUsage;
     }
 
-    @Config("query.operator.max-memory")
-    public QueryManagerConfig setMaxOperatorMemoryUsage(DataSize maxOperatorMemoryUsage)
+    @Config("task.max-memory")
+    @LegacyConfig("query.operator.max-memory")
+    public QueryManagerConfig setMaxTaskMemoryUsage(DataSize maxTaskMemoryUsage)
     {
-        this.maxOperatorMemoryUsage = maxOperatorMemoryUsage;
+        this.maxTaskMemoryUsage = maxTaskMemoryUsage;
         return this;
     }
 

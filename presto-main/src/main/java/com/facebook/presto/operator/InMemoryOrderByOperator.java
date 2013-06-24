@@ -1,8 +1,8 @@
 package com.facebook.presto.operator;
 
+import com.facebook.presto.execution.TaskMemoryManager;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.DataSize;
 import it.unimi.dsi.fastutil.booleans.BooleanArrays;
 
 import java.util.List;
@@ -19,9 +19,9 @@ public class InMemoryOrderByOperator
     private final boolean[] sortOrder;
     private final int[] outputChannels;
     private final List<TupleInfo> tupleInfos;
-    private final DataSize maxSortSize;
+    private final TaskMemoryManager taskMemoryManager;
 
-    public InMemoryOrderByOperator(Operator source, int orderByChannel, int[] outputChannels, int expectedPositions, DataSize maxSortSize)
+    public InMemoryOrderByOperator(Operator source, int orderByChannel, int[] outputChannels, int expectedPositions, TaskMemoryManager taskMemoryManager)
     {
         this(source,
                 orderByChannel,
@@ -29,10 +29,16 @@ public class InMemoryOrderByOperator
                 expectedPositions,
                 defaultSortFields(source, orderByChannel),
                 defaultSortOrder(source, orderByChannel),
-                maxSortSize);
+                taskMemoryManager);
     }
 
-    public InMemoryOrderByOperator(Operator source, int orderByChannel, int[] outputChannels, int expectedPositions, int[] sortFields, boolean[] sortOrder, DataSize maxSortSize)
+    public InMemoryOrderByOperator(Operator source,
+            int orderByChannel,
+            int[] outputChannels,
+            int expectedPositions,
+            int[] sortFields,
+            boolean[] sortOrder,
+            TaskMemoryManager taskMemoryManager)
     {
         checkNotNull(source, "source is null");
 
@@ -47,7 +53,7 @@ public class InMemoryOrderByOperator
         this.tupleInfos = tupleInfos.build();
         this.sortFields = sortFields;
         this.sortOrder = sortOrder;
-        this.maxSortSize = maxSortSize;
+        this.taskMemoryManager = taskMemoryManager;
     }
 
     @Override
@@ -65,7 +71,7 @@ public class InMemoryOrderByOperator
     @Override
     public PageIterator iterator(OperatorStats operatorStats)
     {
-        return new InMemoryOrderByOperatorIterator(source, orderByChannel, tupleInfos, outputChannels, expectedPositions, sortFields, sortOrder, maxSortSize, operatorStats);
+        return new InMemoryOrderByOperatorIterator(source, orderByChannel, tupleInfos, outputChannels, expectedPositions, sortFields, sortOrder, taskMemoryManager, operatorStats);
     }
 
     private static class InMemoryOrderByOperatorIterator
@@ -76,7 +82,7 @@ public class InMemoryOrderByOperator
         private final int expectedPositions;
         private final int[] sortFields;
         private final boolean[] sortOrder;
-        private final DataSize maxSize;
+        private final TaskMemoryManager taskMemoryManager;
         private final PageBuilder pageBuilder;
         private PagesIndex pageIndex;
         private int currentPosition;
@@ -89,7 +95,7 @@ public class InMemoryOrderByOperator
                 int expectedPositions,
                 int[] sortFields,
                 boolean[] sortOrder,
-                DataSize maxSize,
+                TaskMemoryManager taskMemoryManager,
                 OperatorStats operatorStats)
         {
             super(source.getTupleInfos());
@@ -100,7 +106,7 @@ public class InMemoryOrderByOperator
             this.expectedPositions = expectedPositions;
             this.sortFields = sortFields;
             this.sortOrder = sortOrder;
-            this.maxSize = maxSize;
+            this.taskMemoryManager = taskMemoryManager;
             this.pageBuilder = new PageBuilder(tupleInfos);
         }
 
@@ -109,7 +115,7 @@ public class InMemoryOrderByOperator
         {
             if (pageIndex == null) {
                 // index all pages
-                pageIndex = new PagesIndex(source, expectedPositions, maxSize);
+                pageIndex = new PagesIndex(source, expectedPositions, taskMemoryManager);
 
                 // sort the index
                 pageIndex.sort(orderByChannel, sortFields, sortOrder);

@@ -3,9 +3,9 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.execution.TaskMemoryManager;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Throwables;
-import io.airlift.units.DataSize;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
@@ -21,7 +21,7 @@ public class SourceHashProvider
     private final int hashChannel;
     private final int expectedPositions;
     private final OperatorStats operatorStats;
-    private final DataSize maxSize;
+    private final TaskMemoryManager taskMemoryManager;
 
     private final AtomicBoolean closed = new AtomicBoolean();
 
@@ -31,13 +31,13 @@ public class SourceHashProvider
     @GuardedBy("this")
     private Throwable buildException;
 
-    public SourceHashProvider(Operator source, int hashChannel, int expectedPositions, DataSize maxSize, OperatorStats operatorStats)
+    public SourceHashProvider(Operator source, int hashChannel, int expectedPositions, TaskMemoryManager taskMemoryManager, OperatorStats operatorStats)
     {
         this.source = source;
         this.hashChannel = hashChannel;
         this.expectedPositions = expectedPositions;
         this.operatorStats = operatorStats;
-        this.maxSize = maxSize;
+        this.taskMemoryManager = taskMemoryManager;
     }
 
     public int getChannelCount()
@@ -65,7 +65,7 @@ public class SourceHashProvider
 
             try {
                 PageIterator iterator = new StoppablePageIterator(source.iterator(operatorStats));
-                sourceHash = new SourceHash(iterator, hashChannel, expectedPositions, maxSize);
+                sourceHash = new SourceHash(iterator, hashChannel, expectedPositions, taskMemoryManager);
             }
             catch (Throwable e) {
                 buildException = e;

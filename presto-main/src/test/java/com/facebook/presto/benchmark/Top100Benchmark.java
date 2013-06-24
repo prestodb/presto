@@ -1,6 +1,7 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.block.BlockIterable;
+import com.facebook.presto.execution.TaskMemoryManager;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.TopNOperator;
@@ -33,7 +34,7 @@ public class Top100Benchmark
                 0,
                 ImmutableList.of(singleColumn(TupleInfo.Type.DOUBLE, 0, 0)),
                 Ordering.from(new FieldOrderedTupleComparator(ImmutableList.of(0), ImmutableList.of(SortItem.Ordering.DESCENDING))),
-                new DataSize(256, DataSize.Unit.MEGABYTE));
+                new TaskMemoryManager(new DataSize(256, DataSize.Unit.MEGABYTE)));
     }
 
     public static void main(String[] args)

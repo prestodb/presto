@@ -10,8 +10,8 @@ import com.facebook.presto.connector.system.SystemDataStreamProvider;
 import com.facebook.presto.connector.system.SystemSplitManager;
 import com.facebook.presto.connector.system.SystemTablesManager;
 import com.facebook.presto.connector.system.SystemTablesMetadata;
+import com.facebook.presto.execution.TaskMemoryManager;
 import com.facebook.presto.importer.MockPeriodicImportManager;
-import com.facebook.presto.importer.PeriodicImportManager;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.metadata.Metadata;
@@ -142,16 +142,17 @@ public class LocalQueryRunner
                         .setEnvironment("test")
                         .setNodeId("test-node")),
                 metadata,
-                maxOperatorMemoryUsage,
                 dataStreamProvider,
                 storageManager,
                 null,
                 compiler);
 
+        TaskMemoryManager taskMemoryManager = new TaskMemoryManager(new DataSize(256, MEGABYTE));
         LocalExecutionPlan localExecutionPlan = executionPlanner.plan(session,
                 subplan.getFragment().getRoot(),
                 plan.getTypes(),
-                new SourceHashProviderFactory(maxOperatorMemoryUsage),
+                new SourceHashProviderFactory(taskMemoryManager),
+                taskMemoryManager,
                 new OperatorStats());
 
         // add the splits to the sources

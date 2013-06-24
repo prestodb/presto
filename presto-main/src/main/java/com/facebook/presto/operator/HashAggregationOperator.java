@@ -4,6 +4,7 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
+import com.facebook.presto.execution.TaskMemoryManager;
 import com.facebook.presto.operator.aggregation.AggregationFunction;
 import com.facebook.presto.operator.aggregation.FixedWidthAggregationFunction;
 import com.facebook.presto.operator.aggregation.VariableWidthAggregationFunction;
@@ -18,7 +19,6 @@ import com.google.common.collect.Iterators;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.airlift.units.DataSize;
 import it.unimi.dsi.fastutil.longs.Long2IntOpenCustomHashMap;
 import it.unimi.dsi.fastutil.longs.LongHash.Strategy;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
@@ -47,27 +47,27 @@ public class HashAggregationOperator
     private final List<AggregationFunctionDefinition> functionDefinitions;
     private final List<TupleInfo> tupleInfos;
     private final int expectedGroups;
-    private final DataSize maxSize;
+    private final TaskMemoryManager taskMemoryManager;
 
     public HashAggregationOperator(Operator source,
             int groupByChannel,
             Step step,
             List<AggregationFunctionDefinition> functionDefinitions,
             int expectedGroups,
-            DataSize maxSize)
+            TaskMemoryManager taskMemoryManager)
     {
         Preconditions.checkNotNull(source, "source is null");
         Preconditions.checkArgument(groupByChannel >= 0, "groupByChannel is negative");
         Preconditions.checkNotNull(step, "step is null");
         Preconditions.checkNotNull(functionDefinitions, "functionDefinitions is null");
-        Preconditions.checkNotNull(maxSize, "maxSize is null");
+        Preconditions.checkNotNull(taskMemoryManager, "taskMemoryManager is null");
 
         this.source = source;
         this.groupByChannel = groupByChannel;
         this.step = step;
         this.functionDefinitions = ImmutableList.copyOf(functionDefinitions);
         this.expectedGroups = expectedGroups;
-        this.maxSize = maxSize;
+        this.taskMemoryManager = taskMemoryManager;
 
         ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
         tupleInfos.add(source.getTupleInfos().get(groupByChannel));
@@ -97,7 +97,7 @@ public class HashAggregationOperator
     @Override
     public PageIterator iterator(OperatorStats operatorStats)
     {
-        return new HashAggregationIterator(tupleInfos, source, groupByChannel, step, expectedGroups, functionDefinitions, maxSize, operatorStats);
+        return new HashAggregationIterator(tupleInfos, source, groupByChannel, step, expectedGroups, functionDefinitions, taskMemoryManager, operatorStats);
     }
 
     private static class HashAggregationIterator
@@ -106,12 +106,14 @@ public class HashAggregationOperator
         private final PageIterator iterator;
         private final List<AggregationFunctionDefinition> functionDefinitions;
         private final int groupChannel;
-        private final DataSize maxSize;
+        private final TaskMemoryManager taskMemoryManager;
         private final TupleInfo groupByTupleInfo;
         private final Step step;
         private final int expectedGroups;
 
         private Iterator<Page> outputIterator;
+
+        private long currentMemoryReservation;
 
         public HashAggregationIterator(List<TupleInfo> tupleInfos,
                 Operator source,
@@ -119,7 +121,7 @@ public class HashAggregationOperator
                 Step step,
                 int expectedGroups,
                 List<AggregationFunctionDefinition> functionDefinitions,
-                DataSize maxSize,
+                TaskMemoryManager taskMemoryManager,
                 OperatorStats operatorStats)
         {
             super(tupleInfos);
@@ -131,7 +133,7 @@ public class HashAggregationOperator
             this.functionDefinitions = functionDefinitions;
             this.step = step;
             this.groupChannel = groupChannel;
-            this.maxSize = checkNotNull(maxSize, "maxSize is null");
+            this.taskMemoryManager = checkNotNull(taskMemoryManager, "maxSize is null");
             this.expectedGroups = expectedGroups;
             this.groupByTupleInfo = iterator.getTupleInfos().get(groupChannel);
         }
@@ -218,7 +220,8 @@ public class HashAggregationOperator
             }
 
             // only partial aggregations can flush early
-            Preconditions.checkState(step != Step.PARTIAL && !isMaxMemoryExceeded(hashStrategy, aggregates), "Query exceeded max operator memory size of %s", maxSize);
+            Preconditions.checkState(step == Step.PARTIAL || !isMaxMemoryExceeded(hashStrategy, aggregates),
+                    "Task exceeded max memory size of %s", taskMemoryManager.getMaxMemorySize());
 
             // add the last block if it is not empty
             if (!blockBuilder.isEmpty()) {
@@ -260,7 +263,19 @@ public class HashAggregationOperator
             for (Aggregator aggregate : aggregates) {
                 memorySize += aggregate.getEstimatedSize();
             }
-            return memorySize > maxSize.toBytes();
+
+            long delta = memorySize - currentMemoryReservation;
+            if (delta <= 0) {
+                return false;
+            }
+
+            if (!taskMemoryManager.reserveBytes(delta)) {
+                return true;
+            }
+
+            // reservation worked, record the reservation
+            currentMemoryReservation = Math.max(currentMemoryReservation, memorySize);
+            return false;
         }
 
         @Override

@@ -57,7 +57,7 @@ public class SqlTaskManager
     private final LocalExecutionPlanner planner;
     private final LocationFactory locationFactory;
     private final QueryMonitor queryMonitor;
-    private final DataSize maxOperatorMemoryUsage;
+    private final DataSize maxTaskMemoryUsage;
     private final Duration infoCacheTime;
     private final Duration clientTimeout;
     private final SqlTaskManagerStats stats = new SqlTaskManagerStats();
@@ -78,7 +78,7 @@ public class SqlTaskManager
 
         checkNotNull(config, "config is null");
         this.maxBufferSize = config.getSinkMaxBufferSize();
-        this.maxOperatorMemoryUsage = config.getMaxOperatorMemoryUsage();
+        this.maxTaskMemoryUsage = config.getMaxTaskMemoryUsage();
         this.infoCacheTime = config.getInfoMaxAge();
         this.clientTimeout = config.getClientTimeout();
 
@@ -209,7 +209,7 @@ public class SqlTaskManager
                         maxBufferSize,
                         taskMasterExecutor,
                         shardExecutor,
-                        maxOperatorMemoryUsage,
+                        maxTaskMemoryUsage,
                         queryMonitor,
                         stats
                 );

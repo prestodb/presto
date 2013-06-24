@@ -2,6 +2,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.execution.TaskMemoryManager;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.tuple.FieldOrderedTupleComparator;
 import com.facebook.presto.tuple.TupleInfo;
@@ -45,7 +46,7 @@ public class TestTopNOperator
                 0,
                 ImmutableList.of(singleColumn(FIXED_INT_64, 0, 0), singleColumn(DOUBLE, 1, 0)),
                 Ordering.from(new FieldOrderedTupleComparator(ImmutableList.of(0), ImmutableList.of(SortItem.Ordering.DESCENDING))),
-                new DataSize(1, DataSize.Unit.MEGABYTE)
+                new TaskMemoryManager(new DataSize(1, DataSize.Unit.MEGABYTE))
         );
 
         Operator expected = createOperator(
@@ -90,7 +91,7 @@ public class TestTopNOperator
                 0,
                 ImmutableList.of(ProjectionFunctions.concat(singleColumn(VARIABLE_BINARY, 0, 0), singleColumn(FIXED_INT_64, 0, 1))),
                 Ordering.from(new FieldOrderedTupleComparator(ImmutableList.of(0, 1), ImmutableList.of(SortItem.Ordering.DESCENDING, SortItem.Ordering.DESCENDING))),
-                new DataSize(1, DataSize.Unit.MEGABYTE)
+                new TaskMemoryManager(new DataSize(1, DataSize.Unit.MEGABYTE))
         );
 
 
@@ -128,7 +129,7 @@ public class TestTopNOperator
         TopNOperator actual = new TopNOperator(
                 source, 2, 0, ImmutableList.of(singleColumn(FIXED_INT_64, 0, 0), singleColumn(DOUBLE, 1, 0)),
                 Ordering.from(new FieldOrderedTupleComparator(ImmutableList.of(0), ImmutableList.of(SortItem.Ordering.ASCENDING))),
-                new DataSize(1, DataSize.Unit.MEGABYTE)
+                new TaskMemoryManager(new DataSize(1, DataSize.Unit.MEGABYTE))
         );
 
         Operator expected = createOperator(
@@ -150,7 +151,7 @@ public class TestTopNOperator
                 0,
                 ImmutableList.of(singleColumn(FIXED_INT_64, 0, 0), singleColumn(DOUBLE, 1, 0)),
                 Ordering.from(new FieldOrderedTupleComparator(ImmutableList.of(0), ImmutableList.of(SortItem.Ordering.ASCENDING))),
-                new DataSize(1, DataSize.Unit.MEGABYTE));
+                new TaskMemoryManager(new DataSize(1, DataSize.Unit.MEGABYTE)));
         assertCancel(operator, blockingOperator);
     }
 }

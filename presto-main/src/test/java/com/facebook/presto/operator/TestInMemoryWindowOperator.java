@@ -1,6 +1,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.execution.TaskMemoryManager;
 import com.facebook.presto.operator.window.RowNumberFunction;
 import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.tuple.TupleInfo;
@@ -40,7 +41,15 @@ public class TestInMemoryWindowOperator
                         createDoublesBlock(-0.1, 0.4)));
 
         Operator actual = new InMemoryWindowOperator(
-                source, 0, ints(1, 0), ROW_NUMBER, ints(), ints(0), bools(true), 10, MAX_SIZE);
+                source,
+                0,
+                ints(1, 0),
+                ROW_NUMBER,
+                ints(),
+                ints(0),
+                bools(true),
+                10,
+                new TaskMemoryManager(MAX_SIZE));
 
         Operator expected = createOperator(new Page(
                 createDoublesBlock(-0.1, 0.3, 0.2, 0.4, 0.1),
@@ -69,7 +78,15 @@ public class TestInMemoryWindowOperator
         );
 
         Operator actual = new InMemoryWindowOperator(
-                source, 0, ints(0), ROW_NUMBER, ints(0), ints(1), bools(true), 10, MAX_SIZE);
+                source,
+                0,
+                ints(0),
+                ROW_NUMBER,
+                ints(0),
+                ints(1),
+                bools(true),
+                10,
+                new TaskMemoryManager(MAX_SIZE));
 
         Operator expected = createOperator(new Page(
                 new BlockBuilder(tupleInfo)
@@ -94,7 +111,15 @@ public class TestInMemoryWindowOperator
                 new Page(createLongsBlock(2, 4, 6, 8)));
 
         Operator actual = new InMemoryWindowOperator(
-                source, 0, ints(0), ROW_NUMBER, ints(), ints(), bools(), 10, MAX_SIZE);
+                source,
+                0,
+                ints(0),
+                ROW_NUMBER,
+                ints(),
+                ints(),
+                bools(),
+                10,
+                new TaskMemoryManager(MAX_SIZE));
 
         Operator expected = createOperator(new Page(
                 createLongsBlock(1, 3, 5, 7, 2, 4, 6, 8),
@@ -103,7 +128,7 @@ public class TestInMemoryWindowOperator
         assertOperatorEquals(actual, expected);
     }
 
-    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "Query exceeded max operator memory size of 10B")
+    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "Task exceeded max memory size of 10B")
     public void testMemoryLimit()
             throws Exception
     {
@@ -111,7 +136,16 @@ public class TestInMemoryWindowOperator
                 new Page(createLongsBlock(1, 2), createDoublesBlock(0.1, 0.2)),
                 new Page(createLongsBlock(-1, 4), createDoublesBlock(-0.1, 0.4)));
 
-        Operator operator = new InMemoryWindowOperator(source, 0, ints(1), ROW_NUMBER, ints(), ints(0), bools(true), 10, new DataSize(10, Unit.BYTE));
+        Operator operator = new InMemoryWindowOperator(
+                source,
+                0,
+                ints(1),
+                ROW_NUMBER,
+                ints(),
+                ints(0),
+                bools(true),
+                10,
+                new TaskMemoryManager(new DataSize(10, Unit.BYTE)));
         PageIterator iterator = operator.iterator(new OperatorStats());
         iterator.next();
     }
@@ -121,7 +155,7 @@ public class TestInMemoryWindowOperator
             throws Exception
     {
         BlockingOperator blockingOperator = createCancelableDataSource(new TupleInfo(VARIABLE_BINARY), new TupleInfo(VARIABLE_BINARY));
-        Operator operator = new InMemoryWindowOperator(blockingOperator, 0, ints(1), ROW_NUMBER, ints(), ints(0), bools(true), 10, MAX_SIZE);
+        Operator operator = new InMemoryWindowOperator(blockingOperator, 0, ints(1), ROW_NUMBER, ints(), ints(0), bools(true), 10, new TaskMemoryManager(MAX_SIZE));
         assertCancel(operator, blockingOperator);
     }
 

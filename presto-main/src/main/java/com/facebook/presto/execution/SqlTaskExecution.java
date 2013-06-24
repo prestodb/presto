@@ -63,7 +63,7 @@ public class SqlTaskExecution
     private final ListeningExecutorService shardExecutor;
     private final PlanFragment fragment;
     private final LocalExecutionPlanner planner;
-    private final DataSize maxOperatorMemoryUsage;
+    private final TaskMemoryManager taskMemoryManager;
     private final Session session;
     private final QueryMonitor queryMonitor;
 
@@ -91,7 +91,7 @@ public class SqlTaskExecution
             DataSize maxBufferSize,
             ExecutorService taskMasterExecutor,
             ListeningExecutorService shardExecutor,
-            DataSize maxOperatorMemoryUsage,
+            DataSize maxTaskMemoryUsage,
             QueryMonitor queryMonitor,
             SqlTaskManagerStats globalStats)
     {
@@ -102,7 +102,7 @@ public class SqlTaskExecution
                 planner,
                 maxBufferSize,
                 shardExecutor,
-                maxOperatorMemoryUsage,
+                maxTaskMemoryUsage,
                 queryMonitor,
                 taskMasterExecutor,
                 globalStats);
@@ -120,7 +120,7 @@ public class SqlTaskExecution
             LocalExecutionPlanner planner,
             DataSize maxBufferSize,
             ListeningExecutorService shardExecutor,
-            DataSize maxOperatorMemoryUsage,
+            DataSize maxTaskMemoryUsage,
             QueryMonitor queryMonitor,
             Executor notificationExecutor,
             SqlTaskManagerStats globalStats)
@@ -131,7 +131,7 @@ public class SqlTaskExecution
             this.fragment = checkNotNull(fragment, "fragment is null");
             this.planner = checkNotNull(planner, "planner is null");
             this.shardExecutor = checkNotNull(shardExecutor, "shardExecutor is null");
-            this.maxOperatorMemoryUsage = checkNotNull(maxOperatorMemoryUsage, "maxOperatorMemoryUsage is null");
+            this.taskMemoryManager = new TaskMemoryManager(checkNotNull(maxTaskMemoryUsage, "maxTaskMemoryUsage is null"));
             this.queryMonitor = checkNotNull(queryMonitor, "queryMonitor is null");
 
             // create output buffers
@@ -250,6 +250,7 @@ public class SqlTaskExecution
                 planner,
                 fragment,
                 getSourceHashProviderFactory(),
+                taskMemoryManager,
                 queryMonitor);
 
         // TableScanOperator requires partitioned split to be added before task is started
@@ -341,7 +342,7 @@ public class SqlTaskExecution
     private synchronized SourceHashProviderFactory getSourceHashProviderFactory()
     {
         if (sourceHashProviderFactory == null) {
-            sourceHashProviderFactory = new SourceHashProviderFactory(maxOperatorMemoryUsage);
+            sourceHashProviderFactory = new SourceHashProviderFactory(taskMemoryManager);
         }
         return sourceHashProviderFactory;
     }
@@ -455,6 +456,7 @@ public class SqlTaskExecution
                 LocalExecutionPlanner planner,
                 PlanFragment fragment,
                 SourceHashProviderFactory sourceHashProviderFactory,
+                TaskMemoryManager taskMemoryManager,
                 QueryMonitor queryMonitor)
         {
             this.workerId = workerId;
@@ -463,7 +465,7 @@ public class SqlTaskExecution
             operatorStats = new OperatorStats(taskOutput);
             this.queryMonitor = queryMonitor;
 
-            LocalExecutionPlan localExecutionPlan = planner.plan(session, fragment.getRoot(), fragment.getSymbols(), sourceHashProviderFactory, operatorStats);
+            LocalExecutionPlan localExecutionPlan = planner.plan(session, fragment.getRoot(), fragment.getSymbols(), sourceHashProviderFactory, taskMemoryManager, operatorStats);
             operator = new AtomicReference<>(localExecutionPlan.getRootOperator());
             sourceOperators = localExecutionPlan.getSourceOperators();
             outputOperators = localExecutionPlan.getOutputOperators();
