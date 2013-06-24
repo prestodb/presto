@@ -30,13 +30,16 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Ordering;
+import com.google.common.collect.Sets;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
+
 import java.net.URI;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -360,7 +363,7 @@ public class SqlStageExecution
                         stageStats.addGetSplitDuration(Duration.nanosSince(getSplitStart));
 
                         long scheduleSplitStart = System.nanoTime();
-                        Node chosen = chooseNode(nodeSelector, split);
+                        Node chosen = chooseNode(nodeSelector, split, nextTaskId);
 
                         // if query has been canceled, exit cleanly; query will never run regardless
                         if (getState().isDone()) {
@@ -415,7 +418,7 @@ public class SqlStageExecution
         }
     }
 
-    private Node chooseNode(NodeSelector nodeSelector, Split split)
+    private Node chooseNode(NodeSelector nodeSelector, Split split, AtomicInteger nextTaskId)
     {
         while (true) {
             // if query has been canceled, exit
@@ -430,6 +433,21 @@ public class SqlStageExecution
             RemoteTask task = tasks.get(chosen);
             if (task == null || task.getQueuedSplits() < maxPendingSplitsPerNode) {
                 return chosen;
+            }
+
+            // if we have sub stages...
+            if (!subStages.isEmpty()) {
+                // before we block, we need to create all possible output buffers on the sub stages, or they can deadlock
+                // waiting for the "noMoreBuffers" call
+                nodeSelector.lockDownNodes();
+                for (Node node : Sets.difference(new HashSet<>(nodeSelector.allNodes()), tasks.keySet())) {
+                    scheduleTask(nextTaskId, node, null);
+                }
+
+                // tell sub stages there will be no more output buffers
+                for (StageExecutionNode subStage : subStages.values()) {
+                    subStage.noMoreOutputBuffers();
+                }
             }
 
             synchronized (this) {
