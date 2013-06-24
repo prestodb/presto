@@ -10,9 +10,11 @@ import com.facebook.presto.operator.aggregation.VariableWidthAggregationFunction
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Iterators;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -28,6 +30,7 @@ import java.util.List;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceOffset;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 /**
@@ -100,13 +103,15 @@ public class HashAggregationOperator
     private static class HashAggregationIterator
             extends AbstractPageIterator
     {
-        private final List<Aggregator> aggregates;
         private final PageIterator iterator;
+        private final List<AggregationFunctionDefinition> functionDefinitions;
         private final int groupChannel;
-        private final int expectedGroups;
         private final DataSize maxSize;
-        private Iterator<UncompressedBlock> groupByBlocksIterator;
-        private int currentPosition;
+        private final TupleInfo groupByTupleInfo;
+        private final Step step;
+        private final int expectedGroups;
+
+        private Iterator<Page> outputIterator;
 
         public HashAggregationIterator(List<TupleInfo> tupleInfos,
                 Operator source,
@@ -118,27 +123,36 @@ public class HashAggregationOperator
                 OperatorStats operatorStats)
         {
             super(tupleInfos);
-            this.groupChannel = groupChannel;
-            this.expectedGroups = expectedGroups;
-            this.maxSize = maxSize;
 
-            iterator = source.iterator(operatorStats);
+            checkNotNull(source, "source is null");
+            checkNotNull(operatorStats, "operatorStats is null");
+
+            this.iterator = source.iterator(operatorStats);
+            this.functionDefinitions = functionDefinitions;
+            this.step = step;
+            this.groupChannel = groupChannel;
+            this.maxSize = checkNotNull(maxSize, "maxSize is null");
+            this.expectedGroups = expectedGroups;
+            this.groupByTupleInfo = iterator.getTupleInfos().get(groupChannel);
+        }
+
+        public Iterator<Page> aggregate()
+        {
+            if (!iterator.hasNext()) {
+                return ImmutableList.<Page>of().iterator();
+            }
 
             // wrapper each function with an aggregator
             ImmutableList.Builder<Aggregator> builder = ImmutableList.builder();
-            for (AggregationFunctionDefinition functionDefinition : functionDefinitions) {
+            for (AggregationFunctionDefinition functionDefinition : checkNotNull(functionDefinitions, "functionDefinitions is null")) {
                 builder.add(createAggregator(functionDefinition, step, expectedGroups));
             }
-            aggregates = builder.build();
-        }
+            final List<Aggregator> aggregates = builder.build();
 
-        private Iterator<UncompressedBlock> aggregate(PageIterator iterator,
-                int groupChannel,
-                DataSize maxSize,
-                TupleInfo groupByTupleInfo,
-                SliceHashStrategy hashStrategy,
-                Long2IntOpenCustomHashMap addressToGroupId)
-        {
+            SliceHashStrategy hashStrategy = new SliceHashStrategy(groupByTupleInfo);
+            Long2IntOpenCustomHashMap addressToGroupId = new Long2IntOpenCustomHashMap(expectedGroups, hashStrategy);
+            addressToGroupId.defaultReturnValue(-1);
+
             // allocate the first group by (key side) slice
             Slice slice = Slices.allocate((int) BlockBuilder.DEFAULT_MAX_BLOCK_SIZE.toBytes());
             hashStrategy.addSlice(slice);
@@ -148,9 +162,7 @@ public class HashAggregationOperator
 
             List<UncompressedBlock> groupByBlocks = new ArrayList<>();
             BlockCursor[] cursors = new BlockCursor[iterator.getChannelCount()];
-            while (iterator.hasNext()) {
-                checkMaxMemory(maxSize, hashStrategy);
-
+            while (!isMaxMemoryExceeded(hashStrategy, aggregates) && iterator.hasNext()) {
                 Page page = iterator.next();
                 Block[] blocks = page.getBlocks();
                 Slice groupBySlice = ((UncompressedBlock) blocks[groupChannel]).getSlice();
@@ -205,60 +217,63 @@ public class HashAggregationOperator
                 }
             }
 
+            // only partial aggregations can flush early
+            Preconditions.checkState(step != Step.PARTIAL && !isMaxMemoryExceeded(hashStrategy, aggregates), "Query exceeded max operator memory size of %s", maxSize);
+
             // add the last block if it is not empty
             if (!blockBuilder.isEmpty()) {
                 UncompressedBlock block = blockBuilder.build();
                 groupByBlocks.add(block);
             }
 
-            return groupByBlocks.iterator();
+            return Iterators.transform(groupByBlocks.iterator(), new Function<UncompressedBlock, Page>()
+            {
+                private int currentPosition = 0;
+
+                @Override
+                public Page apply(UncompressedBlock groupByBlock)
+                {
+                    // build  the page channel at at time
+                    Block[] blocks = new Block[aggregates.size() + 1];
+                    blocks[0] = groupByBlock;
+                    int pagePositionCount = blocks[0].getPositionCount();
+                    for (int channel = 1; channel < aggregates.size() + 1; channel++) {
+                        Aggregator aggregator = aggregates.get(channel - 1);
+                        // todo there is no need to eval for intermediates since buffer is already in block form
+                        BlockBuilder blockBuilder = new BlockBuilder(aggregator.getTupleInfo());
+                        for (int position = 0; position < pagePositionCount; position++) {
+                            aggregator.evaluate(currentPosition + position, blockBuilder);
+                        }
+                        blocks[channel] = blockBuilder.build();
+                    }
+
+                    Page page = new Page(blocks);
+                    currentPosition += pagePositionCount;
+                    return page;
+                }
+            });
         }
 
-        private void checkMaxMemory(DataSize maxSize, SliceHashStrategy hashStrategy)
+        private boolean isMaxMemoryExceeded(SliceHashStrategy hashStrategy, List<Aggregator> aggregates)
         {
             long memorySize = hashStrategy.getEstimatedSize();
             for (Aggregator aggregate : aggregates) {
                 memorySize += aggregate.getEstimatedSize();
             }
-            Preconditions.checkState(memorySize <= maxSize.toBytes(), "Query exceeded max operator memory size of %s", maxSize);
+            return memorySize > maxSize.toBytes();
         }
 
         @Override
         protected Page computeNext()
         {
-            if (groupByBlocksIterator == null) {
-                // initialize hash
-                TupleInfo groupByTupleInfo = iterator.getTupleInfos().get(groupChannel);
-                SliceHashStrategy hashStrategy = new SliceHashStrategy(groupByTupleInfo);
-                Long2IntOpenCustomHashMap addressToGroupId = new Long2IntOpenCustomHashMap(expectedGroups, hashStrategy);
-                addressToGroupId.defaultReturnValue(-1);
-
-                groupByBlocksIterator = aggregate(iterator, groupChannel, maxSize, groupByTupleInfo, hashStrategy, addressToGroupId);
+            if (outputIterator == null || !outputIterator.hasNext()) {
+                outputIterator = aggregate();
             }
 
-            // if no more data, return null
-            if (!groupByBlocksIterator.hasNext()) {
-                endOfData();
-                return null;
+            if (!outputIterator.hasNext()) {
+                return endOfData();
             }
-
-            // build  the page channel at at time
-            Block[] blocks = new Block[getChannelCount()];
-            blocks[0] = groupByBlocksIterator.next();
-            int pagePositionCount = blocks[0].getPositionCount();
-            for (int channel = 1; channel < getChannelCount(); channel++) {
-                Aggregator aggregator = aggregates.get(channel - 1);
-                // todo there is no need to eval for intermediates since buffer is already in block form
-                BlockBuilder blockBuilder = new BlockBuilder(aggregator.getTupleInfo());
-                for (int position = 0; position < pagePositionCount; position++) {
-                    aggregator.evaluate(currentPosition + position, blockBuilder);
-                }
-                blocks[channel] = blockBuilder.build();
-            }
-
-            Page page = new Page(blocks);
-            currentPosition += pagePositionCount;
-            return page;
+            return outputIterator.next();
         }
 
         @Override
