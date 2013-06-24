@@ -78,6 +78,9 @@ public class SqlTaskExecution
     @GuardedBy("this")
     private long maxAcknowledgedSplit = Long.MIN_VALUE;
 
+    @GuardedBy("this")
+    private long nextSplitWorkerId = 0;
+
     private final BlockingDeque<FutureTask<?>> unfinishedWorkerTasks = new LinkedBlockingDeque<>();
 
     public static SqlTaskExecution createSqlTaskExecution(Session session,
@@ -241,7 +244,8 @@ public class SqlTaskExecution
     private synchronized void scheduleSplitWorker(@Nullable PlanNodeId partitionedSourceId, @Nullable Split partitionedSplit)
     {
         // create a new split worker
-        SplitWorker worker = new SplitWorker(session,
+        SplitWorker worker = new SplitWorker(nextSplitWorkerId++,
+                session,
                 taskOutput,
                 planner,
                 fragment,
@@ -435,6 +439,7 @@ public class SqlTaskExecution
     private static class SplitWorker
             implements Callable<Void>
     {
+        private final long workerId;
         private final AtomicBoolean started = new AtomicBoolean();
         private final TaskOutput taskOutput;
         private final PlanNodeId partitionedSource;
@@ -444,13 +449,15 @@ public class SqlTaskExecution
         private final Map<PlanNodeId, SourceOperator> sourceOperators;
         private final Map<PlanNodeId, OutputProducingOperator<?>> outputOperators;
 
-        private SplitWorker(Session session,
+        private SplitWorker(long workerId,
+                Session session,
                 TaskOutput taskOutput,
                 LocalExecutionPlanner planner,
                 PlanFragment fragment,
                 SourceHashProviderFactory sourceHashProviderFactory,
                 QueryMonitor queryMonitor)
         {
+            this.workerId = workerId;
             this.taskOutput = taskOutput;
             partitionedSource = fragment.getPartitionedSource();
             operatorStats = new OperatorStats(taskOutput);
@@ -499,7 +506,7 @@ public class SqlTaskExecution
                 return null;
             }
 
-            try (SetThreadName setThreadName = new SetThreadName("SplitWorker-Task-%s", taskOutput.getTaskId())){
+            try (SetThreadName setThreadName = new SetThreadName("SplitWorker-Task-%s-%s", taskOutput.getTaskId(), workerId)){
                 operatorStats.start();
                 try (PageIterator pages = operator.get().iterator(operatorStats)) {
                     while (pages.hasNext()) {
