@@ -395,6 +395,7 @@ public class LocalExecutionPlanner
                     orderByChannel,
                     mappings.getProjections(),
                     ordering,
+                    node.isPartial(),
                     context.getTaskMemoryManager());
             return new PhysicalOperation(operator, mappings.getOutputLayout());
         }

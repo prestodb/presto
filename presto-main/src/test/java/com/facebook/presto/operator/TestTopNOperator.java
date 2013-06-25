@@ -46,6 +46,7 @@ public class TestTopNOperator
                 0,
                 ImmutableList.of(singleColumn(FIXED_INT_64, 0, 0), singleColumn(DOUBLE, 1, 0)),
                 Ordering.from(new FieldOrderedTupleComparator(ImmutableList.of(0), ImmutableList.of(SortItem.Ordering.DESCENDING))),
+                false,
                 new TaskMemoryManager(new DataSize(1, DataSize.Unit.MEGABYTE))
         );
 
@@ -91,6 +92,7 @@ public class TestTopNOperator
                 0,
                 ImmutableList.of(ProjectionFunctions.concat(singleColumn(VARIABLE_BINARY, 0, 0), singleColumn(FIXED_INT_64, 0, 1))),
                 Ordering.from(new FieldOrderedTupleComparator(ImmutableList.of(0, 1), ImmutableList.of(SortItem.Ordering.DESCENDING, SortItem.Ordering.DESCENDING))),
+                false,
                 new TaskMemoryManager(new DataSize(1, DataSize.Unit.MEGABYTE))
         );
 
@@ -129,6 +131,7 @@ public class TestTopNOperator
         TopNOperator actual = new TopNOperator(
                 source, 2, 0, ImmutableList.of(singleColumn(FIXED_INT_64, 0, 0), singleColumn(DOUBLE, 1, 0)),
                 Ordering.from(new FieldOrderedTupleComparator(ImmutableList.of(0), ImmutableList.of(SortItem.Ordering.ASCENDING))),
+                false,
                 new TaskMemoryManager(new DataSize(1, DataSize.Unit.MEGABYTE))
         );
 
@@ -151,6 +154,7 @@ public class TestTopNOperator
                 0,
                 ImmutableList.of(singleColumn(FIXED_INT_64, 0, 0), singleColumn(DOUBLE, 1, 0)),
                 Ordering.from(new FieldOrderedTupleComparator(ImmutableList.of(0), ImmutableList.of(SortItem.Ordering.ASCENDING))),
+                false,
                 new TaskMemoryManager(new DataSize(1, DataSize.Unit.MEGABYTE)));
         assertCancel(operator, blockingOperator);
     }

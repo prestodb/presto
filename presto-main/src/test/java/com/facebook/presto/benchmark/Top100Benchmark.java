@@ -34,6 +34,7 @@ public class Top100Benchmark
                 0,
                 ImmutableList.of(singleColumn(TupleInfo.Type.DOUBLE, 0, 0)),
                 Ordering.from(new FieldOrderedTupleComparator(ImmutableList.of(0), ImmutableList.of(SortItem.Ordering.DESCENDING))),
+                false,
                 new TaskMemoryManager(new DataSize(256, DataSize.Unit.MEGABYTE)));
     }
 

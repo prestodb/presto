@@ -70,7 +70,7 @@ public class LimitPushDown
         {
             PlanNode rewrittenSource = planRewriter.rewrite(node.getSource(), Long.MAX_VALUE);
             if (limit != Long.MAX_VALUE || rewrittenSource != node.getSource()) {
-                return new TopNNode(node.getId(), rewrittenSource, Math.min(node.getCount(), limit), node.getOrderBy(), node.getOrderings());
+                return new TopNNode(node.getId(), rewrittenSource, Math.min(node.getCount(), limit), node.getOrderBy(), node.getOrderings(), node.isPartial());
             }
             return node;
         }
@@ -80,7 +80,7 @@ public class LimitPushDown
         {
             PlanNode rewrittenSource = planRewriter.rewrite(node.getSource(), Long.MAX_VALUE);
             if (limit != Long.MAX_VALUE) {
-                return new TopNNode(node.getId(), rewrittenSource, limit, node.getOrderBy(), node.getOrderings());
+                return new TopNNode(node.getId(), rewrittenSource, limit, node.getOrderBy(), node.getOrderings(), false);
             }
             else if (rewrittenSource != node.getSource()) {
                 return new SortNode(node.getId(), rewrittenSource, node.getOrderBy(), node.getOrderings());
