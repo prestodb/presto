@@ -72,7 +72,7 @@ public class TestSqlStageExecution
             stageExecution = new SqlStageExecution(new QueryId("query"),
                     new MockLocationFactory(),
                     joinPlan,
-                    new NodeScheduler(nodeManager), new MockRemoteTaskFactory(executor),
+                    new NodeScheduler(nodeManager, new NodeSchedulerConfig()), new MockRemoteTaskFactory(executor),
                     SESSION,
                     1,
                     executor);
