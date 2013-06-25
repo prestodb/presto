@@ -37,11 +37,13 @@ public class NodeScheduler
     private final AtomicLong scheduleLocal = new AtomicLong();
     private final AtomicLong scheduleRack = new AtomicLong();
     private final AtomicLong scheduleRandom = new AtomicLong();
+    private final int minCandidates;
 
     @Inject
-    public NodeScheduler(NodeManager nodeManager)
+    public NodeScheduler(NodeManager nodeManager, NodeSchedulerConfig config)
     {
         this.nodeManager = nodeManager;
+        this.minCandidates = config.getMinCandidates();
     }
 
     @Managed
@@ -143,8 +145,8 @@ public class NodeScheduler
 
         public Node selectNode(Split split)
         {
-            // select 10 acceptable nodes
-            List<Node> nodes = selectNodes(nodeMap.get().get(), split, 10);
+            // select acceptable nodes
+            List<Node> nodes = selectNodes(nodeMap.get().get(), split, minCandidates);
 
             Preconditions.checkState(!nodes.isEmpty(), "No nodes available to run query");
 
@@ -157,6 +159,7 @@ public class NodeScheduler
         {
             Set<Node> chosen = new LinkedHashSet<>(minCount);
 
+            // first look for nodes that match the hint
             for (HostAddress hint : split.getAddresses()) {
                 for (Node node : nodeMap.getNodesByHostAndPort().get(hint)) {
                     if (chosen.add(node)) {
@@ -182,12 +185,29 @@ public class NodeScheduler
                         }
                     }
                 }
+            }
 
-                if (split.isRemotelyAccessible()) {
+            // add nodes in same rack, if below the minimum count
+            if (split.isRemotelyAccessible() && chosen.size() < minCount) {
+                for (HostAddress hint : split.getAddresses()) {
+                    InetAddress address;
+                    try {
+                        address = hint.toInetAddress();
+                    }
+                    catch (UnknownHostException e) {
+                        // skip addresses that don't resolve
+                        continue;
+                    }
                     for (Node node : nodeMap.getNodesByRack().get(Rack.of(address))) {
                         if (chosen.add(node)) {
                             scheduleRack.incrementAndGet();
                         }
+                        if (chosen.size() == minCount) {
+                            break;
+                        }
+                    }
+                    if (chosen.size() == minCount) {
+                        break;
                     }
                 }
             }
