@@ -7,15 +7,23 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class TaskMemoryManager
 {
     private final long maxMemory;
+    private final DataSize minFlushSize;
     private long currentSize;
 
     public TaskMemoryManager(DataSize maxMemory)
     {
+        this(maxMemory, new DataSize(1, MEGABYTE));
+    }
+
+    public TaskMemoryManager(DataSize maxMemory, DataSize minFlushSize)
+    {
         this.maxMemory = checkNotNull(maxMemory, "maxMemory is null").toBytes();
+        this.minFlushSize = checkNotNull(minFlushSize, "minFlushSize is null");
     }
 
     public DataSize getMaxMemorySize()
@@ -23,7 +31,13 @@ public class TaskMemoryManager
         return new DataSize(maxMemory, BYTE).convertToMostSuccinctDataSize();
     }
 
+    public DataSize getMinFlushSize()
+    {
+        return minFlushSize;
+    }
+
     public synchronized boolean reserve(DataSize size)
+
     {
         return reserveBytes(size.toBytes());
     }

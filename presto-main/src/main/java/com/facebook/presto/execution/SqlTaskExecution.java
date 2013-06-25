@@ -92,6 +92,7 @@ public class SqlTaskExecution
             ExecutorService taskMasterExecutor,
             ListeningExecutorService shardExecutor,
             DataSize maxTaskMemoryUsage,
+            DataSize minFlushSize,
             QueryMonitor queryMonitor,
             SqlTaskManagerStats globalStats)
     {
@@ -103,6 +104,7 @@ public class SqlTaskExecution
                 maxBufferSize,
                 shardExecutor,
                 maxTaskMemoryUsage,
+                minFlushSize,
                 queryMonitor,
                 taskMasterExecutor,
                 globalStats);
@@ -121,6 +123,7 @@ public class SqlTaskExecution
             DataSize maxBufferSize,
             ListeningExecutorService shardExecutor,
             DataSize maxTaskMemoryUsage,
+            DataSize minFlushSize,
             QueryMonitor queryMonitor,
             Executor notificationExecutor,
             SqlTaskManagerStats globalStats)
@@ -131,7 +134,9 @@ public class SqlTaskExecution
             this.fragment = checkNotNull(fragment, "fragment is null");
             this.planner = checkNotNull(planner, "planner is null");
             this.shardExecutor = checkNotNull(shardExecutor, "shardExecutor is null");
-            this.taskMemoryManager = new TaskMemoryManager(checkNotNull(maxTaskMemoryUsage, "maxTaskMemoryUsage is null"));
+            this.taskMemoryManager = new TaskMemoryManager(
+                    checkNotNull(maxTaskMemoryUsage, "maxTaskMemoryUsage is null"),
+                    checkNotNull(minFlushSize, "minFlushSize is null"));
             this.queryMonitor = checkNotNull(queryMonitor, "queryMonitor is null");
 
             // create output buffers

@@ -6,7 +6,6 @@ import com.facebook.presto.execution.TaskMemoryManager;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleReadable;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import io.airlift.units.DataSize;
@@ -149,8 +148,10 @@ public class TopNOperator
                 memorySize = taskMemoryManager.updateOperatorReservation(memorySize, memorySize + sizeDelta);
             }
 
-            // only partial topN can flush early
-            Preconditions.checkState(partial || !isMaxMemoryExceeded(memorySize), "Task exceeded max memory size of %s", taskMemoryManager.getMaxMemorySize());
+            if (isMaxMemoryExceeded(memorySize)) {
+                // Only partial topN can flush early. Also, check that we are not flushing tiny bits at a time
+                checkState(partial && memorySize > taskMemoryManager.getMinFlushSize().toBytes(), "Task exceeded max memory size of %s", taskMemoryManager.getMaxMemorySize());
+            }
 
             ImmutableList.Builder<KeyAndTuples> minSortedGlobalCandidates = ImmutableList.builder();
             while (!globalCandidates.isEmpty()) {

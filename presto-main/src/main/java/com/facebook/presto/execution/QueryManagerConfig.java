@@ -16,6 +16,7 @@ public class QueryManagerConfig
 {
     private boolean coordinator = true;
     private DataSize maxTaskMemoryUsage = new DataSize(256, Unit.MEGABYTE);
+    private DataSize minFlushSize = new DataSize(1, Unit.MEGABYTE);
     private int maxPendingSplitsPerNode = 100;
     private int maxShardProcessorThreads = Runtime.getRuntime().availableProcessors() * 4;
     private DataSize sinkMaxBufferSize = new DataSize(32, Unit.MEGABYTE);
@@ -67,6 +68,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setMaxTaskMemoryUsage(DataSize maxTaskMemoryUsage)
     {
         this.maxTaskMemoryUsage = maxTaskMemoryUsage;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getMinFlushSize()
+    {
+        return minFlushSize;
+    }
+
+    @Config("task.min-flush-size")
+    public QueryManagerConfig setMinFlushSize(DataSize minFlushSize)
+    {
+        this.minFlushSize = minFlushSize;
         return this;
     }
 
