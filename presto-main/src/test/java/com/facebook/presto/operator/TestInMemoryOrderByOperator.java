@@ -2,6 +2,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.execution.TaskMemoryManager;
 import com.facebook.presto.tuple.TupleInfo;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
@@ -31,7 +32,7 @@ public class TestInMemoryOrderByOperator
                 )
         );
 
-        InMemoryOrderByOperator actual = new InMemoryOrderByOperator(source, 0, new int[]{1}, 10, new DataSize(1, Unit.MEGABYTE));
+        InMemoryOrderByOperator actual = new InMemoryOrderByOperator(source, 0, new int[]{1}, 10, new TaskMemoryManager(new DataSize(1, Unit.MEGABYTE)));
 
         Operator expected = createOperator(new Page(BlockAssertions.createDoublesBlock(-0.1, 0.1, 0.2, 0.4)));
         assertOperatorEquals(actual, expected);
@@ -57,7 +58,7 @@ public class TestInMemoryOrderByOperator
                 )
         );
 
-        InMemoryOrderByOperator actual = new InMemoryOrderByOperator(source, 0, new int[]{0}, 10, new DataSize(1, Unit.MEGABYTE));
+        InMemoryOrderByOperator actual = new InMemoryOrderByOperator(source, 0, new int[]{0}, 10, new TaskMemoryManager(new DataSize(1, Unit.MEGABYTE)));
 
         Operator expected = createOperator(
                 new Page(
@@ -87,7 +88,14 @@ public class TestInMemoryOrderByOperator
                 )
         );
 
-        InMemoryOrderByOperator actual = new InMemoryOrderByOperator(source, 0, new int[]{0}, 10, new int[]{0}, new boolean[]{false}, new DataSize(1, Unit.MEGABYTE));
+        InMemoryOrderByOperator actual = new InMemoryOrderByOperator(
+                source,
+                0,
+                new int[]{0},
+                10,
+                new int[]{0},
+                new boolean[]{false},
+                new TaskMemoryManager(new DataSize(1, Unit.MEGABYTE)));
 
         Operator expected = createOperator(
                 new Page(
@@ -97,7 +105,7 @@ public class TestInMemoryOrderByOperator
         assertOperatorEquals(actual, expected);
     }
 
-    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "Query exceeded max operator memory size of 10B")
+    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "Task exceeded max memory size of 10B")
     public void testMemoryLimit()
             throws Exception
     {
@@ -112,7 +120,7 @@ public class TestInMemoryOrderByOperator
                 )
         );
 
-        InMemoryOrderByOperator operator = new InMemoryOrderByOperator(source, 0, new int[]{1}, 10, new DataSize(10, Unit.BYTE));
+        InMemoryOrderByOperator operator = new InMemoryOrderByOperator(source, 0, new int[]{1}, 10, new TaskMemoryManager(new DataSize(10, Unit.BYTE)));
         PageIterator iterator = operator.iterator(new OperatorStats());
         iterator.next();
     }
@@ -122,7 +130,7 @@ public class TestInMemoryOrderByOperator
             throws Exception
     {
         BlockingOperator blockingOperator = createCancelableDataSource(new TupleInfo(VARIABLE_BINARY), new TupleInfo(VARIABLE_BINARY));
-        Operator operator = new InMemoryOrderByOperator(blockingOperator, 0, new int[]{1}, 10, new DataSize(10, Unit.MEGABYTE));
+        Operator operator = new InMemoryOrderByOperator(blockingOperator, 0, new int[]{1}, 10, new TaskMemoryManager(new DataSize(10, Unit.MEGABYTE)));
         assertCancel(operator, blockingOperator);
     }
 }

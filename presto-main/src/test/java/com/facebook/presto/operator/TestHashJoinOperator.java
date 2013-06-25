@@ -1,5 +1,6 @@
 package com.facebook.presto.operator;
 
+import com.facebook.presto.execution.TaskMemoryManager;
 import com.facebook.presto.tuple.TupleInfo;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
@@ -37,7 +38,8 @@ public class TestHashJoinOperator
                 createLongSequenceBlock(1000, 2000),
                 createLongSequenceBlock(2000, 3000)));
 
-        HashJoinOperator joinOperator = HashJoinOperator.innerJoin(new SourceHashProvider(buildSource, 0, 10, new DataSize(1, MEGABYTE), new OperatorStats()), probeSource, 0);
+        SourceHashProvider sourceHashProvider = new SourceHashProvider(buildSource, 0, 10, new TaskMemoryManager(new DataSize(1, MEGABYTE)), new OperatorStats());
+        HashJoinOperator joinOperator = HashJoinOperator.innerJoin(sourceHashProvider, probeSource, 0);
 
         Operator expected = createOperator(new Page(
                 createStringSequenceBlock(20, 30),
@@ -64,7 +66,8 @@ public class TestHashJoinOperator
                 createLongSequenceBlock(1000, 2000),
                 createLongSequenceBlock(2000, 3000)));
 
-        HashJoinOperator joinOperator = HashJoinOperator.outerjoin(new SourceHashProvider(buildSource, 0, 10, new DataSize(1, MEGABYTE), new OperatorStats()), probeSource, 0);
+        SourceHashProvider sourceHashProvider = new SourceHashProvider(buildSource, 0, 10, new TaskMemoryManager(new DataSize(1, MEGABYTE)), new OperatorStats());
+        HashJoinOperator joinOperator = HashJoinOperator.outerjoin(sourceHashProvider, probeSource, 0);
 
         Operator expected = createOperator(new Page(
                 createStringSequenceBlock(0, 1000),
@@ -77,7 +80,7 @@ public class TestHashJoinOperator
         assertOperatorEquals(joinOperator, expected);
     }
 
-    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "Query exceeded max operator memory size.*")
+    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "Task exceeded max memory size.*")
     public void testMemoryLimit()
             throws Exception
     {
@@ -91,7 +94,8 @@ public class TestHashJoinOperator
                 createLongSequenceBlock(1000, 2000),
                 createLongSequenceBlock(2000, 3000)));
 
-        HashJoinOperator operator = HashJoinOperator.innerJoin(new SourceHashProvider(buildSource, 0, 10, new DataSize(1, BYTE), new OperatorStats()), probeSource, 0);
+        SourceHashProvider sourceHashProvider = new SourceHashProvider(buildSource, 0, 10, new TaskMemoryManager(new DataSize(1, BYTE)), new OperatorStats());
+        HashJoinOperator operator = HashJoinOperator.innerJoin(sourceHashProvider, probeSource, 0);
         operator.iterator(new OperatorStats()).next();
     }
 
@@ -102,7 +106,8 @@ public class TestHashJoinOperator
         Operator build = createOperator(new Page(createStringSequenceBlock(20, 30)));
         BlockingOperator probe = createCancelableDataSource(new TupleInfo(VARIABLE_BINARY), new TupleInfo(VARIABLE_BINARY));
 
-        Operator operator = HashJoinOperator.innerJoin(new SourceHashProvider(build, 0, 10, new DataSize(1, MEGABYTE), new OperatorStats()), probe, 0);
+        SourceHashProvider sourceHashProvider = new SourceHashProvider(build, 0, 10, new TaskMemoryManager(new DataSize(1, MEGABYTE)), new OperatorStats());
+        Operator operator = HashJoinOperator.innerJoin(sourceHashProvider, probe, 0);
         assertCancel(operator, probe);
     }
 
@@ -114,7 +119,8 @@ public class TestHashJoinOperator
         BlockingOperator build = createCancelableDataSource(new Page(createStringSequenceBlock(20, 30)), 1, new TupleInfo(VARIABLE_BINARY));
         Operator probe = createOperator(new Page(createStringSequenceBlock(20, 30)));
 
-        Operator operator = HashJoinOperator.innerJoin(new SourceHashProvider(build, 0, 10, new DataSize(1, MEGABYTE), new OperatorStats()), probe, 0);
+        SourceHashProvider sourceHashProvider = new SourceHashProvider(build, 0, 10, new TaskMemoryManager(new DataSize(1, MEGABYTE)), new OperatorStats());
+        Operator operator = HashJoinOperator.innerJoin(sourceHashProvider, probe, 0);
         assertCancel(operator, build);
     }
 }

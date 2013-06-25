@@ -1,6 +1,7 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.block.BlockIterable;
+import com.facebook.presto.execution.TaskMemoryManager;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.HashAggregationOperator;
 import com.facebook.presto.operator.Operator;
@@ -35,7 +36,7 @@ public class HashAggregationBenchmark
                 Step.SINGLE,
                 ImmutableList.of(aggregation(DOUBLE_SUM, new Input(1, 0))),
                 100_000,
-                new DataSize(100, Unit.MEGABYTE));
+                new TaskMemoryManager(new DataSize(100, Unit.MEGABYTE)));
 
     }
 

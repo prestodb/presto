@@ -1,6 +1,7 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.block.BlockIterable;
+import com.facebook.presto.execution.TaskMemoryManager;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.HashJoinOperator;
 import com.facebook.presto.operator.Operator;
@@ -35,7 +36,7 @@ public class HashJoinBenchmark
             AlignmentOperator ordersTableScan = new AlignmentOperator(orderOrderKey, totalPrice);
 //            AlignmentOperator ordersTableScan = new AlignmentOperator(concat(nCopies(100, orderOrderKey)), concat(nCopies(100, totalPrice)));
 //            LimitOperator ordersLimit = new LimitOperator(ordersTableScan, 1_500_000);
-            sourceHashProvider = new SourceHashProvider(ordersTableScan, 0, 1_500_000, new DataSize(100, MEGABYTE), new OperatorStats());
+            sourceHashProvider = new SourceHashProvider(ordersTableScan, 0, 1_500_000, new TaskMemoryManager(new DataSize(100, MEGABYTE)), new OperatorStats());
         }
 
         BlockIterable lineItemOrderKey = getBlockIterable("lineitem", "orderkey", BlocksFileEncoding.RAW);

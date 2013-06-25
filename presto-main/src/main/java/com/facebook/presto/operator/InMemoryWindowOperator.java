@@ -1,11 +1,11 @@
 package com.facebook.presto.operator;
 
+import com.facebook.presto.execution.TaskMemoryManager;
 import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Booleans;
 import com.google.common.primitives.Ints;
-import io.airlift.units.DataSize;
 import it.unimi.dsi.fastutil.ints.IntComparator;
 
 import java.util.Arrays;
@@ -25,7 +25,7 @@ public class InMemoryWindowOperator
     private final int[] partitionFields;
     private final int[] sortFields;
     private final boolean[] sortOrder;
-    private final DataSize maxSize;
+    private final TaskMemoryManager taskMemoryManager;
     private final List<TupleInfo> tupleInfos;
 
     public InMemoryWindowOperator(
@@ -37,7 +37,7 @@ public class InMemoryWindowOperator
             int[] sortFields,
             boolean[] sortOrder,
             int expectedPositions,
-            DataSize maxSize)
+            TaskMemoryManager taskMemoryManager)
     {
         this.source = checkNotNull(source, "source is null");
         this.orderingChannel = orderingChannel;
@@ -47,7 +47,7 @@ public class InMemoryWindowOperator
         this.sortFields = checkNotNull(sortFields, "sortFields is null").clone();
         this.sortOrder = checkNotNull(sortOrder, "sortOrder is null").clone();
         this.expectedPositions = expectedPositions;
-        this.maxSize = checkNotNull(maxSize, "maxSize is null");
+        this.taskMemoryManager = checkNotNull(taskMemoryManager, "taskMemoryManager is null");
 
         ImmutableList.Builder<TupleInfo> tupleInfosBuilder = ImmutableList.builder();
         for (int channel : outputChannels) {
@@ -84,7 +84,7 @@ public class InMemoryWindowOperator
                 sortFields,
                 sortOrder,
                 expectedPositions,
-                maxSize,
+                taskMemoryManager,
                 operatorStats);
     }
 
@@ -99,7 +99,7 @@ public class InMemoryWindowOperator
         private final int[] sortFields;
         private final boolean[] sortOrder;
         private final int expectedPositions;
-        private final DataSize maxSize;
+        private final TaskMemoryManager taskMemoryManager;
         private final PageBuilder pageBuilder;
         private PagesIndex pageIndex;
         private int currentPosition;
@@ -119,7 +119,7 @@ public class InMemoryWindowOperator
                 int[] sortFields,
                 boolean[] sortOrder,
                 int expectedPositions,
-                DataSize maxSize,
+                TaskMemoryManager taskMemoryManager1,
                 OperatorStats operatorStats)
         {
             super(tupleInfos);
@@ -131,7 +131,7 @@ public class InMemoryWindowOperator
             this.sortFields = sortFields;
             this.sortOrder = sortOrder;
             this.expectedPositions = expectedPositions;
-            this.maxSize = maxSize;
+            this.taskMemoryManager = taskMemoryManager1;
             this.pageBuilder = new PageBuilder(getTupleInfos());
         }
 
@@ -140,7 +140,7 @@ public class InMemoryWindowOperator
         {
             if (pageIndex == null) {
                 // index all pages
-                pageIndex = new PagesIndex(source, expectedPositions, maxSize);
+                pageIndex = new PagesIndex(source, expectedPositions, taskMemoryManager);
 
                 // sort by partition fields, then sort fields
                 int[] orderFields = Ints.concat(partitionFields, sortFields);

@@ -2,10 +2,10 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.execution.TaskMemoryManager;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleReadable;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import io.airlift.units.DataSize;
@@ -34,22 +34,34 @@ public class TopNOperator
     private final List<ProjectionFunction> projections;
     private final Ordering<TupleReadable> ordering;
     private final List<TupleInfo> tupleInfos;
-    private final DataSize maxSize;
+    private final TaskMemoryManager taskMemoryManager;
+    private final boolean partial;
 
-    public TopNOperator(Operator source, int n, int keyChannelIndex, List<ProjectionFunction> projections, Ordering<TupleReadable> ordering, DataSize maxSize)
+    public TopNOperator(Operator source,
+            int n,
+            int keyChannelIndex,
+            List<ProjectionFunction> projections,
+            Ordering<TupleReadable> ordering,
+            boolean partial,
+            TaskMemoryManager taskMemoryManager)
     {
-        checkNotNull(source, "source is null");
+        this.source = checkNotNull(source, "source is null");
+
         checkArgument(n > 0, "n must be greater than zero");
-        checkArgument(keyChannelIndex >= 0, "keyChannelIndex must be at least zero");
-        checkNotNull(projections, "projections is null");
-        checkArgument(!projections.isEmpty(), "projections is empty");
-        checkNotNull(ordering, "ordering is null");
-        this.source = source;
         this.n = n;
+
+        checkArgument(keyChannelIndex >= 0, "keyChannelIndex must be at least zero");
         this.keyChannelIndex = keyChannelIndex;
-        this.projections = ImmutableList.copyOf(projections);
-        this.ordering = ordering.reverse(); // the priority queue needs to sort in reverse order to be able to remove the least element in O(1)
-        this.maxSize = maxSize;
+
+        this.projections = ImmutableList.copyOf(checkNotNull(projections, "projections is null"));
+        checkArgument(!projections.isEmpty(), "projections is empty");
+
+        // the priority queue needs to sort in reverse order to be able to remove the least element in O(1)
+        this.ordering = checkNotNull(ordering, "ordering is null").reverse();
+
+        this.partial = partial;
+
+        this.taskMemoryManager = checkNotNull(taskMemoryManager, "taskMemoryManager is null");
 
         ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
         for (ProjectionFunction projection : projections) {
@@ -73,7 +85,7 @@ public class TopNOperator
     @Override
     public PageIterator iterator(OperatorStats operatorStats)
     {
-        return new TopNIterator(source, operatorStats);
+        return new TopNIterator(source, operatorStats, partial);
     }
 
     private class TopNIterator
@@ -81,20 +93,23 @@ public class TopNOperator
     {
         private final PageIterator source;
         private final PageBuilder pageBuilder;
+        private final boolean partial;
         private Iterator<KeyAndTuples> outputIterator;
+        private long currentMemoryReservation;
 
-        private TopNIterator(Operator source, OperatorStats operatorStats)
+        private TopNIterator(Operator source, OperatorStats operatorStats, boolean partial)
         {
             super(tupleInfos);
             this.source = source.iterator(operatorStats);
             this.pageBuilder = new PageBuilder(getTupleInfos());
+            this.partial = partial;
         }
 
         @Override
         protected Page computeNext()
         {
-            if (outputIterator == null) {
-                outputIterator = selectTopN(source);
+            if (outputIterator == null || !outputIterator.hasNext()) {
+                outputIterator = selectTopN();
             }
 
             if (!outputIterator.hasNext()) {
@@ -119,26 +134,46 @@ public class TopNOperator
             source.close();
         }
 
-        private Iterator<KeyAndTuples> selectTopN(PageIterator iterator)
+        private Iterator<KeyAndTuples> selectTopN()
         {
-            long currentEstimatedSize = 0;
+            long memorySize = 0;
+
             PriorityQueue<KeyAndTuples> globalCandidates = new PriorityQueue<>(Math.min(n, MAX_INITIAL_PRIORITY_QUEUE_SIZE), KeyAndTuples.keyComparator(ordering));
-            try (PageIterator pageIterator = iterator) {
-                while (pageIterator.hasNext()) {
-                    Page page = pageIterator.next();
-                    Iterable<KeyAndPosition> keyAndPositions = computePageCandidatePositions(globalCandidates, page);
-                    long sizeDelta = mergeWithGlobalCandidates(globalCandidates, page, keyAndPositions);
-                    currentEstimatedSize += sizeDelta;
-                    Preconditions.checkState(currentEstimatedSize + globalCandidates.size() * OVERHEAD_PER_TUPLE.toBytes() <= maxSize.toBytes(),
-                            "Query exceeded max operator memory size of %s",
-                            maxSize.convertToMostSuccinctDataSize());
-                }
+
+            while (!isMaxMemoryExceeded(memorySize) && source.hasNext()) {
+                Page page = source.next();
+                Iterable<KeyAndPosition> keyAndPositions = computePageCandidatePositions(globalCandidates, page);
+                long sizeDelta = mergeWithGlobalCandidates(globalCandidates, page, keyAndPositions);
+                // reserve size for data
+                memorySize = taskMemoryManager.updateOperatorReservation(memorySize, memorySize + sizeDelta);
             }
+
+            if (isMaxMemoryExceeded(memorySize)) {
+                // Only partial topN can flush early. Also, check that we are not flushing tiny bits at a time
+                checkState(partial && memorySize > taskMemoryManager.getMinFlushSize().toBytes(), "Task exceeded max memory size of %s", taskMemoryManager.getMaxMemorySize());
+            }
+
             ImmutableList.Builder<KeyAndTuples> minSortedGlobalCandidates = ImmutableList.builder();
             while (!globalCandidates.isEmpty()) {
                 minSortedGlobalCandidates.add(globalCandidates.remove());
             }
             return minSortedGlobalCandidates.build().reverse().iterator();
+        }
+
+        private boolean isMaxMemoryExceeded(long memorySize)
+        {
+            long delta = memorySize - currentMemoryReservation;
+            if (delta <= 0) {
+                return false;
+            }
+
+            if (!taskMemoryManager.reserveBytes(delta)) {
+                return true;
+            }
+
+            // reservation worked, record the reservation
+            currentMemoryReservation = Math.max(currentMemoryReservation, memorySize);
+            return false;
         }
 
         private Iterable<KeyAndPosition> computePageCandidatePositions(PriorityQueue<KeyAndTuples> globalCandidates, Page page)
@@ -182,6 +217,7 @@ public class TopNOperator
                     for (Tuple tuple : tuples) {
                         sizeDelta += tuple.size();
                     }
+                    sizeDelta += OVERHEAD_PER_TUPLE.toBytes();
                     globalCandidates.add(new KeyAndTuples(keyAndPosition.getKey(), tuples));
                 }
                 else if (ordering.compare(keyAndPosition.getKey(), globalCandidates.peek().getKey()) > 0) {

@@ -1534,7 +1534,7 @@ public abstract class AbstractTestQueries
     {
         MaterializedResult result = computeActual("SHOW SCHEMAS");
         ImmutableSet<String> schemaNames = ImmutableSet.copyOf(transform(result.getMaterializedTuples(), onlyColumnGetter()));
-        assertEquals(schemaNames, ImmutableSet.of(TPCH_SCHEMA_NAME, InformationSchemaMetadata.INFORMATION_SCHEMA, "node"));
+        assertTrue(schemaNames.containsAll(ImmutableSet.of(TPCH_SCHEMA_NAME, InformationSchemaMetadata.INFORMATION_SCHEMA, "node")));
     }
 
     @Test

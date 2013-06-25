@@ -21,13 +21,15 @@ public class TopNNode
     private final long count;
     private final List<Symbol> orderBy;
     private final Map<Symbol, SortItem.Ordering> orderings;
+    private final boolean partial;
 
     @JsonCreator
     public TopNNode(@JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("count") long count,
             @JsonProperty("orderBy") List<Symbol> orderBy,
-            @JsonProperty("orderings") Map<Symbol, SortItem.Ordering> orderings)
+            @JsonProperty("orderings") Map<Symbol, SortItem.Ordering> orderings,
+            @JsonProperty("partial") boolean partial)
     {
         super(id);
 
@@ -41,6 +43,7 @@ public class TopNNode
         this.count = count;
         this.orderBy = ImmutableList.copyOf(orderBy);
         this.orderings = ImmutableMap.copyOf(orderings);
+        this.partial = partial;
     }
 
     @Override
@@ -77,6 +80,12 @@ public class TopNNode
     public Map<Symbol, SortItem.Ordering> getOrderings()
     {
         return orderings;
+    }
+
+    @JsonProperty("partial")
+    public boolean isPartial()
+    {
+        return partial;
     }
 
     @Override
