@@ -10,8 +10,6 @@ import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 
 import java.io.Closeable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -20,7 +18,6 @@ import static io.airlift.json.JsonCodec.jsonCodec;
 public class QueryRunner
         implements Closeable
 {
-    private final ExecutorService executor = Executors.newCachedThreadPool();
     private final JsonCodec<QueryResults> queryResultsCodec;
     private final ClientSession session;
     private final AsyncHttpClient httpClient;
@@ -40,13 +37,17 @@ public class QueryRunner
 
     public Query startQuery(String query)
     {
-        return new Query(new StatementClient(httpClient, queryResultsCodec, session, query));
+        return new Query(startInternalQuery(query));
+    }
+
+    public StatementClient startInternalQuery(String query)
+    {
+        return new StatementClient(httpClient, queryResultsCodec, session, query);
     }
 
     @Override
     public void close()
     {
-        executor.shutdownNow();
         httpClient.close();
     }
 
