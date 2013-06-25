@@ -58,6 +58,7 @@ public class SqlTaskManager
     private final LocationFactory locationFactory;
     private final QueryMonitor queryMonitor;
     private final DataSize maxTaskMemoryUsage;
+    private final DataSize minFlushSize;
     private final Duration infoCacheTime;
     private final Duration clientTimeout;
     private final SqlTaskManagerStats stats = new SqlTaskManagerStats();
@@ -79,6 +80,7 @@ public class SqlTaskManager
         checkNotNull(config, "config is null");
         this.maxBufferSize = config.getSinkMaxBufferSize();
         this.maxTaskMemoryUsage = config.getMaxTaskMemoryUsage();
+        this.minFlushSize = config.getMinFlushSize();
         this.infoCacheTime = config.getInfoMaxAge();
         this.clientTimeout = config.getClientTimeout();
 
@@ -210,6 +212,7 @@ public class SqlTaskManager
                         taskMasterExecutor,
                         shardExecutor,
                         maxTaskMemoryUsage,
+                        minFlushSize,
                         queryMonitor,
                         stats
                 );

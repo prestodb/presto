@@ -223,6 +223,12 @@ public class HashAggregationOperator
             Preconditions.checkState(step == Step.PARTIAL || !isMaxMemoryExceeded(hashStrategy, aggregates),
                     "Task exceeded max memory size of %s", taskMemoryManager.getMaxMemorySize());
 
+            if (isMaxMemoryExceeded(hashStrategy, aggregates)) {
+                // Only partial aggregation can flush early. Also, check that we are not flushing tiny bits at a time
+                checkState(step == Step.PARTIAL && currentMemoryReservation > taskMemoryManager.getMinFlushSize().toBytes(),
+                        "Task exceeded max memory size of %s", taskMemoryManager.getMaxMemorySize());
+            }
+
             // add the last block if it is not empty
             if (!blockBuilder.isEmpty()) {
                 UncompressedBlock block = blockBuilder.build();
