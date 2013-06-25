@@ -67,7 +67,7 @@ public interface PeriodicImportDao
             "  job_start_time DATETIME NOT NULL,\n" +
             "  job_end_time DATETIME,\n" +
             "  success BOOLEAN NOT NULL DEFAULT FALSE,\n" +
-            "  FOREIGN KEY (job_id) REFERENCES job (job_id)\n" +
+            "  FOREIGN KEY (job_id) REFERENCES job (job_id) ON DELETE CASCADE\n" +
             ")")
     void createRunTable();
 
