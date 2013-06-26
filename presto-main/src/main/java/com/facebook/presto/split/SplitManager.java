@@ -53,7 +53,7 @@ public class SplitManager
         ConnectorSplitManager connectorSplitManager = getConnectorSplitManager(handle);
 
         String connectorId = connectorSplitManager.getConnectorId();
-        return new DataSource(connectorId, connectorSplitManager.getPartitionSplits(partitions));
+        return new DataSource(connectorId, connectorSplitManager.getPartitionSplits(handle, partitions));
     }
 
     private List<Partition> getPartitions(Session session,

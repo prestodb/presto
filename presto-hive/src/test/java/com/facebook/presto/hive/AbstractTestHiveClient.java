@@ -262,7 +262,7 @@ public abstract class AbstractTestHiveClient
     {
         TableHandle tableHandle = metadata.getTableHandle(table);
         List<Partition> partitions = splitManager.getPartitions(tableHandle, ImmutableMap.<ColumnHandle, Object>of());
-        Iterable<Split> iterator = splitManager.getPartitionSplits(partitions);
+        Iterable<Split> iterator = splitManager.getPartitionSplits(tableHandle, partitions);
 
         List<Split> splits = ImmutableList.copyOf(iterator);
         assertEquals(splits.size(), 3);
@@ -274,7 +274,7 @@ public abstract class AbstractTestHiveClient
     {
         TableHandle tableHandle = metadata.getTableHandle(tableUnpartitioned);
         List<Partition> partitions = splitManager.getPartitions(tableHandle, ImmutableMap.<ColumnHandle, Object>of());
-        Iterable<Split> iterator = splitManager.getPartitionSplits(partitions);
+        Iterable<Split> iterator = splitManager.getPartitionSplits(tableHandle, partitions);
 
         List<Split> splits = ImmutableList.copyOf(iterator);
         assertEquals(splits.size(), 1);
@@ -284,14 +284,14 @@ public abstract class AbstractTestHiveClient
     public void testGetPartitionSplitsBatchInvalidTable()
             throws Exception
     {
-        splitManager.getPartitionSplits(ImmutableList.of(invalidPartition));
+        splitManager.getPartitionSplits(invalidTableHandle, ImmutableList.of(invalidPartition));
     }
 
     @Test
     public void testGetPartitionSplitsEmpty()
             throws Exception
     {
-        Iterable<Split> iterator = splitManager.getPartitionSplits(ImmutableList.<Partition>of());
+        Iterable<Split> iterator = splitManager.getPartitionSplits(invalidTableHandle, ImmutableList.<Partition>of());
         // fetch full list
         ImmutableList.copyOf(iterator);
     }
@@ -324,7 +324,7 @@ public abstract class AbstractTestHiveClient
         for (Partition partition : partitions) {
             if ("2012-12-30".equals(partition.getKeys().get(dsColumn))) {
                 try {
-                    Iterables.size(splitManager.getPartitionSplits(ImmutableList.of(partition)));
+                    Iterables.size(splitManager.getPartitionSplits(tableHandle, ImmutableList.of(partition)));
                     fail("Expected PartitionOfflineException");
                 }
                 catch (PartitionOfflineException e) {
@@ -332,7 +332,7 @@ public abstract class AbstractTestHiveClient
                     assertEquals(e.getPartition(), "ds=2012-12-30");
                 }
             } else {
-                Iterables.size(splitManager.getPartitionSplits(ImmutableList.of(partition)));
+                Iterables.size(splitManager.getPartitionSplits(tableHandle, ImmutableList.of(partition)));
             }
         }
     }
@@ -347,7 +347,7 @@ public abstract class AbstractTestHiveClient
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
         List<Partition> partitions = splitManager.getPartitions(tableHandle, ImmutableMap.<ColumnHandle, Object>of());
-        List<Split> splits = ImmutableList.copyOf(splitManager.getPartitionSplits(partitions));
+        List<Split> splits = ImmutableList.copyOf(splitManager.getPartitionSplits(tableHandle, partitions));
         assertEquals(splits.size(), this.partitions.size());
         for (Split split : splits) {
             HiveSplit hiveSplit = (HiveSplit) split;
@@ -465,7 +465,7 @@ public abstract class AbstractTestHiveClient
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
         List<Partition> partitions = splitManager.getPartitions(tableHandle, ImmutableMap.<ColumnHandle, Object>of());
-        List<Split> splits = ImmutableList.copyOf(splitManager.getPartitionSplits(partitions));
+        List<Split> splits = ImmutableList.copyOf(splitManager.getPartitionSplits(tableHandle, partitions));
         assertEquals(splits.size(), this.partitions.size());
         for (Split split : splits) {
             HiveSplit hiveSplit = (HiveSplit) split;
@@ -501,7 +501,7 @@ public abstract class AbstractTestHiveClient
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
         List<Partition> partitions = splitManager.getPartitions(tableHandle, ImmutableMap.<ColumnHandle, Object>of());
-        List<Split> splits = ImmutableList.copyOf(splitManager.getPartitionSplits(partitions));
+        List<Split> splits = ImmutableList.copyOf(splitManager.getPartitionSplits(tableHandle, partitions));
         assertEquals(splits.size(), 1);
 
         for (Split split : splits) {
@@ -536,7 +536,7 @@ public abstract class AbstractTestHiveClient
     {
         TableHandle table = metadata.getTableHandle(tableUnpartitioned);
         List<Partition> partitions = splitManager.getPartitions(table, ImmutableMap.<ColumnHandle, Object>of());
-        Split split = Iterables.getFirst(splitManager.getPartitionSplits(partitions), null);
+        Split split = Iterables.getFirst(splitManager.getPartitionSplits(table, partitions), null);
         RecordSet recordSet = recordSetProvider.getRecordSet(split, ImmutableList.of(invalidColumnHandle));
         recordSet.cursor();
     }

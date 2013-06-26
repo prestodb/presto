@@ -71,7 +71,7 @@ public class SystemSplitManager
     }
 
     @Override
-    public Iterable<Split> getPartitionSplits(List<Partition> partitions)
+    public Iterable<Split> getPartitionSplits(TableHandle table, List<Partition> partitions)
     {
         checkNotNull(partitions, "partitions is null");
         if (partitions.isEmpty()) {
