@@ -37,6 +37,8 @@ tokens {
     SELECT_ITEM;
     ALIASED_COLUMNS;
     TABLE_SUBQUERY;
+    EXPLAIN_OPTIONS;
+    EXPLAIN_FORMAT;
     TABLE;
     JOINED_TABLE;
     QUALIFIED_JOIN;
@@ -60,7 +62,6 @@ tokens {
     CURRENT_ROW;
     NEGATIVE;
     QNAME;
-    EXPLAIN;
     SHOW_TABLES;
     SHOW_SCHEMAS;
     SHOW_COLUMNS;
@@ -513,7 +514,16 @@ frameBound
     ;
 
 explainStmt
-    : EXPLAIN query -> ^(EXPLAIN query)
+    : EXPLAIN explainOptions? query -> ^(EXPLAIN explainOptions? query)
+    ;
+
+explainOptions
+    : '(' explainOption (',' explainOption)* ')' -> ^(EXPLAIN_OPTIONS explainOption+)
+    ;
+
+explainOption
+    : FORMAT TEXT     -> ^(EXPLAIN_FORMAT TEXT)
+    | FORMAT GRAPHVIZ -> ^(EXPLAIN_FORMAT GRAPHVIZ)
     ;
 
 showTablesStmt
@@ -657,6 +667,7 @@ nonReserved
     | OVER | PARTITION | RANGE | ROWS | PRECEDING | FOLLOWING | CURRENT | ROW
     | REFRESH | MATERIALIZED | VIEW | ALIAS
     | YEAR | MONTH | DAY | HOUR | MINUTE | SECOND
+    | EXPLAIN | FORMAT | TEXT | GRAPHVIZ
     ;
 
 SELECT: 'SELECT';
@@ -750,6 +761,9 @@ BOOLEAN: 'BOOLEAN';
 CONSTRAINT: 'CONSTRAINT';
 DESCRIBE: 'DESCRIBE';
 EXPLAIN: 'EXPLAIN';
+FORMAT: 'FORMAT';
+TEXT: 'TEXT';
+GRAPHVIZ: 'GRAPHVIZ';
 CAST: 'CAST';
 SHOW: 'SHOW';
 TABLES: 'TABLES';

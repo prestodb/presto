@@ -39,6 +39,19 @@ public class QueryExplainer
     public String getPlan(Query query)
     {
         // analyze query
+        Plan plan = getLogicalPlan(query);
+        return PlanPrinter.printPlan(plan.getRoot(), plan.getTypes());
+    }
+
+    public String getGraphvizPlan(Query query)
+    {
+        Plan plan = getLogicalPlan(query);
+        return PlanPrinter.printGraphvizPlan(plan.getRoot(), plan.getTypes());
+    }
+
+    private Plan getLogicalPlan(Query query)
+    {
+        // analyze query
         Analyzer analyzer = new Analyzer(session, metadata, Optional.<QueryExplainer>absent());
 
         Analysis analysis = analyzer.analyze(query);
@@ -46,9 +59,6 @@ public class QueryExplainer
 
         // plan query
         LogicalPlanner logicalPlanner = new LogicalPlanner(session, planOptimizers, idAllocator, metadata, periodicImportManager, storageManager);
-        Plan plan = logicalPlanner.plan(analysis);
-
-        return PlanPrinter.printPlan(plan.getRoot(), plan.getTypes());
+        return logicalPlanner.plan(analysis);
     }
-
 }

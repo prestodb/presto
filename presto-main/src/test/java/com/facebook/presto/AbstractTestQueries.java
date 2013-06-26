@@ -1683,6 +1683,24 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testExplainTextFormat()
+    {
+        String query = "SELECT 123 FROM dual";
+        MaterializedResult result = computeActual("EXPLAIN (FORMAT TEXT) " + query);
+        String actual = Iterables.getOnlyElement(transform(result.getMaterializedTuples(), onlyColumnGetter()));
+        assertEquals(actual, getExplainPlan(query));
+    }
+
+    @Test
+    public void testExplainGraphvizFormat()
+    {
+        String query = "SELECT 123 FROM dual";
+        MaterializedResult result = computeActual("EXPLAIN (FORMAT GRAPHVIZ) " + query);
+        String actual = Iterables.getOnlyElement(transform(result.getMaterializedTuples(), onlyColumnGetter()));
+        assertEquals(actual, getGraphvizExplainPlan(query));
+    }
+
+    @Test
     public void testShowSchemas()
             throws Exception
     {
@@ -2335,12 +2353,22 @@ public abstract class AbstractTestQueries
 
     private static String getExplainPlan(String query)
     {
+        QueryExplainer explainer = getQueryExplainer();
+        return explainer.getPlan((Query) SqlParser.createStatement(query));
+    }
+
+    private static String getGraphvizExplainPlan(String query)
+    {
+        QueryExplainer explainer = getQueryExplainer();
+        return explainer.getGraphvizPlan((Query) SqlParser.createStatement(query));
+    }
+
+    private static QueryExplainer getQueryExplainer()
+    {
         Session session = new Session("user", "test", DEFAULT_CATALOG, DEFAULT_SCHEMA, null, null);
         MetadataManager metadata = new MetadataManager();
         metadata.addInternalSchemaMetadata(new DualMetadata());
         List<PlanOptimizer> optimizers = new PlanOptimizersFactory(metadata).get();
-        QueryExplainer explainer = new QueryExplainer(session, optimizers, metadata, new MockPeriodicImportManager(), new MockStorageManager());
-        return explainer.getPlan((Query) SqlParser.createStatement(query));
+        return new QueryExplainer(session, optimizers, metadata, new MockPeriodicImportManager(), new MockStorageManager());
     }
-
 }
