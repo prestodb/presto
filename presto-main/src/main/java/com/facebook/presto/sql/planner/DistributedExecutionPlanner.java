@@ -184,7 +184,7 @@ public class DistributedExecutionPlanner
             TableWriter tableWriter = new TableWriter(node, shardManager);
 
             // get source splits
-            NodeSplits nodeSplits = node.getSource().accept(this, tableWriterPartitionPredicate);
+            NodeSplits nodeSplits = node.getSource().accept(this, tableWriter.getPartitionPredicate());
             checkState(nodeSplits.dataSource.isPresent(), "No splits present for import");
             DataSource dataSource = nodeSplits.dataSource.get();
 
