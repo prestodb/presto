@@ -13,6 +13,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 
 import javax.inject.Inject;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -52,7 +53,7 @@ public class TpchSplitManager
     }
 
     @Override
-    public Iterable<Split> getPartitionSplits(List<Partition> partitions)
+    public Iterable<Split> getPartitionSplits(TableHandle table, List<Partition> partitions)
     {
         checkNotNull(partitions, "partitions is null");
         if (partitions.isEmpty()) {
