@@ -103,7 +103,7 @@ public class LogicalPlanner
         QualifiedTableName destination = analysis.getDestination();
 
         TableHandle targetTable;
-        List<ColumnHandle> columnHandles;
+        List<ColumnHandle> targetColumnHandles;
 
         RelationPlan plan;
         if (analysis.isDoRefresh()) {
@@ -112,28 +112,29 @@ public class LogicalPlanner
             QualifiedTableName sourceTable = storageManager.getTableSource((NativeTableHandle) targetTable);
             TableHandle sourceTableHandle = metadata.getTableHandle(sourceTable).get();
             TableMetadata sourceTableMetadata = metadata.getTableMetadata(sourceTableHandle);
-            Map<String,ColumnHandle> sourceTableColumns = metadata.getColumnHandles(sourceTableHandle);
+            Map<String, ColumnHandle> sourceTableColumns = metadata.getColumnHandles(sourceTableHandle);
+            Map<String, ColumnHandle> targetTableColumns = metadata.getColumnHandles(targetTable);
 
             ImmutableList.Builder<Symbol> outputSymbolsBuilder = ImmutableList.builder();
-            ImmutableMap.Builder<Symbol, ColumnHandle> columns = ImmutableMap.builder();
+            ImmutableMap.Builder<Symbol, ColumnHandle> inputColumnsBuilder = ImmutableMap.builder();
             ImmutableList.Builder<Field> fields = ImmutableList.builder();
             ImmutableList.Builder<ColumnHandle> columnHandleBuilder = ImmutableList.builder();
 
             for (ColumnMetadata column : sourceTableMetadata.getColumns()) {
                 Field field = Field.newQualified(sourceTable.asQualifiedName(), Optional.of(column.getName()), Type.fromRaw(column.getType()));
                 Symbol symbol = symbolAllocator.newSymbol(field);
-                ColumnHandle columnHandle = sourceTableColumns.get(column.getName());
 
-                columns.put(symbol, columnHandle);
+                inputColumnsBuilder.put(symbol, sourceTableColumns.get(column.getName()));
+                ColumnHandle targetColumnHandle = targetTableColumns.get(column.getName());
                 fields.add(field);
-                columnHandleBuilder.add(columnHandle);
+                columnHandleBuilder.add(targetColumnHandle);
                 outputSymbolsBuilder.add(symbol);
             }
 
             ImmutableList<Symbol> outputSymbols = outputSymbolsBuilder.build();
-            plan = new RelationPlan(new TableScanNode(idAllocator.getNextId(), sourceTableHandle, outputSymbols, columns.build(), TRUE_LITERAL, TRUE_LITERAL), new TupleDescriptor(fields.build()), outputSymbols);
+            plan = new RelationPlan(new TableScanNode(idAllocator.getNextId(), sourceTableHandle, outputSymbols, inputColumnsBuilder.build(), TRUE_LITERAL, TRUE_LITERAL), new TupleDescriptor(fields.build()), outputSymbols);
 
-            columnHandles = columnHandleBuilder.build();
+            targetColumnHandles = columnHandleBuilder.build();
         }
         else {
             RelationPlanner planner = new RelationPlanner(analysis, symbolAllocator, idAllocator, metadata, session);
@@ -158,7 +159,7 @@ public class LogicalPlanner
             for (ColumnMetadata column : tableMetadata.getColumns()) {
                 columnHandleBuilder.add(columnHandleIndex.get(column.getName()));
             }
-            columnHandles = columnHandleBuilder.build();
+            targetColumnHandles = columnHandleBuilder.build();
 
             // find source table (TODO: do this in analyzer)
             QueryBody queryBody = analysis.getQuery().getQueryBody();
@@ -183,8 +184,8 @@ public class LogicalPlanner
         // compute input symbol <-> column mappings
         ImmutableMap.Builder<Symbol, ColumnHandle> mappings = ImmutableMap.builder();
 
-        for (int i = 0; i < columnHandles.size(); i++) {
-            ColumnHandle column = columnHandles.get(i);
+        for (int i = 0; i < targetColumnHandles.size(); i++) {
+            ColumnHandle column = targetColumnHandles.get(i);
             Symbol symbol = plan.getSymbol(i);
             mappings.put(symbol, column);
         }

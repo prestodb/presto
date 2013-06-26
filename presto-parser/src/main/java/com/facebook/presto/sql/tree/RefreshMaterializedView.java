@@ -1,7 +1,6 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Objects;
-import com.google.common.base.Optional;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
