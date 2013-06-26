@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 
 import javax.inject.Inject;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -93,7 +94,7 @@ public class SystemSplitManager
 
         if (systemTable.isDistributed()) {
             ImmutableList.Builder<Split> splits = ImmutableList.builder();
-            for (Node node : nodeManager.getActiveNodes()) {
+            for (Node node : nodeManager.getAllNodes().getActiveNodes()) {
                 splits.add(new SystemSplit(systemPartition.tableHandle, filters.build(), ImmutableList.of(node.getHostAndPort())));
             }
             return splits.build();

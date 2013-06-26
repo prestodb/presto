@@ -316,6 +316,7 @@ public class TestDistributedQueries
                     .put("failure-detector.warmup-interval", "0ms")
                     .put("failure-detector.enabled", "false") // todo enable failure detector
                     .put("datasources", "native,tpch")
+                    .put("presto.version", "testversion")
                     .build();
 
             Bootstrap app = new Bootstrap(

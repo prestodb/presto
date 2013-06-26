@@ -70,7 +70,7 @@ public class JmxSplitManager
         JmxPartition jmxPartition = (JmxPartition) partition;
 
         ImmutableList.Builder<Split> splits = ImmutableList.builder();
-        for (Node node : nodeManager.getActiveNodes()) {
+        for (Node node : nodeManager.getAllNodes().getActiveNodes()) {
             splits.add(new JmxSplit(jmxPartition.tableHandle, ImmutableList.of(node.getHostAndPort())));
         }
         return splits.build();

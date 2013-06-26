@@ -58,6 +58,7 @@ import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.NodeManager;
+import com.facebook.presto.metadata.NodeVersion;
 import com.facebook.presto.metadata.ShardCleaner;
 import com.facebook.presto.metadata.ShardCleanerConfig;
 import com.facebook.presto.metadata.ShardManager;
@@ -124,7 +125,9 @@ import java.util.concurrent.Executors;
 
 import static com.facebook.presto.guice.ConditionalModule.installIfPropertyEquals;
 import static com.facebook.presto.guice.DbiProvider.bindDbiToDataSource;
+import static com.google.common.base.Objects.firstNonNull;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.configuration.ConfigurationModule.bindConfig;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.event.client.EventBinder.eventBinder;
@@ -233,7 +236,25 @@ public class ServerMainModule
         httpClientBinder(binder).bindHttpClient("shard-cleaner", ForShardCleaner.class);
         binder.bind(ShardResource.class).in(Scopes.SINGLETON);
 
-        ServiceAnnouncementBuilder announcementBuilder = discoveryBinder(binder).bindHttpAnnouncement("presto");
+
+        // Determine the NodeVersion
+        String prestoVersion = configurationFactory.getProperties().get("presto.version");
+        if (prestoVersion != null) {
+            configurationFactory.consumeProperty("presto.version");
+        }
+        else {
+            String implementationTitle = Main.class.getPackage().getImplementationTitle();
+            String implementationVersion = Main.class.getPackage().getImplementationVersion();
+            prestoVersion = (implementationTitle == null || implementationVersion == null) ? null : implementationTitle + ":" + implementationVersion;
+        }
+        checkState(prestoVersion != null, "presto.version must be provided when it cannot be automatically determined");
+
+        NodeVersion nodeVersion = new NodeVersion(prestoVersion);
+        binder.bind(NodeVersion.class).toInstance(nodeVersion);
+
+        ServiceAnnouncementBuilder announcementBuilder = discoveryBinder(binder).bindHttpAnnouncement("presto")
+                .addProperty("node_version", nodeVersion.toString());
+
         String datasources = configurationFactory.getProperties().get("datasources");
         if (datasources != null) {
             configurationFactory.consumeProperty("datasources");

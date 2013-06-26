@@ -64,7 +64,7 @@ public class TpchSplitManager
         checkArgument(partition instanceof TpchPartition, "Partition must be a tpch partition");
         TpchTableHandle tableHandle = ((TpchPartition) partition).getTable();
 
-        Set<Node> nodes = nodeManager.getActiveNodes();
+        Set<Node> nodes = nodeManager.getAllNodes().getActiveNodes();
 
         int totalParts = nodes.size();
         int partNumber = 0;
