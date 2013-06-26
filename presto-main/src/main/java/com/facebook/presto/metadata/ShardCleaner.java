@@ -20,6 +20,7 @@ import io.airlift.units.Duration;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
+
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
@@ -110,7 +111,7 @@ public class ShardCleaner
                     return;
                 }
 
-                Map<String, Node> activeNodes = Maps.uniqueIndex(nodeManager.getActiveNodes(), getIdentifierFunction());
+                Map<String, Node> activeNodes = Maps.uniqueIndex(nodeManager.getAllNodes().getActiveNodes(), getIdentifierFunction());
                 Iterable<String> shardNodes = shardManager.getAllNodesInUse();
 
                 ImmutableList.Builder<ListenableFuture<Void>> builder = ImmutableList.builder();

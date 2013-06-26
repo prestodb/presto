@@ -8,6 +8,7 @@ import com.facebook.presto.execution.TestSqlTaskManager.MockLocationFactory;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Node;
+import com.facebook.presto.metadata.NodeVersion;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.HostAddress;
@@ -67,7 +68,7 @@ public class TestSqlStageExecution
             StageExecutionPlan joinPlan = createJoinPlan("A", metadata);
 
             InMemoryNodeManager nodeManager = new InMemoryNodeManager();
-            nodeManager.addNode("foo", new Node("other", URI.create("http://127.0.0.1:11")));
+            nodeManager.addNode("foo", new Node("other", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN));
 
             stageExecution = new SqlStageExecution(new QueryId("query"),
                     new MockLocationFactory(),

@@ -16,12 +16,14 @@ import io.airlift.units.Duration;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
+
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
 import static java.util.Arrays.asList;
@@ -36,12 +38,13 @@ public class DiscoveryNodeManager
     private final ServiceSelector serviceSelector;
     private final NodeInfo nodeInfo;
     private final FailureDetector failureDetector;
+    private final NodeVersion expectedNodeVersion;
 
     @GuardedBy("this")
-    private SetMultimap<String, Node> nodesByDataSource;
+    private SetMultimap<String, Node> activeNodesByDataSource;
 
     @GuardedBy("this")
-    private Set<Node> allNodes;
+    private AllNodes allNodes;
 
     @GuardedBy("this")
     private long lastUpdateTimestamp;
@@ -50,11 +53,12 @@ public class DiscoveryNodeManager
     private Node currentNode;
 
     @Inject
-    public DiscoveryNodeManager(@ServiceType("presto") ServiceSelector serviceSelector, NodeInfo nodeInfo, FailureDetector failureDetector)
+    public DiscoveryNodeManager(@ServiceType("presto") ServiceSelector serviceSelector, NodeInfo nodeInfo, FailureDetector failureDetector, NodeVersion expectedNodeVersion)
     {
         this.serviceSelector = checkNotNull(serviceSelector, "serviceSelector is null");
         this.nodeInfo = checkNotNull(nodeInfo, "nodeInfo is null");
         this.failureDetector = checkNotNull(failureDetector, "failureDetector is null");
+        this.expectedNodeVersion = checkNotNull(expectedNodeVersion, "expectedNodeVersion is null");
 
         refreshNodes(true);
     }
@@ -74,40 +78,52 @@ public class DiscoveryNodeManager
             // reset current node
             currentNode = null;
 
-            ImmutableSet.Builder<Node> allBuilder = ImmutableSet.builder();
+            ImmutableSet.Builder<Node> activeNodesBuilder = ImmutableSet.builder();
+            ImmutableSet.Builder<Node> inactiveNodesBuilder = ImmutableSet.builder();
             ImmutableSetMultimap.Builder<String, Node> byDataSourceBuilder = ImmutableSetMultimap.builder();
 
             for (ServiceDescriptor service : services) {
                 URI uri = getHttpUri(service);
-                if (uri != null) {
-                    Node node = new Node(service.getNodeId(), uri);
+                NodeVersion nodeVersion = getNodeVersion(service);
+                if (uri != null && nodeVersion != null) {
+                    Node node = new Node(service.getNodeId(), uri, nodeVersion);
 
                     // record current node
                     if (node.getNodeIdentifier().equals(nodeInfo.getNodeId())) {
                         currentNode = node;
+                        checkState(currentNode.getNodeVersion().equals(expectedNodeVersion), "INVARIANT: current node version should be equal to expected node version");
                     }
 
-                    // record all available nodes
-                    allBuilder.add(node);
+                    if (isActive(node)) {
+                        activeNodesBuilder.add(node);
 
-                    // record available nodes organized by data source
-                    String dataSources = service.getProperties().get("datasources");
-                    if (dataSources != null) {
-                        dataSources = dataSources.toLowerCase();
-                        for (String dataSource : DATASOURCES_SPLITTER.split(dataSources)) {
-                            byDataSourceBuilder.put(dataSource, node);
+                        // record available active nodes organized by data source
+                        String dataSources = service.getProperties().get("datasources");
+                        if (dataSources != null) {
+                            dataSources = dataSources.toLowerCase();
+                            for (String dataSource : DATASOURCES_SPLITTER.split(dataSources)) {
+                                byDataSourceBuilder.put(dataSource, node);
+                            }
                         }
+                    }
+                    else {
+                        inactiveNodesBuilder.add(node);
                     }
                 }
             }
 
-            allNodes = allBuilder.build();
-            nodesByDataSource = byDataSourceBuilder.build();
+            allNodes = new AllNodes(activeNodesBuilder.build(), inactiveNodesBuilder.build());
+            activeNodesByDataSource = byDataSourceBuilder.build();
         }
     }
 
+    private boolean isActive(Node node)
+    {
+        return expectedNodeVersion.equals(node.getNodeVersion());
+    }
+
     @Override
-    public synchronized Set<Node> getActiveNodes()
+    public synchronized AllNodes getAllNodes()
     {
         refreshNodes(false);
 
@@ -119,7 +135,7 @@ public class DiscoveryNodeManager
     {
         refreshNodes(false);
 
-        return nodesByDataSource.get(datasourceName);
+        return activeNodesByDataSource.get(datasourceName);
     }
 
     @Override
@@ -143,5 +159,11 @@ public class DiscoveryNodeManager
             }
         }
         return null;
+    }
+
+    private static NodeVersion getNodeVersion(ServiceDescriptor descriptor)
+    {
+        String nodeVersion = descriptor.getProperties().get("node_version");
+        return nodeVersion == null ? null : new NodeVersion(nodeVersion);
     }
 }

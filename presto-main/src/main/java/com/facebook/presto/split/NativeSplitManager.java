@@ -17,6 +17,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 
 import javax.inject.Inject;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -71,7 +72,7 @@ public class NativeSplitManager
         checkArgument(partition instanceof NativePartition, "Partition must be a native partition");
         NativePartition nativePartition = (NativePartition) partition;
 
-        Map<String, Node> nodesById = uniqueIndex(nodeManager.getActiveNodes(), Node.getIdentifierFunction());
+        Map<String, Node> nodesById = uniqueIndex(nodeManager.getAllNodes().getActiveNodes(), Node.getIdentifierFunction());
 
         Multimap<Long, String> shardNodes = shardManager.getCommittedShardNodes(nativePartition.getTable().getTableId());
 

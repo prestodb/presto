@@ -11,6 +11,7 @@ import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 
 import javax.inject.Inject;
+
 import java.net.URI;
 import java.util.Set;
 
@@ -23,12 +24,12 @@ public class InMemoryNodeManager
     @Inject
     public InMemoryNodeManager()
     {
-        localNode = new Node("local", URI.create("local://127.0.0.1"));
+        localNode = new Node("local", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN);
     }
 
     public InMemoryNodeManager(URI localUri)
     {
-        localNode = new Node("local", localUri);
+        localNode = new Node("local", localUri, NodeVersion.UNKNOWN);
     }
 
     public void addNode(String datasourceName, Node... nodes)
@@ -48,9 +49,9 @@ public class InMemoryNodeManager
     }
 
     @Override
-    public Set<Node> getActiveNodes()
+    public AllNodes getAllNodes()
     {
-        return ImmutableSet.<Node>builder().add(localNode).addAll(remoteNodes.values()).build();
+        return new AllNodes(ImmutableSet.<Node>builder().add(localNode).addAll(remoteNodes.values()).build(), ImmutableSet.<Node>of());
     }
 
     @Override

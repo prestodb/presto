@@ -17,12 +17,14 @@ public class Node
 {
     private final String nodeIdentifier;
     private final URI httpUri;
+    private final NodeVersion nodeVersion;
 
-    public Node(String nodeIdentifier, URI httpUri)
+    public Node(String nodeIdentifier, URI httpUri, NodeVersion nodeVersion)
     {
         nodeIdentifier = emptyToNull(nullToEmpty(nodeIdentifier).trim());
         this.nodeIdentifier = checkNotNull(nodeIdentifier, "nodeIdentifier is null or empty");
-        this.httpUri = checkNotNull(httpUri, "httpUri");
+        this.httpUri = checkNotNull(httpUri, "httpUri is null");
+        this.nodeVersion = checkNotNull(nodeVersion, "nodeVersion is null");
     }
 
     public String getNodeIdentifier()
@@ -38,6 +40,11 @@ public class Node
     public HostAddress getHostAndPort()
     {
         return HostAddress.fromUri(httpUri);
+    }
+
+    public NodeVersion getNodeVersion()
+    {
+        return nodeVersion;
     }
 
     @Override
@@ -65,6 +72,7 @@ public class Node
         return Objects.toStringHelper(this)
                 .add("nodeIdentifier", nodeIdentifier)
                 .add("httpUri", httpUri)
+                .add("nodeVersion", nodeVersion)
                 .toString();
     }
 
