@@ -8,12 +8,12 @@ import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.TableHandle;
 import com.google.common.base.Objects;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 
 import javax.inject.Inject;
+
 import java.util.List;
 import java.util.Map;
 
@@ -58,7 +58,7 @@ public class JmxSplitManager
     }
 
     @Override
-    public Iterable<Split> getPartitionSplits(List<Partition> partitions)
+    public Iterable<Split> getPartitionSplits(TableHandle table, List<Partition> partitions)
     {
         checkNotNull(partitions, "partitions is null");
         if (partitions.isEmpty()) {

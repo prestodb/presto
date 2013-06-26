@@ -11,5 +11,5 @@ public interface ConnectorSplitManager
 
     List<Partition> getPartitions(TableHandle table, Map<ColumnHandle, Object> bindings);
 
-    Iterable<Split> getPartitionSplits(List<Partition> partitions);
+    Iterable<Split> getPartitionSplits(TableHandle table, List<Partition> partitions);
 }

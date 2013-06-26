@@ -47,10 +47,10 @@ public final class ClassLoaderSafeConnectorSplitManager
     }
 
     @Override
-    public Iterable<Split> getPartitionSplits(List<Partition> partitions)
+    public Iterable<Split> getPartitionSplits(TableHandle table, List<Partition> partitions)
     {
         try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getPartitionSplits(partitions);
+            return delegate.getPartitionSplits(table, partitions);
         }
     }
 

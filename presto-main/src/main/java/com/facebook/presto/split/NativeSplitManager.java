@@ -60,7 +60,7 @@ public class NativeSplitManager
     }
 
     @Override
-    public Iterable<Split> getPartitionSplits(List<Partition> partitions)
+    public Iterable<Split> getPartitionSplits(TableHandle tableHandle, List<Partition> partitions)
     {
         checkNotNull(partitions, "partitions is null");
         if (partitions.isEmpty()) {
