@@ -16,7 +16,7 @@ public class QueryManagerConfig
 {
     private boolean coordinator = true;
     private DataSize maxTaskMemoryUsage = new DataSize(256, Unit.MEGABYTE);
-    private DataSize minFlushSize = new DataSize(1, Unit.MEGABYTE);
+    private DataSize operatorPreAllocatedMemory = new DataSize(16, Unit.MEGABYTE);
     private int maxPendingSplitsPerNode = 100;
     private int maxShardProcessorThreads = Runtime.getRuntime().availableProcessors() * 4;
     private DataSize sinkMaxBufferSize = new DataSize(32, Unit.MEGABYTE);
@@ -72,15 +72,15 @@ public class QueryManagerConfig
     }
 
     @NotNull
-    public DataSize getMinFlushSize()
+    public DataSize getOperatorPreAllocatedMemory()
     {
-        return minFlushSize;
+        return operatorPreAllocatedMemory;
     }
 
-    @Config("task.min-flush-size")
-    public QueryManagerConfig setMinFlushSize(DataSize minFlushSize)
+    @Config("task.operator-pre-allocated-memory")
+    public QueryManagerConfig setOperatorPreAllocatedMemory(DataSize operatorPreAllocatedMemory)
     {
-        this.minFlushSize = minFlushSize;
+        this.operatorPreAllocatedMemory = operatorPreAllocatedMemory;
         return this;
     }
 

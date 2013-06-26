@@ -12,7 +12,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 public class TaskMemoryManager
 {
     private final long maxMemory;
-    private final DataSize minFlushSize;
+    private final DataSize operatorPreAllocatedMemory;
     private long currentSize;
 
     public TaskMemoryManager(DataSize maxMemory)
@@ -20,10 +20,10 @@ public class TaskMemoryManager
         this(maxMemory, new DataSize(1, MEGABYTE));
     }
 
-    public TaskMemoryManager(DataSize maxMemory, DataSize minFlushSize)
+    public TaskMemoryManager(DataSize maxMemory, DataSize operatorPreAllocatedMemory)
     {
         this.maxMemory = checkNotNull(maxMemory, "maxMemory is null").toBytes();
-        this.minFlushSize = checkNotNull(minFlushSize, "minFlushSize is null");
+        this.operatorPreAllocatedMemory = checkNotNull(operatorPreAllocatedMemory, "operatorPreAllocatedMemory is null");
     }
 
     public DataSize getMaxMemorySize()
@@ -31,9 +31,9 @@ public class TaskMemoryManager
         return new DataSize(maxMemory, BYTE).convertToMostSuccinctDataSize();
     }
 
-    public DataSize getMinFlushSize()
+    public DataSize getOperatorPreAllocatedMemory()
     {
-        return minFlushSize;
+        return operatorPreAllocatedMemory;
     }
 
     public synchronized boolean reserve(DataSize size)

@@ -217,7 +217,7 @@ public class TestHashAggregationOperator
                         aggregation(LONG_AVERAGE, new Input(3, 0)),
                         aggregation(VAR_BINARY_MAX, new Input(2, 0))),
                 100_000,
-                new TaskMemoryManager(new DataSize(10, Unit.BYTE)));
+                new TaskMemoryManager(new DataSize(10, Unit.BYTE), new DataSize(10, Unit.BYTE)));
 
         actual.iterator(new OperatorStats()).next();
     }
