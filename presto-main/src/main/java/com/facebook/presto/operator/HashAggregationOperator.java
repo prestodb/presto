@@ -223,11 +223,8 @@ public class HashAggregationOperator
             Preconditions.checkState(step == Step.PARTIAL || !isMaxMemoryExceeded(hashStrategy, aggregates),
                     "Task exceeded max memory size of %s", taskMemoryManager.getMaxMemorySize());
 
-            if (isMaxMemoryExceeded(hashStrategy, aggregates)) {
-                // Only partial aggregation can flush early. Also, check that we are not flushing tiny bits at a time
-                checkState(step == Step.PARTIAL && currentMemoryReservation > taskMemoryManager.getMinFlushSize().toBytes(),
-                        "Task exceeded max memory size of %s", taskMemoryManager.getMaxMemorySize());
-            }
+            // Only partial aggregation can flush early. Also, check that we are not flushing tiny bits at a time
+            checkState(step == Step.PARTIAL || !isMaxMemoryExceeded(hashStrategy, aggregates), "Task exceeded max memory size of %s", taskMemoryManager.getMaxMemorySize());
 
             // add the last block if it is not empty
             if (!blockBuilder.isEmpty()) {
@@ -269,6 +266,9 @@ public class HashAggregationOperator
             for (Aggregator aggregate : aggregates) {
                 memorySize += aggregate.getEstimatedSize();
             }
+
+            // remove the pre-allocated memory from this size
+            memorySize -= taskMemoryManager.getOperatorPreAllocatedMemory().toBytes();
 
             long delta = memorySize - currentMemoryReservation;
             if (delta <= 0) {

@@ -148,10 +148,8 @@ public class TopNOperator
                 memorySize = taskMemoryManager.updateOperatorReservation(memorySize, memorySize + sizeDelta);
             }
 
-            if (isMaxMemoryExceeded(memorySize)) {
-                // Only partial topN can flush early. Also, check that we are not flushing tiny bits at a time
-                checkState(partial && memorySize > taskMemoryManager.getMinFlushSize().toBytes(), "Task exceeded max memory size of %s", taskMemoryManager.getMaxMemorySize());
-            }
+            // Only partial topN can flush early. Also, check that we are not flushing tiny bits at a time
+            checkState(partial || !isMaxMemoryExceeded(memorySize), "Task exceeded max memory size of %s", taskMemoryManager.getMaxMemorySize());
 
             ImmutableList.Builder<KeyAndTuples> minSortedGlobalCandidates = ImmutableList.builder();
             while (!globalCandidates.isEmpty()) {
@@ -162,6 +160,9 @@ public class TopNOperator
 
         private boolean isMaxMemoryExceeded(long memorySize)
         {
+            // remove the pre-allocated memory from this size
+            memorySize -= taskMemoryManager.getOperatorPreAllocatedMemory().toBytes();
+
             long delta = memorySize - currentMemoryReservation;
             if (delta <= 0) {
                 return false;
