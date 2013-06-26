@@ -9,6 +9,8 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Explain;
+import com.facebook.presto.sql.tree.ExplainFormat;
+import com.facebook.presto.sql.tree.ExplainOption;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LongLiteral;
@@ -295,9 +297,30 @@ class StatementAnalyzer
 
     @Override
     protected TupleDescriptor visitExplain(Explain node, AnalysisContext context)
+            throws SemanticException
     {
         checkState(queryExplainer.isPresent(), "query explainer not available");
-        String queryPlan = queryExplainer.get().getPlan(node.getQuery());
+        String queryPlan = null;
+        List<ExplainOption> options = node.getOptions();
+
+        for (ExplainOption option : options) {
+            if (option instanceof ExplainFormat) {
+                switch (((ExplainFormat) option).getType()) {
+                    case TEXT:
+                        queryPlan = queryExplainer.get().getPlan(node.getQuery());
+                        break;
+                    case GRAPHVIZ:
+                        queryPlan = queryExplainer.get().getGraphvizPlan(node.getQuery());
+                        break;
+                    default:
+                        throw new SemanticException(NOT_SUPPORTED, option, "Invalid explain format '" + ((ExplainFormat) option).getType().toString() + "'");
+                }
+            }
+        }
+        if (queryPlan == null) {
+            // default to TEXT format
+            queryPlan = queryExplainer.get().getPlan(node.getQuery());
+        }
 
         Query query = new Query(
                 Optional.<With>absent(),

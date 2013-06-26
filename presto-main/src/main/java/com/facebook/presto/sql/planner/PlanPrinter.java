@@ -8,6 +8,7 @@ import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
+import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -22,10 +23,12 @@ import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.util.GraphvizPrinter;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
@@ -54,6 +57,12 @@ public class PlanPrinter
     public static String printPlan(PlanNode plan, Map<Symbol, Type> types)
     {
         return new PlanPrinter(plan, types).toString();
+    }
+
+    public static String printGraphvizPlan(PlanNode plan, Map<Symbol, Type> types)
+    {
+        PlanFragment fragment = new PlanFragment(new PlanFragmentId("graphviz_plan"), plan.getId(), types, plan);
+        return GraphvizPrinter.print(ImmutableList.of(fragment));
     }
 
     private void print(int indent, String format, Object... args)
