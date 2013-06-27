@@ -705,6 +705,50 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testJoinWithRightConstantEquality()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = 2");
+    }
+
+    @Test
+    public void testJoinWithLeftConstantEquality()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON orders.orderkey = 2");
+    }
+
+    @Test
+    public void testSimpleJoinWithLeftConstantEquality()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.orderkey = 2");
+    }
+
+    @Test
+    public void testSimpleJoinWithRightConstantEquality()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.orderkey = 2");
+    }
+
+    @Test
+    public void testJoinDoubleClauseWithLeftOverlap()
+            throws Exception
+    {
+        // Checks to make sure that we properly handle duplicate field references in join clauses
+        assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.orderkey = orders.custkey");
+    }
+
+    @Test
+    public void testJoinDoubleClauseWithRightOverlap()
+            throws Exception
+    {
+        // Checks to make sure that we properly handle duplicate field references in join clauses
+        assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.orderkey = lineitem.partkey");
+    }
+
+    @Test
     public void testJoinWithAlias()
             throws Exception
     {
@@ -835,6 +879,50 @@ public abstract class AbstractTestQueries
     {
         assertQuery("SELECT COUNT(*) FROM lineitem LEFT JOIN orders ON lineitem.orderkey = orders.orderkey");
         assertQuery("SELECT COUNT(*) FROM lineitem LEFT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey");
+    }
+
+    @Test
+    public void testLeftJoinWithRightConstantEquality()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*) FROM (SELECT * FROM lineitem WHERE orderkey % 1024 = 0) lineitem LEFT JOIN orders ON lineitem.orderkey = 2");
+    }
+
+    @Test
+    public void testLeftJoinWithLeftConstantEquality()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*) FROM (SELECT * FROM lineitem WHERE orderkey % 1024 = 0) lineitem LEFT JOIN orders ON orders.orderkey = 2");
+    }
+
+    @Test
+    public void testSimpleLeftJoinWithLeftConstantEquality()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*) FROM lineitem LEFT JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.orderkey = 2");
+    }
+
+    @Test
+    public void testSimpleLeftJoinWithRightConstantEquality()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*) FROM lineitem LEFT JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.orderkey = 2");
+    }
+
+    @Test
+    public void testLeftJoinDoubleClauseWithLeftOverlap()
+            throws Exception
+    {
+        // Checks to make sure that we properly handle duplicate field references in join clauses
+        assertQuery("SELECT COUNT(*) FROM lineitem LEFT JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.orderkey = orders.custkey");
+    }
+
+    @Test
+    public void testLeftJoinDoubleClauseWithRightOverlap()
+            throws Exception
+    {
+        // Checks to make sure that we properly handle duplicate field references in join clauses
+        assertQuery("SELECT COUNT(*) FROM lineitem LEFT JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.orderkey = lineitem.partkey");
     }
 
     @Test
