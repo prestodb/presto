@@ -232,9 +232,20 @@ public class PredicatePushDown
             }
 
             // Add the equality predicates back in
-            // First add the equalities scoped to each side of the join so that they can be pushed down as well
-            leftConjuncts.addAll(inferenceWithJoin.scopedEqualityPredicates(in(node.getLeft().getOutputSymbols())));
-            rightConjuncts.addAll(inferenceWithJoin.scopedEqualityPredicates(in(node.getRight().getOutputSymbols())));
+            switch (node.getType()) {
+                case INNER:
+                    // Add the equalities scoped to each side of the join so that they can be pushed down as well
+                    leftConjuncts.addAll(inferenceWithJoin.scopedEqualityPredicates(in(node.getLeft().getOutputSymbols())));
+                    rightConjuncts.addAll(inferenceWithJoin.scopedEqualityPredicates(in(node.getRight().getOutputSymbols())));
+                    break;
+                case LEFT:
+                    // Cannot push down join predicates on outer side, but ok for inner side
+                    leftConjuncts.addAll(inferenceWithoutJoin.scopedEqualityPredicates(in(node.getLeft().getOutputSymbols())));
+                    rightConjuncts.addAll(inferenceWithJoin.scopedEqualityPredicates(in(node.getRight().getOutputSymbols())));
+                    break;
+                default:
+                    throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
+            }
 
             // Then add back the equalities that connect the left and right sides
             // ASSUMPTION: left output symbols are the complement of right output symbols
