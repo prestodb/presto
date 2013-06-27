@@ -35,6 +35,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 
 import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.sql.analyzer.EquiJoinClause.leftGetter;
 import static com.facebook.presto.sql.analyzer.EquiJoinClause.rightGetter;
@@ -213,11 +214,16 @@ class RelationPlanner
             projections.put(symbol, expression);
         }
 
+        ImmutableMap.Builder<Symbol, Expression> newTranslations = ImmutableMap.builder();
         for (Expression expression : expressions) {
             Symbol symbol = symbolAllocator.newSymbol(expression, analysis.getType(expression));
 
             projections.put(symbol, translations.rewrite(expression));
-            translations.put(expression, symbol);
+            newTranslations.put(symbol, expression);
+        }
+        // Now append the new translations into the TranslationMap
+        for (Map.Entry<Symbol, Expression> entry : newTranslations.build().entrySet()) {
+            translations.put(entry.getValue(), entry.getKey());
         }
 
         return new PlanBuilder(translations, new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), projections.build()));
