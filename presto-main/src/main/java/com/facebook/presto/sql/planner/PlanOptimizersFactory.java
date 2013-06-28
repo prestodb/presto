@@ -45,7 +45,8 @@ public class PlanOptimizersFactory
                 new LimitPushDown(), // Run the LimitPushDown after flattening set operators to make it easier to do the set flattening
                 new PredicatePushDown(metadata),
                 new MergeProjections(),
-                new SimplifyExpressions(metadata)); // Re-run the SimplifyExpressions to simplify any recomposed expressions from other optimizations
+                new SimplifyExpressions(metadata), // Re-run the SimplifyExpressions to simplify any recomposed expressions from other optimizations
+                new PruneUnreferencedOutputs()); // Prune outputs again in case predicate pushdown move predicates all the way into the table scan
         // TODO: figure out how to improve the set flattening optimizer so that it can run at any point
 
         this.optimizers = builder.build();
