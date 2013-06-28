@@ -43,6 +43,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.collect.Iterables.concat;
+import static com.google.common.collect.Iterables.filter;
 
 /**
  * Removes all computation that does is not referenced transitively from the root of the plan
@@ -153,23 +154,24 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode rewriteTableScan(TableScanNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
         {
-            if (expectedOutputs.isEmpty()) {
+            Set<Symbol> requiredTableScanOutputs = ImmutableSet.copyOf(filter(expectedOutputs, in(node.getOutputSymbols())));
+            if (requiredTableScanOutputs.isEmpty()) {
                 for (Symbol symbol : node.getOutputSymbols()) {
                     if (Type.isNumeric(types.get(symbol))) {
-                        expectedOutputs = ImmutableSet.of(symbol);
+                        requiredTableScanOutputs = ImmutableSet.of(symbol);
                         break;
                     }
                 }
-                if (expectedOutputs.isEmpty()) {
-                    expectedOutputs = ImmutableSet.of(node.getOutputSymbols().get(0));
+                if (requiredTableScanOutputs.isEmpty()) {
+                    requiredTableScanOutputs = ImmutableSet.of(node.getOutputSymbols().get(0));
                 }
             }
-            checkState(!expectedOutputs.isEmpty());
+            checkState(!requiredTableScanOutputs.isEmpty());
 
-            Set<Symbol> requiredSymbols = Sets.union(expectedOutputs, DependencyExtractor.extract(node.getPartitionPredicate()));
+            Set<Symbol> requiredSymbols = Sets.union(requiredTableScanOutputs, DependencyExtractor.extract(node.getPartitionPredicate()));
             Map<Symbol, ColumnHandle> newAssignments = Maps.filterKeys(node.getAssignments(), in(requiredSymbols));
 
-            return new TableScanNode(node.getId(), node.getTable(), ImmutableList.copyOf(expectedOutputs), newAssignments, node.getPartitionPredicate(), node.getUpstreamPredicateHint());
+            return new TableScanNode(node.getId(), node.getTable(), ImmutableList.copyOf(requiredTableScanOutputs), newAssignments, node.getPartitionPredicate(), node.getUpstreamPredicateHint());
         }
         @Override
         public PlanNode rewriteFilter(FilterNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
