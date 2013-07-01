@@ -446,6 +446,7 @@ public class TestExpressionCompiler
     public void testIf()
             throws Exception
     {
+        assertExecute("if(null and true, 1, 0)", 0L);
         for (Boolean condition : booleanValues) {
             for (String trueValue : stringLefts) {
                 for (String falseValue : stringRights) {
@@ -505,6 +506,7 @@ public class TestExpressionCompiler
     public void testSearchCase()
             throws Exception
     {
+        assertExecute("case when null and true then 1 else 0 end", 0L);
         for (Double value : doubleLefts) {
             for (Long firstTest : longLefts) {
                 for (Double secondTest : doubleRights) {
