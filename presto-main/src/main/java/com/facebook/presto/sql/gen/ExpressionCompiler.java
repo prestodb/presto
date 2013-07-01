@@ -1988,10 +1988,14 @@ public class ExpressionCompiler
             }
             Preconditions.checkState(conditionValue.type == boolean.class);
 
-            // clear null flag after evaluating condition
+            // if conditionValue and conditionValue was not null
             Block condition = new Block(context)
                     .comment(node.toString())
                     .append(conditionValue.node)
+                    .comment("... and condition value was not null")
+                    .getVariable("wasNull")
+                    .invokeStatic(Operations.class, "not", boolean.class, boolean.class)
+                    .invokeStatic(Operations.class, "and", boolean.class, boolean.class, boolean.class)
                     .putVariable("wasNull", false);
 
             Class<?> type = getType(trueValue, falseValue);
@@ -2036,9 +2040,13 @@ public class ExpressionCompiler
                 }
                 Preconditions.checkState(whenClause.condition.type == boolean.class);
 
-                // clear null flag after evaluating condition
+                // if conditionValue and conditionValue was not null
                 Block condition = new Block(context)
                         .append(whenClause.condition.node)
+                        .comment("... and condition value was not null")
+                        .getVariable("wasNull")
+                        .invokeStatic(Operations.class, "not", boolean.class, boolean.class)
+                        .invokeStatic(Operations.class, "and", boolean.class, boolean.class, boolean.class)
                         .putVariable("wasNull", false);
 
                 elseValue = typedByteCodeNode(new IfStatement(context, condition, coerceToType(context, whenClause.value, type).node, elseValue.node), type);
