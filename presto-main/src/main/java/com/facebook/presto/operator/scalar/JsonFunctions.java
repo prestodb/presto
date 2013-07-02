@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.facebook.presto.operator.scalar.JsonExtract.generateExtractor;
+import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.fasterxml.jackson.core.JsonParser.NumberType;
 import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
@@ -43,7 +44,8 @@ public final class JsonFunctions
     private static final String JSON_EXTRACT_SCALAR_FUNCTION_NAME = "json_extract_scalar";
     private static final String JSON_EXTRACT_FUNCTION_NAME = "json_extract";
 
-    private static final JsonFactory JSON_FACTORY = new JsonFactory();
+    private static final JsonFactory JSON_FACTORY = new JsonFactory()
+            .disable(CANONICALIZE_FIELD_NAMES);
 
     private JsonFunctions() {}
 
@@ -51,8 +53,7 @@ public final class JsonFunctions
     @ScalarFunction
     public static Long jsonArrayLength(Slice json)
     {
-        try {
-            JsonParser parser = JSON_FACTORY.createJsonParser(json.getInput());
+        try (JsonParser parser = JSON_FACTORY.createJsonParser(json.getInput())) {
             if (parser.nextToken() != START_ARRAY) {
                 return null;
             }
@@ -80,8 +81,7 @@ public final class JsonFunctions
     @ScalarFunction
     public static Boolean jsonArrayContains(Slice json, boolean value)
     {
-        try {
-            JsonParser parser = JSON_FACTORY.createJsonParser(json.getInput());
+        try (JsonParser parser = JSON_FACTORY.createJsonParser(json.getInput())) {
             if (parser.nextToken() != START_ARRAY) {
                 return null;
             }
@@ -111,8 +111,7 @@ public final class JsonFunctions
     @ScalarFunction
     public static Boolean jsonArrayContains(Slice json, long value)
     {
-        try {
-            JsonParser parser = JSON_FACTORY.createJsonParser(json.getInput());
+        try (JsonParser parser = JSON_FACTORY.createJsonParser(json.getInput())) {
             if (parser.nextToken() != START_ARRAY) {
                 return null;
             }
@@ -147,8 +146,7 @@ public final class JsonFunctions
             return false;
         }
 
-        try {
-            JsonParser parser = JSON_FACTORY.createJsonParser(json.getInput());
+        try (JsonParser parser = JSON_FACTORY.createJsonParser(json.getInput())) {
             if (parser.nextToken() != START_ARRAY) {
                 return null;
             }
@@ -181,8 +179,7 @@ public final class JsonFunctions
     {
         String valueString = value.toString(Charsets.UTF_8);
 
-        try {
-            JsonParser parser = JSON_FACTORY.createJsonParser(json.getInput());
+        try (JsonParser parser = JSON_FACTORY.createJsonParser(json.getInput())) {
             if (parser.nextToken() != START_ARRAY) {
                 return null;
             }
