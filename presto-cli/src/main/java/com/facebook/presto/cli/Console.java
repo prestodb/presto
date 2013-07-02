@@ -50,19 +50,19 @@ public class Console
                 executeCommand(queryRunner, clientOptions.execute, clientOptions.outputFormat);
             }
             else {
-                runConsole(queryRunner);
+                runConsole(queryRunner, session);
             }
         }
     }
 
-    private void runConsole(QueryRunner queryRunner)
+    private void runConsole(QueryRunner queryRunner, ClientSession session)
     {
         try (TableNameCompleter tableNameCompleter = new TableNameCompleter(clientOptions.toClientSession());
                 LineReader reader = new LineReader(getHistory(), tableNameCompleter)) {
             StringBuilder buffer = new StringBuilder();
             while (true) {
                 // read a line of input from user
-                String prompt = PROMPT_NAME;
+                String prompt = PROMPT_NAME + ":" + session.getSchema();
                 if (buffer.length() > 0) {
                     prompt = Strings.repeat(" ", prompt.length() - 1) + "-";
                 }
