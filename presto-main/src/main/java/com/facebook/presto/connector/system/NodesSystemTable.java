@@ -1,10 +1,11 @@
 package com.facebook.presto.connector.system;
 
-import com.facebook.presto.spi.InMemoryRecordSet;
-import com.facebook.presto.spi.InMemoryRecordSet.Builder;
+import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.metadata.Node;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.spi.ColumnType;
+import com.facebook.presto.spi.InMemoryRecordSet;
+import com.facebook.presto.spi.InMemoryRecordSet.Builder;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
@@ -12,10 +13,12 @@ import com.facebook.presto.spi.TableMetadata;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
+
 import java.util.List;
 
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.metadata.MetadataUtil.columnTypeGetter;
+import static com.facebook.presto.spi.ColumnType.BOOLEAN;
 import static com.facebook.presto.spi.ColumnType.STRING;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
@@ -28,7 +31,8 @@ public class NodesSystemTable
     public static final TableMetadata NODES_TABLE = tableMetadataBuilder(NODES_TABLE_NAME)
             .column("node_id", STRING)
             .column("http_uri", STRING)
-            .column("is_active", STRING)
+            .column("node_version", STRING)
+            .column("is_active", BOOLEAN)
             .build();
 
     private final NodeManager nodeManager;
@@ -61,8 +65,12 @@ public class NodesSystemTable
     public RecordCursor cursor()
     {
         Builder table = InMemoryRecordSet.builder(NODES_TABLE);
-        for (Node node : nodeManager.getActiveNodes()) {
-            table.addRow(node.getNodeIdentifier(), node.getHttpUri().toString(), "YES");
+        AllNodes allNodes = nodeManager.getAllNodes();
+        for (Node node : allNodes.getActiveNodes()) {
+            table.addRow(node.getNodeIdentifier(), node.getHttpUri().toString(), node.getNodeVersion().toString(), Boolean.TRUE);
+        }
+        for (Node node : allNodes.getInactiveNodes()) {
+            table.addRow(node.getNodeIdentifier(), node.getHttpUri().toString(), node.getNodeVersion().toString(), Boolean.FALSE);
         }
         return table.build().cursor();
     }

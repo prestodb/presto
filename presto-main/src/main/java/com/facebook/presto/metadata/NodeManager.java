@@ -8,7 +8,7 @@ public interface NodeManager
 {
     Set<Node> getActiveDatasourceNodes(String datasourceName);
 
-    Set<Node> getActiveNodes();
+    AllNodes getAllNodes();
 
     Optional<Node> getCurrentNode();
 

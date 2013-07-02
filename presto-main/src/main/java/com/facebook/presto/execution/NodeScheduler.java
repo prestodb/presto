@@ -1,8 +1,8 @@
 package com.facebook.presto.execution;
 
-import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.metadata.Node;
 import com.facebook.presto.metadata.NodeManager;
+import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Split;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
@@ -17,6 +17,7 @@ import com.google.common.net.InetAddresses;
 import org.weakref.jmx.Managed;
 
 import javax.inject.Inject;
+
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
@@ -89,7 +90,7 @@ public class NodeScheduler
                 if (dataSourceName != null) {
                     nodes = nodeManager.getActiveDatasourceNodes(dataSourceName);
                 } else {
-                    nodes = nodeManager.getActiveNodes();
+                    nodes = nodeManager.getAllNodes().getActiveNodes();
                 }
 
                 for (Node node : nodes) {
