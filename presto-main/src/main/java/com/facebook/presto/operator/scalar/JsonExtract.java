@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.END_OBJECT;
 import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
@@ -96,7 +97,8 @@ public final class JsonExtract
     );
 
     private static final Splitter DOT_SPLITTER = Splitter.on(".").trimResults();
-    private static final JsonFactory JSON_FACTORY = new JsonFactory();
+    private static final JsonFactory JSON_FACTORY = new JsonFactory()
+            .disable(CANONICALIZE_FIELD_NAMES);
 
     // Stand-in caches for compiled JSON paths until we have something more formalized
     private static final JsonExtractCache SCALAR_CACHE = new JsonExtractCache(20, true);
@@ -168,14 +170,14 @@ public final class JsonExtract
             throws IOException
     {
         checkNotNull(jsonInput, "jsonInput is null");
-        JsonParser jsonParser = JSON_FACTORY.createJsonParser(jsonInput.getInput());
+        try (JsonParser jsonParser = JSON_FACTORY.createJsonParser(jsonInput.getInput())) {
+            // Initialize by advancing to first token and make sure it exists
+            if (jsonParser.nextToken() == null) {
+                throw new JsonParseException("Missing starting token", jsonParser.getCurrentLocation());
+            }
 
-        // Initialize by advancing to first token and make sure it exists
-        if (jsonParser.nextToken() == null) {
-            throw new JsonParseException("Missing starting token", jsonParser.getCurrentLocation());
+            return jsonExtractor.extract(jsonParser);
         }
-
-        return jsonExtractor.extract(jsonParser);
     }
 
     private static Iterable<String> tokenizePath(String path)
