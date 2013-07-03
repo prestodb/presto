@@ -37,6 +37,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
@@ -655,21 +656,24 @@ public class HiveClient
                     final String partitionName = nameIterator.next();
                     final Properties schema = getPartitionSchema(table, partition);
                     final List<HivePartitionKey> partitionKeys = getPartitionKeys(table, partition);
-                    final InputFormat<?, ?> inputFormat = getInputFormat(hdfsEnvironment.getConfiguration(), schema, false);
-                    Path partitionPath = hdfsEnvironment.getFileSystemWrapper().wrap(new Path(getPartitionLocation(table, partition)));
 
-                    final FileSystem fs = partitionPath.getFileSystem(hdfsEnvironment.getConfiguration());
+                    Path path = new Path(getPartitionLocation(table, partition));
+                    final Configuration configuration = hdfsEnvironment.getConfiguration(path);
+                    final InputFormat<?, ?> inputFormat = getInputFormat(configuration, schema, false);
+                    Path partitionPath = hdfsEnvironment.getFileSystemWrapper().wrap(path);
+
+                    final FileSystem fs = partitionPath.getFileSystem(configuration);
                     final LastSplitMarkingQueue markerQueue = new LastSplitMarkingQueue(hiveSplitQueue);
 
                     if (inputFormat instanceof SymlinkTextInputFormat) {
-                        JobConf jobConf = new JobConf(hdfsEnvironment.getConfiguration());
+                        JobConf jobConf = new JobConf(configuration);
                         FileInputFormat.setInputPaths(jobConf, partitionPath);
                         InputSplit[] splits = inputFormat.getSplits(jobConf, 0);
                         for (InputSplit rawSplit : splits) {
                             FileSplit split = ((SymlinkTextInputSplit) rawSplit).getTargetSplit();
 
                             // get the filesystem for the target path -- it may be a different hdfs instance
-                            FileSystem targetFilesystem = split.getPath().getFileSystem(hdfsEnvironment.getConfiguration());
+                            FileSystem targetFilesystem = split.getPath().getFileSystem(configuration);
                             markerQueue.addToQueue(createHiveSplits(partitionName,
                                     targetFilesystem.getFileStatus(split.getPath()),
                                     split.getStart(),
@@ -690,7 +694,7 @@ public class HiveClient
                         {
                             try {
                                 boolean splittable = isSplittable(inputFormat,
-                                        file.getPath().getFileSystem(hdfsEnvironment.getConfiguration()),
+                                        file.getPath().getFileSystem(configuration),
                                         file.getPath());
 
                                 markerQueue.addToQueue(createHiveSplits(partitionName, file, 0, file.getLen(), schema, partitionKeys, fs, splittable));

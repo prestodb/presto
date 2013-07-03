@@ -46,12 +46,14 @@ public class HdfsConfiguration
         this.domainSocketPath = hiveClientConfig.getDomainSocketPath();
     }
 
-    public Configuration getConfiguration()
+    @SuppressWarnings("UnusedParameters")
+    public Configuration getConfiguration(String host)
     {
+        // subclasses can provide per-host configuration
         return hadoopConfiguration.get();
     }
 
-    private Configuration createConfiguration()
+    protected Configuration createConfiguration()
     {
         Configuration config = new Configuration();
 
