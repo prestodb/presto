@@ -431,7 +431,16 @@ whenList returns [List<WhenClause> value = new ArrayList<>()]
     ;
 
 explain returns [Statement value]
-    : ^(EXPLAIN query) { $value = new Explain($query.value); }
+    : ^(EXPLAIN explainOptions? query) { $value = new Explain($query.value, $explainOptions.value); }
+    ;
+
+explainOptions returns [List<ExplainOption> value = new ArrayList<>()]
+    : ^(EXPLAIN_OPTIONS ( explainOption { $value.add($explainOption.value); } )+ )
+    ;
+
+explainOption returns [ExplainOption value]
+    : ^(EXPLAIN_FORMAT TEXT)     { $value = new ExplainFormat(ExplainFormat.Type.TEXT); }
+    | ^(EXPLAIN_FORMAT GRAPHVIZ) { $value = new ExplainFormat(ExplainFormat.Type.GRAPHVIZ); }
     ;
 
 showTables returns [Statement value]

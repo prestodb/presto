@@ -109,6 +109,11 @@ public abstract class AstVisitor<R, C>
         return visitLiteral(node, context);
     }
 
+    protected R visitExplainOption(ExplainOption node, C context)
+    {
+        return visitNode(node, context);
+    }
+
     protected R visitWith(With node, C context)
     {
         return visitNode(node, context);
