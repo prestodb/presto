@@ -45,7 +45,8 @@ public class JoinNode
     public enum Type
     {
         INNER("InnerJoin"),
-        LEFT("LeftJoin");
+        LEFT("LeftJoin"),
+        RIGHT("RightJoin");
 
         private final String joinLabel;
 
@@ -66,6 +67,8 @@ public class JoinNode
                     return Type.INNER;
                 case LEFT:
                     return Type.LEFT;
+                case RIGHT:
+                    return Type.RIGHT;
                 default:
                     throw new UnsupportedOperationException("Unsupported join type: " + joinType);
             }
