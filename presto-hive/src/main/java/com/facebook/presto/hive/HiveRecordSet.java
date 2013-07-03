@@ -8,6 +8,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.MetaStoreUtils;
 import org.apache.hadoop.hive.serde.Constants;
@@ -47,15 +48,15 @@ public class HiveRecordSet
         HadoopNative.requireHadoopNative();
     }
 
-    private final HdfsEnvironment hdfsEnvironment;
     private final HiveSplit split;
     private final List<HiveColumnHandle> columns;
     private final List<ColumnType> columnTypes;
     private final ArrayList<Integer> readHiveColumnIndexes;
+    private final Configuration configuration;
+    private final Path wrappedPath;
 
     public HiveRecordSet(HdfsEnvironment hdfsEnvironment, HiveSplit split, List<HiveColumnHandle> columns)
     {
-        this.hdfsEnvironment = Preconditions.checkNotNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.split = split;
         this.columns = columns;
         this.columnTypes = ImmutableList.copyOf(Iterables.transform(columns, nativeTypeGetter()));
@@ -69,6 +70,10 @@ public class HiveRecordSet
             readColumns = ImmutableList.of(primitiveColumn);
         }
         readHiveColumnIndexes = new ArrayList<>(transform(readColumns, hiveColumnIndexGetter()));
+
+        Path path = new Path(split.getPath());
+        this.configuration = hdfsEnvironment.getConfiguration(path);
+        this.wrappedPath = hdfsEnvironment.getFileSystemWrapper().wrap(path);
     }
 
     @Override
@@ -93,9 +98,9 @@ public class HiveRecordSet
             checkState(nullSequence == null || nullSequence.equals("\\N"), "Only '\\N' supported as null specifier, was '%s'", nullSequence);
 
             // Tell hive the columns we would like to read, this lets hive optimize reading column oriented files
-            ColumnProjectionUtils.setReadColumnIDs(hdfsEnvironment.getConfiguration(), readHiveColumnIndexes);
+            ColumnProjectionUtils.setReadColumnIDs(configuration, readHiveColumnIndexes);
 
-            RecordReader<?, ?> recordReader = createRecordReader(hdfsEnvironment, split);
+            RecordReader<?, ?> recordReader = createRecordReader(split, configuration, wrappedPath);
             if (recordReader.createValue() instanceof BytesRefArrayWritable) {
                 return new BytesHiveRecordCursor<>((RecordReader<?, BytesRefArrayWritable>) recordReader,
                         split.getLength(),
@@ -139,12 +144,10 @@ public class HiveRecordSet
         throw new IllegalStateException("Table doesn't have any PRIMITIVE columns");
     }
 
-    private static RecordReader<?, ?> createRecordReader(HdfsEnvironment environment, HiveSplit split)
+    private static RecordReader<?, ?> createRecordReader(HiveSplit split, Configuration configuration, Path wrappedPath)
     {
-        InputFormat inputFormat = getInputFormat(environment.getConfiguration(), split.getSchema(), true);
-        JobConf jobConf = new JobConf(environment.getConfiguration());
-
-        Path wrappedPath = environment.getFileSystemWrapper().wrap(new Path(split.getPath()));
+        InputFormat<?, ?> inputFormat = getInputFormat(configuration, split.getSchema(), true);
+        JobConf jobConf = new JobConf(configuration);
         FileSplit fileSplit = createFileSplit(wrappedPath, split.getStart(), split.getLength());
 
         try {

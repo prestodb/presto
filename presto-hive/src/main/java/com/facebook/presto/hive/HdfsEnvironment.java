@@ -1,9 +1,11 @@
 package com.facebook.presto.hive;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
 
 import javax.inject.Inject;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class HdfsEnvironment
@@ -18,9 +20,11 @@ public class HdfsEnvironment
         this.fileSystemWrapper = checkNotNull(fileSystemWrapper, "fileSystemWrapper is null");
     }
 
-    public Configuration getConfiguration()
+    public Configuration getConfiguration(Path path)
     {
-        return hdfsConfiguration.getConfiguration();
+        String host = path.toUri().getHost();
+        checkArgument(host != null, "path host is null: %s", path);
+        return hdfsConfiguration.getConfiguration(host);
     }
 
     public FileSystemWrapper getFileSystemWrapper()
