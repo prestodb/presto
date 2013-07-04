@@ -85,12 +85,14 @@ public class TableWriterOperator
     @Override
     public PageIterator iterator(OperatorStats operatorStats)
     {
+        checkNotNull(operatorStats, "operatorStats is null");
+
         checkState(!used.getAndSet(true), "TableWriteOperator can be used only once");
         checkState(input.get() != null, "No shard id was set!");
 
         try {
             ColumnFileHandle columnFileHandle = storageManager.createStagingFileHandles(input.get().getShardId(), columnHandles);
-            return new TableWriteIterator(sourceOperator.iterator(operatorStats), columnFileHandle);
+            return new TableWriteIterator(operatorStats, sourceOperator.iterator(operatorStats), columnFileHandle);
         }
         catch (IOException e) {
             throw Throwables.propagate(e);
@@ -110,13 +112,15 @@ public class TableWriterOperator
     class TableWriteIterator
             extends AbstractPageIterator
     {
+        private final OperatorStats operatorStats;
         private final ColumnFileHandle fileHandle;
         private final PageIterator sourceIterator;
         private final AtomicBoolean closed = new AtomicBoolean();
 
-        private TableWriteIterator(PageIterator sourceIterator, ColumnFileHandle fileHandle)
+        private TableWriteIterator(OperatorStats operatorStats, PageIterator sourceIterator, ColumnFileHandle fileHandle)
         {
             super(sourceIterator.getTupleInfos());
+            this.operatorStats = operatorStats;
             this.sourceIterator = sourceIterator;
             this.fileHandle = fileHandle;
         }
@@ -136,7 +140,7 @@ public class TableWriterOperator
         @Override
         protected Page computeNext()
         {
-            if (!sourceIterator.hasNext()) {
+            if (operatorStats.isDone() || !sourceIterator.hasNext()) {
                 return endOfData();
             }
 

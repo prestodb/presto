@@ -77,6 +77,8 @@ public class AggregationOperator
     {
         private final PageIterator source;
         private final List<Aggregator> aggregates;
+        private final OperatorStats operatorStats;
+
         private boolean done;
 
         private AggregationPageIterator(List<TupleInfo> tupleInfos,
@@ -86,6 +88,7 @@ public class AggregationOperator
                 List<AggregationFunctionDefinition> functionDefinitions)
         {
             super(tupleInfos);
+            this.operatorStats = operatorStats;
 
             // wrapper each function with an aggregator
             ImmutableList.Builder<Aggregator> builder = ImmutableList.builder();
@@ -103,7 +106,12 @@ public class AggregationOperator
             if (done) {
                 return endOfData();
             }
+
             while (source.hasNext()) {
+                if (operatorStats.isDone()) {
+                    return endOfData();
+                }
+
                 Page page = source.next();
 
                 // process the row
