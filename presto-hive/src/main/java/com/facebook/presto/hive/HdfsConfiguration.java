@@ -12,6 +12,7 @@ import org.apache.hadoop.net.SocksSocketFactory;
 
 import javax.inject.Inject;
 import javax.net.SocketFactory;
+
 import java.io.IOException;
 import java.util.List;
 
@@ -24,6 +25,7 @@ public class HdfsConfiguration
     private final Duration dfsTimeout;
     private final String domainSocketPath;
 
+    @SuppressWarnings("ThreadLocalNotStaticFinal")
     private final ThreadLocal<Configuration> hadoopConfiguration = new ThreadLocal<Configuration>()
     {
         @Override
@@ -44,17 +46,19 @@ public class HdfsConfiguration
         this.domainSocketPath = hiveClientConfig.getDomainSocketPath();
     }
 
-    public Configuration getConfiguration()
+    @SuppressWarnings("UnusedParameters")
+    public Configuration getConfiguration(String host)
     {
+        // subclasses can provide per-host configuration
         return hadoopConfiguration.get();
     }
 
-    private Configuration createConfiguration()
+    protected Configuration createConfiguration()
     {
         Configuration config = new Configuration();
 
         // this is to prevent dfs client from doing reverse DNS lookups to determine whether nodes are rack local
-        config.setClass("topology.node.switch.mapping.impl", NoOpDNSwitchMapping.class, DNSToSwitchMapping.class);
+        config.setClass("topology.node.switch.mapping.impl", NoOpDNSToSwitchMapping.class, DNSToSwitchMapping.class);
 
         if (socksProxy != null) {
             config.setClass("hadoop.rpc.socket.factory.class.default", SocksSocketFactory.class, SocketFactory.class);
@@ -84,7 +88,7 @@ public class HdfsConfiguration
         return config;
     }
 
-    public static class NoOpDNSwitchMapping
+    public static class NoOpDNSToSwitchMapping
             implements DNSToSwitchMapping
     {
         @Override

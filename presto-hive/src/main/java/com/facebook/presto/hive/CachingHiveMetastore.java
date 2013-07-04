@@ -5,12 +5,10 @@ import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.UncheckedExecutionException;
@@ -562,32 +560,6 @@ public class CachingHiveMetastore
         public int hashCode()
         {
             return Objects.hashCode(hiveTableName, parts);
-        }
-    }
-
-    private abstract static class BackgroundCacheLoader<K, V>
-            extends CacheLoader<K, V>
-    {
-        private final ListeningExecutorService executor;
-
-        public BackgroundCacheLoader(ListeningExecutorService executor)
-        {
-            this.executor = executor;
-        }
-
-        @Override
-        public final ListenableFuture<V> reload(final K key, V oldValue)
-                throws Exception
-        {
-            return executor.submit(new Callable<V>()
-            {
-                @Override
-                public V call()
-                        throws Exception
-                {
-                    return load(key);
-                }
-            });
         }
     }
 }
