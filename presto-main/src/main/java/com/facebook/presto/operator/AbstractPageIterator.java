@@ -6,6 +6,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import io.airlift.log.Logger;
 
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -18,6 +19,8 @@ import static com.google.common.base.Preconditions.checkState;
 public abstract class AbstractPageIterator
         implements PageIterator
 {
+    private final Logger log = Logger.get(this.getClass());
+
     private enum State
     {
         /**
@@ -133,6 +136,7 @@ public abstract class AbstractPageIterator
     private boolean tryToComputeNext()
     {
         state = State.FAILED; // temporary pessimism
+        boolean sawThrowable = false;
         try {
             next = computeNext();
             if (state != State.DONE) {
@@ -142,9 +146,23 @@ public abstract class AbstractPageIterator
             }
             return false;
         }
+        catch (Throwable t) {
+            sawThrowable = true;
+            throw t;
+        }
         finally {
             if (state != State.READY) {
-                doClose();
+                try {
+                    doClose();
+                }
+                catch (Throwable t) {
+                    if (!sawThrowable) {
+                        throw t;
+                    }
+                    else {
+                        log.warn(t, "While closing iterator");
+                    }
+                }
             }
         }
     }
