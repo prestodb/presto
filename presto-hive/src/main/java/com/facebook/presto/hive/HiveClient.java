@@ -64,7 +64,7 @@ import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.JobConf;
 
 import javax.annotation.concurrent.ThreadSafe;
-import java.io.Closeable;
+
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -1097,23 +1097,5 @@ public class HiveClient
                 };
             }
         };
-    }
-
-    private static class ThreadContextClassLoader
-            implements Closeable
-    {
-        private final ClassLoader originalThreadContextClassLoader;
-
-        private ThreadContextClassLoader(ClassLoader newThreadContextClassLoader)
-        {
-            this.originalThreadContextClassLoader = Thread.currentThread().getContextClassLoader();
-            Thread.currentThread().setContextClassLoader(newThreadContextClassLoader);
-        }
-
-        @Override
-        public void close()
-        {
-            Thread.currentThread().setContextClassLoader(originalThreadContextClassLoader);
-        }
     }
 }
