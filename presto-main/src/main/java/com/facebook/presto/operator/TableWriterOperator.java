@@ -129,8 +129,7 @@ public class TableWriterOperator
         protected void doClose()
         {
             if (!closed.getAndSet(true)) {
-                checkState(!sourceIterator.hasNext(), "writer closed with source iterator still having data!");
-
+                checkState(operatorStats.isDone() || !sourceIterator.hasNext(), "Writer was closed while source iterator still has data and the operator is not done!");
                 commitFileHandle(fileHandle);
                 sourceIterator.close();
                 output.set(ImmutableSet.of(new TableWriterResult(input.get().getShardId(), nodeIdentifier)));
