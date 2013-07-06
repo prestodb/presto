@@ -24,8 +24,7 @@ public class NativeSplit
         checkArgument(shardId >= 0, "shard id must be at least zero");
         this.shardId = shardId;
 
-        checkNotNull(addresses, "hosts is null");
-        checkArgument(!addresses.isEmpty(), "hosts is empty");
+        checkNotNull(addresses, "addresses is null");
         this.addresses = ImmutableList.copyOf(addresses);
     }
 

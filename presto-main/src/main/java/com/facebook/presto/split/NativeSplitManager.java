@@ -126,6 +126,7 @@ public class NativeSplitManager
 
             for (Map.Entry<Long, Collection<String>> entry : shardNodes.build().asMap().entrySet()) {
                 List<HostAddress> addresses = getAddressesForNodes(nodesById, entry.getValue());
+                checkState(addresses.size() > 0, "no host for shard %s found", entry.getKey());
                 Split split = new NativeSplit(entry.getKey(), addresses);
                 splits.add(split);
             }
