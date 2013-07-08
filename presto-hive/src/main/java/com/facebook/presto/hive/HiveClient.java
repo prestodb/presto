@@ -121,7 +121,8 @@ public class HiveClient
     private final String connectorId;
     private final int maxOutstandingSplits;
     private final int maxSplitIteratorThreads;
-    private final int partitionBatchSize;
+    private final int minPartitionBatchSize;
+    private final int maxPartitionBatchSize;
     private final CachingHiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
     private final ExecutorService executor;
@@ -141,7 +142,8 @@ public class HiveClient
                 hiveClientConfig.getMaxSplitSize(),
                 hiveClientConfig.getMaxOutstandingSplits(),
                 hiveClientConfig.getMaxSplitIteratorThreads(),
-                hiveClientConfig.getPartitionBatchSize());
+                hiveClientConfig.getMinPartitionBatchSize(),
+                hiveClientConfig.getMaxPartitionBatchSize());
     }
 
     public HiveClient(HiveConnectorId connectorId,
@@ -151,14 +153,16 @@ public class HiveClient
             DataSize maxSplitSize,
             int maxOutstandingSplits,
             int maxSplitIteratorThreads,
-            int partitionBatchSize)
+            int minPartitionBatchSize,
+            int maxPartitionBatchSize)
     {
         this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
 
         this.maxSplitSize = checkNotNull(maxSplitSize, "maxSplitSize is null");
         this.maxOutstandingSplits = maxOutstandingSplits;
         this.maxSplitIteratorThreads = maxSplitIteratorThreads;
-        this.partitionBatchSize = partitionBatchSize;
+        this.minPartitionBatchSize = minPartitionBatchSize;
+        this.maxPartitionBatchSize = maxPartitionBatchSize;
 
         this.metastore = checkNotNull(metastore, "metastore is null");
         this.hdfsEnvironment = checkNotNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -454,7 +458,7 @@ public class HiveClient
                 maxSplitIteratorThreads,
                 hdfsEnvironment,
                 executor,
-                partitionBatchSize);
+                maxPartitionBatchSize);
     }
 
     private Iterable<org.apache.hadoop.hive.metastore.api.Partition> getPartitions(final Table table, final SchemaTableName tableName, final List<String> partitionNames)
@@ -464,7 +468,7 @@ public class HiveClient
             return ImmutableList.of(UNPARTITIONED_PARTITION);
         }
 
-        Iterable<List<String>> partitionNameBatches = partitionExponentially(partitionNames, partitionBatchSize);
+        Iterable<List<String>> partitionNameBatches = partitionExponentially(partitionNames, minPartitionBatchSize, maxPartitionBatchSize);
         Iterable<List<org.apache.hadoop.hive.metastore.api.Partition>> partitionBatches = transform(partitionNameBatches, new Function<List<String>, List<org.apache.hadoop.hive.metastore.api.Partition>>()
         {
             @Override
@@ -597,7 +601,7 @@ public class HiveClient
         private final ExecutorService executor;
         private final ClassLoader classLoader;
         private final DataSize maxSplitSize;
-        private final int partitionBatchSize;
+        private final int maxPartitionBatchSize;
 
         private HiveSplitIterable(String clientId,
                 Table table,
@@ -608,14 +612,14 @@ public class HiveClient
                 int maxThreads,
                 HdfsEnvironment hdfsEnvironment,
                 ExecutorService executor,
-                int partitionBatchSize)
+                int maxPartitionBatchSize)
         {
             this.clientId = clientId;
             this.table = table;
             this.partitionNames = partitionNames;
             this.partitions = partitions;
             this.maxSplitSize = maxSplitSize;
-            this.partitionBatchSize = partitionBatchSize;
+            this.maxPartitionBatchSize = maxPartitionBatchSize;
             this.maxOutstandingSplits = maxOutstandingSplits;
             this.maxThreads = maxThreads;
             this.hdfsEnvironment = hdfsEnvironment;
@@ -645,7 +649,7 @@ public class HiveClient
         private void loadPartitionSplits(final HiveSplitQueue hiveSplitQueue, final SuspendingExecutor suspendingExecutor)
                 throws InterruptedException
         {
-            final Semaphore semaphore = new Semaphore(partitionBatchSize);
+            final Semaphore semaphore = new Semaphore(maxPartitionBatchSize);
             try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
                 ImmutableList.Builder<ListenableFuture<Void>> futureBuilder = ImmutableList.builder();
 
@@ -1065,7 +1069,7 @@ public class HiveClient
     /**
      * Partition the given list in exponentially (power of 2) increasing batch sizes starting at 1 up to maxBatchSize
      */
-    private static <T> Iterable<List<T>> partitionExponentially(final List<T> values, final int maxBatchSize)
+    private static <T> Iterable<List<T>> partitionExponentially(final List<T> values, final int minBatchSize, final int maxBatchSize)
     {
         return new Iterable<List<T>>()
         {
@@ -1074,7 +1078,7 @@ public class HiveClient
             {
                 return new AbstractIterator<List<T>>()
                 {
-                    private int currentSize = 1;
+                    private int currentSize = minBatchSize;
                     private final Iterator<T> iterator = values.iterator();
 
                     @Override
