@@ -39,6 +39,7 @@ public class TestHiveClientSplitIteratorBackPressure
                 hiveClientConfig.getMaxSplitSize(),
                 1,
                 2,
+                10,
                 500);
 
         metadata = client;

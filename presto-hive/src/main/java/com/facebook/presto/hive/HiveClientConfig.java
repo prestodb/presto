@@ -21,7 +21,8 @@ public class HiveClientConfig
     private DataSize maxSplitSize = new DataSize(1, Unit.GIGABYTE);
     private int maxOutstandingSplits = 10_000;
     private int maxSplitIteratorThreads = 50;
-    private int partitionBatchSize = 500;
+    private int minPartitionBatchSize = 10;
+    private int maxPartitionBatchSize = 100;
     private Duration metastoreCacheTtl = new Duration(1, TimeUnit.HOURS);
     private Duration metastoreRefreshInterval = new Duration(2, TimeUnit.MINUTES);
     private int maxMetastoreRefreshThreads = 100;
@@ -149,15 +150,29 @@ public class HiveClientConfig
     }
 
     @Min(1)
-    public int getPartitionBatchSize()
+    public int getMinPartitionBatchSize()
     {
-        return partitionBatchSize;
+        return minPartitionBatchSize;
     }
 
-    @Config("hive.metastore.partition-batch-size")
-    public HiveClientConfig setPartitionBatchSize(int partitionBatchSize)
+    @Config("hive.metastore.partition-batch-size.min")
+    public HiveClientConfig setMinPartitionBatchSize(int minPartitionBatchSize)
     {
-        this.partitionBatchSize = partitionBatchSize;
+        this.minPartitionBatchSize = minPartitionBatchSize;
+        return this;
+    }
+
+
+    @Min(1)
+    public int getMaxPartitionBatchSize()
+    {
+        return maxPartitionBatchSize;
+    }
+
+    @Config("hive.metastore.partition-batch-size.max")
+    public HiveClientConfig setMaxPartitionBatchSize(int maxPartitionBatchSize)
+    {
+        this.maxPartitionBatchSize = maxPartitionBatchSize;
         return this;
     }
 
