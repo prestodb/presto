@@ -5,7 +5,7 @@ import java.util.List;
 
 public interface OutputPrinter
 {
-    void printRows(List<List<?>> rows)
+    void printRows(List<List<?>> rows, boolean complete)
             throws IOException;
 
     void finish()

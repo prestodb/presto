@@ -40,7 +40,7 @@ public final class OutputHandler
 
         rowBuffer.add(row);
         if (rowBuffer.size() >= MAX_BUFFERED_ROWS) {
-            flush();
+            flush(false);
         }
     }
 
@@ -49,7 +49,7 @@ public final class OutputHandler
             throws IOException
     {
         if (!closed.getAndSet(true)) {
-            flush();
+            flush(true);
             printer.finish();
         }
     }
@@ -66,18 +66,18 @@ public final class OutputHandler
             }
 
             if (nanosSince(bufferStart).compareTo(MAX_BUFFER_TIME) >= 0) {
-                flush();
+                flush(false);
             }
 
             client.advance();
         }
     }
 
-    private void flush()
+    private void flush(boolean complete)
             throws IOException
     {
         if (!rowBuffer.isEmpty()) {
-            printer.printRows(unmodifiableList(rowBuffer));
+            printer.printRows(unmodifiableList(rowBuffer), complete);
             rowBuffer.clear();
         }
     }
