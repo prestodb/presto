@@ -36,13 +36,13 @@ public class AlignedTuplePrinter
     public void finish()
             throws IOException
     {
-        printRows(ImmutableList.<List<?>>of());
+        printRows(ImmutableList.<List<?>>of(), true);
         writer.append(format("(%s row%s)%n", rowCount, (rowCount != 1) ? "s" : ""));
         writer.flush();
     }
 
     @Override
-    public void printRows(List<List<?>> rows)
+    public void printRows(List<List<?>> rows, boolean complete)
             throws IOException
     {
         rowCount += rows.size();
@@ -95,13 +95,11 @@ public class AlignedTuplePrinter
                     if (column > 0) {
                         writer.append('|');
                     }
-                    String s = "";
-                    if (columnLines.get(column).size() > line) {
-                        s = columnLines.get(column).get(line);
-                    }
+                    List<String> lines = columnLines.get(column);
+                    String s = (line < lines.size()) ? lines.get(line) : "";
                     boolean numeric = row.get(column) instanceof Number;
                     String out = align(s, maxWidth[column], 1, numeric);
-                    if ((line + 1) < columnLines.get(column).size()) {
+                    if ((!complete || (rowCount > 1)) && ((line + 1) < lines.size())) {
                         out = out.substring(0, out.length() - 1) + "+";
                     }
                     writer.append(out);

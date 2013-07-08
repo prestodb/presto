@@ -17,11 +17,12 @@ public class TestCsvPrinter
         StringWriter writer = new StringWriter();
         OutputPrinter printer = new CsvPrinter(writer, ',');
 
-        printer.printRows(asList(
+        printer.printRows(rows(
                 row("hello", "world", 123),
                 row("a", null, 4.5),
                 row("some long\ntext that\ndoes not\nfit on\none line", "more\ntext", 4567),
-                row("bye", "done", -15)));
+                row("bye", "done", -15)),
+                true);
         printer.finish();
 
         String expected = "" +
@@ -41,5 +42,10 @@ public class TestCsvPrinter
     private static List<?> row(Object... values)
     {
         return asList(values);
+    }
+
+    private static List<List<?>> rows(List<?>... rows)
+    {
+        return asList(rows);
     }
 }
