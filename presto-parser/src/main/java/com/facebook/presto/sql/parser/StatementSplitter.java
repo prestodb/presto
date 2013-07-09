@@ -22,17 +22,8 @@ public class StatementSplitter
         TokenSource tokens = getLexer(checkNotNull(sql, "sql is null"));
         ImmutableList.Builder<String> list = ImmutableList.builder();
         StringBuilder sb = new StringBuilder();
-        int index = 0;
         while (true) {
-            Token token;
-            try {
-                token = tokens.nextToken();
-                index = ((CommonToken) token).getStopIndex() + 1;
-            }
-            catch (ParsingException e) {
-                sb.append(sql.substring(index));
-                break;
-            }
+            Token token = tokens.nextToken();
             if (token.getType() == Token.EOF) {
                 break;
             }
