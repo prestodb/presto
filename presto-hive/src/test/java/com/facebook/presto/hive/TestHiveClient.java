@@ -42,6 +42,7 @@ public class TestHiveClient
                 hiveClientConfig.getMaxSplitSize(),
                 100,
                 50,
+                10,
                 500);
 
         metadata = client;
