@@ -59,17 +59,17 @@ public class TestStatementSplitter
     @Test
     public void testSplitterErrorBeforeComplete()
     {
-        StatementSplitter splitter = new StatementSplitter(" select * from z@ oops ; select ");
-        assertEquals(splitter.getCompleteStatements(), ImmutableList.of("select * from z@ oops"));
+        StatementSplitter splitter = new StatementSplitter(" select * from z# oops ; select ");
+        assertEquals(splitter.getCompleteStatements(), ImmutableList.of("select * from z# oops"));
         assertEquals(splitter.getPartialStatement(), "select");
     }
 
     @Test
     public void testSplitterErrorAfterComplete()
     {
-        StatementSplitter splitter = new StatementSplitter("select * from foo; select z@ oops ");
+        StatementSplitter splitter = new StatementSplitter("select * from foo; select z# oops ");
         assertEquals(splitter.getCompleteStatements(), ImmutableList.of("select * from foo"));
-        assertEquals(splitter.getPartialStatement(), "select z@ oops");
+        assertEquals(splitter.getPartialStatement(), "select z# oops");
     }
 
     @Test
@@ -150,7 +150,7 @@ public class TestStatementSplitter
     @Test
     public void testSqueezeStatementError()
     {
-        String sql = "select   *  from z@oops";
-        assertEquals(squeezeStatement(sql), "select * from z@oops");
+        String sql = "select   *  from z#oops";
+        assertEquals(squeezeStatement(sql), "select * from z#oops");
     }
 }
