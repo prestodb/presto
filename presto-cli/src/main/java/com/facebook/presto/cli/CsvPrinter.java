@@ -20,7 +20,7 @@ public class CsvPrinter
     }
 
     @Override
-    public void printRows(List<List<?>> rows)
+    public void printRows(List<List<?>> rows, boolean complete)
             throws IOException
     {
         for (List<?> row : rows) {
