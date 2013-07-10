@@ -13,6 +13,7 @@ import org.apache.hadoop.mapred.TextInputFormat;
 import org.apache.hadoop.util.ReflectionUtils;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
+import org.joda.time.format.DateTimeFormatterBuilder;
 
 import java.util.Properties;
 
@@ -23,7 +24,10 @@ import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_
 final class HiveUtil
 {
     // timestamps are stored in local time
-    private static final DateTimeFormatter HIVE_TIMESTAMP_PARSER = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSSSSSS");
+    private static final DateTimeFormatter HIVE_TIMESTAMP_PARSER = new DateTimeFormatterBuilder()
+            .append(DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss"))
+            .appendOptional(DateTimeFormat.forPattern(".SSSSSSSSS").getParser())
+            .toFormatter();
 
     private HiveUtil()
     {
