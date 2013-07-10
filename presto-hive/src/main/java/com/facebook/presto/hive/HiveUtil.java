@@ -13,15 +13,21 @@ import org.apache.hadoop.mapred.TextInputFormat;
 import org.apache.hadoop.util.ReflectionUtils;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
+import org.joda.time.format.DateTimeFormatterBuilder;
 
 import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 
-class HiveUtil
+final class HiveUtil
 {
-    public static final DateTimeFormatter HIVE_TIMESTAMP_PARSER = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSSSSSS").withZoneUTC();
+    // timestamps are stored in local time
+    private static final DateTimeFormatter HIVE_TIMESTAMP_PARSER = new DateTimeFormatterBuilder()
+            .append(DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss"))
+            .appendOptional(DateTimeFormat.forPattern(".SSSSSSSSS").getParser())
+            .toFormatter();
 
     private HiveUtil()
     {
@@ -77,5 +83,10 @@ class HiveUtil
                 return input.getPartitionId();
             }
         };
+    }
+
+    public static long parseHiveTimestamp(String value)
+    {
+        return MILLISECONDS.toSeconds(HIVE_TIMESTAMP_PARSER.parseMillis(value));
     }
 }
