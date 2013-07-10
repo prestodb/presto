@@ -92,9 +92,9 @@ import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.HiveSplit.markAsLastSplit;
 import static com.facebook.presto.hive.HiveType.getHiveType;
 import static com.facebook.presto.hive.HiveType.getSupportedHiveType;
-import static com.facebook.presto.hive.HiveUtil.HIVE_TIMESTAMP_PARSER;
 import static com.facebook.presto.hive.HiveUtil.convertNativeHiveType;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
+import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
 import static com.facebook.presto.hive.UnpartitionedPartition.UNPARTITIONED_PARTITION;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -104,7 +104,6 @@ import static com.google.common.collect.Iterables.transform;
 import static java.lang.Boolean.parseBoolean;
 import static java.lang.Double.parseDouble;
 import static java.lang.Long.parseLong;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.hadoop.hive.metastore.ProtectMode.getProtectModeFromString;
 import static org.apache.hadoop.hive.metastore.Warehouse.makePartName;
 
@@ -982,7 +981,7 @@ public class HiveClient
                                     builder.put(columnHandle, 0L);
                                 }
                                 else if (hiveColumnHandle.getHiveType() == HiveType.TIMESTAMP) {
-                                    builder.put(columnHandle, MILLISECONDS.toSeconds(HIVE_TIMESTAMP_PARSER.parseMillis(value)));
+                                    builder.put(columnHandle, parseHiveTimestamp(value));
                                 }
                                 else {
                                     builder.put(columnHandle, parseLong(value));
