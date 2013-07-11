@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.io.PrintStream;
 
 import static com.facebook.presto.cli.Help.getHelpText;
+import static com.facebook.presto.sql.parser.StatementSplitter.Statement;
 import static com.facebook.presto.sql.parser.StatementSplitter.squeezeStatement;
 import static com.google.common.io.ByteStreams.nullOutputStream;
 import static io.airlift.log.Logging.Level;
@@ -73,6 +74,7 @@ public class Console
         }
     }
 
+    @SuppressWarnings("fallthrough")
     private void runConsole(QueryRunner queryRunner, ClientSession session)
     {
         try (TableNameCompleter tableNameCompleter = new TableNameCompleter(clientOptions.toClientSession());
@@ -123,9 +125,9 @@ public class Console
 
                 // execute any complete statements
                 StatementSplitter splitter = new StatementSplitter(buffer.toString());
-                for (String sql : splitter.getCompleteStatements()) {
-                    process(queryRunner, sql, OutputFormat.PAGED);
-                    reader.getHistory().add(squeezeStatement(sql) + ";");
+                for (Statement split : splitter.getCompleteStatements()) {
+                    process(queryRunner, split.statement(), OutputFormat.PAGED);
+                    reader.getHistory().add(squeezeStatement(split.statement()) + split.terminator());
                 }
 
                 // replace buffer with trailing partial statement
@@ -141,11 +143,11 @@ public class Console
         }
     }
 
-    private void executeCommand(QueryRunner queryRunner, String query, OutputFormat outputFormat)
+    private static void executeCommand(QueryRunner queryRunner, String query, OutputFormat outputFormat)
     {
         StatementSplitter splitter = new StatementSplitter(query + ";");
-        for (String sql : splitter.getCompleteStatements()) {
-            process(queryRunner, sql, outputFormat);
+        for (Statement statement : splitter.getCompleteStatements()) {
+            process(queryRunner, statement.statement(), outputFormat);
         }
     }
 
