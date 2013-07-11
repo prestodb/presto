@@ -40,7 +40,7 @@ public class TpchMetadata
             .column("orderdate", STRING) // 2400 unique
             .column("orderpriority", STRING) // 5 unique
             .column("clerk", STRING) // High cardinality
-            .column("shippriority", STRING) // 1 unique
+            .column("shippriority", LONG) // 1 unique
             .column("comment", STRING)
             .build(); // Arbitrary strings
 
