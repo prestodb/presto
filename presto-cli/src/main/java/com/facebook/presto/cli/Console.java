@@ -3,8 +3,10 @@ package com.facebook.presto.cli;
 import com.facebook.presto.cli.ClientOptions.OutputFormat;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.sql.parser.StatementSplitter;
+import com.google.common.base.Charsets;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
+import com.google.common.io.Files;
 import io.airlift.command.Command;
 import io.airlift.log.Logging;
 import io.airlift.log.LoggingConfiguration;
@@ -22,6 +24,7 @@ import static com.facebook.presto.cli.Help.getHelpText;
 import static com.facebook.presto.sql.parser.StatementSplitter.squeezeStatement;
 import static com.google.common.io.ByteStreams.nullOutputStream;
 import static io.airlift.log.Logging.Level;
+import static java.lang.String.format;
 import static jline.internal.Configuration.getUserHome;
 
 @Command(name = "console", description = "Interactive console")
@@ -38,16 +41,31 @@ public class Console
     {
         ClientSession session = clientOptions.toClientSession();
         boolean hasQuery = !Strings.isNullOrEmpty(clientOptions.execute);
+        boolean isFromFile = !Strings.isNullOrEmpty(clientOptions.file);
 
-        if (!hasQuery) {
+        if (!hasQuery || !isFromFile) {
             AnsiConsole.systemInstall();
         }
 
         initializeLogging(session.isDebug());
 
+        String query = clientOptions.execute;
+        if (isFromFile) {
+            if (hasQuery) {
+                throw new RuntimeException("both --execute and --file specified");
+            }
+            try {
+                query = Files.toString(new File(clientOptions.file), Charsets.UTF_8);
+                hasQuery = true;
+            }
+            catch (IOException e) {
+                throw new RuntimeException(format("Error reading from file %s: %s", clientOptions.file, e.getMessage()));
+            }
+        }
+
         try (QueryRunner queryRunner = QueryRunner.create(session)) {
             if (hasQuery) {
-                executeCommand(queryRunner, clientOptions.execute, clientOptions.outputFormat);
+                executeCommand(queryRunner, query, clientOptions.outputFormat);
             }
             else {
                 runConsole(queryRunner, session);
