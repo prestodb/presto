@@ -1,6 +1,8 @@
 package com.facebook.presto.sql.parser;
 
+import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import org.antlr.runtime.ANTLRStringStream;
 import org.antlr.runtime.CharStream;
 import org.antlr.runtime.CommonToken;
@@ -9,28 +11,34 @@ import org.antlr.runtime.Token;
 import org.antlr.runtime.TokenSource;
 
 import java.util.List;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class StatementSplitter
 {
-    private final List<String> completeStatements;
+    private final List<Statement> completeStatements;
     private final String partialStatement;
 
     public StatementSplitter(String sql)
     {
-        TokenSource tokens = getLexer(checkNotNull(sql, "sql is null"));
-        ImmutableList.Builder<String> list = ImmutableList.builder();
+        this(sql, ImmutableSet.of(";"));
+    }
+
+    public StatementSplitter(String sql, Set<String> delimiters)
+    {
+        TokenSource tokens = getLexer(sql, delimiters);
+        ImmutableList.Builder<Statement> list = ImmutableList.builder();
         StringBuilder sb = new StringBuilder();
         while (true) {
             Token token = tokens.nextToken();
             if (token.getType() == Token.EOF) {
                 break;
             }
-            if (token.getType() == StatementLexer.SEMICOLON) {
+            if (token.getType() == StatementLexer.TERMINATOR) {
                 String statement = sb.toString().trim();
                 if (!statement.isEmpty()) {
-                    list.add(statement);
+                    list.add(new Statement(statement, token.getText()));
                 }
                 sb = new StringBuilder();
             }
@@ -42,7 +50,7 @@ public class StatementSplitter
         this.partialStatement = sb.toString().trim();
     }
 
-    public List<String> getCompleteStatements()
+    public List<Statement> getCompleteStatements()
     {
         return completeStatements;
     }
@@ -54,7 +62,7 @@ public class StatementSplitter
 
     public static String squeezeStatement(String sql)
     {
-        TokenSource tokens = getLexer(checkNotNull(sql, "sql is null"));
+        TokenSource tokens = getLexer(sql, ImmutableSet.<String>of());
         StringBuilder sb = new StringBuilder();
         int index = 0;
         while (true) {
@@ -93,9 +101,11 @@ public class StatementSplitter
         return token.getText();
     }
 
-    private static TokenSource getLexer(String sql)
+    private static TokenSource getLexer(String sql, Set<String> terminators)
     {
-        return new ErrorHandlingLexer(new CaseInsensitiveStream(new ANTLRStringStream(sql)));
+        checkNotNull(sql, "sql is null");
+        CharStream stream = new CaseInsensitiveStream(new ANTLRStringStream(sql));
+        return new ErrorHandlingLexer(stream, terminators);
     }
 
     /**
@@ -112,9 +122,12 @@ public class StatementSplitter
     private static class ErrorHandlingLexer
             extends StatementLexer
     {
-        public ErrorHandlingLexer(CharStream input)
+        private final Set<String> terminators;
+
+        public ErrorHandlingLexer(CharStream input, Set<String> terminators)
         {
             super(input);
+            this.terminators = ImmutableSet.copyOf(checkNotNull(terminators, "terminators is null"));
         }
 
         @SuppressWarnings("ObjectEquality")
@@ -128,12 +141,22 @@ public class StatementSplitter
                 state.tokenStartCharPositionInLine = input.getCharPositionInLine();
                 state.tokenStartLine = input.getLine();
                 state.text = null;
+
                 if (input.LA(1) == CharStream.EOF) {
                     Token eof = new CommonToken(input, Token.EOF, Token.DEFAULT_CHANNEL, input.index(), input.index());
                     eof.setLine(getLine());
                     eof.setCharPositionInLine(getCharPositionInLine());
                     return eof;
                 }
+
+                for (String terminator : terminators) {
+                    if (matches(terminator)) {
+                        state.type = TERMINATOR;
+                        emit();
+                        return state.token;
+                    }
+                }
+
                 try {
                     mTokens();
                     if (state.token == null) {
@@ -151,6 +174,67 @@ public class StatementSplitter
                     return state.token;
                 }
             }
+        }
+
+        private boolean matches(String s)
+        {
+            for (int i = 0; i < s.length(); i++) {
+                if (input.LA(i + 1) != s.charAt(i)) {
+                    return false;
+                }
+            }
+            for (int i = 0; i < s.length(); i++) {
+                input.consume();
+            }
+            return true;
+        }
+    }
+
+    public static class Statement
+    {
+        private final String statement;
+        private final String terminator;
+
+        public Statement(String statement, String terminator)
+        {
+            this.statement = checkNotNull(statement, "statement is null");
+            this.terminator = checkNotNull(terminator, "terminator is null");
+        }
+
+        public String statement()
+        {
+            return statement;
+        }
+
+        public String terminator()
+        {
+            return terminator;
+        }
+
+        @Override
+        public boolean equals(Object obj)
+        {
+            if (this == obj) {
+                return true;
+            }
+            if ((obj == null) || (getClass() != obj.getClass())) {
+                return false;
+            }
+            Statement o = (Statement) obj;
+            return Objects.equal(statement, o.statement) &&
+                    Objects.equal(terminator, o.terminator);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hashCode(statement, terminator);
+        }
+
+        @Override
+        public String toString()
+        {
+            return statement + terminator;
         }
     }
 }
