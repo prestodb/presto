@@ -67,8 +67,8 @@ public class TupleInfo
     public enum Type
             implements Comparable<Type>
     {
-        FIXED_INT_64(SIZE_OF_LONG, "long"),
-        VARIABLE_BINARY(-1, "string"),
+        FIXED_INT_64(SIZE_OF_LONG, "bigint"),
+        VARIABLE_BINARY(-1, "varchar"),
         DOUBLE(SIZE_OF_DOUBLE, "double"),
         BOOLEAN(SIZE_OF_BYTE, "boolean");
 

@@ -250,7 +250,11 @@ class StatementAnalyzer
                         Optional.<Expression>absent(),
                         ImmutableList.<Expression>of(),
                         Optional.<Expression>absent(),
-                        ImmutableList.of(ascending("function_name")),
+                        ImmutableList.of(
+                                ascending("function_name"),
+                                ascending("return_type"),
+                                ascending("argument_types"),
+                                ascending("function_type")),
                         Optional.<String>absent()
                 ),
                 ImmutableList.<SortItem>of(),
