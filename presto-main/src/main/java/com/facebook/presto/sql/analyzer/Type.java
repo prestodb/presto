@@ -6,6 +6,8 @@ import com.google.common.base.Function;
 
 import javax.annotation.Nullable;
 
+import static com.google.common.base.Preconditions.checkState;
+
 public enum Type
 {
     LONG(TupleInfo.Type.FIXED_INT_64),
@@ -21,6 +23,7 @@ public enum Type
         this.rawType = rawType;
     }
 
+    @Nullable
     public TupleInfo.Type getRawType()
     {
         return rawType;
@@ -28,12 +31,13 @@ public enum Type
 
     public ColumnType getColumnType()
     {
+        checkState(rawType != null, "no column type for null");
         return rawType.toColumnType();
     }
 
     public String getName()
     {
-        return name().toLowerCase();
+        return (rawType == null) ? "null" : rawType.getName();
     }
 
     public static Type fromRaw(ColumnType type)

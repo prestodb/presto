@@ -57,6 +57,7 @@ import static com.facebook.presto.tpch.TpchMetadata.TPCH_LINEITEM_NAME;
 import static com.facebook.presto.tpch.TpchMetadata.TPCH_ORDERS_METADATA;
 import static com.facebook.presto.tpch.TpchMetadata.TPCH_ORDERS_NAME;
 import static com.facebook.presto.tpch.TpchMetadata.TPCH_SCHEMA_NAME;
+import static com.facebook.presto.tuple.TupleInfo.Type.BOOLEAN;
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
@@ -1525,7 +1526,7 @@ public abstract class AbstractTestQueries
     public void testWithHiding()
             throws Exception
     {
-        assertQuery(
+        assertQuery("" +
                 "WITH a AS (SELECT custkey FROM orders), " +
                 "     b AS (" +
                 "         WITH a AS (SELECT orderkey FROM orders)" +
@@ -1748,17 +1749,21 @@ public abstract class AbstractTestQueries
     public void testShowColumns()
             throws Exception
     {
-        MaterializedResult result = computeActual("SHOW COLUMNS FROM orders");
-        ImmutableSet<String> columnNames = ImmutableSet.copyOf(transform(result.getMaterializedTuples(), new Function<MaterializedTuple, String>()
-        {
-            @Override
-            public String apply(MaterializedTuple input)
-            {
-                assertEquals(input.getFieldCount(), 4);
-                return (String) input.getField(0);
-            }
-        }));
-        assertEquals(columnNames, ImmutableSet.of("orderkey", "custkey", "orderstatus", "totalprice", "orderdate", "orderpriority", "clerk", "shippriority", "comment"));
+        MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
+
+        MaterializedResult expected = resultBuilder(VARIABLE_BINARY, VARIABLE_BINARY, BOOLEAN, BOOLEAN)
+                .row("orderkey", "bigint", true, false)
+                .row("custkey", "bigint", true, false)
+                .row("orderstatus", "varchar", true, false)
+                .row("totalprice", "double", true, false)
+                .row("orderdate", "varchar", true, false)
+                .row("orderpriority", "varchar", true, false)
+                .row("clerk", "varchar", true, false)
+                .row("shippriority", "bigint", true, false)
+                .row("comment", "varchar", true, false)
+                .build();
+
+        assertEquals(actual, expected);
     }
 
     @Test
@@ -1775,14 +1780,29 @@ public abstract class AbstractTestQueries
                 return (String) input.getField(0);
             }
         });
+
         assertTrue(functions.containsKey("avg"), "Expected function names " + functions + " to contain 'avg'");
+        assertEquals(functions.get("avg").asList().size(), 2);
+        assertEquals(functions.get("avg").asList().get(0).getField(1), "double");
+        assertEquals(functions.get("avg").asList().get(0).getField(2), "bigint");
         assertEquals(functions.get("avg").asList().get(0).getField(3), "aggregate");
+        assertEquals(functions.get("avg").asList().get(1).getField(1), "double");
+        assertEquals(functions.get("avg").asList().get(1).getField(2), "double");
+        assertEquals(functions.get("avg").asList().get(0).getField(3), "aggregate");
+
         assertTrue(functions.containsKey("abs"), "Expected function names " + functions + " to contain 'abs'");
         assertEquals(functions.get("abs").asList().get(0).getField(3), "scalar");
+
         assertTrue(functions.containsKey("rand"), "Expected function names " + functions + " to contain 'rand'");
         assertEquals(functions.get("rand").asList().get(0).getField(3), "scalar (non-deterministic)");
+
         assertTrue(functions.containsKey("rank"), "Expected function names " + functions + " to contain 'rank'");
         assertEquals(functions.get("rank").asList().get(0).getField(3), "window");
+
+        assertTrue(functions.containsKey("rank"), "Expected function names " + functions + " to contain 'split_part'");
+        assertEquals(functions.get("split_part").asList().get(0).getField(1), "varchar");
+        assertEquals(functions.get("split_part").asList().get(0).getField(2), "varchar, varchar, bigint");
+        assertEquals(functions.get("split_part").asList().get(0).getField(3), "scalar");
     }
 
     @Test
