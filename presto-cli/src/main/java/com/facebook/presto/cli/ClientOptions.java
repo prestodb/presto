@@ -22,6 +22,9 @@ public class ClientOptions
     @Option(name = "--schema", title = "schema")
     public String schema = "default";
 
+    @Option(name = {"-f", "--file"}, title = "file")
+    public String file;
+
     @Option(name = "--debug", title = "debug")
     public boolean debug;
 
