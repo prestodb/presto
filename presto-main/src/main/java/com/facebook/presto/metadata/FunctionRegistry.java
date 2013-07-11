@@ -177,8 +177,17 @@ public class FunctionRegistry
             }
         }
 
+        List<String> expectedParameters = new ArrayList<>();
+        for (FunctionInfo functionInfo : functionsByName.get(name)) {
+            expectedParameters.add(format("%s(%s)", name, Joiner.on(", ").join(functionInfo.getArgumentTypes())));
+        }
         String parameters = Joiner.on(", ").useForNull("NULL").join(parameterTypes);
-        throw new IllegalArgumentException(format("Function %s(%s) not registered", name, parameters));
+        String message = format("Function %s not registered", name);
+        if (!expectedParameters.isEmpty()) {
+            String expected = Joiner.on(", ").join(expectedParameters);
+            message = format("Unexpected parameters (%s) for function %s. Expected: %s", parameters, name, expected);
+        }
+        throw new IllegalArgumentException(message);
     }
 
     private static boolean canCoerce(List<Type> parameterTypes, FunctionInfo functionInfo)
