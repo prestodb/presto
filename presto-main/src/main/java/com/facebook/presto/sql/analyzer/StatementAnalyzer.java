@@ -6,12 +6,14 @@ import com.facebook.presto.metadata.NativeTableHandle;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.ExplainFormat;
 import com.facebook.presto.sql.tree.ExplainOption;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -156,8 +158,8 @@ class StatementAnalyzer
                         selectList(
                                 aliasedName("column_name", "Column"),
                                 aliasedName("data_type", "Type"),
-                                aliasedName("is_nullable", "Null"),
-                                aliasedName("is_partition_key", "Partition Key")),
+                                aliasedYesNoToBoolean("is_nullable", "Null"),
+                                aliasedYesNoToBoolean("is_partition_key", "Partition Key")),
                         table(QualifiedName.of(tableName.getCatalogName(), TABLE_COLUMNS.getSchemaName(), TABLE_COLUMNS.getTableName())),
                         Optional.of(logicalAnd(
                                 equal(nameReference("table_schema"), new StringLiteral(tableName.getSchemaName())),
@@ -171,6 +173,15 @@ class StatementAnalyzer
                 Optional.<String>absent());
 
         return process(query, context);
+    }
+
+    private static SelectItem aliasedYesNoToBoolean(String column, String alias)
+    {
+        Expression expression = new IfExpression(
+                equal(nameReference(column), new StringLiteral("YES")),
+                BooleanLiteral.TRUE_LITERAL,
+                BooleanLiteral.FALSE_LITERAL);
+        return new SingleColumn(expression, alias);
     }
 
     @Override
