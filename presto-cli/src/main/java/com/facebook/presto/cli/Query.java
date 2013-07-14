@@ -25,9 +25,7 @@ import java.io.Writer;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.facebook.presto.cli.ClientOptions.OutputFormat.CSV_HEADER;
 import static com.facebook.presto.cli.ClientOptions.OutputFormat.PAGED;
-import static com.facebook.presto.cli.ClientOptions.OutputFormat.TSV_HEADER;
 import static com.facebook.presto.cli.ConsolePrinter.REAL_TERMINAL;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
@@ -157,12 +155,8 @@ public class Query
 
     private void sendOutput(PrintStream out, OutputFormat outputFormat, List<String> fieldNames)
     {
-        OutputPrinter printer = createOutputPrinter(outputFormat, createWriter(out));
+        OutputPrinter printer = createOutputPrinter(outputFormat, createWriter(out), fieldNames);
         try (OutputHandler handler = new OutputHandler(printer)) {
-            if ((outputFormat == CSV_HEADER) || (outputFormat == TSV_HEADER)) {
-                // add a header line with the field names
-                handler.processRow(fieldNames);
-            }
             handler.processRows(client);
         }
         catch (IOException e) {
@@ -170,16 +164,17 @@ public class Query
         }
     }
 
-    @SuppressWarnings("fallthrough")
-    private static OutputPrinter createOutputPrinter(OutputFormat outputFormat, OutputStreamWriter writer)
+    private static OutputPrinter createOutputPrinter(OutputFormat outputFormat, OutputStreamWriter writer, List<String> fieldNames)
     {
         switch (outputFormat) {
             case CSV:
+                return new CsvPrinter(fieldNames, writer, ',', false);
             case CSV_HEADER:
-                return new CsvPrinter(writer, ',');
+                return new CsvPrinter(fieldNames, writer, ',', true);
             case TSV:
+                return new CsvPrinter(fieldNames, writer, '\t', false);
             case TSV_HEADER:
-                return new CsvPrinter(writer, '\t');
+                return new CsvPrinter(fieldNames, writer, '\t', true);
         }
         throw new RuntimeException(outputFormat + " not supported");
     }
