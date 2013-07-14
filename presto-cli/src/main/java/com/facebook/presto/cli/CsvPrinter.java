@@ -1,6 +1,7 @@
 package com.facebook.presto.cli;
 
 import au.com.bytecode.opencsv.CSVWriter;
+import com.google.common.collect.ImmutableList;
 
 import java.io.IOException;
 import java.io.Writer;
@@ -11,18 +12,29 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class CsvPrinter
         implements OutputPrinter
 {
+    private final List<String> fieldNames;
     private final CSVWriter writer;
 
-    public CsvPrinter(Writer writer, char separator)
+    private boolean needHeader;
+
+    public CsvPrinter(List<String> fieldNames, Writer writer, char separator, boolean header)
     {
+        checkNotNull(fieldNames, "fieldNames is null");
         checkNotNull(writer, "writer is null");
+        this.fieldNames = ImmutableList.copyOf(fieldNames);
         this.writer = new CSVWriter(writer, separator);
+        this.needHeader = header;
     }
 
     @Override
     public void printRows(List<List<?>> rows, boolean complete)
             throws IOException
     {
+        if (needHeader) {
+            needHeader = false;
+            writer.writeNext(toStrings(fieldNames));
+        }
+
         for (List<?> row : rows) {
             writer.writeNext(toStrings(row));
             checkError();
@@ -33,6 +45,7 @@ public class CsvPrinter
     public void finish()
             throws IOException
     {
+        printRows(ImmutableList.<List<?>>of(), true);
         writer.flush();
         checkError();
     }

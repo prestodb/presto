@@ -1,21 +1,24 @@
 package com.facebook.presto.cli;
 
+import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.io.StringWriter;
 import java.util.List;
 
-import static java.util.Arrays.asList;
+import static com.facebook.presto.cli.TestAlignedTuplePrinter.row;
+import static com.facebook.presto.cli.TestAlignedTuplePrinter.rows;
 import static org.testng.Assert.assertEquals;
 
 public class TestCsvPrinter
 {
     @Test
-    public void testAlignedPrinting()
+    public void testCsvPrinting()
             throws Exception
     {
         StringWriter writer = new StringWriter();
-        OutputPrinter printer = new CsvPrinter(writer, ',');
+        List<String> fieldNames = ImmutableList.of("first", "last", "quantity");
+        OutputPrinter printer = new CsvPrinter(fieldNames, writer, ',', true);
 
         printer.printRows(rows(
                 row("hello", "world", 123),
@@ -26,6 +29,7 @@ public class TestCsvPrinter
         printer.finish();
 
         String expected = "" +
+                "\"first\",\"last\",\"quantity\"\n" +
                 "\"hello\",\"world\",\"123\"\n" +
                 "\"a\",\"\",\"4.5\"\n" +
                 "\"some long\n" +
@@ -39,13 +43,37 @@ public class TestCsvPrinter
         assertEquals(writer.getBuffer().toString(), expected);
     }
 
-    private static List<?> row(Object... values)
+    @Test
+    public void testCsvPrintingNoRows()
+            throws Exception
     {
-        return asList(values);
+        StringWriter writer = new StringWriter();
+        List<String> fieldNames = ImmutableList.of("first", "last");
+        OutputPrinter printer = new CsvPrinter(fieldNames, writer, ',', true);
+
+        printer.finish();
+
+        assertEquals(writer.getBuffer().toString(), "\"first\",\"last\"\n");
     }
 
-    private static List<List<?>> rows(List<?>... rows)
+    @Test
+    public void testCsvPrintingNoHeader()
+            throws Exception
     {
-        return asList(rows);
+        StringWriter writer = new StringWriter();
+        List<String> fieldNames = ImmutableList.of("first", "last", "quantity");
+        OutputPrinter printer = new CsvPrinter(fieldNames, writer, ',', false);
+
+        printer.printRows(rows(
+                row("hello", "world", 123),
+                row("a", null, 4.5)),
+                true);
+        printer.finish();
+
+        String expected = "" +
+                "\"hello\",\"world\",\"123\"\n" +
+                "\"a\",\"\",\"4.5\"\n";
+
+        assertEquals(writer.getBuffer().toString(), expected);
     }
 }

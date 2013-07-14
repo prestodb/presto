@@ -82,12 +82,12 @@ public class TestAlignedTuplePrinter
         assertEquals(writer.getBuffer().toString(), expected);
     }
 
-    private static List<?> row(Object... values)
+    static List<?> row(Object... values)
     {
         return asList(values);
     }
 
-    private static List<List<?>> rows(List<?>... rows)
+    static List<List<?>> rows(List<?>... rows)
     {
         return asList(rows);
     }
