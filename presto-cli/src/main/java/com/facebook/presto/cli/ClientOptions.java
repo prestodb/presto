@@ -36,7 +36,8 @@ public class ClientOptions
 
     public enum OutputFormat
     {
-        PAGED,
+        ALIGNED,
+        VERTICAL,
         CSV,
         TSV,
         CSV_HEADER,
