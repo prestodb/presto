@@ -6,6 +6,7 @@ import com.facebook.presto.sql.parser.StatementSplitter;
 import com.google.common.base.Charsets;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 import io.airlift.command.Command;
 import io.airlift.log.Logging;
@@ -124,9 +125,15 @@ public class Console
                 buffer.append(line).append("\n");
 
                 // execute any complete statements
-                StatementSplitter splitter = new StatementSplitter(buffer.toString());
+                String sql = buffer.toString();
+                StatementSplitter splitter = new StatementSplitter(sql, ImmutableSet.of(";", "\\G"));
                 for (Statement split : splitter.getCompleteStatements()) {
-                    process(queryRunner, split.statement(), OutputFormat.PAGED);
+                    OutputFormat outputFormat = OutputFormat.ALIGNED;
+                    if (split.terminator().equals("\\G")) {
+                        outputFormat = OutputFormat.VERTICAL;
+                    }
+
+                    process(queryRunner, split.statement(), outputFormat, true);
                     reader.getHistory().add(squeezeStatement(split.statement()) + split.terminator());
                 }
 
@@ -146,15 +153,15 @@ public class Console
     private static void executeCommand(QueryRunner queryRunner, String query, OutputFormat outputFormat)
     {
         StatementSplitter splitter = new StatementSplitter(query + ";");
-        for (Statement statement : splitter.getCompleteStatements()) {
-            process(queryRunner, statement.statement(), outputFormat);
+        for (Statement split : splitter.getCompleteStatements()) {
+            process(queryRunner, split.statement(), outputFormat, false);
         }
     }
 
-    private static void process(QueryRunner queryRunner, String sql, OutputFormat outputFormat)
+    private static void process(QueryRunner queryRunner, String sql, OutputFormat outputFormat, boolean interactive)
     {
         try (Query query = queryRunner.startQuery(sql)) {
-            query.renderOutput(System.out, outputFormat);
+            query.renderOutput(System.out, outputFormat, interactive);
         }
         catch (Exception e) {
             System.out.println("Error running command: " + e.getMessage());
