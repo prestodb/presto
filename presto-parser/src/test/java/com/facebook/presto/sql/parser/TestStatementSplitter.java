@@ -107,18 +107,18 @@ public class TestStatementSplitter
     @Test
     public void testSplitterWithEscapedSingleQuote()
     {
-        String sql = "select 'hello''world' from dual;";
-        StatementSplitter splitter = new StatementSplitter(sql);
-        assertEquals(splitter.getCompleteStatements(), ImmutableList.of(sql));
+        String sql = "select 'hello''world' from dual";
+        StatementSplitter splitter = new StatementSplitter(sql + ";");
+        assertEquals(splitter.getCompleteStatements(), statements(sql, ";"));
         assertEquals(splitter.getPartialStatement(), "");
     }
 
     @Test
     public void testSplitterWithQuotedIdentifier()
     {
-        String sql = "select \"0\"\"bar\" from dual;";
-        StatementSplitter splitter = new StatementSplitter(sql);
-        assertEquals(splitter.getCompleteStatements(), ImmutableList.of(sql));
+        String sql = "select \"0\"\"bar\" from dual";
+        StatementSplitter splitter = new StatementSplitter(sql + ";");
+        assertEquals(splitter.getCompleteStatements(), statements(sql, ";"));
         assertEquals(splitter.getPartialStatement(), "");
     }
 
@@ -180,7 +180,7 @@ public class TestStatementSplitter
         checkArgument(args.length % 2 == 0, "arguments not paired");
         ImmutableList.Builder<Statement> list = ImmutableList.builder();
         for (int i = 0; i < args.length; i += 2) {
-            list.add(new Statement(args[i], args[i] + 1));
+            list.add(new Statement(args[i], args[i + 1]));
         }
         return list.build();
     }
