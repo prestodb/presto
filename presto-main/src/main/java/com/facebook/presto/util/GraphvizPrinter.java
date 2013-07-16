@@ -12,8 +12,13 @@ import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SinkNode;
+import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
+import com.facebook.presto.sql.planner.plan.UnionNode;
+import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -33,7 +38,6 @@ import java.util.Map;
 
 import static com.google.common.collect.Maps.immutableEnumMap;
 import static java.lang.String.format;
-import static java.lang.System.identityHashCode;
 
 public final class GraphvizPrinter
 {
@@ -46,7 +50,12 @@ public final class GraphvizPrinter
         OUTPUT,
         LIMIT,
         TABLESCAN,
-        JOIN
+        TABLEWRITER,
+        JOIN,
+        SINK,
+        WINDOW,
+        UNION,
+        SORT
     }
 
     private static final Map<NodeType, String> NODE_COLORS = immutableEnumMap(ImmutableMap.<NodeType, String>builder()
@@ -58,7 +67,12 @@ public final class GraphvizPrinter
             .put(NodeType.OUTPUT, "white")
             .put(NodeType.LIMIT, "gray83")
             .put(NodeType.TABLESCAN, "deepskyblue")
+            .put(NodeType.TABLEWRITER, "lightslateblue")
             .put(NodeType.JOIN, "orange")
+            .put(NodeType.SORT, "aliceblue")
+            .put(NodeType.SINK, "indianred1")
+            .put(NodeType.WINDOW, "darkolivegreen4")
+            .put(NodeType.UNION, "turquoise4")
             .build());
 
     static {
@@ -129,7 +143,46 @@ public final class GraphvizPrinter
         @Override
         protected Void visitPlan(PlanNode node, Void context)
         {
-            output.append(format("/* plannode_%s: %s*/\n", identityHashCode(node), node.getClass().getName()));
+            throw new UnsupportedOperationException(format("Node %s does not have a Graphviz visitor", node.getClass().getName()));
+        }
+
+        @Override
+        public Void visitSort(SortNode node, Void context)
+        {
+            printNode(node, format("Sort[%s]", Joiner.on(", ").join(node.getOrderBy())), NODE_COLORS.get(NodeType.SORT));
+            return node.getSource().accept(this, context);
+        }
+
+        @Override
+        public Void visitTableWriter(TableWriterNode node, Void context)
+        {
+            printNode(node, format("TableWriter[%s]", node.getTable()), format("output = %s", node.getOutput()), NODE_COLORS.get(NodeType.TABLEWRITER));
+            return node.getSource().accept(this, context);
+        }
+
+        @Override
+        public Void visitSink(SinkNode node, Void context)
+        {
+            printNode(node, "Sink", NODE_COLORS.get(NodeType.SINK));
+            return node.getSource().accept(this, context);
+        }
+
+        @Override
+        public Void visitWindow(WindowNode node, Void context)
+        {
+            printNode(node, "Window", format("partition by = %s|order by = %s", Joiner.on(", ").join(node.getPartitionBy()), Joiner.on(", ").join(node.getOrderBy())), NODE_COLORS.get(NodeType.WINDOW));
+            return node.getSource().accept(this, context);
+        }
+
+        @Override
+        public Void visitUnion(UnionNode node, Void context)
+        {
+            printNode(node, "Union", NODE_COLORS.get(NodeType.UNION));
+
+            for (PlanNode planNode : node.getSources()) {
+                planNode.accept(this, context);
+            }
+
             return null;
         }
 
