@@ -2,6 +2,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.operator.TableWriterResult;
+import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.PartitionKey;
 import com.facebook.presto.spi.PartitionedSplit;
@@ -214,7 +215,7 @@ public class TableWriter
             if (sourceIterator.hasNext()) {
                 Split sourceSplit = sourceIterator.next();
 
-                NativeSplit writingSplit = new NativeSplit(shardManager.allocateShard(tableWriterNode.getTable()), sourceSplit.getAddresses());
+                NativeSplit writingSplit = new NativeSplit(shardManager.allocateShard(tableWriterNode.getTable()), ImmutableList.<HostAddress>of());
 
                 String partition = "unpartitioned";
                 boolean lastSplit = false;
