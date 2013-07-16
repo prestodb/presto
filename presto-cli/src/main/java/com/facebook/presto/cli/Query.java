@@ -129,19 +129,19 @@ public class Query
     {
         List<String> fieldNames = Lists.transform(results.getColumns(), Column.nameGetter());
         if (interactive) {
-            pageOutput(Pager.LESS, format, fieldNames);
+            pageOutput(format, fieldNames);
         }
         else {
             sendOutput(out, format, fieldNames);
         }
     }
 
-    private void pageOutput(List<String> pagerCommand, OutputFormat format, List<String> fieldNames)
+    private void pageOutput(OutputFormat format, List<String> fieldNames)
     {
         // ignore the user pressing ctrl-C while in the pager
         ignoreUserInterrupt.set(true);
 
-        try (Writer writer = createWriter(Pager.create(pagerCommand));
+        try (Writer writer = createWriter(Pager.create());
                 OutputHandler handler = createOutputHandler(format, writer, fieldNames)) {
             handler.processRows(client);
         }
