@@ -1,30 +1,98 @@
 package com.facebook.presto.cli;
 
 import com.facebook.presto.client.ClientSession;
-import com.google.common.base.Splitter;
-import com.google.common.base.Strings;
+import com.facebook.presto.client.QueryResults;
+import com.facebook.presto.client.StatementClient;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
-import io.airlift.http.client.netty.StandaloneNettyAsyncHttpClient;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import jline.console.completer.Completer;
 
 import java.io.Closeable;
-import java.util.Collection;
 import java.util.List;
 import java.util.SortedSet;
 import java.util.TreeSet;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.lang.String.format;
 
 public class TableNameCompleter
         implements Completer, Closeable
 {
-    private final ClientSession clientSession;
-    private final HttpMetadataClient metadataClient;
+    private static final long RELOAD_TIME_MINUTES = 2;
 
-    public TableNameCompleter(ClientSession clientSession)
+    private final ExecutorService executor = Executors.newCachedThreadPool(daemonThreadsNamed("completer-%d"));
+    private final ClientSession clientSession;
+    private final QueryRunner queryRunner;
+    private final LoadingCache<String, List<String>> tableCache;
+    private final LoadingCache<String, List<String>> functionCache;
+
+    public TableNameCompleter(ClientSession clientSession, QueryRunner queryRunner)
     {
-        this.clientSession = checkNotNull(clientSession, "client session was null!");
-        this.metadataClient = new HttpMetadataClient(clientSession, new StandaloneNettyAsyncHttpClient("metadata"));
+        this.clientSession = checkNotNull(clientSession, "clientSession was null!");
+        this.queryRunner =  checkNotNull(queryRunner, "queryRunner session was null!");
+
+        ListeningExecutorService listeningExecutor = MoreExecutors.listeningDecorator(executor);
+        tableCache = CacheBuilder.newBuilder()
+                .refreshAfterWrite(RELOAD_TIME_MINUTES, TimeUnit.MINUTES)
+                .build(new BackgroundCacheLoader<String, List<String>>(listeningExecutor)
+                {
+                    @Override
+                    public List<String> load(String schemaName)
+                    {
+                        return queryMetadata(format("SELECT table_name FROM information_schema.tables WHERE table_schema = '%s'", schemaName));
+                    }
+                });
+        functionCache = CacheBuilder.newBuilder()
+                .build(new BackgroundCacheLoader<String, List<String>>(listeningExecutor)
+                {
+                    @Override
+                    public List<String> load(String schemaName)
+                    {
+                        return queryMetadata("SHOW FUNCTIONS");
+                    }
+                });
+    }
+
+    private List<String> queryMetadata(String query)
+    {
+        ImmutableList.Builder<String> cache = ImmutableList.builder();
+        try (StatementClient client = queryRunner.startInternalQuery(query)) {
+            while (client.isValid() && !Thread.currentThread().isInterrupted()) {
+                QueryResults results = client.current();
+                if (results.getData() != null) {
+                    for (List<Object> row : results.getData()) {
+                        cache.add((String) row.get(0));
+                    }
+                }
+                client.advance();
+            }
+        }
+        return cache.build();
+    }
+
+    public void populateCache(final String schemaName)
+    {
+        checkNotNull(schemaName, "schemaName is null");
+        executor.execute(new Runnable()
+        {
+            @Override
+            public void run()
+            {
+                functionCache.refresh(schemaName);
+                tableCache.refresh(schemaName);
+            }
+        });
     }
 
     @Override
@@ -34,34 +102,21 @@ public class TableNameCompleter
             return cursor;
         }
         int blankPos = findLastBlank(buffer.substring(0, cursor));
-
         String prefix = buffer.substring(blankPos + 1, cursor);
-        List<String> completion = ImmutableList.copyOf(Splitter.on('.').limit(3).split(prefix));
+        String schemaName = clientSession.getSchema();
+        List<String> functionNames = functionCache.getIfPresent(schemaName);
+        List<String> tableNames = tableCache.getIfPresent(schemaName);
 
-        int len = 0;
         SortedSet<String> sortedCandidates = new TreeSet<>();
-        switch (completion.size()) {
-        case 0:
-            break;
-        case 1:
-            loadTableNames(sortedCandidates, clientSession.getCatalog(), clientSession.getSchema(), completion.get(0));
-            loadSchemaNames(sortedCandidates, clientSession.getCatalog(), completion.get(0));
-            break;
-        case 2:
-            // only complete on the last field of the dot separated name.
-            len += completion.get(0).length() + 1;
-            loadSchemaNames(sortedCandidates, completion.get(0), completion.get(1));
-            loadTableNames(sortedCandidates, clientSession.getCatalog(), completion.get(0), completion.get(1));
-            break;
-        default:
-            // only complete on the last field of the dot separated name.
-            len += completion.get(0).length() + 1;
-            len += completion.get(1).length() + 1;
-            loadTableNames(sortedCandidates, completion.get(0), completion.get(1), completion.get(2));
-            break;
+        if (functionNames != null) {
+            sortedCandidates.addAll(filterResults(functionNames, prefix));
         }
+        if (tableNames != null) {
+            sortedCandidates.addAll(filterResults(tableNames, prefix));
+        }
+
         candidates.addAll(sortedCandidates);
-        return blankPos + len + 1;
+        return blankPos + 1;
     }
 
     private int findLastBlank(String buffer)
@@ -72,24 +127,6 @@ public class TableNameCompleter
             }
         }
         return -1;
-    }
-
-    private void loadSchemaNames(Collection<String> candidates, String catalogName, String prefix)
-    {
-        if (!Strings.isNullOrEmpty(catalogName)) {
-            List<String> schemaNames = metadataClient.getSchemaNames(catalogName);
-            List<String> results = filterResults(schemaNames, prefix);
-            candidates.addAll(results);
-        }
-    }
-
-    private void loadTableNames(Collection<String> candidates, String catalogName, String schemaName, String prefix)
-    {
-        if (!Strings.isNullOrEmpty(catalogName) && !Strings.isNullOrEmpty(schemaName)) {
-            List<String> tableNames = metadataClient.getTableNames(catalogName, schemaName);
-            List<String> results = filterResults(tableNames, prefix);
-            candidates.addAll(results);
-        }
     }
 
     private static List<String> filterResults(List<String> values, String prefix)
@@ -106,6 +143,36 @@ public class TableNameCompleter
     @Override
     public void close()
     {
-        metadataClient.close();
+        executor.shutdownNow();
+    }
+
+    private static ThreadFactory daemonThreadsNamed(String nameFormat)
+    {
+        return new ThreadFactoryBuilder().setNameFormat(nameFormat).setDaemon(true).build();
+    }
+
+    abstract static class BackgroundCacheLoader<K, V>
+            extends CacheLoader<K, V>
+    {
+        private final ListeningExecutorService executor;
+
+        protected BackgroundCacheLoader(ListeningExecutorService executor)
+        {
+            this.executor = checkNotNull(executor, "executor is null");
+        }
+
+        @Override
+        public final ListenableFuture<V> reload(final K key, V oldValue)
+        {
+            return executor.submit(new Callable<V>()
+            {
+                @Override
+                public V call()
+                        throws Exception
+                {
+                    return load(key);
+                }
+            });
+        }
     }
 }

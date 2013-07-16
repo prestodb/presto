@@ -78,8 +78,9 @@ public class Console
     @SuppressWarnings("fallthrough")
     private void runConsole(QueryRunner queryRunner, ClientSession session)
     {
-        try (TableNameCompleter tableNameCompleter = new TableNameCompleter(clientOptions.toClientSession());
+        try (TableNameCompleter tableNameCompleter = new TableNameCompleter(clientOptions.toClientSession(), queryRunner);
                 LineReader reader = new LineReader(getHistory(), tableNameCompleter)) {
+            tableNameCompleter.populateCache(session.getSchema());
             StringBuilder buffer = new StringBuilder();
             while (true) {
                 // read a line of input from user
