@@ -12,6 +12,7 @@ import java.util.List;
 public class Pager
         extends FilterOutputStream
 {
+    public static final String ENV_PAGER = "PRESTO_PAGER";
     public static final List<String> LESS = ImmutableList.of("less", "-FXRSn");
 
     private final Process process;
@@ -91,6 +92,19 @@ public class Pager
         throw e;
     }
 
+    public static Pager create()
+    {
+        String pager = System.getenv(ENV_PAGER);
+        if (pager == null) {
+            return create(LESS);
+        }
+        pager = pager.trim();
+        if (pager.isEmpty()) {
+            return createNullPager();
+        }
+        return create(ImmutableList.of("/bin/sh", "-c", pager));
+    }
+
     public static Pager create(List<String> command)
     {
         try {
@@ -102,10 +116,14 @@ public class Pager
             return new Pager(process.getOutputStream(), process);
         }
         catch (IOException e) {
-            // TODO: make this a supplier and only print the error once
             System.err.println("ERROR: failed to open pager: " + e.getMessage());
-            return new Pager(uncloseableOutputStream(System.out), null);
+            return createNullPager();
         }
+    }
+
+    private static Pager createNullPager()
+    {
+        return new Pager(uncloseableOutputStream(System.out), null);
     }
 
     private static OutputStream uncloseableOutputStream(OutputStream out)
