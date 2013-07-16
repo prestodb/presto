@@ -25,6 +25,7 @@ options {
 
 tokens {
     LEXER_ERROR;
+    TERMINATOR;
     STATEMENT_LIST;
     GROUP_BY;
     ORDER_BY;
@@ -137,10 +138,6 @@ tokens {
 
 singleStatement
     : statement EOF -> statement
-    ;
-
-statementList
-    : (statement SEMICOLON)* EOF -> ^(STATEMENT_LIST statement*)
     ;
 
 singleExpression
@@ -786,8 +783,6 @@ LT  : '<';
 LTE : '<=';
 GT  : '>';
 GTE : '>=';
-
-SEMICOLON: ';';
 
 STRING
     : '\'' ( ~'\'' | '\'\'' )* '\''

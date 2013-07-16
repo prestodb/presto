@@ -6,6 +6,7 @@ import com.facebook.presto.sql.parser.StatementSplitter;
 import com.google.common.base.Charsets;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 import io.airlift.command.Command;
 import io.airlift.log.Logging;
@@ -21,6 +22,7 @@ import java.io.IOException;
 import java.io.PrintStream;
 
 import static com.facebook.presto.cli.Help.getHelpText;
+import static com.facebook.presto.sql.parser.StatementSplitter.Statement;
 import static com.facebook.presto.sql.parser.StatementSplitter.squeezeStatement;
 import static com.google.common.io.ByteStreams.nullOutputStream;
 import static io.airlift.log.Logging.Level;
@@ -73,6 +75,7 @@ public class Console
         }
     }
 
+    @SuppressWarnings("fallthrough")
     private void runConsole(QueryRunner queryRunner, ClientSession session)
     {
         try (TableNameCompleter tableNameCompleter = new TableNameCompleter(clientOptions.toClientSession());
@@ -122,10 +125,16 @@ public class Console
                 buffer.append(line).append("\n");
 
                 // execute any complete statements
-                StatementSplitter splitter = new StatementSplitter(buffer.toString());
-                for (String sql : splitter.getCompleteStatements()) {
-                    process(queryRunner, sql, OutputFormat.PAGED);
-                    reader.getHistory().add(squeezeStatement(sql) + ";");
+                String sql = buffer.toString();
+                StatementSplitter splitter = new StatementSplitter(sql, ImmutableSet.of(";", "\\G"));
+                for (Statement split : splitter.getCompleteStatements()) {
+                    OutputFormat outputFormat = OutputFormat.ALIGNED;
+                    if (split.terminator().equals("\\G")) {
+                        outputFormat = OutputFormat.VERTICAL;
+                    }
+
+                    process(queryRunner, split.statement(), outputFormat, true);
+                    reader.getHistory().add(squeezeStatement(split.statement()) + split.terminator());
                 }
 
                 // replace buffer with trailing partial statement
@@ -141,18 +150,18 @@ public class Console
         }
     }
 
-    private void executeCommand(QueryRunner queryRunner, String query, OutputFormat outputFormat)
+    private static void executeCommand(QueryRunner queryRunner, String query, OutputFormat outputFormat)
     {
         StatementSplitter splitter = new StatementSplitter(query + ";");
-        for (String sql : splitter.getCompleteStatements()) {
-            process(queryRunner, sql, outputFormat);
+        for (Statement split : splitter.getCompleteStatements()) {
+            process(queryRunner, split.statement(), outputFormat, false);
         }
     }
 
-    private static void process(QueryRunner queryRunner, String sql, OutputFormat outputFormat)
+    private static void process(QueryRunner queryRunner, String sql, OutputFormat outputFormat, boolean interactive)
     {
         try (Query query = queryRunner.startQuery(sql)) {
-            query.renderOutput(System.out, outputFormat);
+            query.renderOutput(System.out, outputFormat, interactive);
         }
         catch (Exception e) {
             System.out.println("Error running command: " + e.getMessage());

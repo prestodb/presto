@@ -111,7 +111,7 @@ public class AlignedTuplePrinter
         writer.flush();
     }
 
-    private static String formatValue(Object o)
+    static String formatValue(Object o)
     {
         return (o == null) ? "NULL" : o.toString();
     }
@@ -135,7 +135,7 @@ public class AlignedTuplePrinter
         return right ? (large + s + small) : (small + s + large);
     }
 
-    private static int maxLineLength(String s)
+    static int maxLineLength(String s)
     {
         int n = 0;
         for (String line : LINE_SPLITTER.split(s)) {
