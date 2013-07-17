@@ -124,8 +124,11 @@ public class HttpPageBufferClient
 
     public void close()
     {
+        boolean shouldSendDelete;
         Future<?> future;
         synchronized (this) {
+            shouldSendDelete = !closed;
+
             closed = true;
 
             future = this.future;
@@ -139,7 +142,9 @@ public class HttpPageBufferClient
         }
 
         // abort the output buffer on the remote node; response of delete is ignored
-        httpClient.executeAsync(prepareDelete().setUri(location).build(), createStatusResponseHandler());
+        if (shouldSendDelete) {
+            httpClient.executeAsync(prepareDelete().setUri(location).build(), createStatusResponseHandler());
+        }
     }
 
     public synchronized void scheduleRequest()
