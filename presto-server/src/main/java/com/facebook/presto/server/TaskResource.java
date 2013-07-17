@@ -34,6 +34,7 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
+
 import java.util.List;
 import java.util.NoSuchElementException;
 
@@ -41,6 +42,8 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_CURRENT_STATE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_SEQUENCE_ID;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 /**
@@ -145,35 +148,51 @@ public class TaskResource
         checkNotNull(taskId, "taskId is null");
         checkNotNull(outputId, "outputId is null");
 
-        // todo we need a much better way to determine if a task is unknown (e.g. not scheduled yet), done, or there is current no more data
-        try {
-            BufferResult result = taskManager.getTaskResults(taskId, outputId, pageSequenceId, DEFAULT_MAX_SIZE, DEFAULT_MAX_WAIT_TIME);
-            if (!result.isEmpty()) {
-                GenericEntity<?> entity = new GenericEntity<>(result.getElements(), new TypeToken<List<Page>>() {}.getType());
-                return Response.ok(entity).header(PRESTO_PAGE_SEQUENCE_ID, result.getStartingSequenceId()).build();
+        long remainingNanos = (long) DEFAULT_MAX_WAIT_TIME.convertTo(NANOSECONDS);
+        long start = System.nanoTime();
+        long end = start + remainingNanos;
+        int maxSleepMillis = 1;
+
+        Exception lastError = null;
+        while (remainingNanos > 0) {
+            // todo we need a much better way to determine if a task is unknown (e.g. not scheduled yet), done, or there is current no more data
+            try {
+                BufferResult result = taskManager.getTaskResults(taskId, outputId, pageSequenceId, DEFAULT_MAX_SIZE, new Duration(remainingNanos, NANOSECONDS));
+                if (!result.isEmpty()) {
+                    GenericEntity<?> entity = new GenericEntity<>(result.getElements(), new TypeToken<List<Page>>() {}.getType());
+                    return Response.ok(entity).header(PRESTO_PAGE_SEQUENCE_ID, result.getStartingSequenceId()).build();
+                }
+                else if (result.isBufferClosed() || isDone(taskId)) {
+                    return Response.status(Status.GONE).header(PRESTO_PAGE_SEQUENCE_ID, result.getStartingSequenceId()).build();
+                }
+                else {
+                    return Response.status(Status.NO_CONTENT).header(PRESTO_PAGE_SEQUENCE_ID, result.getStartingSequenceId()).build();
+                }
             }
-            else if (result.isBufferClosed() || isDone(taskId)) {
-                return Response.status(Status.GONE).header(PRESTO_PAGE_SEQUENCE_ID, result.getStartingSequenceId()).build();
+            catch (NoSuchElementException | NoSuchBufferException ignored) {
+                lastError = ignored;
             }
-            else {
-                return Response.status(Status.NO_CONTENT).header(PRESTO_PAGE_SEQUENCE_ID, result.getStartingSequenceId()).build();
+
+            // this is a safe race condition, because isDone will only be true if the task is failed or if all results have been consumed
+            if (isDone(taskId)) {
+                return Response.status(Status.GONE).header(PRESTO_PAGE_SEQUENCE_ID, pageSequenceId).build();
             }
-        }
-        catch (NoSuchElementException | NoSuchBufferException ignored) {
-            // task has not been scheduled or buffer has not been created yet
-            // this is treated the same as no-data
-            if (limiter.tryAcquire()) {
-                log.debug(ignored, "Error getting results");
-            }
+
+            // task hasn't been scheduled yet.
+            // sleep for a bit, before retrying
+            NANOSECONDS.sleep(Math.min(remainingNanos, MILLISECONDS.toNanos(maxSleepMillis)));
+            remainingNanos = end - System.nanoTime();
+            maxSleepMillis *= 2;
         }
 
-        // this is a safe race condition, because isDone will only be true if the task is failed or if all results have been consumed
-        if (isDone(taskId)) {
-            return Response.status(Status.GONE).header(PRESTO_PAGE_SEQUENCE_ID, pageSequenceId).build();
+        // task has not been scheduled or buffer has not been created yet
+        // this is treated the same as no-data
+        if (lastError != null && limiter.tryAcquire()) {
+            log.debug(lastError, "Error getting results");
         }
-        else {
-            return Response.status(Status.NO_CONTENT).header(PRESTO_PAGE_SEQUENCE_ID, pageSequenceId).build();
-        }
+
+        // task doesn't exist yet and wait time has expired
+        return Response.status(Status.NO_CONTENT).header(PRESTO_PAGE_SEQUENCE_ID, pageSequenceId).build();
     }
 
     private boolean isDone(TaskId taskId)
