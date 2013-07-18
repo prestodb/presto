@@ -96,6 +96,10 @@ public class FilterAndProjectOperator
             long completedPositions = 0;
             while (!pageBuilder.isFull() && cursor.advanceNextPosition()) {
                 completedPositions++;
+                // every 16K rows check if the query is finished
+                if (shouldCheckDoneFlag(completedPositions) && operatorStats.isDone()) {
+                    break;
+                }
                 if (filterFunction.filter(cursor)) {
                     pageBuilder.declarePosition();
                     for (int i = 0; i < projections.size(); i++) {

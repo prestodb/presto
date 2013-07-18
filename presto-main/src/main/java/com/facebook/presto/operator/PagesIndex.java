@@ -34,7 +34,7 @@ public class PagesIndex
     private final int channelCount;
     private final int positionCount;
 
-    public PagesIndex(PageIterator iterator, int expectedPositions, TaskMemoryManager taskMemoryManager)
+    public PagesIndex(PageIterator iterator, OperatorStats operatorStats, int expectedPositions, TaskMemoryManager taskMemoryManager)
     {
         channelCount = iterator.getChannelCount();
         indexes = new ChannelIndex[channelCount];
@@ -47,6 +47,10 @@ public class PagesIndex
         int positionCount = 0;
         try (PageIterator pageIterator = iterator) {
             while (pageIterator.hasNext()) {
+                if (operatorStats.isDone()) {
+                    break;
+                }
+
                 currentSize = taskMemoryManager.updateOperatorReservation(currentSize, getEstimatedSize());
 
                 Page page = pageIterator.next();

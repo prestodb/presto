@@ -94,12 +94,14 @@ public class TopNOperator
         private final PageIterator source;
         private final PageBuilder pageBuilder;
         private final boolean partial;
+        private final OperatorStats operatorStats;
         private Iterator<KeyAndTuples> outputIterator;
         private long currentMemoryReservation;
 
         private TopNIterator(Operator source, OperatorStats operatorStats, boolean partial)
         {
             super(tupleInfos);
+            this.operatorStats = operatorStats;
             this.source = source.iterator(operatorStats);
             this.pageBuilder = new PageBuilder(getTupleInfos());
             this.partial = partial;
@@ -140,7 +142,7 @@ public class TopNOperator
 
             PriorityQueue<KeyAndTuples> globalCandidates = new PriorityQueue<>(Math.min(n, MAX_INITIAL_PRIORITY_QUEUE_SIZE), KeyAndTuples.keyComparator(ordering));
 
-            while (!isMaxMemoryExceeded(memorySize) && source.hasNext()) {
+            while (!operatorStats.isDone() && !isMaxMemoryExceeded(memorySize) && source.hasNext()) {
                 Page page = source.next();
                 Iterable<KeyAndPosition> keyAndPositions = computePageCandidatePositions(globalCandidates, page);
                 long sizeDelta = mergeWithGlobalCandidates(globalCandidates, page, keyAndPositions);
