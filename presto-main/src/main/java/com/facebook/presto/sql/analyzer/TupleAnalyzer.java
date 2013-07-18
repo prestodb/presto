@@ -10,8 +10,7 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolResolver;
+import com.facebook.presto.sql.planner.NoOpSymbolResolver;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.ComparisonExpression;
@@ -41,7 +40,6 @@ import com.facebook.presto.sql.tree.Window;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
@@ -295,7 +293,7 @@ class TupleAnalyzer
 
             Analyzer.verifyNoAggregatesOrWindowFunctions(metadata, expression, "JOIN");
 
-            Object optimizedExpression = ExpressionInterpreter.expressionOptimizer(new NoOpSymbolResolver(), metadata, session).process(expression, null);
+            Object optimizedExpression = ExpressionInterpreter.expressionOptimizer(NoOpSymbolResolver.INSTANCE, metadata, session).process(expression, null);
 
             if (!(optimizedExpression instanceof Expression)) {
                 throw new SemanticException(NOT_SUPPORTED, node, "Joins on constant expressions (i.e., cross joins) not supported");
@@ -742,15 +740,5 @@ class TupleAnalyzer
             }
         }
 
-    }
-
-    private static class NoOpSymbolResolver
-            implements SymbolResolver
-    {
-        @Override
-        public Object getValue(Symbol symbol)
-        {
-            return new QualifiedNameReference(symbol.toQualifiedName());
-        }
     }
 }
