@@ -875,6 +875,40 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testLeftFilteredJoin()
+            throws Exception
+    {
+        // Test predicate move around
+        assertQuery("SELECT custkey, linestatus, tax, totalprice, orderstatus FROM (SELECT * FROM lineitem WHERE orderkey % 2 = 0) a JOIN orders ON a.orderkey = orders.orderkey");
+    }
+
+    @Test
+    public void testRightFilteredJoin()
+            throws Exception
+    {
+        // Test predicate move around
+        assertQuery("SELECT custkey, linestatus, tax, totalprice, orderstatus FROM lineitem JOIN (SELECT *  FROM orders WHERE orderkey % 2 = 0) a ON lineitem.orderkey = a.orderkey");
+    }
+
+    @Test
+    public void testJoinWithFullyPushedDownJoinClause()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON orders.custkey = 1 AND lineitem.orderkey = 1");
+    }
+
+    @Test
+    public void testJoinPredicateMoveAround()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*)\n" +
+                "FROM (SELECT * FROM lineitem WHERE orderkey % 16 = 0 AND partkey % 2 = 0) lineitem\n" +
+                "JOIN (SELECT * FROM orders WHERE orderkey % 16 = 0 AND custkey % 2 = 0) orders\n" +
+                "ON lineitem.orderkey % 8 = orders.orderkey % 8 AND lineitem.linenumber % 2 = 0\n" +
+                "WHERE orders.custkey % 8 < 7 AND orders.custkey % 8 = lineitem.orderkey % 8 AND lineitem.suppkey % 7 > orders.custkey % 7");
+    }
+
+    @Test
     public void testSimpleLeftJoin()
             throws Exception
     {
@@ -883,17 +917,24 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testLeftJoinNormalizedToInner()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*) FROM lineitem LEFT JOIN orders ON lineitem.orderkey = orders.orderkey WHERE orders.orderkey IS NOT NULL");
+    }
+
+    @Test
     public void testLeftJoinWithRightConstantEquality()
             throws Exception
     {
-        assertQuery("SELECT COUNT(*) FROM (SELECT * FROM lineitem WHERE orderkey % 1024 = 0) lineitem LEFT JOIN orders ON lineitem.orderkey = 2");
+        assertQuery("SELECT COUNT(*) FROM (SELECT * FROM lineitem WHERE orderkey % 1024 = 0) lineitem LEFT JOIN orders ON lineitem.orderkey = 1024");
     }
 
     @Test
     public void testLeftJoinWithLeftConstantEquality()
             throws Exception
     {
-        assertQuery("SELECT COUNT(*) FROM (SELECT * FROM lineitem WHERE orderkey % 1024 = 0) lineitem LEFT JOIN orders ON orders.orderkey = 2");
+        assertQuery("SELECT COUNT(*) FROM (SELECT * FROM lineitem WHERE orderkey % 1024 = 0) lineitem LEFT JOIN orders ON orders.orderkey = 1024");
     }
 
     @Test
@@ -908,6 +949,20 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         assertQuery("SELECT COUNT(*) FROM lineitem LEFT JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.orderkey = 2");
+    }
+
+    @Test
+    public void testDoubleFilteredLeftJoinWithRightConstantEquality()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*) FROM (SELECT * FROM lineitem WHERE orderkey % 1024 = 0) lineitem LEFT JOIN (SELECT * FROM orders WHERE orderkey % 1024 = 0) orders ON orders.orderkey = 1024");
+    }
+
+    @Test
+    public void testDoubleFilteredLeftJoinWithLeftConstantEquality()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*) FROM (SELECT * FROM lineitem WHERE orderkey % 1024 = 0) lineitem LEFT JOIN (SELECT * FROM orders WHERE orderkey % 1024 = 0) orders ON lineitem.orderkey = 1024");
     }
 
     @Test
@@ -941,6 +996,29 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testLeftJoinPredicateMoveAround()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*)\n" +
+                "FROM (SELECT * FROM lineitem WHERE orderkey % 16 = 0 AND partkey % 2 = 0) lineitem\n" +
+                "LEFT JOIN (SELECT * FROM orders WHERE orderkey % 16 = 0 AND custkey % 2 = 0) orders\n" +
+                "ON lineitem.orderkey % 8 = orders.orderkey % 8\n" +
+                "WHERE (orders.custkey % 8 < 7 OR orders.custkey % 8 IS NULL) AND orders.custkey % 8 = lineitem.orderkey % 8");
+    }
+
+    @Test
+    public void testLeftJoinEqualityInference()
+            throws Exception
+    {
+        // Test that we can infer orders.orderkey % 4 = orders.custkey % 3 on the inner side
+        assertQuery("SELECT COUNT(*)\n" +
+                "FROM (SELECT * FROM lineitem WHERE orderkey % 4 = 0 AND suppkey % 2 = partkey % 2 AND linenumber % 3 = orderkey % 3) lineitem\n" +
+                "LEFT JOIN (SELECT * FROM orders WHERE orderkey % 4 = 0) orders\n" +
+                "ON lineitem.linenumber % 3 = orders.orderkey % 4 AND lineitem.orderkey % 3 = orders.custkey % 3\n" +
+                "WHERE lineitem.suppkey % 2 = lineitem.linenumber % 3");
+    }
+
+    @Test
     public void testSimpleRightJoin()
             throws Exception
     {
@@ -949,17 +1027,38 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testRightJoinNormalizedToInner()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*) FROM lineitem RIGHT JOIN orders ON lineitem.orderkey = orders.orderkey WHERE lineitem.orderkey IS NOT NULL");
+    }
+
+    @Test
     public void testRightJoinWithRightConstantEquality()
             throws Exception
     {
-        assertQuery("SELECT COUNT(*) FROM (SELECT * FROM lineitem WHERE orderkey % 1024 = 0) lineitem RIGHT JOIN orders ON lineitem.orderkey = 2");
+        assertQuery("SELECT COUNT(*) FROM (SELECT * FROM lineitem WHERE orderkey % 1024 = 0) lineitem RIGHT JOIN orders ON lineitem.orderkey = 1024");
     }
 
     @Test
     public void testRightJoinWithLeftConstantEquality()
             throws Exception
     {
-        assertQuery("SELECT COUNT(*) FROM (SELECT * FROM lineitem WHERE orderkey % 1024 = 0) lineitem RIGHT JOIN orders ON orders.orderkey = 2");
+        assertQuery("SELECT COUNT(*) FROM (SELECT * FROM lineitem WHERE orderkey % 1024 = 0) lineitem RIGHT JOIN orders ON orders.orderkey = 1024");
+    }
+
+    @Test
+    public void testDoubleFilteredRightJoinWithRightConstantEquality()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*) FROM (SELECT * FROM lineitem WHERE orderkey % 1024 = 0) lineitem RIGHT JOIN (SELECT * FROM orders WHERE orderkey % 1024 = 0) orders ON orders.orderkey = 1024");
+    }
+
+    @Test
+    public void testDoubleFilteredRightJoinWithLeftConstantEquality()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*) FROM (SELECT * FROM lineitem WHERE orderkey % 1024 = 0) lineitem RIGHT JOIN (SELECT * FROM orders WHERE orderkey % 1024 = 0) orders ON lineitem.orderkey = 1024");
     }
 
     @Test
@@ -1004,6 +1103,29 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         assertQuery("SELECT custkey, linestatus, tax, totalprice, orderstatus FROM lineitem RIGHT JOIN (SELECT *  FROM orders WHERE orderkey % 2 = 0) a ON lineitem.orderkey = a.orderkey");
+    }
+
+    @Test
+    public void testRightJoinPredicateMoveAround()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*)\n" +
+                "FROM (SELECT * FROM orders WHERE orderkey % 16 = 0 AND custkey % 2 = 0) orders\n" +
+                "RIGHT JOIN (SELECT * FROM lineitem WHERE orderkey % 16 = 0 AND partkey % 2 = 0) lineitem\n" +
+                "ON lineitem.orderkey % 8 = orders.orderkey % 8\n" +
+                "WHERE (orders.custkey % 8 < 7 OR orders.custkey % 8 IS NULL) AND orders.custkey % 8 = lineitem.orderkey % 8");
+    }
+
+    @Test
+    public void testRightJoinEqualityInference()
+            throws Exception
+    {
+        // Test that we can infer orders.orderkey % 4 = orders.custkey % 3 on the inner side
+        assertQuery("SELECT COUNT(*)\n" +
+                "FROM (SELECT * FROM orders WHERE orderkey % 4 = 0) orders\n" +
+                "RIGHT JOIN (SELECT * FROM lineitem WHERE orderkey % 4 = 0 AND suppkey % 2 = partkey % 2 AND linenumber % 3 = orderkey % 3) lineitem\n" +
+                "ON lineitem.linenumber % 3 = orders.orderkey % 4 AND lineitem.orderkey % 3 = orders.custkey % 3\n" +
+                "WHERE lineitem.suppkey % 2 = lineitem.linenumber % 3");
     }
 
     @Test

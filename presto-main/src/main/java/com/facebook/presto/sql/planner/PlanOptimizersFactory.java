@@ -46,7 +46,9 @@ public class PlanOptimizersFactory
                 new PredicatePushDown(metadata),
                 new MergeProjections(),
                 new SimplifyExpressions(metadata), // Re-run the SimplifyExpressions to simplify any recomposed expressions from other optimizations
-                new PruneUnreferencedOutputs()); // Prune outputs again in case predicate pushdown move predicates all the way into the table scan
+                new UnaliasSymbolReferences(), // Run again because predicate pushdown might add more projections
+                new PruneUnreferencedOutputs(), // Prune outputs again in case predicate pushdown move predicates all the way into the table scan
+                new PruneRedundantProjections()); // Run again because predicate pushdown might add more projections
         // TODO: figure out how to improve the set flattening optimizer so that it can run at any point
 
         this.optimizers = builder.build();

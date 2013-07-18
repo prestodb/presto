@@ -12,6 +12,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 
 import javax.annotation.concurrent.Immutable;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -84,6 +85,15 @@ public class UnionNode
     {
         return IterableTransformer.<Symbol>on(getOutputSymbols())
                 .toMap(outputToSourceSymbolFunction(sourceIndex))
+                .<QualifiedNameReference>transformValues(symbolToQualifiedNameReference())
+                .immutableMap();
+    }
+
+    public Map<Symbol, QualifiedNameReference> outputSymbolMap(int sourceIndex)
+    {
+        return IterableTransformer.<Symbol>on(getOutputSymbols())
+                .toMap(outputToSourceSymbolFunction(sourceIndex))
+                .inverse()
                 .<QualifiedNameReference>transformValues(symbolToQualifiedNameReference())
                 .immutableMap();
     }

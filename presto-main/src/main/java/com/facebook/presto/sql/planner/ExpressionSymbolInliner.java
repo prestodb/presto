@@ -9,12 +9,12 @@ import com.google.common.base.Preconditions;
 
 import java.util.Map;
 
-public class ExpressionInliner
+public class ExpressionSymbolInliner
         extends NodeRewriter<Void>
 {
     private final Map<Symbol, ? extends Expression> mappings;
 
-    public ExpressionInliner(Map<Symbol, ? extends Expression> mappings)
+    public ExpressionSymbolInliner(Map<Symbol, ? extends Expression> mappings)
     {
         this.mappings = mappings;
     }
