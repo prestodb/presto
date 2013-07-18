@@ -8,14 +8,17 @@ import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 
+import static com.facebook.presto.sql.planner.DeterminismEvaluator.deterministic;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.base.Predicates.not;
+import static com.google.common.collect.Iterables.filter;
 
 public class ExpressionUtils
 {
@@ -42,6 +45,11 @@ public class ExpressionUtils
         return binaryExpression(LogicalBinaryExpression.Type.AND, expressions);
     }
 
+    public static Expression or(Expression... expressions)
+    {
+        return or(Arrays.asList(expressions));
+    }
+
     public static Expression or(Iterable<Expression> expressions)
     {
         return binaryExpression(LogicalBinaryExpression.Type.OR, expressions);
@@ -63,11 +71,35 @@ public class ExpressionUtils
         return result;
     }
 
+    public static Expression combineConjuncts(Expression... expressions)
+    {
+        return combineConjuncts(Arrays.asList(expressions));
+    }
+
     public static Expression combineConjuncts(Iterable<Expression> expressions)
     {
         Preconditions.checkNotNull(expressions, "expressions is null");
-        // Remove all true literal conjuncts
+
+        // Flatten all the expressions into their component conjuncts
+        expressions = Iterables.concat(Iterables.transform(expressions, new Function<Expression, Iterable<Expression>>()
+        {
+            @Override
+            public Iterable<Expression> apply(Expression expression)
+            {
+                return extractConjuncts(expression);
+            }
+        }));
+
+        // Strip out all true literal conjuncts
         expressions = Iterables.filter(expressions, not(Predicates.<Expression>equalTo(TRUE_LITERAL)));
+
+        // Capture all non-deterministic conjuncts
+        Iterable<Expression> nonDeterministicConjuncts = Iterables.filter(expressions, not(deterministic()));
+
+        // Capture and de-dupe all deterministic conjuncts
+        Iterable <Expression> deterministicConjuncts = ImmutableSet.copyOf(Iterables.filter(expressions, deterministic()));
+
+        expressions = Iterables.concat(nonDeterministicConjuncts, deterministicConjuncts);
         return Iterables.isEmpty(expressions) ? TRUE_LITERAL : and(expressions);
     }
 
@@ -80,5 +112,10 @@ public class ExpressionUtils
                 return new QualifiedNameReference(symbol.toQualifiedName());
             }
         };
+    }
+
+    public static Expression stripNonDeterministicConjuncts(Expression expression)
+    {
+        return combineConjuncts(filter(extractConjuncts(expression), deterministic()));
     }
 }

@@ -5,6 +5,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -22,6 +23,17 @@ public class DeterminismEvaluator
         return deterministic.get();
     }
 
+    public static Predicate<Expression> deterministic()
+    {
+        return new Predicate<Expression>()
+        {
+            @Override
+            public boolean apply(Expression expression)
+            {
+                return isDeterministic(expression);
+            }
+        };
+    }
 
     private static class Visitor
             extends DefaultTraversalVisitor<Void, AtomicBoolean>
