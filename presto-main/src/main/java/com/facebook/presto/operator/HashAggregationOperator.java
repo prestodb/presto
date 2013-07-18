@@ -110,6 +110,7 @@ public class HashAggregationOperator
         private final TupleInfo groupByTupleInfo;
         private final Step step;
         private final int expectedGroups;
+        private final OperatorStats operatorStats;
 
         private Iterator<Page> outputIterator;
 
@@ -136,6 +137,7 @@ public class HashAggregationOperator
             this.taskMemoryManager = checkNotNull(taskMemoryManager, "maxSize is null");
             this.expectedGroups = expectedGroups;
             this.groupByTupleInfo = iterator.getTupleInfos().get(groupChannel);
+            this.operatorStats = operatorStats;
         }
 
         public Iterator<Page> aggregate()
@@ -164,7 +166,7 @@ public class HashAggregationOperator
 
             List<UncompressedBlock> groupByBlocks = new ArrayList<>();
             BlockCursor[] cursors = new BlockCursor[iterator.getChannelCount()];
-            while (!isMaxMemoryExceeded(hashStrategy, aggregates) && iterator.hasNext()) {
+            while (!operatorStats.isDone() && !isMaxMemoryExceeded(hashStrategy, aggregates) && iterator.hasNext()) {
                 Page page = iterator.next();
                 Block[] blocks = page.getBlocks();
                 Slice groupBySlice = ((UncompressedBlock) blocks[groupChannel]).getSlice();
@@ -218,10 +220,6 @@ public class HashAggregationOperator
                     checkState(!cursor.advanceNextPosition());
                 }
             }
-
-            // only partial aggregations can flush early
-            Preconditions.checkState(step == Step.PARTIAL || !isMaxMemoryExceeded(hashStrategy, aggregates),
-                    "Task exceeded max memory size of %s", taskMemoryManager.getMaxMemorySize());
 
             // Only partial aggregation can flush early. Also, check that we are not flushing tiny bits at a time
             checkState(step == Step.PARTIAL || !isMaxMemoryExceeded(hashStrategy, aggregates), "Task exceeded max memory size of %s", taskMemoryManager.getMaxMemorySize());

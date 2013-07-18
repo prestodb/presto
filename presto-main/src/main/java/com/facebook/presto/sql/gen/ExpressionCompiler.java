@@ -541,6 +541,21 @@ public class ExpressionCompiler
                 .invokeStatic(Operations.class, "add", long.class, long.class, long.class)
                 .putVariable(completedPositionsVariable);
 
+        whileLoopBody
+                .comment("if (Operations.shouldCheckDone(completedPositions))")
+                .append(new IfStatement(compilerContext,
+                        new Block(compilerContext)
+                                .getVariable(completedPositionsVariable)
+                                .invokeStatic(AbstractFilterAndProjectOperator.class, "shouldCheckDoneFlag", boolean.class, long.class),
+                        new Block(compilerContext)
+                                .comment("if (operatorStats.isDone()) break;")
+                                .pushThis()
+                                .getField(operatorStatsField)
+                                .invokeVirtual(OperatorStats.class, "isDone", boolean.class)
+                                .ifTrueGoto(done),
+                        NOP
+                ));
+
         // if (filter(cursor))
         IfStatementBuilder ifStatement = new IfStatementBuilder(compilerContext);
         ifStatement.condition(new Block(compilerContext)
@@ -2222,7 +2237,8 @@ public class ExpressionCompiler
                     }
                     else if (type == Slice.class) {
                         hashCode = Operations.hashCode((Slice) testValue);
-                    } else {
+                    }
+                    else {
                         // SQL nulls are not currently encoded as constants, if they are one day, this code will need to be modified
                         throw new IllegalStateException("Error processing in statement: unsupported type " + testValue.getClass().getSimpleName());
                     }

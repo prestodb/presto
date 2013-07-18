@@ -79,6 +79,7 @@ public class InMemoryOrderByOperator
     {
         private final int orderByChannel;
         private final int[] outputChannels;
+        private final OperatorStats operatorStats;
         private final int expectedPositions;
         private final int[] sortFields;
         private final boolean[] sortOrder;
@@ -102,6 +103,7 @@ public class InMemoryOrderByOperator
             this.orderByChannel = orderByChannel;
 
             this.outputChannels = outputChannels;
+            this.operatorStats = operatorStats;
             this.source = source.iterator(operatorStats);
             this.expectedPositions = expectedPositions;
             this.sortFields = sortFields;
@@ -115,7 +117,7 @@ public class InMemoryOrderByOperator
         {
             if (pageIndex == null) {
                 // index all pages
-                pageIndex = new PagesIndex(source, expectedPositions, taskMemoryManager);
+                pageIndex = new PagesIndex(source, operatorStats, expectedPositions, taskMemoryManager);
 
                 // sort the index
                 pageIndex.sort(orderByChannel, sortFields, sortOrder);

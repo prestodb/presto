@@ -45,6 +45,7 @@ public abstract class AbstractFilterAndProjectOperator
             extends AbstractPageIterator
     {
         protected final PageIterator pageIterator;
+        private final OperatorStats operatorStats;
         protected final RecordCursor cursor;
         protected final PageBuilder pageBuilder;
 
@@ -52,6 +53,7 @@ public abstract class AbstractFilterAndProjectOperator
         {
             super(tupleInfos);
             this.pageIterator = pageIterator;
+            this.operatorStats = operatorStats;
             if (pageIterator instanceof RecordProjectionIterator) {
                 this.cursor = ((RecordProjectionIterator) pageIterator).getCursor();
                 operatorStats.addDeclaredSize(cursor.getTotalBytes());
@@ -74,8 +76,12 @@ public abstract class AbstractFilterAndProjectOperator
 
         protected Page iteratorComputeNext()
         {
+            if (operatorStats.isDone()) {
+                return endOfData();
+            }
+
             pageBuilder.reset();
-            while (!pageBuilder.isFull() && pageIterator.hasNext()) {
+            while (!operatorStats.isDone() && !pageBuilder.isFull() && pageIterator.hasNext()) {
                 Page page = pageIterator.next();
                 Block[] blocks = page.getBlocks();
                 filterAndProjectRowOriented(blocks, pageBuilder);
@@ -91,6 +97,10 @@ public abstract class AbstractFilterAndProjectOperator
 
         protected Page cursorComputeNext()
         {
+            if (operatorStats.isDone()) {
+                return endOfData();
+            }
+
             pageBuilder.reset();
             filterAndProjectRowOriented(cursor, pageBuilder);
             if (pageBuilder.isEmpty()) {
@@ -110,5 +120,10 @@ public abstract class AbstractFilterAndProjectOperator
         {
             pageIterator.close();
         }
+    }
+
+    public static boolean shouldCheckDoneFlag(long completedPositions)
+    {
+        return (completedPositions & 0x3FFF) == 0;
     }
 }

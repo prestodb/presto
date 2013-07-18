@@ -101,6 +101,7 @@ public class InMemoryWindowOperator
         private final int expectedPositions;
         private final TaskMemoryManager taskMemoryManager;
         private final PageBuilder pageBuilder;
+        private final OperatorStats operatorStats;
         private PagesIndex pageIndex;
         private int currentPosition;
         private IntComparator partitionComparator;
@@ -133,6 +134,7 @@ public class InMemoryWindowOperator
             this.expectedPositions = expectedPositions;
             this.taskMemoryManager = taskMemoryManager1;
             this.pageBuilder = new PageBuilder(getTupleInfos());
+            this.operatorStats = operatorStats;
         }
 
         @Override
@@ -140,7 +142,11 @@ public class InMemoryWindowOperator
         {
             if (pageIndex == null) {
                 // index all pages
-                pageIndex = new PagesIndex(source, expectedPositions, taskMemoryManager);
+                pageIndex = new PagesIndex(source, operatorStats, expectedPositions, taskMemoryManager);
+
+                if (operatorStats.isDone()) {
+                    return endOfData();
+                }
 
                 // sort by partition fields, then sort fields
                 int[] orderFields = Ints.concat(partitionFields, sortFields);
