@@ -72,6 +72,7 @@ public class HashJoinOperator
         private final int probeJoinChannel;
         private final boolean enableOuterJoin;
         private final SourceHashProvider sourceHashProvider;
+        private final OperatorStats operatorStats;
 
         private SourceHash hash;
 
@@ -84,6 +85,7 @@ public class HashJoinOperator
             super(tupleInfos);
 
             this.sourceHashProvider = sourceHashProvider;
+            this.operatorStats = operatorStats;
 
             this.probeIterator = probeSource.iterator(operatorStats);
             this.probeJoinChannel = probeJoinChannel;
@@ -129,7 +131,7 @@ public class HashJoinOperator
             // advance cursors (only if we have initialized the cursors)
             if (cursors[0] == null || !advanceNextCursorPosition()) {
                 // advance failed, do we have more cursors
-                if (!probeIterator.hasNext()) {
+                if (operatorStats.isDone() || !probeIterator.hasNext()) {
                     return false;
                 }
 

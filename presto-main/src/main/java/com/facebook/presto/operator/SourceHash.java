@@ -16,10 +16,10 @@ public class SourceHash
     private final PagesIndex pagesIndex;
     private final ChannelHash channelHash;
 
-    public SourceHash(PageIterator source, int hashChannel, int expectedPositions, TaskMemoryManager taskMemoryManager)
+    public SourceHash(PageIterator source, int hashChannel, int expectedPositions, TaskMemoryManager taskMemoryManager, OperatorStats operatorStats)
     {
         this.hashChannel = hashChannel;
-        this.pagesIndex = new PagesIndex(source, expectedPositions, taskMemoryManager);
+        this.pagesIndex = new PagesIndex(source, operatorStats, expectedPositions, taskMemoryManager);
         this.channelHash = new ChannelHash(pagesIndex.getIndex(hashChannel), taskMemoryManager);
     }
 

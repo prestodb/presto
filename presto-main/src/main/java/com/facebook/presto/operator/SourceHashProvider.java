@@ -65,7 +65,7 @@ public class SourceHashProvider
 
             try {
                 PageIterator iterator = new StoppablePageIterator(source.iterator(operatorStats));
-                sourceHash = new SourceHash(iterator, hashChannel, expectedPositions, taskMemoryManager);
+                sourceHash = new SourceHash(iterator, hashChannel, expectedPositions, taskMemoryManager, operatorStats);
             }
             catch (Throwable e) {
                 buildException = e;
