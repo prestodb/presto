@@ -89,7 +89,7 @@ public class LogicalPlanner
         PlanSanityChecker.validate(root);
 
         for (PlanOptimizer optimizer : planOptimizers) {
-            root = optimizer.optimize(root, session, symbolAllocator.getTypes(), idAllocator);
+            root = optimizer.optimize(root, session, symbolAllocator.getTypes(), symbolAllocator, idAllocator);
         }
 
         // make sure we produce a valid plan after optimizations run. This is mainly to catch programming errors

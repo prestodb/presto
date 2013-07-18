@@ -17,6 +17,11 @@ public final class TreeRewriter<C>
         return new TreeRewriter<C>(rewriter).rewrite(node, null);
     }
 
+    public static <C, T extends Node> T rewriteWith(NodeRewriter<C> rewriter, T node, C context)
+    {
+        return new TreeRewriter<C>(rewriter).rewrite(node, context);
+    }
+
     public TreeRewriter(NodeRewriter<C> nodeRewriter)
     {
         this.nodeRewriter = nodeRewriter;
