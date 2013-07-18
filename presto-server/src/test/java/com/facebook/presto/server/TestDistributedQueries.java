@@ -9,19 +9,12 @@ import com.facebook.presto.client.Column;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
-import com.facebook.presto.connector.ConnectorManager;
-import com.facebook.presto.failureDetector.FailureDetectorModule;
 import com.facebook.presto.guice.TestingJmxModule;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
-import com.facebook.presto.tpch.TpchBlocksProvider;
-import com.facebook.presto.tpch.TpchModule;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
-import com.facebook.presto.util.InMemoryTpchBlocksProvider;
 import com.facebook.presto.util.MaterializedResult;
 import com.google.common.base.Function;
 import com.google.common.base.Throwables;
@@ -29,20 +22,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Closeables;
 import com.google.common.io.Files;
-import com.google.inject.Binder;
-import com.google.inject.Binding;
 import com.google.inject.Injector;
-import com.google.inject.Module;
-import com.google.inject.Scopes;
-import com.google.inject.TypeLiteral;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.discovery.DiscoveryServerModule;
-import io.airlift.discovery.client.Announcer;
-import io.airlift.discovery.client.CachingServiceSelector;
 import io.airlift.discovery.client.DiscoveryModule;
-import io.airlift.discovery.client.ServiceSelector;
-import io.airlift.event.client.InMemoryEventModule;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.client.HttpClientConfig;
 import io.airlift.http.client.netty.StandaloneNettyAsyncHttpClient;
@@ -54,7 +38,6 @@ import io.airlift.json.JsonModule;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeModule;
 import io.airlift.testing.FileUtils;
-import io.airlift.tracetoken.TraceTokenModule;
 import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
@@ -62,21 +45,17 @@ import org.weakref.jmx.guice.MBeanModule;
 
 import java.io.Closeable;
 import java.io.File;
-import java.lang.reflect.Method;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestDistributedQueries
         extends AbstractTestQueries
@@ -84,8 +63,8 @@ public class TestDistributedQueries
     private static final Logger log = Logger.get(TestDistributedQueries.class.getSimpleName());
     private final JsonCodec<QueryResults> queryResultsCodec = jsonCodec(QueryResults.class);
 
-    private PrestoTestingServer coordinator;
-    private List<PrestoTestingServer> servers;
+    private TestingPrestoServer coordinator;
+    private List<TestingPrestoServer> servers;
     private AsyncHttpClient httpClient;
     private DiscoveryTestingServer discoveryServer;
 
@@ -110,11 +89,11 @@ public class TestDistributedQueries
     {
         try {
             discoveryServer = new DiscoveryTestingServer();
-            coordinator = new PrestoTestingServer(discoveryServer.getBaseUrl());
-            servers = ImmutableList.<PrestoTestingServer>builder()
+            coordinator = createTestingPrestoServer(discoveryServer.getBaseUrl());
+            servers = ImmutableList.<TestingPrestoServer>builder()
                     .add(coordinator)
-                    .add(new PrestoTestingServer(discoveryServer.getBaseUrl()))
-                    .add(new PrestoTestingServer(discoveryServer.getBaseUrl()))
+                    .add(createTestingPrestoServer(discoveryServer.getBaseUrl()))
+                    .add(createTestingPrestoServer(discoveryServer.getBaseUrl()))
                     .build();
         }
         catch (Exception e) {
@@ -127,7 +106,7 @@ public class TestDistributedQueries
                         .setConnectTimeout(new Duration(1, TimeUnit.DAYS))
                         .setReadTimeout(new Duration(10, TimeUnit.DAYS)));
 
-        for (PrestoTestingServer server : servers) {
+        for (TestingPrestoServer server : servers) {
             server.refreshServiceSelectors();
         }
 
@@ -137,12 +116,13 @@ public class TestDistributedQueries
         log.info("Loading complete in %.2fs", Duration.nanosSince(startTime).convertTo(TimeUnit.SECONDS));
     }
 
+    @SuppressWarnings("deprecation")
     @Override
     protected void tearDownQueryFramework()
             throws Exception
     {
         if (servers != null) {
-            for (PrestoTestingServer server : servers) {
+            for (TestingPrestoServer server : servers) {
                 Closeables.closeQuietly(server);
             }
         }
@@ -152,7 +132,7 @@ public class TestDistributedQueries
     private void distributeData(String catalog, String schema)
             throws Exception
     {
-        List<QualifiedTableName> qualifiedTableNames = coordinator.metadata.listTables(new QualifiedTablePrefix(catalog, schema));
+        List<QualifiedTableName> qualifiedTableNames = coordinator.getMetadata().listTables(new QualifiedTablePrefix(catalog, schema));
         for (QualifiedTableName qualifiedTableName : qualifiedTableNames) {
             if (qualifiedTableName.getTableName().equalsIgnoreCase("dual")) {
                 continue;
@@ -273,135 +253,18 @@ public class TestDistributedQueries
         };
     }
 
-    public static class PrestoTestingServer
-            implements Closeable
+    private static TestingPrestoServer createTestingPrestoServer(URI discoveryUri)
+            throws Exception
     {
-        private final File baseDataDir;
-        private final LifeCycleManager lifeCycleManager;
-        private final TestingHttpServer server;
-        private final ImmutableList<ServiceSelector> serviceSelectors;
-        private final NodeManager nodeManager;
-        private final Metadata metadata;
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("query.client.timeout", "10m")
+                .put("exchange.http-client.read-timeout", "1h")
+                .put("failure-detector.warmup-interval", "0ms")
+                .put("failure-detector.enabled", "false") // todo enable failure detector
+                .put("datasources", "native,tpch")
+                .build();
 
-        public PrestoTestingServer(URI discoveryUri)
-                throws Exception
-        {
-            checkNotNull(discoveryUri, "discoveryUri is null");
-
-            // TODO: extract all this into a TestingServer class and unify with TestServer
-            baseDataDir = Files.createTempDir();
-
-            Map<String, String> serverProperties = ImmutableMap.<String, String>builder()
-                    .put("node.environment", "testing")
-                    .put("storage-manager.data-directory", baseDataDir.getPath())
-                    .put("query.client.timeout", "10m")
-                    .put("presto-metastore.db.type", "h2")
-                    .put("exchange.http-client.read-timeout", "1h")
-                    .put("presto-metastore.db.filename", new File(baseDataDir, "db/MetaStore").getPath())
-                    .put("discovery.uri", discoveryUri.toASCIIString())
-                    .put("failure-detector.warmup-interval", "0ms")
-                    .put("failure-detector.enabled", "false") // todo enable failure detector
-                    .put("datasources", "native,tpch")
-                    .put("presto.version", "testversion")
-                    .build();
-
-            Bootstrap app = new Bootstrap(
-                    new NodeModule(),
-                    new DiscoveryModule(),
-                    new TestingHttpServerModule(),
-                    new JsonModule(),
-                    new JaxrsModule(),
-                    new TestingJmxModule(),
-                    new InMemoryEventModule(),
-                    new TraceTokenModule(),
-                    new FailureDetectorModule(),
-                    new ServerMainModule(),
-                    new TpchModule(),
-                    new Module() {
-                        @Override
-                        public void configure(Binder binder)
-                        {
-                            binder.bind(TpchBlocksProvider.class).to(InMemoryTpchBlocksProvider.class).in(Scopes.SINGLETON);
-                        }
-                    });
-
-            Injector injector = app
-                    .strictConfig()
-                    .doNotInitializeLogging()
-                    .setRequiredConfigurationProperties(serverProperties)
-                    .initialize();
-
-            injector.getInstance(Announcer.class).start();
-
-            lifeCycleManager = injector.getInstance(LifeCycleManager.class);
-
-            nodeManager = injector.getInstance(NodeManager.class);
-
-            metadata = injector.getInstance(Metadata.class);
-
-            server = injector.getInstance(TestingHttpServer.class);
-
-            ConnectorManager connectorManager = injector.getInstance(ConnectorManager.class);
-            connectorManager.createConnection("default", "native", ImmutableMap.<String, String>of());
-            connectorManager.createConnection("tpch", "tpch", ImmutableMap.<String, String>of());
-
-            ImmutableList.Builder<ServiceSelector> serviceSelectors = ImmutableList.builder();
-            for (Binding<ServiceSelector> binding : injector.findBindingsByType(TypeLiteral.get(ServiceSelector.class))) {
-                serviceSelectors.add(binding.getProvider().get());
-            }
-            this.serviceSelectors = serviceSelectors.build();
-        }
-
-        public URI getBaseUrl()
-        {
-            return server.getBaseUrl();
-        }
-
-        public void refreshServiceSelectors()
-        {
-            // todo this is super lame
-            // todo add a service selector manager to airlift with a refresh method
-            for (ServiceSelector selector : serviceSelectors) {
-                if (selector instanceof CachingServiceSelector) {
-                    try {
-                        Method refresh = selector.getClass().getDeclaredMethod("refresh");
-                        refresh.setAccessible(true);
-                        Future<?> future = (Future<?>) refresh.invoke(selector);
-                        future.get();
-                    }
-                    catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                }
-            }
-
-            // HACK ALERT!!!! This is to work around the fact that calling get() on the future returned by CachingServiceSelector.refresh() does not actually
-            // guarantee that the selectors have been refreshed. TODO: remove the loop when this is fixed: https://github.com/airlift/airlift/issues/78
-            long start = System.nanoTime();
-            while (!nodeManager.getCurrentNode().isPresent() && Duration.nanosSince(start).convertTo(TimeUnit.SECONDS) < 1) {
-                nodeManager.refreshNodes(true);
-            }
-
-            assertTrue(nodeManager.getCurrentNode().isPresent(), "Current node is not in active set");
-        }
-
-        @Override
-        public void close()
-        {
-            try {
-                if (lifeCycleManager != null) {
-                    try {
-                        lifeCycleManager.stop();
-                    }
-                    catch (Exception e) {
-                        throw Throwables.propagate(e);
-                    }
-                }
-            }
-            finally {
-                FileUtils.deleteRecursively(baseDataDir);
-            }
-        }
+        return new TestingPrestoServer(properties, "testing", discoveryUri);
     }
 
     public static class DiscoveryTestingServer
