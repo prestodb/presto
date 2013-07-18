@@ -276,7 +276,7 @@ public class HttpPageBufferClient
             implements ResponseHandler<PagesResponse, RuntimeException>
     {
         @Override
-        public RuntimeException handleException(Request request, Exception exception)
+        public PagesResponse handleException(Request request, Exception exception)
         {
             throw Throwables.propagate(exception);
         }
