@@ -13,6 +13,7 @@ import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
 import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.google.common.base.Function;
@@ -75,7 +76,11 @@ public class SimplifyExpressions
         public PlanNode rewriteFilter(FilterNode node, Void context, PlanRewriter<Void> planRewriter)
         {
             PlanNode source = planRewriter.rewrite(node.getSource(), context);
-            return new FilterNode(node.getId(), source, simplifyExpression(node.getPredicate()));
+            Expression simplified = simplifyExpression(node.getPredicate());
+            if (simplified.equals(BooleanLiteral.TRUE_LITERAL)) {
+                return source;
+            }
+            return new FilterNode(node.getId(), source, simplified);
         }
 
         @Override
