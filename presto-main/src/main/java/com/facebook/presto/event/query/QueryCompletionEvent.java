@@ -108,7 +108,7 @@ public class QueryCompletionEvent
         if (duration == null) {
             return null;
         }
-        return (long) duration.toMillis();
+        return duration.toMillis();
     }
 
     @Nullable

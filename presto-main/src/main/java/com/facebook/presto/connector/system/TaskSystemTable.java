@@ -142,7 +142,7 @@ public class TaskSystemTable
         if (duration == null) {
             return null;
         }
-        return (long) duration.toMillis();
+        return duration.toMillis();
     }
 
     private Long toBytes(DataSize dataSize)

@@ -20,17 +20,17 @@ public class StageStats
 
     public void addGetSplitDuration(Duration getSplitDuration)
     {
-        getSplitDistribution.add((long) getSplitDuration.convertTo(TimeUnit.NANOSECONDS));
+        getSplitDistribution.add(getSplitDuration.roundTo(TimeUnit.NANOSECONDS));
     }
 
     public void addScheduleTaskDuration(Duration scheduleTaskDuration)
     {
-        scheduleTaskDistribution.add((long) scheduleTaskDuration.convertTo(TimeUnit.NANOSECONDS));
+        scheduleTaskDistribution.add(scheduleTaskDuration.roundTo(TimeUnit.NANOSECONDS));
     }
 
     public void addAddSplitDuration(Duration addSplitDuration)
     {
-        addSplitDistribution.add((long) addSplitDuration.convertTo(TimeUnit.NANOSECONDS));
+        addSplitDistribution.add(addSplitDuration.roundTo(TimeUnit.NANOSECONDS));
     }
 
     public StageStatsSnapshot snapshot()

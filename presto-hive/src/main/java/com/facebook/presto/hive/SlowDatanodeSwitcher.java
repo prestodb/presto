@@ -8,6 +8,7 @@ import com.google.common.base.Throwables;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.airlift.stats.DecayCounter;
@@ -73,7 +74,7 @@ public class SlowDatanodeSwitcher
     public SlowDatanodeSwitcher(HiveClientConfig config)
     {
         Preconditions.checkNotNull(config, "config is null");
-        streamRateDecayAlpha = ExponentialDecay.seconds((int) config.getStreamRateDecay().convertTo(SECONDS));
+        streamRateDecayAlpha = ExponentialDecay.seconds(Ints.checkedCast(config.getStreamRateDecay().roundTo(SECONDS)));
         minMonitorThreshold = config.getMinMonitorThreshold();
         minStreamSamplingTime = config.getMinStreamSamplingTime();
         minGlobalSamples = config.getMinGlobalSamples();
@@ -82,10 +83,10 @@ public class SlowDatanodeSwitcher
 
         Duration unfavoredNodeCacheTime = config.getUnfavoredNodeCacheTime();
         unfavoredNodes = CacheBuilder.newBuilder()
-                .expireAfterWrite((long) unfavoredNodeCacheTime.toMillis(), TimeUnit.MILLISECONDS)
+                .expireAfterWrite(unfavoredNodeCacheTime.toMillis(), TimeUnit.MILLISECONDS)
                 .build();
         Duration globalDistributionDecay = config.getGlobalDistributionDecay();
-        globalDistribution = new Distribution2(ExponentialDecay.seconds((int) globalDistributionDecay.convertTo(SECONDS)));
+        globalDistribution = new Distribution2(ExponentialDecay.seconds(Ints.checkedCast(globalDistributionDecay.roundTo(SECONDS))));
     }
 
     @Managed(description = "Set of data nodes that are currently avoided by this server")
@@ -200,9 +201,9 @@ public class SlowDatanodeSwitcher
 
             if (result > minMonitorThreshold.toBytes()) {
                 Duration duration = Duration.nanosSince(start);
-                long byteRate = (long) (result / duration.convertTo(SECONDS));
+                long byteRate = (long) (result / duration.getValue(SECONDS));
                 globalDistribution.add(byteRate, result);
-                streamByteRate.add(result, (long) duration.convertTo(TimeUnit.MILLISECONDS));
+                streamByteRate.add(result, duration.toMillis());
 
                 if (streamByteRate.getMillis() > minStreamSamplingTime.toMillis()) {
                     List<Long> percentileValues = globalDistribution.getPercentiles(ImmutableList.of(slowStreamPercentile / 100.0, 0.50));

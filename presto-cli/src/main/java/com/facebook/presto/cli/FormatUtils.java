@@ -1,5 +1,6 @@
 package com.facebook.presto.cli;
 
+import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
@@ -48,7 +49,7 @@ public final class FormatUtils
 
     public static String formatCountRate(double count, Duration duration, boolean longForm)
     {
-        double rate = count / duration.convertTo(SECONDS);
+        double rate = count / duration.getValue(SECONDS);
         if (Double.isNaN(rate) || Double.isInfinite(rate)) {
             rate = 0;
         }
@@ -100,7 +101,7 @@ public final class FormatUtils
 
     public static String formatDataRate(DataSize dataSize, Duration duration, boolean longForm)
     {
-        double rate = dataSize.toBytes() / duration.convertTo(SECONDS);
+        double rate = dataSize.toBytes() / duration.getValue(SECONDS);
         if (Double.isNaN(rate) || Double.isInfinite(rate)) {
             rate = 0;
         }
@@ -145,7 +146,7 @@ public final class FormatUtils
 
     public static String formatTime(Duration duration)
     {
-        int totalSeconds = (int) duration.convertTo(SECONDS);
+        int totalSeconds = Ints.saturatedCast(duration.roundTo(SECONDS));
         int minutes = totalSeconds / 60;
         int seconds = totalSeconds % 60;
 
