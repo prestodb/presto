@@ -214,7 +214,7 @@ public class SharedBuffer
 
         // wait for pages to arrive
         if (namedQueue.isEmpty()) {
-            long remainingNanos = (long) maxWait.convertTo(NANOSECONDS);
+            long remainingNanos = maxWait.roundTo(NANOSECONDS);
             long end = System.nanoTime() + remainingNanos;
             while (remainingNanos > 0 && namedQueue.isEmpty() && !namedQueue.isFinished()) {
                 // wait for timeout or notification

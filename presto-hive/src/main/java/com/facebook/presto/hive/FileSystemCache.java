@@ -37,7 +37,7 @@ public class FileSystemCache
     public FileSystemCache(HiveClientConfig hiveClientConfig)
     {
         cache = CacheBuilder.newBuilder()
-                .expireAfterAccess((long) hiveClientConfig.getFileSystemCacheTtl().toMillis(), TimeUnit.MILLISECONDS)
+                .expireAfterAccess(hiveClientConfig.getFileSystemCacheTtl().toMillis(), TimeUnit.MILLISECONDS)
                 .build();
     }
 

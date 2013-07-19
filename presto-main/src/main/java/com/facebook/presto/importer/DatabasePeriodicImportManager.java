@@ -98,7 +98,7 @@ public class DatabasePeriodicImportManager
             }
             catch (UnableToObtainConnectionException e) {
                 log.warn("Failed to connect to database. Will retry again in %s. Exception: %s", TABLE_RETRY_INTERVAL, e.getMessage());
-                Thread.sleep((long) TABLE_RETRY_INTERVAL.toMillis());
+                Thread.sleep(TABLE_RETRY_INTERVAL.toMillis());
             }
         }
     }

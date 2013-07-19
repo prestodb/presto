@@ -80,7 +80,7 @@ public class HeartbeatFailureDetector
         checkNotNull(selector, "selector is null");
         checkNotNull(httpClient, "httpClient is null");
         checkNotNull(config, "config is null");
-        checkArgument((long) config.getHeartbeatInterval().toMillis() >= 1, "heartbeat interval must be >= 1ms");
+        checkArgument(config.getHeartbeatInterval().toMillis() >= 1, "heartbeat interval must be >= 1ms");
 
         this.selector = selector;
         this.httpClient = httpClient;
@@ -327,7 +327,7 @@ public class HeartbeatFailureDetector
                             log.warn(e, "Error pinging service %s (%s)", service.getId(), uri);
                         }
                     }
-                }, (long) heartbeat.toMillis(), (long) heartbeat.toMillis(), TimeUnit.MILLISECONDS);
+                }, heartbeat.toMillis(), heartbeat.toMillis(), TimeUnit.MILLISECONDS);
                 disabledTimestamp = null;
             }
         }

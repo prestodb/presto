@@ -102,7 +102,7 @@ public class RetryDriver
                 else {
                     log.debug("Failed on executing %s with attempt %d, will retry. Exception: %s", callableName, attempt, e.getMessage());
                 }
-                TimeUnit.MILLISECONDS.sleep((long) sleepTime.toMillis());
+                TimeUnit.MILLISECONDS.sleep(sleepTime.toMillis());
             }
         }
     }

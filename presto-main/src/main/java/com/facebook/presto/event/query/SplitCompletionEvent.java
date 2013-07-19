@@ -84,7 +84,7 @@ public class SplitCompletionEvent
         if (duration == null) {
             return null;
         }
-        return (long) duration.toMillis();
+        return duration.toMillis();
     }
 
     @EventField
@@ -114,7 +114,7 @@ public class SplitCompletionEvent
     @EventField
     public long getQueuedTimeMs()
     {
-        return (long) queuedTimeMs.toMillis();
+        return queuedTimeMs.toMillis();
     }
 
     @EventField

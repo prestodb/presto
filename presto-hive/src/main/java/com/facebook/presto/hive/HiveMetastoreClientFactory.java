@@ -4,6 +4,7 @@ import com.facebook.presto.hive.shaded.org.apache.thrift.transport.TSocket;
 import com.facebook.presto.hive.shaded.org.apache.thrift.transport.TTransport;
 import com.facebook.presto.hive.shaded.org.apache.thrift.transport.TTransportException;
 import com.google.common.net.HostAndPort;
+import com.google.common.primitives.Ints;
 import com.google.inject.Inject;
 import io.airlift.units.Duration;
 
@@ -48,7 +49,7 @@ public class HiveMetastoreClientFactory
             Socket socks = new Socket(new Proxy(Proxy.Type.SOCKS, address));
             try {
                 socks.connect(InetSocketAddress.createUnresolved(host, port), (int) timeout.toMillis());
-                socks.setSoTimeout((int) timeout.toMillis());
+                socks.setSoTimeout(Ints.checkedCast(timeout.toMillis()));
             }
             catch (IOException e) {
                 throw new TTransportException(e);

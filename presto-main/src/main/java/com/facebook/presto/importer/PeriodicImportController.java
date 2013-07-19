@@ -69,7 +69,7 @@ public class PeriodicImportController
         if (enabled.get()) {
             if (started.compareAndSet(false, true)) {
                 this.scheduledFuture.set(executorService.scheduleAtFixedRate(new ImportControllerRunnable(),
-                        (long) checkInterval.toMillis(), (long) checkInterval.toMillis(), TimeUnit.MILLISECONDS));
+                        checkInterval.toMillis(), checkInterval.toMillis(), TimeUnit.MILLISECONDS));
             }
             else {
                 log.info("Ignored double start.");

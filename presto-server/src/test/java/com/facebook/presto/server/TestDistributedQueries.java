@@ -113,7 +113,7 @@ public class TestDistributedQueries
         log.info("Loading data...");
         long startTime = System.nanoTime();
         distributeData(catalog, schema);
-        log.info("Loading complete in %.2fs", Duration.nanosSince(startTime).convertTo(TimeUnit.SECONDS));
+        log.info("Loading complete in %.2fs", Duration.nanosSince(startTime).getValue(TimeUnit.SECONDS));
     }
 
     @SuppressWarnings("deprecation")

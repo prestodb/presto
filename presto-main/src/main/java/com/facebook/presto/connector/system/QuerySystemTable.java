@@ -105,7 +105,7 @@ public class QuerySystemTable
         if (duration == null) {
             return null;
         }
-        return (long) duration.toMillis();
+        return duration.toMillis();
     }
 
     private Long toTimeStamp(DateTime dateTime)

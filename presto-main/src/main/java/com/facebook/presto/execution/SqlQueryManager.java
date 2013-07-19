@@ -251,7 +251,7 @@ public class SqlQueryManager
      */
     public void removeExpiredQueries()
     {
-        DateTime oldestAllowedQuery = DateTime.now().minus((long) maxQueryAge.toMillis());
+        DateTime oldestAllowedQuery = DateTime.now().minus(maxQueryAge.toMillis());
         for (QueryExecution queryExecution : queries.values()) {
             try {
                 QueryInfo queryInfo = queryExecution.getQueryInfo();
@@ -269,7 +269,7 @@ public class SqlQueryManager
     public void failAbandonedQueries()
     {
         DateTime now = DateTime.now();
-        DateTime oldestAllowedHeartbeat = now.minus((long) clientTimeout.toMillis());
+        DateTime oldestAllowedHeartbeat = now.minus(clientTimeout.toMillis());
         for (QueryExecution queryExecution : queries.values()) {
             try {
                 QueryInfo queryInfo = queryExecution.getQueryInfo();

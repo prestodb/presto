@@ -351,7 +351,7 @@ public class ExecutionStats
             this.executionStartTime = DateTime.now();
         }
 
-        this.splitQueuedTime.add((long) splitQueuedTime.toMillis());
+        this.splitQueuedTime.add(splitQueuedTime.toMillis());
 
         if (taskManagerStats != null) {
             taskManagerStats.addSplitQueuedTime(splitQueuedTime);
@@ -372,7 +372,7 @@ public class ExecutionStats
 
     public void addTimeToFirstByte(Duration duration)
     {
-        timeToFirstByte.add((long) duration.toMillis());
+        timeToFirstByte.add(duration.toMillis());
 
         if (taskManagerStats != null) {
             taskManagerStats.addTimeToFirstByte(duration);
@@ -381,7 +381,7 @@ public class ExecutionStats
 
     public void addTimeToLastByte(Duration duration)
     {
-        timeToLastByte.add((long) duration.toMillis());
+        timeToLastByte.add(duration.toMillis());
 
         if (taskManagerStats != null) {
             taskManagerStats.addTimeToLastByte(duration);

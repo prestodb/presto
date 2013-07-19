@@ -87,7 +87,7 @@ public class ShardCleaner
         if (enabled) {
             if (started.compareAndSet(false, true)) {
                 this.scheduledFuture.set(executorService.scheduleAtFixedRate(new ShardCleanerRunnable(),
-                        (long) interval.toMillis(), (long) interval.toMillis(), TimeUnit.MILLISECONDS));
+                        interval.toMillis(), interval.toMillis(), TimeUnit.MILLISECONDS));
             }
         }
     }

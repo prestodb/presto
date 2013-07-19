@@ -108,15 +108,15 @@ public abstract class AbstractOperatorBenchmark
 
         return ImmutableMap.<String, Long>builder()
                 // legacy computed values
-                .put("elapsed_millis", (long) executionTime.getWall().toMillis())
-                .put("input_rows_per_second", (long) (inputRows / executionTime.getWall().convertTo(SECONDS)))
-                .put("output_rows_per_second", (long) (outputRows / executionTime.getWall().convertTo(SECONDS)))
+                .put("elapsed_millis", executionTime.getWall().toMillis())
+                .put("input_rows_per_second", (long) (inputRows / executionTime.getWall().getValue(SECONDS)))
+                .put("output_rows_per_second", (long) (outputRows / executionTime.getWall().getValue(SECONDS)))
                 .put("input_megabytes", (long) inputMegaBytes)
-                .put("input_megabytes_per_second", (long) (inputMegaBytes / executionTime.getWall().convertTo(SECONDS)))
+                .put("input_megabytes_per_second", (long) (inputMegaBytes / executionTime.getWall().getValue(SECONDS)))
 
-                .put("wall_nanos", (long) executionTime.getWall().convertTo(NANOSECONDS))
-                .put("cpu_nanos", (long) executionTime.getCpu().convertTo(NANOSECONDS))
-                .put("user_nanos", (long) executionTime.getUser().convertTo(NANOSECONDS))
+                .put("wall_nanos", executionTime.getWall().roundTo(NANOSECONDS))
+                .put("cpu_nanos", executionTime.getCpu().roundTo(NANOSECONDS))
+                .put("user_nanos", executionTime.getUser().roundTo(NANOSECONDS))
                 .put("input_rows", inputRows)
                 .put("input_bytes", inputBytes)
                 .put("output_rows", outputRows)

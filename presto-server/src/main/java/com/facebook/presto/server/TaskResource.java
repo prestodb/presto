@@ -148,7 +148,7 @@ public class TaskResource
         checkNotNull(taskId, "taskId is null");
         checkNotNull(outputId, "outputId is null");
 
-        long remainingNanos = (long) DEFAULT_MAX_WAIT_TIME.convertTo(NANOSECONDS);
+        long remainingNanos = DEFAULT_MAX_WAIT_TIME.roundTo(NANOSECONDS);
         long start = System.nanoTime();
         long end = start + remainingNanos;
         int maxSleepMillis = 1;

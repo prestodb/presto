@@ -174,7 +174,7 @@ public class StateMachine<T>
         }
 
         // wait for task state to change
-        long remainingNanos = (long) maxWait.convertTo(NANOSECONDS);
+        long remainingNanos = maxWait.roundTo(NANOSECONDS);
         long start = System.nanoTime();
         long end = start + remainingNanos;
 

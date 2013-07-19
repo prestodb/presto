@@ -64,8 +64,8 @@ public class CachingHiveMetastore
     {
         this.clientProvider = checkNotNull(hiveCluster, "hiveCluster is null");
 
-        long expiresAfterWriteMillis = (long) checkNotNull(cacheTtl, "cacheTtl is null").toMillis();
-        long refreshMills = (long) checkNotNull(refreshInterval, "refreshInterval is null").toMillis();
+        long expiresAfterWriteMillis = checkNotNull(cacheTtl, "cacheTtl is null").toMillis();
+        long refreshMills = checkNotNull(refreshInterval, "refreshInterval is null").toMillis();
 
         ListeningExecutorService listeningExecutor = MoreExecutors.listeningDecorator(executor);
 

@@ -133,11 +133,11 @@ public class CpuTimer
         }
 
         private static Duration addDurations(Duration a, Duration b) {
-            return new Duration(a.convertTo(NANOSECONDS) + b.convertTo(NANOSECONDS), NANOSECONDS);
+            return new Duration(a.getValue(NANOSECONDS) + b.getValue(NANOSECONDS), NANOSECONDS);
         }
 
         private static Duration subtractDurations(Duration a, Duration b) {
-            return new Duration(Math.max(0, a.convertTo(NANOSECONDS) - b.convertTo(NANOSECONDS)), NANOSECONDS);
+            return new Duration(Math.max(0, a.getValue(NANOSECONDS) - b.getValue(NANOSECONDS)), NANOSECONDS);
         }
 
         @Override
