@@ -5,6 +5,7 @@ import com.facebook.presto.client.StageStats;
 import com.facebook.presto.client.StatementClient;
 import com.facebook.presto.client.StatementStats;
 import com.google.common.base.Strings;
+import com.google.common.primitives.Ints;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -70,7 +71,7 @@ Parallelism: 2.5
                     }
 
                     // update screen if enough time has passed
-                    if (Duration.nanosSince(lastPrint).convertTo(SECONDS) >= 0.5) {
+                    if (Duration.nanosSince(lastPrint).getValue(SECONDS) >= 0.5) {
                         console.repositionCursor();
                         printQueryInfo(client.current());
                         lastPrint = System.nanoTime();
@@ -127,13 +128,13 @@ Parallelism: 2.5
             // CPU Time: 565.2s total,   26K rows/s, 3.85MB/s
             Duration cpuTime = millis(stats.getCpuTimeMillis());
             String cpuTimeSummary = String.format("CPU Time: %.1fs total, %5s rows/s, %8s, %d%% active",
-                    cpuTime.convertTo(SECONDS),
+                    cpuTime.getValue(SECONDS),
                     formatCountRate(stats.getProcessedRows(), cpuTime, false),
                     formatDataRate(bytes(stats.getProcessedBytes()), cpuTime, true),
                     (int) percentage(stats.getCpuTimeMillis(), stats.getWallTimeMillis()));
             out.println(cpuTimeSummary);
 
-            double parallelism = cpuTime.toMillis() / wallTime.toMillis();
+            double parallelism = cpuTime.getValue(MILLISECONDS) / wallTime.getValue(MILLISECONDS);
 
             // Per Node: 3.5 parallelism, 83.3K rows/s, 0.7 MB/s
             String perNodeSummary = String.format("Per Node: %.1f parallelism, %5s rows/s, %8s",
@@ -213,13 +214,13 @@ Parallelism: 2.5
                 // CPU Time: 56.5s total, 36.4K rows/s, 4.44MB/s, 60% active
                 Duration cpuTime = millis(stats.getCpuTimeMillis());
                 String cpuTimeSummary = String.format("CPU Time: %.1fs total, %5s rows/s, %8s, %d%% active",
-                        cpuTime.convertTo(SECONDS),
+                        cpuTime.getValue(SECONDS),
                         formatCountRate(stats.getProcessedRows(), cpuTime, false),
                         formatDataRate(bytes(stats.getProcessedBytes()), cpuTime, true),
                         (int) percentage(stats.getCpuTimeMillis(), stats.getWallTimeMillis()));
                 reprintLine(cpuTimeSummary);
 
-                double parallelism = cpuTime.toMillis() / wallTime.toMillis();
+                double parallelism = cpuTime.getValue(MILLISECONDS) / wallTime.getValue(MILLISECONDS);
 
                 // Per Node: 3.5 parallelism, 83.3K rows/s, 0.7 MB/s
                 String perNodeSummary = String.format("Per Node: %.1f parallelism, %5s rows/s, %8s",
@@ -253,7 +254,7 @@ Parallelism: 2.5
                 reprintLine(progressLine);
             }
             else {
-                String progressBar = formatProgressBar(progressWidth, (int) (Duration.nanosSince(start).convertTo(SECONDS)));
+                String progressBar = formatProgressBar(progressWidth, Ints.saturatedCast(Duration.nanosSince(start).roundTo(SECONDS)));
 
                 // 0:17 [ 103MB,  802K rows] [5.74MB/s, 44.9K rows/s] [    <=>                                  ]
                 String progressLine = String.format("%s [%5s rows, %6s] [%5s rows/s, %8s] [%s]",

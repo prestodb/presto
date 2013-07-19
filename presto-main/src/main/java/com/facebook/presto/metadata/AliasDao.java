@@ -65,7 +65,7 @@ public interface AliasDao
                 }
                 catch (UnableToObtainConnectionException e) {
                     log.warn("Failed to connect to database. Will retry again in %s. Exception: %s", delay, e.getMessage());
-                    Thread.sleep((long) delay.toMillis());
+                    Thread.sleep(delay.toMillis());
                 }
             }
         }

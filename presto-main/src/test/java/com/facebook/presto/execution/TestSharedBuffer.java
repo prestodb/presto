@@ -688,7 +688,7 @@ public class TestSharedBuffer
         public void waitForFinished()
                 throws InterruptedException
         {
-            long wait = (long) (MAX_WAIT.toMillis() * 3);
+            long wait = MAX_WAIT.toMillis() * 3;
             assertTrue(finished.await(wait, TimeUnit.MILLISECONDS), "Job did not finish with in " + wait + " ms");
         }
 
@@ -772,7 +772,7 @@ public class TestSharedBuffer
         public void waitForFinished()
                 throws InterruptedException
         {
-            long wait = (long) (MAX_WAIT.toMillis() * 3);
+            long wait = MAX_WAIT.toMillis() * 3;
             assertTrue(finished.await(wait, TimeUnit.MILLISECONDS), "Job did not finish with in " + wait + " ms");
         }
 

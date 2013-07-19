@@ -14,6 +14,7 @@ import static com.facebook.presto.benchmark.FormatUtils.formatDataSize;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public abstract class AbstractBenchmark
@@ -97,7 +98,7 @@ public abstract class AbstractBenchmark
 
         System.out.printf("%35s :: %8.3f cpu ms :: in %5s,  %6s,  %8s,  %8s :: out %5s,  %6s,  %8s,  %8s%n",
                 getBenchmarkName(),
-                cpuNanos.toMillis(),
+                cpuNanos.getValue(MILLISECONDS),
 
                 formatCount(inputRows),
                 formatDataSize(inputBytes, true),

@@ -125,7 +125,7 @@ public class ExchangeClient
         Page page = pageBuffer.poll();
         // only wait for a page if we have remote clients
         if (page == null && maxWaitTime.toMillis() >= 1 && !allClients.isEmpty()) {
-            page = pageBuffer.poll((long) maxWaitTime.toMillis(), TimeUnit.MILLISECONDS);
+            page = pageBuffer.poll(maxWaitTime.toMillis(), TimeUnit.MILLISECONDS);
         }
 
         if (page == NO_MORE_PAGES) {

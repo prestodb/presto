@@ -72,8 +72,8 @@ public class HdfsConfiguration
 
         config.setBoolean("dfs.read.shortcircuit", true);
         config.setBoolean("dfs.read.shortcircuit.fallbackwhenfail", true);
-        config.setInt("dfs.socket.timeout", Ints.saturatedCast((long) dfsTimeout.toMillis()));
-        config.setInt("ipc.ping.interval", Ints.saturatedCast((long) dfsTimeout.toMillis()));
+        config.setInt("dfs.socket.timeout", Ints.checkedCast(dfsTimeout.toMillis()));
+        config.setInt("ipc.ping.interval", Ints.checkedCast(dfsTimeout.toMillis()));
 
         // Enable JMX export of stats for DFSClient
         try {

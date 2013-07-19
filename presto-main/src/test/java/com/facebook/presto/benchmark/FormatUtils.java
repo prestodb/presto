@@ -45,7 +45,7 @@ final class FormatUtils
 
     public static String formatCountRate(double count, Duration duration, boolean longForm)
     {
-        double rate = count / duration.convertTo(SECONDS);
+        double rate = count / duration.getValue(SECONDS);
         if (Double.isNaN(rate) || Double.isInfinite(rate)) {
             rate = 0;
         }
@@ -97,7 +97,7 @@ final class FormatUtils
 
     public static String formatDataRate(DataSize dataSize, Duration duration, boolean longForm)
     {
-        double rate = dataSize.toBytes() / duration.convertTo(SECONDS);
+        double rate = dataSize.toBytes() / duration.getValue(SECONDS);
         if (Double.isNaN(rate) || Double.isInfinite(rate)) {
             rate = 0;
         }

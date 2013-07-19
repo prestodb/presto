@@ -117,12 +117,12 @@ public class SqlTaskManagerStats
 
     public void addSplitCpuTime(Duration duration)
     {
-        splitCpuTime.update((long) duration.toMillis());
+        splitCpuTime.update(duration.toMillis());
     }
 
     public void addSplitWallTime(Duration duration)
     {
-        splitWallTime.update((long) duration.toMillis());
+        splitWallTime.update(duration.toMillis());
     }
 
     public void addCompletedPositions(long positions)
@@ -137,16 +137,16 @@ public class SqlTaskManagerStats
 
     public void addSplitQueuedTime(Duration duration)
     {
-        splitQueuedTime.add((long) duration.toMillis());
+        splitQueuedTime.add(duration.toMillis());
     }
 
     public void addTimeToFirstByte(Duration duration)
     {
-        timeToFirstByte.add((long) duration.toMillis());
+        timeToFirstByte.add(duration.toMillis());
     }
 
     public void addTimeToLastByte(Duration duration)
     {
-        timeToLastByte.add((long) duration.toMillis());
+        timeToLastByte.add(duration.toMillis());
     }
 }

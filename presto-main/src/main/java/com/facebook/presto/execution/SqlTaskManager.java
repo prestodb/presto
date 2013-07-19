@@ -306,7 +306,7 @@ public class SqlTaskManager
 
     public void removeOldTasks()
     {
-        DateTime oldestAllowedTask = DateTime.now().minus((long) infoCacheTime.toMillis());
+        DateTime oldestAllowedTask = DateTime.now().minus(infoCacheTime.toMillis());
         for (TaskInfo taskInfo : taskInfos.values()) {
             try {
                 DateTime endTime = taskInfo.getStats().getEndTime();
@@ -323,7 +323,7 @@ public class SqlTaskManager
     public void failAbandonedTasks()
     {
         DateTime now = DateTime.now();
-        DateTime oldestAllowedHeartbeat = now.minus((long) clientTimeout.toMillis());
+        DateTime oldestAllowedHeartbeat = now.minus(clientTimeout.toMillis());
         for (TaskExecution taskExecution : tasks.values()) {
             try {
                 TaskInfo taskInfo = taskExecution.getTaskInfo(false);
