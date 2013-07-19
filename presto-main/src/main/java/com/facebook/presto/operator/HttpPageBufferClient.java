@@ -73,7 +73,7 @@ public class HttpPageBufferClient
     @GuardedBy("this")
     private boolean closed;
     @GuardedBy("this")
-    private AsyncHttpResponseFuture<PagesResponse, RuntimeException> future;
+    private AsyncHttpResponseFuture<PagesResponse> future;
     @GuardedBy("this")
     private DateTime lastUpdate = DateTime.now();
     @GuardedBy("this")
