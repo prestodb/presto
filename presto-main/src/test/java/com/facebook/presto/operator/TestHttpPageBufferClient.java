@@ -274,7 +274,7 @@ public class TestHttpPageBufferClient
 
         // request processor will throw exception, verify the request is marked a completed
         client.scheduleRequest();
-        requestComplete.await(1, TimeUnit.HOURS);
+        requestComplete.await(1, TimeUnit.SECONDS);
         assertEquals(callback.getPages().size(), 0);
         assertEquals(callback.getCompletedRequests(), 1);
         assertEquals(callback.getFinishedBuffers(), 0);
