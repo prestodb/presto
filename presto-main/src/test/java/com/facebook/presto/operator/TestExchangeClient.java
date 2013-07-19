@@ -2,7 +2,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.block.BlockAssertions;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.util.concurrent.Uninterruptibles;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
@@ -18,6 +17,8 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.presto.operator.PageBufferClientStatus.uriGetter;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static com.google.common.collect.Maps.uniqueIndex;
+import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
+import static io.airlift.testing.Assertions.assertLessThan;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -156,6 +157,8 @@ public class TestExchangeClient
         exchangeClient.noMoreLocations();
         assertEquals(exchangeClient.isClosed(), false);
 
+        long start = System.nanoTime();
+
         // add a pages
         processor.addPage(location, createPage(1));
         processor.addPage(location, createPage(2));
@@ -167,7 +170,8 @@ public class TestExchangeClient
         // wait for a page to be fetched
         do {
             // there is no thread coordination here, so sleep is the best we can do
-            Uninterruptibles.sleepUninterruptibly(100, TimeUnit.MILLISECONDS);
+            assertLessThan(Duration.nanosSince(start), new Duration(5, TimeUnit.SECONDS));
+            sleepUninterruptibly(100, TimeUnit.MILLISECONDS);
         } while (exchangeClient.getStatus().getBufferedPages() == 0);
 
         // client should have sent a single request for a single page
@@ -178,7 +182,8 @@ public class TestExchangeClient
         // remove the page and wait for the client to fetch another page
         assertPageEquals(exchangeClient.getNextPage(new Duration(0, TimeUnit.SECONDS)), createPage(1));
         do {
-            Uninterruptibles.sleepUninterruptibly(100, TimeUnit.MILLISECONDS);
+            assertLessThan(Duration.nanosSince(start), new Duration(5, TimeUnit.SECONDS));
+            sleepUninterruptibly(100, TimeUnit.MILLISECONDS);
         } while (exchangeClient.getStatus().getBufferedPages() == 0);
 
         // client should have sent a single request for a single page
@@ -189,7 +194,8 @@ public class TestExchangeClient
         // remove the page and wait for the client to fetch another page
         assertPageEquals(exchangeClient.getNextPage(new Duration(0, TimeUnit.SECONDS)), createPage(2));
         do {
-            Uninterruptibles.sleepUninterruptibly(100, TimeUnit.MILLISECONDS);
+            assertLessThan(Duration.nanosSince(start), new Duration(5, TimeUnit.SECONDS));
+            sleepUninterruptibly(100, TimeUnit.MILLISECONDS);
         } while (exchangeClient.getStatus().getBufferedPages() == 0);
 
         // client should have sent a single request for a single page
@@ -229,7 +235,7 @@ public class TestExchangeClient
 
         // fetch a page
         assertEquals(exchangeClient.isClosed(), false);
-        assertPageEquals(exchangeClient.getNextPage(new Duration(1, TimeUnit.HOURS)), createPage(1));
+        assertPageEquals(exchangeClient.getNextPage(new Duration(1, TimeUnit.SECONDS)), createPage(1));
 
         // close client while pages are still available
         exchangeClient.close();
