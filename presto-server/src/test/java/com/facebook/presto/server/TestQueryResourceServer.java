@@ -184,7 +184,7 @@ public class TestQueryResourceServer
             implements ResponseHandler<URI, RuntimeException>
     {
         @Override
-        public RuntimeException handleException(Request request, Exception exception)
+        public URI handleException(Request request, Exception exception)
         {
             throw Throwables.propagate(exception);
         }

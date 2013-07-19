@@ -2,12 +2,14 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.failureDetector.FailureDetectorModule;
 import com.facebook.presto.metadata.CatalogManager;
+import com.facebook.presto.metadata.NodeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.discovery.client.Announcer;
 import io.airlift.discovery.client.DiscoveryModule;
+import io.airlift.discovery.client.ServiceSelectorManager;
 import io.airlift.event.client.HttpEventModule;
 import io.airlift.event.client.JsonEventModule;
 import io.airlift.floatingdecimal.FloatingDecimal;
@@ -67,6 +69,9 @@ public class Main implements Runnable
             injector.getInstance(CatalogManager.class).loadCatalogs();
 
             injector.getInstance(Announcer.class).start();
+
+            injector.getInstance(ServiceSelectorManager.class).attemptRefresh();
+            injector.getInstance(NodeManager.class).refreshNodes(true);
 
             log.info("======== SERVER STARTED ========");
         }
