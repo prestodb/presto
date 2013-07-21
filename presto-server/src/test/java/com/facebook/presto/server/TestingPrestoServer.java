@@ -2,7 +2,6 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.failureDetector.FailureDetectorModule;
-import com.facebook.presto.guice.TestingJmxModule;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.tpch.TpchBlocksProvider;
@@ -28,6 +27,7 @@ import io.airlift.event.client.InMemoryEventModule;
 import io.airlift.http.server.testing.TestingHttpServer;
 import io.airlift.http.server.testing.TestingHttpServerModule;
 import io.airlift.jaxrs.JaxrsModule;
+import io.airlift.jmx.testing.TestingJmxModule;
 import io.airlift.json.JsonModule;
 import io.airlift.node.testing.TestingNodeModule;
 import io.airlift.testing.FileUtils;
