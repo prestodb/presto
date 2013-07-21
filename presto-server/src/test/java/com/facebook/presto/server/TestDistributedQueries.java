@@ -16,35 +16,18 @@ import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.util.MaterializedResult;
 import com.google.common.base.Function;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Closeables;
-import com.google.common.io.Files;
-import com.google.inject.Injector;
-import io.airlift.bootstrap.Bootstrap;
-import io.airlift.bootstrap.LifeCycleManager;
-import io.airlift.discovery.DiscoveryServerModule;
-import io.airlift.discovery.client.DiscoveryModule;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.client.HttpClientConfig;
 import io.airlift.http.client.netty.StandaloneNettyAsyncHttpClient;
-import io.airlift.http.server.testing.TestingHttpServer;
-import io.airlift.http.server.testing.TestingHttpServerModule;
-import io.airlift.jaxrs.JaxrsModule;
-import io.airlift.jmx.testing.TestingJmxModule;
 import io.airlift.json.JsonCodec;
-import io.airlift.json.JsonModule;
 import io.airlift.log.Logger;
-import io.airlift.node.NodeModule;
-import io.airlift.testing.FileUtils;
 import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
-import org.weakref.jmx.guice.MBeanModule;
 
-import java.io.Closeable;
-import java.io.File;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
@@ -60,13 +43,14 @@ import static org.testng.Assert.assertEquals;
 public class TestDistributedQueries
         extends AbstractTestQueries
 {
+    private static final String ENVIRONMENT = "testing";
     private static final Logger log = Logger.get(TestDistributedQueries.class.getSimpleName());
     private final JsonCodec<QueryResults> queryResultsCodec = jsonCodec(QueryResults.class);
 
     private TestingPrestoServer coordinator;
     private List<TestingPrestoServer> servers;
     private AsyncHttpClient httpClient;
-    private DiscoveryTestingServer discoveryServer;
+    private TestingDiscoveryServer discoveryServer;
 
     @Override
     protected int getNodeCount()
@@ -88,7 +72,7 @@ public class TestDistributedQueries
             throws Exception
     {
         try {
-            discoveryServer = new DiscoveryTestingServer();
+            discoveryServer = new TestingDiscoveryServer(ENVIRONMENT);
             coordinator = createTestingPrestoServer(discoveryServer.getBaseUrl());
             servers = ImmutableList.<TestingPrestoServer>builder()
                     .add(coordinator)
@@ -264,68 +248,6 @@ public class TestDistributedQueries
                 .put("datasources", "native,tpch")
                 .build();
 
-        return new TestingPrestoServer(properties, "testing", discoveryUri);
-    }
-
-    public static class DiscoveryTestingServer
-            implements Closeable
-    {
-        private final LifeCycleManager lifeCycleManager;
-        private final TestingHttpServer server;
-        private final File tempDir;
-
-        public DiscoveryTestingServer()
-                throws Exception
-        {
-            tempDir = Files.createTempDir();
-
-            Map<String, String> serverProperties = ImmutableMap.<String, String>builder()
-                    .put("node.environment", "testing")
-                    .put("static.db.location", tempDir.getAbsolutePath())
-                    .build();
-
-            Bootstrap app = new Bootstrap(
-                    new MBeanModule(),
-                    new NodeModule(),
-                    new TestingHttpServerModule(),
-                    new JsonModule(),
-                    new JaxrsModule(),
-                    new DiscoveryServerModule(),
-                    new DiscoveryModule(),
-                    new TestingJmxModule());
-
-            Injector injector = app
-                    .strictConfig()
-                    .doNotInitializeLogging()
-                    .setRequiredConfigurationProperties(serverProperties)
-                    .initialize();
-
-            lifeCycleManager = injector.getInstance(LifeCycleManager.class);
-
-            server = injector.getInstance(TestingHttpServer.class);
-        }
-
-        public URI getBaseUrl()
-        {
-            return server.getBaseUrl();
-        }
-
-        @Override
-        public void close()
-        {
-            try {
-                if (lifeCycleManager != null) {
-                    try {
-                        lifeCycleManager.stop();
-                    }
-                    catch (Exception e) {
-                        Throwables.propagate(e);
-                    }
-                }
-            }
-            finally {
-                FileUtils.deleteRecursively(tempDir);
-            }
-        }
+        return new TestingPrestoServer(properties, ENVIRONMENT, discoveryUri);
     }
 }
