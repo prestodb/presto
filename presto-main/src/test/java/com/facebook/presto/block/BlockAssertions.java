@@ -15,6 +15,7 @@ import org.testng.Assert;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
@@ -198,6 +199,16 @@ public class BlockAssertions
     }
 
     public static Block createBooleansBlock(@Nullable Boolean... values)
+    {
+        return createBooleansBlock(Arrays.asList(values));
+    }
+
+    public static Block createBooleansBlock(Boolean value, int count)
+    {
+        return createBooleansBlock(Collections.nCopies(count, value));
+    }
+
+    public static Block createBooleansBlock(Iterable<Boolean> values)
     {
         BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_BOOLEAN);
 
