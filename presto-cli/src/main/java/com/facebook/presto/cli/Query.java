@@ -101,6 +101,9 @@ public class Query
                 System.out.println("(query aborted by user)");
                 client.close();
             }
+            catch (IOException e) {
+                throw Throwables.propagate(e);
+            }
         }
 
         if (statusPrinter != null) {
@@ -126,6 +129,7 @@ public class Query
     }
 
     private void renderResults(PrintStream out, OutputFormat format, boolean interactive, QueryResults results)
+            throws IOException
     {
         List<String> fieldNames = Lists.transform(results.getColumns(), Column.nameGetter());
         if (interactive) {
@@ -137,6 +141,7 @@ public class Query
     }
 
     private void pageOutput(OutputFormat format, List<String> fieldNames)
+            throws IOException
     {
         // ignore the user pressing ctrl-C while in the pager
         ignoreUserInterrupt.set(true);
@@ -145,18 +150,13 @@ public class Query
                 OutputHandler handler = createOutputHandler(format, writer, fieldNames)) {
             handler.processRows(client);
         }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
-        }
     }
 
     private void sendOutput(PrintStream out, OutputFormat format, List<String> fieldNames)
+            throws IOException
     {
         try (OutputHandler handler = createOutputHandler(format, createWriter(out), fieldNames)) {
             handler.processRows(client);
-        }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
         }
     }
 
