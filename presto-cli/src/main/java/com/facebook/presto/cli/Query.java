@@ -6,12 +6,15 @@ import com.facebook.presto.client.ErrorLocation;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
 import com.google.common.base.Charsets;
+import com.google.common.base.Optional;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import com.google.common.io.CountingOutputStream;
 import io.airlift.log.Logger;
+import io.airlift.units.DataSize;
 import org.fusesource.jansi.Ansi;
 import sun.misc.Signal;
 import sun.misc.SignalHandler;
@@ -27,11 +30,17 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.cli.ConsolePrinter.REAL_TERMINAL;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Strings.isNullOrEmpty;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.String.format;
 
 public class Query
         implements Closeable
 {
+    // Size of async pager buffer in bytes
+    private static final String ENV_BUFFER_LIMIT = "PRESTO_BUFFER_LIMIT";
+    private boolean bufferLimitExceeded = false;
+
     private static final Logger log = Logger.get(Query.class);
 
     private static final Signal SIGINT = new Signal("INT");
@@ -107,11 +116,19 @@ public class Query
         }
 
         if (statusPrinter != null) {
+            if (bufferLimitExceeded) {
+               client.close();
+            }
             statusPrinter.printFinalInfo();
         }
 
         if (client.isClosed()) {
-            errorChannel.println("Query aborted by user");
+            if (bufferLimitExceeded) {
+                errorChannel.println("Buffer limit exceeded");
+            }
+            else {
+                errorChannel.println("Query aborted by user");
+            }
         }
         else if (client.isGone()) {
             errorChannel.println("Query is gone (server restarted?)");
@@ -146,23 +163,36 @@ public class Query
         // ignore the user pressing ctrl-C while in the pager
         ignoreUserInterrupt.set(true);
 
-        try (Writer writer = createWriter(Pager.create());
-                OutputHandler handler = createOutputHandler(format, writer, fieldNames)) {
+        OutputStream async = AsyncBufferedOutputStream.create(Pager.create());
+        CountingOutputStream out = new CountingOutputStream(async);
+
+        DataSize limit = new DataSize(10, MEGABYTE);
+        String bufferLimit = getBufferLimit();
+        if (!isNullOrEmpty(bufferLimit)) {
+            limit = DataSize.valueOf(bufferLimit);
+        }
+        OutputLimiter limitedOut = new OutputLimiter(out, limit);
+
+        try (Writer writer = createWriter(out);
+                OutputHandler handler = createOutputHandler(format, writer, fieldNames, Optional.of(limitedOut))) {
             handler.processRows(client);
+            if (limitedOut.isBufferFull()) {
+                bufferLimitExceeded = true;
+            }
         }
     }
 
     private void sendOutput(PrintStream out, OutputFormat format, List<String> fieldNames)
             throws IOException
     {
-        try (OutputHandler handler = createOutputHandler(format, createWriter(out), fieldNames)) {
+        try (OutputHandler handler = createOutputHandler(format, createWriter(out), fieldNames, Optional.<OutputLimiter>absent())) {
             handler.processRows(client);
         }
     }
 
-    private static OutputHandler createOutputHandler(OutputFormat format, Writer writer, List<String> fieldNames)
+    private static OutputHandler createOutputHandler(OutputFormat format, Writer writer, List<String> fieldNames, Optional<OutputLimiter> limitedOut)
     {
-        return new OutputHandler(createOutputPrinter(format, writer, fieldNames));
+        return new OutputHandler(createOutputPrinter(format, writer, fieldNames), limitedOut);
     }
 
     private static OutputPrinter createOutputPrinter(OutputFormat format, Writer writer, List<String> fieldNames)
@@ -254,5 +284,10 @@ public class Query
         if (results.getError().getFailureInfo() != null) {
             results.getError().getFailureInfo().toException().printStackTrace(out);
         }
+    }
+
+    private String getBufferLimit()
+    {
+        return System.getenv(ENV_BUFFER_LIMIT);
     }
 }

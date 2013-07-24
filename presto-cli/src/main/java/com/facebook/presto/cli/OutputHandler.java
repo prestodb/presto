@@ -1,6 +1,7 @@
 package com.facebook.presto.cli;
 
 import com.facebook.presto.client.StatementClient;
+import com.google.common.base.Optional;
 import io.airlift.units.Duration;
 
 import java.io.Closeable;
@@ -23,12 +24,14 @@ public final class OutputHandler
     private final AtomicBoolean closed = new AtomicBoolean();
     private final List<List<?>> rowBuffer = new ArrayList<>(MAX_BUFFERED_ROWS);
     private final OutputPrinter printer;
+    private final Optional<OutputLimiter> limitedOut;
 
     private long bufferStart;
 
-    public OutputHandler(OutputPrinter printer)
+    public OutputHandler(OutputPrinter printer, Optional<OutputLimiter> limitedOut)
     {
         this.printer = checkNotNull(printer, "printer is null");
+        this.limitedOut = checkNotNull(limitedOut, "limitedOut is null");
     }
 
     public void processRow(List<?> row)
@@ -67,6 +70,11 @@ public final class OutputHandler
 
             if (nanosSince(bufferStart).compareTo(MAX_BUFFER_TIME) >= 0) {
                 flush(false);
+            }
+
+            if (limitedOut.isPresent() && limitedOut.get().isBufferFull()) {
+                flush(true);
+                return;
             }
 
             client.advance();
