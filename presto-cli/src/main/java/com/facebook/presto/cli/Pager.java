@@ -82,7 +82,7 @@ public class Pager
         }
     }
 
-    private static RuntimeException propagateIOException(IOException e)
+    private static IOException propagateIOException(IOException e)
             throws IOException
     {
         // TODO: check if the pager exited and verify the exit status?
