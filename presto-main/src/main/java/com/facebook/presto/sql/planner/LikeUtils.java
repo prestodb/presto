@@ -1,17 +1,36 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.util.ThreadLocalCache;
+import com.google.common.base.Charsets;
 import com.google.common.base.Objects;
 import io.airlift.slice.Slice;
+import org.jcodings.specific.UTF8Encoding;
 import org.joni.Option;
 import org.joni.Regex;
+import org.joni.Syntax;
 
 import javax.annotation.Nonnull;
 
 import static com.google.common.base.Charsets.UTF_8;
+import static org.joni.constants.MetaChar.INEFFECTIVE_META_CHAR;
 
 public final class LikeUtils
 {
+    private final static Syntax SYNTAX = new Syntax(
+            Syntax.OP_DOT_ANYCHAR | Syntax.OP_ASTERISK_ZERO_INF | Syntax.OP_LINE_ANCHOR,
+            0,
+            0,
+            Option.NONE,
+            new Syntax.MetaCharTable(
+                    '\\',                           /* esc */
+                    INEFFECTIVE_META_CHAR,          /* anychar '.' */
+                    INEFFECTIVE_META_CHAR,          /* anytime '*' */
+                    INEFFECTIVE_META_CHAR,          /* zero or one time '?' */
+                    INEFFECTIVE_META_CHAR,          /* one or more time '+' */
+                    INEFFECTIVE_META_CHAR           /* anychar anytime */
+            )
+    );
+
     private LikeUtils()
     {
     }
@@ -111,17 +130,8 @@ public final class LikeUtils
                             case '\\':
                             case '^':
                             case '$':
-                            case '{':
-                            case '}':
-                            case '[':
-                            case ']':
-                            case '(':
-                            case ')':
                             case '.':
                             case '*':
-                            case '?':
-                            case '+':
-                            case '|':
                                 regex.append('\\');
                         }
 
@@ -131,7 +141,9 @@ public final class LikeUtils
             }
         }
         regex.append('$');
-        return new Regex(regex);
+
+        byte[] bytes = regex.toString().getBytes(Charsets.UTF_8);
+        return new Regex(bytes, 0, bytes.length, 0, UTF8Encoding.INSTANCE, SYNTAX);
     }
 
     public static class LikePatternCache
