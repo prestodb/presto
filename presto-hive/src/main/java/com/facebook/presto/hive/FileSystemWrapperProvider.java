@@ -19,29 +19,36 @@ public class FileSystemWrapperProvider
 {
     private final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
     private final FileSystemCache fileSystemCache;
-    private final SlowDatanodeSwitcher slowDatanodeSwitcher;
-    private final boolean slowDatanodeSwitcherEnabled;
 
     @Inject
-    public FileSystemWrapperProvider(FileSystemCache fileSystemCache, SlowDatanodeSwitcher slowDatanodeSwitcher, HiveClientConfig config)
+    public FileSystemWrapperProvider(FileSystemCache fileSystemCache)
     {
         this.fileSystemCache = checkNotNull(fileSystemCache, "fileSystemCache is null");
-        this.slowDatanodeSwitcher = checkNotNull(slowDatanodeSwitcher, "slowDatanodeSwitcher is null");
-        slowDatanodeSwitcherEnabled = checkNotNull(config, "config is null").getSlowDatanodeSwitchingEnabled();
     }
 
     @Override
     public FileSystemWrapper get()
     {
-        Function<FileSystem, FileSystem> fileSystemWrapper = createThreadContextClassLoaderWrapper();
-        if (slowDatanodeSwitcherEnabled && SlowDatanodeSwitcher.isSupported()) {
-            fileSystemWrapper = Functions.compose(fileSystemWrapper, slowDatanodeSwitcher.createFileSystemWrapper());
-        }
         return new FileSystemWrapper(
-                fileSystemWrapper,
-                fileSystemCache.createPathWrapper(),
-                Functions.<FileStatus>identity()
+                createFileSystemWrapper(),
+                createPathWrapper(),
+                createFileStatusWrapper()
         );
+    }
+
+    Function<FileSystem, FileSystem> createFileSystemWrapper()
+    {
+        return createThreadContextClassLoaderWrapper();
+    }
+
+    Function<Path, Path> createPathWrapper()
+    {
+        return fileSystemCache.createPathWrapper();
+    }
+
+    Function<FileStatus, FileStatus> createFileStatusWrapper()
+    {
+        return Functions.<FileStatus>identity();
     }
 
     private Function<FileSystem, FileSystem> createThreadContextClassLoaderWrapper()
