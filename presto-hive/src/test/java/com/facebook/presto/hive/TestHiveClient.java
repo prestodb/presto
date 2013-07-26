@@ -28,9 +28,7 @@ public class TestHiveClient
             hiveClientConfig.setMetastoreSocksProxy(HostAndPort.fromString(proxy));
         }
 
-        FileSystemWrapper fileSystemWrapper = new FileSystemWrapperProvider(new FileSystemCache(hiveClientConfig),
-                new SlowDatanodeSwitcher(hiveClientConfig),
-                hiveClientConfig).get();
+        FileSystemWrapper fileSystemWrapper = new FileSystemWrapperProvider(new FileSystemCache(hiveClientConfig)).get();
 
         HiveCluster hiveCluster = new TestingHiveCluster(hiveClientConfig, host, port);
         ListeningExecutorService executor = MoreExecutors.listeningDecorator(Executors.newCachedThreadPool(new ThreadFactoryBuilder().setDaemon(true).build()));
