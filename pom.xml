@@ -335,6 +335,12 @@
             </dependency>
 
             <dependency>
+                <groupId>org.jruby.jcodings</groupId>
+                <artifactId>jcodings</artifactId>
+                <version>1.0.8</version>
+            </dependency>
+
+            <dependency>
                 <groupId>org.antlr</groupId>
                 <artifactId>antlr-runtime</artifactId>
                 <version>${dep.antlr.version}</version>
