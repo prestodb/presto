@@ -16,23 +16,17 @@ public class HivePlugin
 {
     private Map<String, String> optionalConfig = ImmutableMap.of();
 
-    private SlowDatanodeSystemTable slowDatanodeSystemTable;
-
     @Override
     public void setOptionalConfig(Map<String, String> optionalConfig)
     {
         this.optionalConfig = ImmutableMap.copyOf(checkNotNull(optionalConfig, "optionalConfig is null"));
-        slowDatanodeSystemTable = new SlowDatanodeSystemTable(checkNotNull(optionalConfig.get("node.id"), "node.id is null"));
     }
 
     @Override
     public <T> List<T> getServices(Class<T> type)
     {
         if (type == ConnectorFactory.class) {
-            return ImmutableList.of(type.cast(new HiveConnectorFactory(optionalConfig, getClassLoader(), slowDatanodeSystemTable)));
-        }
-        if (type == SystemTable.class) {
-            return ImmutableList.of(type.cast(slowDatanodeSystemTable));
+            return ImmutableList.of(type.cast(new HiveConnectorFactory(optionalConfig, getClassLoader())));
         }
         return ImmutableList.of();
     }

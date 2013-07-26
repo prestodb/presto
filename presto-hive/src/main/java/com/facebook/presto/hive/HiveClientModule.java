@@ -35,7 +35,6 @@ public class HiveClientModule
 
         binder.bind(FileSystemCache.class).in(Scopes.SINGLETON);
         binder.bind(HdfsConfiguration.class).in(Scopes.SINGLETON);
-        binder.bind(SlowDatanodeSwitcher.class).in(Scopes.SINGLETON);
         binder.bind(FileSystemWrapper.class).toProvider(FileSystemWrapperProvider.class).in(Scopes.SINGLETON);
         binder.bind(HdfsEnvironment.class).in(Scopes.SINGLETON);
         bindConfig(binder).to(HiveClientConfig.class);
@@ -48,10 +47,6 @@ public class HiveClientModule
         binder.bind(HiveCluster.class).to(DiscoveryLocatedHiveCluster.class).in(Scopes.SINGLETON);
         binder.bind(HiveMetastoreClientFactory.class).in(Scopes.SINGLETON);
         discoveryBinder(binder).bindSelector("hive-metastore");
-
-        ExportBinder.newExporter(binder)
-                .export(SlowDatanodeSwitcher.class)
-                .as("com.facebook.presto.hive:type=SlowDatanodeSwitcher,name=" + connectorId);
     }
 
     @ForHiveClient
