@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.Uninterruptibles;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -238,7 +239,21 @@ public class SqlTaskManager
 
         TaskExecution taskExecution = tasks.get(taskId);
         if (taskExecution == null) {
-            throw new NoSuchElementException("Unknown query task " + taskId);
+            TaskInfo taskInfo = taskInfos.get(taskId);
+            if (taskInfo == null) {
+                throw new NoSuchElementException("Unknown query task " + taskId);
+            }
+            else if (taskInfo.getState() == TaskState.FAILED) {
+                // for a failed query, do not return a closed buffer as a
+                // closed buffer signals to upstream tasks that everything
+                // finished cleanly
+                Uninterruptibles.sleepUninterruptibly(100, TimeUnit.MILLISECONDS);
+                return BufferResult.emptyResults(startingSequenceId, false);
+            }
+            else {
+                // query is finished
+                return BufferResult.emptyResults(taskInfo.getOutputBuffers().getMasterSequenceId(), true);
+            }
         }
         taskExecution.recordHeartbeat();
         return taskExecution.getResults(outputName, startingSequenceId, maxSize, maxWaitTime);
