@@ -153,7 +153,6 @@ public class TaskResource
         long end = start + remainingNanos;
         int maxSleepMillis = 1;
 
-        Exception lastError = null;
         while (remainingNanos > 0) {
             // todo we need a much better way to determine if a task is unknown (e.g. not scheduled yet), done, or there is current no more data
             try {
@@ -162,7 +161,7 @@ public class TaskResource
                     GenericEntity<?> entity = new GenericEntity<>(result.getElements(), new TypeToken<List<Page>>() {}.getType());
                     return Response.ok(entity).header(PRESTO_PAGE_SEQUENCE_ID, result.getStartingSequenceId()).build();
                 }
-                else if (result.isBufferClosed() || isDone(taskId)) {
+                else if (result.isBufferClosed()) {
                     return Response.status(Status.GONE).header(PRESTO_PAGE_SEQUENCE_ID, result.getStartingSequenceId()).build();
                 }
                 else {
@@ -170,12 +169,6 @@ public class TaskResource
                 }
             }
             catch (NoSuchElementException | NoSuchBufferException ignored) {
-                lastError = ignored;
-            }
-
-            // this is a safe race condition, because isDone will only be true if the task is failed or if all results have been consumed
-            if (isDone(taskId)) {
-                return Response.status(Status.GONE).header(PRESTO_PAGE_SEQUENCE_ID, pageSequenceId).build();
             }
 
             // task hasn't been scheduled yet.
@@ -185,24 +178,8 @@ public class TaskResource
             maxSleepMillis *= 2;
         }
 
-        // task has not been scheduled or buffer has not been created yet
-        // this is treated the same as no-data
-        if (lastError != null && limiter.tryAcquire()) {
-            log.debug(lastError, "Error getting results");
-        }
-
         // task doesn't exist yet and wait time has expired
         return Response.status(Status.NO_CONTENT).header(PRESTO_PAGE_SEQUENCE_ID, pageSequenceId).build();
-    }
-
-    private boolean isDone(TaskId taskId)
-    {
-        try {
-            return taskManager.getTaskInfo(taskId, false).getState().isDone();
-        }
-        catch (NoSuchElementException e) {
-            return false;
-        }
     }
 
     @DELETE
