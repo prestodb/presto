@@ -223,7 +223,11 @@ public class TaskOutput
             // state can not be changed.
             if (taskState.compareAndSet(currentTaskState, doneState)) {
 
-                sharedBuffer.destroy();
+                // don't close buffers for a failed query
+                // closed buffers signal to upstream tasks that everything finished cleanly
+                if (doneState != TaskState.FAILED) {
+                    sharedBuffer.destroy();
+                }
 
                 return true;
             }
