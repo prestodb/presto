@@ -7,12 +7,12 @@ import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.event.query.QueryMonitor;
+import com.facebook.presto.operator.JoinBuildSourceSupplierFactory;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.OutputProducingOperator;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageIterator;
-import com.facebook.presto.operator.SourceHashSupplierFactory;
 import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.split.CollocatedSplit;
@@ -35,6 +35,7 @@ import io.airlift.units.Duration;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
+
 import java.lang.ref.WeakReference;
 import java.net.URI;
 import java.util.ArrayList;
@@ -74,7 +75,9 @@ public class SqlTaskExecution
     @GuardedBy("this")
     private final List<WeakReference<SplitWorker>> splitWorkers = new ArrayList<>();
     @GuardedBy("this")
-    private SourceHashSupplierFactory sourceHashSupplierFactory;
+
+    private JoinBuildSourceSupplierFactory joinBuildSourceSupplierFactory;
+
     @GuardedBy("this")
     private long maxAcknowledgedSplit = Long.MIN_VALUE;
 
@@ -254,7 +257,7 @@ public class SqlTaskExecution
                 taskOutput,
                 planner,
                 fragment,
-                getSourceHashSupplierFactory(),
+                getJoinBuildSourceSupplierFactory(),
                 taskMemoryManager,
                 queryMonitor);
 
@@ -315,8 +318,8 @@ public class SqlTaskExecution
 
         if (sourceId.equals(fragment.getPartitionedSource())) {
             // all workers have been created
-            // clear hash provider since it has a hard reference to every hash table
-            sourceHashSupplierFactory = null;
+            // clear hash supplier since it has a hard reference to every hash table
+            joinBuildSourceSupplierFactory = null;
         }
         else {
             // add this to all of the existing workers
@@ -344,12 +347,12 @@ public class SqlTaskExecution
         taskOutput.finish();
     }
 
-    private synchronized SourceHashSupplierFactory getSourceHashSupplierFactory()
+    private synchronized JoinBuildSourceSupplierFactory getJoinBuildSourceSupplierFactory()
     {
-        if (sourceHashSupplierFactory == null) {
-            sourceHashSupplierFactory = new SourceHashSupplierFactory(taskMemoryManager);
+        if (joinBuildSourceSupplierFactory == null) {
+            joinBuildSourceSupplierFactory = new JoinBuildSourceSupplierFactory(taskMemoryManager);
         }
-        return sourceHashSupplierFactory;
+        return joinBuildSourceSupplierFactory;
     }
 
     @Override
@@ -460,7 +463,7 @@ public class SqlTaskExecution
                 TaskOutput taskOutput,
                 LocalExecutionPlanner planner,
                 PlanFragment fragment,
-                SourceHashSupplierFactory sourceHashSupplierFactory,
+                JoinBuildSourceSupplierFactory joinBuildSourceSupplierFactory,
                 TaskMemoryManager taskMemoryManager,
                 QueryMonitor queryMonitor)
         {
@@ -470,7 +473,8 @@ public class SqlTaskExecution
             operatorStats = new OperatorStats(taskOutput);
             this.queryMonitor = queryMonitor;
 
-            LocalExecutionPlan localExecutionPlan = planner.plan(session, fragment.getRoot(), fragment.getSymbols(), sourceHashSupplierFactory, taskMemoryManager, operatorStats);
+
+            LocalExecutionPlan localExecutionPlan = planner.plan(session, fragment.getRoot(), fragment.getSymbols(), joinBuildSourceSupplierFactory, taskMemoryManager, operatorStats);
             operator = new AtomicReference<>(localExecutionPlan.getRootOperator());
             sourceOperators = localExecutionPlan.getSourceOperators();
             outputOperators = localExecutionPlan.getOutputOperators();

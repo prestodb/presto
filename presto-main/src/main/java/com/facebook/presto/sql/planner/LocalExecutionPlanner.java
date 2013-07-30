@@ -13,8 +13,10 @@ import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.operator.FilterFunctions;
 import com.facebook.presto.operator.HashAggregationOperator;
 import com.facebook.presto.operator.HashJoinOperator;
+import com.facebook.presto.operator.HashSemiJoinOperator;
 import com.facebook.presto.operator.InMemoryOrderByOperator;
 import com.facebook.presto.operator.InMemoryWindowOperator;
+import com.facebook.presto.operator.JoinBuildSourceSupplierFactory;
 import com.facebook.presto.operator.LimitOperator;
 import com.facebook.presto.operator.LocalUnionOperator;
 import com.facebook.presto.operator.Operator;
@@ -23,8 +25,8 @@ import com.facebook.presto.operator.OutputProducingOperator;
 import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.operator.ProjectionFunctions;
 import com.facebook.presto.operator.SourceHashSupplier;
-import com.facebook.presto.operator.SourceHashSupplierFactory;
 import com.facebook.presto.operator.SourceOperator;
+import com.facebook.presto.operator.SourceSetSupplier;
 import com.facebook.presto.operator.TableScanOperator;
 import com.facebook.presto.operator.TableWriterOperator;
 import com.facebook.presto.operator.TopNOperator;
@@ -45,6 +47,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
@@ -132,11 +135,11 @@ public class LocalExecutionPlanner
     public LocalExecutionPlan plan(Session session,
             PlanNode plan,
             Map<Symbol, Type> types,
-            SourceHashSupplierFactory joinHashFactory,
+            JoinBuildSourceSupplierFactory joinBuildSourceSupplierFactory,
             TaskMemoryManager taskMemoryManager,
             OperatorStats operatorStats)
     {
-        LocalExecutionPlanContext context = new LocalExecutionPlanContext(session, types, joinHashFactory, taskMemoryManager, operatorStats);
+        LocalExecutionPlanContext context = new LocalExecutionPlanContext(session, types, joinBuildSourceSupplierFactory, taskMemoryManager, operatorStats);
         Operator rootOperator = plan.accept(new Visitor(), context).getOperator();
         return new LocalExecutionPlan(rootOperator, context.getSourceOperators(), context.getOutputOperators());
     }
@@ -145,7 +148,7 @@ public class LocalExecutionPlanner
     {
         private final Session session;
         private final Map<Symbol, Type> types;
-        private final SourceHashSupplierFactory joinHashFactory;
+        private final JoinBuildSourceSupplierFactory joinBuildSourceSupplierFactory;
         private final TaskMemoryManager taskMemoryManager;
         private final OperatorStats operatorStats;
 
@@ -154,13 +157,13 @@ public class LocalExecutionPlanner
 
         public LocalExecutionPlanContext(Session session,
                 Map<Symbol, Type> types,
-                SourceHashSupplierFactory joinHashFactory,
+                JoinBuildSourceSupplierFactory joinBuildSourceSupplierFactory,
                 TaskMemoryManager taskMemoryManager,
                 OperatorStats operatorStats)
         {
             this.session = session;
             this.types = types;
-            this.joinHashFactory = joinHashFactory;
+            this.joinBuildSourceSupplierFactory = joinBuildSourceSupplierFactory;
             this.taskMemoryManager = taskMemoryManager;
             this.operatorStats = operatorStats;
         }
@@ -175,9 +178,9 @@ public class LocalExecutionPlanner
             return types;
         }
 
-        public SourceHashSupplierFactory getJoinHashFactory()
+        public JoinBuildSourceSupplierFactory getJoinBuildSourceSupplierFactory()
         {
-            return joinHashFactory;
+            return joinBuildSourceSupplierFactory;
         }
 
         private TaskMemoryManager getTaskMemoryManager()
@@ -650,8 +653,9 @@ public class LocalExecutionPlanner
             int probeChannel = Iterables.getOnlyElement(getChannelSetForSymbols(probeSymbols, probeSource.getLayout()));
             int buildChannel = Iterables.getOnlyElement(getChannelSetForSymbols(buildSymbols, buildSource.getLayout()));
 
-            SourceHashSupplier hashSupplier = context.getJoinHashFactory().getSourceHashSupplier(node, buildSource.getOperator(), buildChannel, context.getOperatorStats());
+            JoinBuildSourceSupplierFactory joinBuildSourceSupplierFactory = context.getJoinBuildSourceSupplierFactory();
 
+            // Probe channels are always laid out first
             ImmutableMultimap.Builder<Symbol, Input> outputMappings = ImmutableMultimap.builder();
             outputMappings.putAll(probeSource.getLayout());
 
@@ -663,11 +667,13 @@ public class LocalExecutionPlanner
                 outputMappings.put(entry.getKey(), new Input(offset + input.getChannel(), input.getField()));
             }
 
-            HashJoinOperator operator = createJoinOperator(node.getType(), hashSupplier, probeSource.getOperator(), probeChannel);
+            SourceHashSupplier hashSupplier = joinBuildSourceSupplierFactory.getSourceHashSupplier(node, buildSource.getOperator(), buildChannel, context.getOperatorStats());
+            Operator operator = createHashJoinOperator(node.getType(), hashSupplier, probeSource.getOperator(), probeChannel);
+
             return new PhysicalOperation(operator, outputMappings.build());
         }
 
-        private HashJoinOperator createJoinOperator(JoinNode.Type type, SourceHashSupplier hashSupplier, Operator probeSource, int probeJoinChannel)
+        private HashJoinOperator createHashJoinOperator(JoinNode.Type type, SourceHashSupplier hashSupplier, Operator probeSource, int probeJoinChannel)
         {
             switch (type) {
                 case INNER:
@@ -678,6 +684,37 @@ public class LocalExecutionPlanner
                 default:
                     throw new UnsupportedOperationException("Unsupported join type: " + type);
             }
+        }
+
+        @Override
+        public PhysicalOperation visitSemiJoin(SemiJoinNode node, LocalExecutionPlanContext context)
+        {
+            PhysicalOperation source = node.getSource().accept(this, context);
+            PhysicalOperation filteringSource = node.getFilteringSource().accept(this, context);
+
+            // introduce a projection to put all fields from the probe side into a single channel if necessary
+            source = packIfNecessary(ImmutableList.of(node.getSourceJoinSymbol()), source, context.getTypes());
+
+            // do the same on the build side
+            filteringSource = packIfNecessary(ImmutableList.of(node.getFilteringSourceJoinSymbol()), filteringSource, context.getTypes());
+
+            int probeChannel = Iterables.getOnlyElement(getChannelSetForSymbols(ImmutableList.of(node.getSourceJoinSymbol()), source.getLayout()));
+            int buildChannel = Iterables.getOnlyElement(getChannelSetForSymbols(ImmutableList.of(node.getFilteringSourceJoinSymbol()), filteringSource.getLayout()));
+
+            JoinBuildSourceSupplierFactory joinBuildSourceSupplierFactory = context.getJoinBuildSourceSupplierFactory();
+
+            int offset = source.getOperator().getChannelCount();
+
+            // Source channels are always laid out first, followed by the boolean output symbol
+            ImmutableMultimap<Symbol, Input> outputMappings = ImmutableMultimap.<Symbol, Input>builder()
+                    .putAll(source.getLayout())
+                    .put(node.getSemiJoinOutput(), new Input(offset, 0))
+                    .build();
+
+            SourceSetSupplier setProvider = joinBuildSourceSupplierFactory.getSourceSetSupplier(node, filteringSource.getOperator(), buildChannel, context.getOperatorStats());
+            Operator operator = new HashSemiJoinOperator(source.getOperator(), probeChannel, setProvider);
+
+            return new PhysicalOperation(operator, outputMappings);
         }
 
         @Override

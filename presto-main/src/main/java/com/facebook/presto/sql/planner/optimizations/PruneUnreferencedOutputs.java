@@ -17,6 +17,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
 import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
@@ -99,6 +100,24 @@ public class PruneUnreferencedOutputs
             PlanNode right = planRewriter.rewrite(node.getRight(), rightInputs);
 
             return new JoinNode(node.getId(), node.getType(), left, right, node.getCriteria());
+        }
+
+        @Override
+        public PlanNode rewriteSemiJoin(SemiJoinNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
+        {
+            Set<Symbol> sourceInputs = ImmutableSet.<Symbol>builder()
+                    .addAll(expectedOutputs)
+                    .add(node.getSourceJoinSymbol())
+                    .build();
+
+            Set<Symbol> filteringSourceInputs = ImmutableSet.<Symbol>builder()
+                    .add(node.getFilteringSourceJoinSymbol())
+                    .build();
+
+            PlanNode source = planRewriter.rewrite(node.getSource(), sourceInputs);
+            PlanNode filteringSource = planRewriter.rewrite(node.getFilteringSource(), filteringSourceInputs);
+
+            return new SemiJoinNode(node.getId(), source, filteringSource, node.getSourceJoinSymbol(), node.getFilteringSourceJoinSymbol(), node.getSemiJoinOutput());
         }
 
         @Override

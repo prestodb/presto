@@ -13,6 +13,7 @@ import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
@@ -307,6 +308,17 @@ public final class GraphvizPrinter
 
             node.getLeft().accept(this, context);
             node.getRight().accept(this, context);
+
+            return null;
+        }
+
+        @Override
+        public Void visitSemiJoin(SemiJoinNode node, Void context)
+        {
+            printNode(node, "SemiJoin", format("%s = %s", node.getSourceJoinSymbol(), node.getFilteringSourceJoinSymbol()), NODE_COLORS.get(NodeType.JOIN));
+
+            node.getSource().accept(this, context);
+            node.getFilteringSource().accept(this, context);
 
             return null;
         }

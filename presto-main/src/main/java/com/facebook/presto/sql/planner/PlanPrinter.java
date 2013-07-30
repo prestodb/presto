@@ -12,6 +12,7 @@ import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
@@ -122,6 +123,16 @@ public class PlanPrinter
             print(indent, "- %s[%s] => [%s]", node.getType().getJoinLabel(), Joiner.on(" AND ").join(joinExpressions), formatOutputs(node.getOutputSymbols()));
             node.getLeft().accept(this, indent + 1);
             node.getRight().accept(this, indent + 1);
+
+            return null;
+        }
+
+        @Override
+        public Void visitSemiJoin(SemiJoinNode node, Integer indent)
+        {
+            print(indent, "- SemiJoin[%s = %s] => [%s]", node.getSourceJoinSymbol(), node.getFilteringSourceJoinSymbol(), formatOutputs(node.getOutputSymbols()));
+            node.getSource().accept(this, indent + 1);
+            node.getFilteringSource().accept(this, indent + 1);
 
             return null;
         }

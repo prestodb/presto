@@ -7,11 +7,12 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 @Immutable
 public class JoinNode
@@ -39,15 +40,14 @@ public class JoinNode
         this.type = type;
         this.left = left;
         this.right = right;
-        this.criteria = criteria;
+        this.criteria = ImmutableList.copyOf(criteria);
     }
 
     public enum Type
     {
         INNER("InnerJoin"),
         LEFT("LeftJoin"),
-        RIGHT("RightJoin"),
-        SEMI("SemiJoin");
+        RIGHT("RightJoin");
 
         private final String joinLabel;
 
@@ -63,6 +63,7 @@ public class JoinNode
 
         public static Type typeConvert(Join.Type joinType)
         {
+            // Omit SEMI join types because they must be inferred by the planner and not part of the SQL parse tree
             switch (joinType) {
                 case INNER:
                     return Type.INNER;
@@ -107,9 +108,13 @@ public class JoinNode
     }
 
     @Override
+    @JsonProperty("outputSymbols")
     public List<Symbol> getOutputSymbols()
     {
-        return ImmutableList.copyOf(Iterables.concat(left.getOutputSymbols(), right.getOutputSymbols()));
+        return ImmutableList.<Symbol>builder()
+                .addAll(left.getOutputSymbols())
+                .addAll(right.getOutputSymbols())
+                .build();
     }
 
     @Override
@@ -126,11 +131,8 @@ public class JoinNode
         @JsonCreator
         public EquiJoinClause(@JsonProperty("left") Symbol left, @JsonProperty("right") Symbol right)
         {
-            Preconditions.checkNotNull(left, "left is null");
-            Preconditions.checkNotNull(right, "right is null");
-
-            this.left = left;
-            this.right = right;
+            this.left = checkNotNull(left, "left is null");
+            this.right = checkNotNull(right, "right is null");
         }
 
         @JsonProperty("left")

@@ -55,6 +55,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.facebook.presto.sql.analyzer.Analyzer.ExpressionAnalysis;
 import static com.facebook.presto.sql.analyzer.Field.typeGetter;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
@@ -190,12 +191,12 @@ class TupleAnalyzer
 
         TupleDescriptor tupleDescriptor = analyzeFrom(node, context);
 
-        analyzeWhere(node, tupleDescriptor);
+        analyzeWhere(node, tupleDescriptor, context);
 
-        List<FieldOrExpression> outputExpressions = analyzeSelect(node, tupleDescriptor);
-        List<FieldOrExpression> groupByExpressions = analyzeGroupBy(node, tupleDescriptor, outputExpressions);
-        List<FieldOrExpression> orderByExpressions = analyzeOrderBy(node, tupleDescriptor, outputExpressions);
-        analyzeHaving(node, tupleDescriptor);
+        List<FieldOrExpression> outputExpressions = analyzeSelect(node, tupleDescriptor, context);
+        List<FieldOrExpression> groupByExpressions = analyzeGroupBy(node, tupleDescriptor, context, outputExpressions);
+        List<FieldOrExpression> orderByExpressions = analyzeOrderBy(node, tupleDescriptor, context, outputExpressions);
+        analyzeHaving(node, tupleDescriptor, context);
 
         analyzeAggregations(node, tupleDescriptor, groupByExpressions, outputExpressions, orderByExpressions);
         analyzeWindowFunctions(node, outputExpressions, orderByExpressions);
@@ -276,8 +277,10 @@ class TupleAnalyzer
                 Expression leftExpression = new QualifiedNameReference(QualifiedName.of(column));
                 Expression rightExpression = new QualifiedNameReference(QualifiedName.of(column));
 
-                Analyzer.analyzeExpression(metadata, left, analysis, leftExpression);
-                Analyzer.analyzeExpression(metadata, right, analysis, rightExpression);
+                ExpressionAnalysis leftExpressionAnalysis = Analyzer.analyzeExpression(session, metadata, left, analysis, context, leftExpression);
+                ExpressionAnalysis rightExpressionAnalysis = Analyzer.analyzeExpression(session, metadata, right, analysis, context, rightExpression);
+                Preconditions.checkState(leftExpressionAnalysis.getSubqueryInPredicates().isEmpty(), "INVARIANT");
+                Preconditions.checkState(rightExpressionAnalysis.getSubqueryInPredicates().isEmpty(), "INVARIANT");
 
                 builder.add(new EquiJoinClause(leftExpression, rightExpression));
             }
@@ -289,8 +292,8 @@ class TupleAnalyzer
 
             // ensure all names can be resolved, types match, etc (we don't need to record resolved names, subexpression types, etc. because
             // we do it further down when after we determine which subexpressions apply to left vs right tuple)
-            ExpressionAnalyzer analyzer = new ExpressionAnalyzer(metadata);
-            analyzer.analyze(expression, output);
+            ExpressionAnalyzer analyzer = new ExpressionAnalyzer(analysis, session, metadata);
+            analyzer.analyze(expression, output, context);
 
             Analyzer.verifyNoAggregatesOrWindowFunctions(metadata, expression, "JOIN");
 
@@ -330,8 +333,9 @@ class TupleAnalyzer
                 }
 
                 // analyze the clauses to record the types of all subexpressions and resolve names against the left/right underlying tuples
-                Analyzer.analyzeExpression(metadata, left, analysis, leftExpression);
-                Analyzer.analyzeExpression(metadata, right, analysis, rightExpression);
+                ExpressionAnalysis leftExpressionAnalysis = Analyzer.analyzeExpression(session, metadata, left, analysis, context, leftExpression);
+                ExpressionAnalysis rightExpressionAnalysis = Analyzer.analyzeExpression(session, metadata, right, analysis, context, rightExpression);
+                analysis.addJoinInPredicates(node, new Analysis.JoinInPredicates(leftExpressionAnalysis.getSubqueryInPredicates(), rightExpressionAnalysis.getSubqueryInPredicates()));
 
                 clauses.add(new EquiJoinClause(leftExpression, rightExpression));
             }
@@ -410,22 +414,23 @@ class TupleAnalyzer
         analysis.setWindowFunctions(node, windowFunctions);
     }
 
-    private void analyzeHaving(QuerySpecification node, TupleDescriptor tupleDescriptor)
+    private void analyzeHaving(QuerySpecification node, TupleDescriptor tupleDescriptor, AnalysisContext context)
     {
         if (node.getHaving().isPresent()) {
             Expression predicate = node.getHaving().get();
 
-            Type type = Analyzer.analyzeExpression(metadata, tupleDescriptor, analysis, predicate);
+            ExpressionAnalysis expressionAnalysis = Analyzer.analyzeExpression(session, metadata, tupleDescriptor, analysis, context, predicate);
+            analysis.addInPredicates(node, expressionAnalysis.getSubqueryInPredicates());
 
-            if (type != Type.BOOLEAN && type != Type.NULL) {
-                throw new SemanticException(TYPE_MISMATCH, predicate, "HAVING clause must evaluate to a boolean: actual type %s", type);
+            if (expressionAnalysis.getType() != Type.BOOLEAN && expressionAnalysis.getType() != Type.NULL) {
+                throw new SemanticException(TYPE_MISMATCH, predicate, "HAVING clause must evaluate to a boolean: actual type %s", expressionAnalysis.getType());
             }
 
             analysis.setHaving(node, predicate);
         }
     }
 
-    private List<FieldOrExpression> analyzeOrderBy(QuerySpecification node, TupleDescriptor tupleDescriptor, List<FieldOrExpression> outputExpressions)
+    private List<FieldOrExpression> analyzeOrderBy(QuerySpecification node, TupleDescriptor tupleDescriptor, AnalysisContext context, List<FieldOrExpression> outputExpressions)
     {
         List<SortItem> items = node.getOrderBy();
 
@@ -479,7 +484,8 @@ class TupleAnalyzer
                 }
 
                 if (orderByExpression.isExpression()) {
-                    Analyzer.analyzeExpression(metadata, tupleDescriptor, analysis, orderByExpression.getExpression());
+                    ExpressionAnalysis expressionAnalysis = Analyzer.analyzeExpression(session, metadata, tupleDescriptor, analysis, context, orderByExpression.getExpression());
+                    analysis.addInPredicates(node, expressionAnalysis.getSubqueryInPredicates());
                 }
 
                 orderByExpressionsBuilder.add(orderByExpression);
@@ -497,7 +503,7 @@ class TupleAnalyzer
         return orderByExpressions;
     }
 
-    private List<FieldOrExpression> analyzeGroupBy(QuerySpecification node, TupleDescriptor tupleDescriptor, List<FieldOrExpression> outputExpressions)
+    private List<FieldOrExpression> analyzeGroupBy(QuerySpecification node, TupleDescriptor tupleDescriptor, AnalysisContext context, List<FieldOrExpression> outputExpressions)
     {
         ImmutableList.Builder<FieldOrExpression> groupByExpressionsBuilder = ImmutableList.builder();
         if (!node.getGroupBy().isEmpty()) {
@@ -515,7 +521,8 @@ class TupleAnalyzer
                     groupByExpression = outputExpressions.get((int) (ordinal - 1));
                 }
                 else {
-                    Analyzer.analyzeExpression(metadata, tupleDescriptor, analysis, expression);
+                    ExpressionAnalysis expressionAnalysis = Analyzer.analyzeExpression(session, metadata, tupleDescriptor, analysis, context, expression);
+                    analysis.addInPredicates(node, expressionAnalysis.getSubqueryInPredicates());
                     groupByExpression = new FieldOrExpression(expression);
                 }
 
@@ -563,7 +570,7 @@ class TupleAnalyzer
         return new TupleDescriptor(outputFields.build());
     }
 
-    private List<FieldOrExpression> analyzeSelect(QuerySpecification node, TupleDescriptor tupleDescriptor)
+    private List<FieldOrExpression> analyzeSelect(QuerySpecification node, TupleDescriptor tupleDescriptor, AnalysisContext context)
     {
         ImmutableList.Builder<FieldOrExpression> outputExpressionBuilder = ImmutableList.builder();
 
@@ -588,7 +595,8 @@ class TupleAnalyzer
             }
             else if (item instanceof SingleColumn) {
                 SingleColumn column = (SingleColumn) item;
-                Analyzer.analyzeExpression(metadata, tupleDescriptor, analysis, column.getExpression());
+                ExpressionAnalysis expressionAnalysis = Analyzer.analyzeExpression(session, metadata, tupleDescriptor, analysis, context, column.getExpression());
+                analysis.addInPredicates(node, expressionAnalysis.getSubqueryInPredicates());
                 outputExpressionBuilder.add(new FieldOrExpression(column.getExpression()));
             }
             else {
@@ -602,17 +610,18 @@ class TupleAnalyzer
         return result;
     }
 
-    private void analyzeWhere(QuerySpecification node, TupleDescriptor tupleDescriptor)
+    private void analyzeWhere(QuerySpecification node, TupleDescriptor tupleDescriptor, AnalysisContext context)
     {
         if (node.getWhere().isPresent()) {
             Expression predicate = node.getWhere().get();
 
             Analyzer.verifyNoAggregatesOrWindowFunctions(metadata, predicate, "WHERE");
 
-            Type type = Analyzer.analyzeExpression(metadata, tupleDescriptor, analysis, predicate);
+            ExpressionAnalysis expressionAnalysis = Analyzer.analyzeExpression(session, metadata, tupleDescriptor, analysis, context, predicate);
+            analysis.addInPredicates(node, expressionAnalysis.getSubqueryInPredicates());
 
-            if (type != Type.BOOLEAN && type != Type.NULL) {
-                throw new SemanticException(TYPE_MISMATCH, predicate, "WHERE clause must evaluate to a boolean: actual type %s", type);
+            if (expressionAnalysis.getType() != Type.BOOLEAN && expressionAnalysis.getType() != Type.NULL) {
+                throw new SemanticException(TYPE_MISMATCH, predicate, "WHERE clause must evaluate to a boolean: actual type %s", expressionAnalysis.getType());
             }
 
             analysis.setWhere(node, predicate);
