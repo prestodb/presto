@@ -14,6 +14,7 @@ import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
@@ -326,6 +327,32 @@ public class DistributedLogicalPlanner
                 return newSubPlan(join)
                         .setUnpartitionedSource()
                         .setChildren(Iterables.concat(left.getChildren(), right.getChildren()));
+            }
+        }
+
+        @Override
+        public SubPlanBuilder visitSemiJoin(SemiJoinNode node, Void context)
+        {
+            SubPlanBuilder source = node.getSource().accept(this, context);
+            SubPlanBuilder filteringSource = node.getFilteringSource().accept(this, context);
+
+            if (source.isPartitioned() || filteringSource.isPartitioned()) {
+                filteringSource.setRoot(new SinkNode(idAllocator.getNextId(), filteringSource.getRoot(), filteringSource.getRoot().getOutputSymbols()));
+                source.setRoot(new SemiJoinNode(node.getId(),
+                        source.getRoot(),
+                        new ExchangeNode(idAllocator.getNextId(), filteringSource.getId(), filteringSource.getRoot().getOutputSymbols()),
+                        node.getSourceJoinSymbol(),
+                        node.getFilteringSourceJoinSymbol(),
+                        node.getSemiJoinOutput()));
+                source.addChild(filteringSource.build());
+
+                return source;
+            }
+            else {
+                SemiJoinNode semiJoinNode = new SemiJoinNode(node.getId(), source.getRoot(), filteringSource.getRoot(), node.getSourceJoinSymbol(), node.getFilteringSourceJoinSymbol(), node.getSemiJoinOutput());
+                return newSubPlan(semiJoinNode)
+                        .setUnpartitionedSource()
+                        .setChildren(Iterables.concat(source.getChildren(), filteringSource.getChildren()));
             }
         }
 

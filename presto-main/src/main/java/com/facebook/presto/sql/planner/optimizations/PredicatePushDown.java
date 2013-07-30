@@ -3,6 +3,8 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.sql.analyzer.Analysis;
+import com.facebook.presto.sql.analyzer.AnalysisContext;
 import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.Session;
@@ -502,7 +504,7 @@ public class PredicatePushDown
         // TODO: temporary addition to infer result type from expression. fix this with the new planner refactoring (martint)
         private Type extractType(Expression expression)
         {
-            ExpressionAnalyzer expressionAnalyzer = new ExpressionAnalyzer(metadata);
+            ExpressionAnalyzer expressionAnalyzer = new ExpressionAnalyzer(new Analysis(), session, metadata);
             List<Field> fields = IterableTransformer.<Symbol>on(DependencyExtractor.extractUnique(expression))
                     .transform(new Function<Symbol, Field>()
                     {
@@ -513,7 +515,7 @@ public class PredicatePushDown
                         }
                     })
                     .list();
-            return expressionAnalyzer.analyze(expression, new TupleDescriptor(fields));
+            return expressionAnalyzer.analyze(expression, new TupleDescriptor(fields), new AnalysisContext());
         }
 
         private JoinNode tryNormalizeToInnerJoin(JoinNode node, Expression inheritedPredicate)

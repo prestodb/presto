@@ -35,37 +35,48 @@ import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.StringLiteral;
+import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.WhenClause;
+import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ATTRIBUTE;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MULTPLE_FIELDS_FROM_SCALAR_SUBQUERY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
 
 public class ExpressionAnalyzer
 {
+    private final Analysis analysis;
+    private final Session session;
     private final Metadata metadata;
     private final Map<QualifiedName, Integer> resolvedNames = new HashMap<>();
     private final IdentityHashMap<FunctionCall, FunctionInfo> resolvedFunctions = new IdentityHashMap<>();
     private final IdentityHashMap<Expression, Type> subExpressionTypes = new IdentityHashMap<>();
+    private final Set<InPredicate> subqueryInPredicates = Collections.newSetFromMap(new IdentityHashMap<InPredicate, Boolean>());
 
-    public ExpressionAnalyzer(Metadata metadata)
+    public ExpressionAnalyzer(Analysis analysis, Session session, Metadata metadata)
     {
-        this.metadata = metadata;
+        this.analysis = checkNotNull(analysis, "analysis is null");
+        this.session = checkNotNull(session, "session is null");
+        this.metadata = checkNotNull(metadata, "metadata is null");
     }
 
     public Map<QualifiedName, Integer> getResolvedNames()
@@ -83,28 +94,34 @@ public class ExpressionAnalyzer
         return subExpressionTypes;
     }
 
+    public Set<InPredicate> getSubqueryInPredicates()
+    {
+        return subqueryInPredicates;
+    }
+
     /**
      * @param tupleDescriptor the tuple descriptor to use to resolve QualifiedNames
+     * @param context the namespace context of the surrounding query
      */
-    public Type analyze(Expression expression, TupleDescriptor tupleDescriptor)
+    public Type analyze(Expression expression, TupleDescriptor tupleDescriptor, AnalysisContext context)
     {
         Visitor visitor = new Visitor(tupleDescriptor);
 
-        return expression.accept(visitor, null);
+        return expression.accept(visitor, context);
     }
 
     private class Visitor
-            extends AstVisitor<Type, Void>
+            extends AstVisitor<Type, AnalysisContext>
     {
         private final TupleDescriptor tupleDescriptor;
 
         private Visitor(TupleDescriptor tupleDescriptor)
         {
-            this.tupleDescriptor = tupleDescriptor;
+            this.tupleDescriptor = checkNotNull(tupleDescriptor, "tupleDescriptor is null");
         }
 
         @Override
-        protected Type visitCurrentTime(CurrentTime node, Void context)
+        protected Type visitCurrentTime(CurrentTime node, AnalysisContext context)
         {
             if (node.getType() != CurrentTime.Type.TIMESTAMP) {
                 throw new SemanticException(NOT_SUPPORTED, node, "%s not yet supported", node.getType().getName());
@@ -119,7 +136,7 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitQualifiedNameReference(QualifiedNameReference node, Void context)
+        protected Type visitQualifiedNameReference(QualifiedNameReference node, AnalysisContext context)
         {
             List<Integer> matches = tupleDescriptor.resolveFieldIndexes(node.getName());
             if (matches.isEmpty()) {
@@ -138,7 +155,7 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitNotExpression(NotExpression node, Void context)
+        protected Type visitNotExpression(NotExpression node, AnalysisContext context)
         {
             Type value = process(node.getValue(), context);
             if (value != Type.BOOLEAN) {
@@ -150,7 +167,7 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitLogicalBinaryExpression(LogicalBinaryExpression node, Void context)
+        protected Type visitLogicalBinaryExpression(LogicalBinaryExpression node, AnalysisContext context)
         {
             Type left = process(node.getLeft(), context);
             if (left != Type.BOOLEAN) {
@@ -166,7 +183,7 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitComparisonExpression(ComparisonExpression node, Void context)
+        protected Type visitComparisonExpression(ComparisonExpression node, AnalysisContext context)
         {
             Type left = process(node.getLeft(), context);
             Type right = process(node.getRight(), context);
@@ -180,7 +197,7 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitIsNullPredicate(IsNullPredicate node, Void context)
+        protected Type visitIsNullPredicate(IsNullPredicate node, AnalysisContext context)
         {
             process(node.getValue(), context);
 
@@ -189,7 +206,7 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitIsNotNullPredicate(IsNotNullPredicate node, Void context)
+        protected Type visitIsNotNullPredicate(IsNotNullPredicate node, AnalysisContext context)
         {
             process(node.getValue(), context);
 
@@ -198,7 +215,7 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitNullIfExpression(NullIfExpression node, Void context)
+        protected Type visitNullIfExpression(NullIfExpression node, AnalysisContext context)
         {
             Type first = process(node.getFirst(), context);
             Type second = process(node.getSecond(), context);
@@ -212,7 +229,7 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitIfExpression(IfExpression node, Void context)
+        protected Type visitIfExpression(IfExpression node, AnalysisContext context)
         {
             Type condition = process(node.getCondition(), context);
             if (!isBooleanOrNull(condition)) {
@@ -236,7 +253,7 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitSearchedCaseExpression(SearchedCaseExpression node, Void context)
+        protected Type visitSearchedCaseExpression(SearchedCaseExpression node, AnalysisContext context)
         {
             for (WhenClause whenClause : node.getWhenClauses()) {
                 Type whenOperand = process(whenClause.getOperand(), context);
@@ -260,7 +277,7 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitSimpleCaseExpression(SimpleCaseExpression node, Void context)
+        protected Type visitSimpleCaseExpression(SimpleCaseExpression node, AnalysisContext context)
         {
             Type operand = process(node.getOperand(), context);
             for (WhenClause whenClause : node.getWhenClauses()) {
@@ -285,7 +302,7 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitCoalesceExpression(CoalesceExpression node, Void context)
+        protected Type visitCoalesceExpression(CoalesceExpression node, AnalysisContext context)
         {
             List<Type> operandTypes = new ArrayList<>();
             for (Expression expression : node.getOperands()) {
@@ -309,7 +326,7 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitNegativeExpression(NegativeExpression node, Void context)
+        protected Type visitNegativeExpression(NegativeExpression node, AnalysisContext context)
         {
             Type type = process(node.getValue(), context);
             if (!Type.isNumeric(type)) {
@@ -321,7 +338,7 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitArithmeticExpression(ArithmeticExpression node, Void context)
+        protected Type visitArithmeticExpression(ArithmeticExpression node, AnalysisContext context)
         {
             Type left = process(node.getLeft(), context);
             Type right = process(node.getRight(), context);
@@ -343,7 +360,7 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitLikePredicate(LikePredicate node, Void context)
+        protected Type visitLikePredicate(LikePredicate node, AnalysisContext context)
         {
             Type value = process(node.getValue(), context);
             if (value != Type.STRING && value != Type.NULL) {
@@ -367,70 +384,70 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitStringLiteral(StringLiteral node, Void context)
+        protected Type visitStringLiteral(StringLiteral node, AnalysisContext context)
         {
             subExpressionTypes.put(node, Type.STRING);
             return Type.STRING;
         }
 
         @Override
-        protected Type visitLongLiteral(LongLiteral node, Void context)
+        protected Type visitLongLiteral(LongLiteral node, AnalysisContext context)
         {
             subExpressionTypes.put(node, Type.LONG);
             return Type.LONG;
         }
 
         @Override
-        protected Type visitDoubleLiteral(DoubleLiteral node, Void context)
+        protected Type visitDoubleLiteral(DoubleLiteral node, AnalysisContext context)
         {
             subExpressionTypes.put(node, Type.DOUBLE);
             return Type.DOUBLE;
         }
 
         @Override
-        protected Type visitBooleanLiteral(BooleanLiteral node, Void context)
+        protected Type visitBooleanLiteral(BooleanLiteral node, AnalysisContext context)
         {
             subExpressionTypes.put(node, Type.BOOLEAN);
             return Type.BOOLEAN;
         }
 
         @Override
-        protected Type visitDateLiteral(DateLiteral node, Void context)
+        protected Type visitDateLiteral(DateLiteral node, AnalysisContext context)
         {
             subExpressionTypes.put(node, Type.LONG);
             return Type.LONG;
         }
 
         @Override
-        protected Type visitTimeLiteral(TimeLiteral node, Void context)
+        protected Type visitTimeLiteral(TimeLiteral node, AnalysisContext context)
         {
             subExpressionTypes.put(node, Type.LONG);
             return Type.LONG;
         }
 
         @Override
-        protected Type visitTimestampLiteral(TimestampLiteral node, Void context)
+        protected Type visitTimestampLiteral(TimestampLiteral node, AnalysisContext context)
         {
             subExpressionTypes.put(node, Type.LONG);
             return Type.LONG;
         }
 
         @Override
-        protected Type visitIntervalLiteral(IntervalLiteral node, Void context)
+        protected Type visitIntervalLiteral(IntervalLiteral node, AnalysisContext context)
         {
             subExpressionTypes.put(node, Type.LONG);
             return Type.LONG;
         }
 
         @Override
-        protected Type visitNullLiteral(NullLiteral node, Void context)
+        protected Type visitNullLiteral(NullLiteral node, AnalysisContext context)
         {
             subExpressionTypes.put(node, Type.NULL);
             return Type.NULL;
         }
 
         @Override
-        protected Type visitFunctionCall(FunctionCall node, Void context)
+        protected Type visitFunctionCall(FunctionCall node, AnalysisContext context)
         {
             if (node.getWindow().isPresent()) {
                 for (Expression expression : node.getWindow().get().getPartitionBy()) {
@@ -457,7 +474,7 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitExtract(Extract node, Void context)
+        protected Type visitExtract(Extract node, AnalysisContext context)
         {
             Type type = process(node.getExpression(), context);
             if (type != Type.LONG) {
@@ -469,7 +486,7 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitBetweenPredicate(BetweenPredicate node, Void context)
+        protected Type visitBetweenPredicate(BetweenPredicate node, AnalysisContext context)
         {
             Type value = process(node.getValue(), context);
             Type min = process(node.getMin(), context);
@@ -487,7 +504,7 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        public Type visitCast(Cast node, Void context)
+        public Type visitCast(Cast node, AnalysisContext context)
         {
             process(node.getExpression(), context);
 
@@ -513,10 +530,14 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitInPredicate(InPredicate node, Void context)
+        protected Type visitInPredicate(InPredicate node, AnalysisContext context)
         {
             Type valueType = process(node.getValue(), context);
             Type listType = process(node.getValueList(), context);
+
+            if (node.getValueList() instanceof SubqueryExpression) {
+                subqueryInPredicates.add(node);
+            }
 
             if (valueType == Type.NULL) {
                 subExpressionTypes.put(node, Type.NULL);
@@ -530,7 +551,7 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitInListExpression(InListExpression node, Void context)
+        protected Type visitInListExpression(InListExpression node, AnalysisContext context)
         {
             List<Type> types = new ArrayList<>();
             for (Expression value : node.getValues()) {
@@ -545,7 +566,24 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitExpression(Expression node, Void context)
+        protected Type visitSubqueryExpression(SubqueryExpression node, AnalysisContext context)
+        {
+            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, session, Optional.<QueryExplainer>absent());
+            TupleDescriptor descriptor = analyzer.process(node.getQuery(), context);
+
+            // Scalar subqueries should only produce one column
+            if (descriptor.getFields().size() != 1) {
+                throw new SemanticException(MULTPLE_FIELDS_FROM_SCALAR_SUBQUERY, node, "Subquery expression must produce only one field. Found %s", descriptor.getFields().size());
+            }
+
+            Type type = Iterables.getOnlyElement(descriptor.getFields()).getType();
+
+            subExpressionTypes.put(node, type);
+            return type;
+        }
+
+        @Override
+        protected Type visitExpression(Expression node, AnalysisContext context)
         {
             throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
         }

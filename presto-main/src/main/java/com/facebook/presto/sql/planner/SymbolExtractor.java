@@ -9,6 +9,7 @@ import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
@@ -150,6 +151,17 @@ public class SymbolExtractor
         {
             node.getLeft().accept(this, context);
             node.getRight().accept(this, context);
+
+            return null;
+        }
+
+        @Override
+        public Void visitSemiJoin(SemiJoinNode node, Void context)
+        {
+            builder.add(node.getSemiJoinOutput());
+
+            node.getSource().accept(this, context);
+            node.getFilteringSource().accept(this, context);
 
             return null;
         }

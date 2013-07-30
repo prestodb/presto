@@ -2,19 +2,18 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.TaskMemoryManager;
 import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.base.Preconditions;
+import com.google.common.base.Supplier;
 import com.google.common.base.Throwables;
 
 import javax.annotation.concurrent.GuardedBy;
-import javax.inject.Provider;
 
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class SourceSetProvider
-        implements Provider<ChannelSet>
+public class SourceSetSupplier
+        implements Supplier<ChannelSet>
 {
     private final StoppableOperator stoppableSource;
     private final int setChannel;
@@ -28,7 +27,7 @@ public class SourceSetProvider
     @GuardedBy("this")
     private Throwable buildException;
 
-    public SourceSetProvider(Operator stoppableSource, int setChannel, int expectedPositions, TaskMemoryManager taskMemoryManager, OperatorStats operatorStats)
+    public SourceSetSupplier(Operator stoppableSource, int setChannel, int expectedPositions, TaskMemoryManager taskMemoryManager, OperatorStats operatorStats)
     {
         checkNotNull(stoppableSource, "stoppableSource is null");
         checkArgument(setChannel >= 0, "setChannel must be greater than or equal to zero");
