@@ -16,6 +16,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
@@ -109,12 +110,18 @@ public class DistributedExecutionPlanner
             if (leftSplits.dataSource.isPresent() && rightSplits.dataSource.isPresent()) {
                 throw new IllegalArgumentException("Both left and right join nodes are partitioned"); // TODO: "partitioned" may not be the right term
             }
-            if (leftSplits.dataSource.isPresent()) {
-                return leftSplits;
+            return leftSplits.dataSource.isPresent() ? leftSplits : rightSplits;
+        }
+
+        @Override
+        public NodeSplits visitSemiJoin(SemiJoinNode node, Predicate<Partition> tableWriterPartitionPredicate)
+        {
+            NodeSplits sourceSplits = node.getSource().accept(this, tableWriterPartitionPredicate);
+            NodeSplits filteringSourceSplits = node.getFilteringSource().accept(this, tableWriterPartitionPredicate);
+            if (sourceSplits.dataSource.isPresent() && filteringSourceSplits.dataSource.isPresent()) {
+                throw new IllegalArgumentException("Both source and filteringSource semi join nodes are partitioned"); // TODO: "partitioned" may not be the right term
             }
-            else {
-                return rightSplits;
-            }
+            return sourceSplits.dataSource.isPresent() ? sourceSplits : filteringSourceSplits;
         }
 
         @Override

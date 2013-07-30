@@ -6,18 +6,26 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Table;
+import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.SetMultimap;
 
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class Analysis
 {
@@ -38,6 +46,8 @@ public class Analysis
     private final IdentityHashMap<QuerySpecification, List<FunctionCall>> windowFunctions = new IdentityHashMap<>();
 
     private final IdentityHashMap<Join, List<EquiJoinClause>> joins = new IdentityHashMap<>();
+    private final SetMultimap<Node, InPredicate> inPredicates = HashMultimap.create();
+    private final IdentityHashMap<Join, JoinInPredicates> joinInPredicates = new IdentityHashMap<>();
 
     private final IdentityHashMap<Table, TableHandle> tables = new IdentityHashMap<>();
 
@@ -140,6 +150,36 @@ public class Analysis
     public List<EquiJoinClause> getJoinCriteria(Join join)
     {
         return joins.get(join);
+    }
+
+    public void addInPredicates(Query node, Set<InPredicate> inPredicates)
+    {
+        this.inPredicates.putAll(node, inPredicates);
+    }
+
+    public void addInPredicates(QuerySpecification node, Set<InPredicate> inPredicates)
+    {
+        this.inPredicates.putAll(node, inPredicates);
+    }
+
+    public Set<InPredicate> getInPredicates(Query node)
+    {
+        return inPredicates.get(node);
+    }
+
+    public Set<InPredicate> getInPredicates(QuerySpecification node)
+    {
+        return inPredicates.get(node);
+    }
+
+    public void addJoinInPredicates(Join node, JoinInPredicates joinInPredicates)
+    {
+        this.joinInPredicates.put(node, joinInPredicates);
+    }
+
+    public JoinInPredicates getJoinInPredicates(Join node)
+    {
+        return joinInPredicates.get(node);
     }
 
     public void setWindowFunctions(QuerySpecification node, List<FunctionCall> functions)
@@ -255,10 +295,52 @@ public class Analysis
 
     public void registerNamedQuery(Table tableReference, Query query)
     {
-        Preconditions.checkNotNull(tableReference, "tableReference is null");
-        Preconditions.checkNotNull(query, "query is null");
+        checkNotNull(tableReference, "tableReference is null");
+        checkNotNull(query, "query is null");
 
         namedQueries.put(tableReference, query);
+    }
+
+    public static class JoinInPredicates
+    {
+        private final Set<InPredicate> leftInPredicates;
+        private final Set<InPredicate> rightInPredicates;
+
+        public JoinInPredicates(Set<InPredicate> leftInPredicates, Set<InPredicate> rightInPredicates)
+        {
+            this.leftInPredicates = ImmutableSet.copyOf(checkNotNull(leftInPredicates, "leftInPredicates is null"));
+            this.rightInPredicates = ImmutableSet.copyOf(checkNotNull(rightInPredicates, "rightInPredicates is null"));
+        }
+
+        public Set<InPredicate> getLeftInPredicates()
+        {
+            return leftInPredicates;
+        }
+
+        public Set<InPredicate> getRightInPredicates()
+        {
+            return rightInPredicates;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hashCode(leftInPredicates, rightInPredicates);
+        }
+
+        @Override
+        public boolean equals(Object obj)
+        {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null || getClass() != obj.getClass()) {
+                return false;
+            }
+            final JoinInPredicates other = (JoinInPredicates) obj;
+            return Objects.equal(this.leftInPredicates, other.leftInPredicates) &&
+                    Objects.equal(this.rightInPredicates, other.rightInPredicates);
+        }
     }
 }
 

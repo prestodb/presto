@@ -268,6 +268,26 @@ public final class PlanRewriter<C>
         }
 
         @Override
+        public PlanNode visitSemiJoin(SemiJoinNode node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                PlanNode result = nodeRewriter.rewriteSemiJoin(node, context.get(), PlanRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            PlanNode source = rewrite(node.getSource(), context.get());
+            PlanNode filteringSource = rewrite(node.getFilteringSource(), context.get());
+
+            if (source != node.getSource() || filteringSource != node.getFilteringSource()) {
+                return new SemiJoinNode(node.getId(), source, filteringSource, node.getSourceJoinSymbol(), node.getFilteringSourceJoinSymbol(), node.getSemiJoinOutput());
+            }
+
+            return node;
+        }
+
+        @Override
         public PlanNode visitSort(SortNode node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {

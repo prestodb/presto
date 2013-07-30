@@ -19,14 +19,14 @@ public class HashSemiJoinOperator
     private final Operator probeSource;
     private final int probeJoinChannel;
     private final List<TupleInfo> tupleInfos;
-    private final SourceSetProvider sourceSetProvider;
+    private final SourceSetSupplier sourceSetSupplier;
 
-    public HashSemiJoinOperator(Operator probeSource, int probeJoinChannel, SourceSetProvider sourceSetProvider)
+    public HashSemiJoinOperator(Operator probeSource, int probeJoinChannel, SourceSetSupplier sourceSetSupplier)
     {
         this.probeSource = checkNotNull(probeSource, "probeSource is null");
         checkArgument(probeJoinChannel >= 0, "probeJoinChannel is negative");
         this.probeJoinChannel = probeJoinChannel;
-        this.sourceSetProvider = checkNotNull(sourceSetProvider, "sourceSetProvider is null");
+        this.sourceSetSupplier = checkNotNull(sourceSetSupplier, "sourceSetSupplier is null");
 
         this.tupleInfos = ImmutableList.<TupleInfo>builder()
                 .addAll(probeSource.getTupleInfos())
@@ -50,7 +50,7 @@ public class HashSemiJoinOperator
     public PageIterator iterator(OperatorStats operatorStats)
     {
         checkNotNull(operatorStats, "operatorStats is null");
-        return new SemiJoinIterator(tupleInfos, probeSource, probeJoinChannel, sourceSetProvider, operatorStats);
+        return new SemiJoinIterator(tupleInfos, probeSource, probeJoinChannel, sourceSetSupplier, operatorStats);
     }
 
     private static class SemiJoinIterator
@@ -58,17 +58,17 @@ public class HashSemiJoinOperator
     {
         private final PageIterator probeIterator;
         private final int probeJoinChannel;
-        private final SourceSetProvider sourceSetProvider;
+        private final SourceSetSupplier sourceSetSupplier;
         private final OperatorStats operatorStats;
         private final int probeJoinChannelFields;
 
         private ChannelSet channelSet;
 
-        private SemiJoinIterator(List<TupleInfo> tupleInfos, Operator probeSource, int probeJoinChannel, SourceSetProvider sourceSetProvider, OperatorStats operatorStats)
+        private SemiJoinIterator(List<TupleInfo> tupleInfos, Operator probeSource, int probeJoinChannel, SourceSetSupplier sourceSetSupplier, OperatorStats operatorStats)
         {
             super(tupleInfos);
 
-            this.sourceSetProvider = sourceSetProvider;
+            this.sourceSetSupplier = sourceSetSupplier;
             this.operatorStats = operatorStats;
 
             this.probeIterator = probeSource.iterator(operatorStats);
@@ -80,7 +80,7 @@ public class HashSemiJoinOperator
         protected Page computeNext()
         {
             if (channelSet == null) {
-                channelSet = sourceSetProvider.get();
+                channelSet = sourceSetSupplier.get();
             }
 
             if (operatorStats.isDone() || !probeIterator.hasNext()) {
@@ -132,7 +132,7 @@ public class HashSemiJoinOperator
         @Override
         protected void doClose()
         {
-            sourceSetProvider.close();
+            sourceSetSupplier.close();
             probeIterator.close();
         }
     }

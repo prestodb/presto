@@ -29,7 +29,7 @@ public class TestHashSemiJoinOperator
                         createLongSequenceBlock(30, 40),
                         createLongSequenceBlock(0, 10)));
 
-        SourceSetProvider setProvider = new SourceSetProvider(buildSource, 0, 10, new TaskMemoryManager(new DataSize(1, MEGABYTE)), new OperatorStats());
+        SourceSetSupplier setProvider = new SourceSetSupplier(buildSource, 0, 10, new TaskMemoryManager(new DataSize(1, MEGABYTE)), new OperatorStats());
         HashSemiJoinOperator semiJoinOperator = new HashSemiJoinOperator(probeSource, 0, setProvider);
 
         Operator expected = createOperator(new Page(
@@ -48,7 +48,7 @@ public class TestHashSemiJoinOperator
 
         Operator probeSource = createOperator(new Page(createLongSequenceBlock(1, 5)));
 
-        SourceSetProvider setProvider = new SourceSetProvider(buildSource, 0, 10, new TaskMemoryManager(new DataSize(1, MEGABYTE)), new OperatorStats());
+        SourceSetSupplier setProvider = new SourceSetSupplier(buildSource, 0, 10, new TaskMemoryManager(new DataSize(1, MEGABYTE)), new OperatorStats());
         HashSemiJoinOperator semiJoinOperator = new HashSemiJoinOperator(probeSource, 0, setProvider);
 
         Operator expected = createOperator(new Page(
@@ -66,7 +66,7 @@ public class TestHashSemiJoinOperator
 
         Operator probeSource = createOperator(new Page(createLongsBlock(0L, null, 1L, 2L)));
 
-        SourceSetProvider setProvider = new SourceSetProvider(buildSource, 0, 10, new TaskMemoryManager(new DataSize(1, MEGABYTE)), new OperatorStats());
+        SourceSetSupplier setProvider = new SourceSetSupplier(buildSource, 0, 10, new TaskMemoryManager(new DataSize(1, MEGABYTE)), new OperatorStats());
         HashSemiJoinOperator semiJoinOperator = new HashSemiJoinOperator(probeSource, 0, setProvider);
 
         Operator expected = createOperator(new Page(
@@ -84,7 +84,7 @@ public class TestHashSemiJoinOperator
 
         Operator probeSource = createOperator(new Page(createLongsBlock(0L, null, 1L, 2L)));
 
-        SourceSetProvider setProvider = new SourceSetProvider(buildSource, 0, 10, new TaskMemoryManager(new DataSize(1, MEGABYTE)), new OperatorStats());
+        SourceSetSupplier setProvider = new SourceSetSupplier(buildSource, 0, 10, new TaskMemoryManager(new DataSize(1, MEGABYTE)), new OperatorStats());
         HashSemiJoinOperator semiJoinOperator = new HashSemiJoinOperator(probeSource, 0, setProvider);
 
         Operator expected = createOperator(new Page(
@@ -106,7 +106,7 @@ public class TestHashSemiJoinOperator
                 createLongSequenceBlock(1000, 2000),
                 createLongSequenceBlock(2000, 3000)));
 
-        SourceSetProvider setProvider = new SourceSetProvider(buildSource, 0, 10, new TaskMemoryManager(new DataSize(1, BYTE)), new OperatorStats());
+        SourceSetSupplier setProvider = new SourceSetSupplier(buildSource, 0, 10, new TaskMemoryManager(new DataSize(1, BYTE)), new OperatorStats());
         HashSemiJoinOperator semiJoinOperator = new HashSemiJoinOperator(probeSource, 0, setProvider);
         semiJoinOperator.iterator(new OperatorStats()).next();
     }
@@ -118,7 +118,7 @@ public class TestHashSemiJoinOperator
         Operator build = createOperator(new Page(createStringSequenceBlock(20, 30)));
         BlockingOperator probe = createCancelableDataSource(new TupleInfo(VARIABLE_BINARY), new TupleInfo(VARIABLE_BINARY));
 
-        SourceSetProvider setProvider = new SourceSetProvider(build, 0, 10, new TaskMemoryManager(new DataSize(1, MEGABYTE)), new OperatorStats());
+        SourceSetSupplier setProvider = new SourceSetSupplier(build, 0, 10, new TaskMemoryManager(new DataSize(1, MEGABYTE)), new OperatorStats());
         HashSemiJoinOperator semiJoinOperator = new HashSemiJoinOperator(probe, 0, setProvider);
         assertCancel(semiJoinOperator, probe);
     }
@@ -131,7 +131,7 @@ public class TestHashSemiJoinOperator
         BlockingOperator build = createCancelableDataSource(new Page(createStringSequenceBlock(20, 30)), 1, new TupleInfo(VARIABLE_BINARY));
         Operator probe = createOperator(new Page(createStringSequenceBlock(20, 30)));
 
-        SourceSetProvider setProvider = new SourceSetProvider(build, 0, 10, new TaskMemoryManager(new DataSize(1, MEGABYTE)), new OperatorStats());
+        SourceSetSupplier setProvider = new SourceSetSupplier(build, 0, 10, new TaskMemoryManager(new DataSize(1, MEGABYTE)), new OperatorStats());
         HashSemiJoinOperator semiJoinOperator = new HashSemiJoinOperator(probe, 0, setProvider);
         assertCancel(semiJoinOperator, build);
     }
