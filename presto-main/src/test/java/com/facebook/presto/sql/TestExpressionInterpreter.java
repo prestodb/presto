@@ -687,6 +687,42 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("time '03:04 Asia/Oral'", getSeconds(new DateTime(1970, 1, 1, 3, 4, 0, 0, timeZone)));
     }
 
+    @Test
+    public void testFailedExpressionOptimization()
+            throws Exception
+    {
+        assertOptimizedEqualsSelf("if(x, 1, 0 / 0)");
+        assertOptimizedEqualsSelf("if(x, 0 / 0, 1)");
+        assertOptimizedEqualsSelf("case x when 1 then 1 when 0 / 0 then 2 end");
+        assertOptimizedEqualsSelf("case x when true then 1 else 0 / 0 end");
+        assertOptimizedEqualsSelf("case x when true then 0 / 0 else 1 end");
+        assertOptimizedEqualsSelf("case when x then 1 when 0 / 0 then 2 end");
+        assertOptimizedEqualsSelf("case when x then 1 else 0 / 0 end");
+        assertOptimizedEqualsSelf("case when x then 0 / 0 else 1 end");
+        assertOptimizedEqualsSelf("coalesce(x, 0 / 0)");
+    }
+
+    @Test(expectedExceptions = ArithmeticException.class)
+    public void testOptimizeDivideByZero()
+            throws Exception
+    {
+        optimize("0 / 0");
+    }
+
+    @Test(expectedExceptions = ArithmeticException.class)
+    public void testOptimizeConstantIfDivideByZero()
+            throws Exception
+    {
+        optimize("if(false, 1, 0 / 0)");
+    }
+
+    @Test(expectedExceptions = ArithmeticException.class)
+    public void testOptimizeConstantSearchedCaseDivideByZero()
+            throws Exception
+    {
+        optimize("case when 0 / 0 then 1 end");
+    }
+
     @Test(timeOut = 1000)
     public void testLikeInvalidUtf8()
     {
@@ -725,18 +761,12 @@ public class TestExpressionInterpreter
         assertEquals(optimize(actual), optimize(expected));
     }
 
-    private static void assertInvalidCast(@Language("SQL") String expression)
+    private static void assertOptimizedEqualsSelf(@Language("SQL") String expression)
     {
-        try {
-            Object value = optimize(expression);
-            Assert.fail(String.format("Expected '%s' to fail but it returned %s", expression, value));
-        }
-        catch (IllegalArgumentException e) {
-            // success
-        }
+        assertEquals(optimize(expression), createExpression(expression));
     }
 
-    private static Object optimize(String expression)
+    private static Object optimize(@Language("SQL") String expression)
     {
         ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(new SymbolResolver()
         {
