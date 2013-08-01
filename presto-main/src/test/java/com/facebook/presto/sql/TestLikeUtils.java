@@ -26,4 +26,28 @@ public class TestLikeUtils
         Regex regex = LikeUtils.likeToPattern("%b%", '\\');
         assertTrue(LikeUtils.regexMatches(regex, value));
     }
+
+    @Test
+    public void testBackslashesNoSpecialTreatment()
+            throws Exception
+    {
+        Regex regex = LikeUtils.likeToPattern("\\abc\\/\\\\");
+        assertTrue(LikeUtils.regexMatches(regex, utf8Slice("\\abc\\/\\\\")));
+    }
+
+    @Test
+    public void testSelfEscaping()
+            throws Exception
+    {
+        Regex regex = LikeUtils.likeToPattern("\\\\abc\\%", '\\');
+        assertTrue(LikeUtils.regexMatches(regex, utf8Slice("\\abc%")));
+    }
+
+    @Test
+    public void testAlternateEscapedCharacters()
+            throws Exception
+    {
+        Regex regex = LikeUtils.likeToPattern("xxx%x_xabcxx", 'x');
+        assertTrue(LikeUtils.regexMatches(regex, utf8Slice("x%_abcx")));
+    }
 }

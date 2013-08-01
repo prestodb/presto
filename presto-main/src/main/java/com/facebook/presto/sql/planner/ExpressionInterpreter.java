@@ -776,14 +776,7 @@ public class ExpressionInterpreter
                 pattern instanceof Slice &&
                 (escape == null || escape instanceof Slice)) {
 
-            String patternString = ((Slice) pattern).toString(UTF_8);
-
-            char escapeChar = '\\';
-            if (escape != null) {
-                escapeChar = LikeUtils.getEscapeChar((Slice) escape);
-            }
-
-            Regex regex = LikeUtils.likeToPattern(patternString, escapeChar);
+            Regex regex = LikeUtils.likeToPattern((Slice) pattern, (Slice) escape);
 
             return LikeUtils.regexMatches(regex, (Slice) value);
         }
@@ -812,12 +805,7 @@ public class ExpressionInterpreter
             StringLiteral pattern = (StringLiteral) node.getPattern();
             StringLiteral escape = (StringLiteral) node.getEscape();
 
-            char escapeChar = '\\';
-            if (escape != null) {
-                escapeChar = LikeUtils.getEscapeChar(escape.getSlice());
-            }
-
-            result = LikeUtils.likeToPattern(pattern.getSlice().toString(UTF_8), escapeChar);
+            result = LikeUtils.likeToPattern(pattern.getSlice(), escape == null ? null : escape.getSlice());
 
             LIKE_PATTERN_CACHE.put(node, result);
         }
