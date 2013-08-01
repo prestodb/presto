@@ -18,6 +18,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.block.BlockAssertions.assertBlockEquals;
@@ -580,6 +581,81 @@ public class TestSharedBuffer
         addPagesJob.waitForFinished();
     }
 
+    @Test
+    public void testFailFreesWriter()
+            throws Exception
+    {
+        SharedBuffer sharedBuffer = new SharedBuffer(sizeOfPages(5));
+        sharedBuffer.addQueue("queue");
+        sharedBuffer.noMoreQueues();
+        assertFalse(sharedBuffer.isFinished());
+
+        ExecutorService executor = Executors.newCachedThreadPool();
+
+        // fill the buffer
+        for (int i = 0; i < 5; i++) {
+            assertTrue(sharedBuffer.offer(createPage(i)));
+        }
+
+        // exec thread to add two page
+        AddPagesJob addPagesJob = new AddPagesJob(sharedBuffer, createPage(2), createPage(3));
+        executor.submit(addPagesJob);
+        addPagesJob.waitForStarted();
+
+        // "verify" thread is blocked
+        addPagesJob.assertBlockedWithCount(2);
+
+        // get one page
+        assertEquals(sharedBuffer.get("queue", 0, sizeOfPages(1), MAX_WAIT).size(), 1);
+        sharedBuffer.acknowledge("queue", 1);
+
+        // "verify" thread is blocked again with one remaining page
+        addPagesJob.assertBlockedWithCount(1);
+
+        // fail the query
+        sharedBuffer.fail();
+        assertFailed(sharedBuffer);
+
+        // verify thread is released
+        addPagesJob.waitForFinished();
+    }
+
+    @Test
+    public void testFailDoesNotFreeReader()
+            throws Exception
+    {
+        SharedBuffer sharedBuffer = new SharedBuffer(sizeOfPages(5));
+        sharedBuffer.addQueue("queue");
+        assertFalse(sharedBuffer.isFinished());
+
+        ExecutorService executor = Executors.newCachedThreadPool();
+
+        // exec thread to get two pages
+        GetPagesJob getPagesJob = new GetPagesJob(sharedBuffer, 0, 2, 1);
+        executor.submit(getPagesJob);
+        getPagesJob.waitForStarted();
+
+        // "verify" thread is blocked
+        getPagesJob.assertBlockedWithCount(0);
+
+        // add one page
+        assertTrue(sharedBuffer.offer(createPage(0)));
+
+        // verify thread got one page and is blocked
+        getPagesJob.assertBlockedWithCount(1);
+
+        // fail the buffer
+        sharedBuffer.fail();
+        Uninterruptibles.sleepUninterruptibly(10, TimeUnit.MILLISECONDS);
+
+        // verify thread is still blocked
+        getPagesJob.assertBlockedWithCount(1);
+
+        // verify thread only got one page
+        assertEquals(getPagesJob.getElements().size(), 1);
+        getPagesJob.die();
+    }
+
     private void assertQueueState(SharedBuffer sharedBuffer, String queueId, int size, int pagesSent)
     {
         assertEquals(getBufferInfo(sharedBuffer, queueId), new BufferInfo(queueId, false, size, pagesSent));
@@ -607,6 +683,15 @@ public class TestSharedBuffer
         for (BufferInfo bufferInfo : sharedBuffer.getInfo().getBuffers()) {
             assertTrue(bufferInfo.isFinished());
             assertEquals(bufferInfo.getBufferedPages(), 0);
+        }
+    }
+
+    private void assertFailed(SharedBuffer sharedBuffer)
+            throws Exception
+    {
+        assertTrue(sharedBuffer.isFailed());
+        for (BufferInfo bufferInfo : sharedBuffer.getInfo().getBuffers()) {
+            assertFalse(bufferInfo.isFinished());
         }
     }
 
@@ -638,6 +723,7 @@ public class TestSharedBuffer
         private final CopyOnWriteArrayList<Page> elements = new CopyOnWriteArrayList<>();
         private final CountDownLatch started = new CountDownLatch(1);
         private final CountDownLatch finished = new CountDownLatch(1);
+        private final AtomicBoolean die = new AtomicBoolean();
 
         private GetPagesJob(SharedBuffer sharedBuffer, long startingSequenceId, int pagesToGet, int batchSize)
         {
@@ -669,6 +755,11 @@ public class TestSharedBuffer
             assertTrue(!isFinished());
         }
 
+        private void die()
+        {
+            die.set(true);
+        }
+
         private boolean isFinished()
         {
             return finished.getCount() == 0;
@@ -697,7 +788,7 @@ public class TestSharedBuffer
         {
             started.countDown();
             try {
-                while (elements.size() < pagesToGet) {
+                while (elements.size() < pagesToGet && !die.get()) {
                     try {
                         BufferResult result = sharedBuffer.get("queue", sequenceId, sizeOfPages(batchSize), MAX_WAIT);
                         assertTrue(!result.isEmpty());
