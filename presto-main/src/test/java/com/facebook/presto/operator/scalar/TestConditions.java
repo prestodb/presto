@@ -25,7 +25,7 @@ public class TestConditions
         assertFunction("'monkey' like 'dain'", false);
         assertFunction("'monkey' like 'key'", false);
 
-        assertFunction("'_monkey_' like '\\_monkey\\_'", true);
+        assertFunction("'_monkey_' like '\\_monkey\\_'", false);
         assertFunction("'_monkey_' like 'X_monkeyX_' escape 'X'", true);
         assertFunction("'_monkey_' like '_monkey_' escape ''", true);
 
