@@ -10,6 +10,7 @@ import org.joni.Regex;
 import org.joni.Syntax;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 import static com.google.common.base.Charsets.UTF_8;
 import static org.joni.constants.MetaChar.INEFFECTIVE_META_CHAR;
@@ -83,25 +84,35 @@ public final class LikeUtils
         return !high;
     }
 
-    public static Regex likeToPattern(Slice pattern, Slice escapeSlice)
+    public static Regex likeToPattern(Slice pattern, @Nullable Slice escapeSlice)
     {
         String patternString = pattern.toString(UTF_8);
-        char escapeChar = '\\';
         if (escapeSlice != null) {
-            escapeChar = getEscapeChar(escapeSlice);
+            return likeToPattern(patternString, getEscapeChar(escapeSlice));
         }
-
-        return likeToPattern(patternString, escapeChar);
+        else {
+            return likeToPattern(patternString);
+        }
     }
 
     public static Regex likeToPattern(String patternString, char escapeChar)
+    {
+        return likeToPattern(patternString, escapeChar, true);
+    }
+
+    public static Regex likeToPattern(String patternString)
+    {
+        return likeToPattern(patternString, 'x', false);
+    }
+
+    private static Regex likeToPattern(String patternString, char escapeChar, boolean shouldEscape)
     {
         StringBuilder regex = new StringBuilder(patternString.length() * 2);
 
         regex.append('^');
         boolean escaped = false;
         for (char currentChar : patternString.toCharArray()) {
-            if (currentChar == escapeChar) {
+            if (shouldEscape && !escaped && currentChar == escapeChar) {
                 escaped = true;
             }
             else {
