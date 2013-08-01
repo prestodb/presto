@@ -227,6 +227,8 @@ public class TaskOutput
                 // closed buffers signal to upstream tasks that everything finished cleanly
                 if (doneState != TaskState.FAILED) {
                     sharedBuffer.destroy();
+                } else {
+                    sharedBuffer.fail();
                 }
 
                 return true;

@@ -48,7 +48,11 @@ public class SharedBuffer
         /**
          * No more queues can be added and all pages have been consumed.
          */
-        FINISHED
+        FINISHED,
+        /**
+         * System is failed and buffer will never be "finished"
+         */
+        FAILED
     }
 
     private final long maxBufferedBytes;
@@ -74,6 +78,12 @@ public class SharedBuffer
      */
     private final AtomicBoolean closed = new AtomicBoolean();
 
+    /**
+     * If true, no more pages can be added to the queue, but queue can't be closed
+     */
+    // todo remove this.. this is only needed because there is no easy way to signal that writers should be interrupted
+    private final AtomicBoolean failed = new AtomicBoolean();
+
     public SharedBuffer(DataSize maxBufferSize)
     {
         Preconditions.checkArgument(maxBufferSize.toBytes() > 0, "maxBufferSize must be at least 1");
@@ -83,6 +93,11 @@ public class SharedBuffer
     public synchronized boolean isFinished()
     {
         return state == QueueState.FINISHED;
+    }
+
+    public synchronized boolean isFailed()
+    {
+        return state == QueueState.FAILED;
     }
 
     public synchronized SharedBufferInfo getInfo()
@@ -126,11 +141,11 @@ public class SharedBuffer
         Preconditions.checkNotNull(page, "page is null");
 
         // wait for room in the buffer
-        while (!closed.get() && bufferedBytes >= maxBufferedBytes) {
+        while (!closed.get() && !failed.get() && bufferedBytes >= maxBufferedBytes) {
             TimeUnit.SECONDS.timedWait(this, 1);
         }
 
-        if (closed.get()) {
+        if (closed.get() || failed.get()) {
             return false;
         }
 
@@ -144,7 +159,7 @@ public class SharedBuffer
         Preconditions.checkNotNull(page, "page is null");
 
         // is there room in the buffer
-        if (closed.get() || bufferedBytes >= maxBufferedBytes) {
+        if (closed.get() || failed.get() || bufferedBytes >= maxBufferedBytes) {
             return false;
         }
 
@@ -259,6 +274,10 @@ public class SharedBuffer
 
     private synchronized void updateState()
     {
+        if (failed.get()) {
+            return;
+        }
+
         if (closed.get()) {
             // remove all empty queues
             for (Iterator<NamedQueue> iterator = openQueuesBySequenceId.iterator(); iterator.hasNext(); ) {
@@ -300,6 +319,10 @@ public class SharedBuffer
      */
     public synchronized void finish()
     {
+        if (failed.get()) {
+            return;
+        }
+
         closed.set(true);
 
         // the output will only transition to finished if it isn't already marked as failed or cancel
@@ -307,10 +330,23 @@ public class SharedBuffer
     }
 
     /**
+     * A failed buffer will never "finish", and no more pages can be added.
+     */
+    public synchronized void fail()
+    {
+        failed.set(true);
+        state = QueueState.FAILED;
+    }
+
+    /**
      * Destroys the queue, discarding all pages.
      */
     public synchronized void destroy()
     {
+        if (failed.get()) {
+            return;
+        }
+
         closed.set(true);
         state = QueueState.FINISHED;
         for (NamedQueue namedQueue : openQueuesBySequenceId) {
