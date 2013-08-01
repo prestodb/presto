@@ -63,6 +63,7 @@ import java.util.Set;
 
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 public class ExpressionInterpreter
         extends AstVisitor<Object, Void>
@@ -243,6 +244,7 @@ public class ExpressionInterpreter
     {
         Object operand = process(node.getOperand(), context);
         if (operand instanceof Expression) {
+            // TODO: optimize this case
             return node;
         }
 
@@ -622,10 +624,10 @@ public class ExpressionInterpreter
             return null;
         }
 
-        Object trueValue = process(node.getTrueValue(), context);
+        Object trueValue = optimize(node.getTrueValue(), context);
         Object falseValue = null;
         if (node.getFalseValue().isPresent()) {
-            falseValue = process(node.getFalseValue().get(), context);
+            falseValue = optimize(node.getFalseValue().get(), context);
         }
 
         return new IfExpression(toExpression(condition), toExpression(trueValue), toExpression(falseValue));
@@ -893,6 +895,17 @@ public class ExpressionInterpreter
     protected Object visitNode(Node node, Void context)
     {
         throw new UnsupportedOperationException("Evaluator visitor can only handle Expression nodes");
+    }
+
+    private Object optimize(Node node, @Nullable Void context)
+    {
+        checkState(optimize, "not optimizing");
+        try {
+            return process(node, context);
+        }
+        catch (RuntimeException e) {
+            return node;
+        }
     }
 
     private static List<Expression> toExpressions(List<?> objects)
