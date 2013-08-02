@@ -751,57 +751,55 @@ public class TestExpressionCompiler
     }
 
     @Test
-    public void tesExtract()
+    public void testExtract()
             throws Exception
     {
         for (Long left : longLefts) {
             for (Field field : Field.values()) {
                 Long expected = null;
                 if (left != null) {
-                    switch (field) {
-                        case CENTURY:
-                            expected = UnixTimeFunctions.century(left);
-                            break;
-                        case YEAR:
-                            expected = UnixTimeFunctions.year(left);
-                            break;
-                        case QUARTER:
-                            expected = UnixTimeFunctions.quarter(left);
-                            break;
-                        case MONTH:
-                            expected = UnixTimeFunctions.month(left);
-                            break;
-                        case WEEK:
-                            expected = UnixTimeFunctions.week(left);
-                            break;
-                        case DAY:
-                            expected = UnixTimeFunctions.day(left);
-                            break;
-                        case DOW:
-                            expected = UnixTimeFunctions.dayOfWeek(left);
-                            break;
-                        case DOY:
-                            expected = UnixTimeFunctions.dayOfYear(left);
-                            break;
-                        case HOUR:
-                            expected = UnixTimeFunctions.hour(left);
-                            break;
-                        case MINUTE:
-                            expected = UnixTimeFunctions.minute(left);
-                            break;
-                        case SECOND:
-                            expected = UnixTimeFunctions.second(left);
-                            break;
-                        case TIMEZONE_HOUR:
-                        case TIMEZONE_MINUTE:
-                            // TODO: we assume all times are UTC for now
-                            expected = 0L;
-                            break;
-                    }
+                    expected = callExtractFunction(left, field);
                 }
                 assertExecute(generateExpression("extract(" + field.toString() + " from %s)", left), expected);
             }
         }
+    }
+
+    @SuppressWarnings("fallthrough")
+    private static long callExtractFunction(long value, Field field)
+    {
+        switch (field) {
+            case CENTURY:
+                return UnixTimeFunctions.century(value);
+            case YEAR:
+                return UnixTimeFunctions.year(value);
+            case QUARTER:
+                return UnixTimeFunctions.quarter(value);
+            case MONTH:
+                return UnixTimeFunctions.month(value);
+            case WEEK:
+                return UnixTimeFunctions.week(value);
+            case DAY:
+            case DAY_OF_MONTH:
+                return UnixTimeFunctions.day(value);
+            case DAY_OF_WEEK:
+            case DOW:
+                return UnixTimeFunctions.dayOfWeek(value);
+            case DAY_OF_YEAR:
+            case DOY:
+                return UnixTimeFunctions.dayOfYear(value);
+            case HOUR:
+                return UnixTimeFunctions.hour(value);
+            case MINUTE:
+                return UnixTimeFunctions.minute(value);
+            case SECOND:
+                return UnixTimeFunctions.second(value);
+            case TIMEZONE_HOUR:
+            case TIMEZONE_MINUTE:
+                // TODO: we assume all times are UTC for now
+                return 0;
+        }
+        throw new AssertionError("Unhandled field: " + field);
     }
 
     @Test
