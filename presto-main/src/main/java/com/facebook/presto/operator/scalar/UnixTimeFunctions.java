@@ -89,10 +89,10 @@ public final class UnixTimeFunctions
                 return WEEK_OF_YEAR.add(unixTime, intValue);
             case "month":
                 return MONTH_OF_YEAR.add(unixTime, intValue);
-            case "year":
-                return YEAR.add(unixTime, intValue);
             case "quarter":
                 return MONTH_OF_YEAR.add(unixTime, intValue * 3);
+            case "year":
+                return YEAR.add(unixTime, intValue);
             case "century":
                 return CENTURY.add(unixTime, intValue);
             default:
@@ -124,10 +124,10 @@ public final class UnixTimeFunctions
                 return WEEK_OF_YEAR.getDifference(unixTime2, unixTime1);
             case "month":
                 return MONTH_OF_YEAR.getDifference(unixTime2, unixTime1);
-            case "year":
-                return YEAR.getDifference(unixTime2, unixTime1);
             case "quarter":
                 return MONTH_OF_YEAR.getDifference(unixTime2, unixTime1) / 4 + 1;
+            case "year":
+                return YEAR.getDifference(unixTime2, unixTime1);
             case "century":
                 return CENTURY.getDifference(unixTime2, unixTime1);
             default:

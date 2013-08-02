@@ -81,14 +81,14 @@ public class TestUnixTimeFunctions
         DateTime dateTime = new DateTime(2001, 1, 22, 3, 4, 5, 321, DateTimeZone.UTC);
         long seconds = getSeconds(dateTime);
 
+        assertFunction("extract(second FROM " + seconds + ")", dateTime.getSecondOfMinute());
+        assertFunction("extract(minute FROM " + seconds + ")", dateTime.getMinuteOfHour());
+        assertFunction("extract(hour FROM " + seconds + ")", dateTime.getHourOfDay());
         assertFunction("extract(day FROM " + seconds + ")", dateTime.getDayOfMonth());
         assertFunction("extract(doy FROM " + seconds + ")", dateTime.getDayOfYear());
-        assertFunction("extract(hour FROM " + seconds + ")", dateTime.getHourOfDay());
-        assertFunction("extract(minute FROM " + seconds + ")", dateTime.getMinuteOfHour());
+        assertFunction("extract(week FROM " + seconds + ")", dateTime.getWeekOfWeekyear());
         assertFunction("extract(month FROM " + seconds + ")", dateTime.getMonthOfYear());
         assertFunction("extract(quarter FROM " + seconds + ")", dateTime.getMonthOfYear() / 4 + 1);
-        assertFunction("extract(second FROM " + seconds + ")", dateTime.getSecondOfMinute());
-        assertFunction("extract(week FROM " + seconds + ")", dateTime.getWeekOfWeekyear());
         assertFunction("extract(year FROM " + seconds + ")", dateTime.getYear());
         assertFunction("extract(century FROM " + seconds + ")", dateTime.getCenturyOfEra());
     }
@@ -99,14 +99,14 @@ public class TestUnixTimeFunctions
         DateTime dateTime = new DateTime(2001, 1, 22, 3, 4, 5, 321, DateTimeZone.UTC);
         long seconds = getSeconds(dateTime);
 
+        assertFunction("date_add('second', 3, " + seconds + ")", getSeconds(dateTime.plusSeconds(3)));
+        assertFunction("date_add('minute', 3, " + seconds + ")", getSeconds(dateTime.plusMinutes(3)));
+        assertFunction("date_add('hour', 3, " + seconds + ")", getSeconds(dateTime.plusHours(3)));
         assertFunction("date_add('day', 3, " + seconds + ")", getSeconds(dateTime.plusDays(3)));
         assertFunction("date_add('doy', 3, " + seconds + ")", getSeconds(dateTime.plusDays(3)));
-        assertFunction("date_add('hour', 3, " + seconds + ")", getSeconds(dateTime.plusHours(3)));
-        assertFunction("date_add('minute', 3, " + seconds + ")", getSeconds(dateTime.plusMinutes(3)));
+        assertFunction("date_add('week', 3, " + seconds + ")", getSeconds(dateTime.plusWeeks(3)));
         assertFunction("date_add('month', 3, " + seconds + ")", getSeconds(dateTime.plusMonths(3)));
         assertFunction("date_add('quarter', 3, " + seconds + ")", getSeconds(dateTime.plusMonths(3 * 3)));
-        assertFunction("date_add('second', 3, " + seconds + ")", getSeconds(dateTime.plusSeconds(3)));
-        assertFunction("date_add('week', 3, " + seconds + ")", getSeconds(dateTime.plusWeeks(3)));
         assertFunction("date_add('year', 3, " + seconds + ")", getSeconds(dateTime.plusYears(3)));
         assertFunction("date_add('century', 3, " + seconds + ")", fromMillis(CENTURY_FIELD.add(dateTime.getMillis(), 3)));
     }
@@ -119,14 +119,14 @@ public class TestUnixTimeFunctions
         DateTime dateTime2 = new DateTime(2011, 5, 1, 7, 2, 9, 0, DateTimeZone.UTC);
         long seconds2 = getSeconds(dateTime2);
 
+        assertFunction("date_diff('second', " + seconds1 + ", " + seconds2 + ")", Seconds.secondsBetween(dateTime1, dateTime2).getSeconds());
+        assertFunction("date_diff('minute', " + seconds1 + ", " + seconds2 + ")", Minutes.minutesBetween(dateTime1, dateTime2).getMinutes());
+        assertFunction("date_diff('hour', " + seconds1 + ", " + seconds2 + ")", Hours.hoursBetween(dateTime1, dateTime2).getHours());
         assertFunction("date_diff('day', " + seconds1 + ", " + seconds2 + ")", Days.daysBetween(dateTime1, dateTime2).getDays());
         assertFunction("date_diff('doy', " + seconds1 + ", " + seconds2 + ")", Days.daysBetween(dateTime1, dateTime2).getDays());
-        assertFunction("date_diff('hour', " + seconds1 + ", " + seconds2 + ")", Hours.hoursBetween(dateTime1, dateTime2).getHours());
-        assertFunction("date_diff('minute', " + seconds1 + ", " + seconds2 + ")", Minutes.minutesBetween(dateTime1, dateTime2).getMinutes());
+        assertFunction("date_diff('week', " + seconds1 + ", " + seconds2 + ")", Weeks.weeksBetween(dateTime1, dateTime2).getWeeks());
         assertFunction("date_diff('month', " + seconds1 + ", " + seconds2 + ")", Months.monthsBetween(dateTime1, dateTime2).getMonths());
         assertFunction("date_diff('quarter', " + seconds1 + ", " + seconds2 + ")", Months.monthsBetween(dateTime1, dateTime2).getMonths() / 4 + 1);
-        assertFunction("date_diff('second', " + seconds1 + ", " + seconds2 + ")", Seconds.secondsBetween(dateTime1, dateTime2).getSeconds());
-        assertFunction("date_diff('week', " + seconds1 + ", " + seconds2 + ")", Weeks.weeksBetween(dateTime1, dateTime2).getWeeks());
         assertFunction("date_diff('year', " + seconds1 + ", " + seconds2 + ")", Years.yearsBetween(dateTime1, dateTime2).getYears());
         assertFunction("date_diff('century', " + seconds1 + ", " + seconds2 + ")", fromMillis(CENTURY_FIELD.getDifference(dateTime1.getMillis(), dateTime2.getMillis())));
     }
