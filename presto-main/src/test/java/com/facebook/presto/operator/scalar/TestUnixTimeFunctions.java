@@ -103,7 +103,6 @@ public class TestUnixTimeFunctions
         assertFunction("date_add('minute', 3, " + seconds + ")", getSeconds(dateTime.plusMinutes(3)));
         assertFunction("date_add('hour', 3, " + seconds + ")", getSeconds(dateTime.plusHours(3)));
         assertFunction("date_add('day', 3, " + seconds + ")", getSeconds(dateTime.plusDays(3)));
-        assertFunction("date_add('doy', 3, " + seconds + ")", getSeconds(dateTime.plusDays(3)));
         assertFunction("date_add('week', 3, " + seconds + ")", getSeconds(dateTime.plusWeeks(3)));
         assertFunction("date_add('month', 3, " + seconds + ")", getSeconds(dateTime.plusMonths(3)));
         assertFunction("date_add('quarter', 3, " + seconds + ")", getSeconds(dateTime.plusMonths(3 * 3)));
@@ -123,7 +122,6 @@ public class TestUnixTimeFunctions
         assertFunction("date_diff('minute', " + seconds1 + ", " + seconds2 + ")", Minutes.minutesBetween(dateTime1, dateTime2).getMinutes());
         assertFunction("date_diff('hour', " + seconds1 + ", " + seconds2 + ")", Hours.hoursBetween(dateTime1, dateTime2).getHours());
         assertFunction("date_diff('day', " + seconds1 + ", " + seconds2 + ")", Days.daysBetween(dateTime1, dateTime2).getDays());
-        assertFunction("date_diff('doy', " + seconds1 + ", " + seconds2 + ")", Days.daysBetween(dateTime1, dateTime2).getDays());
         assertFunction("date_diff('week', " + seconds1 + ", " + seconds2 + ")", Weeks.weeksBetween(dateTime1, dateTime2).getWeeks());
         assertFunction("date_diff('month', " + seconds1 + ", " + seconds2 + ")", Months.monthsBetween(dateTime1, dateTime2).getMonths());
         assertFunction("date_diff('quarter', " + seconds1 + ", " + seconds2 + ")", Months.monthsBetween(dateTime1, dateTime2).getMonths() / 4 + 1);
