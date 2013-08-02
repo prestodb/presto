@@ -50,6 +50,18 @@ public final class UnixTimeFunctions
         return fromMillis(session.getStartTime());
     }
 
+    @ScalarFunction("from_unixtime")
+    public static long fromUnixTime(double unixTime)
+    {
+        return Math.round(unixTime);
+    }
+
+    @ScalarFunction("to_unixtime")
+    public static double toUnixTime(long unixTime)
+    {
+        return unixTime;
+    }
+
     @ScalarFunction
     public static long dateAdd(Slice unit, long value, long unixTime)
     {
