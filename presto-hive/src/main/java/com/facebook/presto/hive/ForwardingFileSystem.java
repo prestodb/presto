@@ -499,4 +499,22 @@ public abstract class ForwardingFileSystem
     {
         fileSystem.setTimes(p, mtime, atime);
     }
+
+    @Override
+    public void setConf(Configuration conf)
+    {
+        // HACK since FileSystem super class calls the public setConf() in its constructor
+        if (fileSystem != null) {
+            fileSystem.setConf(conf);
+        }
+        else {
+            Preconditions.checkArgument(conf == null, "Expected null conf");
+        }
+    }
+
+    @Override
+    public Configuration getConf()
+    {
+        return fileSystem.getConf();
+    }
 }
