@@ -73,6 +73,7 @@ public class TestUnixTimeFunctions
         assertFunction("month(" + seconds + ")", dateTime.getMonthOfYear());
         assertFunction("quarter(" + seconds + ")", dateTime.getMonthOfYear() / 4 + 1);
         assertFunction("year(" + seconds + ")", dateTime.getYear());
+        assertFunction("century(" + seconds + ")", dateTime.getCenturyOfEra());
     }
 
     @Test
@@ -84,7 +85,11 @@ public class TestUnixTimeFunctions
         assertFunction("extract(second FROM " + seconds + ")", dateTime.getSecondOfMinute());
         assertFunction("extract(minute FROM " + seconds + ")", dateTime.getMinuteOfHour());
         assertFunction("extract(hour FROM " + seconds + ")", dateTime.getHourOfDay());
+        assertFunction("extract(day_of_week FROM " + seconds + ")", dateTime.getDayOfWeek());
+        assertFunction("extract(dow FROM " + seconds + ")", dateTime.getDayOfWeek());
         assertFunction("extract(day FROM " + seconds + ")", dateTime.getDayOfMonth());
+        assertFunction("extract(day_of_month FROM " + seconds + ")", dateTime.getDayOfMonth());
+        assertFunction("extract(day_of_year FROM " + seconds + ")", dateTime.getDayOfYear());
         assertFunction("extract(doy FROM " + seconds + ")", dateTime.getDayOfYear());
         assertFunction("extract(week FROM " + seconds + ")", dateTime.getWeekOfWeekyear());
         assertFunction("extract(month FROM " + seconds + ")", dateTime.getMonthOfYear());
