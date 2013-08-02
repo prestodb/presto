@@ -30,12 +30,14 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.Callable;
 
 import static com.facebook.presto.hive.HiveColumnHandle.hiveColumnIndexGetter;
 import static com.facebook.presto.hive.HiveColumnHandle.isPartitionKeyPredicate;
 import static com.facebook.presto.hive.HiveColumnHandle.nativeTypeGetter;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
 import static com.facebook.presto.hive.HiveUtil.getInputFormatName;
+import static com.facebook.presto.hive.RetryDriver.retry;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
@@ -144,16 +146,24 @@ public class HiveRecordSet
         throw new IllegalStateException("Table doesn't have any PRIMITIVE columns");
     }
 
-    private static RecordReader<?, ?> createRecordReader(HiveSplit split, Configuration configuration, Path wrappedPath)
+    private static RecordReader<?, ?> createRecordReader(final HiveSplit split, Configuration configuration, Path wrappedPath)
     {
-        InputFormat<?, ?> inputFormat = getInputFormat(configuration, split.getSchema(), true);
-        JobConf jobConf = new JobConf(configuration);
-        FileSplit fileSplit = createFileSplit(wrappedPath, split.getStart(), split.getLength());
+        final InputFormat<?, ?> inputFormat = getInputFormat(configuration, split.getSchema(), true);
+        final JobConf jobConf = new JobConf(configuration);
+        final FileSplit fileSplit = createFileSplit(wrappedPath, split.getStart(), split.getLength());
 
         try {
-            return inputFormat.getRecordReader(fileSplit, jobConf, Reporter.NULL);
+            return retry().stopOnIllegalExceptions().run("createRecordReader", new Callable<RecordReader<?, ?>>()
+            {
+                @Override
+                public RecordReader<?, ?> call()
+                        throws IOException
+                {
+                    return inputFormat.getRecordReader(fileSplit, jobConf, Reporter.NULL);
+                }
+            });
         }
-        catch (IOException e) {
+        catch (Exception e) {
             throw new RuntimeException(String.format("Error opening Hive split %s (offset=%s, length=%s) using %s: %s",
                     split.getPath(),
                     split.getStart(),
