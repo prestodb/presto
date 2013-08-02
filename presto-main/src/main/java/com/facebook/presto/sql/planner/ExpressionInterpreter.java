@@ -815,6 +815,8 @@ public class ExpressionInterpreter
         return result;
     }
 
+    @Override
+    @SuppressWarnings("fallthrough")
     protected Object visitExtract(Extract node, Void context)
     {
         Object value = process(node.getExpression(), context);
@@ -839,9 +841,12 @@ public class ExpressionInterpreter
             case WEEK:
                 return UnixTimeFunctions.week(time);
             case DAY:
+            case DAY_OF_MONTH:
                 return UnixTimeFunctions.day(time);
+            case DAY_OF_WEEK:
             case DOW:
                 return UnixTimeFunctions.dayOfWeek(time);
+            case DAY_OF_YEAR:
             case DOY:
                 return UnixTimeFunctions.dayOfYear(time);
             case HOUR:
