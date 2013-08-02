@@ -81,10 +81,6 @@ public final class UnixTimeFunctions
                 return HOUR_OF_DAY.add(unixTime, intValue);
             case "day":
                 return DAY_OF_MONTH.add(unixTime, intValue);
-            case "dow":
-                return DAY_OF_WEEK.add(unixTime, intValue);
-            case "doy":
-                return DAY_OF_YEAR.add(unixTime, intValue);
             case "week":
                 return WEEK_OF_YEAR.add(unixTime, intValue);
             case "month":
@@ -116,10 +112,6 @@ public final class UnixTimeFunctions
                 return HOUR_OF_DAY.getDifference(unixTime2, unixTime1);
             case "day":
                 return DAY_OF_MONTH.getDifference(unixTime2, unixTime1);
-            case "dow":
-                return DAY_OF_WEEK.getDifference(unixTime2, unixTime1);
-            case "doy":
-                return DAY_OF_YEAR.getDifference(unixTime2, unixTime1);
             case "week":
                 return WEEK_OF_YEAR.getDifference(unixTime2, unixTime1);
             case "month":
