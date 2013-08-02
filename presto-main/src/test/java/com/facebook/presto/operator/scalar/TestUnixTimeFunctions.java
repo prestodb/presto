@@ -39,6 +39,21 @@ public class TestUnixTimeFunctions
     }
 
     @Test
+    public void testFromUnixTime()
+    {
+        long seconds = getSeconds(new DateTime(2001, 1, 22, 3, 4, 5, 321, DateTimeZone.UTC));
+        assertFunction("from_unixtime(980132645)", seconds);
+        assertFunction("from_unixtime(980132645.888)", seconds + 1);
+    }
+
+    @Test
+    public void testToUnixTime()
+    {
+        long seconds = getSeconds(new DateTime(2001, 1, 22, 3, 4, 5, 321, DateTimeZone.UTC));
+        assertFunction("to_unixtime(" + seconds +  ")", (double) seconds);
+    }
+
+    @Test
     public void testPartFunctions()
     {
         DateTime dateTime = new DateTime(2001, 1, 22, 3, 4, 5, 321, DateTimeZone.UTC);
