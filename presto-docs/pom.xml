@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.facebook.presto</groupId>
+        <artifactId>presto-root</artifactId>
+        <version>0.41-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>presto-docs</artifactId>
+    <name>presto-docs</name>
+    <packaging>pom</packaging>
+
+    <!--
+    Genarate HTML docs quickly while developing:
+
+    brew install python
+    pip install sphinx
+
+    make -C presto-docs clean html SPHINXBUILD=/usr/local/share/python/sphinx-build
+
+    Find them here: presto-docs/target/html
+    -->
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.tomdz.maven</groupId>
+                <artifactId>sphinx-maven-plugin</artifactId>
+                <configuration>
+                    <force>true</force>
+                    <warningsAsErrors>true</warningsAsErrors>
+                    <sourceDirectory>${project.basedir}/src/main/sphinx</sourceDirectory>
+                    <outputDirectory>${project.build.directory}/html</outputDirectory>
+                </configuration>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>generate</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>docs</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                        <configuration>
+                            <appendAssemblyId>false</appendAssemblyId>
+                            <descriptors>
+                                <descriptor>src/main/assembly/docs.xml</descriptor>
+                            </descriptors>
+                        </configuration>
+                    </execution>
+
+                    <execution>
+                        <id>sources</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                        <configuration>
+                            <descriptors>
+                                <descriptor>src/main/assembly/sources.xml</descriptor>
+                            </descriptors>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>
