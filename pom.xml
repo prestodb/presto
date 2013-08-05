@@ -58,6 +58,7 @@
     </properties>
 
     <modules>
+        <module>presto-docs</module>
         <module>presto-spi</module>
         <module>presto-hive</module>
         <module>presto-hive-plugin</module>
@@ -455,6 +456,11 @@
                     <groupId>org.codehaus.mojo</groupId>
                     <artifactId>exec-maven-plugin</artifactId>
                     <version>1.2.1</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.tomdz.maven</groupId>
+                    <artifactId>sphinx-maven-plugin</artifactId>
+                    <version>1.0.2</version>
                 </plugin>
                 <!--This plugin's configuration is used to store Eclipse m2e settings only. It has no influence on the Maven build itself.-->
                 <plugin>
