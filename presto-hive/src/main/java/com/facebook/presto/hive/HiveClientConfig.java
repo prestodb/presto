@@ -31,6 +31,8 @@ public class HiveClientConfig
 
     private Duration fileSystemCacheTtl = new Duration(1, TimeUnit.DAYS);
     private Duration dfsTimeout = new Duration(10, TimeUnit.SECONDS);
+    private Duration dfsConnectTimeout = new Duration(500, TimeUnit.MILLISECONDS);
+    private int dfsConnectMaxRetries = 5;
 
     private String domainSocketPath;
 
@@ -191,6 +193,33 @@ public class HiveClientConfig
     public HiveClientConfig setDfsTimeout(Duration dfsTimeout)
     {
         this.dfsTimeout = dfsTimeout;
+        return this;
+    }
+
+    @MinDuration("1ms")
+    @NotNull
+    public Duration getDfsConnectTimeout()
+    {
+        return dfsConnectTimeout;
+    }
+
+    @Config("hive.dfs.connect.timeout")
+    public HiveClientConfig setDfsConnectTimeout(Duration dfsConnectTimeout)
+    {
+        this.dfsConnectTimeout = dfsConnectTimeout;
+        return this;
+    }
+
+    @Min(0)
+    public int getDfsConnectMaxRetries()
+    {
+        return dfsConnectMaxRetries;
+    }
+
+    @Config("hive.dfs.connect.max-retries")
+    public HiveClientConfig setDfsConnectMaxRetries(int dfsConnectMaxRetries)
+    {
+        this.dfsConnectMaxRetries = dfsConnectMaxRetries;
         return this;
     }
 

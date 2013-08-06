@@ -23,6 +23,8 @@ public class HdfsConfiguration
 {
     private final HostAndPort socksProxy;
     private final Duration dfsTimeout;
+    private final Duration dfsConnectTimeout;
+    private final int dfsConnectMaxRetries;
     private final String domainSocketPath;
 
     @SuppressWarnings("ThreadLocalNotStaticFinal")
@@ -43,6 +45,8 @@ public class HdfsConfiguration
 
         this.socksProxy = hiveClientConfig.getMetastoreSocksProxy();
         this.dfsTimeout = hiveClientConfig.getDfsTimeout();
+        this.dfsConnectTimeout = hiveClientConfig.getDfsConnectTimeout();
+        this.dfsConnectMaxRetries = hiveClientConfig.getDfsConnectMaxRetries();
         this.domainSocketPath = hiveClientConfig.getDomainSocketPath();
     }
 
@@ -74,6 +78,8 @@ public class HdfsConfiguration
         config.setBoolean("dfs.read.shortcircuit.fallbackwhenfail", true);
         config.setInt("dfs.socket.timeout", Ints.checkedCast(dfsTimeout.toMillis()));
         config.setInt("ipc.ping.interval", Ints.checkedCast(dfsTimeout.toMillis()));
+        config.setInt("ipc.client.connect.timeout", Ints.checkedCast(dfsConnectTimeout.toMillis()));
+        config.setInt("ipc.client.connect.max.retries", dfsConnectMaxRetries);
 
         // Enable JMX export of stats for DFSClient
         try {

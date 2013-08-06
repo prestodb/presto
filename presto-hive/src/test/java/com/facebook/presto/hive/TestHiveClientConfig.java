@@ -31,6 +31,8 @@ public class TestHiveClientConfig
                 .setMinPartitionBatchSize(10)
                 .setMaxPartitionBatchSize(100)
                 .setDfsTimeout(new Duration(10, TimeUnit.SECONDS))
+                .setDfsConnectTimeout(new Duration(500, TimeUnit.MILLISECONDS))
+                .setDfsConnectMaxRetries(5)
                 .setFileSystemCacheTtl(new Duration(1, TimeUnit.DAYS))
                 .setDomainSocketPath(null));
     }
@@ -50,6 +52,8 @@ public class TestHiveClientConfig
                 .put("hive.metastore.partition-batch-size.min", "1")
                 .put("hive.metastore.partition-batch-size.max", "1000")
                 .put("hive.dfs-timeout", "33s")
+                .put("hive.dfs.connect.timeout", "20s")
+                .put("hive.dfs.connect.max-retries", "10")
                 .put("hive.file-system-cache-ttl", "2d")
                 .put("dfs.domain-socket-path", "/foo")
                 .build();
@@ -66,6 +70,8 @@ public class TestHiveClientConfig
                 .setMinPartitionBatchSize(1)
                 .setMaxPartitionBatchSize(1000)
                 .setDfsTimeout(new Duration(33, TimeUnit.SECONDS))
+                .setDfsConnectTimeout(new Duration(20, TimeUnit.SECONDS))
+                .setDfsConnectMaxRetries(10)
                 .setFileSystemCacheTtl(new Duration(2, TimeUnit.DAYS))
                 .setDomainSocketPath("/foo");
 
