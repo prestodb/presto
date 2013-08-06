@@ -13,6 +13,7 @@ import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.ExplainFormat;
 import com.facebook.presto.sql.tree.ExplainOption;
+import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.LikePredicate;
@@ -49,6 +50,8 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_SCHEMA_
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TABLE_ALREADY_EXISTS;
+import static com.facebook.presto.sql.tree.ExplainFormat.Type.TEXT;
+import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
 import static com.facebook.presto.sql.tree.QueryUtil.aliasedName;
 import static com.facebook.presto.sql.tree.QueryUtil.ascending;
 import static com.facebook.presto.sql.tree.QueryUtil.caseWhen;
@@ -63,7 +66,6 @@ import static com.facebook.presto.sql.tree.QueryUtil.table;
 import static com.facebook.presto.sql.tree.QueryUtil.unaliasedName;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-
 
 class StatementAnalyzer
         extends DefaultTraversalVisitor<TupleDescriptor, AnalysisContext>
@@ -342,27 +344,24 @@ class StatementAnalyzer
             throws SemanticException
     {
         checkState(queryExplainer.isPresent(), "query explainer not available");
-        String queryPlan = null;
+        ExplainType.Type planType = LOGICAL;
+        ExplainFormat.Type planFormat = TEXT;
         List<ExplainOption> options = node.getOptions();
 
         for (ExplainOption option : options) {
-            if (option instanceof ExplainFormat) {
-                switch (((ExplainFormat) option).getType()) {
-                    case TEXT:
-                        queryPlan = queryExplainer.get().getPlan(node.getQuery());
-                        break;
-                    case GRAPHVIZ:
-                        queryPlan = queryExplainer.get().getGraphvizPlan(node.getQuery());
-                        break;
-                    default:
-                        throw new SemanticException(NOT_SUPPORTED, option, "Invalid explain format '" + ((ExplainFormat) option).getType().toString() + "'");
-                }
+            if (option instanceof ExplainType) {
+                planType = ((ExplainType) option).getType();
+                break;
             }
         }
-        if (queryPlan == null) {
-            // default to TEXT format
-            queryPlan = queryExplainer.get().getPlan(node.getQuery());
+
+        for (ExplainOption option : options) {
+            if (option instanceof ExplainFormat) {
+                planFormat = ((ExplainFormat) option).getType();
+                break;
+            }
         }
+        String queryPlan = getQueryPlan(node, planType, planFormat);
 
         Query query = new Query(
                 Optional.<With>absent(),
@@ -380,6 +379,18 @@ class StatementAnalyzer
                 Optional.<String>absent());
 
         return process(query, context);
+    }
+
+    private String getQueryPlan(Explain node, ExplainType.Type planType, ExplainFormat.Type planFormat)
+            throws IllegalArgumentException
+    {
+        switch (planFormat) {
+            case GRAPHVIZ:
+                return queryExplainer.get().getGraphvizPlan(node.getQuery(), planType);
+            case TEXT:
+                return queryExplainer.get().getPlan(node.getQuery(), planType);
+        }
+        throw new IllegalArgumentException("Invalid Explain Format: " +  planFormat.toString());
     }
 
     @Override

@@ -1,6 +1,7 @@
 package com.facebook.presto.util;
 
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
@@ -79,7 +80,7 @@ public final class GraphvizPrinter
         Preconditions.checkState(NODE_COLORS.size() == NodeType.values().length);
     }
 
-    public static String print(List<PlanFragment> fragments)
+    public static String printLogical(List<PlanFragment> fragments)
     {
         Map<PlanFragmentId, PlanFragment> fragmentsById = Maps.uniqueIndex(fragments, new Function<PlanFragment, PlanFragmentId>()
         {
@@ -92,8 +93,7 @@ public final class GraphvizPrinter
         PlanNodeIdGenerator idGenerator = new PlanNodeIdGenerator();
 
         StringBuilder output = new StringBuilder();
-        output.append("digraph Plan {")
-                .append('\n');
+        output.append("digraph logical_plan {\n");
 
         for (PlanFragment fragment : fragments) {
             printFragmentNodes(output, fragment, idGenerator);
@@ -103,10 +103,36 @@ public final class GraphvizPrinter
             fragment.getRoot().accept(new EdgePrinter(output, fragmentsById, idGenerator), null);
         }
 
-        output.append("}")
-                .append('\n');
+        output.append("}\n");
 
         return output.toString();
+    }
+
+    public static String printDistributed(SubPlan plan)
+    {
+        List<PlanFragment> fragments = plan.getAllFragments();
+        Map<PlanFragmentId, PlanFragment> fragmentsById = Maps.uniqueIndex(fragments, PlanFragment.idGetter());
+        PlanNodeIdGenerator idGenerator = new PlanNodeIdGenerator();
+
+        StringBuilder output = new StringBuilder();
+        output.append("digraph distributed_plan {\n");
+
+        printSubPlan(plan, fragmentsById, idGenerator, output);
+
+        output.append("}\n");
+
+        return output.toString();
+    }
+
+    private static void printSubPlan(SubPlan plan, Map<PlanFragmentId, PlanFragment> fragmentsById, PlanNodeIdGenerator idGenerator, StringBuilder output)
+    {
+        PlanFragment fragment = plan.getFragment();
+        printFragmentNodes(output, fragment, idGenerator);
+        fragment.getRoot().accept(new EdgePrinter(output, fragmentsById, idGenerator), null);
+
+        for (SubPlan child : plan.getChildren()) {
+            printSubPlan(child, fragmentsById, idGenerator, output);
+        }
     }
 
     private static void printFragmentNodes(StringBuilder output, PlanFragment fragment, PlanNodeIdGenerator idGenerator)

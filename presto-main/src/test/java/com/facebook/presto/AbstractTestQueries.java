@@ -13,6 +13,7 @@ import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.PlanOptimizersFactory;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
+import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.storage.MockStorageManager;
 import com.facebook.presto.tpch.TpchMetadata;
@@ -52,6 +53,8 @@ import java.util.List;
 
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
+import static com.facebook.presto.sql.tree.ExplainType.Type.DISTRIBUTED;
+import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
 import static com.facebook.presto.tpch.TpchMetadata.TPCH_LINEITEM_METADATA;
 import static com.facebook.presto.tpch.TpchMetadata.TPCH_LINEITEM_NAME;
 import static com.facebook.presto.tpch.TpchMetadata.TPCH_ORDERS_METADATA;
@@ -1797,30 +1800,75 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testExplain()
+    public void testDefaultExplainTextFormat()
     {
         String query = "SELECT 123 FROM dual";
         MaterializedResult result = computeActual("EXPLAIN " + query);
         String actual = Iterables.getOnlyElement(transform(result.getMaterializedTuples(), onlyColumnGetter()));
-        assertEquals(actual, getExplainPlan(query));
+        assertEquals(actual, getExplainPlan(query, LOGICAL));
     }
 
     @Test
-    public void testExplainTextFormat()
-    {
-        String query = "SELECT 123 FROM dual";
-        MaterializedResult result = computeActual("EXPLAIN (FORMAT TEXT) " + query);
-        String actual = Iterables.getOnlyElement(transform(result.getMaterializedTuples(), onlyColumnGetter()));
-        assertEquals(actual, getExplainPlan(query));
-    }
-
-    @Test
-    public void testExplainGraphvizFormat()
+    public void testDefaultExplainGraphvizFormat()
     {
         String query = "SELECT 123 FROM dual";
         MaterializedResult result = computeActual("EXPLAIN (FORMAT GRAPHVIZ) " + query);
         String actual = Iterables.getOnlyElement(transform(result.getMaterializedTuples(), onlyColumnGetter()));
-        assertEquals(actual, getGraphvizExplainPlan(query));
+        assertEquals(actual, getGraphvizExplainPlan(query, LOGICAL));
+    }
+
+    @Test
+    public void testLogicalExplain()
+    {
+        String query = "SELECT 123 FROM dual";
+        MaterializedResult result = computeActual("EXPLAIN (TYPE LOGICAL) " + query);
+        String actual = Iterables.getOnlyElement(transform(result.getMaterializedTuples(), onlyColumnGetter()));
+        assertEquals(actual, getExplainPlan(query, LOGICAL));
+    }
+
+    @Test
+    public void testLogicalExplainTextFormat()
+    {
+        String query = "SELECT 123 FROM dual";
+        MaterializedResult result = computeActual("EXPLAIN (TYPE LOGICAL, FORMAT TEXT) " + query);
+        String actual = Iterables.getOnlyElement(transform(result.getMaterializedTuples(), onlyColumnGetter()));
+        assertEquals(actual, getExplainPlan(query, LOGICAL));
+    }
+
+    @Test
+    public void testLogicalExplainGraphvizFormat()
+    {
+        String query = "SELECT 123 FROM dual";
+        MaterializedResult result = computeActual("EXPLAIN (TYPE LOGICAL, FORMAT GRAPHVIZ) " + query);
+        String actual = Iterables.getOnlyElement(transform(result.getMaterializedTuples(), onlyColumnGetter()));
+        assertEquals(actual, getGraphvizExplainPlan(query, LOGICAL));
+    }
+
+    @Test
+    public void testDistributedExplain()
+    {
+        String query = "SELECT 123 FROM dual";
+        MaterializedResult result = computeActual("EXPLAIN (TYPE DISTRIBUTED) " + query);
+        String actual = Iterables.getOnlyElement(transform(result.getMaterializedTuples(), onlyColumnGetter()));
+        assertEquals(actual, getExplainPlan(query, DISTRIBUTED));
+    }
+
+    @Test
+    public void testDistributedExplainTextFormat()
+    {
+        String query = "SELECT 123 FROM dual";
+        MaterializedResult result = computeActual("EXPLAIN (TYPE DISTRIBUTED, FORMAT TEXT) " + query);
+        String actual = Iterables.getOnlyElement(transform(result.getMaterializedTuples(), onlyColumnGetter()));
+        assertEquals(actual, getExplainPlan(query, DISTRIBUTED));
+    }
+
+    @Test
+    public void testDistributedExplainGraphvizFormat()
+    {
+        String query = "SELECT 123 FROM dual";
+        MaterializedResult result = computeActual("EXPLAIN (TYPE DISTRIBUTED, FORMAT GRAPHVIZ) " + query);
+        String actual = Iterables.getOnlyElement(transform(result.getMaterializedTuples(), onlyColumnGetter()));
+        assertEquals(actual, getGraphvizExplainPlan(query, DISTRIBUTED));
     }
 
     @Test
@@ -2561,16 +2609,16 @@ public abstract class AbstractTestQueries
         };
     }
 
-    private static String getExplainPlan(String query)
+    private static String getExplainPlan(String query, ExplainType.Type planType)
     {
         QueryExplainer explainer = getQueryExplainer();
-        return explainer.getPlan((Query) SqlParser.createStatement(query));
+        return explainer.getPlan((Query) SqlParser.createStatement(query), planType);
     }
 
-    private static String getGraphvizExplainPlan(String query)
+    private static String getGraphvizExplainPlan(String query, ExplainType.Type planType)
     {
         QueryExplainer explainer = getQueryExplainer();
-        return explainer.getGraphvizPlan((Query) SqlParser.createStatement(query));
+        return explainer.getGraphvizPlan((Query) SqlParser.createStatement(query), planType);
     }
 
     private static QueryExplainer getQueryExplainer()
