@@ -8,7 +8,7 @@ Except for :func:`count`, :func:`count_if` and :func:`approx_distinct`, all
 of these aggregate functions ignore null values and return null for no input
 rows or when all values are null. For example, :func:`sum` returns null
 rather than zero and :func:`avg` does include null values in the count.
-The :func:`coalesce` function can be used to convert null into zero.
+The ``coalesce`` function can be used to convert null into zero.
 
 General Aggregate Functions
 ---------------------------
