@@ -130,7 +130,7 @@ public class LocalQueryRunner
 
         Plan plan = new LogicalPlanner(session, planOptimizersFactory.get(), idAllocator, metadata, new MockPeriodicImportManager(), new MockStorageManager()).plan(analysis);
         if (printPlan) {
-            System.out.println(PlanPrinter.printPlan(plan.getRoot(), plan.getTypes()));
+            System.out.println(PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes()));
         }
 
         SubPlan subplan = new DistributedLogicalPlanner(metadata, idAllocator).createSubplans(plan, true);

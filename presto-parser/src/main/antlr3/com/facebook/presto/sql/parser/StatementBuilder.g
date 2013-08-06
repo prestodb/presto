@@ -439,8 +439,10 @@ explainOptions returns [List<ExplainOption> value = new ArrayList<>()]
     ;
 
 explainOption returns [ExplainOption value]
-    : ^(EXPLAIN_FORMAT TEXT)     { $value = new ExplainFormat(ExplainFormat.Type.TEXT); }
-    | ^(EXPLAIN_FORMAT GRAPHVIZ) { $value = new ExplainFormat(ExplainFormat.Type.GRAPHVIZ); }
+    : ^(EXPLAIN_FORMAT TEXT)      { $value = new ExplainFormat(ExplainFormat.Type.TEXT); }
+    | ^(EXPLAIN_FORMAT GRAPHVIZ)  { $value = new ExplainFormat(ExplainFormat.Type.GRAPHVIZ); }
+    | ^(EXPLAIN_TYPE LOGICAL)     { $value = new ExplainType(ExplainType.Type.LOGICAL); }
+    | ^(EXPLAIN_TYPE DISTRIBUTED) { $value = new ExplainType(ExplainType.Type.DISTRIBUTED); }
     ;
 
 showTables returns [Statement value]

@@ -9,6 +9,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multiset;
 
 import javax.annotation.concurrent.Immutable;
+
 import java.util.List;
 
 import static com.google.common.base.Predicates.instanceOf;
@@ -36,6 +37,21 @@ public class SubPlan
     public List<SubPlan> getChildren()
     {
         return children;
+    }
+
+    /**
+     * Flattens the subplan and returns all PlanFragments in the tree
+     */
+    public List<PlanFragment> getAllFragments()
+    {
+        ImmutableList.Builder<PlanFragment> fragments = ImmutableList.builder();
+
+        fragments.add(getFragment());
+        for (SubPlan child : getChildren()) {
+            fragments.addAll(child.getAllFragments());
+        }
+
+        return fragments.build();
     }
 
     public void sanityCheck()
