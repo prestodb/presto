@@ -1,0 +1,126 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>1.5. JSON Functions &mdash; Presto 0.40 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.40',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.40 Documentation" href="../index.html" />
+    <link rel="up" title="1. Functions and Operators" href="../functions.html" />
+    <link rel="next" title="1.6. URL Functions" href="url.html" />
+    <link rel="prev" title="1.4. Regular Expression Functions" href="regexp.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="url.html" title="1.6. URL Functions"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="regexp.html" title="1.4. Regular Expression Functions"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../index.html">Presto 0.40 Documentation</a> &raquo;</li>
+          <li><a href="../functions.html" accesskey="U">1. Functions and Operators</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+          <div class="body">
+            
+  <div class="section" id="json-functions">
+<h1>1.5. JSON Functions</h1>
+<dl class="function">
+<dt id="json_array_contains">
+<tt class="descname">json_array_contains</tt><big>(</big><em>json</em>, <em>value</em><big>)</big> &rarr; boolean</dt>
+<dd><p>Determine if <tt class="docutils literal"><span class="pre">value</span></tt> exists in <tt class="docutils literal"><span class="pre">json</span></tt> (a string containing a JSON array).</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="n">json_array_contains</span><span class="p">(</span><span class="s1">&#39;[1, 2, 3]&#39;</span><span class="p">,</span> <span class="mi">2</span><span class="p">);</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="function">
+<dt id="json_array_length">
+<tt class="descname">json_array_length</tt><big>(</big><em>json</em><big>)</big> &rarr; bigint</dt>
+<dd><p>Returns the array length of <tt class="docutils literal"><span class="pre">json</span></tt> (a string containing a JSON array).</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="n">json_array_length</span><span class="p">(</span><span class="s1">&#39;[1, 2, 3]&#39;</span><span class="p">);</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="function">
+<dt id="json_extract">
+<tt class="descname">json_extract</tt><big>(</big><em>json</em>, <em>json_path</em><big>)</big> &rarr; varchar</dt>
+<dd><p>Evaluates the <a class="reference external" href="http://goessner.net/articles/JsonPath/">JSONPath</a>-like expression <tt class="docutils literal"><span class="pre">json_path</span></tt> on <tt class="docutils literal"><span class="pre">json</span></tt>
+(a string containing JSON) and returns the result as a JSON string.</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="n">json_extract</span><span class="p">(</span><span class="n">json</span><span class="p">,</span> <span class="s1">&#39;$.store.book&#39;</span><span class="p">);</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="function">
+<dt id="json_extract_scalar">
+<tt class="descname">json_extract_scalar</tt><big>(</big><em>json</em>, <em>json_path</em><big>)</big> &rarr; varchar</dt>
+<dd><p>Like <a class="reference internal" href="#json_extract" title="json_extract"><tt class="xref py py-func docutils literal"><span class="pre">json_extract()</span></tt></a>, but returns the result value as a string (as opposed
+to being encoded as JSON). The value referenced by <tt class="docutils literal"><span class="pre">json_path</span></tt> must be a
+scalar (boolean, number or string).</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="n">json_extract_scalar</span><span class="p">(</span><span class="s1">&#39;[1, 2, 3]&#39;</span><span class="p">,</span> <span class="s1">&#39;$[2]&#39;</span><span class="p">);</span>
+
+<span class="k">SELECT</span> <span class="n">json_extract_scalar</span><span class="p">(</span><span class="n">json</span><span class="p">,</span> <span class="s1">&#39;$.store.book[0].author&#39;</span><span class="p">);</span>
+</pre></div>
+</div>
+</dd></dl>
+
+</div>
+
+
+          </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="url.html" title="1.6. URL Functions"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="regexp.html" title="1.4. Regular Expression Functions"
+             >previous</a> |</li>
+        <li><a href="../index.html">Presto 0.40 Documentation</a> &raquo;</li>
+          <li><a href="../functions.html" >1. Functions and Operators</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, Facebook.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.2.
+    </div>
+  </body>
+</html>
