@@ -1898,7 +1898,7 @@ public abstract class AbstractTestQueries
             @Override
             public String apply(MaterializedTuple input)
             {
-                assertEquals(input.getFieldCount(), 4);
+                assertEquals(input.getFieldCount(), 5);
                 return (String) input.getField(0);
             }
         });

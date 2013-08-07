@@ -65,6 +65,7 @@ public class InformationSchemaMetadata
                     .column("argument_types", STRING)
                     .column("return_type", STRING)
                     .column("function_type", STRING)
+                    .column("description", STRING)
                     .build())
             .table(tableMetadataBuilder(TABLE_INTERNAL_PARTITIONS)
                     .column("table_catalog", STRING)

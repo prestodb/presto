@@ -27,6 +27,7 @@ public class FunctionInfo implements Comparable<FunctionInfo>
     private final int id;
 
     private final QualifiedName name;
+    private final String description;
     private final Type returnType;
     private final List<Type> argumentTypes;
 
@@ -41,10 +42,11 @@ public class FunctionInfo implements Comparable<FunctionInfo>
     private final boolean isWindow;
     private final Provider<WindowFunction> windowFunction;
 
-    public FunctionInfo(int id, QualifiedName name, Type returnType, List<Type> argumentTypes, Provider<WindowFunction> windowFunction)
+    public FunctionInfo(int id, QualifiedName name, String description, Type returnType, List<Type> argumentTypes, Provider<WindowFunction> windowFunction)
     {
         this.id = id;
         this.name = name;
+        this.description = description;
         this.returnType = returnType;
         this.argumentTypes = argumentTypes;
         this.deterministic = true;
@@ -59,10 +61,11 @@ public class FunctionInfo implements Comparable<FunctionInfo>
         this.windowFunction = checkNotNull(windowFunction, "windowFunction is null");
     }
 
-    public FunctionInfo(int id, QualifiedName name, Type returnType, List<Type> argumentTypes, Type intermediateType, AggregationFunction function)
+    public FunctionInfo(int id, QualifiedName name, String description, Type returnType, List<Type> argumentTypes, Type intermediateType, AggregationFunction function)
     {
         this.id = id;
         this.name = name;
+        this.description = description;
         this.returnType = returnType;
         this.argumentTypes = argumentTypes;
         this.intermediateType = intermediateType;
@@ -75,10 +78,11 @@ public class FunctionInfo implements Comparable<FunctionInfo>
         this.windowFunction = null;
     }
 
-    public FunctionInfo(int id, QualifiedName name, Type returnType, List<Type> argumentTypes, MethodHandle function, boolean deterministic, FunctionBinder functionBinder)
+    public FunctionInfo(int id, QualifiedName name, String description, Type returnType, List<Type> argumentTypes, MethodHandle function, boolean deterministic, FunctionBinder functionBinder)
     {
         this.id = id;
         this.name = name;
+        this.description = description;
         this.returnType = returnType;
         this.argumentTypes = argumentTypes;
         this.deterministic = deterministic;
@@ -101,6 +105,11 @@ public class FunctionInfo implements Comparable<FunctionInfo>
     public QualifiedName getName()
     {
         return name;
+    }
+
+    public String getDescription()
+    {
+        return description;
     }
 
     public boolean isAggregate()

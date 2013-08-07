@@ -2,6 +2,7 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.instruction.Constant;
+import com.facebook.presto.operator.Description;
 import com.facebook.presto.sql.gen.DefaultFunctionBinder;
 import com.facebook.presto.sql.gen.ExpressionCompiler.TypedByteCodeNode;
 import com.facebook.presto.sql.gen.FunctionBinder;
@@ -15,6 +16,7 @@ import io.airlift.slice.Slices;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
@@ -34,6 +36,7 @@ public final class RegexpFunctions
     {
     }
 
+    @Description("returns substrings matching a regular expression")
     @ScalarFunction(functionBinder = RegexFunctionBinder.class)
     public static boolean regexpLike(Slice source, Slice pattern)
     {
@@ -50,12 +53,14 @@ public final class RegexpFunctions
         return pattern.matcher(source.toString(UTF_8)).find();
     }
 
+    @Description("removes substrings matching a regular expression")
     @ScalarFunction(functionBinder = RegexFunctionBinder.class)
     public static Slice regexpReplace(Slice source, Slice pattern)
     {
         return regexpReplace(source, pattern, Slices.EMPTY_SLICE);
     }
 
+    @Description("replaces substrings matching a regular expression by given string")
     @ScalarFunction(functionBinder = RegexFunctionBinder.class)
     public static Slice regexpReplace(Slice source, Slice pattern, Slice replacement)
     {
@@ -75,6 +80,7 @@ public final class RegexpFunctions
     }
 
     @Nullable
+    @Description("string extracted using the given pattern")
     @ScalarFunction(functionBinder = RegexFunctionBinder.class)
     public static Slice regexpExtract(Slice source, Slice pattern)
     {
@@ -82,6 +88,7 @@ public final class RegexpFunctions
     }
 
     @Nullable
+    @Description("returns regex group of extracted string with a pattern")
     @ScalarFunction(functionBinder = RegexFunctionBinder.class)
     public static Slice regexpExtract(Slice source, Slice pattern, long group)
     {
