@@ -181,7 +181,7 @@ public class FunctionRegistry
         for (FunctionInfo functionInfo : functionsByName.get(name)) {
             expectedParameters.add(format("%s(%s)", name, Joiner.on(", ").join(functionInfo.getArgumentTypes())));
         }
-        String parameters = Joiner.on(", ").useForNull("NULL").join(parameterTypes);
+        String parameters = Joiner.on(", ").join(parameterTypes);
         String message = format("Function %s not registered", name);
         if (!expectedParameters.isEmpty()) {
             String expected = Joiner.on(", ").join(expectedParameters);
