@@ -2131,6 +2131,18 @@ public abstract class AbstractTestQueries
         Assert.assertTrue(count > 0 && count < 1000000);
     }
 
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\QUnexpected parameters (bigint) for function length. Expected: length(varchar)\\E")
+    public void testFunctionNotRegistered()
+    {
+        computeActual("SELECT length(1)");
+    }
+
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Types are not comparable with '<>': bigint vs varchar")
+    public void testTypeMismatch()
+    {
+        computeActual("SELECT 1 <> 'x'");
+    }
+
     @BeforeClass(alwaysRun = true)
     public void setupDatabase()
             throws Exception
