@@ -40,6 +40,12 @@ public enum Type
         return (rawType == null) ? "null" : rawType.getName();
     }
 
+    @Override
+    public String toString()
+    {
+        return getName();
+    }
+
     public static Type fromRaw(ColumnType type)
     {
         return fromRaw(TupleInfo.Type.fromColumnType(type));
