@@ -1,5 +1,6 @@
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.operator.Description;
 import com.google.common.base.Ascii;
 import com.google.common.base.Charsets;
 import com.google.common.primitives.Ints;
@@ -14,6 +15,7 @@ public final class StringFunctions
 {
     private StringFunctions() {}
 
+    @Description("convert ASCII character code to string")
     @ScalarFunction
     public static Slice chr(long n)
     {
@@ -22,6 +24,7 @@ public final class StringFunctions
         return slice;
     }
 
+    @Description("concatenates given strings")
     @ScalarFunction
     public static Slice concat(Slice str1, Slice str2)
     {
@@ -31,18 +34,21 @@ public final class StringFunctions
         return concat;
     }
 
+    @Description("length of the given string")
     @ScalarFunction
     public static long length(Slice slice)
     {
         return slice.length();
     }
 
+    @Description("greedily removes occurrences of a pattern in a string")
     @ScalarFunction
     public static Slice replace(Slice str, Slice search)
     {
         return replace(str, search, Slices.EMPTY_SLICE);
     }
 
+    @Description("greedily replaces occurrences of a pattern with a string")
     @ScalarFunction
     public static Slice replace(Slice str, Slice search, Slice replace)
     {
@@ -52,6 +58,7 @@ public final class StringFunctions
         return Slices.copiedBuffer(replaced, Charsets.UTF_8);
     }
 
+    @Description("reverses the given string")
     @ScalarFunction
     public static Slice reverse(Slice slice)
     {
@@ -62,6 +69,7 @@ public final class StringFunctions
         return reverse;
     }
 
+    @Description("returns index of first occurrence of a substring (or 0 if not found)")
     @ScalarFunction("strpos")
     public static long stringPosition(Slice string, Slice substring)
     {
@@ -78,12 +86,14 @@ public final class StringFunctions
         return 0;
     }
 
+    @Description("suffix starting at given index")
     @ScalarFunction
     public static Slice substr(Slice slice, long start)
     {
         return substr(slice, start, slice.length());
     }
 
+    @Description("substring of given length starting at an index")
     @ScalarFunction
     public static Slice substr(Slice slice, long start, long length)
     {
@@ -116,6 +126,7 @@ public final class StringFunctions
 
     // TODO: Implement a more efficient string search
     @Nullable
+    @Description("splits a string by a delimiter and returns the specified field (counting from one)")
     @ScalarFunction
     public static Slice splitPart(Slice string, Slice delimiter, long index)
     {
@@ -153,6 +164,7 @@ public final class StringFunctions
         return null;
     }
 
+    @Description("removes spaces from the beginning of a string")
     @ScalarFunction("ltrim")
     public static Slice leftTrim(Slice slice)
     {
@@ -160,6 +172,7 @@ public final class StringFunctions
         return slice.slice(start, slice.length() - start);
     }
 
+    @Description("removes spaces from the end of a string")
     @ScalarFunction("rtrim")
     public static Slice rightTrim(Slice slice)
     {
@@ -167,6 +180,7 @@ public final class StringFunctions
         return slice.slice(0, end + 1);
     }
 
+    @Description("removes spaces from the beginning and end of a string")
     @ScalarFunction
     public static Slice trim(Slice slice)
     {
@@ -201,6 +215,7 @@ public final class StringFunctions
         return -1;
     }
 
+    @Description("converts the alphabets in a string to lower case")
     @ScalarFunction
     public static Slice lower(Slice slice)
     {
@@ -211,6 +226,7 @@ public final class StringFunctions
         return upper;
     }
 
+    @Description("converts all the alphabets in the string to upper case")
     @ScalarFunction
     public static Slice upper(Slice slice)
     {

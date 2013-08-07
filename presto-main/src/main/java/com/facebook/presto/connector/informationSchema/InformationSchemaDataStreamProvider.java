@@ -32,6 +32,7 @@ import java.util.Map.Entry;
 import static com.facebook.presto.tuple.TupleInfo.Type.fromColumnType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Iterables.transform;
 import static java.lang.String.format;
 
@@ -169,6 +170,7 @@ public class InformationSchemaDataStreamProvider
                     .append(Joiner.on(", ").join(arguments))
                     .append(function.getReturnType().getName())
                     .append(functionType)
+                    .append(nullToEmpty(function.getDescription()))
                     .build());
         }
         return table.build();
