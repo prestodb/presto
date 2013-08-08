@@ -14,6 +14,7 @@ import com.facebook.presto.sql.planner.NoOpSymbolResolver;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Except;
 import com.facebook.presto.sql.tree.Expression;
@@ -730,7 +731,7 @@ class TupleAnalyzer
         }
 
         private static class Visitor
-                extends DefaultTraversalVisitor<Void, ImmutableSet.Builder<QualifiedName>>
+                extends DefaultExpressionTraversalVisitor<Void, ImmutableSet.Builder<QualifiedName>>
         {
             @Override
             protected Void visitQualifiedNameReference(QualifiedNameReference node, ImmutableSet.Builder<QualifiedName> builder)

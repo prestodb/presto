@@ -11,7 +11,7 @@ import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
 import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.TreeRewriter;
+import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
@@ -47,7 +47,7 @@ public class MergeProjections
             if (source instanceof ProjectNode) {
                 ImmutableMap.Builder<Symbol, Expression> projections = ImmutableMap.builder();
                 for (Map.Entry<Symbol, Expression> projection : node.getOutputMap().entrySet()) {
-                    Expression inlined = TreeRewriter.rewriteWith(new ExpressionSymbolInliner(((ProjectNode) source).getOutputMap()), projection.getValue());
+                    Expression inlined = ExpressionTreeRewriter.rewriteWith(new ExpressionSymbolInliner(((ProjectNode) source).getOutputMap()), projection.getValue());
                     projections.put(projection.getKey(), inlined);
                 }
 
