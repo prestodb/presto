@@ -114,7 +114,7 @@ public class PruneUnreferencedOutputs
 
                 if (expectedOutputs.contains(symbol)) {
                     FunctionCall call = entry.getValue();
-                    expectedInputs.addAll(DependencyExtractor.extract(call));
+                    expectedInputs.addAll(DependencyExtractor.extractUnique(call));
 
                     functionCalls.put(symbol, call);
                     functions.put(symbol, node.getFunctions().get(symbol));
@@ -141,7 +141,7 @@ public class PruneUnreferencedOutputs
 
                 if (expectedOutputs.contains(symbol)) {
                     FunctionCall call = entry.getValue();
-                    expectedInputs.addAll(DependencyExtractor.extract(call));
+                    expectedInputs.addAll(DependencyExtractor.extractUnique(call));
 
                     functionCalls.put(symbol, call);
                     functions.put(symbol, node.getFunctionHandles().get(symbol));
@@ -170,7 +170,7 @@ public class PruneUnreferencedOutputs
             }
             checkState(!requiredTableScanOutputs.isEmpty());
 
-            Set<Symbol> requiredSymbols = Sets.union(requiredTableScanOutputs, DependencyExtractor.extract(node.getPartitionPredicate()));
+            Set<Symbol> requiredSymbols = Sets.union(requiredTableScanOutputs, DependencyExtractor.extractUnique(node.getPartitionPredicate()));
             Map<Symbol, ColumnHandle> newAssignments = Maps.filterKeys(node.getAssignments(), in(requiredSymbols));
 
             return new TableScanNode(node.getId(), node.getTable(), ImmutableList.copyOf(requiredTableScanOutputs), newAssignments, node.getPartitionPredicate(), node.getUpstreamPredicateHint());
@@ -179,7 +179,7 @@ public class PruneUnreferencedOutputs
         public PlanNode rewriteFilter(FilterNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
         {
             Set<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
-                    .addAll(DependencyExtractor.extract(node.getPredicate()))
+                    .addAll(DependencyExtractor.extractUnique(node.getPredicate()))
                     .addAll(expectedOutputs)
                     .build();
 
@@ -199,7 +199,7 @@ public class PruneUnreferencedOutputs
                 Expression expression = node.getExpressions().get(i);
 
                 if (expectedOutputs.contains(output)) {
-                    expectedInputs.addAll(DependencyExtractor.extract(expression));
+                    expectedInputs.addAll(DependencyExtractor.extractUnique(expression));
                     builder.put(output, expression);
                 }
             }

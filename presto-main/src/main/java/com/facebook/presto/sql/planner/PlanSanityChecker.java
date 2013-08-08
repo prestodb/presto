@@ -1,6 +1,5 @@
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -58,7 +57,7 @@ public class PlanSanityChecker
             Preconditions.checkArgument(source.getOutputSymbols().containsAll(node.getGroupBy()), "Invalid node. Group by symbols (%s) not in source plan output (%s)", node.getGroupBy(), node.getSource().getOutputSymbols());
 
             for (FunctionCall call : node.getAggregations().values()) {
-                Set<Symbol> dependencies = DependencyExtractor.extract(call);
+                Set<Symbol> dependencies = DependencyExtractor.extractUnique(call);
                 Preconditions.checkArgument(source.getOutputSymbols().containsAll(dependencies), "Invalid node. Aggregation dependencies (%s) not in source plan output (%s)", dependencies, node.getSource().getOutputSymbols());
             }
 
@@ -77,7 +76,7 @@ public class PlanSanityChecker
             Preconditions.checkArgument(source.getOutputSymbols().containsAll(node.getOrderBy()), "Invalid node. Order by symbols (%s) not in source plan output (%s)", node.getOrderBy(), node.getSource().getOutputSymbols());
 
             for (FunctionCall call : node.getWindowFunctions().values()) {
-                Set<Symbol> dependencies = DependencyExtractor.extract(call);
+                Set<Symbol> dependencies = DependencyExtractor.extractUnique(call);
                 Preconditions.checkArgument(source.getOutputSymbols().containsAll(dependencies), "Invalid node. Window function dependencies (%s) not in source plan output (%s)", dependencies, node.getSource().getOutputSymbols());
             }
 
@@ -94,7 +93,7 @@ public class PlanSanityChecker
 
             Preconditions.checkArgument(source.getOutputSymbols().containsAll(node.getOutputSymbols()), "Invalid node. Output symbols (%s) not in source plan output (%s)", node.getOutputSymbols(), node.getSource().getOutputSymbols());
 
-            Set<Symbol> dependencies = DependencyExtractor.extract(node.getPredicate());
+            Set<Symbol> dependencies = DependencyExtractor.extractUnique(node.getPredicate());
 
             Preconditions.checkArgument(source.getOutputSymbols().containsAll(dependencies), "Invalid node. Predicate dependencies (%s) not in source plan output (%s)", dependencies, node.getSource().getOutputSymbols());
 
@@ -110,7 +109,7 @@ public class PlanSanityChecker
             verifyUniqueId(node);
 
             for (Expression expression : node.getExpressions()) {
-                Set<Symbol> dependencies = DependencyExtractor.extract(expression);
+                Set<Symbol> dependencies = DependencyExtractor.extractUnique(expression);
                 Preconditions.checkArgument(source.getOutputSymbols().containsAll(dependencies), "Invalid node. Expression dependencies (%s) not in source plan output (%s)", dependencies, node.getSource().getOutputSymbols());
             }
 
@@ -191,7 +190,7 @@ public class PlanSanityChecker
             verifyUniqueId(node);
 
             Preconditions.checkArgument(node.getAssignments().keySet().containsAll(node.getOutputSymbols()), "Assignments must contain mappings for output symbols");
-            Set<Symbol> predicateSymbols = DependencyExtractor.extract(node.getPartitionPredicate());
+            Set<Symbol> predicateSymbols = DependencyExtractor.extractUnique(node.getPartitionPredicate());
             Preconditions.checkArgument(node.getAssignments().keySet().containsAll(predicateSymbols), "Assignments must contain mappings for all partition predicate symbols");
 
             return null;

@@ -51,8 +51,8 @@ public class TableScanNode
         this.upstreamPredicateHint = upstreamPredicateHint;
 
         Preconditions.checkArgument(assignments.keySet().containsAll(outputSymbols), "Assignments must provide mappings for all output symbols");
-        Preconditions.checkArgument(assignments.keySet().containsAll(DependencyExtractor.extract(partitionPredicate)), "Assignments must provide mappings for all partition predicate symbols");
-        Preconditions.checkArgument(outputSymbols.containsAll(DependencyExtractor.extract(upstreamPredicateHint)), "Upstream predicate hint must be in terms of output symbols");
+        Preconditions.checkArgument(assignments.keySet().containsAll(DependencyExtractor.extractUnique(partitionPredicate)), "Assignments must provide mappings for all partition predicate symbols");
+        Preconditions.checkArgument(outputSymbols.containsAll(DependencyExtractor.extractUnique(upstreamPredicateHint)), "Upstream predicate hint must be in terms of output symbols");
     }
 
     @JsonProperty("table")

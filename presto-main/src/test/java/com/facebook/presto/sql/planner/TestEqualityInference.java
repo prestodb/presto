@@ -133,7 +133,7 @@ public class TestEqualityInference
             throws Exception
     {
         EqualityInference inference = new EqualityInference.Builder()
-                .extractInferrableEqualities(ExpressionUtils.and(equals("a1", "b1"), equals("b1", "c1"), someExpression("c1", "d1")))
+                .extractInferenceCandidates(ExpressionUtils.and(equals("a1", "b1"), equals("b1", "c1"), someExpression("c1", "d1")))
                 .build();
 
         // Able to rewrite to c1 due to equalities
@@ -160,7 +160,7 @@ public class TestEqualityInference
         // Cannot generate any scope equalities with no matching symbols
         Assert.assertTrue(emptyScopePartition.getScopeEqualities().isEmpty());
         // All equalities should be represented in the inverse scope
-        Assert.assertFalse(emptyScopePartition.getInverseScopeEqualities().isEmpty());
+        Assert.assertFalse(emptyScopePartition.getScopeComplementEqualities().isEmpty());
         // There should be no equalities straddling the scope
         Assert.assertTrue(emptyScopePartition.getScopeStraddlingEqualities().isEmpty());
 
@@ -170,30 +170,30 @@ public class TestEqualityInference
         // There should be equalities in the scope, that only use c1 and are all inferrable equalities
         Assert.assertFalse(equalityPartition.getScopeEqualities().isEmpty());
         Assert.assertTrue(Iterables.all(equalityPartition.getScopeEqualities(), matchesSymbolScope(matchesSymbols("c1"))));
-        Assert.assertTrue(Iterables.all(equalityPartition.getScopeEqualities(), EqualityInference.inferrableEqualityExpression()));
+        Assert.assertTrue(Iterables.all(equalityPartition.getScopeEqualities(), EqualityInference.isInferenceCandidate()));
 
         // There should be equalities in the inverse scope, that never use c1 and are all inferrable equalities
-        Assert.assertFalse(equalityPartition.getInverseScopeEqualities().isEmpty());
-        Assert.assertTrue(Iterables.all(equalityPartition.getInverseScopeEqualities(), matchesSymbolScope(not(matchesSymbols("c1")))));
-        Assert.assertTrue(Iterables.all(equalityPartition.getInverseScopeEqualities(), EqualityInference.inferrableEqualityExpression()));
+        Assert.assertFalse(equalityPartition.getScopeComplementEqualities().isEmpty());
+        Assert.assertTrue(Iterables.all(equalityPartition.getScopeComplementEqualities(), matchesSymbolScope(not(matchesSymbols("c1")))));
+        Assert.assertTrue(Iterables.all(equalityPartition.getScopeComplementEqualities(), EqualityInference.isInferenceCandidate()));
 
         // There should be equalities in the straddling scope, that should use both c1 and not c1 symbols
         Assert.assertFalse(equalityPartition.getScopeStraddlingEqualities().isEmpty());
         Assert.assertTrue(Iterables.any(equalityPartition.getScopeStraddlingEqualities(), matchesStraddlingScope(matchesSymbols("c1"))));
-        Assert.assertTrue(Iterables.all(equalityPartition.getScopeStraddlingEqualities(), EqualityInference.inferrableEqualityExpression()));
+        Assert.assertTrue(Iterables.all(equalityPartition.getScopeStraddlingEqualities(), EqualityInference.isInferenceCandidate()));
 
         // There should be a "full cover" of all of the equalities used
         // THUS, we should be able to plug the generated equalities back in and get an equivalent set of equalities back the next time around
         EqualityInference newInference = new EqualityInference.Builder()
                 .addAllEqualities(equalityPartition.getScopeEqualities())
-                .addAllEqualities(equalityPartition.getInverseScopeEqualities())
+                .addAllEqualities(equalityPartition.getScopeComplementEqualities())
                 .addAllEqualities(equalityPartition.getScopeStraddlingEqualities())
                 .build();
 
         EqualityInference.EqualityPartition newEqualityPartition = newInference.generateEqualitiesPartitionedBy(matchesSymbols("c1"));
 
         Assert.assertEquals(setCopy(equalityPartition.getScopeEqualities()), setCopy(newEqualityPartition.getScopeEqualities()));
-        Assert.assertEquals(setCopy(equalityPartition.getInverseScopeEqualities()), setCopy(newEqualityPartition.getInverseScopeEqualities()));
+        Assert.assertEquals(setCopy(equalityPartition.getScopeComplementEqualities()), setCopy(newEqualityPartition.getScopeComplementEqualities()));
         Assert.assertEquals(setCopy(equalityPartition.getScopeStraddlingEqualities()), setCopy(newEqualityPartition.getScopeStraddlingEqualities()));
     }
 
@@ -218,30 +218,30 @@ public class TestEqualityInference
         // There should be equalities in the scope, that only use a* and b* symbols and are all inferrable equalities
         Assert.assertFalse(equalityPartition.getScopeEqualities().isEmpty());
         Assert.assertTrue(Iterables.all(equalityPartition.getScopeEqualities(), matchesSymbolScope(symbolBeginsWith("a", "b"))));
-        Assert.assertTrue(Iterables.all(equalityPartition.getScopeEqualities(), EqualityInference.inferrableEqualityExpression()));
+        Assert.assertTrue(Iterables.all(equalityPartition.getScopeEqualities(), EqualityInference.isInferenceCandidate()));
 
         // There should be equalities in the inverse scope, that never use a* and b* symbols and are all inferrable equalities
-        Assert.assertFalse(equalityPartition.getInverseScopeEqualities().isEmpty());
-        Assert.assertTrue(Iterables.all(equalityPartition.getInverseScopeEqualities(), matchesSymbolScope(not(symbolBeginsWith("a", "b")))));
-        Assert.assertTrue(Iterables.all(equalityPartition.getInverseScopeEqualities(), EqualityInference.inferrableEqualityExpression()));
+        Assert.assertFalse(equalityPartition.getScopeComplementEqualities().isEmpty());
+        Assert.assertTrue(Iterables.all(equalityPartition.getScopeComplementEqualities(), matchesSymbolScope(not(symbolBeginsWith("a", "b")))));
+        Assert.assertTrue(Iterables.all(equalityPartition.getScopeComplementEqualities(), EqualityInference.isInferenceCandidate()));
 
         // There should be equalities in the straddling scope, that should use both c1 and not c1 symbols
         Assert.assertFalse(equalityPartition.getScopeStraddlingEqualities().isEmpty());
         Assert.assertTrue(Iterables.any(equalityPartition.getScopeStraddlingEqualities(), matchesStraddlingScope(symbolBeginsWith("a", "b"))));
-        Assert.assertTrue(Iterables.all(equalityPartition.getScopeStraddlingEqualities(), EqualityInference.inferrableEqualityExpression()));
+        Assert.assertTrue(Iterables.all(equalityPartition.getScopeStraddlingEqualities(), EqualityInference.isInferenceCandidate()));
 
         // Again, there should be a "full cover" of all of the equalities used
         // THUS, we should be able to plug the generated equalities back in and get an equivalent set of equalities back the next time around
         EqualityInference newInference = new EqualityInference.Builder()
                 .addAllEqualities(equalityPartition.getScopeEqualities())
-                .addAllEqualities(equalityPartition.getInverseScopeEqualities())
+                .addAllEqualities(equalityPartition.getScopeComplementEqualities())
                 .addAllEqualities(equalityPartition.getScopeStraddlingEqualities())
                 .build();
 
         EqualityInference.EqualityPartition newEqualityPartition = newInference.generateEqualitiesPartitionedBy(symbolBeginsWith("a", "b"));
 
         Assert.assertEquals(setCopy(equalityPartition.getScopeEqualities()), setCopy(newEqualityPartition.getScopeEqualities()));
-        Assert.assertEquals(setCopy(equalityPartition.getInverseScopeEqualities()), setCopy(newEqualityPartition.getInverseScopeEqualities()));
+        Assert.assertEquals(setCopy(equalityPartition.getScopeComplementEqualities()), setCopy(newEqualityPartition.getScopeComplementEqualities()));
         Assert.assertEquals(setCopy(equalityPartition.getScopeStraddlingEqualities()), setCopy(newEqualityPartition.getScopeStraddlingEqualities()));
     }
 
@@ -282,7 +282,7 @@ public class TestEqualityInference
         EqualityInference.EqualityPartition equalityPartition = inference.generateEqualitiesPartitionedBy(matchesSymbols("a1", "b1"));
         Assert.assertEquals(equalitiesAsSets(equalityPartition.getScopeEqualities()),
                 set(set(nameReference("a1"), number(1)), set(nameReference("b1"), number(1))));
-        Assert.assertEquals(equalitiesAsSets(equalityPartition.getInverseScopeEqualities()),
+        Assert.assertEquals(equalitiesAsSets(equalityPartition.getScopeComplementEqualities()),
                 set(set(nameReference("c1"), number(1))));
 
         // There should be no scope straddling equalities as the full set of equalities should be already represented by the scope and inverse scope
@@ -296,7 +296,7 @@ public class TestEqualityInference
             @Override
             public boolean apply(Expression expression)
             {
-                return Iterables.all(DependencyExtractor.extract(expression), symbolScope);
+                return Iterables.all(DependencyExtractor.extractUnique(expression), symbolScope);
             }
         };
     }
@@ -308,7 +308,7 @@ public class TestEqualityInference
             @Override
             public boolean apply(Expression expression)
             {
-                Set<Symbol> symbols = DependencyExtractor.extract(expression);
+                Set<Symbol> symbols = DependencyExtractor.extractUnique(expression);
                 return Iterables.any(symbols, symbolScope) && Iterables.any(symbols, not(symbolScope));
             }
         };

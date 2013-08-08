@@ -52,7 +52,7 @@ public class EqualityInference
             // 3) Ordering.arbitrary() - creates a stable consistent ordering (extremely useful for unit testing)
             // TODO: be more precise in determining the cost of an expression
             return ComparisonChain.start()
-                    .compare(DependencyExtractor.extractOccurrences(expression1).size(), DependencyExtractor.extractOccurrences(expression2).size())
+                    .compare(DependencyExtractor.extractAll(expression1).size(), DependencyExtractor.extractAll(expression2).size())
                     .compare(SubExpressionExtractor.extract(expression1).size(), SubExpressionExtractor.extract(expression2).size())
                     .compare(expression1, expression2, Ordering.arbitrary())
                     .result();
@@ -119,17 +119,39 @@ public class EqualityInference
 
     /**
      * Dumps the inference equalities as equality expressions that are partitioned by the symbolScope.
+     * All stored equalities are returned in a compact set and will be classified into three groups as determined by the symbol scope:
+     * 1) equalities that fit entirely within the symbol scope
+     * 2) equalities that fit entirely outside of the symbol scope
+     * 3) equalities that straddle the symbol scope
+     *
+     * Example:
+     *   Stored Equalities:
+     *     a = b = c
+     *     d = e = f = g
+     *
+     *   Symbol Scope:
+     *     a, b, d, e
+     *
+     *   Output EqualityPartition:
+     *     Scope Equalities:
+     *       a = b
+     *       d = e
+     *     Complement Scope Equalities
+     *       f = g
+     *     Scope Straddling Equalities
+     *       a = c
+     *       d = f
      */
     public EqualityPartition generateEqualitiesPartitionedBy(Predicate<Symbol> symbolScope)
     {
         Set<Expression> scopeEqualities = new HashSet<>();
-        Set<Expression> inverseScopeEqualities = new HashSet<>();
+        Set<Expression> scopeComplementEqualities = new HashSet<>();
         Set<Expression> scopeStraddlingEqualities = new HashSet<>();
 
         for (Collection<Expression> equalitySet : equalitySets.asMap().values()) {
             Set<Expression> scopeExpressions = new HashSet<>();
-            Set<Expression> inverseScopeExpressions = new HashSet<>();
-            Set<Expression> unpartitionableExpressions = new HashSet<>();
+            Set<Expression> scopeComplementExpressions = new HashSet<>();
+            Set<Expression> scopeStraddlingExpressions = new HashSet<>();
 
             // Try to push each expression into one side of the scope
             for (Expression expression : equalitySet) {
@@ -137,12 +159,12 @@ public class EqualityInference
                 if (scopeRewritten != null) {
                     scopeExpressions.add(scopeRewritten);
                 }
-                Expression inverseScopeRewritten = rewriteExpression(expression, not(symbolScope), false);
-                if (inverseScopeRewritten != null) {
-                    inverseScopeExpressions.add(inverseScopeRewritten);
+                Expression scopeComplementRewritten = rewriteExpression(expression, not(symbolScope), false);
+                if (scopeComplementRewritten != null) {
+                    scopeComplementExpressions.add(scopeComplementRewritten);
                 }
-                if (scopeRewritten == null && inverseScopeRewritten == null) {
-                    unpartitionableExpressions.add(expression);
+                if (scopeRewritten == null && scopeComplementRewritten == null) {
+                    scopeStraddlingExpressions.add(expression);
                 }
             }
 
@@ -153,18 +175,18 @@ public class EqualityInference
                     scopeEqualities.add(new ComparisonExpression(ComparisonExpression.Type.EQUAL, matchingCanonical, expression));
                 }
             }
-            Expression inverseCanonical = getCanonical(inverseScopeExpressions);
-            if (inverseScopeExpressions.size() >= 2) {
-                for (Expression expression : filter(inverseScopeExpressions, not(equalTo(inverseCanonical)))) {
-                    inverseScopeEqualities.add(new ComparisonExpression(ComparisonExpression.Type.EQUAL, inverseCanonical, expression));
+            Expression complementCanonical = getCanonical(scopeComplementExpressions);
+            if (scopeComplementExpressions.size() >= 2) {
+                for (Expression expression : filter(scopeComplementExpressions, not(equalTo(complementCanonical)))) {
+                    scopeComplementEqualities.add(new ComparisonExpression(ComparisonExpression.Type.EQUAL, complementCanonical, expression));
                 }
             }
 
             // Compile the scope straddling equality expressions
             List<Expression> connectingExpressions = new ArrayList<>();
             connectingExpressions.add(matchingCanonical);
-            connectingExpressions.add(inverseCanonical);
-            connectingExpressions.addAll(unpartitionableExpressions);
+            connectingExpressions.add(complementCanonical);
+            connectingExpressions.addAll(scopeStraddlingExpressions);
             connectingExpressions = ImmutableList.copyOf(filter(connectingExpressions, Predicates.notNull()));
             Expression connectingCanonical = getCanonical(connectingExpressions);
             if (connectingCanonical != null) {
@@ -174,7 +196,7 @@ public class EqualityInference
             }
         }
 
-        return new EqualityPartition(scopeEqualities, inverseScopeEqualities, scopeStraddlingEqualities);
+        return new EqualityPartition(scopeEqualities, scopeComplementEqualities, scopeStraddlingEqualities);
     }
 
     /**
@@ -209,7 +231,7 @@ public class EqualityInference
             @Override
             public boolean apply(Expression expression)
             {
-                return Iterables.all(DependencyExtractor.extract(expression), symbolScope);
+                return Iterables.all(DependencyExtractor.extractUnique(expression), symbolScope);
             }
         };
     }
@@ -217,7 +239,7 @@ public class EqualityInference
     /**
      * Determines whether an Expression may be successfully applied to the equality inference
      */
-    public static Predicate<Expression> inferrableEqualityExpression()
+    public static Predicate<Expression> isInferenceCandidate()
     {
         return new Predicate<Expression>()
         {
@@ -241,7 +263,7 @@ public class EqualityInference
      */
     public static Iterable<Expression> nonInferrableConjuncts(Expression expression)
     {
-        return filter(extractConjuncts(expression), not(inferrableEqualityExpression()));
+        return filter(extractConjuncts(expression), not(isInferenceCandidate()));
     }
 
     /**
@@ -274,7 +296,7 @@ public class EqualityInference
     {
         EqualityInference.Builder builder = new EqualityInference.Builder();
         for (Expression expression : expressions) {
-            builder.extractInferrableEqualities(expression);
+            builder.extractInferenceCandidates(expression);
         }
         return builder.build();
     }
@@ -282,13 +304,13 @@ public class EqualityInference
     public static class EqualityPartition
     {
         private final List<Expression> scopeEqualities;
-        private final List<Expression> inverseScopeEqualities;
+        private final List<Expression> scopeComplementEqualities;
         private final List<Expression> scopeStraddlingEqualities;
 
-        public EqualityPartition(Iterable<Expression> scopeEqualities, Iterable<Expression> inverseScopeEqualities, Iterable<Expression> scopeStraddlingEqualities)
+        public EqualityPartition(Iterable<Expression> scopeEqualities, Iterable<Expression> scopeComplementEqualities, Iterable<Expression> scopeStraddlingEqualities)
         {
             this.scopeEqualities = ImmutableList.copyOf(checkNotNull(scopeEqualities, "scopeEqualities is null"));
-            this.inverseScopeEqualities = ImmutableList.copyOf(checkNotNull(inverseScopeEqualities, "inverseScopeEqualities is null"));
+            this.scopeComplementEqualities = ImmutableList.copyOf(checkNotNull(scopeComplementEqualities, "scopeComplementEqualities is null"));
             this.scopeStraddlingEqualities = ImmutableList.copyOf(checkNotNull(scopeStraddlingEqualities, "scopeStraddlingEqualities is null"));
         }
 
@@ -297,9 +319,9 @@ public class EqualityInference
             return scopeEqualities;
         }
 
-        public List<Expression> getInverseScopeEqualities()
+        public List<Expression> getScopeComplementEqualities()
         {
-            return inverseScopeEqualities;
+            return scopeComplementEqualities;
         }
 
         public List<Expression> getScopeStraddlingEqualities()
@@ -313,9 +335,9 @@ public class EqualityInference
         private final Map<Expression, Expression> map = new HashMap<>();
         private final Multimap<Expression, Expression> reverseMap = HashMultimap.create();
 
-        public Builder extractInferrableEqualities(Expression expression)
+        public Builder extractInferenceCandidates(Expression expression)
         {
-            return addAllEqualities(filter(extractConjuncts(expression), inferrableEqualityExpression()));
+            return addAllEqualities(filter(extractConjuncts(expression), isInferenceCandidate()));
         }
 
         public Builder addAllEqualities(Iterable<Expression> expressions)
@@ -328,7 +350,7 @@ public class EqualityInference
 
         public Builder addEquality(Expression expression)
         {
-            checkArgument(inferrableEqualityExpression().apply(expression), "Expression must be a simple equality: " + expression);
+            checkArgument(isInferenceCandidate().apply(expression), "Expression must be a simple equality: " + expression);
 
             ComparisonExpression comparison = (ComparisonExpression) expression;
             addEquality(comparison.getLeft(), comparison.getRight());
