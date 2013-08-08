@@ -46,7 +46,8 @@ public class JoinNode
     {
         INNER("InnerJoin"),
         LEFT("LeftJoin"),
-        RIGHT("RightJoin");
+        RIGHT("RightJoin"),
+        SEMI("SemiJoin");
 
         private final String joinLabel;
 

@@ -15,9 +15,9 @@ import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.facebook.presto.sql.tree.TreeRewriter;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
@@ -161,7 +161,7 @@ public class EffectivePredicateExtractor
     {
         Expression firstUnderlyingPredicate = node.getSources().get(0).accept(this, context);
         // Rewrite in terms of output symbols
-        Expression firstOutputPredicate = TreeRewriter.rewriteWith(new ExpressionSymbolInliner(node.outputSymbolMap(0)), firstUnderlyingPredicate);
+        Expression firstOutputPredicate = ExpressionTreeRewriter.rewriteWith(new ExpressionSymbolInliner(node.outputSymbolMap(0)), firstUnderlyingPredicate);
 
         Set<Expression> conjuncts = ImmutableSet.copyOf(extractConjuncts(firstOutputPredicate));
 
@@ -169,7 +169,7 @@ public class EffectivePredicateExtractor
         for (int i = 1; i < node.getSources().size(); i++) {
             Expression underlyingPredicate = node.getSources().get(i).accept(this, context);
             // Rewrite in terms of output symbols
-            Expression outputPredicate = TreeRewriter.rewriteWith(new ExpressionSymbolInliner(node.outputSymbolMap(i)), underlyingPredicate);
+            Expression outputPredicate = ExpressionTreeRewriter.rewriteWith(new ExpressionSymbolInliner(node.outputSymbolMap(i)), underlyingPredicate);
 
             // TODO: use a more precise way to determine overlapping conjuncts (e.g. commutative predicates)
             conjuncts = Sets.intersection(conjuncts, ImmutableSet.copyOf(extractConjuncts(outputPredicate)));

@@ -32,9 +32,9 @@ import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.facebook.presto.sql.tree.TreeRewriter;
 import com.facebook.presto.util.IterableTransformer;
 import com.facebook.presto.util.MapTransformer;
 import com.google.common.base.Function;
@@ -121,7 +121,7 @@ public class PredicatePushDown
         @Override
         public PlanNode rewriteProject(ProjectNode node, Expression inheritedPredicate, PlanRewriter<Expression> planRewriter)
         {
-            Expression inlinedPredicate = TreeRewriter.rewriteWith(new ExpressionSymbolInliner(node.getOutputMap()), inheritedPredicate);
+            Expression inlinedPredicate = ExpressionTreeRewriter.rewriteWith(new ExpressionSymbolInliner(node.getOutputMap()), inheritedPredicate);
             return planRewriter.defaultRewrite(node, inlinedPredicate);
         }
 
@@ -137,7 +137,7 @@ public class PredicatePushDown
             boolean modified = false;
             ImmutableList.Builder<PlanNode> builder = ImmutableList.builder();
             for (int i = 0; i < node.getSources().size(); i++) {
-                Expression sourcePredicate = TreeRewriter.rewriteWith(new ExpressionSymbolInliner(node.sourceSymbolMap(i)), inheritedPredicate);
+                Expression sourcePredicate = ExpressionTreeRewriter.rewriteWith(new ExpressionSymbolInliner(node.sourceSymbolMap(i)), inheritedPredicate);
                 PlanNode source = node.getSources().get(i);
                 PlanNode rewrittenSource = planRewriter.rewrite(source, sourcePredicate);
                 if (rewrittenSource != source) {

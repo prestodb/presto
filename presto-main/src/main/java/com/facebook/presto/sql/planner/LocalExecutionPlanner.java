@@ -54,12 +54,12 @@ import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.sql.tree.InputReference;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.SortItem;
-import com.facebook.presto.sql.tree.TreeRewriter;
 import com.facebook.presto.tuple.FieldOrderedTupleComparator;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleReadable;
@@ -468,7 +468,7 @@ public class LocalExecutionPlanner
             Map<Input, Type> inputTypes = getInputTypes(source.getLayout(), source.getOperator().getTupleInfos());
 
             try {
-                Expression filterExpression = TreeRewriter.rewriteWith(new SymbolToInputRewriter(convertLayoutToInputMap(source.getLayout())), node.getPredicate());
+                Expression filterExpression = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(convertLayoutToInputMap(source.getLayout())), node.getPredicate());
 
                 ImmutableMultimap.Builder<Symbol, Input> outputMappings = ImmutableMultimap.builder();
                 List<Expression> projections = new ArrayList<>();
@@ -517,13 +517,13 @@ public class LocalExecutionPlanner
             List<Expression> expressions = node.getExpressions();
             Map<Input, Type> inputTypes = null;
             try {
-                Expression rewrittenFilterExpression = TreeRewriter.rewriteWith(new SymbolToInputRewriter(convertLayoutToInputMap(source.getLayout())), filterExpression);
+                Expression rewrittenFilterExpression = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(convertLayoutToInputMap(source.getLayout())), filterExpression);
 
                 ImmutableMultimap.Builder<Symbol, Input> outputMappings = ImmutableMultimap.builder();
                 List<Expression> projections = new ArrayList<>();
                 for (int i = 0; i < expressions.size(); i++) {
                     Symbol symbol = node.getOutputSymbols().get(i);
-                    projections.add(TreeRewriter.rewriteWith(new SymbolToInputRewriter(convertLayoutToInputMap(source.getLayout())), expressions.get(i)));
+                    projections.add(ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(convertLayoutToInputMap(source.getLayout())), expressions.get(i)));
                     outputMappings.put(symbol, new Input(i, 0)); // one field per channel
                 }
 
