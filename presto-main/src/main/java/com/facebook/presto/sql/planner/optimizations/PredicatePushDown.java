@@ -247,7 +247,7 @@ public class PredicatePushDown
 
                         ComparisonExpression equality = (ComparisonExpression) conjunct;
 
-                        boolean alignedComparison = Iterables.all(DependencyExtractor.extract(equality.getLeft()), in(node.getLeft().getOutputSymbols()));
+                        boolean alignedComparison = Iterables.all(DependencyExtractor.extractUnique(equality.getLeft()), in(node.getLeft().getOutputSymbols()));
                         Expression leftExpression = (alignedComparison) ? equality.getLeft() : equality.getRight();
                         Expression rightExpression = (alignedComparison) ? equality.getRight() : equality.getLeft();
 
@@ -273,8 +273,8 @@ public class PredicatePushDown
 
         private OuterJoinPushDownResult processOuterJoin(Expression inheritedPredicate, Expression outerEffectivePredicate, Expression innerEffectivePredicate, Expression joinPredicate, Collection<Symbol> outerSymbols)
         {
-            checkArgument(Iterables.all(DependencyExtractor.extract(outerEffectivePredicate), in(outerSymbols)), "outerEffectivePredicate must only contain symbols from outerSymbols");
-            checkArgument(Iterables.all(DependencyExtractor.extract(innerEffectivePredicate), not(in(outerSymbols))), "innerEffectivePredicate must not contain symbols from outerSymbols");
+            checkArgument(Iterables.all(DependencyExtractor.extractUnique(outerEffectivePredicate), in(outerSymbols)), "outerEffectivePredicate must only contain symbols from outerSymbols");
+            checkArgument(Iterables.all(DependencyExtractor.extractUnique(innerEffectivePredicate), not(in(outerSymbols))), "innerEffectivePredicate must not contain symbols from outerSymbols");
 
             ImmutableList.Builder<Expression> outerPushdownConjuncts = ImmutableList.builder();
             ImmutableList.Builder<Expression> innerPushdownConjuncts = ImmutableList.builder();
@@ -326,7 +326,7 @@ public class PredicatePushDown
 
             // Add the equalities from the inferences back in
             outerPushdownConjuncts.addAll(equalityPartition.getScopeEqualities());
-            postJoinConjuncts.addAll(equalityPartition.getInverseScopeEqualities());
+            postJoinConjuncts.addAll(equalityPartition.getScopeComplementEqualities());
             postJoinConjuncts.addAll(equalityPartition.getScopeStraddlingEqualities());
             innerPushdownConjuncts.addAll(potentialNullSymbolInferenceWithoutInnerInferred.generateEqualitiesPartitionedBy(not(in(outerSymbols))).getScopeEqualities());
 
@@ -366,8 +366,8 @@ public class PredicatePushDown
 
         private InnerJoinPushDownResult processInnerJoin(Expression inheritedPredicate, Expression leftEffectivePredicate, Expression rightEffectivePredicate, Expression joinPredicate, Collection<Symbol> leftSymbols)
         {
-            checkArgument(Iterables.all(DependencyExtractor.extract(leftEffectivePredicate), in(leftSymbols)), "leftEffectivePredicate must only contain symbols from leftSymbols");
-            checkArgument(Iterables.all(DependencyExtractor.extract(rightEffectivePredicate), not(in(leftSymbols))), "rightEffectivePredicate must not contain symbols from leftSymbols");
+            checkArgument(Iterables.all(DependencyExtractor.extractUnique(leftEffectivePredicate), in(leftSymbols)), "leftEffectivePredicate must only contain symbols from leftSymbols");
+            checkArgument(Iterables.all(DependencyExtractor.extractUnique(rightEffectivePredicate), not(in(leftSymbols))), "rightEffectivePredicate must not contain symbols from leftSymbols");
 
             ImmutableList.Builder<Expression> leftPushDownConjuncts = ImmutableList.builder();
             ImmutableList.Builder<Expression> rightPushDownConjuncts = ImmutableList.builder();
@@ -503,7 +503,7 @@ public class PredicatePushDown
         private Type extractType(Expression expression)
         {
             ExpressionAnalyzer expressionAnalyzer = new ExpressionAnalyzer(metadata);
-            List<Field> fields = IterableTransformer.<Symbol>on(DependencyExtractor.extract(expression))
+            List<Field> fields = IterableTransformer.<Symbol>on(DependencyExtractor.extractUnique(expression))
                     .transform(new Function<Symbol, Field>()
                     {
                         @Override
@@ -587,8 +587,8 @@ public class PredicatePushDown
                     if (isDeterministic(expression) && expression instanceof ComparisonExpression) {
                         ComparisonExpression comparison = (ComparisonExpression) expression;
                         if (comparison.getType() == ComparisonExpression.Type.EQUAL) {
-                            Set<Symbol> symbols1 = DependencyExtractor.extract(comparison.getLeft());
-                            Set<Symbol> symbols2 = DependencyExtractor.extract(comparison.getRight());
+                            Set<Symbol> symbols1 = DependencyExtractor.extractUnique(comparison.getLeft());
+                            Set<Symbol> symbols2 = DependencyExtractor.extractUnique(comparison.getRight());
                             return (Iterables.all(symbols1, in(leftSymbols)) && Iterables.all(symbols2, not(in(leftSymbols)))) ||
                                     (Iterables.all(symbols2, in(leftSymbols)) && Iterables.all(symbols1, not(in(leftSymbols))));
                         }
@@ -620,7 +620,7 @@ public class PredicatePushDown
             // Add the equality predicates back in
             EqualityInference.EqualityPartition equalityPartition = equalityInference.generateEqualitiesPartitionedBy(in(node.getGroupBy()));
             pushdownConjuncts.addAll(equalityPartition.getScopeEqualities());
-            postAggregationConjuncts.addAll(equalityPartition.getInverseScopeEqualities());
+            postAggregationConjuncts.addAll(equalityPartition.getScopeComplementEqualities());
             postAggregationConjuncts.addAll(equalityPartition.getScopeStraddlingEqualities());
 
             PlanNode rewrittenSource = planRewriter.rewrite(node.getSource(), combineConjuncts(pushdownConjuncts));
@@ -668,7 +668,7 @@ public class PredicatePushDown
             // Add the equality predicates back in
             EqualityInference.EqualityPartition equalityPartition = equalityInference.generateEqualitiesPartitionedBy(in(partitionSymbols));
             partitionConjuncts.addAll(equalityPartition.getScopeEqualities());
-            postScanConjuncts.addAll(equalityPartition.getInverseScopeEqualities());
+            postScanConjuncts.addAll(equalityPartition.getScopeComplementEqualities());
             postScanConjuncts.addAll(equalityPartition.getScopeStraddlingEqualities());
 
             PlanNode output = node;

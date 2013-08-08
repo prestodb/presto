@@ -26,6 +26,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -65,19 +66,7 @@ public class EffectivePredicateExtractor
     {
         Expression underlyingPredicate = node.getSource().accept(this, context);
 
-        EqualityInference equalityInference = createEqualityInference(underlyingPredicate);
-
-        ImmutableList.Builder<Expression> effectiveConjuncts = ImmutableList.builder();
-        for (Expression conjunct : EqualityInference.nonInferrableConjuncts(underlyingPredicate)) {
-            Expression rewritten = equalityInference.rewriteExpression(conjunct, in(node.getGroupBy()));
-            if (rewritten != null) {
-                effectiveConjuncts.add(rewritten);
-            }
-        }
-
-        effectiveConjuncts.addAll(equalityInference.generateEqualitiesPartitionedBy(in(node.getGroupBy())).getScopeEqualities());
-
-        return combineConjuncts(effectiveConjuncts.build());
+        return pullExpressionThroughSymbols(underlyingPredicate, node.getGroupBy());
     }
 
     @Override
@@ -111,18 +100,12 @@ public class EffectivePredicateExtractor
             }
         });
 
-        EqualityInference projectionInference = createEqualityInference(combineConjuncts(projectionEqualities), underlyingPredicate);
-
-        ImmutableList.Builder<Expression> effectiveConjuncts = ImmutableList.builder();
-        for (Expression conjunct : EqualityInference.nonInferrableConjuncts(underlyingPredicate)) {
-            Expression rewritten = projectionInference.rewriteExpression(conjunct, in(node.getOutputSymbols()));
-            if (rewritten != null) {
-                effectiveConjuncts.add(rewritten);
-            }
-        }
-        effectiveConjuncts.addAll(projectionInference.generateEqualitiesPartitionedBy(in(node.getOutputSymbols())).getScopeEqualities());
-
-        return combineConjuncts(effectiveConjuncts.build());
+        return pullExpressionThroughSymbols(combineConjuncts(
+                ImmutableList.<Expression>builder()
+                        .addAll(projectionEqualities)
+                        .add(underlyingPredicate)
+                        .build()),
+                node.getOutputSymbols());
     }
 
     @Override
@@ -144,19 +127,7 @@ public class EffectivePredicateExtractor
         Expression partitionPredicate = node.getPartitionPredicate();
         checkState(DeterminismEvaluator.isDeterministic(partitionPredicate));
 
-        EqualityInference equalityInference = createEqualityInference(partitionPredicate);
-
-        ImmutableList.Builder<Expression> effectiveConjuncts = ImmutableList.builder();
-        for (Expression conjunct : EqualityInference.nonInferrableConjuncts(partitionPredicate)) {
-            Expression rewritten = equalityInference.rewriteExpression(conjunct, in(node.getOutputSymbols()));
-            if (rewritten != null) {
-                effectiveConjuncts.add(rewritten);
-            }
-        }
-
-        effectiveConjuncts.addAll(equalityInference.generateEqualitiesPartitionedBy(in(node.getOutputSymbols())).getScopeEqualities());
-
-        return combineConjuncts(effectiveConjuncts.build());
+        return pullExpressionThroughSymbols(partitionPredicate, node.getOutputSymbols());
     }
 
     @Override
@@ -237,7 +208,7 @@ public class EffectivePredicateExtractor
             @Override
             public Expression apply(Expression expression)
             {
-                Iterable<Symbol> symbols = filter(DependencyExtractor.extract(expression), nullSymbolScope);
+                Iterable<Symbol> symbols = filter(DependencyExtractor.extractUnique(expression), nullSymbolScope);
                 if (Iterables.isEmpty(symbols)) {
                     return expression;
                 }
@@ -249,5 +220,22 @@ public class EffectivePredicateExtractor
                 return or(expression, and(nullConjuncts.build()));
             }
         };
+    }
+
+    private static Expression pullExpressionThroughSymbols(Expression expression, Collection<Symbol> symbols)
+    {
+        EqualityInference equalityInference = createEqualityInference(expression);
+
+        ImmutableList.Builder<Expression> effectiveConjuncts = ImmutableList.builder();
+        for (Expression conjunct : EqualityInference.nonInferrableConjuncts(expression)) {
+            Expression rewritten = equalityInference.rewriteExpression(conjunct, in(symbols));
+            if (rewritten != null) {
+                effectiveConjuncts.add(rewritten);
+            }
+        }
+
+        effectiveConjuncts.addAll(equalityInference.generateEqualitiesPartitionedBy(in(symbols)).getScopeEqualities());
+
+        return combineConjuncts(effectiveConjuncts.build());
     }
 }
