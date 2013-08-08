@@ -1,6 +1,6 @@
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
+import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.google.common.collect.ImmutableList;
@@ -25,7 +25,7 @@ public class DependencyExtractor
     }
 
     private static class Visitor
-            extends DefaultTraversalVisitor<Void, ImmutableList.Builder<Symbol>>
+            extends DefaultExpressionTraversalVisitor<Void, ImmutableList.Builder<Symbol>>
     {
         @Override
         protected Void visitQualifiedNameReference(QualifiedNameReference node, ImmutableList.Builder<Symbol> builder)

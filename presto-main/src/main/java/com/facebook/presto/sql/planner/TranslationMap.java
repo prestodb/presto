@@ -1,14 +1,12 @@
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.sql.ExpressionFormatter;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.FieldOrExpression;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.NodeRewriter;
+import com.facebook.presto.sql.tree.ExpressionRewriter;
+import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.facebook.presto.sql.tree.TreeRewriter;
 import com.google.common.base.Preconditions;
 
 import java.util.HashMap;
@@ -69,10 +67,10 @@ class TranslationMap
         Expression mapped = translateNamesToSymbols(expression);
 
         // then rewrite subexpressions in terms of the current mappings
-        return TreeRewriter.rewriteWith(new NodeRewriter<Void>()
+        return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
         {
             @Override
-            public Node rewriteExpression(Expression node, Void context, TreeRewriter<Void> treeRewriter)
+            public Expression rewriteExpression(Expression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
                 Symbol symbol = expressionMappings.get(node);
                 if (symbol != null) {
@@ -143,16 +141,15 @@ class TranslationMap
         }
     }
 
-
     private Expression translateNamesToSymbols(Expression expression)
     {
         final Map<QualifiedName, Integer> resolvedNames = analysis.getResolvedNames(expression);
         Preconditions.checkArgument(resolvedNames != null, "No resolved names for expression %s", expression);
 
-        return TreeRewriter.rewriteWith(new NodeRewriter<Void>()
+        return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
         {
             @Override
-            public Node rewriteQualifiedNameReference(QualifiedNameReference node, Void context, TreeRewriter<Void> treeRewriter)
+            public Expression rewriteQualifiedNameReference(QualifiedNameReference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
                 QualifiedName name = node.getName();
 

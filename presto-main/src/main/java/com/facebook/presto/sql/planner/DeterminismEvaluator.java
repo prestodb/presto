@@ -1,6 +1,6 @@
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
+import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -36,7 +36,7 @@ public class DeterminismEvaluator
     }
 
     private static class Visitor
-            extends DefaultTraversalVisitor<Void, AtomicBoolean>
+            extends DefaultExpressionTraversalVisitor<Void, AtomicBoolean>
     {
         @Override
         protected Void visitFunctionCall(FunctionCall node, AtomicBoolean deterministic)

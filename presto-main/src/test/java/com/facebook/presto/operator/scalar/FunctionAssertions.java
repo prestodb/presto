@@ -31,11 +31,11 @@ import com.facebook.presto.sql.gen.OperatorFactory;
 import com.facebook.presto.sql.planner.InterpretedProjectionFunction;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolToInputRewriter;
-import com.facebook.presto.sql.tree.AstVisitor;
+import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.sql.tree.InputReference;
-import com.facebook.presto.sql.tree.TreeRewriter;
 import com.facebook.presto.util.LocalQueryRunner;
 import com.facebook.presto.util.MaterializedResult;
 import com.google.common.base.Charsets;
@@ -226,7 +226,7 @@ public final class FunctionAssertions
 
         //
         // If the projection does not need bound values, execute query using full engine
-        boolean needsBoundValues = parseExpression(projection).accept(new AstVisitor<Boolean, Object>()
+        boolean needsBoundValues = parseExpression(projection).accept(new DefaultTraversalVisitor<Boolean, Object>()
         {
             @Override
             public Boolean visitInputReference(InputReference node, Object context)
@@ -332,7 +332,7 @@ public final class FunctionAssertions
     {
         Expression parsedExpression = createExpression(expression);
 
-        parsedExpression = TreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), parsedExpression);
+        parsedExpression = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), parsedExpression);
         return parsedExpression;
     }
 

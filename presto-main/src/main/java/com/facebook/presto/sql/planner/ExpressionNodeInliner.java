@@ -1,14 +1,13 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.NodeRewriter;
-import com.facebook.presto.sql.tree.TreeRewriter;
+import com.facebook.presto.sql.tree.ExpressionRewriter;
+import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 
 import java.util.Map;
 
 public class ExpressionNodeInliner
-        extends NodeRewriter<Void>
+        extends ExpressionRewriter<Void>
 {
     private final Map<? extends Expression, ? extends Expression> mappings;
 
@@ -18,7 +17,7 @@ public class ExpressionNodeInliner
     }
 
     @Override
-    public Node rewriteExpression(Expression node, Void context, TreeRewriter<Void> treeRewriter)
+    public Expression rewriteExpression(Expression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
     {
         return mappings.get(node);
     }

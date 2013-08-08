@@ -1,16 +1,15 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
+import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
-import java.util.ArrayList;
 import java.util.List;
 
 public class AggregateExtractor
-        extends DefaultTraversalVisitor<Void, Void>
+        extends DefaultExpressionTraversalVisitor<Void, Void>
 {
     private final Metadata metadata;
 
