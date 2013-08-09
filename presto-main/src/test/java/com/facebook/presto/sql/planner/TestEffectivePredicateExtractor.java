@@ -25,14 +25,20 @@ import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.SortItem;
+import com.facebook.presto.sql.tree.TreeRewriter;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-import org.weakref.jmx.com.google.common.collect.ImmutableSet;
 
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -40,7 +46,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import static com.facebook.presto.sql.ExpressionUtils.and;
-import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
+import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.or;
 
 public class TestEffectivePredicateExtractor
@@ -60,6 +66,7 @@ public class TestEffectivePredicateExtractor
 
     private Map<Symbol, ColumnHandle> scanAssignments;
     private TableScanNode baseTableScan;
+    private ExpressionIdentityNormalizer expressionNormalizer;
 
     @BeforeMethod
     public void setUp()
@@ -82,6 +89,8 @@ public class TestEffectivePredicateExtractor
                 BooleanLiteral.TRUE_LITERAL,
                 BooleanLiteral.TRUE_LITERAL
         );
+
+        expressionNormalizer = new ExpressionIdentityNormalizer();
     }
 
     @Test
@@ -106,8 +115,8 @@ public class TestEffectivePredicateExtractor
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node);
 
         // Rewrite in terms of group by symbols
-        Assert.assertEquals(conjunctsAsSet(effectivePredicate),
-                set(
+        Assert.assertEquals(normalizeConjuncts(effectivePredicate),
+                normalizeConjuncts(
                         lessThan(AE, number(10)),
                         lessThan(BE, AE),
                         greaterThan(AE, number(2)),
@@ -126,8 +135,8 @@ public class TestEffectivePredicateExtractor
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node);
 
         // Non-deterministic functions should be purged
-        Assert.assertEquals(conjunctsAsSet(effectivePredicate),
-                set(lessThan(BE, number(10))));
+        Assert.assertEquals(normalizeConjuncts(effectivePredicate),
+                normalizeConjuncts(lessThan(BE, number(10))));
     }
 
     @Test
@@ -145,8 +154,8 @@ public class TestEffectivePredicateExtractor
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node);
 
         // Rewrite in terms of project output symbols
-        Assert.assertEquals(conjunctsAsSet(effectivePredicate),
-                set(
+        Assert.assertEquals(normalizeConjuncts(effectivePredicate),
+                normalizeConjuncts(
                         lessThan(DE, number(10)),
                         equals(DE, EE)));
     }
@@ -166,8 +175,8 @@ public class TestEffectivePredicateExtractor
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node);
 
         // Pass through
-        Assert.assertEquals(conjunctsAsSet(effectivePredicate),
-                set(
+        Assert.assertEquals(normalizeConjuncts(effectivePredicate),
+                normalizeConjuncts(
                         equals(AE, BE),
                         equals(BE, CE),
                         lessThan(CE, number(10))));
@@ -188,8 +197,8 @@ public class TestEffectivePredicateExtractor
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node);
 
         // Pass through
-        Assert.assertEquals(conjunctsAsSet(effectivePredicate),
-                set(
+        Assert.assertEquals(normalizeConjuncts(effectivePredicate),
+                normalizeConjuncts(
                         equals(AE, BE),
                         equals(BE, CE),
                         lessThan(CE, number(10))));
@@ -210,8 +219,8 @@ public class TestEffectivePredicateExtractor
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node);
 
         // Pass through
-        Assert.assertEquals(conjunctsAsSet(effectivePredicate),
-                set(
+        Assert.assertEquals(normalizeConjuncts(effectivePredicate),
+                normalizeConjuncts(
                         equals(AE, BE),
                         equals(BE, CE),
                         lessThan(CE, number(10))));
@@ -236,8 +245,8 @@ public class TestEffectivePredicateExtractor
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node);
 
         // Pass through
-        Assert.assertEquals(conjunctsAsSet(effectivePredicate),
-                set(
+        Assert.assertEquals(normalizeConjuncts(effectivePredicate),
+                normalizeConjuncts(
                         equals(AE, BE),
                         equals(BE, CE),
                         lessThan(CE, number(10))));
@@ -258,8 +267,8 @@ public class TestEffectivePredicateExtractor
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node);
 
         // Only those that can be written in terms of the output symbols are extracted
-        Assert.assertEquals(conjunctsAsSet(effectivePredicate),
-                set(
+        Assert.assertEquals(normalizeConjuncts(effectivePredicate),
+                normalizeConjuncts(
                         greaterThan(BE, number(0)),
                         lessThan(AE, number(10))));
     }
@@ -280,8 +289,8 @@ public class TestEffectivePredicateExtractor
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node);
 
         // Only the common conjuncts can be inferred through a Union
-        Assert.assertEquals(conjunctsAsSet(effectivePredicate),
-                set(greaterThan(AE, number(10))));
+        Assert.assertEquals(normalizeConjuncts(effectivePredicate),
+                normalizeConjuncts(greaterThan(AE, number(10))));
     }
 
     @Test
@@ -326,8 +335,8 @@ public class TestEffectivePredicateExtractor
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node);
 
         // All predicates should be carried through
-        Assert.assertEquals(conjunctsAsSet(effectivePredicate),
-                set(lessThan(BE, AE),
+        Assert.assertEquals(normalizeConjuncts(effectivePredicate),
+                normalizeConjuncts(lessThan(BE, AE),
                         lessThan(CE, number(10)),
                         equals(DE, EE),
                         lessThan(FE, number(100)),
@@ -377,8 +386,8 @@ public class TestEffectivePredicateExtractor
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node);
 
         // All right side symbols should be checked against NULL
-        Assert.assertEquals(conjunctsAsSet(effectivePredicate),
-                set(lessThan(BE, AE),
+        Assert.assertEquals(normalizeConjuncts(effectivePredicate),
+                normalizeConjuncts(lessThan(BE, AE),
                         lessThan(CE, number(10)),
                         or(equals(DE, EE), and(isNull(DE), isNull(EE))),
                         or(lessThan(FE, number(100)), isNull(FE)),
@@ -428,8 +437,8 @@ public class TestEffectivePredicateExtractor
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node);
 
         // All left side symbols should be checked against NULL
-        Assert.assertEquals(conjunctsAsSet(effectivePredicate),
-                set(or(lessThan(BE, AE), and(isNull(BE), isNull(AE))),
+        Assert.assertEquals(normalizeConjuncts(effectivePredicate),
+                normalizeConjuncts(or(lessThan(BE, AE), and(isNull(BE), isNull(AE))),
                         or(lessThan(CE, number(10)), isNull(CE)),
                         equals(DE, EE),
                         lessThan(FE, number(100)),
@@ -487,13 +496,60 @@ public class TestEffectivePredicateExtractor
         return new FunctionHandle(Math.abs(new Random().nextInt()), name);
     }
 
-    private static Set<Expression> conjunctsAsSet(Expression expression)
+    private Set<Expression> normalizeConjuncts(Expression... conjuncts)
     {
-        return ImmutableSet.copyOf(extractConjuncts(expression));
+        return normalizeConjuncts(Arrays.asList(conjuncts));
     }
 
-    private static <E> Set<E> set(E... elements)
+    private Set<Expression> normalizeConjuncts(Iterable<Expression> conjuncts)
     {
-        return ImmutableSet.copyOf(elements);
+        return normalizeConjuncts(combineConjuncts(conjuncts));
+    }
+
+    private Set<Expression> normalizeConjuncts(Expression predicate)
+    {
+        // Normalize the predicate by identity so that the EqualityInference will produce stable rewrites in this test
+        // and thereby produce comparable Sets of conjuncts from this method.
+        predicate = expressionNormalizer.normalize(predicate);
+
+        // Equality inference rewrites and equality generation will always be stable across multiple runs in the same JVM
+        EqualityInference inference = EqualityInference.createEqualityInference(predicate);
+
+        Set<Expression> rewrittenSet = new HashSet<>();
+        for (Expression expression : EqualityInference.nonInferrableConjuncts(predicate)) {
+            Expression rewritten = inference.rewriteExpression(expression, Predicates.<Symbol>alwaysTrue());
+            Preconditions.checkState(rewritten != null, "Rewrite with full symbol scope should always be possible");
+            rewrittenSet.add(rewritten);
+        }
+        rewrittenSet.addAll(inference.generateEqualitiesPartitionedBy(Predicates.<Symbol>alwaysTrue()).getScopeEqualities());
+
+        return rewrittenSet;
+    }
+
+    /**
+     * Normalizes Expression nodes (and all sub-expressions) by identity.
+     *
+     * Identity equality of Expression nodes is necessary for EqualityInference to generate stable rewrites
+     * (as specified by Ordering.arbitrary())
+     */
+    private static class ExpressionIdentityNormalizer
+    {
+        private final Map<Expression, Expression> expressionCache = new HashMap<>();
+
+        private Expression normalize(Expression expression)
+        {
+            Expression identityNormalizedExpression = expressionCache.get(expression);
+            if (identityNormalizedExpression == null) {
+                // Make sure all sub-expressions are normalized first
+                for (Expression subExpression : Iterables.filter(SubExpressionExtractor.extract(expression), Predicates.not(Predicates.equalTo(expression)))) {
+                    normalize(subExpression);
+                }
+
+                // Since we have not seen this expression before, rewrite it entirely in terms of the normalized sub-expressions
+                identityNormalizedExpression = TreeRewriter.rewriteWith(new ExpressionNodeInliner(expressionCache), expression);
+                expressionCache.put(identityNormalizedExpression, identityNormalizedExpression);
+            }
+            return identityNormalizedExpression;
+        }
     }
 }
