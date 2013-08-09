@@ -173,13 +173,13 @@ public class Query
             case VERTICAL:
                 return new VerticalTuplePrinter(fieldNames, writer);
             case CSV:
-                return new CsvPrinter(fieldNames, writer, ',', false);
+                return new CsvPrinter(fieldNames, writer, false);
             case CSV_HEADER:
-                return new CsvPrinter(fieldNames, writer, ',', true);
+                return new CsvPrinter(fieldNames, writer, true);
             case TSV:
-                return new CsvPrinter(fieldNames, writer, '\t', false);
+                return new TsvPrinter(fieldNames, writer, false);
             case TSV_HEADER:
-                return new CsvPrinter(fieldNames, writer, '\t', true);
+                return new TsvPrinter(fieldNames, writer, true);
         }
         throw new RuntimeException(format + " not supported");
     }

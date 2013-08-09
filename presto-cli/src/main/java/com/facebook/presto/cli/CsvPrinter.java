@@ -17,12 +17,12 @@ public class CsvPrinter
 
     private boolean needHeader;
 
-    public CsvPrinter(List<String> fieldNames, Writer writer, char separator, boolean header)
+    public CsvPrinter(List<String> fieldNames, Writer writer, boolean header)
     {
         checkNotNull(fieldNames, "fieldNames is null");
         checkNotNull(writer, "writer is null");
         this.fieldNames = ImmutableList.copyOf(fieldNames);
-        this.writer = new CSVWriter(writer, separator);
+        this.writer = new CSVWriter(writer);
         this.needHeader = header;
     }
 
