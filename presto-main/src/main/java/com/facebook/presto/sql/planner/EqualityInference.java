@@ -2,8 +2,6 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.NodeRewriter;
 import com.facebook.presto.sql.tree.TreeRewriter;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicate;
@@ -264,32 +262,6 @@ public class EqualityInference
     public static Iterable<Expression> nonInferrableConjuncts(Expression expression)
     {
         return filter(extractConjuncts(expression), not(isInferenceCandidate()));
-    }
-
-    /**
-     * Extracts and returns the set of all expression subtrees within an Expression
-     */
-    private static class SubExpressionExtractor
-    {
-        public static Set<Expression> extract(Expression expression)
-        {
-            ImmutableSet.Builder<Expression> builder = ImmutableSet.builder();
-            // Borrow the TreeRewriter as a way to walk the Expression tree with a visitor that still respects the type inheritance
-            // We actually don't care about the rewrite result, just the context that gets updated through the walk
-            TreeRewriter.rewriteWith(new Visitor(), expression, builder);
-            return builder.build();
-        }
-
-        private static class Visitor
-                extends NodeRewriter<ImmutableSet.Builder<Expression>>
-        {
-            @Override
-            public Node rewriteExpression(Expression node, ImmutableSet.Builder<Expression> builder, TreeRewriter<ImmutableSet.Builder<Expression>> treeRewriter)
-            {
-                builder.add(node);
-                return null;
-            }
-        }
     }
 
     public static EqualityInference createEqualityInference(Expression... expressions)
