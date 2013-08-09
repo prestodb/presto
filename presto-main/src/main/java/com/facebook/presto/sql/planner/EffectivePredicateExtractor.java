@@ -39,6 +39,7 @@ import static com.facebook.presto.sql.ExpressionUtils.stripNonDeterministicConju
 import static com.facebook.presto.sql.planner.EqualityInference.createEqualityInference;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
+import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
 
@@ -82,6 +83,18 @@ public class EffectivePredicateExtractor
         return combineConjuncts(predicate, underlyingPredicate);
     }
 
+    private static Predicate<Map.Entry<Symbol, Expression>> symbolMatchesExpression()
+    {
+        return new Predicate<Map.Entry<Symbol, Expression>>()
+        {
+            @Override
+            public boolean apply(Map.Entry<Symbol, Expression> entry)
+            {
+                return entry.getValue().equals(new QualifiedNameReference(entry.getKey().toQualifiedName()));
+            }
+        };
+    }
+
     @Override
     public Expression visitProject(ProjectNode node, Void context)
     {
@@ -89,16 +102,17 @@ public class EffectivePredicateExtractor
 
         Expression underlyingPredicate = node.getSource().accept(this, context);
 
-        Iterable<Expression> projectionEqualities = transform(node.getOutputMap().entrySet(), new Function<Map.Entry<Symbol, Expression>, Expression>()
-        {
-            @Override
-            public Expression apply(Map.Entry<Symbol, Expression> entry)
-            {
-                QualifiedNameReference reference = new QualifiedNameReference(entry.getKey().toQualifiedName());
-                Expression expression = entry.getValue();
-                return new ComparisonExpression(ComparisonExpression.Type.EQUAL, reference, expression);
-            }
-        });
+        Iterable<Expression> projectionEqualities = transform(filter(node.getOutputMap().entrySet(), not(symbolMatchesExpression())),
+                new Function<Map.Entry<Symbol, Expression>, Expression>()
+                {
+                    @Override
+                    public Expression apply(Map.Entry<Symbol, Expression> entry)
+                    {
+                        QualifiedNameReference reference = new QualifiedNameReference(entry.getKey().toQualifiedName());
+                        Expression expression = entry.getValue();
+                        return new ComparisonExpression(ComparisonExpression.Type.EQUAL, reference, expression);
+                    }
+                });
 
         return pullExpressionThroughSymbols(combineConjuncts(
                 ImmutableList.<Expression>builder()
