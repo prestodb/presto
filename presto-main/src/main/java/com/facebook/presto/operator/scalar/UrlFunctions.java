@@ -1,5 +1,6 @@
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.operator.Description;
 import com.google.common.base.Charsets;
 import com.google.common.base.Splitter;
 import io.airlift.slice.Slice;
@@ -21,6 +22,7 @@ public final class UrlFunctions
     private UrlFunctions() {}
 
     @Nullable
+    @Description("extract protocol from url")
     @ScalarFunction
     public static Slice urlExtractProtocol(Slice url)
     {
@@ -29,6 +31,7 @@ public final class UrlFunctions
     }
 
     @Nullable
+    @Description("extract host from url")
     @ScalarFunction
     public static Slice urlExtractHost(Slice url)
     {
@@ -37,6 +40,7 @@ public final class UrlFunctions
     }
 
     @Nullable
+    @Description("extract port from url")
     @ScalarFunction
     public static Long urlExtractPort(Slice url)
     {
@@ -48,6 +52,7 @@ public final class UrlFunctions
     }
 
     @Nullable
+    @Description("extract part from url")
     @ScalarFunction
     public static Slice urlExtractPath(Slice url)
     {
@@ -56,6 +61,7 @@ public final class UrlFunctions
     }
 
     @Nullable
+    @Description("extract query from url")
     @ScalarFunction
     public static Slice urlExtractQuery(Slice url)
     {
@@ -64,6 +70,7 @@ public final class UrlFunctions
     }
 
     @Nullable
+    @Description("extract fragment from url")
     @ScalarFunction
     public static Slice urlExtractFragment(Slice url)
     {
@@ -72,6 +79,7 @@ public final class UrlFunctions
     }
 
     @Nullable
+    @Description("extract query parameter from url")
     @ScalarFunction
     public static Slice urlExtractParameter(Slice url, Slice parameterName)
     {

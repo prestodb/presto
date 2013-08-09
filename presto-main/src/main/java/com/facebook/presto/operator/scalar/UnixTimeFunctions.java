@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.operator.Description;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.util.ThreadLocalCache;
 import com.google.common.base.Charsets;
@@ -44,6 +45,7 @@ public final class UnixTimeFunctions
 
     private UnixTimeFunctions() {}
 
+    @Description("s/system/current/")
     @ScalarFunction("now")
     public static long currentTimestamp(Session session)
     {
@@ -62,6 +64,7 @@ public final class UnixTimeFunctions
         return unixTime;
     }
 
+    @Description("add the specified amount of time to the given time")
     @ScalarFunction
     public static long dateAdd(Slice unit, long value, long unixTime)
     {
@@ -96,6 +99,7 @@ public final class UnixTimeFunctions
         }
     }
 
+    @Description("difference of the given times in the given unit")
     @ScalarFunction
     public static long dateDiff(Slice unit, long unixTime1, long unixTime2)
     {
@@ -127,6 +131,7 @@ public final class UnixTimeFunctions
         }
     }
 
+    @Description("parses the specified date/time by the given format")
     @ScalarFunction
     public static long parseDatetime(Slice datetime, Slice formatString)
     {
@@ -137,6 +142,7 @@ public final class UnixTimeFunctions
         return fromMillis(formatter.parseMillis(datetimeString));
     }
 
+    @Description("formats the given time by the given format")
     @ScalarFunction
     public static Slice formatDatetime(long unixTime, Slice formatString)
     {
@@ -161,66 +167,77 @@ public final class UnixTimeFunctions
         return fromMillis(formatter.parseMillis(dateTime.toString(Charsets.UTF_8)));
     }
 
+    @Description("second of the minute of the given time")
     @ScalarFunction
     public static long second(long unixTime)
     {
         return SECOND_OF_MINUTE.get(toMillis(unixTime));
     }
 
+    @Description("minute of the hour of the given time")
     @ScalarFunction
     public static long minute(long unixTime)
     {
         return MINUTE_OF_HOUR.get(toMillis(unixTime));
     }
 
+    @Description("hour of the day of the given time")
     @ScalarFunction
     public static long hour(long unixTime)
     {
         return HOUR_OF_DAY.get(toMillis(unixTime));
     }
 
+    @Description("day of the week of the given time")
     @ScalarFunction(alias = "dow")
     public static long dayOfWeek(long unixTime)
     {
         return DAY_OF_WEEK.get(toMillis(unixTime));
     }
 
+    @Description("day of the month of the given time")
     @ScalarFunction(alias = "day_of_month")
     public static long day(long unixTime)
     {
         return DAY_OF_MONTH.get(toMillis(unixTime));
     }
 
+    @Description("day of the year of the given time")
     @ScalarFunction(alias = "doy")
     public static long dayOfYear(long unixTime)
     {
         return DAY_OF_YEAR.get(toMillis(unixTime));
     }
 
+    @Description("week of the year of the given time")
     @ScalarFunction(alias = "week_of_year")
     public static long week(long unixTime)
     {
         return WEEK_OF_YEAR.get(toMillis(unixTime));
     }
 
+    @Description("month of the year of the given time")
     @ScalarFunction
     public static long month(long unixTime)
     {
         return MONTH_OF_YEAR.get(toMillis(unixTime));
     }
 
+    @Description("quarter of the year of the given time")
     @ScalarFunction
     public static long quarter(long unixTime)
     {
         return (MONTH_OF_YEAR.get(toMillis(unixTime)) / 4) + 1;
     }
 
+    @Description("year of the given time")
     @ScalarFunction
     public static long year(long unixTime)
     {
         return YEAR.get(toMillis(unixTime));
     }
 
+    @Description("century of the given time")
     @ScalarFunction
     public static long century(long unixTime)
     {

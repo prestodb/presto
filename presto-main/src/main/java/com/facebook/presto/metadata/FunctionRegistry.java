@@ -1,5 +1,6 @@
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.operator.Description;
 import com.facebook.presto.operator.aggregation.AggregationFunction;
 import com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregation;
 import com.facebook.presto.operator.aggregation.DoubleApproximatePercentileAggregation;
@@ -44,6 +45,7 @@ import javax.annotation.Nullable;
 import javax.inject.Provider;
 
 import java.lang.invoke.MethodHandle;
+import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -255,8 +257,9 @@ public class FunctionRegistry
         {
             name = name.toLowerCase();
 
+            String description = getDescription(function.getClass());
             int id = functions.size() + 1;
-            functions.add(new FunctionInfo(id, QualifiedName.of(name), returnType, argumentTypes, function));
+            functions.add(new FunctionInfo(id, QualifiedName.of(name), description, returnType, argumentTypes, function));
             return this;
         }
 
@@ -264,19 +267,20 @@ public class FunctionRegistry
         {
             name = name.toLowerCase();
 
+            String description = getDescription(function.getClass());
             int id = functions.size() + 1;
-            functions.add(new FunctionInfo(id, QualifiedName.of(name), returnType, argumentTypes, intermediateType, function));
+            functions.add(new FunctionInfo(id, QualifiedName.of(name), description, returnType, argumentTypes, intermediateType, function));
             return this;
         }
 
-        public FunctionListBuilder scalar(String name, MethodHandle function, boolean deterministic, FunctionBinder functionBinder)
+        public FunctionListBuilder scalar(String name, MethodHandle function, boolean deterministic, FunctionBinder functionBinder, String description)
         {
             name = name.toLowerCase();
 
             int id = functions.size() + 1;
             Type returnType = type(function.type().returnType());
             List<Type> argumentTypes = types(function);
-            functions.add(new FunctionInfo(id, QualifiedName.of(name), returnType, argumentTypes, function, deterministic, functionBinder));
+            functions.add(new FunctionInfo(id, QualifiedName.of(name), description, returnType, argumentTypes, function, deterministic, functionBinder));
             return this;
         }
 
@@ -295,10 +299,11 @@ public class FunctionRegistry
                     if (name.isEmpty()) {
                         name = camelToSnake(method.getName());
                     }
+                    String description = getDescription(method);
                     FunctionBinder functionBinder = createFunctionBinder(method, scalarFunction);
-                    scalar(name, methodHandle, scalarFunction.deterministic(), functionBinder);
+                    scalar(name, methodHandle, scalarFunction.deterministic(), functionBinder, description);
                     for (String alias : scalarFunction.alias()) {
-                        scalar(alias, methodHandle, scalarFunction.deterministic(), functionBinder);
+                        scalar(alias, methodHandle, scalarFunction.deterministic(), functionBinder, description);
                     }
                     foundOne = true;
                 }
@@ -329,6 +334,12 @@ public class FunctionRegistry
             }
 
             throw new IllegalArgumentException("Unable to create function binder " + functionBinderClass.getName() + " for function " + method);
+        }
+
+        private static String getDescription(AnnotatedElement annotatedElement)
+        {
+            Description description = annotatedElement.getAnnotation(Description.class);
+            return (description == null) ? null : description.value();
         }
 
         private static String camelToSnake(String name)
