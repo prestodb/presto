@@ -7,6 +7,7 @@ import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.tree.BooleanLiteral;
+import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Explain;
@@ -57,7 +58,9 @@ import static com.facebook.presto.sql.tree.QueryUtil.logicalAnd;
 import static com.facebook.presto.sql.tree.QueryUtil.nameReference;
 import static com.facebook.presto.sql.tree.QueryUtil.selectAll;
 import static com.facebook.presto.sql.tree.QueryUtil.selectList;
+import static com.facebook.presto.sql.tree.QueryUtil.subquery;
 import static com.facebook.presto.sql.tree.QueryUtil.table;
+import static com.facebook.presto.sql.tree.QueryUtil.unaliasedName;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -199,21 +202,29 @@ class StatementAnalyzer
                 would generate the following query:
 
                 SELECT
-                  max(CASE WHEN partition_key = 'ds' THEN partition_value END) ds
+                  partition_number
+                , max(CASE WHEN partition_key = 'ds' THEN partition_value END) ds
                 , max(CASE WHEN partition_key = 'cluster_name' THEN partition_value END) cluster_name
                 FROM ...
                 GROUP BY partition_number
-                ORDER BY partition_number
+
+                The values are also cast to the type of the partition column.
+                The query is then wrapped to allow custom filtering and ordering.
             */
 
         ImmutableList.Builder<SelectItem> selectList = ImmutableList.builder();
+        ImmutableList.Builder<SelectItem> wrappedList = ImmutableList.builder();
+        selectList.add(unaliasedName("partition_number"));
         for (ColumnMetadata column : metadata.getTableMetadata(tableHandle.get()).getColumns()) {
             if (!column.isPartitionKey()) {
                 continue;
             }
             Expression key = equal(nameReference("partition_key"), new StringLiteral(column.getName()));
-            Expression function = functionCall("max", caseWhen(key, nameReference("partition_value")));
+            Expression value = caseWhen(key, nameReference("partition_value"));
+            value = new Cast(value, Type.fromRaw(column.getType()).getName());
+            Expression function = functionCall("max", value);
             selectList.add(new SingleColumn(function, column.getName()));
+            wrappedList.add(unaliasedName(column.getName()));
         }
 
         Query query = new Query(
@@ -226,9 +237,24 @@ class StatementAnalyzer
                                 equal(nameReference("table_name"), new StringLiteral(table.getTableName())))),
                         ImmutableList.of(nameReference("partition_number")),
                         Optional.<Expression>absent(),
-                        ImmutableList.of(ascending("partition_number")),
-                        Optional.<String>absent()
-                ),
+                        ImmutableList.<SortItem>of(),
+                        Optional.<String>absent()),
+                ImmutableList.<SortItem>of(),
+                Optional.<String>absent());
+
+        query = new Query(
+                Optional.<With>absent(),
+                new QuerySpecification(
+                        selectAll(wrappedList.build()),
+                        subquery(query),
+                        showPartitions.getWhere(),
+                        ImmutableList.<Expression>of(),
+                        Optional.<Expression>absent(),
+                        ImmutableList.<SortItem>builder()
+                                .addAll(showPartitions.getOrderBy())
+                                .add(ascending("partition_number"))
+                                .build(),
+                        Optional.<String>absent()),
                 ImmutableList.<SortItem>of(),
                 Optional.<String>absent());
 
