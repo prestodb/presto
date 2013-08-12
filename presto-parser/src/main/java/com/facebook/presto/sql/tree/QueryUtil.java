@@ -11,6 +11,11 @@ public class QueryUtil
         return new QualifiedNameReference(QualifiedName.of(name));
     }
 
+    public static SelectItem unaliasedName(String name)
+    {
+        return new SingleColumn(nameReference(name));
+    }
+
     public static SelectItem aliasedName(String name, String alias)
     {
         return new SingleColumn(nameReference(name), alias);
@@ -38,6 +43,11 @@ public class QueryUtil
     public static List<Relation> table(QualifiedName name)
     {
         return ImmutableList.<Relation>of(new Table(name));
+    }
+
+    public static List<Relation> subquery(Query query)
+    {
+        return ImmutableList.<Relation>of(new TableSubquery(query));
     }
 
     public static SortItem ascending(String name)

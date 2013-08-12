@@ -61,6 +61,10 @@ public class TestStatementBuilder
         printStatement("show tables like '%'");
         printStatement("show tables from information_schema like '%'");
 
+        printStatement("show partitions from foo");
+        printStatement("show partitions from foo where name = 'foo'");
+        printStatement("show partitions from foo order by foo");
+
         printStatement("select * from a.b.c@d");
 
         printStatement("select \"TOTALPRICE\" \"my price\" from \"ORDERS\"");

@@ -464,7 +464,12 @@ showColumns returns [Statement value]
     ;
 
 showPartitions returns [Statement value]
-    : ^(SHOW_PARTITIONS qname) { $value = new ShowPartitions($qname.value); }
+    : ^(SHOW_PARTITIONS qname whereClause? orderClause?)
+        { $value = new ShowPartitions(
+            $qname.value,
+            Optional.fromNullable($whereClause.value),
+            Objects.firstNonNull($orderClause.value, ImmutableList.<SortItem>of()));
+        }
     ;
 
 showFunctions returns [Statement value]
