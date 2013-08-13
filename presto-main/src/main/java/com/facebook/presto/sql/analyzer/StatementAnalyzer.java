@@ -254,7 +254,7 @@ class StatementAnalyzer
                                 .addAll(showPartitions.getOrderBy())
                                 .add(ascending("partition_number"))
                                 .build(),
-                        Optional.<String>absent()),
+                        showPartitions.getLimit()),
                 ImmutableList.<SortItem>of(),
                 Optional.<String>absent());
 
