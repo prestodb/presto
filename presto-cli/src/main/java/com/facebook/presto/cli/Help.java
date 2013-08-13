@@ -14,7 +14,7 @@ public final class Help
                 "SHOW COLUMNS FROM <table>\n" +
                 "SHOW FUNCTIONS\n" +
                 "SHOW SCHEMAS\n" +
-                "SHOW PARTITIONS FROM <table>\n" +
+                "SHOW PARTITIONS FROM <table> [WHERE ...] [ORDER BY ...]\n" +
                 "SHOW TABLES [LIKE <pattern>]\n" +
                 "";
     }
