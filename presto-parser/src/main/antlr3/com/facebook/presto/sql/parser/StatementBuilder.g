@@ -464,11 +464,12 @@ showColumns returns [Statement value]
     ;
 
 showPartitions returns [Statement value]
-    : ^(SHOW_PARTITIONS qname whereClause? orderClause?)
+    : ^(SHOW_PARTITIONS qname whereClause? orderClause? limitClause?)
         { $value = new ShowPartitions(
             $qname.value,
             Optional.fromNullable($whereClause.value),
-            Objects.firstNonNull($orderClause.value, ImmutableList.<SortItem>of()));
+            Objects.firstNonNull($orderClause.value, ImmutableList.<SortItem>of()),
+            Optional.fromNullable($limitClause.value));
         }
     ;
 
@@ -477,7 +478,8 @@ showFunctions returns [Statement value]
     ;
 
 createMaterializedView returns [Statement value]
-    : ^(CREATE_MATERIALIZED_VIEW qname refresh=viewRefresh? restrictedSelectStmt) { $value = new CreateMaterializedView($qname.value, Optional.fromNullable($refresh.value), $restrictedSelectStmt.value); }
+    : ^(CREATE_MATERIALIZED_VIEW qname refresh=viewRefresh? select=restrictedSelectStmt)
+        { $value = new CreateMaterializedView($qname.value, Optional.fromNullable($refresh.value), $select.value); }
     ;
 
 refreshMaterializedView returns [Statement value]

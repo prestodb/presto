@@ -546,7 +546,7 @@ showColumnsStmt
     ;
 
 showPartitionsStmt
-    : SHOW PARTITIONS (FROM | IN) qname w=whereClause? o=orderClause? -> ^(SHOW_PARTITIONS qname $w? $o?)
+    : SHOW PARTITIONS (FROM | IN) qname w=whereClause? o=orderClause? l=limitClause? -> ^(SHOW_PARTITIONS qname $w? $o? $l?)
     ;
 
 showFunctionsStmt
@@ -558,7 +558,7 @@ dropTableStmt
     ;
 
 createMaterializedViewStmt
-    : CREATE MATERIALIZED VIEW qname refresh=viewRefresh? AS restrictedSelectStmt -> ^(CREATE_MATERIALIZED_VIEW qname $refresh? restrictedSelectStmt)
+    : CREATE MATERIALIZED VIEW qname r=viewRefresh? AS s=restrictedSelectStmt -> ^(CREATE_MATERIALIZED_VIEW qname $r? $s)
     ;
 
 refreshMaterializedViewStmt
