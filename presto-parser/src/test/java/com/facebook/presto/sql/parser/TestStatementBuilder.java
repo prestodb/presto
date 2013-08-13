@@ -63,7 +63,9 @@ public class TestStatementBuilder
 
         printStatement("show partitions from foo");
         printStatement("show partitions from foo where name = 'foo'");
-        printStatement("show partitions from foo order by foo");
+        printStatement("show partitions from foo order by x");
+        printStatement("show partitions from foo limit 10");
+        printStatement("show partitions from foo order by x desc limit 10");
 
         printStatement("select * from a.b.c@d");
 

@@ -54,5 +54,5 @@ Ranking Functions
 
 .. function:: row_number() -> bigint
 
-    Returns a unique, sequential number to each row, starting with one,
+    Returns a unique, sequential number for each row, starting with one,
     according to the ordering of rows within the window partition.
