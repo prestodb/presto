@@ -1,11 +1,14 @@
 package com.facebook.presto.sql;
 
+import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -117,5 +120,26 @@ public class ExpressionUtils
     public static Expression stripNonDeterministicConjuncts(Expression expression)
     {
         return combineConjuncts(filter(extractConjuncts(expression), deterministic()));
+    }
+
+    public static Function<Expression, Expression> expressionOrNullSymbols(final Predicate<Symbol> nullSymbolScope)
+    {
+        return new Function<Expression, Expression>()
+        {
+            @Override
+            public Expression apply(Expression expression)
+            {
+                Iterable<Symbol> symbols = filter(DependencyExtractor.extractUnique(expression), nullSymbolScope);
+                if (Iterables.isEmpty(symbols)) {
+                    return expression;
+                }
+
+                ImmutableList.Builder<Expression> nullConjuncts = ImmutableList.builder();
+                for (Symbol symbol : symbols) {
+                    nullConjuncts.add(new IsNullPredicate(new QualifiedNameReference(symbol.toQualifiedName())));
+                }
+                return or(expression, and(nullConjuncts.build()));
+            }
+        };
     }
 }

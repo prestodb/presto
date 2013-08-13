@@ -10,6 +10,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
 import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
@@ -98,6 +99,16 @@ public class LimitPushDown
                 output = new LimitNode(idAllocator.getNextId(), output, limit);
             }
             return output;
+        }
+
+        @Override
+        public PlanNode rewriteSemiJoin(SemiJoinNode node, Long limit, PlanRewriter<Long> planRewriter)
+        {
+            PlanNode source = planRewriter.rewrite(node.getSource(), limit);
+            if (source != node.getSource()) {
+                return new SemiJoinNode(node.getId(), source, node.getFilteringSource(), node.getSourceJoinSymbol(), node.getFilteringSourceJoinSymbol(), node.getSemiJoinOutput());
+            }
+            return node;
         }
     }
 }
