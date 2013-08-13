@@ -28,6 +28,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
 import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
@@ -58,6 +59,7 @@ import java.util.Set;
 
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
+import static com.facebook.presto.sql.ExpressionUtils.expressionOrNullSymbols;
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.stripNonDeterministicConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.symbolToQualifiedNameReference;
@@ -67,6 +69,7 @@ import static com.facebook.presto.sql.planner.EqualityInference.createEqualityIn
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
@@ -494,11 +497,16 @@ public class PredicatePushDown
         {
             ImmutableList.Builder<Expression> builder = ImmutableList.builder();
             for (JoinNode.EquiJoinClause equiJoinClause : joinNode.getCriteria()) {
-                builder.add(new ComparisonExpression(ComparisonExpression.Type.EQUAL,
-                        new QualifiedNameReference(equiJoinClause.getLeft().toQualifiedName()),
-                        new QualifiedNameReference(equiJoinClause.getRight().toQualifiedName())));
+                builder.add(equalsExpression(equiJoinClause.getLeft(), equiJoinClause.getRight()));
             }
             return combineConjuncts(builder.build());
+        }
+
+        private static Expression equalsExpression(Symbol symbol1, Symbol symbol2)
+        {
+            return new ComparisonExpression(ComparisonExpression.Type.EQUAL,
+                    new QualifiedNameReference(symbol1.toQualifiedName()),
+                    new QualifiedNameReference(symbol2.toQualifiedName()));
         }
 
         // TODO: temporary addition to infer result type from expression. fix this with the new planner refactoring (martint)
@@ -598,6 +606,64 @@ public class PredicatePushDown
                     return false;
                 }
             };
+        }
+
+        @Override
+        public PlanNode rewriteSemiJoin(SemiJoinNode node, Expression inheritedPredicate, PlanRewriter<Expression> planRewriter)
+        {
+            Expression sourceEffectivePredicate = EffectivePredicateExtractor.extract(node.getSource());
+
+            List<Expression> sourceConjuncts = new ArrayList<>();
+            List<Expression> filteringSourceConjuncts = new ArrayList<>();
+            List<Expression> postJoinConjuncts = new ArrayList<>();
+
+            // TODO: see if there are predicates that can be inferred from the semi join output
+
+            // Push inherited and source predicates to filtering source via a contrived join predicate (but needs to avoid touching NULL values in the filtering source)
+            Expression joinPredicate = equalsExpression(node.getSourceJoinSymbol(), node.getFilteringSourceJoinSymbol());
+            EqualityInference joinInference = createEqualityInference(inheritedPredicate, sourceEffectivePredicate, joinPredicate);
+            for (Expression conjunct : Iterables.concat(EqualityInference.nonInferrableConjuncts(inheritedPredicate), EqualityInference.nonInferrableConjuncts(sourceEffectivePredicate))) {
+                Expression rewrittenConjunct = joinInference.rewriteExpression(conjunct, equalTo(node.getFilteringSourceJoinSymbol()));
+                if (rewrittenConjunct != null && DeterminismEvaluator.isDeterministic(rewrittenConjunct)) {
+                    // Alter conjunct to include an OR filteringSourceJoinSymbol IS NULL disjunct
+                    Expression rewrittenConjunctOrNull = expressionOrNullSymbols(equalTo(node.getFilteringSourceJoinSymbol())).apply(rewrittenConjunct);
+                    filteringSourceConjuncts.add(rewrittenConjunctOrNull);
+                }
+            }
+            EqualityInference.EqualityPartition joinInferenceEqualityPartition = joinInference.generateEqualitiesPartitionedBy(equalTo(node.getFilteringSourceJoinSymbol()));
+            filteringSourceConjuncts.addAll(ImmutableList.copyOf(transform(joinInferenceEqualityPartition.getScopeEqualities(),
+                    expressionOrNullSymbols(equalTo(node.getFilteringSourceJoinSymbol())))));
+
+            // Push inheritedPredicates down to the source if they don't involve the semi join output
+            EqualityInference inheritedInference = createEqualityInference(inheritedPredicate);
+            for (Expression conjunct : EqualityInference.nonInferrableConjuncts(inheritedPredicate)) {
+                Expression rewrittenConjunct = inheritedInference.rewriteExpression(conjunct, in(node.getSource().getOutputSymbols()));
+                // Since each source row is reflected exactly once in the output, ok to push non-deterministic predicates down
+                if (rewrittenConjunct != null) {
+                    sourceConjuncts.add(rewrittenConjunct);
+                }
+                else {
+                    postJoinConjuncts.add(conjunct);
+                }
+            }
+
+            // Add the inherited equality predicates back in
+            EqualityInference.EqualityPartition equalityPartition = inheritedInference.generateEqualitiesPartitionedBy(in(node.getSource().getOutputSymbols()));
+            sourceConjuncts.addAll(equalityPartition.getScopeEqualities());
+            postJoinConjuncts.addAll(equalityPartition.getScopeComplementEqualities());
+            postJoinConjuncts.addAll(equalityPartition.getScopeStraddlingEqualities());
+
+            PlanNode rewrittenSource = planRewriter.rewrite(node.getSource(), combineConjuncts(sourceConjuncts));
+            PlanNode rewrittenFilteringSource = planRewriter.rewrite(node.getFilteringSource(), combineConjuncts(filteringSourceConjuncts));
+
+            PlanNode output = node;
+            if (rewrittenSource != node.getSource() || rewrittenFilteringSource != node.getFilteringSource()) {
+                output = new SemiJoinNode(node.getId(), rewrittenSource, rewrittenFilteringSource, node.getSourceJoinSymbol(), node.getFilteringSourceJoinSymbol(), node.getSemiJoinOutput());
+            }
+            if (!postJoinConjuncts.isEmpty()) {
+                output = new FilterNode(idAllocator.getNextId(), output, combineConjuncts(postJoinConjuncts));
+            }
+            return output;
         }
 
         @Override
