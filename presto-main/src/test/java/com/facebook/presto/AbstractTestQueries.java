@@ -2116,6 +2116,121 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testSemiJoin()
+            throws Exception
+    {
+        // Throw in a bunch of IN subquery predicates
+        assertQuery("" +
+                "SELECT *, o2.custkey\n" +
+                "  IN (\n" +
+                "    SELECT orderkey\n" +
+                "    FROM lineitem\n" +
+                "    WHERE orderkey % 3 = 0)\n" +
+                "FROM (SELECT * FROM orders WHERE custkey % 128 = 0) o1\n" +
+                "JOIN (SELECT * FROM orders WHERE custkey % 128 = 0) o2\n" +
+                "  ON (o1.orderkey IN (SELECT orderkey FROM lineitem WHERE orderkey % 4 = 0)) = (o2.orderkey IN (SELECT orderkey FROM lineitem WHERE orderkey % 4 = 0))\n" +
+                "WHERE o1.orderkey\n" +
+                "  IN (\n" +
+                "    SELECT orderkey\n" +
+                "    FROM lineitem\n" +
+                "    WHERE orderkey % 2 = 0)\n" +
+                "ORDER BY o1.orderkey\n" +
+                "  IN (\n" +
+                "    SELECT orderkey\n" +
+                "    FROM lineitem\n" +
+                "    WHERE orderkey % 6 = 0)");
+        assertQuery("" +
+                "SELECT orderkey\n" +
+                "  IN (\n" +
+                "    SELECT orderkey\n" +
+                "    FROM lineitem\n" +
+                "    WHERE partkey % 2 = 0),\n" +
+                "  SUM(\n" +
+                "    CASE\n" +
+                "      WHEN orderkey\n" +
+                "        IN (\n" +
+                "          SELECT orderkey\n" +
+                "          FROM lineitem\n" +
+                "          WHERE suppkey % 2 = 0)\n" +
+                "      THEN 1\n" +
+                "      ELSE 0\n" +
+                "      END)\n" +
+                "FROM orders\n" +
+                "GROUP BY orderkey\n" +
+                "  IN (\n" +
+                "    SELECT orderkey\n" +
+                "    FROM lineitem\n" +
+                "    WHERE partkey % 2 = 0)\n" +
+                "HAVING SUM(\n" +
+                "  CASE\n" +
+                "    WHEN orderkey\n" +
+                "      IN (\n" +
+                "        SELECT orderkey\n" +
+                "        FROM lineitem\n" +
+                "        WHERE suppkey % 2 = 0)\n" +
+                "      THEN 1\n" +
+                "      ELSE 0\n" +
+                "      END) > 1");
+    }
+
+    @Test
+    public void testAntiJoin()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT *, orderkey\n" +
+                "  NOT IN (\n" +
+                "    SELECT orderkey\n" +
+                "    FROM lineitem\n" +
+                "    WHERE orderkey % 3 = 0)\n" +
+                "FROM orders");
+    }
+
+    @Test
+    public void testSemiJoinLimitPushDown()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT COUNT(*)\n" +
+                "FROM (\n" +
+                "  SELECT orderkey\n" +
+                "  IN (\n" +
+                "    SELECT orderkey\n" +
+                "    FROM lineitem\n" +
+                "    WHERE orderkey % 2 = 0)\n" +
+                "  FROM orders\n" +
+                "  LIMIT 10)");
+    }
+
+    @Test
+    public void testSemiJoinNullHandling()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT orderkey\n" +
+                "  IN (\n" +
+                "    SELECT CASE WHEN orderkey % 3 = 0 THEN NULL ELSE orderkey END\n" +
+                "    FROM lineitem)\n" +
+                "FROM orders");
+        assertQuery("" +
+                "SELECT orderkey\n" +
+                "  IN (\n" +
+                "    SELECT orderkey\n" +
+                "    FROM lineitem)\n" +
+                "FROM (\n" +
+                "  SELECT CASE WHEN orderkey % 3 = 0 THEN NULL ELSE orderkey END AS orderkey\n" +
+                "  FROM orders)");
+        assertQuery("" +
+                "SELECT orderkey\n" +
+                "  IN (\n" +
+                "    SELECT CASE WHEN orderkey % 3 = 0 THEN NULL ELSE orderkey END\n" +
+                "    FROM lineitem)\n" +
+                "FROM (\n" +
+                "  SELECT CASE WHEN orderkey % 4 = 0 THEN NULL ELSE orderkey END AS orderkey\n" +
+                "  FROM orders)");
+    }
+
+    @Test
     public void testPredicatePushdown()
             throws Exception
     {
@@ -2355,6 +2470,21 @@ public abstract class AbstractTestQueries
         long count = (Long) tuple.getField(0);
         // Technically non-deterministic unit test but has essentially a next to impossible chance of a false positive
         Assert.assertTrue(count > 0 && count < 1000);
+    }
+
+    public void testSemiJoinPredicateMoveAround()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT COUNT(*)\n" +
+                "FROM (SELECT * FROM orders WHERE custkey % 2 = 0 AND orderkey % 3 = 0)\n" +
+                "WHERE orderkey\n" +
+                "  IN (\n" +
+                "    SELECT CASE WHEN orderkey % 7 = 0 THEN NULL ELSE orderkey END\n" +
+                "    FROM lineitem\n" +
+                "    WHERE partkey % 2 = 0)\n" +
+                "  AND\n" +
+                "    orderkey % 2 = 0");
     }
 
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\QUnexpected parameters (bigint) for function length. Expected: length(varchar)\\E")

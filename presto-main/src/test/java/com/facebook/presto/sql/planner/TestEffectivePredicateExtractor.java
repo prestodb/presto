@@ -11,6 +11,7 @@ import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
@@ -444,6 +445,23 @@ public class TestEffectivePredicateExtractor
                         lessThan(FE, number(100)),
                         or(equals(AE, DE), isNull(AE)),
                         or(equals(BE, EE), isNull(BE))));
+    }
+
+    @Test
+    public void testSemiJoin()
+            throws Exception
+    {
+        PlanNode node = new SemiJoinNode(newId(),
+                filter(baseTableScan, and(greaterThan(AE, number(10)), lessThan(AE, number(100)))),
+                filter(baseTableScan, greaterThan(AE, number(5))),
+                A, B, C
+        );
+
+        Expression effectivePredicate = EffectivePredicateExtractor.extract(node);
+
+        // Currently, only pull predicates through the source plan
+        Assert.assertEquals(normalizeConjuncts(effectivePredicate),
+                normalizeConjuncts(and(greaterThan(AE, number(10)), lessThan(AE, number(100)))));
     }
 
     private static PlanNodeId newId()
