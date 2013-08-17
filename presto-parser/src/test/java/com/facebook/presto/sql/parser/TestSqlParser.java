@@ -14,6 +14,7 @@ import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.With;
+import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
@@ -22,6 +23,7 @@ import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.sql.tree.QueryUtil.selectList;
 import static com.facebook.presto.sql.tree.QueryUtil.table;
 import static java.lang.String.format;
+import static java.util.Collections.nCopies;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
@@ -74,6 +76,18 @@ public class TestSqlParser
                                 Optional.<String>absent()),
                         ImmutableList.<SortItem>of(),
                         Optional.<String>absent()));
+    }
+
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:1: no viable alternative at input '<EOF>'")
+    public void testEmptyExpression()
+    {
+        SqlParser.createExpression("");
+    }
+
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:1: no viable alternative at input '<EOF>'")
+    public void testEmptyStatement()
+    {
+        SqlParser.createStatement("");
     }
 
     @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:7: mismatched input 'x' expecting EOF")
@@ -209,6 +223,18 @@ public class TestSqlParser
             throws Exception
     {
         assertExpression("CURRENT_TIMESTAMP", new CurrentTime(CurrentTime.Type.TIMESTAMP));
+    }
+
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:1: expression is too large \\(stack overflow while parsing\\)")
+    public void testStackOverflowExpression()
+    {
+        SqlParser.createExpression(Joiner.on(" OR ").join(nCopies(2000, "x = y")));
+    }
+
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:1: statement is too large \\(stack overflow while parsing\\)")
+    public void testStackOverflowStatement()
+    {
+        SqlParser.createStatement("SELECT " + Joiner.on(" OR ").join(nCopies(2000, "x = y")));
     }
 
     private static void assertStatement(String query, Statement expected)
