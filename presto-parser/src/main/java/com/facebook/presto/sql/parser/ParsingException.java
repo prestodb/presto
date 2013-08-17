@@ -1,5 +1,6 @@
 package com.facebook.presto.sql.parser;
 
+import org.antlr.runtime.ANTLRStringStream;
 import org.antlr.runtime.RecognitionException;
 
 import static java.lang.String.format;
@@ -10,6 +11,11 @@ public class ParsingException
     public ParsingException(String message, RecognitionException cause)
     {
         super(message, cause);
+    }
+
+    public ParsingException(String message)
+    {
+        this(message, new RecognitionException(new ANTLRStringStream()));
     }
 
     @Override

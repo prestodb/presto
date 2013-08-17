@@ -18,12 +18,22 @@ public final class SqlParser
 
     public static Statement createStatement(String sql)
     {
-        return createStatement(parseStatement(sql));
+        try {
+            return createStatement(parseStatement(sql));
+        }
+        catch (StackOverflowError e) {
+            throw new ParsingException("statement is too large (stack overflow while parsing)");
+        }
     }
 
     public static Expression createExpression(String expression)
     {
-        return createExpression(parseExpression(expression));
+        try {
+            return createExpression(parseExpression(expression));
+        }
+        catch (StackOverflowError e) {
+            throw new ParsingException("expression is too large (stack overflow while parsing)");
+        }
     }
 
     @VisibleForTesting
