@@ -176,7 +176,6 @@ public class SqlQueryManager
 
         QueryExecutionFactory<?> queryExecutionFactory = executionFactories.get(statement.getClass());
         Preconditions.checkState(queryExecutionFactory != null, "Unsupported statement type %s", statement.getClass().getName());
-        assert queryExecutionFactory != null; // IDEA-60343
         final QueryExecution queryExecution = queryExecutionFactory.createQueryExecution(queryId, query, session, statement);
         queryMonitor.createdEvent(queryExecution.getQueryInfo());
 
