@@ -1889,6 +1889,16 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testShowPartitions()
+            throws Exception
+    {
+        MaterializedResult result = computeActual("SHOW PARTITIONS FROM orders");
+        // table is not partitioned
+        // TODO: add a partitioned table for tests and test where/order/limit
+        assertEquals(result.getMaterializedTuples().size(), 0);
+    }
+
+    @Test
     public void testShowFunctions()
             throws Exception
     {

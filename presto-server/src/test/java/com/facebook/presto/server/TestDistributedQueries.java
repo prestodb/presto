@@ -26,7 +26,6 @@ import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.Test;
 
 import java.net.URI;
 import java.util.List;
@@ -38,7 +37,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.lang.String.format;
-import static org.testng.Assert.assertEquals;
 
 public class TestDistributedQueries
         extends AbstractTestQueries
@@ -56,15 +54,6 @@ public class TestDistributedQueries
     protected int getNodeCount()
     {
         return 3;
-    }
-
-    @Test
-    public void testShowPartitions()
-            throws Exception
-    {
-        MaterializedResult result = computeActual("SHOW PARTITIONS FROM DEFAULT.ORDERS");
-        // table is not partitioned
-        assertEquals(result.getMaterializedTuples().size(), 0);
     }
 
     @Override
