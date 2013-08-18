@@ -41,7 +41,6 @@ public class AsyncRecursiveWalker
                 try {
                     FileStatus[] statuses = fileSystem.listStatus(path);
                     checkState(statuses != null, "Partition location %s does not exist", path);
-                    assert statuses != null; // IDEA-60343
 
                     for (FileStatus status : statuses) {
                         if (status.isDir()) {

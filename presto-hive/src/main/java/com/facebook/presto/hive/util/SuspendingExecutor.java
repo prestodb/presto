@@ -51,7 +51,6 @@ public class SuspendingExecutor
                 if (acquire()) {
                     Runnable task = taskQueue.poll();
                     checkState(task != null, "No task to execute");
-                    assert task != null; // IDEA-60343
                     task.run();
                 }
             }
