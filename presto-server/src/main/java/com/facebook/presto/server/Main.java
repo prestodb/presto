@@ -27,19 +27,24 @@ import org.weakref.jmx.guice.MBeanModule;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryPoolMXBean;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class Main
         implements Runnable
 {
+    private final static AtomicBoolean codeCacheTriggerInstalled = new AtomicBoolean();
+
     public static void main(String[] args)
     {
-        installCodeCacheGcTrigger();
-
         new Main().run();
     }
 
     private static void installCodeCacheGcTrigger()
     {
+        if (codeCacheTriggerInstalled.getAndSet(true)) {
+            return;
+        }
+
         // Hack to work around bugs in java 7 related to code cache management.
         // See http://mail.openjdk.java.net/pipermail/hotspot-compiler-dev/2013-August/011333.html for more info.
         final MemoryPoolMXBean codeCacheMbean = findCodeCacheMBean();
@@ -133,6 +138,8 @@ public class Main
             injector.getInstance(NodeManager.class).refreshNodes(true);
 
             log.info("======== SERVER STARTED ========");
+
+            installCodeCacheGcTrigger();
         }
         catch (Throwable e) {
             log.error(e);
