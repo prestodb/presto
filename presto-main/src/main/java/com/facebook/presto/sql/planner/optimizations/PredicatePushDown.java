@@ -606,10 +606,14 @@ public class PredicatePushDown
             List<Expression> pushdownConjuncts = new ArrayList<>();
             List<Expression> postAggregationConjuncts = new ArrayList<>();
 
+            // Strip out non-deterministic conjuncts
+            postAggregationConjuncts.addAll(ImmutableList.copyOf(filter(extractConjuncts(inheritedPredicate), not(deterministic()))));
+            inheritedPredicate = stripNonDeterministicConjuncts(inheritedPredicate);
+
             // Sort non-equality predicates by those that can be pushed down and those that cannot
             for (Expression conjunct : EqualityInference.nonInferrableConjuncts(inheritedPredicate)) {
                 Expression rewrittenConjunct = equalityInference.rewriteExpression(conjunct, in(node.getGroupBy()));
-                if (rewrittenConjunct != null && DeterminismEvaluator.isDeterministic(rewrittenConjunct)) {
+                if (rewrittenConjunct != null) {
                     pushdownConjuncts.add(rewrittenConjunct);
                 }
                 else {
@@ -654,10 +658,14 @@ public class PredicatePushDown
             List<Expression> partitionConjuncts = new ArrayList<>();
             List<Expression> postScanConjuncts = new ArrayList<>();
 
+            // Strip out non-deterministic conjuncts
+            postScanConjuncts.addAll(ImmutableList.copyOf(filter(extractConjuncts(inheritedPredicate), not(deterministic()))));
+            inheritedPredicate = stripNonDeterministicConjuncts(inheritedPredicate);
+
             // Sort non-equality predicates by those that can be applied exclusively to partition keys and those that cannot
             for (Expression conjunct : EqualityInference.nonInferrableConjuncts(inheritedPredicate)) {
                 Expression rewrittenConjunct = equalityInference.rewriteExpression(conjunct, in(partitionSymbols));
-                if (rewrittenConjunct != null && DeterminismEvaluator.isDeterministic(rewrittenConjunct)) {
+                if (rewrittenConjunct != null) {
                     partitionConjuncts.add(rewrittenConjunct);
                 }
                 else {

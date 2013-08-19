@@ -2253,6 +2253,52 @@ public abstract class AbstractTestQueries
         Assert.assertTrue(count > 0 && count < 1000000);
     }
 
+    @Test
+    public void testTrivialNonDeterministicPredicatePushdown()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*) FROM dual WHERE rand() >= 0");
+    }
+
+    @Test
+    public void testNonDeterministicTableScanPredicatePushdown()
+            throws Exception
+    {
+        MaterializedResult materializedResult = computeActual("" +
+                "SELECT COUNT(*)\n" +
+                "FROM (\n" +
+                "  SELECT *\n" +
+                "  FROM lineitem\n" +
+                "  LIMIT 1000\n" +
+                ")\n" +
+                "WHERE rand() > 0.5");
+        MaterializedTuple tuple = Iterables.getOnlyElement(materializedResult.getMaterializedTuples());
+        Assert.assertEquals(tuple.getFieldCount(), 1);
+        long count = (Long) tuple.getField(0);
+        // Technically non-deterministic unit test but has essentially a next to impossible chance of a false positive
+        Assert.assertTrue(count > 0 && count < 1000);
+    }
+
+    @Test
+    public void testNonDeterministicAggregationPredicatePushdown()
+            throws Exception
+    {
+        MaterializedResult materializedResult = computeActual("" +
+                "SELECT COUNT(*)\n" +
+                "FROM (\n" +
+                "  SELECT orderkey, COUNT(*)\n" +
+                "  FROM lineitem\n" +
+                "  GROUP BY orderkey\n" +
+                "  LIMIT 1000\n" +
+                ")\n" +
+                "WHERE rand() > 0.5");
+        MaterializedTuple tuple = Iterables.getOnlyElement(materializedResult.getMaterializedTuples());
+        Assert.assertEquals(tuple.getFieldCount(), 1);
+        long count = (Long) tuple.getField(0);
+        // Technically non-deterministic unit test but has essentially a next to impossible chance of a false positive
+        Assert.assertTrue(count > 0 && count < 1000);
+    }
+
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\QUnexpected parameters (bigint) for function length. Expected: length(varchar)\\E")
     public void testFunctionNotRegistered()
     {
