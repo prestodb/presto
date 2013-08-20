@@ -161,6 +161,16 @@ public class SqlQueryExecution
 
     private SubPlan analyzeQuery()
     {
+        try {
+            return doAnalyzeQuery();
+        }
+        catch (StackOverflowError e) {
+            throw new RuntimeException("statement is too large (stack overflow during analysis)", e);
+        }
+    }
+
+    private SubPlan doAnalyzeQuery()
+    {
         // time analysis phase
         long analysisStart = System.nanoTime();
 

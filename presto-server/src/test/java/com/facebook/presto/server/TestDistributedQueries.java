@@ -16,6 +16,7 @@ import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.util.MaterializedResult;
 import com.google.common.base.Function;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Closeables;
@@ -38,7 +39,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.lang.String.format;
-import static org.testng.Assert.assertEquals;
+import static java.util.Collections.nCopies;
 
 public class TestDistributedQueries
         extends AbstractTestQueries
@@ -52,19 +53,24 @@ public class TestDistributedQueries
     private AsyncHttpClient httpClient;
     private TestingDiscoveryServer discoveryServer;
 
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "statement is too large \\(stack overflow during analysis\\)")
+    public void testLargeQueryFailure()
+            throws Exception
+    {
+        assertQuery("SELECT " + Joiner.on(" AND ").join(nCopies(1000, "1 = 1")), "SELECT true");
+    }
+
+    @Test
+    public void testLargeQuerySuccess()
+            throws Exception
+    {
+        assertQuery("SELECT " + Joiner.on(" AND ").join(nCopies(500, "1 = 1")), "SELECT true");
+    }
+
     @Override
     protected int getNodeCount()
     {
         return 3;
-    }
-
-    @Test
-    public void testShowPartitions()
-            throws Exception
-    {
-        MaterializedResult result = computeActual("SHOW PARTITIONS FROM DEFAULT.ORDERS");
-        // table is not partitioned
-        assertEquals(result.getMaterializedTuples().size(), 0);
     }
 
     @Override

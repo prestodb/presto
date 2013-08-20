@@ -37,7 +37,6 @@ public class NativeDataStreamProvider
     {
         checkNotNull(split, "split is null");
         checkArgument(split instanceof NativeSplit, "Split must be of type NativeType, not %s", split.getClass().getName());
-        assert split instanceof NativeSplit; // // IDEA-60343
         checkNotNull(columns, "columns is null");
         checkArgument(!columns.isEmpty(), "must provide at least one column");
 
