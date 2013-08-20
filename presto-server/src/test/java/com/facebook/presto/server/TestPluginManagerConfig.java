@@ -18,7 +18,7 @@ public class TestPluginManagerConfig
     public void testDefaults()
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(PluginManagerConfig.class)
-                .setInstalledPluginsDir(new File("etc/plugins"))
+                .setInstalledPluginsDir(new File("plugin"))
                 .setPlugins((String)null)
                 .setPluginConfigurationDir(new File("etc/"))
                 .setMavenLocalRepository(ArtifactResolver.USER_LOCAL_REPO)
