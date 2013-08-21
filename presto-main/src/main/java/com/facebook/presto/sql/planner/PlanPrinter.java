@@ -27,24 +27,30 @@ import com.facebook.presto.util.GraphvizPrinter;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
+import com.google.common.base.Optional;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
 
 public class PlanPrinter
 {
     private final StringBuilder output = new StringBuilder();
 
-    private PlanPrinter(PlanNode plan, Map<Symbol, Type> types)
+    private PlanPrinter(PlanNode plan, Map<Symbol, Type> types, Optional<Map<PlanFragmentId, PlanFragment>> fragmentsById)
     {
-        Visitor visitor = new Visitor(types);
+        checkNotNull(plan, "plan is null");
+        checkNotNull(types, "types is null");
+        checkNotNull(fragmentsById, "fragmentsById is null");
+        Visitor visitor = new Visitor(types, fragmentsById);
         plan.accept(visitor, 0);
     }
 
@@ -54,15 +60,28 @@ public class PlanPrinter
         return output.toString();
     }
 
-    public static String printPlan(PlanNode plan, Map<Symbol, Type> types)
+    public static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types)
     {
-        return new PlanPrinter(plan, types).toString();
+        return new PlanPrinter(plan, types, Optional.<Map<PlanFragmentId, PlanFragment>>absent()).toString();
     }
 
-    public static String printGraphvizPlan(PlanNode plan, Map<Symbol, Type> types)
+    public static String textDistributedPlan(SubPlan plan)
+    {
+        List<PlanFragment> fragments = plan.getAllFragments();
+        Map<PlanFragmentId, PlanFragment> fragmentsById = Maps.uniqueIndex(fragments, PlanFragment.idGetter());
+        PlanFragment fragment = plan.getFragment();
+        return new PlanPrinter(fragment.getRoot(), fragment.getSymbols(), Optional.of(fragmentsById)).toString();
+    }
+
+    public static String graphvizLogicalPlan(PlanNode plan, Map<Symbol, Type> types)
     {
         PlanFragment fragment = new PlanFragment(new PlanFragmentId("graphviz_plan"), plan.getId(), types, plan);
-        return GraphvizPrinter.print(ImmutableList.of(fragment));
+        return GraphvizPrinter.printLogical(ImmutableList.of(fragment));
+    }
+
+    public static String graphvizDistributedPlan(SubPlan plan)
+    {
+        return GraphvizPrinter.printDistributed(plan);
     }
 
     private void print(int indent, String format, Object... args)
@@ -82,10 +101,12 @@ public class PlanPrinter
             extends PlanVisitor<Integer, Void>
     {
         private final Map<Symbol, Type> types;
+        private final Optional<Map<PlanFragmentId, PlanFragment>> fragmentsById;
 
-        public Visitor(Map<Symbol, Type> types)
+        public Visitor(Map<Symbol, Type> types, Optional<Map<PlanFragmentId, PlanFragment>> fragmentsById)
         {
             this.types = types;
+            this.fragmentsById = fragmentsById;
         }
 
         @Override
@@ -260,7 +281,7 @@ public class PlanPrinter
         {
             print(indent, "- Exchange[%s] => [%s]", node.getSourceFragmentIds(), formatOutputs(node.getOutputSymbols()));
 
-            return processChildren(node, indent + 1);
+            return processExchange(node, indent + 1);
         }
 
         @Override
@@ -291,6 +312,15 @@ public class PlanPrinter
                 child.accept(this, indent);
             }
 
+            return null;
+        }
+
+        private Void processExchange(ExchangeNode node, int indent)
+        {
+            for (PlanFragmentId planFragmentId : node.getSourceFragmentIds()) {
+                PlanFragment target = fragmentsById.get().get(planFragmentId);
+                target.getRoot().accept(this, indent);
+            }
             return null;
         }
 

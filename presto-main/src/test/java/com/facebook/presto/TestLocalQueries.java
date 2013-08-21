@@ -24,7 +24,7 @@ public class TestLocalQueries
         tpchLocalQueryRunner = createTpchLocalQueryRunner(new Session("user", "test", catalog, schema, null, null));
 
         // dump query plan to console (for debugging)
-        // tpchLocalQueryRunner.printPlan();
+        // tpchLocalQueryRunner.textLogicalPlan();
     }
 
     @Override
