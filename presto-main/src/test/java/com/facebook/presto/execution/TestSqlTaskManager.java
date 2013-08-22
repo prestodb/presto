@@ -26,11 +26,11 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.inject.Provider;
 import io.airlift.event.client.NullEventClient;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.node.NodeInfo;
@@ -87,7 +87,7 @@ public class TestSqlTaskManager
                 metadata,
                 new DataStreamManager(new DualDataStreamProvider()),
                 new MockLocalStorageManager(new File("target/temp")),
-                new MockExchangeClientProvider(),
+                new MockExchangeClientSupplier(),
                 new ExpressionCompiler(metadata));
 
         sqlTaskManager = new SqlTaskManager(
@@ -244,8 +244,8 @@ public class TestSqlTaskManager
         }
     }
 
-    public static class MockExchangeClientProvider
-            implements Provider<ExchangeClient>
+    public static class MockExchangeClientSupplier
+            implements Supplier<ExchangeClient>
     {
         @Override
         public ExchangeClient get()
