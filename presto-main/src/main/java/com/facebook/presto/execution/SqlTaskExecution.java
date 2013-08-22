@@ -12,7 +12,7 @@ import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.OutputProducingOperator;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageIterator;
-import com.facebook.presto.operator.SourceHashProviderFactory;
+import com.facebook.presto.operator.SourceHashSupplierFactory;
 import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.split.CollocatedSplit;
@@ -74,7 +74,7 @@ public class SqlTaskExecution
     @GuardedBy("this")
     private final List<WeakReference<SplitWorker>> splitWorkers = new ArrayList<>();
     @GuardedBy("this")
-    private SourceHashProviderFactory sourceHashProviderFactory;
+    private SourceHashSupplierFactory sourceHashSupplierFactory;
     @GuardedBy("this")
     private long maxAcknowledgedSplit = Long.MIN_VALUE;
 
@@ -254,7 +254,7 @@ public class SqlTaskExecution
                 taskOutput,
                 planner,
                 fragment,
-                getSourceHashProviderFactory(),
+                getSourceHashSupplierFactory(),
                 taskMemoryManager,
                 queryMonitor);
 
@@ -316,7 +316,7 @@ public class SqlTaskExecution
         if (sourceId.equals(fragment.getPartitionedSource())) {
             // all workers have been created
             // clear hash provider since it has a hard reference to every hash table
-            sourceHashProviderFactory = null;
+            sourceHashSupplierFactory = null;
         }
         else {
             // add this to all of the existing workers
@@ -344,12 +344,12 @@ public class SqlTaskExecution
         taskOutput.finish();
     }
 
-    private synchronized SourceHashProviderFactory getSourceHashProviderFactory()
+    private synchronized SourceHashSupplierFactory getSourceHashSupplierFactory()
     {
-        if (sourceHashProviderFactory == null) {
-            sourceHashProviderFactory = new SourceHashProviderFactory(taskMemoryManager);
+        if (sourceHashSupplierFactory == null) {
+            sourceHashSupplierFactory = new SourceHashSupplierFactory(taskMemoryManager);
         }
-        return sourceHashProviderFactory;
+        return sourceHashSupplierFactory;
     }
 
     @Override
@@ -460,7 +460,7 @@ public class SqlTaskExecution
                 TaskOutput taskOutput,
                 LocalExecutionPlanner planner,
                 PlanFragment fragment,
-                SourceHashProviderFactory sourceHashProviderFactory,
+                SourceHashSupplierFactory sourceHashSupplierFactory,
                 TaskMemoryManager taskMemoryManager,
                 QueryMonitor queryMonitor)
         {
@@ -470,7 +470,7 @@ public class SqlTaskExecution
             operatorStats = new OperatorStats(taskOutput);
             this.queryMonitor = queryMonitor;
 
-            LocalExecutionPlan localExecutionPlan = planner.plan(session, fragment.getRoot(), fragment.getSymbols(), sourceHashProviderFactory, taskMemoryManager, operatorStats);
+            LocalExecutionPlan localExecutionPlan = planner.plan(session, fragment.getRoot(), fragment.getSymbols(), sourceHashSupplierFactory, taskMemoryManager, operatorStats);
             operator = new AtomicReference<>(localExecutionPlan.getRootOperator());
             sourceOperators = localExecutionPlan.getSourceOperators();
             outputOperators = localExecutionPlan.getOutputOperators();
