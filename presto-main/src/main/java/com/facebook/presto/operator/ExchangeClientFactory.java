@@ -1,19 +1,20 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.QueryManagerConfig;
-import com.google.inject.Provider;
+import com.google.common.base.Supplier;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 
 import javax.inject.Inject;
+
 import java.util.concurrent.Executor;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ExchangeClientFactory
-        implements Provider<ExchangeClient>
+        implements Supplier<ExchangeClient>
 {
     private final DataSize maxBufferedBytes;
     private final int concurrentRequestMultiplier;

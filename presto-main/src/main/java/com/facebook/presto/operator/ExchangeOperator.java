@@ -7,12 +7,13 @@ import com.facebook.presto.spi.Split;
 import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Supplier;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import com.google.inject.Provider;
 import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.GuardedBy;
+
 import java.net.URI;
 import java.util.HashSet;
 import java.util.List;
@@ -29,17 +30,15 @@ public class ExchangeOperator
 
     private final List<TupleInfo> tupleInfos;
     private final Set<URI> locations = new HashSet<>();
-    private final Provider<ExchangeClient> exchangeClientProvider;
+    private final Supplier<ExchangeClient> exchangeClientSupplier;
     private boolean noMoreLocations;
 
     @GuardedBy("this")
     private ExchangeClient activeClient;
 
-    public ExchangeOperator(Provider<ExchangeClient> exchangeClientProvider, Iterable<TupleInfo> tupleInfos)
+    public ExchangeOperator(Supplier<ExchangeClient> exchangeClientSupplier, Iterable<TupleInfo> tupleInfos)
     {
-        this.exchangeClientProvider = checkNotNull(exchangeClientProvider, "exchangeClientProvider is null");
-
-
+        this.exchangeClientSupplier = checkNotNull(exchangeClientSupplier, "exchangeClientSupplier is null");
         this.tupleInfos = ImmutableList.copyOf(checkNotNull(tupleInfos, "tupleInfos is null"));
     }
 
@@ -93,7 +92,7 @@ public class ExchangeOperator
         ExchangeClient exchangeClient;
         synchronized (this) {
             checkState(activeClient == null, "ExchangeOperator can only be used once");
-            exchangeClient = exchangeClientProvider.get();
+            exchangeClient = exchangeClientSupplier.get();
             for (URI location : locations) {
                 exchangeClient.addLocation(location);
             }

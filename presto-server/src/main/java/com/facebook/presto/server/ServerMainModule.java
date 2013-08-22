@@ -99,6 +99,7 @@ import com.facebook.presto.storage.DatabaseStorageManager;
 import com.facebook.presto.storage.ForStorage;
 import com.facebook.presto.storage.StorageManager;
 import com.facebook.presto.util.Threads;
+import com.google.common.base.Supplier;
 import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
@@ -125,7 +126,6 @@ import java.util.concurrent.Executors;
 
 import static com.facebook.presto.guice.ConditionalModule.installIfPropertyEquals;
 import static com.facebook.presto.guice.DbiProvider.bindDbiToDataSource;
-import static com.google.common.base.Objects.firstNonNull;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.configuration.ConfigurationModule.bindConfig;
@@ -160,8 +160,7 @@ public class ServerMainModule
         binder.bind(LocalExecutionPlanner.class).in(Scopes.SINGLETON);
         binder.bind(ExpressionCompiler.class).in(Scopes.SINGLETON);
 
-        // create one exchange client for each usage
-        binder.bind(ExchangeClient.class).toProvider(ExchangeClientFactory.class).in(Scopes.NO_SCOPE);
+        binder.bind(new TypeLiteral<Supplier<ExchangeClient>>() {}).to(ExchangeClientFactory.class).in(Scopes.SINGLETON);
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
 
         binder.bind(PagesMapper.class).in(Scopes.SINGLETON);

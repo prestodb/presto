@@ -68,6 +68,7 @@ import com.facebook.presto.util.MoreFunctions;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -79,7 +80,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
-import com.google.inject.Provider;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 
@@ -110,7 +110,7 @@ public class LocalExecutionPlanner
 
     private final DataStreamProvider dataStreamProvider;
     private final LocalStorageManager storageManager;
-    private final Provider<ExchangeClient> exchangeClientProvider;
+    private final Supplier<ExchangeClient> exchangeClientSupplier;
     private final ExpressionCompiler compiler;
 
     @Inject
@@ -118,12 +118,12 @@ public class LocalExecutionPlanner
             Metadata metadata,
             DataStreamProvider dataStreamProvider,
             LocalStorageManager storageManager,
-            Provider<ExchangeClient> exchangeClientProvider,
+            Supplier<ExchangeClient> exchangeClientSupplier,
             ExpressionCompiler compiler)
     {
         this.nodeInfo = checkNotNull(nodeInfo, "nodeInfo is null");
         this.dataStreamProvider = dataStreamProvider;
-        this.exchangeClientProvider = exchangeClientProvider;
+        this.exchangeClientSupplier = exchangeClientSupplier;
         this.metadata = checkNotNull(metadata, "metadata is null");
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
         this.compiler = checkNotNull(compiler, "compiler is null");
@@ -250,7 +250,7 @@ public class LocalExecutionPlanner
         {
             List<TupleInfo> tupleInfo = getSourceOperatorTupleInfos(node, context.getTypes());
 
-            SourceOperator operator = new ExchangeOperator(exchangeClientProvider, tupleInfo);
+            SourceOperator operator = new ExchangeOperator(exchangeClientSupplier, tupleInfo);
             context.addSourceOperator(node, operator);
 
             // Fow now, we assume that remote plans always produce one symbol per channel. TODO: remove this assumption

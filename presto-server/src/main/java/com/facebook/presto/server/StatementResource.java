@@ -24,6 +24,7 @@ import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
+import com.google.common.base.Supplier;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -31,7 +32,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
-import com.google.inject.Provider;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -55,6 +55,7 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
+
 import java.io.Closeable;
 import java.net.URI;
 import java.util.ArrayList;
@@ -99,16 +100,16 @@ public class StatementResource
     private static final long DESIRED_RESULT_BYTES = new DataSize(1, MEGABYTE).toBytes();
 
     private final QueryManager queryManager;
-    private final Provider<ExchangeClient> exchangeClientProvider;
+    private final Supplier<ExchangeClient> exchangeClientSupplier;
 
     private final ConcurrentMap<QueryId, Query> queries = new ConcurrentHashMap<>();
     private final ScheduledExecutorService queryPurger = Executors.newSingleThreadScheduledExecutor(threadsNamed("query-purger-%d"));
 
     @Inject
-    public StatementResource(QueryManager queryManager, Provider<ExchangeClient> exchangeClientProvider)
+    public StatementResource(QueryManager queryManager, Supplier<ExchangeClient> exchangeClientSupplier)
     {
         this.queryManager = checkNotNull(queryManager, "queryManager is null");
-        this.exchangeClientProvider = checkNotNull(exchangeClientProvider, "exchangeClientProvider is null");
+        this.exchangeClientSupplier = checkNotNull(exchangeClientSupplier, "exchangeClientSupplier is null");
 
         queryPurger.scheduleWithFixedDelay(new PurgeQueriesRunnable(queries.keySet(), queryManager), 200, 200, TimeUnit.MILLISECONDS);
     }
@@ -140,7 +141,7 @@ public class StatementResource
         String remoteUserAddress = requestContext.getRemoteAddr();
 
         Session session = new Session(user, source, catalog, schema, remoteUserAddress, userAgent);
-        ExchangeClient exchangeClient = exchangeClientProvider.get();
+        ExchangeClient exchangeClient = exchangeClientSupplier.get();
         Query query = new Query(session, statement, queryManager, exchangeClient);
         queries.put(query.getQueryId(), query);
         return Response.ok(query.getNextResults(uriInfo, new Duration(1, TimeUnit.MILLISECONDS))).build();
