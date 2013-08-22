@@ -31,6 +31,7 @@ import com.facebook.presto.sql.gen.FunctionBinder;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Supplier;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -42,7 +43,6 @@ import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 
 import javax.annotation.Nullable;
-import javax.inject.Provider;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.AnnotatedElement;
@@ -90,11 +90,11 @@ public class FunctionRegistry
     public FunctionRegistry()
     {
         List<FunctionInfo> functions = new FunctionListBuilder()
-                .window("row_number", LONG, ImmutableList.<Type>of(), provider(RowNumberFunction.class))
-                .window("rank", LONG, ImmutableList.<Type>of(), provider(RankFunction.class))
-                .window("dense_rank", LONG, ImmutableList.<Type>of(), provider(DenseRankFunction.class))
-                .window("percent_rank", DOUBLE, ImmutableList.<Type>of(), provider(PercentRankFunction.class))
-                .window("cume_dist", DOUBLE, ImmutableList.<Type>of(), provider(CumulativeDistributionFunction.class))
+                .window("row_number", LONG, ImmutableList.<Type>of(), supplier(RowNumberFunction.class))
+                .window("rank", LONG, ImmutableList.<Type>of(), supplier(RankFunction.class))
+                .window("dense_rank", LONG, ImmutableList.<Type>of(), supplier(DenseRankFunction.class))
+                .window("percent_rank", DOUBLE, ImmutableList.<Type>of(), supplier(PercentRankFunction.class))
+                .window("cume_dist", DOUBLE, ImmutableList.<Type>of(), supplier(CumulativeDistributionFunction.class))
                 .aggregate("count", LONG, ImmutableList.<Type>of(), LONG, COUNT)
                 .aggregate("count", LONG, ImmutableList.<Type>of(BOOLEAN), LONG, COUNT_COLUMN)
                 .aggregate("count", LONG, ImmutableList.<Type>of(LONG), LONG, COUNT_COLUMN)
@@ -253,7 +253,7 @@ public class FunctionRegistry
     {
         private final List<FunctionInfo> functions = new ArrayList<>();
 
-        public FunctionListBuilder window(String name, Type returnType, List<Type> argumentTypes, Provider<WindowFunction> function)
+        public FunctionListBuilder window(String name, Type returnType, List<Type> argumentTypes, Supplier<WindowFunction> function)
         {
             name = name.toLowerCase();
 
@@ -375,9 +375,9 @@ public class FunctionRegistry
         }
     }
 
-    private static Provider<WindowFunction> provider(final Class<? extends WindowFunction> clazz)
+    private static Supplier<WindowFunction> supplier(final Class<? extends WindowFunction> clazz)
     {
-        return new Provider<WindowFunction>()
+        return new Supplier<WindowFunction>()
         {
             @Override
             public WindowFunction get()
