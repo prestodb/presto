@@ -22,8 +22,8 @@ import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.OutputProducingOperator;
 import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.operator.ProjectionFunctions;
-import com.facebook.presto.operator.SourceHashProvider;
-import com.facebook.presto.operator.SourceHashProviderFactory;
+import com.facebook.presto.operator.SourceHashSupplier;
+import com.facebook.presto.operator.SourceHashSupplierFactory;
 import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.operator.TableScanOperator;
 import com.facebook.presto.operator.TableWriterOperator;
@@ -132,7 +132,7 @@ public class LocalExecutionPlanner
     public LocalExecutionPlan plan(Session session,
             PlanNode plan,
             Map<Symbol, Type> types,
-            SourceHashProviderFactory joinHashFactory,
+            SourceHashSupplierFactory joinHashFactory,
             TaskMemoryManager taskMemoryManager,
             OperatorStats operatorStats)
     {
@@ -145,7 +145,7 @@ public class LocalExecutionPlanner
     {
         private final Session session;
         private final Map<Symbol, Type> types;
-        private final SourceHashProviderFactory joinHashFactory;
+        private final SourceHashSupplierFactory joinHashFactory;
         private final TaskMemoryManager taskMemoryManager;
         private final OperatorStats operatorStats;
 
@@ -154,7 +154,7 @@ public class LocalExecutionPlanner
 
         public LocalExecutionPlanContext(Session session,
                 Map<Symbol, Type> types,
-                SourceHashProviderFactory joinHashFactory,
+                SourceHashSupplierFactory joinHashFactory,
                 TaskMemoryManager taskMemoryManager,
                 OperatorStats operatorStats)
         {
@@ -175,7 +175,7 @@ public class LocalExecutionPlanner
             return types;
         }
 
-        public SourceHashProviderFactory getJoinHashFactory()
+        public SourceHashSupplierFactory getJoinHashFactory()
         {
             return joinHashFactory;
         }
@@ -650,7 +650,7 @@ public class LocalExecutionPlanner
             int probeChannel = Iterables.getOnlyElement(getChannelSetForSymbols(probeSymbols, probeSource.getLayout()));
             int buildChannel = Iterables.getOnlyElement(getChannelSetForSymbols(buildSymbols, buildSource.getLayout()));
 
-            SourceHashProvider hashProvider = context.getJoinHashFactory().getSourceHashProvider(node, buildSource.getOperator(), buildChannel, context.getOperatorStats());
+            SourceHashSupplier hashSupplier = context.getJoinHashFactory().getSourceHashSupplier(node, buildSource.getOperator(), buildChannel, context.getOperatorStats());
 
             ImmutableMultimap.Builder<Symbol, Input> outputMappings = ImmutableMultimap.builder();
             outputMappings.putAll(probeSource.getLayout());
@@ -663,18 +663,18 @@ public class LocalExecutionPlanner
                 outputMappings.put(entry.getKey(), new Input(offset + input.getChannel(), input.getField()));
             }
 
-            HashJoinOperator operator = createJoinOperator(node.getType(), hashProvider, probeSource.getOperator(), probeChannel);
+            HashJoinOperator operator = createJoinOperator(node.getType(), hashSupplier, probeSource.getOperator(), probeChannel);
             return new PhysicalOperation(operator, outputMappings.build());
         }
 
-        private HashJoinOperator createJoinOperator(JoinNode.Type type, SourceHashProvider hashProvider, Operator probeSource, int probeJoinChannel)
+        private HashJoinOperator createJoinOperator(JoinNode.Type type, SourceHashSupplier hashSupplier, Operator probeSource, int probeJoinChannel)
         {
             switch (type) {
                 case INNER:
-                    return HashJoinOperator.innerJoin(hashProvider, probeSource, probeJoinChannel);
+                    return HashJoinOperator.innerJoin(hashSupplier, probeSource, probeJoinChannel);
                 case LEFT:
                 case RIGHT:
-                    return HashJoinOperator.outerjoin(hashProvider, probeSource, probeJoinChannel);
+                    return HashJoinOperator.outerjoin(hashSupplier, probeSource, probeJoinChannel);
                 default:
                     throw new UnsupportedOperationException("Unsupported join type: " + type);
             }

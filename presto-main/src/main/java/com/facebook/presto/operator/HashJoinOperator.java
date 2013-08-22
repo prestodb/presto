@@ -17,34 +17,34 @@ public class HashJoinOperator
     private final int probeJoinChannel;
     private final boolean enableOuterJoin;
     private final List<TupleInfo> tupleInfos;
-    private final SourceHashProvider sourceHashProvider;
+    private final SourceHashSupplier sourceHashSupplier;
 
-    public HashJoinOperator(SourceHashProvider sourceHashProvider, Operator probeSource, int probeJoinChannel, boolean enableOuterJoin)
+    public HashJoinOperator(SourceHashSupplier sourceHashSupplier, Operator probeSource, int probeJoinChannel, boolean enableOuterJoin)
     {
         // todo pass in desired projection
-        Preconditions.checkNotNull(sourceHashProvider, "sourceHashProvider is null");
+        Preconditions.checkNotNull(sourceHashSupplier, "sourceHashSupplier is null");
         Preconditions.checkNotNull(probeSource, "probeSource is null");
         Preconditions.checkArgument(probeJoinChannel >= 0, "probeJoinChannel is negative");
 
-        this.sourceHashProvider = sourceHashProvider;
+        this.sourceHashSupplier = sourceHashSupplier;
         this.probeSource = probeSource;
         this.probeJoinChannel = probeJoinChannel;
         this.enableOuterJoin = enableOuterJoin;
 
         this.tupleInfos = ImmutableList.<TupleInfo>builder()
                 .addAll(probeSource.getTupleInfos())
-                .addAll(sourceHashProvider.getTupleInfos())
+                .addAll(sourceHashSupplier.getTupleInfos())
                 .build();
     }
 
-    public static HashJoinOperator innerJoin(SourceHashProvider sourceHashProvider, Operator probeSource, int probeJoinChannel)
+    public static HashJoinOperator innerJoin(SourceHashSupplier sourceHashSupplier, Operator probeSource, int probeJoinChannel)
     {
-        return new HashJoinOperator(sourceHashProvider, probeSource, probeJoinChannel, false);
+        return new HashJoinOperator(sourceHashSupplier, probeSource, probeJoinChannel, false);
     }
 
-    public static HashJoinOperator outerjoin(SourceHashProvider sourceHashProvider, Operator probeSource, int probeJoinChannel)
+    public static HashJoinOperator outerjoin(SourceHashSupplier sourceHashSupplier, Operator probeSource, int probeJoinChannel)
     {
-        return new HashJoinOperator(sourceHashProvider, probeSource, probeJoinChannel, true);
+        return new HashJoinOperator(sourceHashSupplier, probeSource, probeJoinChannel, true);
     }
 
     @Override
@@ -62,7 +62,7 @@ public class HashJoinOperator
     @Override
     public PageIterator iterator(OperatorStats operatorStats)
     {
-        return new HashJoinIterator(tupleInfos, probeSource, probeJoinChannel, enableOuterJoin, sourceHashProvider, operatorStats);
+        return new HashJoinIterator(tupleInfos, probeSource, probeJoinChannel, enableOuterJoin, sourceHashSupplier, operatorStats);
     }
 
     private static class HashJoinIterator
@@ -71,7 +71,7 @@ public class HashJoinOperator
         private final PageIterator probeIterator;
         private final int probeJoinChannel;
         private final boolean enableOuterJoin;
-        private final SourceHashProvider sourceHashProvider;
+        private final SourceHashSupplier sourceHashSupplier;
         private final OperatorStats operatorStats;
 
         private SourceHash hash;
@@ -80,11 +80,11 @@ public class HashJoinOperator
         private final PageBuilder pageBuilder;
         private int joinPosition = -1;
 
-        private HashJoinIterator(List<TupleInfo> tupleInfos, Operator probeSource, int probeJoinChannel, boolean enableOuterJoin, SourceHashProvider sourceHashProvider, OperatorStats operatorStats)
+        private HashJoinIterator(List<TupleInfo> tupleInfos, Operator probeSource, int probeJoinChannel, boolean enableOuterJoin, SourceHashSupplier sourceHashSupplier, OperatorStats operatorStats)
         {
             super(tupleInfos);
 
-            this.sourceHashProvider = sourceHashProvider;
+            this.sourceHashSupplier = sourceHashSupplier;
             this.operatorStats = operatorStats;
 
             this.probeIterator = probeSource.iterator(operatorStats);
@@ -98,7 +98,7 @@ public class HashJoinOperator
         protected Page computeNext()
         {
             if (hash == null) {
-                hash = sourceHashProvider.get();
+                hash = sourceHashSupplier.get();
             }
 
             // join probe pages with the hash
@@ -122,7 +122,7 @@ public class HashJoinOperator
         @Override
         protected void doClose()
         {
-            sourceHashProvider.close();
+            sourceHashSupplier.close();
             probeIterator.close();
         }
 

@@ -10,7 +10,7 @@ import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageIterator;
-import com.facebook.presto.operator.SourceHashProvider;
+import com.facebook.presto.operator.SourceHashSupplier;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.tpch.TpchBlocksProvider;
 import io.airlift.units.DataSize;
@@ -37,7 +37,7 @@ public class HashBuildAndJoinBenchmark
         AlignmentOperator ordersTableScan = new AlignmentOperator(orderOrderKey, totalPrice);
 //        AlignmentOperator ordersTableScan = new AlignmentOperator(concat(nCopies(100, orderOrderKey)), concat(nCopies(100, totalPrice)));
 //        LimitOperator ordersLimit = new LimitOperator(ordersTableScan, 1_500_000);
-        SourceHashProvider sourceHashProvider = new SourceHashProvider(ordersTableScan, 0, 1_500_000, new TaskMemoryManager(new DataSize(100, MEGABYTE)), new OperatorStats());
+        SourceHashSupplier sourceHashSupplier = new SourceHashSupplier(ordersTableScan, 0, 1_500_000, new TaskMemoryManager(new DataSize(100, MEGABYTE)), new OperatorStats());
 
         BlockIterable lineItemOrderKey = getBlockIterable("lineitem", "orderkey", BlocksFileEncoding.RAW);
         BlockIterable lineNumber = getBlockIterable("lineitem", "quantity", BlocksFileEncoding.RAW);
@@ -45,7 +45,7 @@ public class HashBuildAndJoinBenchmark
 //        AlignmentOperator lineItemTableScan = new AlignmentOperator(concat(nCopies(100, lineItemOrderKey)), concat(nCopies(100, lineNumber)));
 //        LimitOperator lineItemLimit = new LimitOperator(lineItemTableScan, 10_000_000);
 
-        return HashJoinOperator.innerJoin(sourceHashProvider, lineItemTableScan, 0);
+        return HashJoinOperator.innerJoin(sourceHashSupplier, lineItemTableScan, 0);
     }
 
     @Override

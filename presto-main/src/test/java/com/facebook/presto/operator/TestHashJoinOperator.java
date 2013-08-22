@@ -38,8 +38,8 @@ public class TestHashJoinOperator
                 createLongSequenceBlock(1000, 2000),
                 createLongSequenceBlock(2000, 3000)));
 
-        SourceHashProvider sourceHashProvider = new SourceHashProvider(buildSource, 0, 10, new TaskMemoryManager(new DataSize(1, MEGABYTE)), new OperatorStats());
-        HashJoinOperator joinOperator = HashJoinOperator.innerJoin(sourceHashProvider, probeSource, 0);
+        SourceHashSupplier sourceHashSupplier = new SourceHashSupplier(buildSource, 0, 10, new TaskMemoryManager(new DataSize(1, MEGABYTE)), new OperatorStats());
+        HashJoinOperator joinOperator = HashJoinOperator.innerJoin(sourceHashSupplier, probeSource, 0);
 
         Operator expected = createOperator(new Page(
                 createStringSequenceBlock(20, 30),
@@ -66,8 +66,8 @@ public class TestHashJoinOperator
                 createLongSequenceBlock(1000, 2000),
                 createLongSequenceBlock(2000, 3000)));
 
-        SourceHashProvider sourceHashProvider = new SourceHashProvider(buildSource, 0, 10, new TaskMemoryManager(new DataSize(1, MEGABYTE)), new OperatorStats());
-        HashJoinOperator joinOperator = HashJoinOperator.outerjoin(sourceHashProvider, probeSource, 0);
+        SourceHashSupplier sourceHashSupplier = new SourceHashSupplier(buildSource, 0, 10, new TaskMemoryManager(new DataSize(1, MEGABYTE)), new OperatorStats());
+        HashJoinOperator joinOperator = HashJoinOperator.outerjoin(sourceHashSupplier, probeSource, 0);
 
         Operator expected = createOperator(new Page(
                 createStringSequenceBlock(0, 1000),
@@ -94,8 +94,8 @@ public class TestHashJoinOperator
                 createLongSequenceBlock(1000, 2000),
                 createLongSequenceBlock(2000, 3000)));
 
-        SourceHashProvider sourceHashProvider = new SourceHashProvider(buildSource, 0, 10, new TaskMemoryManager(new DataSize(1, BYTE)), new OperatorStats());
-        HashJoinOperator operator = HashJoinOperator.innerJoin(sourceHashProvider, probeSource, 0);
+        SourceHashSupplier sourceHashSupplier = new SourceHashSupplier(buildSource, 0, 10, new TaskMemoryManager(new DataSize(1, BYTE)), new OperatorStats());
+        HashJoinOperator operator = HashJoinOperator.innerJoin(sourceHashSupplier, probeSource, 0);
         operator.iterator(new OperatorStats()).next();
     }
 
@@ -106,8 +106,8 @@ public class TestHashJoinOperator
         Operator build = createOperator(new Page(createStringSequenceBlock(20, 30)));
         BlockingOperator probe = createCancelableDataSource(new TupleInfo(VARIABLE_BINARY), new TupleInfo(VARIABLE_BINARY));
 
-        SourceHashProvider sourceHashProvider = new SourceHashProvider(build, 0, 10, new TaskMemoryManager(new DataSize(1, MEGABYTE)), new OperatorStats());
-        Operator operator = HashJoinOperator.innerJoin(sourceHashProvider, probe, 0);
+        SourceHashSupplier sourceHashSupplier = new SourceHashSupplier(build, 0, 10, new TaskMemoryManager(new DataSize(1, MEGABYTE)), new OperatorStats());
+        Operator operator = HashJoinOperator.innerJoin(sourceHashSupplier, probe, 0);
         assertCancel(operator, probe);
     }
 
@@ -119,8 +119,8 @@ public class TestHashJoinOperator
         BlockingOperator build = createCancelableDataSource(new Page(createStringSequenceBlock(20, 30)), 1, new TupleInfo(VARIABLE_BINARY));
         Operator probe = createOperator(new Page(createStringSequenceBlock(20, 30)));
 
-        SourceHashProvider sourceHashProvider = new SourceHashProvider(build, 0, 10, new TaskMemoryManager(new DataSize(1, MEGABYTE)), new OperatorStats());
-        Operator operator = HashJoinOperator.innerJoin(sourceHashProvider, probe, 0);
+        SourceHashSupplier sourceHashSupplier = new SourceHashSupplier(build, 0, 10, new TaskMemoryManager(new DataSize(1, MEGABYTE)), new OperatorStats());
+        Operator operator = HashJoinOperator.innerJoin(sourceHashSupplier, probe, 0);
         assertCancel(operator, build);
     }
 }
