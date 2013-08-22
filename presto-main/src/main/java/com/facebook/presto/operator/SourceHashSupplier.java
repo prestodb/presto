@@ -5,17 +5,18 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.TaskMemoryManager;
 import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.base.Supplier;
 import com.google.common.base.Throwables;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Provider;
+
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @ThreadSafe
-public class SourceHashProvider
-        implements Provider<SourceHash>
+public class SourceHashSupplier
+        implements Supplier<SourceHash>
 {
     private final Operator source;
     private final int hashChannel;
@@ -31,7 +32,7 @@ public class SourceHashProvider
     @GuardedBy("this")
     private Throwable buildException;
 
-    public SourceHashProvider(Operator source, int hashChannel, int expectedPositions, TaskMemoryManager taskMemoryManager, OperatorStats operatorStats)
+    public SourceHashSupplier(Operator source, int hashChannel, int expectedPositions, TaskMemoryManager taskMemoryManager, OperatorStats operatorStats)
     {
         this.source = source;
         this.hashChannel = hashChannel;
