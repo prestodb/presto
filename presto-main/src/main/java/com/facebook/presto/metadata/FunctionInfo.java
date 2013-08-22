@@ -10,10 +10,9 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Predicate;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.Ordering;
-
-import javax.inject.Provider;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -40,9 +39,9 @@ public class FunctionInfo implements Comparable<FunctionInfo>
     private final FunctionBinder functionBinder;
 
     private final boolean isWindow;
-    private final Provider<WindowFunction> windowFunction;
+    private final Supplier<WindowFunction> windowFunction;
 
-    public FunctionInfo(int id, QualifiedName name, String description, Type returnType, List<Type> argumentTypes, Provider<WindowFunction> windowFunction)
+    public FunctionInfo(int id, QualifiedName name, String description, Type returnType, List<Type> argumentTypes, Supplier<WindowFunction> windowFunction)
     {
         this.id = id;
         this.name = name;
@@ -122,7 +121,7 @@ public class FunctionInfo implements Comparable<FunctionInfo>
         return isWindow;
     }
 
-    public Provider<WindowFunction> getWindowFunction()
+    public Supplier<WindowFunction> getWindowFunction()
     {
         checkState(isWindow, "not a window function");
         return windowFunction;
