@@ -44,6 +44,7 @@ public class BenchmarkSuite
                 new RawStreamingSqlBenchmark(tpchBlocksProvider),
                 new Top100SqlBenchmark(tpchBlocksProvider),
                 new SqlHashJoinBenchmark(tpchBlocksProvider),
+                new SqlJoinWithPredicateBenchmark(tpchBlocksProvider),
                 new VarBinaryMaxAggregationSqlBenchmark(tpchBlocksProvider),
                 new SqlDistinctMultipleFields(tpchBlocksProvider),
                 new SqlDistinctSingleField(tpchBlocksProvider),
