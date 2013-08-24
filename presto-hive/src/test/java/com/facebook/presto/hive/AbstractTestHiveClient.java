@@ -190,6 +190,7 @@ public abstract class AbstractTestHiveClient
         splitManager.getPartitions(invalidTableHandle, ImmutableMap.<ColumnHandle, Object>of());
     }
 
+    @SuppressWarnings({"ValueOfIncrementOrDecrementUsed", "UnusedAssignment"})
     @Test
     public void testGetTableSchema()
             throws Exception
@@ -197,22 +198,23 @@ public abstract class AbstractTestHiveClient
         TableMetadata tableMetadata = metadata.getTableMetadata(metadata.getTableHandle(table));
         Map<String, ColumnMetadata> map = uniqueIndex(tableMetadata.getColumns(), columnNameGetter());
 
-        assertPrimitiveField(map, "t_string", ColumnType.STRING, false);
-        assertPrimitiveField(map, "t_tinyint", ColumnType.LONG, false);
-        assertPrimitiveField(map, "t_smallint", ColumnType.LONG, false);
-        assertPrimitiveField(map, "t_int", ColumnType.LONG, false);
-        assertPrimitiveField(map, "t_bigint", ColumnType.LONG, false);
-        assertPrimitiveField(map, "t_float", ColumnType.DOUBLE, false);
-        assertPrimitiveField(map, "t_double", ColumnType.DOUBLE, false);
-        assertPrimitiveField(map, "t_boolean", ColumnType.BOOLEAN, false);
-        assertPrimitiveField(map, "t_timestamp", ColumnType.LONG, false);
-        assertPrimitiveField(map, "t_binary", ColumnType.STRING, false);
-        assertPrimitiveField(map, "t_array_string", ColumnType.STRING, false); // Currently mapped as a string
-        assertPrimitiveField(map, "t_map", ColumnType.STRING, false); // Currently mapped as a string
-        assertPrimitiveField(map, "t_complex", ColumnType.STRING, false); // Currently mapped as a string
-        assertPrimitiveField(map, "ds", ColumnType.STRING, true);
-        assertPrimitiveField(map, "file_format", ColumnType.STRING, true);
-        assertPrimitiveField(map, "dummy", ColumnType.LONG, true);
+        int i = 0;
+        assertPrimitiveField(map, i++, "t_string", ColumnType.STRING, false);
+        assertPrimitiveField(map, i++, "t_tinyint", ColumnType.LONG, false);
+        assertPrimitiveField(map, i++, "t_smallint", ColumnType.LONG, false);
+        assertPrimitiveField(map, i++, "t_int", ColumnType.LONG, false);
+        assertPrimitiveField(map, i++, "t_bigint", ColumnType.LONG, false);
+        assertPrimitiveField(map, i++, "t_float", ColumnType.DOUBLE, false);
+        assertPrimitiveField(map, i++, "t_double", ColumnType.DOUBLE, false);
+        assertPrimitiveField(map, i++, "t_map", ColumnType.STRING, false); // Currently mapped as a string
+        assertPrimitiveField(map, i++, "t_boolean", ColumnType.BOOLEAN, false);
+        assertPrimitiveField(map, i++, "t_timestamp", ColumnType.LONG, false);
+        assertPrimitiveField(map, i++, "t_binary", ColumnType.STRING, false);
+        assertPrimitiveField(map, i++, "t_array_string", ColumnType.STRING, false); // Currently mapped as a string
+        assertPrimitiveField(map, i++, "t_complex", ColumnType.STRING, false); // Currently mapped as a string
+        assertPrimitiveField(map, i++, "ds", ColumnType.STRING, true);
+        assertPrimitiveField(map, i++, "file_format", ColumnType.STRING, true);
+        assertPrimitiveField(map, i++, "dummy", ColumnType.LONG, true);
     }
 
     @Test
@@ -223,8 +225,8 @@ public abstract class AbstractTestHiveClient
         TableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
         Map<String, ColumnMetadata> map = uniqueIndex(tableMetadata.getColumns(), columnNameGetter());
 
-        assertPrimitiveField(map, "t_string", ColumnType.STRING, false);
-        assertPrimitiveField(map, "t_tinyint", ColumnType.LONG, false);
+        assertPrimitiveField(map, 0, "t_string", ColumnType.STRING, false);
+        assertPrimitiveField(map, 1, "t_tinyint", ColumnType.LONG, false);
     }
 
     @Test
@@ -235,7 +237,7 @@ public abstract class AbstractTestHiveClient
         TableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
         Map<String, ColumnMetadata> map = uniqueIndex(tableMetadata.getColumns(), columnNameGetter());
 
-        assertPrimitiveField(map, "t_string", ColumnType.STRING, false);
+        assertPrimitiveField(map, 0, "t_string", ColumnType.STRING, false);
     }
 
     @Test
@@ -246,7 +248,7 @@ public abstract class AbstractTestHiveClient
         TableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
         Map<String, ColumnMetadata> map = uniqueIndex(tableMetadata.getColumns(), columnNameGetter());
 
-        assertPrimitiveField(map, "t_string", ColumnType.STRING, false);
+        assertPrimitiveField(map, 0, "t_string", ColumnType.STRING, false);
     }
 
     @Test
@@ -598,10 +600,11 @@ public abstract class AbstractTestHiveClient
         }
     }
 
-    private static void assertPrimitiveField(Map<String, ColumnMetadata> map, String name, ColumnType type, boolean partitionKey)
+    private static void assertPrimitiveField(Map<String, ColumnMetadata> map, int position, String name, ColumnType type, boolean partitionKey)
     {
         assertTrue(map.containsKey(name));
         ColumnMetadata column = map.get(name);
+        assertEquals(column.getOrdinalPosition(), position);
         assertEquals(column.getType(), type, name);
         assertEquals(column.isPartitionKey(), partitionKey, name);
     }
