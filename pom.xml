@@ -35,12 +35,12 @@
 
     <distributionManagement>
         <repository>
-            <id>libs-releases-local</id>
-            <url>http://nexus.vip.facebook.com:8181/nexus/content/repositories/libs-releases-local</url>
+            <id>facebook-releases</id>
+            <url>http://nexus.vip.facebook.com:8181/nexus/content/repositories/releases</url>
         </repository>
         <snapshotRepository>
-            <id>libs-snapshots-local</id>
-            <url>http://nexus.vip.facebook.com:8181/nexus/content/repositories/libs-snapshots-local</url>
+            <id>facebook-snapshots</id>
+            <url>http://nexus.vip.facebook.com:8181/nexus/content/repositories/snapshots</url>
         </snapshotRepository>
     </distributionManagement>
 
