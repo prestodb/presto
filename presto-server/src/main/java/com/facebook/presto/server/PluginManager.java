@@ -4,10 +4,10 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.connector.ConnectorManager;
-import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.connector.system.SystemTablesManager;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.SystemTable;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -18,15 +18,16 @@ import io.airlift.configuration.ConfigurationFactory;
 import io.airlift.http.server.HttpServerInfo;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
-import io.airlift.resolver.ArtifactResolver;
-import io.airlift.resolver.DefaultArtifact;
-import org.sonatype.aether.artifact.Artifact;
+import io.tesla.aether.TeslaAether;
+import io.tesla.aether.internal.DefaultTeslaAether;
+import org.eclipse.aether.artifact.Artifact;
+import org.eclipse.aether.artifact.DefaultArtifact;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
+
 import java.io.File;
 import java.io.IOException;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
@@ -48,7 +49,7 @@ public class PluginManager
     private final Injector injector;
     private final ConnectorManager connectorManager;
     private final SystemTablesManager systemTablesManager;
-    private final ArtifactResolver resolver;
+    private final TeslaAether resolver;
     private final File installedPluginsDir;
     private final List<String> plugins;
     private final Map<String, String> optionalConfig;
@@ -76,7 +77,7 @@ public class PluginManager
         else {
             this.plugins = ImmutableList.copyOf(config.getPlugins());
         }
-        this.resolver = new ArtifactResolver(config.getMavenLocalRepository(), config.getMavenRemoteRepository());
+        this.resolver = new DefaultTeslaAether(config.getMavenLocalRepository(), config.getMavenRemoteRepository());
 
         Map<String, String> optionalConfig = new TreeMap<>(configurationFactory.getProperties());
         optionalConfig.put("node.id", nodeInfo.getNodeId());
@@ -147,7 +148,7 @@ public class PluginManager
     }
 
     private URLClassLoader buildClassLoader(String plugin)
-            throws MalformedURLException
+            throws Exception
     {
         File file = new File(plugin);
         if (file.isFile() && (file.getName().equals("pom.xml") || file.getName().endsWith(".pom"))) {
@@ -162,9 +163,9 @@ public class PluginManager
     }
 
     private URLClassLoader buildClassLoaderFromPom(File pomFile)
-            throws MalformedURLException
+            throws Exception
     {
-        List<Artifact> artifacts = resolver.resolvePom(pomFile);
+        List<Artifact> artifacts = resolver.resolveArtifacts(pomFile);
 
         log.debug("Classpath for %s:", pomFile);
         List<URL> urls = new ArrayList<>();
@@ -182,7 +183,7 @@ public class PluginManager
     }
 
     private URLClassLoader buildClassLoaderFromDirectory(File dir)
-            throws MalformedURLException
+            throws Exception
     {
         log.debug("Classpath for %s:", dir.getName());
         List<URL> urls = new ArrayList<>();
@@ -194,7 +195,7 @@ public class PluginManager
     }
 
     private URLClassLoader buildClassLoaderFromCoordinates(String coordinates)
-            throws MalformedURLException
+            throws Exception
     {
         Artifact rootArtifact = new DefaultArtifact(coordinates);
         List<Artifact> artifacts = resolver.resolveArtifacts(rootArtifact);
