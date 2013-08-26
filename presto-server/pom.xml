@@ -19,13 +19,11 @@
         <dependency>
             <groupId>io.tesla.aether</groupId>
             <artifactId>tesla-aether</artifactId>
-            <version>0.0.2-SNAPSHOT</version>
         </dependency>
         
         <dependency>
             <groupId>org.eclipse.aether</groupId>
             <artifactId>aether-api</artifactId>
-            <version>0.9.0.M2</version>
         </dependency>        
 
         <dependency>
