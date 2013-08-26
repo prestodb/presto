@@ -17,8 +17,13 @@
 
     <dependencies>
         <dependency>
-            <groupId>io.airlift.resolver</groupId>
-            <artifactId>resolver</artifactId>
+            <groupId>io.tesla.aether</groupId>
+            <artifactId>tesla-aether</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.eclipse.aether</groupId>
+            <artifactId>aether-api</artifactId>
         </dependency>
 
         <dependency>
@@ -191,11 +196,6 @@
         <dependency>
             <groupId>com.google.code.findbugs</groupId>
             <artifactId>annotations</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.sonatype.aether</groupId>
-            <artifactId>aether-api</artifactId>
         </dependency>
 
         <dependency>
