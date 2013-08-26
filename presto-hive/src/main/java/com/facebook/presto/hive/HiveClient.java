@@ -297,25 +297,26 @@ public class HiveClient
 
             ImmutableList.Builder<HiveColumnHandle> columns = ImmutableList.builder();
 
-            // add the partition keys
-            List<FieldSchema> partitionKeys = table.getPartitionKeys();
-            for (int i = 0; i < partitionKeys.size(); i++) {
-                FieldSchema field = partitionKeys.get(i);
-
-                HiveType hiveType = getSupportedHiveType(field.getType());
-                columns.add(new HiveColumnHandle(connectorId, field.getName(), i, hiveType, -1, true));
-            }
-
-            // add the data fields
+            // add the data fields first
             int hiveColumnIndex = 0;
             for (StructField field : structObjectInspector.getAllStructFieldRefs()) {
                 // ignore unsupported types rather than failing
                 HiveType hiveType = getHiveType(field.getFieldObjectInspector());
                 if (hiveType != null) {
-                    columns.add(new HiveColumnHandle(connectorId, field.getFieldName(), partitionKeys.size() + hiveColumnIndex, hiveType, hiveColumnIndex, false));
+                    columns.add(new HiveColumnHandle(connectorId, field.getFieldName(), hiveColumnIndex, hiveType, hiveColumnIndex, false));
                 }
                 hiveColumnIndex++;
             }
+
+            // add the partition keys last (like Hive does)
+            List<FieldSchema> partitionKeys = table.getPartitionKeys();
+            for (int i = 0; i < partitionKeys.size(); i++) {
+                FieldSchema field = partitionKeys.get(i);
+
+                HiveType hiveType = getSupportedHiveType(field.getType());
+                columns.add(new HiveColumnHandle(connectorId, field.getName(), hiveColumnIndex + i, hiveType, -1, true));
+            }
+
             return columns.build();
         }
         catch (MetaException | SerDeException e) {
