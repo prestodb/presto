@@ -5,10 +5,12 @@ package com.facebook.presto.server;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+
 import io.airlift.configuration.Config;
-import io.airlift.resolver.ArtifactResolver;
+import io.tesla.aether.TeslaAether;
 
 import javax.validation.constraints.NotNull;
+
 import java.io.File;
 import java.util.List;
 
@@ -17,8 +19,8 @@ public class PluginManagerConfig
     private File installedPluginsDir = new File("plugin");
     private List<String> plugins;
     private File pluginConfigurationDir = new File("etc/");
-    private String mavenLocalRepository = ArtifactResolver.USER_LOCAL_REPO;
-    private List<String> mavenRemoteRepository = ImmutableList.of(ArtifactResolver.MAVEN_CENTRAL_URI);
+    private String mavenLocalRepository = TeslaAether.DEFAULT_LOCAL_REPOSITORY.getAbsolutePath();
+    private List<String> mavenRemoteRepository = ImmutableList.of(TeslaAether.DEFAULT_REMOTE_REPOSITORY);
 
     public File getInstalledPluginsDir()
     {
