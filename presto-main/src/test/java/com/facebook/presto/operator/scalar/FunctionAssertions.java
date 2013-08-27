@@ -9,7 +9,6 @@ import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.ingest.RecordProjectOperator;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.FilterAndProjectOperator;
-import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.operator.FilterFunctions;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
@@ -33,7 +32,6 @@ import com.facebook.presto.sql.planner.InterpretedProjectionFunction;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolToInputRewriter;
 import com.facebook.presto.sql.tree.AstVisitor;
-import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.sql.tree.InputReference;
@@ -57,11 +55,14 @@ import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
+import static com.facebook.presto.noperator.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.operator.OperatorAssertions.createOperator;
 import static com.facebook.presto.sql.parser.SqlParser.createExpression;
+import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static com.facebook.presto.tuple.TupleInfo.SINGLE_BOOLEAN;
+import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
+import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
-import static com.facebook.presto.tuple.Tuples.createTuple;
-import static com.facebook.presto.tuple.Tuples.nullTuple;
 import static com.facebook.presto.util.LocalQueryRunner.createDualLocalQueryRunner;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.testing.Assertions.assertGreaterThan;
@@ -161,21 +162,42 @@ public final class FunctionAssertions
     {
         Expression parsedExpression = FunctionAssertions.parseExpression(expression);
 
-        FilterFunction filterFunction;
+        OperatorFactory operatorFactory;
         try {
-            filterFunction = compiler.compileFilterFunction(parsedExpression, INPUT_TYPES, session);
+            operatorFactory = compiler.compileFilterAndProjectOperator(parsedExpression, ImmutableList.<Expression>of(TRUE_LITERAL), INPUT_TYPES);
         }
         catch (Throwable e) {
             throw new RuntimeException("Error compiling " + expression, e);
         }
 
-        boolean value = filterFunction.filter(createTuple(1234L),
-                createTuple("hello"),
-                createTuple(12.34),
-                createTuple(true),
-                createTuple(MILLISECONDS.toSeconds(new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis())),
-                createTuple("%el%"),
-                nullTuple(SINGLE_VARBINARY));
+        List<Page> input = rowPagesBuilder(SINGLE_LONG, SINGLE_VARBINARY, SINGLE_DOUBLE, SINGLE_BOOLEAN, SINGLE_LONG, SINGLE_VARBINARY, SINGLE_VARBINARY).row(
+                1234L,
+                "hello",
+                12.34,
+                true,
+                MILLISECONDS.toSeconds(new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis()),
+                "%el%",
+                null
+        ).build();
+
+        Operator source = createOperator(input);
+        Operator operator = operatorFactory.createOperator(source, session);
+
+        PageIterator pageIterator = operator.iterator(new OperatorStats());
+
+        boolean value;
+        if (pageIterator.hasNext()) {
+            Page page = pageIterator.next();
+            assertEquals(page.getPositionCount(), 1);
+            assertEquals(page.getChannelCount(), 1);
+
+            BlockCursor cursor = page.getBlock(0).cursor();
+            assertTrue(cursor.advanceNextPosition());
+            assertTrue(cursor.getBoolean(0));
+            value = true;
+        } else {
+            value = false;
+        }
         assertEquals(value, expected);
     }
 
@@ -246,16 +268,6 @@ public final class FunctionAssertions
         return new FilterAndProjectOperator(SOURCE, FilterFunctions.TRUE_FUNCTION, ImmutableList.of(projectionFunction));
     }
 
-    public static Operator createCompiledOperator(String projection)
-    {
-        return createCompiledOperatorFactory(projection).createOperator(SOURCE, SESSION);
-    }
-
-    public static Operator createCompiledOperator(String projection, Session session)
-    {
-        return createCompiledOperatorFactory(projection).createOperator(SOURCE, session);
-    }
-
     public static OperatorFactory createCompiledOperatorFactory(String projection)
     {
         Expression parsedExpression = parseExpression(projection);
@@ -263,7 +275,7 @@ public final class FunctionAssertions
         // compile and execute
         OperatorFactory operatorFactory;
         try {
-            operatorFactory = compiler.compileFilterAndProjectOperator(BooleanLiteral.TRUE_LITERAL, ImmutableList.of(parsedExpression), INPUT_TYPES);
+            operatorFactory = compiler.compileFilterAndProjectOperator(TRUE_LITERAL, ImmutableList.of(parsedExpression), INPUT_TYPES);
         }
         catch (Throwable e) {
             if (e instanceof UncheckedExecutionException) {

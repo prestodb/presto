@@ -26,7 +26,6 @@ import com.facebook.presto.byteCode.instruction.LabelNode;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.AbstractFilterAndProjectOperator;
 import com.facebook.presto.operator.AbstractFilterAndProjectOperator.AbstractFilterAndProjectIterator;
-import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.PageBuilder;
@@ -115,17 +114,6 @@ public class ExpressionCompiler
                 }
             });
 
-    private final LoadingCache<ExpressionCacheKey, Function<Session, FilterFunction>> filters = CacheBuilder.newBuilder().maximumSize(1000).build(
-            new CacheLoader<ExpressionCacheKey, Function<Session, FilterFunction>>()
-            {
-                @Override
-                public Function<Session, FilterFunction> load(ExpressionCacheKey key)
-                        throws Exception
-                {
-                    return internalCompileFilterFunction(key.getExpression(), key.getInputTypes());
-                }
-            });
-
     private final LoadingCache<ExpressionCacheKey, Function<Session, ProjectionFunction>> projections = CacheBuilder.newBuilder().maximumSize(1000).build(
             new CacheLoader<ExpressionCacheKey, Function<Session, ProjectionFunction>>()
             {
@@ -193,11 +181,6 @@ public class ExpressionCompiler
     public OperatorFactory compileFilterAndProjectOperator(Expression filter, List<Expression> projections, Map<Input, Type> inputTypes)
     {
         return operatorFactories.getUnchecked(new OperatorCacheKey(filter, projections, inputTypes));
-    }
-
-    public FilterFunction compileFilterFunction(Expression expression, Map<Input, Type> inputTypes, Session session)
-    {
-        return filters.getUnchecked(new ExpressionCacheKey(expression, inputTypes)).apply(session);
     }
 
     public ProjectionFunction compileProjectionFunction(Expression expression, Map<Input, Type> inputTypes, Session session)
@@ -694,96 +677,6 @@ public class ExpressionCompiler
                 .retObject();
 
         return defineClasses(ImmutableList.of(classDefinition), classLoader).values().iterator().next().asSubclass(Operator.class);
-    }
-
-    @VisibleForTesting
-    public Function<Session, FilterFunction> internalCompileFilterFunction(Expression expression, Map<Input, Type> inputTypes)
-    {
-        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(bootstrapMethod),
-                a(PUBLIC, FINAL),
-                typeFromPathName("FilterFunction_" + CLASS_ID.incrementAndGet()),
-                type(Object.class),
-                type(FilterFunction.class));
-
-        // declare session field
-        FieldDefinition sessionField = classDefinition.declareField(a(PRIVATE, FINAL), "session", Session.class);
-
-        //
-        // constructor
-        //
-        classDefinition.declareConstructor(new CompilerContext(bootstrapMethod), a(PUBLIC), arg("session", Session.class))
-                .getBody()
-                .pushThis()
-                .invokeConstructor(Object.class)
-                .comment("this.session = session;")
-                .pushThis()
-                .getVariable("session")
-                .putField(sessionField)
-                .ret();
-
-        //
-        // filter function
-        //
-        MethodDefinition filterMethod = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
-                a(PUBLIC),
-                "filter",
-                type(boolean.class),
-                arg("channels", TupleReadable[].class));
-
-        filterMethod.getBody().pushThis();
-
-        int channels = Ordering.natural().max(transform(inputTypes.keySet(), Input.channelGetter())) + 1;
-        for (int i = 0; i < channels; i++) {
-            filterMethod.getBody()
-                    .getVariable("channels")
-                    .push(i)
-                    .getObjectArrayElement();
-        }
-        filterMethod.getBody()
-                .invokeVirtual(classDefinition.getType(), "filter", type(boolean.class), nCopies(channels, type(TupleReadable.class)));
-
-        filterMethod.getBody().retBoolean();
-
-        //
-        // filter method with unrolled channels
-        //
-        generateFilterMethod(classDefinition, expression, inputTypes, false);
-        generateFilterMethod(classDefinition, expression, inputTypes, true);
-
-        //
-        // toString method
-
-        classDefinition.declareMethod(new CompilerContext(bootstrapMethod), a(PUBLIC), "toString", type(String.class))
-                .getBody()
-                .push(toStringHelper(classDefinition.getType().getJavaClassName())
-                        .add("filter", expression)
-                        .toString())
-                .retObject();
-
-        // define the class
-        Class<? extends FilterFunction> filterClass = defineClasses(ImmutableList.of(classDefinition), createClassLoader()).values().iterator().next().asSubclass(FilterFunction.class);
-
-        // create instance
-        try {
-            final Constructor<? extends FilterFunction> constructor = filterClass.getConstructor(Session.class);
-            return new Function<Session, FilterFunction>()
-            {
-                @Override
-                public FilterFunction apply(Session session)
-                {
-                    try {
-                        FilterFunction function = constructor.newInstance(session);
-                        return function;
-                    }
-                    catch (Throwable e) {
-                        throw Throwables.propagate(e);
-                    }
-                }
-            };
-        }
-        catch (Throwable e) {
-            throw Throwables.propagate(e);
-        }
     }
 
     private void generateFilterMethod(ClassDefinition classDefinition,
