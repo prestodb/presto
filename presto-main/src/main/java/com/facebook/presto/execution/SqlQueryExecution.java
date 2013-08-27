@@ -141,7 +141,7 @@ public class SqlQueryExecution
                     stage.start();
                 }
                 else {
-                    stage.cancel();
+                    stage.cancel(true);
                 }
             }
             catch (Throwable e) {
@@ -246,7 +246,7 @@ public class SqlQueryExecution
         try (SetThreadName setThreadName = new SetThreadName("Query-%s", stateMachine.getQueryId())){
             SqlStageExecution stageExecution = outputStage.get();
             if (stageExecution != null) {
-                stageExecution.cancel();
+                stageExecution.cancel(true);
             }
         }
     }

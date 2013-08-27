@@ -59,6 +59,7 @@ import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.collect.Iterables.all;
 import static com.google.common.collect.Iterables.any;
 import static com.google.common.collect.Iterables.transform;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 @ThreadSafe
 public class SqlStageExecution
@@ -201,7 +202,7 @@ public class SqlStageExecution
     {
         try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)){
             if (stageId.equals(this.stageId)) {
-                cancel();
+                cancel(true);
             }
             else {
                 for (StageExecutionNode subStage : subStages.values()) {
@@ -406,7 +407,7 @@ public class SqlStageExecution
                         stageState.set(StageState.FAILED);
                     }
                     log.error(e, "Error while starting stage %s", stageId);
-                    cancelAll();
+                    cancel(true);
                     throw e;
                 }
                 Throwables.propagateIfInstanceOf(e, Error.class);
@@ -627,39 +628,49 @@ public class SqlStageExecution
 
             if (stageState.get().isDone()) {
                 // finish tasks and stages
-                cancelAll();
+                cancel(false);
             }
         }
     }
 
-    public void cancel()
+    public void cancel(boolean force)
     {
         Preconditions.checkState(!Thread.holdsLock(this), "Can not cancel while holding a lock on this");
 
-        try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)){
+        try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)) {
+            // before canceling the task wait to see if it finishes normally
+            if (!force) {
+                Duration waitTime = new Duration(100, MILLISECONDS);
+                for (RemoteTask remoteTask : tasks.values()) {
+                    try {
+                        waitTime = remoteTask.waitForTaskToFinish(waitTime);
+                    }
+                    catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw Throwables.propagate(e);
+                    }
+                }
+            }
+            // check if the task completed naturally
+            doUpdateState();
+
             // transition to canceled state, only if not already finished
             synchronized (this) {
-                if (stageState.get().isDone()) {
-                    return;
+                if (!stageState.get().isDone()) {
+                    log.debug("Cancelling stage %s", stageId);
+                    stageState.set(StageState.CANCELED);
                 }
-                log.debug("Cancelling stage %s", stageId);
-                stageState.set(StageState.CANCELED);
             }
 
-            cancelAll();
-        }
-    }
+            // make sure all tasks are done
+            for (RemoteTask task : tasks.values()) {
+                task.cancel();
+            }
 
-    private void cancelAll()
-    {
-        Preconditions.checkState(!Thread.holdsLock(this), "Can not cancel while holding a lock on this");
-
-        // propagate update to tasks and stages
-        for (RemoteTask task : tasks.values()) {
-            task.cancel();
-        }
-        for (StageExecutionNode subStage : subStages.values()) {
-            subStage.cancel();
+            // propagate update to tasks and stages
+            for (StageExecutionNode subStage : subStages.values()) {
+                subStage.cancel(force);
+            }
         }
     }
 
@@ -722,7 +733,7 @@ interface StageExecutionNode
 
     void cancelStage(StageId stageId);
 
-    void cancel();
+    void cancel(boolean force);
 }
 
 

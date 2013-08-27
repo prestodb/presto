@@ -34,6 +34,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
+import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.net.URI;
@@ -121,7 +122,7 @@ public class TestSqlStageExecution
         }
         finally {
             if (stageExecution != null) {
-                stageExecution.cancel();
+                stageExecution.cancel(false);
             }
             executor.shutdownNow();
         }
@@ -283,6 +284,19 @@ public class TestSqlStageExecution
             public void cancel()
             {
                 taskOutput.cancel();
+            }
+
+            @Override
+            public Duration waitForTaskToFinish(Duration maxWait)
+                    throws InterruptedException
+            {
+                while (true) {
+                    TaskState state = taskOutput.getState();
+                    if (maxWait.toMillis() <= 1 || state.isDone()) {
+                        return maxWait;
+                    }
+                    maxWait = taskOutput.waitForStateChange(state, maxWait);
+                }
             }
 
             @Override

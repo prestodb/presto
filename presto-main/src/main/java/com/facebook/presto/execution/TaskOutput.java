@@ -236,10 +236,10 @@ public class TaskOutput
         }
     }
 
-    public void waitForStateChange(TaskState currentState, Duration maxWait)
+    public Duration waitForStateChange(TaskState currentState, Duration maxWait)
             throws InterruptedException
     {
-        taskState.waitForStateChange(currentState, maxWait);
+        return taskState.waitForStateChange(currentState, maxWait);
     }
 
     public void addStateChangeListener(StateChangeListener<TaskState> stateChangeListener)

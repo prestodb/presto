@@ -68,6 +68,7 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -332,6 +333,21 @@ public class HttpRemoteTask
         }
     }
 
+    @Override
+    public Duration waitForTaskToFinish(Duration maxWait)
+            throws InterruptedException
+    {
+        try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)) {
+            while (true) {
+                TaskInfo currentState = taskInfo.get();
+                if (maxWait.toMillis() <= 1 || currentState.getState().isDone()) {
+                    return maxWait;
+                }
+                maxWait = taskInfo.waitForStateChange(currentState, maxWait);
+            }
+        }
+    }
+
     private synchronized void updateTaskInfo(final TaskInfo newValue)
     {
         for (Entry<PlanNodeId, Set<?>> entry : newValue.getOutputs().entrySet()) {
@@ -474,6 +490,11 @@ public class HttpRemoteTask
                     @Override
                     public void onFailure(Throwable t)
                     {
+                        if (t instanceof RejectedExecutionException) {
+                            // client has been shutdown
+                            return;
+                        }
+
                         // reschedule
                         if (Duration.nanosSince(start).compareTo(new Duration(2, TimeUnit.MINUTES)) < 0) {
                             Futures.addCallback(httpClient.executeAsync(request, createStatusResponseHandler()), this, executor);
