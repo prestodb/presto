@@ -7,6 +7,7 @@ import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.Multimap;
+import io.airlift.units.Duration;
 
 import java.net.URI;
 import java.util.Set;
@@ -31,4 +32,7 @@ public interface RemoteTask
     void cancel();
 
     int getQueuedSplits();
+
+    Duration waitForTaskToFinish(Duration maxWait)
+            throws InterruptedException;
 }
