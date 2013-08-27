@@ -75,7 +75,6 @@ public class TestExchangeClient
         assertNull(exchangeClient.getNextPage(new Duration(1, TimeUnit.SECONDS)));
         assertEquals(exchangeClient.isClosed(), true);
         if (exchangeClient.getStatus().getBufferedPages() != 0) {
-            System.out.println(exchangeClient.pageBuffer);
             assertEquals(exchangeClient.getStatus().getBufferedPages(), 0);
         }
         assertTrue(exchangeClient.getStatus().getBufferedBytes() == 0);

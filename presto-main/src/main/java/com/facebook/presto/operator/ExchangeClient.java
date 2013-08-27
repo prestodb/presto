@@ -55,7 +55,7 @@ public class ExchangeClient
     private final Deque<HttpPageBufferClient> queuedClients = new LinkedList<>();
 
     private final Set<HttpPageBufferClient> completedClients = Sets.newSetFromMap(new ConcurrentHashMap<HttpPageBufferClient, Boolean>());
-    public final LinkedBlockingDeque<Page> pageBuffer = new LinkedBlockingDeque<>();
+    private final LinkedBlockingDeque<Page> pageBuffer = new LinkedBlockingDeque<>();
 
     @GuardedBy("this")
     private long bufferBytes;
