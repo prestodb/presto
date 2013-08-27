@@ -250,7 +250,6 @@ public class TestDistributedQueries
                 .put("query.client.timeout", "10m")
                 .put("exchange.http-client.read-timeout", "1h")
                 .put("failure-detector.warmup-interval", "0ms")
-                .put("failure-detector.enabled", "false") // todo enable failure detector
                 .put("datasources", "native,tpch")
                 .build();
 
