@@ -30,7 +30,6 @@ import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.operator.PageIterator;
-import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
@@ -39,7 +38,6 @@ import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleReadable;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
@@ -114,18 +112,6 @@ public class ExpressionCompiler
                 }
             });
 
-    private final LoadingCache<ExpressionCacheKey, Function<Session, ProjectionFunction>> projections = CacheBuilder.newBuilder().maximumSize(1000).build(
-            new CacheLoader<ExpressionCacheKey, Function<Session, ProjectionFunction>>()
-            {
-                @Override
-                public Function<Session, ProjectionFunction> load(ExpressionCacheKey key)
-                        throws Exception
-                {
-                    return internalCompileProjectionFunction(key.getExpression(), key.getInputTypes());
-                }
-            });
-
-
     @Inject
     public ExpressionCompiler(Metadata metadata)
     {
@@ -181,11 +167,6 @@ public class ExpressionCompiler
     public OperatorFactory compileFilterAndProjectOperator(Expression filter, List<Expression> projections, Map<Input, Type> inputTypes)
     {
         return operatorFactories.getUnchecked(new OperatorCacheKey(filter, projections, inputTypes));
-    }
-
-    public ProjectionFunction compileProjectionFunction(Expression expression, Map<Input, Type> inputTypes, Session session)
-    {
-        return projections.getUnchecked(new ExpressionCacheKey(expression, inputTypes)).apply(session);
     }
 
     @VisibleForTesting
@@ -728,138 +709,6 @@ public class ExpressionCompiler
         }
     }
 
-    @VisibleForTesting
-    public Function<Session, ProjectionFunction> internalCompileProjectionFunction(Expression expression, Map<Input, Type> inputTypes)
-    {
-        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(bootstrapMethod),
-                a(PUBLIC, FINAL),
-                typeFromPathName("ProjectionFunction_" + CLASS_ID.incrementAndGet()),
-                type(Object.class),
-                type(ProjectionFunction.class));
-
-        //
-        // declare session field
-        //
-        FieldDefinition sessionField = classDefinition.declareField(a(PRIVATE, FINAL), "session", Session.class);
-
-        //
-        // constructor
-        //
-        classDefinition.declareConstructor(new CompilerContext(bootstrapMethod), a(PUBLIC), arg("session", Session.class))
-                .getBody()
-                .pushThis()
-                .invokeConstructor(Object.class)
-                .comment("this.session = session;")
-                .pushThis()
-                .getVariable("session")
-                .putField(sessionField)
-                .ret();
-
-        //
-        // void project(TupleReadable[] channels, BlockBuilder output)
-        //
-        MethodDefinition projectionMethod = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
-                a(PUBLIC),
-                "project",
-                type(void.class),
-                arg("channels", TupleReadable[].class),
-                arg("output", BlockBuilder.class));
-
-        projectionMethod.getBody().pushThis();
-
-        int channels = Ordering.natural().max(transform(inputTypes.keySet(), Input.channelGetter())) + 1;
-        for (int i = 0; i < channels; i++) {
-            projectionMethod.getBody()
-                    .getVariable("channels")
-                    .push(i)
-                    .getObjectArrayElement();
-        }
-
-        projectionMethod.getBody().getVariable("output");
-
-        projectionMethod.getBody()
-                .invokeVirtual(classDefinition.getType(),
-                        "project",
-                        type(void.class),
-                        ImmutableList.<ParameterizedType>builder().addAll(nCopies(channels, type(TupleReadable.class))).add(type(BlockBuilder.class)).build());
-        projectionMethod.getBody().ret();
-
-        //
-        // projection with unrolled channels
-        //
-        Class<?> type = generateProjectMethod(classDefinition, "project", expression, inputTypes, false);
-        generateProjectMethod(classDefinition, "project", expression, inputTypes, true);
-
-        //
-        // TupleInfo getTupleInfo();
-        //
-        MethodDefinition getTupleInfoMethod = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
-                a(PUBLIC),
-                "getTupleInfo",
-                type(TupleInfo.class));
-
-        if (type == boolean.class) {
-            getTupleInfoMethod.getBody()
-                    .getStaticField(type(TupleInfo.class), "SINGLE_BOOLEAN", type(TupleInfo.class))
-                    .retObject();
-        }
-        // todo remove assumption that void is a long
-        else if (type == long.class || type == void.class) {
-            getTupleInfoMethod.getBody()
-                    .getStaticField(type(TupleInfo.class), "SINGLE_LONG", type(TupleInfo.class))
-                    .retObject();
-        }
-        else if (type == double.class) {
-            getTupleInfoMethod.getBody()
-                    .getStaticField(type(TupleInfo.class), "SINGLE_DOUBLE", type(TupleInfo.class))
-                    .retObject();
-        }
-        else if (type == Slice.class) {
-            getTupleInfoMethod.getBody()
-                    .getStaticField(type(TupleInfo.class), "SINGLE_VARBINARY", type(TupleInfo.class))
-                    .retObject();
-        }
-        else {
-            throw new IllegalStateException("Type " + type.getName() + "can be output");
-        }
-
-        //
-        // toString method
-        //
-        classDefinition.declareMethod(new CompilerContext(bootstrapMethod), a(PUBLIC), "toString", type(String.class))
-                .getBody()
-                .push(toStringHelper(classDefinition.getType().getJavaClassName())
-                        .add("projection", expression)
-                        .toString())
-                .retObject();
-
-        // define the class
-        Class<? extends ProjectionFunction> projectionClass = defineClasses(ImmutableList.of(classDefinition), createClassLoader()).values().iterator().next().asSubclass(ProjectionFunction.class);
-
-        // create instance
-        try {
-            final Constructor<? extends ProjectionFunction> constructor = projectionClass.getConstructor(Session.class);
-            return new Function<Session, ProjectionFunction>()
-            {
-                @Override
-                public ProjectionFunction apply(Session session)
-                {
-                    try {
-                        ProjectionFunction function = constructor.newInstance(session);
-                        return function;
-                    }
-                    catch (Throwable e) {
-                        throw Throwables.propagate(e);
-                    }
-
-                }
-            };
-        }
-        catch (Throwable e) {
-            throw Throwables.propagate(e);
-        }
-    }
-
     private Class<?> generateProjectMethod(ClassDefinition classDefinition,
             String methodName,
             Expression projection,
@@ -1031,56 +880,6 @@ public class ExpressionCompiler
             }
         }
         return classLoader.defineClasses(byteCodes);
-    }
-
-    private static final class ExpressionCacheKey
-    {
-        private final Expression expression;
-        private final Map<Input, Type> inputTypes;
-
-        private ExpressionCacheKey(Expression expression, Map<Input, Type> inputTypes)
-        {
-            this.expression = expression;
-            this.inputTypes = inputTypes;
-        }
-
-        private Expression getExpression()
-        {
-            return expression;
-        }
-
-        private Map<Input, Type> getInputTypes()
-        {
-            return inputTypes;
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hashCode(expression, inputTypes);
-        }
-
-        @Override
-        public boolean equals(Object obj)
-        {
-            if (this == obj) {
-                return true;
-            }
-            if (obj == null || getClass() != obj.getClass()) {
-                return false;
-            }
-            final ExpressionCacheKey other = (ExpressionCacheKey) obj;
-            return Objects.equal(this.expression, other.expression) && Objects.equal(this.inputTypes, other.inputTypes);
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("expression", expression)
-                    .add("inputTypes", inputTypes)
-                    .toString();
-        }
     }
 
     private static final class OperatorCacheKey

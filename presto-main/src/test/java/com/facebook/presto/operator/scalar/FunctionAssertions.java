@@ -217,11 +217,6 @@ public final class FunctionAssertions
         Object recordValue = execute(operatorFactory.createOperator(createTableScanOperator(createRecordProjectOperator()), session));
         assertEquals(recordValue, directOperatorValue);
 
-        // compile projection function
-        ProjectionFunction projectFunction = createCompiledProjectFunction(projection, session);
-        Object projectedValue = execute(projectFunction);
-        assertEquals(projectedValue, directOperatorValue);
-
         // interpret
         FilterAndProjectOperator interpretedOperator = createInterpretedOperator(projection, expressionType, session);
         Object interpretedValue = execute(interpretedOperator);
@@ -284,22 +279,6 @@ public final class FunctionAssertions
             throw new RuntimeException("Error compiling " + parsedExpression + ": " + e.getMessage(), e);
         }
         return operatorFactory;
-    }
-
-    public static ProjectionFunction createCompiledProjectFunction(String projection, Session session)
-    {
-        Expression parsedExpression = parseExpression(projection);
-
-        // compile and execute
-        try {
-            return compiler.compileProjectionFunction(parsedExpression, INPUT_TYPES, session);
-        }
-        catch (Throwable e) {
-            if (e instanceof UncheckedExecutionException) {
-                e = e.getCause();
-            }
-            throw new RuntimeException("Error compiling " + parsedExpression + ": " + e.getMessage(), e);
-        }
     }
 
     public static Object execute(Operator operator)
