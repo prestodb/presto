@@ -27,6 +27,8 @@ import static org.testng.Assert.assertTrue;
 
 public class BlockAssertions
 {
+    public static final TupleInfo COMPOSITE_SEQUENCE_TUPLE_INFO = new TupleInfo(Type.BOOLEAN, Type.FIXED_INT_64, Type.DOUBLE, Type.VARIABLE_BINARY);
+
     public static void assertBlocksEquals(BlockIterable actual, BlockIterable expected)
     {
         Iterator<Block> expectedIterator = expected.iterator();
@@ -266,7 +268,7 @@ public class BlockAssertions
 
     public static Block createCompositeTupleSequenceBlock(int start, int end)
     {
-        BlockBuilder builder = new BlockBuilder(new TupleInfo(Type.BOOLEAN, Type.FIXED_INT_64, Type.DOUBLE, Type.VARIABLE_BINARY));
+        BlockBuilder builder = new BlockBuilder(COMPOSITE_SEQUENCE_TUPLE_INFO);
 
         for (int i = start; i < end; i++) {
             builder.append(i % 2 == 0)
