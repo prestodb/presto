@@ -3,7 +3,6 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.instruction.Constant;
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.gen.ExpressionCompiler.TypedByteCodeNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 

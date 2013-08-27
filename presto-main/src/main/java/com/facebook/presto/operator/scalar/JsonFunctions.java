@@ -5,7 +5,7 @@ import com.facebook.presto.byteCode.instruction.Constant;
 import com.facebook.presto.operator.scalar.JsonExtract.JsonExtractCache;
 import com.facebook.presto.operator.scalar.JsonExtract.JsonExtractor;
 import com.facebook.presto.sql.gen.DefaultFunctionBinder;
-import com.facebook.presto.sql.gen.ExpressionCompiler.TypedByteCodeNode;
+import com.facebook.presto.sql.gen.TypedByteCodeNode;
 import com.facebook.presto.sql.gen.FunctionBinder;
 import com.facebook.presto.sql.gen.FunctionBinding;
 import com.facebook.presto.util.ThreadLocalCache;
