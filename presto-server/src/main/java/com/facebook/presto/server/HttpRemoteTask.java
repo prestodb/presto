@@ -55,6 +55,7 @@ import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.GuardedBy;
+
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.net.URI;
@@ -788,11 +789,16 @@ public class HttpRemoteTask
                     // Something is broken in the server or the client, so fail the task immediately (includes 500 errors)
                     Exception cause = response.getException();
                     if (cause == null) {
-                        cause = new RuntimeException(String.format("Expected response code from %s to be %s, but was %s: %s",
-                                uri,
-                                HttpStatus.OK.code(),
-                                response.getStatusCode(),
-                                response.getStatusMessage()));
+                        if (response.getStatusCode() == HttpStatus.OK.code()) {
+                            cause = new RuntimeException(String.format("Expected response from %s is empty", uri));
+                        }
+                        else {
+                            cause = new RuntimeException(String.format("Expected response code from %s to be %s, but was %s: %s",
+                                    uri,
+                                    HttpStatus.OK.code(),
+                                    response.getStatusCode(),
+                                    response.getStatusMessage()));
+                        }
                     }
                     callback.fatal(cause);
                 }
