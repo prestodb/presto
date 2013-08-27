@@ -4,7 +4,7 @@ import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.instruction.Constant;
 import com.facebook.presto.operator.Description;
 import com.facebook.presto.sql.gen.DefaultFunctionBinder;
-import com.facebook.presto.sql.gen.ExpressionCompiler.TypedByteCodeNode;
+import com.facebook.presto.sql.gen.TypedByteCodeNode;
 import com.facebook.presto.sql.gen.FunctionBinder;
 import com.facebook.presto.sql.gen.FunctionBinding;
 import com.facebook.presto.util.ThreadLocalCache;

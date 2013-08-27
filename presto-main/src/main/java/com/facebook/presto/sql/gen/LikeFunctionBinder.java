@@ -2,7 +2,6 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.instruction.Constant;
-import com.facebook.presto.sql.gen.ExpressionCompiler.TypedByteCodeNode;
 import com.facebook.presto.sql.planner.LikeUtils;
 import com.facebook.presto.sql.planner.LikeUtils.LikePatternCache;
 import com.google.common.base.Throwables;

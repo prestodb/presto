@@ -4,7 +4,6 @@ import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.analyzer.Type;
-import com.facebook.presto.sql.gen.ExpressionCompiler.TypedByteCodeNode;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Function;
 import com.google.common.collect.Lists;
