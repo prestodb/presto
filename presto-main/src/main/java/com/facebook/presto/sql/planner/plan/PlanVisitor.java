@@ -2,8 +2,7 @@ package com.facebook.presto.sql.planner.plan;
 
 public class PlanVisitor<C, R>
 {
-    protected R visitPlan(PlanNode node, C context)
-    {
+    protected R visitPlan(PlanNode node, C context) {
         return null;
     }
 
@@ -38,6 +37,11 @@ public class PlanVisitor<C, R>
     }
 
     public R visitLimit(LimitNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitSample(SampleNode node, C context)
     {
         return visitPlan(node, context);
     }

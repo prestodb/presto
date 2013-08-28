@@ -16,6 +16,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
@@ -126,6 +127,12 @@ public class DistributedExecutionPlanner
 
         @Override
         public NodeSplits visitFilter(FilterNode node, Predicate<Partition> tableWriterPartitionPredicate)
+        {
+            return node.getSource().accept(this, tableWriterPartitionPredicate);
+        }
+
+        @Override
+        public NodeSplits visitSample(SampleNode node, Predicate<Partition> tableWriterPartitionPredicate)
         {
             return node.getSource().accept(this, tableWriterPartitionPredicate);
         }

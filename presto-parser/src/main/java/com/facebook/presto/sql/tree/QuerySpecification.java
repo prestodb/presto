@@ -18,6 +18,7 @@ public class QuerySpecification
     private final Optional<Expression> having;
     private final List<SortItem> orderBy;
     private final Optional<String> limit;
+    private final Optional<String> samplingRatio;
 
     public QuerySpecification(
             Select select,
@@ -26,7 +27,8 @@ public class QuerySpecification
             List<Expression> groupBy,
             Optional<Expression> having,
             List<SortItem> orderBy,
-            Optional<String> limit)
+            Optional<String> limit,
+            Optional<String> samplingRatio)
     {
         checkNotNull(select, "select is null");
         checkNotNull(where, "where is null");
@@ -34,6 +36,7 @@ public class QuerySpecification
         checkNotNull(having, "having is null");
         checkNotNull(orderBy, "orderBy is null");
         checkNotNull(limit, "limit is null");
+        checkNotNull(samplingRatio, "samplingRatio is null");
 
         this.select = select;
         this.from = from;
@@ -42,6 +45,7 @@ public class QuerySpecification
         this.having = having;
         this.orderBy = orderBy;
         this.limit = limit;
+        this.samplingRatio = samplingRatio;
     }
 
     public Select getSelect()
@@ -79,6 +83,10 @@ public class QuerySpecification
         return limit;
     }
 
+    public Optional<String> getSamplingRatio() {
+        return samplingRatio;
+    }
+
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
@@ -94,8 +102,9 @@ public class QuerySpecification
                 .add("where", where.orNull())
                 .add("groupBy", groupBy)
                 .add("having", having.orNull())
-                .add("orderBy",orderBy)
+                .add("orderBy", orderBy)
                 .add("limit", limit.orNull())
+                .add("samplingRatio", samplingRatio.orNull())
                 .toString();
     }
 
@@ -115,12 +124,13 @@ public class QuerySpecification
                 Objects.equal(groupBy, o.groupBy) &&
                 Objects.equal(having, o.having) &&
                 Objects.equal(orderBy, o.orderBy) &&
-                Objects.equal(limit, o.limit);
+                Objects.equal(limit, o.limit) &&
+                Objects.equal(samplingRatio, o.samplingRatio);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(select, from, where, groupBy, having, orderBy, limit);
+        return Objects.hashCode(select, from, where, groupBy, having, orderBy, limit, samplingRatio);
     }
 }

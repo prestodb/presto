@@ -120,6 +120,7 @@ class StatementAnalyzer
                         ImmutableList.<Expression>of(),
                         Optional.<Expression>absent(),
                         ImmutableList.of(ascending("table_name")),
+                        Optional.<String>absent(),
                         Optional.<String>absent()
                 ),
                 ImmutableList.<SortItem>of(),
@@ -140,6 +141,7 @@ class StatementAnalyzer
                         ImmutableList.<Expression>of(),
                         Optional.<Expression>absent(),
                         ImmutableList.of(ascending("schema_name")),
+                        Optional.<String>absent(),
                         Optional.<String>absent()
                 ),
                 ImmutableList.<SortItem>of(),
@@ -172,6 +174,7 @@ class StatementAnalyzer
                         ImmutableList.<Expression>of(),
                         Optional.<Expression>absent(),
                         ImmutableList.of(ascending("ordinal_position")),
+                        Optional.<String>absent(),
                         Optional.<String>absent()
                 ),
                 ImmutableList.<SortItem>of(),
@@ -240,6 +243,7 @@ class StatementAnalyzer
                         ImmutableList.of(nameReference("partition_number")),
                         Optional.<Expression>absent(),
                         ImmutableList.<SortItem>of(),
+                        Optional.<String>absent(),
                         Optional.<String>absent()),
                 ImmutableList.<SortItem>of(),
                 Optional.<String>absent());
@@ -256,7 +260,8 @@ class StatementAnalyzer
                                 .addAll(showPartitions.getOrderBy())
                                 .add(ascending("partition_number"))
                                 .build(),
-                        showPartitions.getLimit()),
+                        showPartitions.getLimit(),
+                        Optional.<String>absent()),
                 ImmutableList.<SortItem>of(),
                 Optional.<String>absent());
 
@@ -284,6 +289,7 @@ class StatementAnalyzer
                                 ascending("return_type"),
                                 ascending("argument_types"),
                                 ascending("function_type")),
+                        Optional.<String>absent(),
                         Optional.<String>absent()
                 ),
                 ImmutableList.<SortItem>of(),
@@ -373,6 +379,7 @@ class StatementAnalyzer
                         ImmutableList.<Expression>of(),
                         Optional.<Expression>absent(),
                         ImmutableList.<SortItem>of(),
+                        Optional.<String>absent(),
                         Optional.<String>absent()
                 ),
                 ImmutableList.<SortItem>of(),

@@ -73,6 +73,7 @@ public class TestSqlParser
                                 ImmutableList.<Expression>of(),
                                 Optional.<Expression>absent(),
                                 ImmutableList.<SortItem>of(),
+                                Optional.<String>absent(),
                                 Optional.<String>absent()),
                         ImmutableList.<SortItem>of(),
                         Optional.<String>absent()));
