@@ -11,6 +11,7 @@ import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
@@ -19,13 +20,13 @@ import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.SortItem;
-import com.facebook.presto.sql.tree.TreeRewriter;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -446,6 +447,23 @@ public class TestEffectivePredicateExtractor
                         or(equals(BE, EE), isNull(BE))));
     }
 
+    @Test
+    public void testSemiJoin()
+            throws Exception
+    {
+        PlanNode node = new SemiJoinNode(newId(),
+                filter(baseTableScan, and(greaterThan(AE, number(10)), lessThan(AE, number(100)))),
+                filter(baseTableScan, greaterThan(AE, number(5))),
+                A, B, C
+        );
+
+        Expression effectivePredicate = EffectivePredicateExtractor.extract(node);
+
+        // Currently, only pull predicates through the source plan
+        Assert.assertEquals(normalizeConjuncts(effectivePredicate),
+                normalizeConjuncts(and(greaterThan(AE, number(10)), lessThan(AE, number(100)))));
+    }
+
     private static PlanNodeId newId()
     {
         return new PlanNodeId(UUID.randomUUID().toString());
@@ -546,7 +564,7 @@ public class TestEffectivePredicateExtractor
                 }
 
                 // Since we have not seen this expression before, rewrite it entirely in terms of the normalized sub-expressions
-                identityNormalizedExpression = TreeRewriter.rewriteWith(new ExpressionNodeInliner(expressionCache), expression);
+                identityNormalizedExpression = ExpressionTreeRewriter.rewriteWith(new ExpressionNodeInliner(expressionCache), expression);
                 expressionCache.put(identityNormalizedExpression, identityNormalizedExpression);
             }
             return identityNormalizedExpression;

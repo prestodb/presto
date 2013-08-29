@@ -2,7 +2,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.TreeRewriter;
+import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -107,7 +107,7 @@ public class EqualityInference
         // Perform a naive single-pass traversal to try to rewrite non-compliant portions of the tree. Prefers to replace
         // larger subtrees over smaller subtrees
         // TODO: this rewrite can probably be made more sophisticated
-        Expression rewritten = TreeRewriter.rewriteWith(new ExpressionNodeInliner(expressionRemap.build()), expression);
+        Expression rewritten = ExpressionTreeRewriter.rewriteWith(new ExpressionNodeInliner(expressionRemap.build()), expression);
         if (!symbolToExpressionPredicate(symbolScope).apply(rewritten)) {
             // If the rewritten is still not compliant with the symbol scope, just give up
             return null;

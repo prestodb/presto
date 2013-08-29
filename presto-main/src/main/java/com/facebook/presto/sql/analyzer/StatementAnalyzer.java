@@ -43,6 +43,7 @@ import static com.facebook.presto.connector.informationSchema.InformationSchemaM
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_INTERNAL_PARTITIONS;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_SCHEMATA;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLES;
+import static com.facebook.presto.sql.analyzer.Analyzer.ExpressionAnalysis;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_MATERIALIZED_VIEW_REFRESH_INTERVAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDINAL;
@@ -402,7 +403,7 @@ class StatementAnalyzer
 
         TupleAnalyzer analyzer = new TupleAnalyzer(analysis, session, metadata);
         TupleDescriptor descriptor = analyzer.process(node.getQueryBody(), context);
-        analyzeOrderBy(node, descriptor);
+        analyzeOrderBy(node, descriptor, context);
 
         // Input fields == Output fields
         analysis.setOutputDescriptor(node, descriptor);
@@ -450,7 +451,7 @@ class StatementAnalyzer
         }
     }
 
-    private void analyzeOrderBy(Query node, TupleDescriptor tupleDescriptor)
+    private void analyzeOrderBy(Query node, TupleDescriptor tupleDescriptor, AnalysisContext context)
     {
         List<SortItem> items = node.getOrderBy();
 
@@ -474,7 +475,8 @@ class StatementAnalyzer
                 else {
                     // otherwise, just use the expression as is
                     orderByField = new FieldOrExpression(expression);
-                    Analyzer.analyzeExpression(metadata, tupleDescriptor, analysis, orderByField.getExpression());
+                    ExpressionAnalysis expressionAnalysis = Analyzer.analyzeExpression(session, metadata, tupleDescriptor, analysis, context, orderByField.getExpression());
+                    analysis.addInPredicates(node, expressionAnalysis.getSubqueryInPredicates());
                 }
 
                 orderByFieldsBuilder.add(orderByField);
