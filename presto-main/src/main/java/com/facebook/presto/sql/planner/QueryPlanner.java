@@ -337,8 +337,6 @@ class QueryPlanner
         for (Expression expression : expressions) {
             Symbol symbol = symbolAllocator.newSymbol(expression, analysis.getType(expression));
 
-            // TODO: CHECK IF THE REWRITE OF A SEMI JOINED EXPRESSION WILL WORK!!!!!!!
-
             projections.put(symbol, translations.rewrite(expression));
             newTranslations.put(symbol, expression);
         }
@@ -358,6 +356,16 @@ class QueryPlanner
         return subPlan;
     }
 
+    /**
+     * Semijoins are planned as follows:
+     * 1) SQL constructs that need to be semijoined are extracted during Analysis phase (currently only InPredicates so far)
+     * 2) Create a new SemiJoinNode that connects the semijoin lookup field with the planned subquery and have it output a new boolean
+     * symbol for the result of the semijoin.
+     * 3) Add an entry to the TranslationMap that notes to map the InPredicate into semijoin output symbol
+     *
+     * Currently, we only support semijoins deriving from InPredicates, but we will probably need
+     * to add support for more SQL constructs in the future.
+     */
     private PlanBuilder appendSemiJoin(PlanBuilder subPlan, InPredicate inPredicate)
     {
         TranslationMap translations = new TranslationMap(subPlan.getRelationPlan(), analysis);

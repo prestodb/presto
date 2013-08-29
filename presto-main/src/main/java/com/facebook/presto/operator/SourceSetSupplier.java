@@ -27,15 +27,15 @@ public class SourceSetSupplier
     @GuardedBy("this")
     private Throwable buildException;
 
-    public SourceSetSupplier(Operator stoppableSource, int setChannel, int expectedPositions, TaskMemoryManager taskMemoryManager, OperatorStats operatorStats)
+    public SourceSetSupplier(Operator source, int setChannel, int expectedPositions, TaskMemoryManager taskMemoryManager, OperatorStats operatorStats)
     {
-        checkNotNull(stoppableSource, "stoppableSource is null");
+        checkNotNull(source, "source is null");
         checkArgument(setChannel >= 0, "setChannel must be greater than or equal to zero");
         checkArgument(expectedPositions >= 0, "expectedPositions must be greater than or equal to zero");
         checkNotNull(taskMemoryManager, "taskMemoryManager is null");
         checkNotNull(operatorStats, "operatorStats is null");
 
-        this.stoppableSource = new StoppableOperator(stoppableSource);
+        this.stoppableSource = new StoppableOperator(source);
         this.setChannel = setChannel;
         this.expectedPositions = expectedPositions;
         this.operatorStats = operatorStats;
