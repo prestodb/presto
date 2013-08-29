@@ -54,7 +54,7 @@ import java.util.Set;
 
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ATTRIBUTE;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MULTPLE_FIELDS_FROM_SCALAR_SUBQUERY;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MULTIPLE_FIELDS_FROM_SCALAR_SUBQUERY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -573,7 +573,7 @@ public class ExpressionAnalyzer
 
             // Scalar subqueries should only produce one column
             if (descriptor.getFields().size() != 1) {
-                throw new SemanticException(MULTPLE_FIELDS_FROM_SCALAR_SUBQUERY, node, "Subquery expression must produce only one field. Found %s", descriptor.getFields().size());
+                throw new SemanticException(MULTIPLE_FIELDS_FROM_SCALAR_SUBQUERY, node, "Subquery expression must produce only one field. Found %s", descriptor.getFields().size());
             }
 
             Type type = Iterables.getOnlyElement(descriptor.getFields()).getType();

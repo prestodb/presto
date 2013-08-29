@@ -11,12 +11,8 @@ import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import it.unimi.dsi.fastutil.longs.LongHash;
 import it.unimi.dsi.fastutil.longs.LongOpenCustomHashSet;
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
-import java.util.List;
-
-import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
-import static com.facebook.presto.operator.SyntheticAddress.decodeSliceOffset;
+import static com.facebook.presto.operator.SliceHashStrategy.LOOKUP_SLICE_INDEX;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -25,8 +21,6 @@ import static io.airlift.slice.SizeOf.sizeOf;
 
 public class ChannelSet
 {
-    private static final int LOOKUP_SLICE_INDEX = 0xFF_FF_FF_FF;
-
     private final SliceHashStrategy strategy;
     private final AddressValueSet addressValueSet;
     private final boolean containsNull;
@@ -39,8 +33,11 @@ public class ChannelSet
         checkNotNull(taskMemoryManager, "taskMemoryManager is null");
         checkNotNull(operatorStats, "operatorStats is null");
 
-        // Construct the set from the source
         TupleInfo tupleInfo = source.getTupleInfos().get(setChannel);
+        checkArgument(tupleInfo.getFieldCount() == 1, "ChannelSet only supports single field set building channels");
+        // Supporting multi-field channel sets (e.g. tuples) is much more difficult because of null handling, and hence is not supported by this class.
+
+        // Construct the set from the source
         strategy = new SliceHashStrategy(tupleInfo);
         addressValueSet = new AddressValueSet(expectedPositions, strategy);
 
@@ -63,7 +60,9 @@ public class ChannelSet
 
                 for (int position = 0; position < sourceBlock.getPositionCount(); position++) {
                     checkState(sourceCursor.advanceNextPosition());
-                    containsNull |= tupleContainsNull(sourceCursor, tupleInfo.getFieldCount());
+
+                    // Record whether we have seen a null
+                    containsNull |= sourceCursor.isNull(0); // There should only be one field in this channel!
 
                     long sourceAddress = encodeSyntheticAddress(LOOKUP_SLICE_INDEX, sourceCursor.getRawOffset());
 
@@ -91,15 +90,6 @@ public class ChannelSet
         this.strategy = new SliceHashStrategy(channelSet.strategy);
         this.addressValueSet = new AddressValueSet(channelSet.addressValueSet, strategy);
         this.containsNull = channelSet.containsNull;
-    }
-
-    private static boolean tupleContainsNull(BlockCursor cursor, int fieldCount)
-    {
-        boolean containsNull = false;
-        for (int i = 0; i < fieldCount; i++) {
-            containsNull |= cursor.isNull(i);
-        }
-        return containsNull;
     }
 
     public boolean containsNull()
@@ -138,76 +128,6 @@ public class ChannelSet
         public DataSize getEstimatedSize()
         {
             return new DataSize(sizeOf(this.key) + sizeOf(this.used), DataSize.Unit.BYTE);
-        }
-    }
-
-    public static class SliceHashStrategy
-            implements LongHash.Strategy
-    {
-        private final TupleInfo tupleInfo;
-        private final List<Slice> slices;
-        private Slice lookupSlice;
-        private long memorySize;
-
-        public SliceHashStrategy(TupleInfo tupleInfo)
-        {
-            this.tupleInfo = checkNotNull(tupleInfo, "tupleInfo is null");
-            this.slices = ObjectArrayList.wrap(new Slice[1024], 0);
-        }
-
-        public SliceHashStrategy(SliceHashStrategy strategy)
-        {
-            checkNotNull(strategy, "strategy is null");
-            this.tupleInfo = strategy.tupleInfo;
-            this.slices = strategy.slices;
-        }
-
-        public DataSize getEstimatedSize()
-        {
-            return new DataSize(memorySize, DataSize.Unit.BYTE);
-        }
-
-        public void setLookupSlice(Slice lookupSlice)
-        {
-            checkNotNull(lookupSlice, "lookupSlice is null");
-            this.lookupSlice = lookupSlice;
-        }
-
-        public void addSlice(Slice slice)
-        {
-            memorySize += slice.length();
-            slices.add(slice);
-        }
-
-        @Override
-        public int hashCode(long sliceAddress)
-        {
-            Slice slice = getSliceForSyntheticAddress(sliceAddress);
-            int offset = (int) sliceAddress;
-            int length = tupleInfo.size(slice, offset);
-            int hashCode = slice.hashCode(offset, length);
-            return hashCode;
-        }
-
-        @Override
-        public boolean equals(long leftSliceAddress, long rightSliceAddress)
-        {
-            Slice leftSlice = getSliceForSyntheticAddress(leftSliceAddress);
-            int leftOffset = decodeSliceOffset(leftSliceAddress);
-            int leftLength = tupleInfo.size(leftSlice, leftOffset);
-
-            Slice rightSlice = getSliceForSyntheticAddress(rightSliceAddress);
-            int rightOffset = decodeSliceOffset(rightSliceAddress);
-            int rightLength = tupleInfo.size(rightSlice, rightOffset);
-
-            return leftSlice.equals(leftOffset, leftLength, rightSlice, rightOffset, rightLength);
-
-        }
-
-        private Slice getSliceForSyntheticAddress(long sliceAddress)
-        {
-            int sliceIndex = decodeSliceIndex(sliceAddress);
-            return sliceIndex == LOOKUP_SLICE_INDEX ? lookupSlice : slices.get(sliceIndex);
         }
     }
 }
