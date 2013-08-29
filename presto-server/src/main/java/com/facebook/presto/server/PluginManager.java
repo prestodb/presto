@@ -18,10 +18,9 @@ import io.airlift.configuration.ConfigurationFactory;
 import io.airlift.http.server.HttpServerInfo;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
-import io.tesla.aether.TeslaAether;
-import io.tesla.aether.internal.DefaultTeslaAether;
-import org.eclipse.aether.artifact.Artifact;
-import org.eclipse.aether.artifact.DefaultArtifact;
+import io.airlift.resolver.ArtifactResolver;
+import io.airlift.resolver.DefaultArtifact;
+import org.sonatype.aether.artifact.Artifact;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
@@ -49,7 +48,7 @@ public class PluginManager
     private final Injector injector;
     private final ConnectorManager connectorManager;
     private final SystemTablesManager systemTablesManager;
-    private final TeslaAether resolver;
+    private final ArtifactResolver resolver;
     private final File installedPluginsDir;
     private final List<String> plugins;
     private final Map<String, String> optionalConfig;
@@ -77,7 +76,7 @@ public class PluginManager
         else {
             this.plugins = ImmutableList.copyOf(config.getPlugins());
         }
-        this.resolver = new DefaultTeslaAether(config.getMavenLocalRepository(), config.getMavenRemoteRepository());
+        this.resolver = new ArtifactResolver(config.getMavenLocalRepository(), config.getMavenRemoteRepository());
 
         Map<String, String> optionalConfig = new TreeMap<>(configurationFactory.getProperties());
         optionalConfig.put("node.id", nodeInfo.getNodeId());
@@ -165,7 +164,7 @@ public class PluginManager
     private URLClassLoader buildClassLoaderFromPom(File pomFile)
             throws Exception
     {
-        List<Artifact> artifacts = resolver.resolveArtifacts(pomFile);
+        List<Artifact> artifacts = resolver.resolvePom(pomFile);
 
         log.debug("Classpath for %s:", pomFile);
         List<URL> urls = new ArrayList<>();

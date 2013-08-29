@@ -6,7 +6,7 @@ package com.facebook.presto.server;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.testing.ConfigAssertions;
-import io.tesla.aether.TeslaAether;
+import io.airlift.resolver.ArtifactResolver;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -21,8 +21,8 @@ public class TestPluginManagerConfig
                 .setInstalledPluginsDir(new File("plugin"))
                 .setPlugins((String)null)
                 .setPluginConfigurationDir(new File("etc/"))
-                .setMavenLocalRepository(TeslaAether.DEFAULT_LOCAL_REPOSITORY.getAbsolutePath())
-                .setMavenRemoteRepository(TeslaAether.DEFAULT_REMOTE_REPOSITORY));
+                .setMavenLocalRepository(ArtifactResolver.USER_LOCAL_REPO)
+                .setMavenRemoteRepository(ArtifactResolver.MAVEN_CENTRAL_URI));
     }
 
     @Test
