@@ -53,6 +53,7 @@ public class BenchmarkSuite
                 new HandTpchQuery6(tpchBlocksProvider),
                 new SqlLikeBenchmark(tpchBlocksProvider),
                 new SqlInBenchmark(tpchBlocksProvider),
+                new SqlSemiJoinInPredicateBenchmark(tpchBlocksProvider),
                 new SqlRegexpLikeBenchmark(tpchBlocksProvider),
                 new SqlApproximatePercentileBenchmark(tpchBlocksProvider),
 

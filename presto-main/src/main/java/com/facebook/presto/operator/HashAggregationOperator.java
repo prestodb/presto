@@ -20,15 +20,13 @@ import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import it.unimi.dsi.fastutil.longs.Long2IntOpenCustomHashMap;
-import it.unimi.dsi.fastutil.longs.LongHash.Strategy;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
-import static com.facebook.presto.operator.SyntheticAddress.decodeSliceOffset;
+import static com.facebook.presto.operator.SliceHashStrategy.LOOKUP_SLICE_INDEX;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -39,8 +37,6 @@ import static com.google.common.base.Preconditions.checkState;
 public class HashAggregationOperator
         implements Operator
 {
-    private static final int LOOKUP_SLICE_INDEX = 0xFF_FF_FF_FF;
-
     private final Operator source;
     private final int groupByChannel;
     private final Step step;
@@ -260,7 +256,7 @@ public class HashAggregationOperator
 
         private boolean isMaxMemoryExceeded(SliceHashStrategy hashStrategy, List<Aggregator> aggregates)
         {
-            long memorySize = hashStrategy.getEstimatedSize();
+            long memorySize = hashStrategy.getEstimatedSize().toBytes();
             for (Aggregator aggregate : aggregates) {
                 memorySize += aggregate.getEstimatedSize();
             }
@@ -532,75 +528,6 @@ public class HashAggregationOperator
             else {
                 function.evaluateFinal(value, output);
             }
-        }
-    }
-
-    public static class SliceHashStrategy
-            implements Strategy
-    {
-        private final TupleInfo tupleInfo;
-        private final List<Slice> slices;
-        private Slice lookupSlice;
-        private long memorySize;
-
-        public SliceHashStrategy(TupleInfo tupleInfo)
-        {
-            this.tupleInfo = tupleInfo;
-            this.slices = ObjectArrayList.wrap(new Slice[1024], 0);
-        }
-
-        public long getEstimatedSize()
-        {
-            return memorySize;
-        }
-
-        public void setLookupSlice(Slice lookupSlice)
-        {
-            this.lookupSlice = lookupSlice;
-        }
-
-        public void addSlice(Slice slice)
-        {
-            memorySize += slice.length();
-            slices.add(slice);
-        }
-
-        @Override
-        public int hashCode(long sliceAddress)
-        {
-            Slice slice = getSliceForSyntheticAddress(sliceAddress);
-            int offset = (int) sliceAddress;
-            int length = tupleInfo.size(slice, offset);
-            int hashCode = slice.hashCode(offset, length);
-            return hashCode;
-        }
-
-        @Override
-        public boolean equals(long leftSliceAddress, long rightSliceAddress)
-        {
-            Slice leftSlice = getSliceForSyntheticAddress(leftSliceAddress);
-            int leftOffset = decodeSliceOffset(leftSliceAddress);
-            int leftLength = tupleInfo.size(leftSlice, leftOffset);
-
-            Slice rightSlice = getSliceForSyntheticAddress(rightSliceAddress);
-            int rightOffset = decodeSliceOffset(rightSliceAddress);
-            int rightLength = tupleInfo.size(rightSlice, rightOffset);
-
-            return leftSlice.equals(leftOffset, leftLength, rightSlice, rightOffset, rightLength);
-
-        }
-
-        private Slice getSliceForSyntheticAddress(long sliceAddress)
-        {
-            int sliceIndex = decodeSliceIndex(sliceAddress);
-            Slice slice;
-            if (sliceIndex == LOOKUP_SLICE_INDEX) {
-                slice = lookupSlice;
-            }
-            else {
-                slice = slices.get(sliceIndex);
-            }
-            return slice;
         }
     }
 }

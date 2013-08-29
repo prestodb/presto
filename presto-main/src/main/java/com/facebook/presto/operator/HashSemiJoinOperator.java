@@ -112,12 +112,15 @@ public class HashSemiJoinOperator
                 }
             }
 
+            // Construct the output blocks
             Block[] sourceBlocks = page.getBlocks();
-            return new Page(ImmutableList.<Block>builder()
-                    .add(sourceBlocks)
-                    .add(blockBuilder.build())
-                    .build()
-                    .toArray(sourceBlocks));
+            Block[] outputBlocks = new Block[sourceBlocks.length + 1]; // +1 for the single boolean output channel
+            for (int i = 0; i < sourceBlocks.length; i++) {
+                outputBlocks[i] = sourceBlocks[i];
+            }
+            outputBlocks[sourceBlocks.length] = blockBuilder.build();
+
+            return new Page(outputBlocks);
         }
 
         private boolean tupleContainsNull(BlockCursor cursor)
