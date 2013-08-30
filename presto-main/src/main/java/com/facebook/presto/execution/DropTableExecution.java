@@ -1,7 +1,5 @@
 package com.facebook.presto.execution;
 
-import com.facebook.presto.metadata.TablePartition;
-
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.importer.PeriodicImportManager;
 import com.facebook.presto.importer.PersistentPeriodicImportJob;
@@ -9,6 +7,7 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.NativeTableHandle;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.ShardManager;
+import com.facebook.presto.metadata.TablePartition;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.tree.DropTable;
@@ -17,15 +16,20 @@ import com.facebook.presto.storage.StorageManager;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
+import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import javax.inject.Inject;
+
 import java.net.URI;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedTableName;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
@@ -166,6 +170,7 @@ public class DropTableExecution
         private final PeriodicImportManager periodicImportManager;
         private final Sitevars sitevars;
         private final ExecutorService executor;
+        private final ThreadPoolExecutorMBean executorMBean;
 
         @Inject
         DropTableExecutionFactory(LocationFactory locationFactory,
@@ -182,6 +187,14 @@ public class DropTableExecution
             this.periodicImportManager = checkNotNull(periodicImportManager, "periodicImportManager is null");
             this.sitevars = checkNotNull(sitevars, "sitevars is null");
             this.executor = Executors.newCachedThreadPool(daemonThreadsNamed("drop-table-scheduler-%d"));
+            this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) executor);
+        }
+
+        @Managed
+        @Nested
+        public ThreadPoolExecutorMBean getExecutor()
+        {
+            return executorMBean;
         }
 
         public DropTableExecution createQueryExecution(QueryId queryId, String query, Session session, Statement statement)
