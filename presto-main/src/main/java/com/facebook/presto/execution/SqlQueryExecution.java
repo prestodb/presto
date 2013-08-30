@@ -26,7 +26,10 @@ import com.facebook.presto.util.SetThreadName;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
+import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.units.Duration;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
@@ -35,6 +38,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.util.Threads.threadsNamed;
@@ -361,7 +365,8 @@ public class SqlQueryExecution
         private final StorageManager storageManager;
         private final PeriodicImportManager periodicImportManager;
 
-        private final ExecutorService queryExecutor;
+        private final ExecutorService executor;
+        private final ThreadPoolExecutorMBean executorMBean;
 
         @Inject
         SqlQueryExecutionFactory(QueryManagerConfig config,
@@ -387,7 +392,15 @@ public class SqlQueryExecution
             this.storageManager = checkNotNull(storageManager, "storageManager is null");
             this.periodicImportManager = checkNotNull(periodicImportManager, "periodicImportManager is null");
 
-            this.queryExecutor = Executors.newCachedThreadPool(threadsNamed("query-scheduler-%d"));
+            this.executor = Executors.newCachedThreadPool(threadsNamed("query-scheduler-%d"));
+            this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) executor);
+        }
+
+        @Managed
+        @Nested
+        public ThreadPoolExecutorMBean getExecutor()
+        {
+            return executorMBean;
         }
 
         @Override
@@ -405,7 +418,7 @@ public class SqlQueryExecution
                     remoteTaskFactory,
                     locationFactory,
                     maxPendingSplitsPerNode,
-                    queryExecutor,
+                    executor,
                     shardManager,
                     storageManager,
                     periodicImportManager);

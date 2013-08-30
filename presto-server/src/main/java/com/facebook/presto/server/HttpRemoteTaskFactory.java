@@ -17,15 +17,19 @@ import com.facebook.presto.sql.planner.OutputReceiver;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.Multimap;
+import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import javax.inject.Inject;
 import java.net.URI;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
 
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -40,6 +44,7 @@ public class HttpRemoteTaskFactory
     private final int maxConsecutiveErrorCount;
     private final Duration minErrorDuration;
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("remote-task-callback-%d"));
+    private final ThreadPoolExecutorMBean executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) executor);
 
     @Inject
     public HttpRemoteTaskFactory(QueryManagerConfig config,
@@ -54,6 +59,13 @@ public class HttpRemoteTaskFactory
         this.taskUpdateRequestCodec = taskUpdateRequestCodec;
         this.maxConsecutiveErrorCount = config.getRemoteTaskMaxConsecutiveErrorCount();
         this.minErrorDuration = config.getRemoteTaskMinErrorDuration();
+    }
+
+    @Managed
+    @Nested
+    public ThreadPoolExecutorMBean getExecutor()
+    {
+        return executorMBean;
     }
 
     @Override

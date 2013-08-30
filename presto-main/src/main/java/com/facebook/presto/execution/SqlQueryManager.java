@@ -15,15 +15,18 @@ import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
+import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
+
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +36,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.util.Threads.threadsNamed;
@@ -47,6 +51,8 @@ public class SqlQueryManager
     private static final Logger log = Logger.get(SqlQueryManager.class);
 
     private final ExecutorService queryExecutor;
+    private final ThreadPoolExecutorMBean queryExecutorMBean;
+
     private final Duration maxQueryAge;
 
     private final ConcurrentMap<QueryId, QueryExecution> queries = new ConcurrentHashMap<>();
@@ -54,6 +60,8 @@ public class SqlQueryManager
     private final Duration clientTimeout;
 
     private final ScheduledExecutorService queryManagementExecutor;
+    private final ThreadPoolExecutorMBean queryManagementExecutorMBean;
+
     private final QueryMonitor queryMonitor;
     private final LocationFactory locationFactory;
     private final QueryIdGenerator queryIdGenerator;
@@ -72,7 +80,10 @@ public class SqlQueryManager
         checkNotNull(config, "config is null");
 
         this.executionFactories = checkNotNull(executionFactories, "executionFactories is null");
+
         this.queryExecutor = Executors.newCachedThreadPool(threadsNamed("query-scheduler-%d"));
+        this.queryExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) queryExecutor);
+
         this.queryMonitor = checkNotNull(queryMonitor, "queryMonitor is null");
         this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
         this.queryIdGenerator = checkNotNull(queryIdGenerator, "queryIdGenerator is null");
@@ -81,7 +92,7 @@ public class SqlQueryManager
         this.clientTimeout = config.getClientTimeout();
 
         queryManagementExecutor = Executors.newScheduledThreadPool(config.getQueryManagerExecutorPoolSize(), threadsNamed("query-management-%d"));
-
+        queryManagementExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) queryManagementExecutor);
         queryManagementExecutor.scheduleAtFixedRate(new Runnable()
         {
             @Override
@@ -231,6 +242,20 @@ public class SqlQueryManager
     public SqlQueryManagerStats getStats()
     {
         return stats;
+    }
+
+    @Managed(description = "Query scheduler executor")
+    @Nested
+    public ThreadPoolExecutorMBean getExecutor()
+    {
+        return queryExecutorMBean;
+    }
+
+    @Managed(description = "Query garbage collector executor")
+    @Nested
+    public ThreadPoolExecutorMBean getManagementExecutor()
+    {
+        return queryManagementExecutorMBean;
     }
 
     public void removeQuery(QueryId queryId)

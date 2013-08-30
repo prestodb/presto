@@ -10,7 +10,10 @@ import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.tree.DropAlias;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.base.Optional;
+import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.units.Duration;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import javax.inject.Inject;
 
@@ -18,6 +21,7 @@ import java.net.URI;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedTableName;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
@@ -137,6 +141,7 @@ public class DropAliasExecution
         private final AliasDao aliasDao;
         private final Sitevars sitevars;
         private final ExecutorService executor;
+        private final ThreadPoolExecutorMBean executorMBean;
 
         @Inject
         DropAliasExecutionFactory(LocationFactory locationFactory,
@@ -149,6 +154,14 @@ public class DropAliasExecution
             this.aliasDao = checkNotNull(aliasDao, "aliasDao is null");
             this.sitevars = checkNotNull(sitevars, "sitevars is null");
             this.executor = Executors.newCachedThreadPool(daemonThreadsNamed("drop-alias-scheduler-%d"));
+            this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) executor);
+        }
+
+        @Managed
+        @Nested
+        public ThreadPoolExecutorMBean getExecutor()
+        {
+            return executorMBean;
         }
 
         public DropAliasExecution createQueryExecution(QueryId queryId, String query, Session session, Statement statement)

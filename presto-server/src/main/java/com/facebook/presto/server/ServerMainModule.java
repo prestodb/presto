@@ -100,7 +100,6 @@ import com.facebook.presto.storage.ForStorage;
 import com.facebook.presto.storage.StorageManager;
 import com.facebook.presto.util.Threads;
 import com.google.common.base.Supplier;
-import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
@@ -114,7 +113,6 @@ import io.airlift.http.client.HttpClientBinder;
 import io.airlift.units.Duration;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.IDBI;
-import org.weakref.jmx.guice.ExportBinder;
 
 import javax.inject.Singleton;
 
@@ -136,6 +134,7 @@ import static io.airlift.http.server.HttpServerBinder.httpServerBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class ServerMainModule
         extends AbstractConfigurationAwareModule
@@ -148,7 +147,7 @@ public class ServerMainModule
         binder.bind(QueryResource.class).in(Scopes.SINGLETON);
         binder.bind(StageResource.class).in(Scopes.SINGLETON);
         binder.bind(QueryManager.class).to(SqlQueryManager.class).in(Scopes.SINGLETON);
-        ExportBinder.newExporter(binder).export(QueryManager.class).withGeneratedName();
+        newExporter(binder).export(QueryManager.class).withGeneratedName();
 
         bindConfig(binder).to(QueryManagerConfig.class);
 
@@ -156,7 +155,7 @@ public class ServerMainModule
 
         binder.bind(TaskResource.class).in(Scopes.SINGLETON);
         binder.bind(TaskManager.class).to(SqlTaskManager.class).in(Scopes.SINGLETON);
-        ExportBinder.newExporter(binder).export(TaskManager.class).withGeneratedName();
+        newExporter(binder).export(TaskManager.class).withGeneratedName();
         binder.bind(LocalExecutionPlanner.class).in(Scopes.SINGLETON);
         binder.bind(ExpressionCompiler.class).in(Scopes.SINGLETON);
 
@@ -172,6 +171,7 @@ public class ServerMainModule
 
         bindConfig(binder).to(DatabaseLocalStorageManagerConfig.class);
         binder.bind(LocalStorageManager.class).to(DatabaseLocalStorageManager.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(LocalStorageManager.class).withGeneratedName();
 
         // data stream provider
         binder.bind(DataStreamManager.class).in(Scopes.SINGLETON);
@@ -227,7 +227,7 @@ public class ServerMainModule
         binder.bind(NodeManager.class).to(DiscoveryNodeManager.class).in(Scopes.SINGLETON);
         bindConfig(binder).to(NodeSchedulerConfig.class);
         binder.bind(NodeScheduler.class).in(Scopes.SINGLETON);
-        ExportBinder.newExporter(binder).export(NodeScheduler.class).withGeneratedName();
+        newExporter(binder).export(NodeScheduler.class).withGeneratedName();
         binder.bind(ShardManager.class).to(DatabaseShardManager.class).in(Scopes.SINGLETON);
 
         bindConfig(binder).to(ShardCleanerConfig.class);
@@ -288,30 +288,39 @@ public class ServerMainModule
         binder.bind(PeriodicImportController.class).in(Scopes.SINGLETON);
         binder.bind(JobStateFactory.class).in(Scopes.SINGLETON);
         binder.bind(PeriodicImportRunnable.PeriodicImportRunnableFactory.class).in(Scopes.SINGLETON);
-        ExportBinder.newExporter(binder).export(PeriodicImportController.class).as("com.facebook.presto:name=periodic-import");
+        newExporter(binder).export(PeriodicImportController.class).as("com.facebook.presto:name=periodic-import");
         HttpClientBinder.httpClientBinder(binder).bindAsyncHttpClient("periodic-importer", ForPeriodicImport.class).withTracing();
 
         bindConfig(binder).to(SitevarsConfig.class);
         binder.bind(Sitevars.class).in(Scopes.SINGLETON);
-        ExportBinder.newExporter(binder).export(Sitevars.class).as("com.facebook.presto:name=sitevars");
+        newExporter(binder).export(Sitevars.class).as("com.facebook.presto:name=sitevars");
 
         binder.bind(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(SqlQueryExecutionFactory.class).withGeneratedName();
 
         MapBinder<Class<? extends Statement>, QueryExecutionFactory<?>> executionBinder = MapBinder.newMapBinder(binder,
                 new TypeLiteral<Class<? extends Statement>>() {},
                 new TypeLiteral<QueryExecutionFactory<?>>() {});
-        executionBinder.addBinding(DropTable.class).to(DropTableExecutionFactory.class).in(Scopes.SINGLETON);
-        executionBinder.addBinding(CreateAlias.class).to(CreateAliasExecutionFactory.class).in(Scopes.SINGLETON);
-        executionBinder.addBinding(DropAlias.class).to(DropAliasExecutionFactory.class).in(Scopes.SINGLETON);
 
-        binder.bind(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
-        executionBinder.addBinding(Query.class).to(Key.get(SqlQueryExecutionFactory.class)).in(Scopes.SINGLETON);
+        binder.bind(DropTableExecutionFactory.class).in(Scopes.SINGLETON);
+        executionBinder.addBinding(DropTable.class).to(DropTableExecutionFactory.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(DropTableExecutionFactory.class).withGeneratedName();
+
+        binder.bind(CreateAliasExecutionFactory.class).in(Scopes.SINGLETON);
+        executionBinder.addBinding(CreateAlias.class).to(CreateAliasExecutionFactory.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(CreateAliasExecutionFactory.class).withGeneratedName();
+
+        binder.bind(DropAliasExecutionFactory.class).in(Scopes.SINGLETON);
+        executionBinder.addBinding(DropAlias.class).to(DropAliasExecutionFactory.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(DropAliasExecutionFactory.class).withGeneratedName();
+
+        executionBinder.addBinding(Query.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         executionBinder.addBinding(Explain.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
-        executionBinder.addBinding(ShowColumns.class).to(Key.get(SqlQueryExecutionFactory.class)).in(Scopes.SINGLETON);
-        executionBinder.addBinding(ShowPartitions.class).to(Key.get(SqlQueryExecutionFactory.class)).in(Scopes.SINGLETON);
-        executionBinder.addBinding(ShowFunctions.class).to(Key.get(SqlQueryExecutionFactory.class)).in(Scopes.SINGLETON);
-        executionBinder.addBinding(ShowTables.class).to(Key.get(SqlQueryExecutionFactory.class)).in(Scopes.SINGLETON);
-        executionBinder.addBinding(ShowSchemas.class).to(Key.get(SqlQueryExecutionFactory.class)).in(Scopes.SINGLETON);
+        executionBinder.addBinding(ShowColumns.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
+        executionBinder.addBinding(ShowPartitions.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
+        executionBinder.addBinding(ShowFunctions.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
+        executionBinder.addBinding(ShowTables.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
+        executionBinder.addBinding(ShowSchemas.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         executionBinder.addBinding(CreateMaterializedView.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         executionBinder.addBinding(RefreshMaterializedView.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
 

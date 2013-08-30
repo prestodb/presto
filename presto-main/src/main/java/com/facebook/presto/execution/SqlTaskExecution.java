@@ -92,7 +92,7 @@ public class SqlTaskExecution
             PlanFragment fragment,
             LocalExecutionPlanner planner,
             DataSize maxBufferSize,
-            ExecutorService taskMasterExecutor,
+            ExecutorService notificationExecutor,
             ListeningExecutorService shardExecutor,
             DataSize maxTaskMemoryUsage,
             DataSize operatorPreAllocatedMemory,
@@ -109,11 +109,11 @@ public class SqlTaskExecution
                 maxTaskMemoryUsage,
                 operatorPreAllocatedMemory,
                 queryMonitor,
-                taskMasterExecutor,
+                notificationExecutor,
                 globalStats);
 
         try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)){
-            task.start(taskMasterExecutor);
+            task.start(notificationExecutor);
             return task;
         }
     }

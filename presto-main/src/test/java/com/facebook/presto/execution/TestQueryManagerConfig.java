@@ -26,7 +26,7 @@ public class TestQueryManagerConfig
                 .setMaxPendingSplitsPerNode(100)
                 .setExchangeMaxBufferSize(new DataSize(32, Unit.MEGABYTE))
                 .setExchangeConcurrentRequestMultiplier(3)
-                .setQueryManagerExecutorPoolSize(100)
+                .setQueryManagerExecutorPoolSize(5)
                 .setSinkMaxBufferSize(new DataSize(32, Unit.MEGABYTE))
                 .setRemoteTaskMaxConsecutiveErrorCount(10)
                 .setRemoteTaskMinErrorDuration(new Duration(2, TimeUnit.MINUTES)));

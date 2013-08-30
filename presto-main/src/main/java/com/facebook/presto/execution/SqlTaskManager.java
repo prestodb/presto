@@ -20,12 +20,14 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Uninterruptibles;
+import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
@@ -40,6 +42,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.util.Threads.threadsNamed;
@@ -53,8 +56,14 @@ public class SqlTaskManager
     private final DataSize maxBufferSize;
 
     private final ExecutorService taskMasterExecutor;
+    private final ThreadPoolExecutorMBean taskMasterExecutorMBean;
+
     private final ListeningExecutorService shardExecutor;
+    private final ThreadPoolExecutorMBean shardExecutorMBean;
+
     private final ScheduledExecutorService taskManagementExecutor;
+    private final ThreadPoolExecutorMBean taskManagementExecutorMBean;
+
     private final LocalExecutionPlanner planner;
     private final LocationFactory locationFactory;
     private final QueryMonitor queryMonitor;
@@ -87,10 +96,14 @@ public class SqlTaskManager
 
         // we have an unlimited number of task master threads
         taskMasterExecutor = Executors.newCachedThreadPool(threadsNamed("task-processor-%d"));
+        taskMasterExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) taskMasterExecutor);
 
-        shardExecutor = MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(config.getMaxShardProcessorThreads(), threadsNamed("shard-processor-%d")));
+        ExecutorService shardExecutor = Executors.newFixedThreadPool(config.getMaxShardProcessorThreads(), threadsNamed("shard-processor-%d"));
+        this.shardExecutor = MoreExecutors.listeningDecorator(shardExecutor);
+        this.shardExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) shardExecutor);
 
         taskManagementExecutor = Executors.newScheduledThreadPool(5, threadsNamed("task-management-%d"));
+        taskManagementExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) taskManagementExecutor);
         taskManagementExecutor.scheduleAtFixedRate(new Runnable()
         {
             @Override
@@ -125,6 +138,27 @@ public class SqlTaskManager
     public SqlTaskManagerStats getStats()
     {
         return stats;
+    }
+
+    @Managed(description = "Gaurenteed thread for each task executor")
+    @Nested
+    public ThreadPoolExecutorMBean getTaskMasterExecutor()
+    {
+        return taskMasterExecutorMBean;
+    }
+
+    @Managed(description = "Shared thread task executor")
+    @Nested
+    public ThreadPoolExecutorMBean getShardExecutor()
+    {
+        return shardExecutorMBean;
+    }
+
+    @Managed(description = "Task garbage collector executor")
+    @Nested
+    public ThreadPoolExecutorMBean getTaskManagementExecutor()
+    {
+        return taskManagementExecutorMBean;
     }
 
     @Override
