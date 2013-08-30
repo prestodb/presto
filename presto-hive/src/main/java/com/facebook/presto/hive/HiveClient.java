@@ -678,13 +678,14 @@ public class HiveClient
 
                             // get the filesystem for the target path -- it may be a different hdfs instance
                             FileSystem targetFilesystem = split.getPath().getFileSystem(configuration);
-                            markerQueue.addToQueue(createHiveSplits(partitionName,
+                            markerQueue.addToQueue(createHiveSplits(
+                                    partitionName,
                                     targetFilesystem.getFileStatus(split.getPath()),
+                                    targetFilesystem.getFileBlockLocations(split.getPath(), split.getStart(), split.getLength()),
                                     split.getStart(),
                                     split.getLength(),
                                     schema,
                                     partitionKeys,
-                                    targetFilesystem,
                                     false));
                         }
                         markerQueue.finish();
@@ -694,14 +695,14 @@ public class HiveClient
                     ListenableFuture<Void> partitionFuture = new AsyncRecursiveWalker(fs, suspendingExecutor).beginWalk(partitionPath, new FileStatusCallback()
                     {
                         @Override
-                        public void process(FileStatus file)
+                        public void process(FileStatus file, BlockLocation[] blockLocations)
                         {
                             try {
                                 boolean splittable = isSplittable(inputFormat,
                                         file.getPath().getFileSystem(configuration),
                                         file.getPath());
 
-                                markerQueue.addToQueue(createHiveSplits(partitionName, file, 0, file.getLen(), schema, partitionKeys, fs, splittable));
+                                markerQueue.addToQueue(createHiveSplits(partitionName, file, blockLocations, 0, file.getLen(), schema, partitionKeys, splittable));
                             }
                             catch (IOException e) {
                                 hiveSplitQueue.fail(e);
@@ -754,19 +755,17 @@ public class HiveClient
         private List<HiveSplit> createHiveSplits(
                 String partitionName,
                 FileStatus file,
+                BlockLocation[] blockLocations,
                 long start,
                 long length,
                 Properties schema,
                 List<HivePartitionKey> partitionKeys,
-                FileSystem fs,
                 boolean splittable)
                 throws IOException
         {
-            BlockLocation[] fileBlockLocations = fs.getFileBlockLocations(file, start, length);
-
             ImmutableList.Builder<HiveSplit> builder = ImmutableList.builder();
             if (splittable) {
-                for (BlockLocation blockLocation : fileBlockLocations) {
+                for (BlockLocation blockLocation : blockLocations) {
                     // get the addresses for the block
                     List<HostAddress> addresses = toHostAddress(blockLocation.getHosts());
 
@@ -808,7 +807,7 @@ public class HiveClient
                         length,
                         schema,
                         partitionKeys,
-                        toHostAddress(fileBlockLocations[0].getHosts())));
+                        toHostAddress(blockLocations[0].getHosts())));
             }
             return builder.build();
         }

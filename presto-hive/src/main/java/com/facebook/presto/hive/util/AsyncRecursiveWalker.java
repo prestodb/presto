@@ -4,13 +4,15 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.RemoteIterator;
 
+import java.io.FileNotFoundException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 
 public class AsyncRecursiveWalker
 {
@@ -39,19 +41,21 @@ public class AsyncRecursiveWalker
             public void run()
             {
                 try {
-                    FileStatus[] statuses = fileSystem.listStatus(path);
-                    checkState(statuses != null, "Partition location %s does not exist", path);
-
-                    for (FileStatus status : statuses) {
-                        if (status.isDir()) {
+                    RemoteIterator<LocatedFileStatus> iter = fileSystem.listLocatedStatus(path);
+                    while (iter.hasNext()) {
+                        LocatedFileStatus status = iter.next();
+                        if (isDirectory(status)) {
                             recursiveWalk(status.getPath(), callback, taskCount, settableFuture);
                         }
                         else {
-                            callback.process(status);
+                            callback.process(status, status.getBlockLocations());
                         }
                     }
                 }
                 catch (Exception e) {
+                    if (e instanceof FileNotFoundException) {
+                        e = new FileNotFoundException("Partition location does not exist: " + path);
+                    }
                     settableFuture.setException(e);
                 }
                 finally {
@@ -61,5 +65,12 @@ public class AsyncRecursiveWalker
                 }
             }
         });
+    }
+
+    @SuppressWarnings("deprecation")
+    private static boolean isDirectory(FileStatus status)
+    {
+        // older versions of Hadoop only have this method
+        return status.isDir();
     }
 }
