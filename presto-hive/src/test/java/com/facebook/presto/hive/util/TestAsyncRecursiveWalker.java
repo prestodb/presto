@@ -7,11 +7,14 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
+import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.util.Progressable;
 import org.testng.Assert;
@@ -20,6 +23,7 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -110,6 +114,17 @@ public class TestAsyncRecursiveWalker
         return new StubFileSystem()
         {
             @Override
+            public RemoteIterator<LocatedFileStatus> listLocatedStatus(Path f)
+                    throws IOException
+            {
+                ImmutableList.Builder<LocatedFileStatus> list = ImmutableList.builder();
+                for (FileStatus status : paths.get(f.toString())) {
+                    list.add(new LocatedFileStatus(status, new BlockLocation[0]));
+                }
+                return remoteIterator(list.build().iterator());
+            }
+
+            @Override
             public FileStatus[] listStatus(Path f)
                     throws IOException
             {
@@ -129,10 +144,10 @@ public class TestAsyncRecursiveWalker
     {
         private final AtomicBoolean finished = new AtomicBoolean();
         private final List<String> processedFiles = new ArrayList<>();
-        private final List<Exception> exceptions =new ArrayList<>();
+        private final List<Exception> exceptions = new ArrayList<>();
 
         @Override
-        public void process(FileStatus fileStatus)
+        public void process(FileStatus fileStatus, BlockLocation[] blockLocations)
         {
             processedFiles.add(fileStatus.getPath().toString());
         }
@@ -226,5 +241,23 @@ public class TestAsyncRecursiveWalker
         {
             throw new UnsupportedOperationException();
         }
+    }
+
+    private static <E> RemoteIterator<E> remoteIterator(final Iterator<E> iterator)
+    {
+        return new RemoteIterator<E>()
+        {
+            @Override
+            public boolean hasNext()
+            {
+                return iterator.hasNext();
+            }
+
+            @Override
+            public E next()
+            {
+                return iterator.next();
+            }
+        };
     }
 }
