@@ -4,8 +4,6 @@ import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.noperator.NewAlignmentOperator;
 import com.facebook.presto.noperator.NewOperator;
 import com.facebook.presto.noperator.OperatorContext;
-import com.facebook.presto.operator.AlignmentOperator;
-import com.facebook.presto.operator.Operator;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Split;
@@ -35,12 +33,6 @@ public class TpchDataStreamProvider
     public boolean canHandle(Split split)
     {
         return split instanceof TpchSplit;
-    }
-
-    @Override
-    public Operator createDataStream(Split split, List<ColumnHandle> columns)
-    {
-        return new AlignmentOperator(getChannels(split, columns));
     }
 
     @Override

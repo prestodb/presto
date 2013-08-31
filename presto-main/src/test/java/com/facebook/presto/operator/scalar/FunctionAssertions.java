@@ -18,7 +18,6 @@ import com.facebook.presto.noperator.OperatorContext;
 import com.facebook.presto.noperator.StaticOperator;
 import com.facebook.presto.noperator.TaskContext;
 import com.facebook.presto.operator.FilterFunction;
-import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.spi.ColumnHandle;
@@ -447,12 +446,6 @@ public final class FunctionAssertions
     private static class TestDataStreamProvider
             implements DataStreamProvider
     {
-        @Override
-        public Operator createDataStream(Split split, List<ColumnHandle> columns)
-        {
-            throw new UnsupportedOperationException();
-        }
-
         @Override
         public NewOperator createNewDataStream(OperatorContext operatorContext, Split split, List<ColumnHandle> columns)
         {
