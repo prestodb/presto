@@ -2,7 +2,6 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.metadata.ColumnFileHandle.Builder;
-import com.facebook.presto.operator.Operator;
 import com.facebook.presto.spi.ColumnHandle;
 import com.google.common.base.Throwables;
 import com.google.common.io.Files;
@@ -39,12 +38,6 @@ public class MockLocalStorageManager
         this.storageFolder = storageFolder;
         Files.createParentDirs(this.storageFolder);
         this.storageFolder.deleteOnExit();
-    }
-
-    @Override
-    public void importShard(long shardId, List<? extends ColumnHandle> columnHandles, Operator source)
-            throws IOException
-    {
     }
 
     @Override
