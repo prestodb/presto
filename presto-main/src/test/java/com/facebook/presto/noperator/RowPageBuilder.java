@@ -37,7 +37,8 @@ public class RowPageBuilder
         checkArgument(!this.builders.isEmpty(), "At least one tuple info is required");
     }
 
-    public boolean isEmpty() {
+    public boolean isEmpty()
+    {
         return rowCount == 0;
     }
 
