@@ -1,5 +1,6 @@
 package com.facebook.presto.execution;
 
+import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.connector.dual.DualMetadata;
 import com.facebook.presto.connector.dual.DualSplit;
 import com.facebook.presto.execution.SharedBuffer.QueueState;
@@ -10,6 +11,7 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Node;
 import com.facebook.presto.metadata.NodeVersion;
 import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.noperator.TaskContext;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Split;
@@ -31,14 +33,20 @@ import com.facebook.presto.util.Threads;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
+import org.joda.time.DateTime;
 import org.testng.annotations.Test;
+
+import javax.annotation.concurrent.GuardedBy;
 
 import java.net.URI;
 import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Executor;
@@ -47,8 +55,11 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicLong;
 
+import static com.facebook.presto.util.Failures.toFailures;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
@@ -181,7 +192,6 @@ public class TestSqlStageExecution
     private static class MockRemoteTaskFactory
             implements RemoteTaskFactory
     {
-
         private final Executor executor;
 
         private MockRemoteTaskFactory(Executor executor)
@@ -205,21 +215,56 @@ public class TestSqlStageExecution
         private static class MockRemoteTask
                 implements RemoteTask
         {
-            private final TaskOutput taskOutput;
+            private final AtomicLong nextTaskInfoVersion = new AtomicLong(TaskInfo.STARTING_VERSION);
+
+            private final URI location;
+            private final TaskStateMachine taskStateMachine;
+            private final TaskContext taskContext;
+            private final SharedBuffer sharedBuffer;
+
             private final PlanFragment fragment;
+
+            @GuardedBy("this")
+            private final Set<PlanNodeId> noMoreSplits = new HashSet<>();
+
+            @GuardedBy("this")
             private int splits;
 
-            public MockRemoteTask(TaskId taskId, PlanFragment fragment, Executor executor)
+            public MockRemoteTask(TaskId taskId,
+                    PlanFragment fragment,
+                    Executor executor)
             {
-                this.fragment = fragment;
-                URI location = URI.create("fake://task/" + taskId);
-                taskOutput = new TaskOutput(taskId, location, new DataSize(1, Unit.BYTE), executor, new SqlTaskManagerStats());
+                this.taskStateMachine = new TaskStateMachine(checkNotNull(taskId, "taskId is null"), checkNotNull(executor, "executor is null"));
+
+                Session session = new Session("user", "source", "catalog", "schema", "address", "agent");
+                this.taskContext = new TaskContext(taskStateMachine, executor, session, new DataSize(256, MEGABYTE), new DataSize(1, MEGABYTE));
+
+                this.location = URI.create("fake://task/" + taskId);
+
+                this.sharedBuffer = new SharedBuffer(checkNotNull(new DataSize(1, Unit.BYTE), "maxBufferSize is null"));
+                this.fragment = checkNotNull(fragment, "fragment is null");
             }
 
             @Override
             public TaskInfo getTaskInfo()
             {
-                return taskOutput.getTaskInfo(false);
+                TaskState state = taskStateMachine.getState();
+                List<FailureInfo> failures = ImmutableList.of();
+                if (state == TaskState.FAILED) {
+                    failures = toFailures(taskStateMachine.getFailureCauses());
+                }
+
+                return new TaskInfo(
+                        taskStateMachine.getTaskId(),
+                        nextTaskInfoVersion.getAndIncrement(),
+                        state,
+                        location,
+                        DateTime.now(),
+                        sharedBuffer.getInfo(),
+                        ImmutableSet.<PlanNodeId>of(),
+                        taskContext.getTaskStats(),
+                        failures,
+                        taskContext.getOutputItems());
             }
 
             @Override
@@ -237,9 +282,9 @@ public class TestSqlStageExecution
             @Override
             public void noMoreSplits()
             {
-                taskOutput.noMoreSplits(fragment.getPartitionedSource());
-                if (taskOutput.getNoMoreSplits().containsAll(fragment.getSources())) {
-                    taskOutput.finish();
+                noMoreSplits.add(fragment.getPartitionedSource());
+                if (noMoreSplits.containsAll(fragment.getSources())) {
+                    taskStateMachine.finished();
                 }
             }
 
@@ -248,10 +293,10 @@ public class TestSqlStageExecution
             {
                 if (noMore) {
                     for (PlanNodeId planNodeId : exchangeLocations.keys()) {
-                        taskOutput.noMoreSplits(planNodeId);
+                        noMoreSplits.add(planNodeId);
                     }
-                    if (taskOutput.getNoMoreSplits().containsAll(fragment.getSources())) {
-                        taskOutput.finish();
+                    if (noMoreSplits.containsAll(fragment.getSources())) {
+                        taskStateMachine.finished();
                     }
                 }
             }
@@ -260,22 +305,22 @@ public class TestSqlStageExecution
             public void addOutputBuffers(Set<String> outputBuffers, boolean noMore)
             {
                 for (String bufferId : outputBuffers) {
-                    taskOutput.addResultQueue(bufferId);
+                    sharedBuffer.addQueue(bufferId);
                 }
                 if (noMore) {
-                    taskOutput.noMoreResultQueues();
+                    sharedBuffer.noMoreQueues();
                 }
             }
 
             @Override
             public void addStateChangeListener(final StateChangeListener<TaskInfo> stateChangeListener)
             {
-                taskOutput.addStateChangeListener(new StateChangeListener<TaskState>()
+                taskStateMachine.addStateChangeListener(new StateChangeListener<TaskState>()
                 {
                     @Override
                     public void stateChanged(TaskState newValue)
                     {
-                        stateChangeListener.stateChanged(taskOutput.getTaskInfo(false));
+                        stateChangeListener.stateChanged(getTaskInfo());
                     }
                 });
             }
@@ -283,7 +328,7 @@ public class TestSqlStageExecution
             @Override
             public void cancel()
             {
-                taskOutput.cancel();
+                taskStateMachine.cancel();
             }
 
             @Override
@@ -291,18 +336,18 @@ public class TestSqlStageExecution
                     throws InterruptedException
             {
                 while (true) {
-                    TaskState state = taskOutput.getState();
-                    if (maxWait.toMillis() <= 1 || state.isDone()) {
+                    TaskState currentState = taskStateMachine.getState();
+                    if (maxWait.toMillis() <= 1 || currentState.isDone()) {
                         return maxWait;
                     }
-                    maxWait = taskOutput.waitForStateChange(state, maxWait);
+                    maxWait = taskStateMachine.waitForStateChange(currentState, maxWait);
                 }
             }
 
             @Override
             public int getQueuedSplits()
             {
-                if (taskOutput.getState().isDone()) {
+                if (taskStateMachine.getState().isDone()) {
                     return 0;
                 }
                 return splits;
