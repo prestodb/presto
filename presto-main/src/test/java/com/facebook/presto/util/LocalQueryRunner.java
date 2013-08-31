@@ -17,11 +17,17 @@ import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.MockLocalStorageManager;
-import com.facebook.presto.operator.JoinBuildSourceSupplierFactory;
+import com.facebook.presto.noperator.Driver;
+import com.facebook.presto.noperator.DriverFactory;
+import com.facebook.presto.noperator.DriverOperator.DriverOperatorIterator;
+import com.facebook.presto.noperator.InMemoryExchange;
+import com.facebook.presto.noperator.MaterializingOperator;
+import com.facebook.presto.noperator.NewOperator;
+import com.facebook.presto.noperator.NewOperatorFactory;
+import com.facebook.presto.noperator.OutputFactory;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
-import com.facebook.presto.operator.SourceHashSupplierFactory;
-import com.facebook.presto.operator.SourceOperator;
+import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.Split;
@@ -36,9 +42,9 @@ import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DistributedLogicalPlanner;
-import com.facebook.presto.sql.planner.LocalExecutionPlanner;
-import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import com.facebook.presto.sql.planner.LogicalPlanner;
+import com.facebook.presto.sql.planner.NewLocalExecutionPlanner;
+import com.facebook.presto.sql.planner.NewLocalExecutionPlanner.NewLocalExecutionPlan;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.PlanOptimizersFactory;
@@ -53,17 +59,18 @@ import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.facebook.presto.tpch.TpchDataStreamProvider;
 import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tpch.TpchSplitManager;
+import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import io.airlift.node.NodeConfig;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.DataSize;
 import org.intellij.lang.annotations.Language;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -72,7 +79,6 @@ import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
 import static com.facebook.presto.sql.parser.TreeAssertions.assertFormattedSql;
 import static com.facebook.presto.tpch.TpchMetadata.TPCH_CATALOG_NAME;
 import static com.facebook.presto.tpch.TpchMetadata.TPCH_SCHEMA_NAME;
-import static com.facebook.presto.util.MaterializedResult.materialize;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -108,12 +114,120 @@ public class LocalQueryRunner
         return this;
     }
 
+    private static class MaterializedOutputFactory
+            implements OutputFactory
+    {
+        private MaterializingOperator materializingOperator;
+
+        private MaterializingOperator getMaterializingOperator()
+        {
+            checkState(materializingOperator != null, "Output not created");
+            return materializingOperator;
+        }
+
+        @Override
+        public NewOperatorFactory createOutputOperator(final List<TupleInfo> sourceTupleInfo)
+        {
+            checkNotNull(sourceTupleInfo, "sourceTupleInfo is null");
+
+            return new NewOperatorFactory()
+            {
+                @Override
+                public List<TupleInfo> getTupleInfos()
+                {
+                    return ImmutableList.of();
+                }
+
+                @Override
+                public NewOperator createOperator(OperatorStats operatorStats, TaskMemoryManager taskMemoryManager)
+                {
+                    checkState(materializingOperator == null, "Output already created");
+                    materializingOperator = new MaterializingOperator(sourceTupleInfo);
+                    return materializingOperator;
+                }
+
+                @Override
+                public void close()
+                {
+                }
+            };
+        }
+    }
+
     public MaterializedResult execute(@Language("SQL") String sql)
     {
-        return materialize(plan(sql));
+        MaterializedOutputFactory outputFactory = new MaterializedOutputFactory();
+        List<Driver> drivers = createDrivers(sql, outputFactory);
+
+        boolean done = false;
+        while (!done) {
+            boolean processed = false;
+            for (Driver driver : drivers) {
+                if (!driver.isFinished()) {
+                    driver.process();
+                    processed = true;
+                }
+            }
+            done = !processed;
+        }
+
+        return outputFactory.getMaterializingOperator().getMaterializedResult();
+    }
+
+    private static class InMemoryExchangeOutputFactory
+            implements OutputFactory
+    {
+        private InMemoryExchange inMemoryExchange;
+
+        private InMemoryExchange getInMemoryExchange()
+        {
+            checkState(inMemoryExchange != null, "Output not created");
+            return inMemoryExchange;
+        }
+
+        @Override
+        public NewOperatorFactory createOutputOperator(final List<TupleInfo> sourceTupleInfo)
+        {
+            checkNotNull(sourceTupleInfo, "sourceTupleInfo is null");
+
+            checkState(inMemoryExchange == null, "Output already created");
+            inMemoryExchange = new InMemoryExchange(sourceTupleInfo);
+            NewOperatorFactory operatorFactory = inMemoryExchange.createSinkFactory();
+            inMemoryExchange.noMoreSinkFactories();
+
+            return operatorFactory;
+        }
     }
 
     public Operator plan(@Language("SQL") String sql)
+    {
+        InMemoryExchangeOutputFactory outputFactory = new InMemoryExchangeOutputFactory();
+        final List<Driver> drivers = createDrivers(sql, outputFactory);
+        final InMemoryExchange inMemoryExchange = outputFactory.getInMemoryExchange();
+
+        return new Operator()
+        {
+            @Override
+            public int getChannelCount()
+            {
+                return getTupleInfos().size();
+            }
+
+            @Override
+            public List<TupleInfo> getTupleInfos()
+            {
+                return inMemoryExchange.getTupleInfos();
+            }
+
+            @Override
+            public PageIterator iterator(OperatorStats operatorStats)
+            {
+                return new DriverOperatorIterator(drivers, inMemoryExchange, operatorStats);
+            }
+        };
+    }
+
+    private List<Driver> createDrivers(String sql, OutputFactory outputFactory)
     {
         Statement statement = SqlParser.createStatement(sql);
 
@@ -137,8 +251,7 @@ public class LocalQueryRunner
         SubPlan subplan = new DistributedLogicalPlanner(metadata, idAllocator).createSubplans(plan, true);
         assertTrue(subplan.getChildren().isEmpty(), "Expected subplan to have no children");
 
-        DataSize maxOperatorMemoryUsage = new DataSize(256, MEGABYTE);
-        LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(
+        NewLocalExecutionPlanner executionPlanner = new NewLocalExecutionPlanner(
                 new NodeInfo(new NodeConfig()
                         .setEnvironment("test")
                         .setNodeId("test-node")),
@@ -148,20 +261,28 @@ public class LocalQueryRunner
                 null,
                 compiler);
 
-        TaskMemoryManager taskMemoryManager = new TaskMemoryManager(new DataSize(256, MEGABYTE));
-        LocalExecutionPlan localExecutionPlan = executionPlanner.plan(session,
+        // plan query
+        NewLocalExecutionPlan localExecutionPlan = executionPlanner.plan(session,
                 subplan.getFragment().getRoot(),
                 plan.getTypes(),
-                new JoinBuildSourceSupplierFactory(taskMemoryManager),
-                taskMemoryManager,
-                new OperatorStats());
+                outputFactory);
 
-        // add the splits to the sources
-        Map<PlanNodeId, SourceOperator> sourceOperators = localExecutionPlan.getSourceOperators();
+        // create drivers
+        List<Driver> drivers = new ArrayList<>();
+        Map<PlanNodeId, Driver> driversBySource = new HashMap<>();
+        List<DriverFactory> driverFactories = localExecutionPlan.getDriverFactories();
+        for (DriverFactory driverFactory : driverFactories) {
+            Driver driver = driverFactory.createDriver(new OperatorStats(), new TaskMemoryManager(new DataSize(256, MEGABYTE)));
+            drivers.add(driver);
+            for (PlanNodeId sourceId : driver.getSourceIds()) {
+                driversBySource.put(sourceId, driver);
+            }
+            driverFactory.close();
+        }
+
+        // add the splits to the drivers
         for (PlanNode source : subplan.getFragment().getSources()) {
             TableScanNode tableScan = (TableScanNode) source;
-            SourceOperator sourceOperator = sourceOperators.get(tableScan.getId());
-            Preconditions.checkArgument(sourceOperator != null, "Unknown plan source %s; known sources are %s", tableScan.getId(), sourceOperators.keySet());
 
             List<Split> splits = ImmutableList.copyOf(splitManager.getSplits(session,
                     tableScan.getTable(),
@@ -170,17 +291,19 @@ public class LocalQueryRunner
                     Predicates.<Partition>alwaysTrue(),
                     tableScan.getAssignments()).getSplits());
 
-            checkState(splits.size() <= 1, "expected at most a single split");
-
-            if (!splits.isEmpty()) {
-                sourceOperator.addSplit(Iterables.getOnlyElement(splits));
+            Driver driver = driversBySource.get(source.getId());
+            checkState(driver != null, "Unknown source %s", source.getId());
+            for (Split split : splits) {
+                driver.addSplit(source.getId(), split);
             }
         }
-        for (SourceOperator sourceOperator : sourceOperators.values()) {
-            sourceOperator.noMoreSplits();
+        for (Driver driver : drivers) {
+            for (PlanNodeId sourceId : driver.getSourceIds()) {
+                driver.noMoreSplits(sourceId);
+            }
         }
 
-        return localExecutionPlan.getRootOperator();
+        return ImmutableList.copyOf(drivers);
     }
 
     public static LocalQueryRunner createDualLocalQueryRunner()

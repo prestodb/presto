@@ -8,18 +8,21 @@ import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.Lists.newArrayList;
 
 public class DriverOperator
         implements Operator
 {
     private final DataSize maxMemory;
-    private DriverFactory driverFactory;
+    private final List<DriverFactory> driverFactories;
+    private final InMemoryExchange inMemoryExchange;
 
     public DriverOperator(NewOperatorFactory firstOperatorFactory, NewOperatorFactory... otherOperatorFactories)
     {
@@ -38,29 +41,26 @@ public class DriverOperator
 
     public DriverOperator(DataSize maxMemory, Iterable<NewOperatorFactory> operatorFactories)
     {
-        this(
-                checkNotNull(maxMemory, "maxMemory is null"),
-                new DriverFactory(ImmutableList.copyOf(checkNotNull(operatorFactories, "operatorFactories is null"))));
-    }
+        this.maxMemory = checkNotNull(maxMemory, "maxMemory is null");
+        List<NewOperatorFactory> operators = newArrayList(operatorFactories);
 
-    public DriverOperator(DataSize maxMemory, DriverFactory driverFactory)
-    {
-        this.maxMemory = maxMemory;
-        this.driverFactory = driverFactory;
+        inMemoryExchange = new InMemoryExchange(Iterables.getLast(operators).getTupleInfos());
+        operators.add(inMemoryExchange.createSinkFactory());
+        inMemoryExchange.noMoreSinkFactories();
+
+        driverFactories = ImmutableList.of(new DriverFactory(operators));
     }
 
     @Override
     public int getChannelCount()
     {
-        // this shouldn't be needed
-        throw new UnsupportedOperationException();
+        return inMemoryExchange.getTupleInfos().size();
     }
 
     @Override
     public List<TupleInfo> getTupleInfos()
     {
-        // this shouldn't be needed
-        throw new UnsupportedOperationException();
+        return inMemoryExchange.getTupleInfos();
     }
 
     @Override
@@ -70,35 +70,46 @@ public class DriverOperator
 
         TaskMemoryManager taskMemoryManager = new TaskMemoryManager(maxMemory);
 
-        Driver driver = driverFactory.createDriver(operatorStats, taskMemoryManager);
-        return new DriverOperatorIterator(driver, operatorStats);
+        ImmutableList.Builder<Driver> drivers = ImmutableList.builder();
+        for (DriverFactory driverFactory : driverFactories) {
+            drivers.add(driverFactory.createDriver(operatorStats, taskMemoryManager));
+        }
+
+        return new DriverOperatorIterator(drivers.build(), inMemoryExchange, operatorStats);
     }
 
     public static class DriverOperatorIterator
             extends AbstractPageIterator
     {
-        private final Driver driver;
-        private final NewOperator outputOperator;
+        private final List<Driver> drivers;
+        private final InMemoryExchange inMemoryExchange;
         private final OperatorStats operatorStats;
 
-        public DriverOperatorIterator(Driver driver, OperatorStats operatorStats)
+        public DriverOperatorIterator(List<Driver> drivers, InMemoryExchange inMemoryExchange, OperatorStats operatorStats)
         {
-            super(driver.getOutputOperator().getTupleInfos());
-            this.driver = driver;
-            this.outputOperator = driver.getOutputOperator();
-            this.operatorStats = operatorStats;
+            super(checkNotNull(inMemoryExchange, "inMemoryExchange is null").getTupleInfos());
+            this.drivers = ImmutableList.copyOf(checkNotNull(drivers, "drivers is null"));
+            this.inMemoryExchange = inMemoryExchange;
+            this.operatorStats = checkNotNull(operatorStats, "operatorStats is null");
         }
 
         @Override
         protected Page computeNext()
         {
-            // note bad operator code can cause this to spin for ever
-            while (!operatorStats.isDone() && !driver.isFinished()) {
-                driver.process();
-                Page output = outputOperator.getOutput();
-                if (output != null) {
-                    return output;
+            boolean done = false;
+            while (!done && !operatorStats.isDone()) {
+                boolean processed = false;
+                for (Driver driver : drivers) {
+                    if (!driver.isFinished()) {
+                        driver.process();
+                        processed = true;
+                    }
                 }
+                Page page = inMemoryExchange.removePage();
+                if (page != null) {
+                    return page;
+                }
+                done = !processed;
             }
             return endOfData();
         }
@@ -106,7 +117,9 @@ public class DriverOperator
         @Override
         protected void doClose()
         {
-            driver.finish();
+            for (Driver driver : drivers) {
+                driver.finish();
+            }
         }
     }
 }
