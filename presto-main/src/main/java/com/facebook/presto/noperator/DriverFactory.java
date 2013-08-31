@@ -1,6 +1,7 @@
 package com.facebook.presto.noperator;
 
 import com.facebook.presto.execution.TaskMemoryManager;
+import com.facebook.presto.execution.TaskOutput;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
@@ -51,11 +52,28 @@ public class DriverFactory
 
     public synchronized Driver createDriver(OperatorStats operatorStats, TaskMemoryManager taskMemoryManager)
     {
+        return createDriver(null, operatorStats, taskMemoryManager);
+    }
+
+    // todo driver factory should not be aware of task output
+    public synchronized Driver createDriver(TaskOutput taskOutput, TaskMemoryManager taskMemoryManager)
+    {
+        return createDriver(taskOutput, new OperatorStats(taskOutput), taskMemoryManager);
+    }
+
+    private synchronized Driver createDriver(TaskOutput taskOutput, OperatorStats operatorStats, TaskMemoryManager taskMemoryManager)
+    {
         checkState(!closed, "DriverFactory is already closed");
         checkNotNull(operatorStats, "operatorStats is null");
         ImmutableList.Builder<NewOperator> operators = ImmutableList.builder();
         for (NewOperatorFactory operatorFactory : operatorFactories) {
-            operators.add(operatorFactory.createOperator(operatorStats, taskMemoryManager));
+            NewOperator operator = operatorFactory.createOperator(operatorStats, taskMemoryManager);
+            if (operator instanceof NewTableWriterOperator) {
+                checkArgument(taskOutput != null, "TaskOutput is null and a table writer is present");
+                NewTableWriterOperator newTableWriterOperator = (NewTableWriterOperator) operator;
+                newTableWriterOperator.setTaskOutput(taskOutput);
+            }
+            operators.add(operator);
         }
         return new Driver(operatorStats, operators.build());
     }

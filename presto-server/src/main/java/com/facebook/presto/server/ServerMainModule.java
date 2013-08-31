@@ -72,7 +72,7 @@ import com.facebook.presto.split.NativeDataStreamProvider;
 import com.facebook.presto.split.NativeSplitManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
-import com.facebook.presto.sql.planner.LocalExecutionPlanner;
+import com.facebook.presto.sql.planner.NewLocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanOptimizersFactory;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.tree.CreateAlias;
@@ -154,7 +154,7 @@ public class ServerMainModule
         binder.bind(TaskResource.class).in(Scopes.SINGLETON);
         binder.bind(TaskManager.class).to(SqlTaskManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(TaskManager.class).withGeneratedName();
-        binder.bind(LocalExecutionPlanner.class).in(Scopes.SINGLETON);
+        binder.bind(NewLocalExecutionPlanner.class).in(Scopes.SINGLETON);
         binder.bind(ExpressionCompiler.class).in(Scopes.SINGLETON);
 
         binder.bind(new TypeLiteral<Supplier<ExchangeClient>>() {}).to(ExchangeClientFactory.class).in(Scopes.SINGLETON);
