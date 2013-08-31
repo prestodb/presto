@@ -5,8 +5,6 @@ import com.facebook.presto.metadata.InternalTable;
 import com.facebook.presto.noperator.NewAlignmentOperator;
 import com.facebook.presto.noperator.NewOperator;
 import com.facebook.presto.noperator.OperatorContext;
-import com.facebook.presto.operator.AlignmentOperator;
-import com.facebook.presto.operator.Operator;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.split.ConnectorDataStreamProvider;
@@ -36,12 +34,6 @@ public class DualDataStreamProvider
     public boolean canHandle(Split split)
     {
         return split instanceof DualSplit;
-    }
-
-    @Override
-    public Operator createDataStream(Split split, List<ColumnHandle> columns)
-    {
-        return new AlignmentOperator(createChannels(split, columns));
     }
 
     @Override
