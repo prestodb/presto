@@ -12,6 +12,7 @@ import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleReadable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 
 import java.util.Comparator;
@@ -138,6 +139,12 @@ public class NewTopNOperator
     public boolean isFinished()
     {
         return finishing && topNBuilder == null && (outputIterator == null || !outputIterator.hasNext());
+    }
+
+    @Override
+    public ListenableFuture<?> isBlocked()
+    {
+        return NOT_BLOCKED;
     }
 
     @Override

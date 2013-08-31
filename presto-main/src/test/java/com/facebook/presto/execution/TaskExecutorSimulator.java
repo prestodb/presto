@@ -322,7 +322,7 @@ public class TaskExecutorSimulator
     }
 
     private static class SimulationSplit
-            implements Callable<Boolean>
+            implements SplitRunner
     {
         private final long requiredProcessMillis;
         private final long processMillisPerCall;
@@ -369,7 +369,13 @@ public class TaskExecutorSimulator
         }
 
         @Override
-        public synchronized Boolean call()
+        public boolean isFinished()
+        {
+            return doneNanos.get() >= 0;
+        }
+
+        @Override
+        public ListenableFuture<?> process()
                 throws Exception
         {
             long callStart = System.nanoTime();
@@ -388,7 +394,7 @@ public class TaskExecutorSimulator
                 doneNanos.compareAndSet(-1, callEnd);
             }
 
-            return isFinished;
+            return Futures.immediateCheckedFuture(null);
         }
     }
 }

@@ -20,7 +20,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 import java.util.Set;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.PriorityBlockingQueue;
@@ -50,6 +49,7 @@ public class TaskExecutor
     private final Set<SplitWorker> activeSplits = new HashSet<>();
     private final PriorityBlockingQueue<SplitWorker> preemptedSplits;
     private final Set<SplitWorker> runningSplits = Sets.newSetFromMap(new ConcurrentHashMap<SplitWorker, Boolean>());
+    private final Set<SplitWorker> blockedSplits = Sets.newSetFromMap(new ConcurrentHashMap<SplitWorker, Boolean>());
 
     private boolean closed;
 
@@ -84,6 +84,11 @@ public class TaskExecutor
     public synchronized Set<SplitWorker> getRunningSplits()
     {
         return ImmutableSet.copyOf(runningSplits);
+    }
+
+    public Set<SplitWorker> getBlockedSplits()
+    {
+        return ImmutableSet.copyOf(blockedSplits);
     }
 
     @Override
@@ -124,7 +129,7 @@ public class TaskExecutor
         tasks.remove(taskHandle);
     }
 
-    public synchronized ListenableFuture<?> addSplit(TaskHandle taskHandle, Callable<Boolean> split)
+    public synchronized ListenableFuture<?> addSplit(TaskHandle taskHandle, SplitRunner split)
     {
         SplitWorker splitWorker = new SplitWorker(taskHandle, split);
         taskHandle.addSplitWorker(splitWorker);
@@ -263,11 +268,11 @@ public class TaskExecutor
     }
 
     private static class SplitWorker
-            implements Callable<Boolean>, Comparable<SplitWorker>
+            implements SplitRunner, Comparable<SplitWorker>
     {
         private final TaskHandle taskHandle;
         private final long workerId;
-        private final Callable<Boolean> split;
+        private final SplitRunner split;
 
         private final SettableFuture<?> finishedFuture = SettableFuture.create();
 
@@ -277,7 +282,7 @@ public class TaskExecutor
         private final AtomicLong threadUsageNanos = new AtomicLong();
         private final AtomicLong lastRun = new AtomicLong();
 
-        private SplitWorker(TaskHandle taskHandle, Callable<Boolean> split)
+        private SplitWorker(TaskHandle taskHandle, SplitRunner split)
         {
             this.taskHandle = taskHandle;
             this.split = split;
@@ -300,7 +305,17 @@ public class TaskExecutor
         }
 
         @Override
-        public Boolean call()
+        public boolean isFinished()
+        {
+            boolean finished = split.isFinished();
+            if (finished) {
+                finishedFuture.set(null);
+            }
+            return finished || closed.get();
+        }
+
+        @Override
+        public ListenableFuture<?> process()
                 throws Exception
         {
             try {
@@ -308,7 +323,7 @@ public class TaskExecutor
                     System.out.print("");
                 }
                 long start = System.nanoTime();
-                boolean finished = split.call();
+                ListenableFuture<?> blocked = split.process();
                 long endTime = System.nanoTime();
 
                 // update priority level base on total thread usage of task
@@ -320,10 +335,7 @@ public class TaskExecutor
                 // record last run for prioritization within a level
                 lastRun.set(endTime);
 
-                if (finished) {
-                    finishedFuture.set(null);
-                }
-                return finished || closed.get();
+                return blocked;
             }
             catch (Throwable e) {
                 finishedFuture.setException(e);
@@ -405,7 +417,7 @@ public class TaskExecutor
             try (SetThreadName runnerName = new SetThreadName("SplitRunner-%s", runnerId)) {
                 while (!closed && !Thread.currentThread().isInterrupted()) {
                     // select next worker
-                    SplitWorker split;
+                    final SplitWorker split;
                     try {
                         split = preemptedSplits.take();
                         if (split.updatePriorityLevel()) {
@@ -423,19 +435,35 @@ public class TaskExecutor
                         runningSplits.add(split);
 
                         boolean finished;
+                        ListenableFuture<?> blocked;
                         try {
-                            finished = split.call();
+                            blocked = split.process();
+                            finished = split.isFinished();
                         }
                         finally {
                             runningSplits.remove(split);
                         }
 
-                        if (!finished) {
-                            preemptedSplits.put(split);
-                        }
-                        else {
+                        if (finished) {
                             log.debug("%s is finished", split);
                             splitFinished(split);
+                        }
+                        else {
+                            if (blocked.isDone()) {
+                                preemptedSplits.put(split);
+                            }
+                            else {
+                                blockedSplits.add(split);
+                                blocked.addListener(new Runnable() {
+                                    @Override
+                                    public void run()
+                                    {
+                                        blockedSplits.remove(split);
+                                        split.updatePriorityLevel();
+                                        preemptedSplits.put(split);
+                                    }
+                                }, executor);
+                            }
                         }
                     }
                     catch (Throwable t) {

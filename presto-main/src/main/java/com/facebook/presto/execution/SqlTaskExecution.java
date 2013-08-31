@@ -40,7 +40,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.concurrent.Callable;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -300,14 +299,19 @@ public class SqlTaskExecution
         taskOutput.getStats().addSplits(1);
 
         // execute worker
-        final ListenableFuture<?> finishedFuture = taskExecutor.addSplit(taskHandle, new Callable<Boolean>()
+        final ListenableFuture<?> finishedFuture = taskExecutor.addSplit(taskHandle, new SplitRunner()
         {
             @Override
-            public Boolean call()
+            public boolean isFinished()
+            {
+                return driver.isFinished();
+            }
+
+            @Override
+            public ListenableFuture<?> process()
                     throws Exception
             {
-                driver.process();
-                return driver.isFinished();
+                return driver.process();
             }
         });
 

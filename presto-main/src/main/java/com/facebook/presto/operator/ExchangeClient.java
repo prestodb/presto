@@ -7,6 +7,9 @@ import com.facebook.presto.operator.HttpPageBufferClient.ClientCallback;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.common.io.Closeables;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -14,11 +17,14 @@ import io.airlift.units.Duration;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
+
 import java.io.Closeable;
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -56,6 +62,9 @@ public class ExchangeClient
 
     private final Set<HttpPageBufferClient> completedClients = Sets.newSetFromMap(new ConcurrentHashMap<HttpPageBufferClient, Boolean>());
     private final LinkedBlockingDeque<Page> pageBuffer = new LinkedBlockingDeque<>();
+
+    @GuardedBy("this")
+    private final List<SettableFuture<?>> blockedCallers = new ArrayList<>();
 
     @GuardedBy("this")
     private long bufferBytes;
@@ -156,6 +165,7 @@ public class ExchangeClient
 
             // add end marker back to queue
             checkState(pageBuffer.add(NO_MORE_PAGES), "Could not add no more pages marker");
+            notifyBlockedCallers();
 
             // don't return end of stream marker
             page = null;
@@ -190,6 +200,7 @@ public class ExchangeClient
         if (pageBuffer.peekLast() != NO_MORE_PAGES) {
             checkState(pageBuffer.add(NO_MORE_PAGES), "Could not add no more pages marker");
         }
+        notifyBlockedCallers();
     }
 
     public synchronized void scheduleRequestIfNecessary()
@@ -206,6 +217,7 @@ public class ExchangeClient
             if (!closed.get() && pageBuffer.peek() == NO_MORE_PAGES) {
                 closed.set(true);
             }
+            notifyBlockedCallers();
             return;
         }
 
@@ -243,6 +255,16 @@ public class ExchangeClient
         }
     }
 
+    public synchronized ListenableFuture<?> isBlocked()
+    {
+        if (closed.get() || pageBuffer.peek() != null) {
+            return Futures.immediateFuture(true);
+        }
+        SettableFuture<?> future = SettableFuture.create();
+        blockedCallers.add(future);
+        return future;
+    }
+
     private synchronized void addPage(Page page)
     {
         if (closed.get()) {
@@ -251,6 +273,9 @@ public class ExchangeClient
 
         pageBuffer.add(page);
 
+        // notify all blocked callers
+        notifyBlockedCallers();
+
         bufferBytes += page.getDataSize().toBytes();
         successfulRequests++;
 
@@ -258,6 +283,15 @@ public class ExchangeClient
         averageBytesPerRequest = (long) (1.0 * averageBytesPerRequest * (successfulRequests - 1) / successfulRequests + page.getDataSize().toBytes() / successfulRequests);
 
         scheduleRequestIfNecessary();
+    }
+
+    private synchronized void notifyBlockedCallers()
+    {
+        List<SettableFuture<?>> callers = ImmutableList.copyOf(blockedCallers);
+        blockedCallers.clear();
+        for (SettableFuture<?> blockedCaller : callers) {
+            blockedCaller.set(null);
+        }
     }
 
     private synchronized void requestComplete(HttpPageBufferClient client)

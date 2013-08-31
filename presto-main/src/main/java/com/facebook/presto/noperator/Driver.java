@@ -7,12 +7,14 @@ import com.facebook.presto.split.CollocatedSplit;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import static com.facebook.presto.noperator.NewOperator.NOT_BLOCKED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -103,14 +105,24 @@ public class Driver
         return finished;
     }
 
-    public synchronized void process()
+    public synchronized ListenableFuture<?> process()
     {
         operatorStats.start();
 
         try {
             for (int i = 0; i < operators.size() - 1 && !operatorStats.isDone(); i++) {
+
                 NewOperator current = operators.get(i);
+                ListenableFuture<?> blocked = current.isBlocked();
+                if (!blocked.isDone()) {
+                    return blocked;
+                }
+
                 NewOperator next = operators.get(i + 1);
+                blocked = next.isBlocked();
+                if (!blocked.isDone()) {
+                    return blocked;
+                }
 
                 if (current.isFinished()) {
                     // let next operator know there will be no more data
@@ -129,6 +141,7 @@ public class Driver
                     }
                 }
             }
+            return NOT_BLOCKED;
         }
         catch (Throwable t) {
             operatorStats.fail(t);

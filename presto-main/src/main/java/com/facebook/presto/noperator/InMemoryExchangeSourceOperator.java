@@ -4,6 +4,7 @@ import com.facebook.presto.execution.TaskMemoryManager;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 
@@ -66,6 +67,16 @@ public class InMemoryExchangeSourceOperator
     public boolean isFinished()
     {
         return exchange.isFinished();
+    }
+
+    @Override
+    public ListenableFuture<?> isBlocked()
+    {
+        ListenableFuture<?> blocked = exchange.waitForNotEmpty();
+        if (blocked.isDone()) {
+            return NOT_BLOCKED;
+        }
+        return blocked;
     }
 
     @Override

@@ -5,11 +5,15 @@ import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
+import static com.facebook.presto.noperator.NewOperator.NOT_BLOCKED;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -17,6 +21,7 @@ public class InMemoryExchange
 {
     private final List<TupleInfo> tupleInfos;
     private final Queue<Page> buffer;
+    private final List<SettableFuture<?>> blockedCallers = new ArrayList<>();
     private boolean finishing;
     private boolean noMoreSinkFactories;
     private int sinkFactories;
@@ -80,6 +85,7 @@ public class InMemoryExchange
     public synchronized void finish()
     {
         finishing = true;
+        notifyBlockedCallers();
     }
 
     public synchronized boolean isFinished()
@@ -93,6 +99,26 @@ public class InMemoryExchange
             return;
         }
         buffer.add(page);
+        notifyBlockedCallers();
+    }
+
+    private synchronized void notifyBlockedCallers()
+    {
+        List<SettableFuture<?>> callers = blockedCallers;
+        blockedCallers.clear();
+        for (SettableFuture<?> blockedCaller : callers) {
+            blockedCaller.set(null);
+        }
+    }
+
+    public synchronized ListenableFuture<?> waitForNotEmpty()
+    {
+        if (finishing || !buffer.isEmpty()) {
+            return NOT_BLOCKED;
+        }
+        SettableFuture<?> settableFuture = SettableFuture.create();
+        blockedCallers.add(settableFuture);
+        return settableFuture;
     }
 
     public synchronized Page removePage()

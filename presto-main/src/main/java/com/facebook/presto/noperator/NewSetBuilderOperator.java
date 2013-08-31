@@ -9,8 +9,12 @@ import com.facebook.presto.operator.ChannelSet;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -27,7 +31,7 @@ public class NewSetBuilderOperator
     public static class NewSetSupplier
     {
         private final TupleInfo tupleInfo;
-        private ChannelSet channelSet;
+        private final SettableFuture<ChannelSet> channelSetFuture = SettableFuture.create();
 
         public NewSetSupplier(TupleInfo tupleInfo)
         {
@@ -39,18 +43,21 @@ public class NewSetBuilderOperator
             return tupleInfo;
         }
 
-        public synchronized ChannelSet getChannelSet()
+        public ListenableFuture<ChannelSet> getChannelSet()
         {
-            if (channelSet == null) {
-                return null;
-            }
-            return new ChannelSet(channelSet);
+            return Futures.transform(channelSetFuture, new Function<ChannelSet, ChannelSet>() {
+                @Override
+                public ChannelSet apply(ChannelSet channelSet)
+                {
+                    return new ChannelSet(channelSet);
+                }
+            });
         }
 
-        public synchronized void setChannelSet(ChannelSet channelSet)
+        void setChannelSet(ChannelSet channelSet)
         {
-            checkState(this.channelSet == null, "ChannelSet already set");
-            this.channelSet = checkNotNull(channelSet, "channelSet is null");
+            boolean wasSet = channelSetFuture.set(checkNotNull(channelSet, "channelSet is null"));
+            checkState(wasSet, "ChannelSet already set");
         }
     }
 
@@ -140,6 +147,12 @@ public class NewSetBuilderOperator
     public boolean isFinished()
     {
         return finished;
+    }
+
+    @Override
+    public ListenableFuture<?> isBlocked()
+    {
+        return NOT_BLOCKED;
     }
 
     @Override

@@ -1,10 +1,10 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.execution.TaskExecutor.TaskHandle;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import org.testng.annotations.Test;
 
-import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Phaser;
@@ -97,7 +97,7 @@ public class TaskExecutorTest
     }
 
     private static class TestingJob
-            implements Callable<Boolean>
+            implements SplitRunner
     {
         private final Phaser awaitWorkers;
         private final Phaser awaitVerifiers;
@@ -132,7 +132,7 @@ public class TaskExecutorTest
         }
 
         @Override
-        public Boolean call()
+        public ListenableFuture<?> process()
                 throws Exception
         {
             int phase = awaitWorkers.arriveAndAwaitAdvance();
@@ -141,7 +141,12 @@ public class TaskExecutorTest
             awaitVerifiers.arriveAndAwaitAdvance();
 
             completedPhases.getAndIncrement();
+            return Futures.immediateFuture(null);
+        }
 
+        @Override
+        public boolean isFinished()
+        {
             boolean isFinished = completedPhases.get() >= requiredPhases;
             if (isFinished) {
                 awaitVerifiers.arriveAndDeregister();

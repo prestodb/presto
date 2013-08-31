@@ -12,6 +12,7 @@ import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Supplier;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.net.URI;
 import java.util.List;
@@ -114,6 +115,16 @@ public class NewExchangeOperator
     public boolean isFinished()
     {
         return exchangeClient.isClosed();
+    }
+
+    @Override
+    public ListenableFuture<?> isBlocked()
+    {
+        ListenableFuture<?> blocked = exchangeClient.isBlocked();
+        if (blocked.isDone()) {
+            return NOT_BLOCKED;
+        }
+        return blocked;
     }
 
     @Override

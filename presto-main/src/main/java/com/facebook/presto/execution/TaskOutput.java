@@ -14,6 +14,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -109,6 +110,11 @@ public class TaskOutput
         finally {
             stats.addSinkBufferWaitTime(Duration.nanosSince(start));
         }
+    }
+
+    public ListenableFuture<?> enqueuePage(Page page)
+    {
+        return sharedBuffer.enqueue(page);
     }
 
     public synchronized void addOutput(PlanNodeId id, Set<?> output)

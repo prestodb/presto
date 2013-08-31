@@ -11,10 +11,12 @@ import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slices;
 
 import java.util.List;
 
+import static com.facebook.presto.util.MoreFutures.tryGetUnchecked;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -66,21 +68,21 @@ public class NewHashSemiJoinOperator
 
     private final int probeJoinChannel;
     private final List<TupleInfo> tupleInfos;
-    private final NewSetSupplier setSupplier;
+    private final ListenableFuture<ChannelSet> channelSetFuture;
 
     private ChannelSet channelSet;
     private Page outputPage;
     private boolean finishing;
 
-    public NewHashSemiJoinOperator(NewSetSupplier setSupplier, List<TupleInfo> probeTupleInfos, int probeJoinChannel)
+    public NewHashSemiJoinOperator(NewSetSupplier channelSetFuture, List<TupleInfo> probeTupleInfos, int probeJoinChannel)
     {
         // todo pass in desired projection
-        checkNotNull(setSupplier, "hashProvider is null");
+        checkNotNull(channelSetFuture, "hashProvider is null");
         checkNotNull(probeTupleInfos, "probeTupleInfos is null");
         checkArgument(probeJoinChannel >= 0, "probeJoinChannel is negative");
         checkArgument(probeTupleInfos.get(probeJoinChannel).getFieldCount() == 1, "Semi join currently only support simple types");
 
-        this.setSupplier = setSupplier;
+        this.channelSetFuture = channelSetFuture.getChannelSet();
         this.probeJoinChannel = probeJoinChannel;
 
         this.tupleInfos = ImmutableList.<TupleInfo>builder()
@@ -108,6 +110,12 @@ public class NewHashSemiJoinOperator
     }
 
     @Override
+    public ListenableFuture<?> isBlocked()
+    {
+        return channelSetFuture;
+    }
+
+    @Override
     public boolean needsInput()
     {
         if (finishing || outputPage != null) {
@@ -115,7 +123,7 @@ public class NewHashSemiJoinOperator
         }
 
         if (channelSet == null) {
-            channelSet = setSupplier.getChannelSet();
+            channelSet = tryGetUnchecked(channelSetFuture);
         }
         return channelSet != null;
     }

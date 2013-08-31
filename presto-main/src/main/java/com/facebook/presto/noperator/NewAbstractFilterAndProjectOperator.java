@@ -5,6 +5,7 @@ import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 
@@ -43,6 +44,12 @@ public abstract class NewAbstractFilterAndProjectOperator
     public final boolean isFinished()
     {
         return finishing && pageBuilder.isEmpty();
+    }
+
+    @Override
+    public ListenableFuture<?> isBlocked()
+    {
+        return NOT_BLOCKED;
     }
 
     @Override
