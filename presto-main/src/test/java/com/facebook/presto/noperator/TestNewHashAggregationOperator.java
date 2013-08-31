@@ -1,8 +1,10 @@
 package com.facebook.presto.noperator;
 
 import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.execution.TaskMemoryManager;
+import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.noperator.NewHashAggregationOperator.NewHashAggregationOperatorFactory;
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.tuple.TupleInfo;
@@ -10,9 +12,12 @@ import com.facebook.presto.util.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.block.BlockAssertions.COMPOSITE_SEQUENCE_TUPLE_INFO;
 import static com.facebook.presto.noperator.NewOperatorAssertion.assertOperatorEquals;
@@ -31,10 +36,31 @@ import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 import static com.facebook.presto.util.MaterializedResult.resultBuilder;
+import static com.facebook.presto.util.Threads.daemonThreadsNamed;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 
 public class TestNewHashAggregationOperator
 {
+    private ExecutorService executor;
+    private DriverContext driverContext;
+
+    @BeforeMethod
+    public void setUp()
+    {
+        executor = newCachedThreadPool(daemonThreadsNamed("test"));
+        Session session = new Session("user", "source", "catalog", "schema", "address", "agent");
+        driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session)
+                .addPipelineContext()
+                .addDriverContext();
+    }
+
+    @AfterMethod
+    public void tearDown()
+    {
+        executor.shutdownNow();
+    }
+
     @Test
     public void testHashAggregation()
             throws Exception
@@ -45,7 +71,8 @@ public class TestNewHashAggregationOperator
                 .addSequencePage(10, 100, 0, 300, 0, 500)
                 .build();
 
-        NewOperator operator = new NewHashAggregationOperator(
+        NewHashAggregationOperatorFactory operatorFactory = new NewHashAggregationOperatorFactory(
+                0,
                 SINGLE_VARBINARY,
                 1,
                 Step.SINGLE,
@@ -57,8 +84,9 @@ public class TestNewHashAggregationOperator
                         aggregation(LONG_SUM, new Input(4, 1)),
                         aggregation(DOUBLE_SUM, new Input(4, 2)),
                         aggregation(VAR_BINARY_MAX, new Input(4, 3))),
-                100_000,
-                new TaskMemoryManager(new DataSize(100, Unit.MEGABYTE)));
+                100_000);
+
+        NewOperator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(VARIABLE_BINARY, FIXED_INT_64, FIXED_INT_64, DOUBLE, VARIABLE_BINARY, FIXED_INT_64, FIXED_INT_64, DOUBLE, VARIABLE_BINARY)
                 .row("0", 3, 0, 0.0, "300", 3, 500 * 3, 500.0 * 3, "500")
@@ -85,7 +113,13 @@ public class TestNewHashAggregationOperator
                 .addSequencePage(10, 100, 0, 300, 0)
                 .build();
 
-        NewOperator operator = new NewHashAggregationOperator(
+        Session session = new Session("user", "source", "catalog", "schema", "address", "agent");
+        DriverContext driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session, new DataSize(10, Unit.BYTE))
+                .addPipelineContext()
+                .addDriverContext();
+
+        NewHashAggregationOperatorFactory operatorFactory = new NewHashAggregationOperatorFactory(
+                0,
                 SINGLE_VARBINARY,
                 1,
                 Step.SINGLE,
@@ -93,8 +127,9 @@ public class TestNewHashAggregationOperator
                         aggregation(LONG_SUM, new Input(3, 0)),
                         aggregation(LONG_AVERAGE, new Input(3, 0)),
                         aggregation(VAR_BINARY_MAX, new Input(2, 0))),
-                100_000,
-                new TaskMemoryManager(new DataSize(10, Unit.BYTE), new DataSize(10, Unit.BYTE)));
+                100_000);
+
+        NewOperator operator = operatorFactory.createOperator(driverContext);
 
         toPages(operator, input);
     }
@@ -109,14 +144,16 @@ public class TestNewHashAggregationOperator
                 .addSequencePage(multiSlicePositionCount, 0, 0)
                 .build();
 
-        NewOperator operator = new NewHashAggregationOperator(
+        NewHashAggregationOperatorFactory operatorFactory = new NewHashAggregationOperatorFactory(
+                0,
                 SINGLE_LONG,
                 1,
                 Step.SINGLE,
                 ImmutableList.of(aggregation(COUNT, new Input(0, 0)),
                         aggregation(LONG_AVERAGE, new Input(1, 0))),
-                100_000,
-                new TaskMemoryManager(new DataSize(100, Unit.MEGABYTE)));
+                100_000);
+
+        NewOperator operator = operatorFactory.createOperator(driverContext);
 
         assertEquals(toPages(operator, input).size(), 2);
     }

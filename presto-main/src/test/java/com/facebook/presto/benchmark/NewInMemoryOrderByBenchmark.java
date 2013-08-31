@@ -9,17 +9,21 @@ import com.facebook.presto.operator.Operator;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.tpch.TpchBlocksProvider;
 
+import java.util.concurrent.ExecutorService;
+
 import static com.facebook.presto.block.BlockIterables.concat;
+import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static java.util.Collections.nCopies;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class NewInMemoryOrderByBenchmark
         extends AbstractOperatorBenchmark
 {
     private static final int ROWS = 1_500_000;
 
-    public NewInMemoryOrderByBenchmark(TpchBlocksProvider tpchBlocksProvider)
+    public NewInMemoryOrderByBenchmark(ExecutorService executor, TpchBlocksProvider tpchBlocksProvider)
     {
-        super(tpchBlocksProvider, "in_memory_orderby_1.5M", 5, 10);
+        super(executor, tpchBlocksProvider, "in_memory_orderby_1.5M", 5, 10);
     }
 
     @Override
@@ -28,11 +32,12 @@ public class NewInMemoryOrderByBenchmark
         BlockIterable totalPrice = getBlockIterable("orders", "totalprice", BlocksFileEncoding.RAW);
         BlockIterable clerk = getBlockIterable("orders", "clerk", BlocksFileEncoding.RAW);
 
-        NewAlignmentOperatorFactory alignmentOperator = new NewAlignmentOperatorFactory(concat(nCopies(100, totalPrice)), concat(nCopies(100, clerk)));
+        NewAlignmentOperatorFactory alignmentOperator = new NewAlignmentOperatorFactory(0, concat(nCopies(100, totalPrice)), concat(nCopies(100, clerk)));
 
-        NewLimitOperatorFactory limitOperator = new NewLimitOperatorFactory(alignmentOperator.getTupleInfos(), ROWS);
+        NewLimitOperatorFactory limitOperator = new NewLimitOperatorFactory(1, alignmentOperator.getTupleInfos(), ROWS);
 
         NewInMemoryOrderByOperatorFactory orderByOperator = new NewInMemoryOrderByOperatorFactory(
+                2,
                 limitOperator.getTupleInfos(),
                 0,
                 new int[]{1},
@@ -43,7 +48,8 @@ public class NewInMemoryOrderByBenchmark
 
     public static void main(String[] args)
     {
-        new NewInMemoryOrderByBenchmark(DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(
+        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test"));
+        new NewInMemoryOrderByBenchmark(executor, DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(
                 new SimpleLineBenchmarkResultWriter(System.out)
         );
     }

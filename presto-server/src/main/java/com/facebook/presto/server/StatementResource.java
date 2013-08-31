@@ -8,11 +8,11 @@ import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StageStats;
 import com.facebook.presto.client.StatementStats;
 import com.facebook.presto.execution.BufferInfo;
-import com.facebook.presto.execution.ExecutionStats;
 import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryState;
+import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.StageState;
 import com.facebook.presto.execution.TaskInfo;
@@ -76,8 +76,6 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
 import static com.facebook.presto.execution.QueryInfo.queryIdGetter;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
-import static com.facebook.presto.execution.StageInfo.globalExecutionStats;
-import static com.facebook.presto.execution.StageInfo.stageOnlyExecutionStats;
 import static com.facebook.presto.execution.StageInfo.stageStateGetter;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.facebook.presto.util.Threads.threadsNamed;
@@ -441,21 +439,21 @@ public class StatementResource
 
         private static StatementStats toStatementStats(QueryInfo queryInfo)
         {
-            ExecutionStats executionStats = globalExecutionStats(queryInfo.getOutputStage());
+            QueryStats queryStats = queryInfo.getQueryStats();
 
             return StatementStats.builder()
                     .setState(queryInfo.getState().toString())
                     .setScheduled(isScheduled(queryInfo))
                     .setNodes(globalUniqueNodes(queryInfo.getOutputStage()).size())
-                    .setTotalSplits(executionStats.getSplits())
-                    .setQueuedSplits(executionStats.getQueuedSplits())
-                    .setRunningSplits(executionStats.getRunningSplits())
-                    .setCompletedSplits(executionStats.getCompletedSplits())
-                    .setUserTimeMillis(executionStats.getSplitUserTime().toMillis())
-                    .setCpuTimeMillis(executionStats.getSplitCpuTime().toMillis())
-                    .setWallTimeMillis(executionStats.getSplitWallTime().toMillis())
-                    .setProcessedRows(executionStats.getCompletedPositionCount())
-                    .setProcessedBytes(executionStats.getCompletedDataSize().toBytes())
+                    .setTotalSplits(queryStats.getTotalDrivers())
+                    .setQueuedSplits(queryStats.getQueuedDrivers())
+                    .setRunningSplits(queryStats.getRunningDrivers())
+                    .setCompletedSplits(queryStats.getCompletedDrivers())
+                    .setUserTimeMillis(queryStats.getTotalUserTime().toMillis())
+                    .setCpuTimeMillis(queryStats.getTotalCpuTime().toMillis())
+                    .setWallTimeMillis(queryStats.getTotalScheduledTime().toMillis())
+                    .setProcessedRows(queryStats.getInputPositions())
+                    .setProcessedBytes(queryStats.getInputDataSize().toBytes())
                     .setRootStage(toStageStats(queryInfo.getOutputStage()))
                     .build();
         }
@@ -466,7 +464,7 @@ public class StatementResource
                 return null;
             }
 
-            ExecutionStats executionStats = stageOnlyExecutionStats(stageInfo);
+            com.facebook.presto.execution.StageStats stageStats = stageInfo.getStageStats();
 
             ImmutableList.Builder<StageStats> subStages = ImmutableList.builder();
             for (StageInfo subStage : stageInfo.getSubStages()) {
@@ -485,15 +483,15 @@ public class StatementResource
                     .setState(stageInfo.getState().toString())
                     .setDone(stageInfo.getState().isDone())
                     .setNodes(uniqueNodes.size())
-                    .setTotalSplits(executionStats.getSplits())
-                    .setQueuedSplits(executionStats.getQueuedSplits())
-                    .setRunningSplits(executionStats.getRunningSplits())
-                    .setCompletedSplits(executionStats.getCompletedSplits())
-                    .setUserTimeMillis(executionStats.getSplitUserTime().toMillis())
-                    .setCpuTimeMillis(executionStats.getSplitCpuTime().toMillis())
-                    .setWallTimeMillis(executionStats.getSplitWallTime().toMillis())
-                    .setProcessedRows(executionStats.getCompletedPositionCount())
-                    .setProcessedBytes(executionStats.getCompletedDataSize().toBytes())
+                    .setTotalSplits(stageStats.getTotalDrivers())
+                    .setQueuedSplits(stageStats.getQueuedDrivers())
+                    .setRunningSplits(stageStats.getRunningDrivers())
+                    .setCompletedSplits(stageStats.getCompletedDrivers())
+                    .setUserTimeMillis(stageStats.getTotalUserTime().toMillis())
+                    .setCpuTimeMillis(stageStats.getTotalCpuTime().toMillis())
+                    .setWallTimeMillis(stageStats.getTotalScheduledTime().toMillis())
+                    .setProcessedRows(stageStats.getInputPositions())
+                    .setProcessedBytes(stageStats.getInputDataSize().toBytes())
                     .setSubStages(subStages.build())
                     .build();
         }

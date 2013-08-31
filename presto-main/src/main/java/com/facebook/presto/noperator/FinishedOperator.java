@@ -6,14 +6,24 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 public class FinishedOperator
         implements NewOperator
 {
+    private final OperatorContext operatorContext;
     private final List<TupleInfo> tupleInfos;
 
-    public FinishedOperator(List<TupleInfo> tupleInfos)
+    public FinishedOperator(OperatorContext operatorContext, List<TupleInfo> tupleInfos)
     {
-        this.tupleInfos = tupleInfos;
+        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
+        this.tupleInfos = checkNotNull(tupleInfos, "tupleInfos is null");
+    }
+
+    @Override
+    public OperatorContext getOperatorContext()
+    {
+        return operatorContext;
     }
 
     @Override

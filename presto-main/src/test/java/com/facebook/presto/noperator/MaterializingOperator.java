@@ -1,18 +1,12 @@
 package com.facebook.presto.noperator;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.execution.TaskMemoryManager;
-import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
-import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.util.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -24,11 +18,13 @@ public class MaterializingOperator
     public static class MaterializingOperatorFactory
             implements NewOperatorFactory
     {
+        private final int operatorId;
         private final List<TupleInfo> sourceTupleInfos;
         private boolean closed;
 
-        public MaterializingOperatorFactory(List<TupleInfo> sourceTupleInfos)
+        public MaterializingOperatorFactory(int operatorId, List<TupleInfo> sourceTupleInfos)
         {
+            this.operatorId = operatorId;
             this.sourceTupleInfos = sourceTupleInfos;
         }
 
@@ -39,10 +35,11 @@ public class MaterializingOperator
         }
 
         @Override
-        public NewOperator createOperator(OperatorStats operatorStats, TaskMemoryManager taskMemoryManager)
+        public MaterializingOperator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            return new MaterializingOperator(sourceTupleInfos);
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, MaterializingOperator.class.getSimpleName());
+            return new MaterializingOperator(operatorContext, sourceTupleInfos);
         }
 
         @Override
@@ -52,23 +49,30 @@ public class MaterializingOperator
         }
     }
 
-    private final ImmutableList.Builder<Tuple> tuples = ImmutableList.builder();
-    private final TupleInfo outputTupleInfo;
+    private final OperatorContext operatorContext;
+    private final MaterializedResult.Builder resultBuilder;
     private boolean finished;
 
-    public MaterializingOperator(List<TupleInfo> sourceTupleInfos)
+    public MaterializingOperator(OperatorContext operatorContext, List<TupleInfo> sourceTupleInfos)
     {
+        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
 
         ImmutableList.Builder<Type> types = ImmutableList.builder();
-        for (TupleInfo sourceTupleInfo : sourceTupleInfos) {
+        for (TupleInfo sourceTupleInfo : checkNotNull(sourceTupleInfos, "sourceTupleInfos is null")) {
             types.addAll(sourceTupleInfo.getTypes());
         }
-        outputTupleInfo = new TupleInfo(types.build());
+        resultBuilder = MaterializedResult.resultBuilder(new TupleInfo(types.build()));
     }
 
     public MaterializedResult getMaterializedResult()
     {
-        return new MaterializedResult(tuples.build(), outputTupleInfo);
+        return resultBuilder.build();
+    }
+
+    @Override
+    public OperatorContext getOperatorContext()
+    {
+        return operatorContext;
     }
 
     @Override
@@ -107,32 +111,7 @@ public class MaterializingOperator
         checkNotNull(page, "page is null");
         checkState(!finished, "operator finished");
 
-
-        List<TupleInfo> tupleInfos = new ArrayList<>();
-        List<BlockCursor> cursors = new ArrayList<>();
-        for (Block block : page.getBlocks()) {
-            cursors.add(block.cursor());
-            tupleInfos.add(block.getTupleInfo());
-        }
-
-        while (true) {
-            TupleInfo.Builder builder = outputTupleInfo.builder();
-
-            boolean hasResults = false;
-            for (BlockCursor cursor : cursors) {
-                if (cursor.advanceNextPosition()) {
-                    builder.append(cursor.getTuple());
-                    hasResults = true;
-                }
-                else {
-                    checkState(!hasResults, "unaligned cursors");
-                }
-            }
-            if (!hasResults) {
-                return;
-            }
-            tuples.add(builder.build());
-        }
+        resultBuilder.page(page);
     }
 
     @Override

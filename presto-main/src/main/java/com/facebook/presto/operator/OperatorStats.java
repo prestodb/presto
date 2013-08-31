@@ -84,7 +84,7 @@ public class OperatorStats
             return;
         }
 
-        taskOutput.getStats().addInputDataSize(new DataSize(bytes, Unit.BYTE));
+//        taskOutput.getStats().addInputDataSize(new DataSize(bytes, Unit.BYTE));
     }
 
     public void addCompletedDataSize(long bytes)
@@ -92,7 +92,7 @@ public class OperatorStats
         // set time to first byte, if not already set
         if (timeToFirstByte.compareAndSet(null, Duration.nanosSince(startTime.get()))) {
             if (taskOutput != null) {
-                taskOutput.getStats().addTimeToFirstByte(timeToFirstByte.get());
+//                taskOutput.getStats().addTimeToFirstByte(timeToFirstByte.get());
             }
         }
 
@@ -103,8 +103,8 @@ public class OperatorStats
         }
 
         DataSize dataSize = new DataSize(bytes, Unit.BYTE);
-        taskOutput.getStats().addCompletedDataSize(dataSize);
-        taskOutput.getStats().addInputDataSize(dataSize);
+//        taskOutput.getStats().addCompletedDataSize(dataSize);
+//        taskOutput.getStats().addInputDataSize(dataSize);
 
         updateTaskOutputTimings();
     }
@@ -117,8 +117,8 @@ public class OperatorStats
             return;
         }
 
-        taskOutput.getStats().addCompletedPositions(positions);
-        taskOutput.getStats().addInputPositions(positions);
+//        taskOutput.getStats().addCompletedPositions(positions);
+//        taskOutput.getStats().addInputPositions(positions);
 
         updateTaskOutputTimings();
     }
@@ -128,7 +128,7 @@ public class OperatorStats
         if (taskOutput == null) {
             return;
         }
-        taskOutput.getStats().addExchangeWaitTime(duration);
+//        taskOutput.getStats().addExchangeWaitTime(duration);
     }
 
     public synchronized void setExchangeStatus(ExchangeClientStatus exchangeStatus)
@@ -136,7 +136,7 @@ public class OperatorStats
         if (taskOutput == null) {
             return;
         }
-        taskOutput.getStats().setExchangeStatus(exchangeStatus);
+//        taskOutput.getStats().setExchangeStatus(exchangeStatus);
     }
 
     public void start()
@@ -155,8 +155,8 @@ public class OperatorStats
         Duration queuedTime = new Duration(startTime.get() - createTime, TimeUnit.NANOSECONDS);
 
         taskOutput.addActiveSplit(this);
-        taskOutput.getStats().recordSplitExecutionStart(queuedTime);
-        taskOutput.getStats().splitStarted();
+//        taskOutput.getStats().recordSplitExecutionStart(queuedTime);
+//        taskOutput.getStats().splitStarted();
     }
 
     public void finish()
@@ -171,8 +171,8 @@ public class OperatorStats
             return;
         }
         taskOutput.removeActiveSplit(this);
-        taskOutput.getStats().addTimeToLastByte(Duration.nanosSince(startTime.get()));
-        taskOutput.getStats().splitCompleted();
+//        taskOutput.getStats().addTimeToLastByte(Duration.nanosSince(startTime.get()));
+//        taskOutput.getStats().splitCompleted();
         updateTaskOutputTimings();
     }
 
@@ -215,9 +215,9 @@ public class OperatorStats
         }
 
         CpuDuration splitTime = cpuTimer.startNewInterval();
-        taskOutput.getStats().addSplitWallTime(splitTime.getWall());
-        taskOutput.getStats().addSplitCpuTime(splitTime.getCpu());
-        taskOutput.getStats().addSplitUserTime(splitTime.getUser());
+//        taskOutput.getStats().addSplitWallTime(splitTime.getWall());
+//        taskOutput.getStats().addSplitCpuTime(splitTime.getCpu());
+//        taskOutput.getStats().addSplitUserTime(splitTime.getUser());
     }
 
     public static class SplitExecutionStats

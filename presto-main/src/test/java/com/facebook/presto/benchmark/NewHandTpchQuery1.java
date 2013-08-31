@@ -4,12 +4,13 @@ import com.facebook.presto.benchmark.NewHandTpchQuery1.TpchQuery1Operator.TpchQu
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.execution.TaskMemoryManager;
+import com.facebook.presto.noperator.DriverContext;
 import com.facebook.presto.noperator.DriverOperator;
 import com.facebook.presto.noperator.NewAlignmentOperator.NewAlignmentOperatorFactory;
 import com.facebook.presto.noperator.NewHashAggregationOperator.NewHashAggregationOperatorFactory;
+import com.facebook.presto.noperator.NewOperator;
+import com.facebook.presto.noperator.OperatorContext;
 import com.facebook.presto.operator.Operator;
-import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.serde.BlocksFileEncoding;
@@ -24,21 +25,24 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
 import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
 import static com.facebook.presto.operator.aggregation.DoubleAverageAggregation.DOUBLE_AVERAGE;
 import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUBLE_SUM;
+import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class NewHandTpchQuery1
         extends AbstractOperatorBenchmark
 {
-    public NewHandTpchQuery1(TpchBlocksProvider tpchBlocksProvider)
+    public NewHandTpchQuery1(ExecutorService executor, TpchBlocksProvider tpchBlocksProvider)
     {
-        super(tpchBlocksProvider, "hand_tpch_query_1", 1, 5);
+        super(executor, tpchBlocksProvider, "hand_tpch_query_1", 1, 5);
     }
 
     @Override
@@ -74,7 +78,9 @@ public class NewHandTpchQuery1
         BlockIterable tax = getBlockIterable("lineitem", "tax", BlocksFileEncoding.RAW);
         BlockIterable shipDate = getBlockIterable("lineitem", "shipdate", BlocksFileEncoding.RAW);
 
-        NewAlignmentOperatorFactory alignmentOperator = new NewAlignmentOperatorFactory(returnFlag,
+        NewAlignmentOperatorFactory alignmentOperator = new NewAlignmentOperatorFactory(
+                0,
+                returnFlag,
                 lineStatus,
                 quantity,
                 extendedPrice,
@@ -82,8 +88,9 @@ public class NewHandTpchQuery1
                 tax,
                 shipDate);
 
-        TpchQuery1OperatorFactory tpchQuery1Operator = new TpchQuery1OperatorFactory();
+        TpchQuery1OperatorFactory tpchQuery1Operator = new TpchQuery1OperatorFactory(1);
         NewHashAggregationOperatorFactory aggregationOperator = new NewHashAggregationOperatorFactory(
+                0,
                 tpchQuery1Operator.getTupleInfos().get(0),
                 0,
                 Step.SINGLE,
@@ -114,6 +121,13 @@ public class NewHandTpchQuery1
         public static class TpchQuery1OperatorFactory
                 implements com.facebook.presto.noperator.NewOperatorFactory
         {
+            private final int operatorId;
+
+            public TpchQuery1OperatorFactory(int operatorId)
+            {
+                this.operatorId = operatorId;
+            }
+
             @Override
             public List<TupleInfo> getTupleInfos()
             {
@@ -121,9 +135,10 @@ public class NewHandTpchQuery1
             }
 
             @Override
-            public com.facebook.presto.noperator.NewOperator createOperator(OperatorStats operatorStats, TaskMemoryManager taskMemoryManager)
+            public NewOperator createOperator(DriverContext driverContext)
             {
-                return new TpchQuery1Operator();
+                OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, TpchQuery1Operator.class.getSimpleName());
+                return new TpchQuery1Operator(operatorContext);
             }
 
             @Override
@@ -132,12 +147,20 @@ public class NewHandTpchQuery1
             }
         }
 
+        private final OperatorContext operatorContext;
         private final PageBuilder pageBuilder;
         private boolean finishing;
 
-        public TpchQuery1Operator()
+        public TpchQuery1Operator(OperatorContext operatorContext)
         {
+            this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
             this.pageBuilder = new PageBuilder(TUPLE_INFOS);
+        }
+
+        @Override
+        public OperatorContext getOperatorContext()
+        {
+            return operatorContext;
         }
 
         @Override
@@ -318,7 +341,8 @@ public class NewHandTpchQuery1
 
     public static void main(String[] args)
     {
-        new NewHandTpchQuery1(DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(
+        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test"));
+        new NewHandTpchQuery1(executor, DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(
                 new SimpleLineBenchmarkResultWriter(System.out)
         );
     }

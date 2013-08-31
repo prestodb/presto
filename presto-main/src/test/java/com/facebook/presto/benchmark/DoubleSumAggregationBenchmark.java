@@ -10,15 +10,19 @@ import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.google.common.collect.ImmutableList;
 
+import java.util.concurrent.ExecutorService;
+
 import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
 import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUBLE_SUM;
+import static com.facebook.presto.util.Threads.daemonThreadsNamed;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class DoubleSumAggregationBenchmark
         extends AbstractOperatorBenchmark
 {
-    public DoubleSumAggregationBenchmark(TpchBlocksProvider tpchBlocksProvider)
+    public DoubleSumAggregationBenchmark(ExecutorService executor, TpchBlocksProvider tpchBlocksProvider)
     {
-        super(tpchBlocksProvider, "double_sum_agg", 10, 100);
+        super(executor, tpchBlocksProvider, "double_sum_agg", 10, 100);
     }
 
     @Override
@@ -31,7 +35,8 @@ public class DoubleSumAggregationBenchmark
 
     public static void main(String[] args)
     {
-        new DoubleSumAggregationBenchmark(DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(
+        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test"));
+        new DoubleSumAggregationBenchmark(executor, DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(
                 new SimpleLineBenchmarkResultWriter(System.out)
         );
     }

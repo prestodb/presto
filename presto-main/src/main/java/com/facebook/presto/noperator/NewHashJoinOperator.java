@@ -2,9 +2,7 @@ package com.facebook.presto.noperator;
 
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
-import com.facebook.presto.execution.TaskMemoryManager;
 import com.facebook.presto.noperator.NewHashBuilderOperator.NewHashSupplier;
-import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.tuple.TupleInfo;
@@ -21,19 +19,20 @@ import static com.google.common.base.Preconditions.checkState;
 public class NewHashJoinOperator
         implements NewOperator
 {
-    public static NewHashJoinOperatorFactory innerJoin(NewHashSupplier hashSupplier, List<TupleInfo> probeTupleInfos, int probeJoinChannel)
+    public static NewHashJoinOperatorFactory innerJoin(int operatorId, NewHashSupplier hashSupplier, List<TupleInfo> probeTupleInfos, int probeJoinChannel)
     {
-        return new NewHashJoinOperatorFactory(hashSupplier, probeTupleInfos, probeJoinChannel, false);
+        return new NewHashJoinOperatorFactory(operatorId, hashSupplier, probeTupleInfos, probeJoinChannel, false);
     }
 
-    public static NewHashJoinOperatorFactory outerJoin(NewHashSupplier hashSupplier, List<TupleInfo> probeTupleInfos, int probeJoinChannel)
+    public static NewHashJoinOperatorFactory outerJoin(int operatorId, NewHashSupplier hashSupplier, List<TupleInfo> probeTupleInfos, int probeJoinChannel)
     {
-        return new NewHashJoinOperatorFactory(hashSupplier, probeTupleInfos, probeJoinChannel, true);
+        return new NewHashJoinOperatorFactory(operatorId, hashSupplier, probeTupleInfos, probeJoinChannel, true);
     }
 
     public static class NewHashJoinOperatorFactory
             implements NewOperatorFactory
     {
+        private final int operatorId;
         private final NewHashSupplier hashSupplier;
         private final List<TupleInfo> probeTupleInfos;
         private final int probeJoinChannel;
@@ -41,8 +40,9 @@ public class NewHashJoinOperator
         private final List<TupleInfo> tupleInfos;
         private boolean closed;
 
-        public NewHashJoinOperatorFactory(NewHashSupplier hashSupplier, List<TupleInfo> probeTupleInfos, int probeJoinChannel, boolean enableOuterJoin)
+        public NewHashJoinOperatorFactory(int operatorId, NewHashSupplier hashSupplier, List<TupleInfo> probeTupleInfos, int probeJoinChannel, boolean enableOuterJoin)
         {
+            this.operatorId = operatorId;
             this.hashSupplier = hashSupplier;
             this.probeTupleInfos = probeTupleInfos;
             this.probeJoinChannel = probeJoinChannel;
@@ -61,10 +61,11 @@ public class NewHashJoinOperator
         }
 
         @Override
-        public NewOperator createOperator(OperatorStats operatorStats, TaskMemoryManager taskMemoryManager)
+        public NewOperator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            return new NewHashJoinOperator(hashSupplier, probeTupleInfos, probeJoinChannel, enableOuterJoin);
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, NewHashJoinOperator.class.getSimpleName());
+            return new NewHashJoinOperator(operatorContext, hashSupplier, probeTupleInfos, probeJoinChannel, enableOuterJoin);
         }
 
         @Override
@@ -77,6 +78,7 @@ public class NewHashJoinOperator
 
     private final ListenableFuture<NewSourceHash> sourceHashFuture;
 
+    private final OperatorContext operatorContext;
     private final int probeJoinChannel;
     private final int probeJoinChannelFieldCount;
     private final boolean enableOuterJoin;
@@ -90,8 +92,10 @@ public class NewHashJoinOperator
     private boolean finishing;
     private int joinPosition = -1;
 
-    public NewHashJoinOperator(NewHashSupplier hashSupplier, List<TupleInfo> probeTupleInfos, int probeJoinChannel, boolean enableOuterJoin)
+    public NewHashJoinOperator(OperatorContext operatorContext, NewHashSupplier hashSupplier, List<TupleInfo> probeTupleInfos, int probeJoinChannel, boolean enableOuterJoin)
     {
+        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
+
         // todo pass in desired projection
         checkNotNull(hashSupplier, "hashSupplier is null");
         checkNotNull(probeTupleInfos, "probeTupleInfos is null");
@@ -109,6 +113,12 @@ public class NewHashJoinOperator
         this.pageBuilder = new PageBuilder(tupleInfos);
 
         this.cursors = new BlockCursor[probeTupleInfos.size()];
+    }
+
+    @Override
+    public OperatorContext getOperatorContext()
+    {
+        return operatorContext;
     }
 
     @Override

@@ -11,6 +11,8 @@ public interface NewOperator
 {
     ListenableFuture<?> NOT_BLOCKED = Futures.immediateFuture(null);
 
+    OperatorContext getOperatorContext();
+
     List<TupleInfo> getTupleInfos();
 
     void finish();

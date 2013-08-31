@@ -23,6 +23,8 @@ public interface QueryExecution
 
     void cancelStage(StageId stageId);
 
+    void recordHeartbeat();
+
     void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener);
 
     interface QueryExecutionFactory<T extends QueryExecution>

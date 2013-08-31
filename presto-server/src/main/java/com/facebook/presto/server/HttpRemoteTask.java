@@ -9,7 +9,6 @@ import com.facebook.presto.TaskSource;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.client.PrestoHeaders;
 import com.facebook.presto.execution.BufferInfo;
-import com.facebook.presto.execution.ExecutionStats.ExecutionStatsSnapshot;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.SharedBuffer.QueueState;
 import com.facebook.presto.execution.SharedBufferInfo;
@@ -19,7 +18,8 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.metadata.Node;
-import com.facebook.presto.operator.OperatorStats.SplitExecutionStats;
+import com.facebook.presto.noperator.TaskContext;
+import com.facebook.presto.noperator.TaskStats;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.sql.analyzer.Session;
@@ -53,6 +53,7 @@ import io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.GuardedBy;
 
@@ -202,15 +203,17 @@ public class HttpRemoteTask
                 pendingSplits.put(planFragment.getPartitionedSource(), new ScheduledSplit(nextSplitId.getAndIncrement(), initialSplit));
             }
 
+            TaskStats taskStats = new TaskContext(taskId, executor, session).getTaskStats();
+
             taskInfo = new StateMachine<>("task " + taskId, executor, new TaskInfo(
                     taskId,
                     TaskInfo.MIN_VERSION,
                     TaskState.PLANNED,
                     location,
+                    DateTime.now(),
                     new SharedBufferInfo(QueueState.OPEN, 0, 0, bufferStates),
                     ImmutableSet.<PlanNodeId>of(),
-                    new ExecutionStatsSnapshot(),
-                    ImmutableList.<SplitExecutionStats>of(),
+                    taskStats,
                     ImmutableList.<FailureInfo>of(),
                     ImmutableMap.<PlanNodeId, Set<?>>of()));
         }
@@ -322,7 +325,7 @@ public class HttpRemoteTask
             if (planFragment.isPartitioned()) {
                 pendingSplitCount = pendingSplits.get(planFragment.getPartitionedSource()).size();
             }
-            return pendingSplitCount + taskInfo.get().getStats().getQueuedSplits();
+            return pendingSplitCount + taskInfo.get().getStats().getQueuedDrivers();
         }
     }
 
@@ -469,10 +472,10 @@ public class HttpRemoteTask
                     TaskInfo.MAX_VERSION,
                     TaskState.CANCELED,
                     taskInfo.getSelf(),
+                    taskInfo.getLastHeartbeat(),
                     taskInfo.getOutputBuffers(),
                     taskInfo.getNoMoreSplits(),
                     taskInfo.getStats(),
-                    ImmutableList.<SplitExecutionStats>of(),
                     ImmutableList.<FailureInfo>of(),
                     ImmutableMap.<PlanNodeId, Set<?>>of()));
 
@@ -584,10 +587,10 @@ public class HttpRemoteTask
                 TaskInfo.MAX_VERSION,
                 TaskState.FAILED,
                 taskInfo.getSelf(),
+                taskInfo.getLastHeartbeat(),
                 taskInfo.getOutputBuffers(),
                 taskInfo.getNoMoreSplits(),
                 taskInfo.getStats(),
-                ImmutableList.<SplitExecutionStats>of(),
                 ImmutableList.of(toFailure(cause)),
                 taskInfo.getOutputs()));
     }

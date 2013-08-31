@@ -151,7 +151,7 @@ public class SqlQueryManager
             return maxWait;
         }
 
-        query.getQueryInfo().getQueryStats().recordHeartbeat();
+        query.recordHeartbeat();
         return query.waitForStateChange(currentState, maxWait);
     }
 
@@ -164,8 +164,8 @@ public class SqlQueryManager
         if (query == null) {
             throw new NoSuchElementException();
         }
-        // todo should this be a method on QueryExecution?
-        query.getQueryInfo().getQueryStats().recordHeartbeat();
+
+        query.recordHeartbeat();
         return query.getQueryInfo();
     }
 
@@ -315,7 +315,7 @@ public class SqlQueryManager
     private QueryInfo createFailedQuery(Session session, String query, QueryId queryId, Throwable cause)
     {
         URI self = locationFactory.createQueryLocation(queryId);
-        QueryExecution execution = new FailedQueryExecution(queryId, query, session, self, cause);
+        QueryExecution execution = new FailedQueryExecution(queryId, query, session, self, queryExecutor, cause);
 
         queries.put(queryId, execution);
         queryMonitor.createdEvent(execution.getQueryInfo());

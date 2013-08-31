@@ -4,9 +4,7 @@
 package com.facebook.presto.noperator;
 
 import com.facebook.presto.block.Block;
-import com.facebook.presto.execution.TaskMemoryManager;
-import com.facebook.presto.operator.ChannelSet;
-import com.facebook.presto.operator.OperatorStats;
+import com.facebook.presto.noperator.NewChannelSet.NewChannelSetBuilder;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Function;
@@ -20,7 +18,6 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.List;
 
-import static com.facebook.presto.operator.ChannelSet.ChannelSetBuilder;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -31,7 +28,7 @@ public class NewSetBuilderOperator
     public static class NewSetSupplier
     {
         private final TupleInfo tupleInfo;
-        private final SettableFuture<ChannelSet> channelSetFuture = SettableFuture.create();
+        private final SettableFuture<NewChannelSet> channelSetFuture = SettableFuture.create();
 
         public NewSetSupplier(TupleInfo tupleInfo)
         {
@@ -43,18 +40,18 @@ public class NewSetBuilderOperator
             return tupleInfo;
         }
 
-        public ListenableFuture<ChannelSet> getChannelSet()
+        public ListenableFuture<NewChannelSet> getChannelSet()
         {
-            return Futures.transform(channelSetFuture, new Function<ChannelSet, ChannelSet>() {
+            return Futures.transform(channelSetFuture, new Function<NewChannelSet, NewChannelSet>() {
                 @Override
-                public ChannelSet apply(ChannelSet channelSet)
+                public NewChannelSet apply(NewChannelSet channelSet)
                 {
-                    return new ChannelSet(channelSet);
+                    return new NewChannelSet(channelSet);
                 }
             });
         }
 
-        void setChannelSet(ChannelSet channelSet)
+        void setChannelSet(NewChannelSet channelSet)
         {
             boolean wasSet = channelSetFuture.set(checkNotNull(channelSet, "channelSet is null"));
             checkState(wasSet, "ChannelSet already set");
@@ -64,16 +61,19 @@ public class NewSetBuilderOperator
     public static class NewSetBuilderOperatorFactory
             implements NewOperatorFactory
     {
+        private final int operatorId;
         private final NewSetSupplier setProvider;
         private final int setChannel;
         private final int expectedPositions;
         private boolean closed;
 
         public NewSetBuilderOperatorFactory(
+                int operatorId,
                 List<TupleInfo> tupleInfos,
                 int setChannel,
                 int expectedPositions)
         {
+            this.operatorId = operatorId;
             Preconditions.checkArgument(setChannel >= 0, "setChannel is negative");
             this.setProvider = new NewSetSupplier(checkNotNull(tupleInfos, "tupleInfos is null").get(setChannel));
             this.setChannel = setChannel;
@@ -92,10 +92,11 @@ public class NewSetBuilderOperator
         }
 
         @Override
-        public NewOperator createOperator(OperatorStats operatorStats, TaskMemoryManager taskMemoryManager)
+        public NewOperator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            return new NewSetBuilderOperator(setProvider, setChannel, expectedPositions, taskMemoryManager);
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, NewSetBuilderOperator.class.getSimpleName());
+            return new NewSetBuilderOperator(operatorContext, setProvider, setChannel, expectedPositions);
         }
 
         @Override
@@ -105,27 +106,36 @@ public class NewSetBuilderOperator
         }
     }
 
+    private final OperatorContext operatorContext;
     private final NewSetSupplier setSupplier;
     private final int setChannel;
 
-    private final ChannelSetBuilder channelSetBuilder;
+    private final NewChannelSetBuilder channelSetBuilder;
 
     private boolean finished;
 
     public NewSetBuilderOperator(
+            OperatorContext operatorContext,
             NewSetSupplier setSupplier,
             int setChannel,
-            int expectedPositions,
-            TaskMemoryManager taskMemoryManager)
+            int expectedPositions)
     {
+        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         this.setSupplier = checkNotNull(setSupplier, "setProvider is null");
         this.setChannel = setChannel;
-        this.channelSetBuilder = new ChannelSetBuilder(
+        this.channelSetBuilder = new NewChannelSetBuilder(
                 setSupplier.getTupleInfo(),
                 expectedPositions,
-                checkNotNull(taskMemoryManager, "taskMemoryManager is null"));
+                checkNotNull(operatorContext, "operatorContext is null"));
     }
 
+    @Override
+    public OperatorContext getOperatorContext()
+    {
+        return operatorContext;
+    }
+
+    @Override
     public List<TupleInfo> getTupleInfos()
     {
         return ImmutableList.of();
@@ -138,7 +148,7 @@ public class NewSetBuilderOperator
             return;
         }
 
-        ChannelSet channelSet = channelSetBuilder.build();
+        NewChannelSet channelSet = channelSetBuilder.build();
         setSupplier.setChannelSet(channelSet);
         finished = true;
     }

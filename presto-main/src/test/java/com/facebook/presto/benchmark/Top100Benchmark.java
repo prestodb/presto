@@ -14,14 +14,18 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import io.airlift.units.DataSize;
 
+import java.util.concurrent.ExecutorService;
+
 import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
+import static com.facebook.presto.util.Threads.daemonThreadsNamed;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class Top100Benchmark
         extends AbstractOperatorBenchmark
 {
-    public Top100Benchmark(TpchBlocksProvider tpchBlocksProvider)
+    public Top100Benchmark(ExecutorService executor, TpchBlocksProvider tpchBlocksProvider)
     {
-        super(tpchBlocksProvider, "top100", 5, 50);
+        super(executor, tpchBlocksProvider, "top100", 5, 50);
     }
 
     @Override
@@ -40,7 +44,8 @@ public class Top100Benchmark
 
     public static void main(String[] args)
     {
-        new Top100Benchmark(DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(
+        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test"));
+        new Top100Benchmark(executor, DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(
                 new SimpleLineBenchmarkResultWriter(System.out)
         );
     }

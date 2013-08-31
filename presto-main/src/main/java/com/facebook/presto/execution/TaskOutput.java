@@ -5,6 +5,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
+import com.facebook.presto.noperator.TaskContext;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.OperatorStats.SplitExecutionStats;
 import com.facebook.presto.operator.Page;
@@ -18,9 +19,11 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
+
 import java.net.URI;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -44,7 +47,6 @@ public class TaskOutput
     private final URI location;
     private final SharedBuffer sharedBuffer;
 
-    private final ExecutionStats stats;
     private final StateMachine<TaskState> taskState;
     private final AtomicLong nextTaskInfoVersion = new AtomicLong(TaskInfo.STARTING_VERSION);
 
@@ -57,6 +59,7 @@ public class TaskOutput
     private final Map<PlanNodeId, Set<?>> outputs = new HashMap<>();
 
     private final Set<OperatorStats> activeSplits = Sets.newSetFromMap(new ConcurrentHashMap<OperatorStats, Boolean>());
+    private final TaskContext taskContext;
 
     public TaskOutput(TaskId taskId, URI location, DataSize maxBufferSize, Executor executor, SqlTaskManagerStats taskManagerStats)
     {
@@ -77,7 +80,7 @@ public class TaskOutput
             }
         });
 
-        stats  = new ExecutionStats(taskManagerStats);
+        taskContext = new TaskContext(taskId, executor, null);
     }
 
     public TaskId getTaskId()
@@ -90,11 +93,6 @@ public class TaskOutput
         return taskState.get();
     }
 
-    public ExecutionStats getStats()
-    {
-        return stats;
-    }
-
     public void addResultQueue(String outputIds)
     {
         sharedBuffer.addQueue(outputIds);
@@ -103,12 +101,12 @@ public class TaskOutput
     public boolean addPage(Page page)
             throws InterruptedException
     {
-        long start = System.nanoTime();
+//        long start = System.nanoTime();
         try {
             return sharedBuffer.add(page);
         }
         finally {
-            stats.addSinkBufferWaitTime(Duration.nanosSince(start));
+//            stats.addSinkBufferWaitTime(Duration.nanosSince(start));
         }
     }
 
@@ -222,7 +220,7 @@ public class TaskOutput
                 return false;
             }
 
-            stats.recordEnd();
+//            stats.recordEnd();
 
             // If someone changed the state while we were working, start
             // the whole process over again.  This assures that a final
@@ -275,14 +273,15 @@ public class TaskOutput
                 failures = toFailures(failureCauses);
             }
 
+            DateTime lastHeartbeat = DateTime.now();
             return new TaskInfo(taskId,
                     nextTaskInfoVersion.getAndIncrement(),
                     state,
                     location,
+                    lastHeartbeat,
                     sharedBufferInfo,
                     getNoMoreSplits(),
-                    stats.snapshot(full),
-                    splitStats,
+                    taskContext.getTaskStats(),
                     failures,
                     getOutputs());
         }

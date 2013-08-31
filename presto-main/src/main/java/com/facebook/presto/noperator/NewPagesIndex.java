@@ -6,7 +6,6 @@ package com.facebook.presto.noperator;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
-import com.facebook.presto.execution.TaskMemoryManager;
 import com.facebook.presto.operator.ChannelIndex;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.tuple.TupleInfo;
@@ -34,15 +33,15 @@ public class NewPagesIndex
 {
     private final ChannelIndex[] indexes;
     private final List<TupleInfo> tupleInfos;
-    private final TaskMemoryManager taskMemoryManager;
+    private final OperatorContext operatorContext;
 
     private int positionCount;
     private long estimatedSize;
 
-    public NewPagesIndex(List<TupleInfo> tupleInfos, int expectedPositions, TaskMemoryManager taskMemoryManager)
+    public NewPagesIndex(List<TupleInfo> tupleInfos, int expectedPositions, OperatorContext operatorContext)
     {
         this.tupleInfos = tupleInfos;
-        this.taskMemoryManager = taskMemoryManager;
+        this.operatorContext = operatorContext;
         this.indexes = new ChannelIndex[tupleInfos.size()];
         for (int channel = 0; channel < indexes.length; channel++) {
             indexes[channel] = new ChannelIndex(expectedPositions, tupleInfos.get(channel));
@@ -67,7 +66,7 @@ public class NewPagesIndex
             indexes[channel].indexBlock((UncompressedBlock) blocks[channel]);
         }
 
-        estimatedSize = taskMemoryManager.updateOperatorReservation(estimatedSize, calculateEstimatedSize());
+        estimatedSize = operatorContext.setMemoryReservation(calculateEstimatedSize());
     }
 
     public DataSize getEstimatedSize()

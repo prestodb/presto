@@ -4,13 +4,14 @@ import com.facebook.presto.benchmark.NewHandTpchQuery6.TpchQuery6Operator.TpchQu
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.execution.TaskMemoryManager;
+import com.facebook.presto.noperator.DriverContext;
 import com.facebook.presto.noperator.DriverOperator;
 import com.facebook.presto.noperator.NewAggregationOperator.NewAggregationOperatorFactory;
 import com.facebook.presto.noperator.NewAlignmentOperator.NewAlignmentOperatorFactory;
+import com.facebook.presto.noperator.NewOperator;
 import com.facebook.presto.noperator.NewOperatorFactory;
+import com.facebook.presto.noperator.OperatorContext;
 import com.facebook.presto.operator.Operator;
-import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
@@ -22,18 +23,21 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
 import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUBLE_SUM;
+import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class NewHandTpchQuery6
         extends AbstractOperatorBenchmark
 {
-    public NewHandTpchQuery6(TpchBlocksProvider tpchBlocksProvider)
+    public NewHandTpchQuery6(ExecutorService executor, TpchBlocksProvider tpchBlocksProvider)
     {
-        super(tpchBlocksProvider, "hand_tpch_query_6", 10, 100);
+        super(executor, tpchBlocksProvider, "hand_tpch_query_6", 10, 100);
     }
 
     @Override
@@ -52,11 +56,12 @@ public class NewHandTpchQuery6
         BlockIterable shipDate = getBlockIterable("lineitem", "shipdate", BlocksFileEncoding.RAW);
         BlockIterable quantity = getBlockIterable("lineitem", "quantity", BlocksFileEncoding.RAW);
 
-        NewAlignmentOperatorFactory alignmentOperator = new NewAlignmentOperatorFactory(extendedPrice, discount, shipDate, quantity);
+        NewAlignmentOperatorFactory alignmentOperator = new NewAlignmentOperatorFactory(0, extendedPrice, discount, shipDate, quantity);
 
-        TpchQuery6OperatorFactory tpchQuery6Operator = new TpchQuery6OperatorFactory();
+        TpchQuery6OperatorFactory tpchQuery6Operator = new TpchQuery6OperatorFactory(1);
 
         NewAggregationOperatorFactory aggregationOperator = new NewAggregationOperatorFactory(
+                2,
                 Step.SINGLE,
                 ImmutableList.of(
                         aggregation(DOUBLE_SUM, new Input(0, 0))
@@ -71,6 +76,13 @@ public class NewHandTpchQuery6
         public static class TpchQuery6OperatorFactory
                 implements NewOperatorFactory
         {
+            private final int operatorId;
+
+            public TpchQuery6OperatorFactory(int operatorId)
+            {
+                this.operatorId = operatorId;
+            }
+
             @Override
             public List<TupleInfo> getTupleInfos()
             {
@@ -78,9 +90,10 @@ public class NewHandTpchQuery6
             }
 
             @Override
-            public com.facebook.presto.noperator.NewOperator createOperator(OperatorStats operatorStats, TaskMemoryManager taskMemoryManager)
+            public NewOperator createOperator(DriverContext driverContext)
             {
-                return new TpchQuery6Operator();
+                OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, TpchQuery6Operator.class.getSimpleName());
+                return new TpchQuery6Operator(operatorContext);
             }
 
             @Override
@@ -92,9 +105,9 @@ public class NewHandTpchQuery6
         private static final Slice MIN_SHIP_DATE = Slices.copiedBuffer("1994-01-01", UTF_8);
         private static final Slice MAX_SHIP_DATE = Slices.copiedBuffer("1995-01-01", UTF_8);
 
-        public TpchQuery6Operator()
+        public TpchQuery6Operator(OperatorContext operatorContext)
         {
-            super(ImmutableList.of(TupleInfo.SINGLE_DOUBLE));
+            super(operatorContext, ImmutableList.of(TupleInfo.SINGLE_DOUBLE));
         }
 
         @Override
@@ -156,7 +169,8 @@ public class NewHandTpchQuery6
 
     public static void main(String[] args)
     {
-        new NewHandTpchQuery6(DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(
+        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test"));
+        new NewHandTpchQuery6(executor, DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(
                 new SimpleLineBenchmarkResultWriter(System.out)
         );
     }

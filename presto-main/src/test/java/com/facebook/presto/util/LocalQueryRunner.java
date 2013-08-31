@@ -10,7 +10,7 @@ import com.facebook.presto.connector.system.SystemDataStreamProvider;
 import com.facebook.presto.connector.system.SystemSplitManager;
 import com.facebook.presto.connector.system.SystemTablesManager;
 import com.facebook.presto.connector.system.SystemTablesMetadata;
-import com.facebook.presto.execution.TaskMemoryManager;
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.importer.MockPeriodicImportManager;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.LocalStorageManager;
@@ -18,13 +18,16 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.MockLocalStorageManager;
 import com.facebook.presto.noperator.Driver;
+import com.facebook.presto.noperator.DriverContext;
 import com.facebook.presto.noperator.DriverFactory;
 import com.facebook.presto.noperator.DriverOperator.DriverOperatorIterator;
 import com.facebook.presto.noperator.InMemoryExchange;
 import com.facebook.presto.noperator.MaterializingOperator;
 import com.facebook.presto.noperator.NewOperator;
 import com.facebook.presto.noperator.NewOperatorFactory;
+import com.facebook.presto.noperator.OperatorContext;
 import com.facebook.presto.noperator.OutputFactory;
+import com.facebook.presto.noperator.TaskContext;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.PageIterator;
@@ -66,13 +69,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.node.NodeConfig;
 import io.airlift.node.NodeInfo;
-import io.airlift.units.DataSize;
 import org.intellij.lang.annotations.Language;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
@@ -81,7 +84,6 @@ import static com.facebook.presto.tpch.TpchMetadata.TPCH_CATALOG_NAME;
 import static com.facebook.presto.tpch.TpchMetadata.TPCH_SCHEMA_NAME;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static org.testng.Assert.assertTrue;
 
 public class LocalQueryRunner
@@ -91,6 +93,7 @@ public class LocalQueryRunner
     private final DataStreamProvider dataStreamProvider;
     private final LocalStorageManager storageManager;
     private final Session session;
+    private final ExecutorService executor;
     private final ExpressionCompiler compiler;
     private boolean printPlan;
 
@@ -98,13 +101,14 @@ public class LocalQueryRunner
             SplitManager splitManager,
             DataStreamProvider dataStreamProvider,
             LocalStorageManager storageManager,
-            Session session)
+            Session session, ExecutorService executor)
     {
         this.metadata = checkNotNull(metadata, "metadata is null");
         this.splitManager = checkNotNull(splitManager, "splitManager is null");
         this.dataStreamProvider = checkNotNull(dataStreamProvider, "dataStreamProvider is null");
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
         this.session = checkNotNull(session, "session is null");
+        this.executor = checkNotNull(executor, "executor is null");
         this.compiler = new ExpressionCompiler(metadata);
     }
 
@@ -126,7 +130,7 @@ public class LocalQueryRunner
         }
 
         @Override
-        public NewOperatorFactory createOutputOperator(final List<TupleInfo> sourceTupleInfo)
+        public NewOperatorFactory createOutputOperator(final int operatorId, final List<TupleInfo> sourceTupleInfo)
         {
             checkNotNull(sourceTupleInfo, "sourceTupleInfo is null");
 
@@ -139,10 +143,11 @@ public class LocalQueryRunner
                 }
 
                 @Override
-                public NewOperator createOperator(OperatorStats operatorStats, TaskMemoryManager taskMemoryManager)
+                public NewOperator createOperator(DriverContext driverContext)
                 {
                     checkState(materializingOperator == null, "Output already created");
-                    materializingOperator = new MaterializingOperator(sourceTupleInfo);
+                    OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, MaterializingOperator.class.getSimpleName());
+                    materializingOperator = new MaterializingOperator(operatorContext, sourceTupleInfo);
                     return materializingOperator;
                 }
 
@@ -186,13 +191,13 @@ public class LocalQueryRunner
         }
 
         @Override
-        public NewOperatorFactory createOutputOperator(final List<TupleInfo> sourceTupleInfo)
+        public NewOperatorFactory createOutputOperator(int operatorId, final List<TupleInfo> sourceTupleInfo)
         {
             checkNotNull(sourceTupleInfo, "sourceTupleInfo is null");
 
             checkState(inMemoryExchange == null, "Output already created");
             inMemoryExchange = new InMemoryExchange(sourceTupleInfo);
-            NewOperatorFactory operatorFactory = inMemoryExchange.createSinkFactory();
+            NewOperatorFactory operatorFactory = inMemoryExchange.createSinkFactory(operatorId);
             inMemoryExchange.noMoreSinkFactories();
 
             return operatorFactory;
@@ -267,12 +272,14 @@ public class LocalQueryRunner
                 plan.getTypes(),
                 outputFactory);
 
+        TaskContext taskContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session);
+
         // create drivers
         List<Driver> drivers = new ArrayList<>();
         Map<PlanNodeId, Driver> driversBySource = new HashMap<>();
         List<DriverFactory> driverFactories = localExecutionPlan.getDriverFactories();
         for (DriverFactory driverFactory : driverFactories) {
-            Driver driver = driverFactory.createDriver(new OperatorStats(), new TaskMemoryManager(new DataSize(256, MEGABYTE)));
+            Driver driver = driverFactory.createDriver(taskContext.addPipelineContext().addDriverContext());
             drivers.add(driver);
             for (PlanNodeId sourceId : driver.getSourceIds()) {
                 driversBySource.put(sourceId, driver);
@@ -306,12 +313,12 @@ public class LocalQueryRunner
         return ImmutableList.copyOf(drivers);
     }
 
-    public static LocalQueryRunner createDualLocalQueryRunner()
+    public static LocalQueryRunner createDualLocalQueryRunner(ExecutorService executor)
     {
-        return createDualLocalQueryRunner(new Session("user", "test", DEFAULT_CATALOG, DEFAULT_SCHEMA, null, null));
+        return createDualLocalQueryRunner(new Session("user", "test", DEFAULT_CATALOG, DEFAULT_SCHEMA, null, null), executor);
     }
 
-    public static LocalQueryRunner createDualLocalQueryRunner(Session session)
+    public static LocalQueryRunner createDualLocalQueryRunner(Session session, ExecutorService executor)
     {
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
 
@@ -322,25 +329,25 @@ public class LocalQueryRunner
         addDual(nodeManager, metadataManager, splitManager, dataStreamManager);
         addInformationSchema(nodeManager, metadataManager, splitManager, dataStreamManager);
 
-        return new LocalQueryRunner(metadataManager, splitManager, dataStreamManager, MockLocalStorageManager.createMockLocalStorageManager(), session);
+        return new LocalQueryRunner(metadataManager, splitManager, dataStreamManager, MockLocalStorageManager.createMockLocalStorageManager(), session, executor);
     }
 
-    public static LocalQueryRunner createTpchLocalQueryRunner()
+    public static LocalQueryRunner createTpchLocalQueryRunner(ExecutorService executor)
     {
-        return createTpchLocalQueryRunner(new Session("user", "test", TPCH_CATALOG_NAME, TPCH_SCHEMA_NAME, null, null));
+        return createTpchLocalQueryRunner(new Session("user", "test", TPCH_CATALOG_NAME, TPCH_SCHEMA_NAME, null, null), executor);
     }
 
-    public static LocalQueryRunner createTpchLocalQueryRunner(Session session)
+    public static LocalQueryRunner createTpchLocalQueryRunner(Session session, ExecutorService executor)
     {
-        return createTpchLocalQueryRunner(session, new InMemoryTpchBlocksProvider());
+        return createTpchLocalQueryRunner(session, new InMemoryTpchBlocksProvider(), executor);
     }
 
-    public static LocalQueryRunner createTpchLocalQueryRunner(TpchBlocksProvider tpchBlocksProvider)
+    public static LocalQueryRunner createTpchLocalQueryRunner(TpchBlocksProvider tpchBlocksProvider, ExecutorService executor)
     {
-        return createTpchLocalQueryRunner(new Session("user", "test", TPCH_CATALOG_NAME, TPCH_SCHEMA_NAME, null, null), tpchBlocksProvider);
+        return createTpchLocalQueryRunner(new Session("user", "test", TPCH_CATALOG_NAME, TPCH_SCHEMA_NAME, null, null), tpchBlocksProvider, executor);
     }
 
-    public static LocalQueryRunner createTpchLocalQueryRunner(Session session, TpchBlocksProvider tpchBlocksProvider)
+    public static LocalQueryRunner createTpchLocalQueryRunner(Session session, TpchBlocksProvider tpchBlocksProvider, ExecutorService executor)
     {
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
 
@@ -353,7 +360,7 @@ public class LocalQueryRunner
         addInformationSchema(nodeManager, metadataManager, splitManager, dataStreamManager);
         addTpch(nodeManager, metadataManager, splitManager, dataStreamManager, tpchBlocksProvider);
 
-        return new LocalQueryRunner(metadataManager, splitManager, dataStreamManager, MockLocalStorageManager.createMockLocalStorageManager(), session);
+        return new LocalQueryRunner(metadataManager, splitManager, dataStreamManager, MockLocalStorageManager.createMockLocalStorageManager(), session, executor);
     }
 
     private static void addSystem(InMemoryNodeManager nodeManager, MetadataManager metadataManager, SplitManager splitManager, DataStreamManager dataStreamManager)

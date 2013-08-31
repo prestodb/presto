@@ -1,36 +1,57 @@
 package com.facebook.presto.noperator;
 
-import com.facebook.presto.execution.TaskMemoryManager;
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.noperator.NewHashSemiJoinOperator.NewHashSemiJoinOperatorFactory;
-import com.facebook.presto.noperator.NewSetBuilderOperator.NewSetSupplier;
-import com.facebook.presto.operator.OperatorStats;
+import com.facebook.presto.noperator.NewSetBuilderOperator.NewSetBuilderOperatorFactory;
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.util.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.noperator.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 import static com.facebook.presto.tuple.TupleInfo.Type.BOOLEAN;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.util.MaterializedResult.resultBuilder;
+import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class TestNewHashSemiJoinOperator
 {
+    private ExecutorService executor;
+    private TaskContext taskContext;
+
+    @BeforeMethod
+    public void setUp()
+    {
+        executor = newCachedThreadPool(daemonThreadsNamed("test"));
+        Session session = new Session("user", "source", "catalog", "schema", "address", "agent");
+        taskContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session);
+    }
+
+    @AfterMethod
+    public void tearDown()
+    {
+        executor.shutdownNow();
+    }
+
     @Test
     public void testSemiJoin()
             throws Exception
     {
-        TaskMemoryManager taskMemoryManager = new TaskMemoryManager(new DataSize(256, MEGABYTE));
-        OperatorStats operatorStats = new OperatorStats();
+        DriverContext driverContext = taskContext.addPipelineContext().addDriverContext();
 
         // build
-        NewOperator buildOperator = new StaticOperator(rowPagesBuilder(SINGLE_LONG)
+        OperatorContext operatorContext = driverContext.addOperatorContext(0, StaticOperator.class.getSimpleName());
+        NewOperator buildOperator = new StaticOperator(operatorContext, rowPagesBuilder(SINGLE_LONG)
                 .row(10)
                 .row(30)
                 .row(30)
@@ -39,10 +60,10 @@ public class TestNewHashSemiJoinOperator
                 .row(37)
                 .row(50)
                 .build());
-        NewSetSupplier setSupplier = new NewSetSupplier(SINGLE_LONG);
-        NewSetBuilderOperator setBuilderOperator = new NewSetBuilderOperator(setSupplier, 0, 10, taskMemoryManager);
+        NewSetBuilderOperatorFactory setBuilderOperatorFactory = new NewSetBuilderOperatorFactory(1, buildOperator.getTupleInfos(), 0, 10);
+        NewOperator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
 
-        Driver driver = new Driver(operatorStats, buildOperator, setBuilderOperator);
+        Driver driver = new Driver(driverContext, buildOperator, setBuilderOperator);
         while (!driver.isFinished()) {
             driver.process();
         }
@@ -51,8 +72,12 @@ public class TestNewHashSemiJoinOperator
         List<Page> probeInput = rowPagesBuilder(SINGLE_LONG, SINGLE_LONG)
                 .addSequencePage(10, 30, 0)
                 .build();
-        NewHashSemiJoinOperatorFactory joinOperatorFactory = new NewHashSemiJoinOperatorFactory(setSupplier, ImmutableList.of(SINGLE_LONG, SINGLE_LONG), 0);
-        NewOperator joinOperator = joinOperatorFactory.createOperator(operatorStats, taskMemoryManager);
+        NewHashSemiJoinOperatorFactory joinOperatorFactory = new NewHashSemiJoinOperatorFactory(
+                2,
+                setBuilderOperatorFactory.getSetProvider(),
+                ImmutableList.of(SINGLE_LONG, SINGLE_LONG),
+                0);
+        NewOperator joinOperator = joinOperatorFactory.createOperator(driverContext);
 
         // expected
         MaterializedResult expected = resultBuilder(FIXED_INT_64, FIXED_INT_64, BOOLEAN)
@@ -75,11 +100,11 @@ public class TestNewHashSemiJoinOperator
     public void testBuildSideNulls()
             throws Exception
     {
-        TaskMemoryManager taskMemoryManager = new TaskMemoryManager(new DataSize(256, MEGABYTE));
-        OperatorStats operatorStats = new OperatorStats();
+        DriverContext driverContext = taskContext.addPipelineContext().addDriverContext();
 
         // build
-        NewOperator buildOperator = new StaticOperator(rowPagesBuilder(SINGLE_LONG)
+        OperatorContext operatorContext = driverContext.addOperatorContext(0, StaticOperator.class.getSimpleName());
+        NewOperator buildOperator = new StaticOperator(operatorContext, rowPagesBuilder(SINGLE_LONG)
                 .row(0)
                 .row(1)
                 .row(2)
@@ -87,10 +112,10 @@ public class TestNewHashSemiJoinOperator
                 .row(3)
                 .row((Object) null)
                 .build());
-        NewSetSupplier setSupplier = new NewSetSupplier(SINGLE_LONG);
-        NewSetBuilderOperator setBuilderOperator = new NewSetBuilderOperator(setSupplier, 0, 10, taskMemoryManager);
+        NewSetBuilderOperatorFactory setBuilderOperatorFactory = new NewSetBuilderOperatorFactory(1, buildOperator.getTupleInfos(), 0, 10);
+        NewOperator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
 
-        Driver driver = new Driver(operatorStats, buildOperator, setBuilderOperator);
+        Driver driver = new Driver(driverContext, buildOperator, setBuilderOperator);
         while (!driver.isFinished()) {
             driver.process();
         }
@@ -99,8 +124,12 @@ public class TestNewHashSemiJoinOperator
         List<Page> probeInput = rowPagesBuilder(SINGLE_LONG)
                 .addSequencePage(4, 1)
                 .build();
-        NewHashSemiJoinOperatorFactory joinOperatorFactory = new NewHashSemiJoinOperatorFactory(setSupplier, ImmutableList.of(SINGLE_LONG), 0);
-        NewOperator joinOperator = joinOperatorFactory.createOperator(operatorStats, taskMemoryManager);
+        NewHashSemiJoinOperatorFactory joinOperatorFactory = new NewHashSemiJoinOperatorFactory(
+                2,
+                setBuilderOperatorFactory.getSetProvider(),
+                ImmutableList.of(SINGLE_LONG),
+                0);
+        NewOperator joinOperator = joinOperatorFactory.createOperator(driverContext);
 
         // expected
         MaterializedResult expected = resultBuilder(FIXED_INT_64, BOOLEAN)
@@ -117,19 +146,19 @@ public class TestNewHashSemiJoinOperator
     public void testProbeSideNulls()
             throws Exception
     {
-        TaskMemoryManager taskMemoryManager = new TaskMemoryManager(new DataSize(256, MEGABYTE));
-        OperatorStats operatorStats = new OperatorStats();
+        DriverContext driverContext = taskContext.addPipelineContext().addDriverContext();
 
         // build
-        NewOperator buildOperator = new StaticOperator(rowPagesBuilder(SINGLE_LONG)
+        OperatorContext operatorContext = driverContext.addOperatorContext(0, StaticOperator.class.getSimpleName());
+        NewOperator buildOperator = new StaticOperator(operatorContext, rowPagesBuilder(SINGLE_LONG)
                 .row(0)
                 .row(1)
                 .row(3)
                 .build());
-        NewSetSupplier setSupplier = new NewSetSupplier(SINGLE_LONG);
-        NewSetBuilderOperator setBuilderOperator = new NewSetBuilderOperator(setSupplier, 0, 10, taskMemoryManager);
+        NewSetBuilderOperatorFactory setBuilderOperatorFactory = new NewSetBuilderOperatorFactory(1, buildOperator.getTupleInfos(), 0, 10);
+        NewOperator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
 
-        Driver driver = new Driver(operatorStats, buildOperator, setBuilderOperator);
+        Driver driver = new Driver(driverContext, buildOperator, setBuilderOperator);
         while (!driver.isFinished()) {
             driver.process();
         }
@@ -141,8 +170,12 @@ public class TestNewHashSemiJoinOperator
                 .row(1)
                 .row(2)
                 .build();
-        NewHashSemiJoinOperatorFactory joinOperatorFactory = new NewHashSemiJoinOperatorFactory(setSupplier, ImmutableList.of(SINGLE_LONG), 0);
-        NewOperator joinOperator = joinOperatorFactory.createOperator(operatorStats, taskMemoryManager);
+        NewHashSemiJoinOperatorFactory joinOperatorFactory = new NewHashSemiJoinOperatorFactory(
+                2,
+                setBuilderOperatorFactory.getSetProvider(),
+                ImmutableList.of(SINGLE_LONG),
+                0);
+        NewOperator joinOperator = joinOperatorFactory.createOperator(driverContext);
 
         // expected
         MaterializedResult expected = resultBuilder(FIXED_INT_64, BOOLEAN)
@@ -159,20 +192,20 @@ public class TestNewHashSemiJoinOperator
     public void testProbeAndBuildNulls()
             throws Exception
     {
-        TaskMemoryManager taskMemoryManager = new TaskMemoryManager(new DataSize(256, MEGABYTE));
-        OperatorStats operatorStats = new OperatorStats();
+        DriverContext driverContext = taskContext.addPipelineContext().addDriverContext();
 
         // build
-        NewOperator buildOperator = new StaticOperator(rowPagesBuilder(SINGLE_LONG)
+        OperatorContext operatorContext = driverContext.addOperatorContext(0, StaticOperator.class.getSimpleName());
+        NewOperator buildOperator = new StaticOperator(operatorContext, rowPagesBuilder(SINGLE_LONG)
                 .row(0)
                 .row(1)
                 .row((Object) null)
                 .row(3)
                 .build());
-        NewSetSupplier setSupplier = new NewSetSupplier(SINGLE_LONG);
-        NewSetBuilderOperator setBuilderOperator = new NewSetBuilderOperator(setSupplier, 0, 10, taskMemoryManager);
+        NewSetBuilderOperatorFactory setBuilderOperatorFactory = new NewSetBuilderOperatorFactory(1, buildOperator.getTupleInfos(), 0, 10);
+        NewOperator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
 
-        Driver driver = new Driver(operatorStats, buildOperator, setBuilderOperator);
+        Driver driver = new Driver(driverContext, buildOperator, setBuilderOperator);
         while (!driver.isFinished()) {
             driver.process();
         }
@@ -184,8 +217,12 @@ public class TestNewHashSemiJoinOperator
                 .row(1)
                 .row(2)
                 .build();
-        NewHashSemiJoinOperatorFactory joinOperatorFactory = new NewHashSemiJoinOperatorFactory(setSupplier, ImmutableList.of(SINGLE_LONG), 0);
-        NewOperator joinOperator = joinOperatorFactory.createOperator(operatorStats, taskMemoryManager);
+        NewHashSemiJoinOperatorFactory joinOperatorFactory = new NewHashSemiJoinOperatorFactory(
+                2,
+                setBuilderOperatorFactory.getSetProvider(),
+                ImmutableList.of(SINGLE_LONG),
+                0);
+        NewOperator joinOperator = joinOperatorFactory.createOperator(driverContext);
 
         // expected
         MaterializedResult expected = resultBuilder(FIXED_INT_64, BOOLEAN)
@@ -203,13 +240,19 @@ public class TestNewHashSemiJoinOperator
     public void testMemoryLimit()
             throws Exception
     {
-        NewOperator buildOperator = new StaticOperator(rowPagesBuilder(SINGLE_LONG)
+        Session session = new Session("user", "source", "catalog", "schema", "address", "agent");
+        DriverContext driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session, new DataSize(100, BYTE))
+                .addPipelineContext()
+                .addDriverContext();
+
+        OperatorContext operatorContext = driverContext.addOperatorContext(0, StaticOperator.class.getSimpleName());
+        NewOperator buildOperator = new StaticOperator(operatorContext, rowPagesBuilder(SINGLE_LONG)
                 .addSequencePage(1000, 20)
                 .build());
-        NewSetSupplier setSupplier = new NewSetSupplier(SINGLE_LONG);
-        NewSetBuilderOperator setBuilderOperator = new NewSetBuilderOperator(setSupplier, 0, 10, new TaskMemoryManager(new DataSize(100, BYTE)));
+        NewSetBuilderOperatorFactory setBuilderOperatorFactory = new NewSetBuilderOperatorFactory(1, buildOperator.getTupleInfos(), 0, 10);
+        NewOperator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
 
-        Driver driver = new Driver(new OperatorStats(), buildOperator, setBuilderOperator);
+        Driver driver = new Driver(driverContext, buildOperator, setBuilderOperator);
         while (!driver.isFinished()) {
             driver.process();
         }

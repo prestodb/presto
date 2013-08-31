@@ -8,12 +8,17 @@ import com.facebook.presto.operator.Operator;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.tpch.TpchBlocksProvider;
 
+import java.util.concurrent.ExecutorService;
+
+import static com.facebook.presto.util.Threads.daemonThreadsNamed;
+import static java.util.concurrent.Executors.newCachedThreadPool;
+
 public class NewHashBuildBenchmark
         extends AbstractOperatorBenchmark
 {
-    public NewHashBuildBenchmark(TpchBlocksProvider tpchBlocksProvider)
+    public NewHashBuildBenchmark(ExecutorService executor, TpchBlocksProvider tpchBlocksProvider)
     {
-        super(tpchBlocksProvider, "hash_build", 4, 5);
+        super(executor, tpchBlocksProvider, "hash_build", 4, 5);
     }
 
     @Override
@@ -22,15 +27,16 @@ public class NewHashBuildBenchmark
         BlockIterable orderOrderKey = getBlockIterable("orders", "orderkey", BlocksFileEncoding.RAW);
         BlockIterable totalPrice = getBlockIterable("orders", "totalprice", BlocksFileEncoding.RAW);
 
-        NewAlignmentOperatorFactory ordersTableScan = new NewAlignmentOperatorFactory(orderOrderKey, totalPrice);
-        NewHashBuilderOperatorFactory hashBuilder = new NewHashBuilderOperatorFactory(ordersTableScan.getTupleInfos(), 0, 1_500_000);
+        NewAlignmentOperatorFactory ordersTableScan = new NewAlignmentOperatorFactory(0, orderOrderKey, totalPrice);
+        NewHashBuilderOperatorFactory hashBuilder = new NewHashBuilderOperatorFactory(1, ordersTableScan.getTupleInfos(), 0, 1_500_000);
 
         return new DriverOperator(ordersTableScan, hashBuilder);
     }
 
     public static void main(String[] args)
     {
-        new NewHashBuildBenchmark(DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(
+        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test"));
+        new NewHashBuildBenchmark(executor, DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(
                 new SimpleLineBenchmarkResultWriter(System.out)
         );
     }

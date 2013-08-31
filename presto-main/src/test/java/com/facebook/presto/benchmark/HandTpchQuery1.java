@@ -25,20 +25,23 @@ import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
 import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
 import static com.facebook.presto.operator.aggregation.DoubleAverageAggregation.DOUBLE_AVERAGE;
 import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUBLE_SUM;
+import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class HandTpchQuery1
         extends AbstractOperatorBenchmark
 {
-    public HandTpchQuery1(TpchBlocksProvider tpchBlocksProvider)
+    public HandTpchQuery1(ExecutorService executor, TpchBlocksProvider tpchBlocksProvider)
     {
-        super(tpchBlocksProvider, "hand_tpch_query_1", 1, 5);
+        super(executor, tpchBlocksProvider, "hand_tpch_query_1", 1, 5);
     }
 
     @Override
@@ -298,7 +301,8 @@ public class HandTpchQuery1
 
     public static void main(String[] args)
     {
-        new HandTpchQuery1(DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(
+        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test"));
+        new HandTpchQuery1(executor, DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(
                 new SimpleLineBenchmarkResultWriter(System.out)
         );
     }

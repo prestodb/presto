@@ -3,14 +3,18 @@
  */
 package com.facebook.presto.noperator;
 
+import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.noperator.NewExchangeOperator.NewExchangeOperatorFactory;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.serde.PagesSerde;
 import com.facebook.presto.split.RemoteSplit;
+import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Function;
 import com.google.common.base.Splitter;
+import com.google.common.base.Supplier;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -63,6 +67,9 @@ public class TestNewExchangeOperator
     private ExecutorService executor;
     private AsyncHttpClient httpClient;
 
+    private DriverContext driverContext;
+    private Supplier<ExchangeClient> exchangeClientSupplier;
+
     @BeforeMethod
     public void setUp()
             throws Exception
@@ -79,6 +86,20 @@ public class TestNewExchangeOperator
         executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
 
         httpClient = new TestingHttpClient(new HttpClientHandler(), executor);
+
+        Session session = new Session("user", "source", "catalog", "schema", "address", "agent");
+        driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session)
+                .addPipelineContext()
+                .addDriverContext();
+
+        exchangeClientSupplier = new Supplier<ExchangeClient>()
+        {
+            @Override
+            public ExchangeClient get()
+            {
+                return new ExchangeClient(new DataSize(32, MEGABYTE), new DataSize(10, MEGABYTE), 3, httpClient, executor);
+            }
+        };
     }
 
     @AfterMethod
@@ -98,8 +119,8 @@ public class TestNewExchangeOperator
     public void testSimple()
             throws Exception
     {
-        ExchangeClient exchangeClient = new ExchangeClient(new DataSize(32, MEGABYTE), new DataSize(10, MEGABYTE), 3, httpClient, executor);
-        NewSourceOperator operator = new NewExchangeOperator(new PlanNodeId("test"), exchangeClient, TUPLE_INFOS);
+        NewExchangeOperatorFactory operatorFactory = new NewExchangeOperatorFactory(0, new PlanNodeId("test"), exchangeClientSupplier, TUPLE_INFOS);
+        NewSourceOperator operator = operatorFactory.createOperator(driverContext);
 
         operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_1_ID), TUPLE_INFOS));
         operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_2_ID), TUPLE_INFOS));
@@ -122,8 +143,8 @@ public class TestNewExchangeOperator
     public void testWaitForClose()
             throws Exception
     {
-        ExchangeClient exchangeClient = new ExchangeClient(new DataSize(32, MEGABYTE), new DataSize(10, MEGABYTE), 3, httpClient, executor);
-        NewSourceOperator operator = new NewExchangeOperator(new PlanNodeId("test"), exchangeClient, TUPLE_INFOS);
+        NewExchangeOperatorFactory operatorFactory = new NewExchangeOperatorFactory(0, new PlanNodeId("test"), exchangeClientSupplier, TUPLE_INFOS);
+        NewSourceOperator operator = operatorFactory.createOperator(driverContext);
 
         operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_1_ID), TUPLE_INFOS));
         operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_2_ID), TUPLE_INFOS));
@@ -159,8 +180,8 @@ public class TestNewExchangeOperator
     public void testWaitForNoMoreSplits()
             throws Exception
     {
-        ExchangeClient exchangeClient = new ExchangeClient(new DataSize(32, MEGABYTE), new DataSize(10, MEGABYTE), 3, httpClient, executor);
-        NewSourceOperator operator = new NewExchangeOperator(new PlanNodeId("test"), exchangeClient, TUPLE_INFOS);
+        NewExchangeOperatorFactory operatorFactory = new NewExchangeOperatorFactory(0, new PlanNodeId("test"), exchangeClientSupplier, TUPLE_INFOS);
+        NewSourceOperator operator = operatorFactory.createOperator(driverContext);
 
         operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_1_ID), TUPLE_INFOS));
 
@@ -191,8 +212,8 @@ public class TestNewExchangeOperator
     public void testFinish()
             throws Exception
     {
-        ExchangeClient exchangeClient = new ExchangeClient(new DataSize(32, MEGABYTE), new DataSize(10, MEGABYTE), 3, httpClient, executor);
-        NewSourceOperator operator = new NewExchangeOperator(new PlanNodeId("test"), exchangeClient, TUPLE_INFOS);
+        NewExchangeOperatorFactory operatorFactory = new NewExchangeOperatorFactory(0, new PlanNodeId("test"), exchangeClientSupplier, TUPLE_INFOS);
+        NewSourceOperator operator = operatorFactory.createOperator(driverContext);
 
         operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_1_ID), TUPLE_INFOS));
         operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_2_ID), TUPLE_INFOS));

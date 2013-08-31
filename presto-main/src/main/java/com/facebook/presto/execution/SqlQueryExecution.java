@@ -190,7 +190,7 @@ public class SqlQueryExecution
         // fragment the plan
         SubPlan subplan = new DistributedLogicalPlanner(metadata, idAllocator).createSubplans(plan, false);
 
-        stateMachine.getStats().recordAnalysisTime(analysisStart);
+        stateMachine.recordAnalysisTime(analysisStart);
         return subplan;
     }
 
@@ -230,7 +230,7 @@ public class SqlQueryExecution
         });
 
         // record planning time
-        stateMachine.getStats().recordDistributedPlanningTime(distributedPlanningStart);
+        stateMachine.recordDistributedPlanningTime(distributedPlanningStart);
 
         // update state in case output finished before listener was added
         doUpdateState(outputStage.getStageInfo());
@@ -288,6 +288,12 @@ public class SqlQueryExecution
     }
 
     @Override
+    public void recordHeartbeat()
+    {
+        stateMachine.recordHeartbeat();
+    }
+
+    @Override
     public QueryInfo getQueryInfo()
     {
         try (SetThreadName setThreadName = new SetThreadName("Query-%s", stateMachine.getQueryId())){
@@ -324,7 +330,7 @@ public class SqlQueryExecution
             // if output stage has at least one task, we are running
             if (!outputStageInfo.getTasks().isEmpty()) {
                 stateMachine.running();
-                stateMachine.getStats().recordExecutionStart();
+                stateMachine.recordExecutionStart();
             }
         }
     }

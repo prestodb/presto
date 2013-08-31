@@ -5,6 +5,8 @@ import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.facebook.presto.util.LocalQueryRunner;
 import org.intellij.lang.annotations.Language;
 
+import java.util.concurrent.ExecutorService;
+
 import static com.facebook.presto.util.LocalQueryRunner.createTpchLocalQueryRunner;
 
 public abstract class AbstractSqlBenchmark
@@ -14,11 +16,17 @@ public abstract class AbstractSqlBenchmark
     private final String query;
     private final LocalQueryRunner tpchLocalQueryRunner;
 
-    protected AbstractSqlBenchmark(TpchBlocksProvider tpchBlocksProvider, String benchmarkName, int warmupIterations, int measuredIterations, @Language("SQL") String query)
+    protected AbstractSqlBenchmark(
+            ExecutorService executor,
+            TpchBlocksProvider tpchBlocksProvider,
+            String benchmarkName,
+            int warmupIterations,
+            int measuredIterations,
+            @Language("SQL") String query)
     {
-        super(tpchBlocksProvider, benchmarkName, warmupIterations, measuredIterations);
+        super(executor, tpchBlocksProvider, benchmarkName, warmupIterations, measuredIterations);
         this.query = query;
-        this.tpchLocalQueryRunner = createTpchLocalQueryRunner(getTpchBlocksProvider());
+        this.tpchLocalQueryRunner = createTpchLocalQueryRunner(getTpchBlocksProvider(), executor);
     }
 
     @Override

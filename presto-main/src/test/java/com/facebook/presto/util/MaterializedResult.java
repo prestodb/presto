@@ -1,30 +1,20 @@
 package com.facebook.presto.util;
 
+import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.operator.FilterAndProjectOperator;
-import com.facebook.presto.operator.FilterFunctions;
-import com.facebook.presto.operator.Operator;
-import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
-import com.facebook.presto.operator.PageIterator;
-import com.facebook.presto.operator.ProjectionFunction;
-import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
-import com.facebook.presto.tuple.TupleReadable;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
-import static com.facebook.presto.operator.OperatorAssertions.createOperator;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -63,32 +53,6 @@ public class MaterializedResult
         return tupleInfo;
     }
 
-    public static MaterializedResult materialize(Operator operator)
-    {
-        FilterAndProjectOperator filterAndProjectOperator = new FilterAndProjectOperator(
-                operator,
-                FilterFunctions.TRUE_FUNCTION,
-                new Concat(operator.getTupleInfos()));
-        return new MaterializedResult(getTuples(filterAndProjectOperator), Iterables.getOnlyElement(filterAndProjectOperator.getTupleInfos()));
-    }
-
-    private static List<Tuple> getTuples(Operator operator)
-    {
-        ImmutableList.Builder<Tuple> output = ImmutableList.builder();
-        PageIterator iterator = operator.iterator(new OperatorStats());
-        while (iterator.hasNext()) {
-            Page page = iterator.next();
-            checkState(page.getChannelCount() == 1, "Expected result to produce 1 channel");
-
-            BlockCursor cursor = Iterables.getOnlyElement(Arrays.asList(page.getBlocks())).cursor();
-            while (cursor.advanceNextPosition()) {
-                output.add(cursor.getTuple());
-            }
-        }
-
-        return output.build();
-    }
-
     @Override
     public boolean equals(Object obj)
     {
@@ -123,9 +87,18 @@ public class MaterializedResult
         return resultBuilder(new TupleInfo(types));
     }
 
-    public static Builder resultBuilder(TupleInfo tupleInfo)
+    public static Builder resultBuilder(TupleInfo... tupleInfos)
     {
-        return new Builder(tupleInfo);
+        return resultBuilder(ImmutableList.copyOf(tupleInfos));
+    }
+
+    public static Builder resultBuilder(List<TupleInfo> tupleInfos)
+    {
+        ImmutableList.Builder<Type> types = ImmutableList.builder();
+        for (TupleInfo sourceTupleInfo : checkNotNull(tupleInfos, "sourceTupleInfos is null")) {
+            types.addAll(sourceTupleInfo.getTypes());
+        }
+        return new Builder(new TupleInfo(types.build()));
     }
 
     public static class Builder
@@ -145,9 +118,42 @@ public class MaterializedResult
             return this;
         }
 
+        public Builder page(Page page)
+        {
+            checkNotNull(page, "page is null");
+
+            List<BlockCursor> cursors = new ArrayList<>();
+            for (Block block : page.getBlocks()) {
+                cursors.add(block.cursor());
+            }
+
+            while (true) {
+                boolean hasResults = false;
+                for (BlockCursor cursor : cursors) {
+                    if (cursor.advanceNextPosition()) {
+                        builder.append(cursor.getTuple());
+                        hasResults = true;
+                    }
+                    else {
+                        checkState(!hasResults, "unaligned cursors");
+                    }
+                }
+                if (!hasResults) {
+                    return this;
+                }
+            }
+        }
+
         public MaterializedResult build()
         {
-            return materialize(createOperator(new Page(builder.build())));
+            ImmutableList.Builder<Tuple> tuples = ImmutableList.builder();
+            if (!builder.isEmpty()) {
+                BlockCursor cursor = builder.build().cursor();
+                while (cursor.advanceNextPosition()) {
+                    tuples.add(cursor.getTuple());
+                }
+            }
+            return new MaterializedResult(tuples.build(), builder.getTupleInfo());
         }
 
         private void append(Object value)
@@ -169,64 +175,6 @@ public class MaterializedResult
             }
             else {
                 throw new IllegalArgumentException("bad value: " + value.getClass().getName());
-            }
-        }
-    }
-
-    private static class Concat
-            implements ProjectionFunction
-    {
-        private final TupleInfo tupleInfo;
-
-        public Concat(List<TupleInfo> infos)
-        {
-            List<TupleInfo.Type> types = new ArrayList<>();
-            for (TupleInfo info : infos) {
-                types.addAll(info.getTypes());
-            }
-
-            this.tupleInfo = new TupleInfo(types);
-        }
-
-        @Override
-        public TupleInfo getTupleInfo()
-        {
-            return tupleInfo;
-        }
-
-        @Override
-        public void project(TupleReadable[] cursors, BlockBuilder output)
-        {
-            for (TupleReadable cursor : cursors) {
-                output.append(cursor.getTuple());
-            }
-        }
-
-        @Override
-        public void project(RecordCursor cursor, BlockBuilder output)
-        {
-            int field = 0;
-            for (Type type : tupleInfo.getTypes()) {
-                if (cursor.isNull(field)) {
-                    output.appendNull();
-                }
-                else {
-                    switch (type) {
-                        case BOOLEAN:
-                            output.append(cursor.getBoolean(field));
-                            break;
-                        case FIXED_INT_64:
-                            output.append(cursor.getLong(field));
-                            break;
-                        case VARIABLE_BINARY:
-                            output.append(cursor.getString(field));
-                            break;
-                        case DOUBLE:
-                            output.append(cursor.getDouble(field));
-                            break;
-                    }
-                }
-                field++;
             }
         }
     }

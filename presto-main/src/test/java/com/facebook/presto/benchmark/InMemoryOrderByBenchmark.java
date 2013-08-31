@@ -10,18 +10,22 @@ import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.tpch.TpchBlocksProvider;
 import io.airlift.units.DataSize;
 
+import java.util.concurrent.ExecutorService;
+
 import static com.facebook.presto.block.BlockIterables.concat;
+import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Collections.nCopies;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class InMemoryOrderByBenchmark
     extends AbstractOperatorBenchmark
 {
     private static final int ROWS = 1_500_000;
 
-    public InMemoryOrderByBenchmark(TpchBlocksProvider tpchBlocksProvider)
+    public InMemoryOrderByBenchmark(ExecutorService executor, TpchBlocksProvider tpchBlocksProvider)
     {
-        super(tpchBlocksProvider, "in_memory_orderby_1.5M", 5, 10);
+        super(executor, tpchBlocksProvider, "in_memory_orderby_1.5M", 5, 10);
     }
 
     @Override
@@ -38,7 +42,8 @@ public class InMemoryOrderByBenchmark
 
     public static void main(String[] args)
     {
-        new InMemoryOrderByBenchmark(DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(
+        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test"));
+        new InMemoryOrderByBenchmark(executor, DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(
                 new SimpleLineBenchmarkResultWriter(System.out)
         );
     }

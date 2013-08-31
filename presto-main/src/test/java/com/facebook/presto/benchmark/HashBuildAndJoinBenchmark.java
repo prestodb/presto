@@ -15,14 +15,18 @@ import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.tpch.TpchBlocksProvider;
 import io.airlift.units.DataSize;
 
+import java.util.concurrent.ExecutorService;
+
+import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class HashBuildAndJoinBenchmark
         extends AbstractOperatorBenchmark
 {
-    public HashBuildAndJoinBenchmark(TpchBlocksProvider tpchBlocksProvider)
+    public HashBuildAndJoinBenchmark(ExecutorService executor, TpchBlocksProvider tpchBlocksProvider)
     {
-        super(tpchBlocksProvider, "hash_build_and_join", 4, 5);
+        super(executor, tpchBlocksProvider, "hash_build_and_join", 4, 5);
     }
 
     /*
@@ -72,7 +76,8 @@ public class HashBuildAndJoinBenchmark
 
     public static void main(String[] args)
     {
-        new HashBuildAndJoinBenchmark(DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(
+        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test"));
+        new HashBuildAndJoinBenchmark(executor, DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(
                 new SimpleLineBenchmarkResultWriter(System.out)
         );
     }

@@ -4,9 +4,7 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
-import com.facebook.presto.execution.TaskMemoryManager;
 import com.facebook.presto.operator.AggregationFunctionDefinition;
-import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.aggregation.AggregationFunction;
 import com.facebook.presto.operator.aggregation.FixedWidthAggregationFunction;
@@ -43,6 +41,7 @@ public class NewHashAggregationOperator
     public static class NewHashAggregationOperatorFactory
             implements NewOperatorFactory
     {
+        private final int operatorId;
         private final TupleInfo groupByTupleInfo;
         private final int groupByChannel;
         private final Step step;
@@ -52,12 +51,14 @@ public class NewHashAggregationOperator
         private boolean closed;
 
         public NewHashAggregationOperatorFactory(
+                int operatorId,
                 TupleInfo groupByTupleInfo,
                 int groupByChannel,
                 Step step,
                 List<AggregationFunctionDefinition> functionDefinitions,
                 int expectedGroups)
         {
+            this.operatorId = operatorId;
             this.groupByTupleInfo = groupByTupleInfo;
             this.groupByChannel = groupByChannel;
             this.step = step;
@@ -74,17 +75,19 @@ public class NewHashAggregationOperator
         }
 
         @Override
-        public NewOperator createOperator(OperatorStats operatorStats, TaskMemoryManager taskMemoryManager)
+        public NewOperator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
 
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, NewHashAggregationOperator.class.getSimpleName());
             return new NewHashAggregationOperator(
+                    operatorContext,
                     groupByTupleInfo,
                     groupByChannel,
                     step,
                     functionDefinitions,
-                    expectedGroups,
-                    taskMemoryManager);
+                    expectedGroups
+            );
         }
 
         @Override
@@ -96,6 +99,7 @@ public class NewHashAggregationOperator
 
     private static final int LOOKUP_SLICE_INDEX = 0xFF_FF_FF_FF;
 
+    private final OperatorContext operatorContext;
     private final TupleInfo groupByTupleInfo;
     private final int groupByChannel;
     private final Step step;
@@ -110,26 +114,33 @@ public class NewHashAggregationOperator
     private boolean finishing;
 
     public NewHashAggregationOperator(
+            OperatorContext operatorContext,
             TupleInfo groupByTupleInfo,
             int groupByChannel,
             Step step,
             List<AggregationFunctionDefinition> functionDefinitions,
-            int expectedGroups,
-            TaskMemoryManager taskMemoryManager)
+            int expectedGroups)
     {
+        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         Preconditions.checkArgument(groupByChannel >= 0, "groupByChannel is negative");
         Preconditions.checkNotNull(step, "step is null");
         Preconditions.checkNotNull(functionDefinitions, "functionDefinitions is null");
-        Preconditions.checkNotNull(taskMemoryManager, "taskMemoryManager is null");
+        Preconditions.checkNotNull(operatorContext, "operatorContext is null");
 
         this.groupByTupleInfo = groupByTupleInfo;
         this.groupByChannel = groupByChannel;
         this.functionDefinitions = ImmutableList.copyOf(functionDefinitions);
         this.step = step;
         this.expectedGroups = expectedGroups;
-        this.memoryManager = new HashMemoryManager(taskMemoryManager);
+        this.memoryManager = new HashMemoryManager(operatorContext);
 
         this.tupleInfos = toTupleInfos(groupByTupleInfo, step, functionDefinitions);
+    }
+
+    @Override
+    public OperatorContext getOperatorContext()
+    {
+        return operatorContext;
     }
 
     @Override
@@ -397,25 +408,25 @@ public class NewHashAggregationOperator
 
     public static class HashMemoryManager
     {
-        private final TaskMemoryManager taskMemoryManager;
+        private final OperatorContext operatorContext;
         private long currentMemoryReservation;
 
-        public HashMemoryManager(TaskMemoryManager taskMemoryManager)
+        public HashMemoryManager(OperatorContext operatorContext)
         {
-            this.taskMemoryManager = taskMemoryManager;
+            this.operatorContext = operatorContext;
         }
 
         public boolean canUse(long memorySize)
         {
             // remove the pre-allocated memory from this size
-            memorySize -= taskMemoryManager.getOperatorPreAllocatedMemory().toBytes();
+            memorySize -= operatorContext.getOperatorPreAllocatedMemory().toBytes();
 
             long delta = memorySize - currentMemoryReservation;
             if (delta <= 0) {
                 return false;
             }
 
-            if (!taskMemoryManager.reserveBytes(delta)) {
+            if (!operatorContext.reserveMemory(delta)) {
                 return true;
             }
 
@@ -426,7 +437,7 @@ public class NewHashAggregationOperator
 
         public Object getMaxMemorySize()
         {
-            return taskMemoryManager.getMaxMemorySize();
+            return operatorContext.getMaxMemorySize();
         }
     }
 

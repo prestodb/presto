@@ -5,37 +5,76 @@ package com.facebook.presto.execution;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Preconditions;
+import com.google.common.annotations.VisibleForTesting;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
-@ThreadSafe
 public class QueryStats
 {
     private final DateTime createTime;
-    private final long createNanos;
-    @GuardedBy("this")
-    private DateTime executionStartTime;
-    @GuardedBy("this")
-    private DateTime lastHeartbeat;
-    @GuardedBy("this")
-    private DateTime endTime;
 
-    @GuardedBy("this")
-    private Duration queuedTime;
-    @GuardedBy("this")
-    private Duration analysisTime;
-    @GuardedBy("this")
-    private Duration distributedPlanningTime;
+    private final DateTime executionStartTime;
+    private final DateTime lastHeartbeat;
+    private final DateTime endTime;
 
+    private final Duration queuedTime;
+    private final Duration analysisTime;
+    private final Duration distributedPlanningTime;
+
+    private final int totalTasks;
+    private final int runningTasks;
+    private final int completedTasks;
+
+    private final int totalDrivers;
+    private final int queuedDrivers;
+    private final int startedDrivers;
+    private final int runningDrivers;
+    private final int completedDrivers;
+
+    private final DataSize totalMemoryReservation;
+
+    private final Duration totalScheduledTime;
+    private final Duration totalCpuTime;
+    private final Duration totalUserTime;
+    private final Duration totalBlockedTime;
+
+    private final DataSize inputDataSize;
+    private final long inputPositions;
+
+    private final DataSize outputDataSize;
+    private final long outputPositions;
+
+    @VisibleForTesting
     public QueryStats()
     {
-        createTime = DateTime.now();
-        lastHeartbeat = DateTime.now();
-        createNanos = System.nanoTime();
+        this.createTime = null;
+        this.executionStartTime = null;
+        this.lastHeartbeat = null;
+        this.endTime = null;
+        this.queuedTime = null;
+        this.analysisTime = null;
+        this.distributedPlanningTime = null;
+        this.totalTasks = 0;
+        this.runningTasks = 0;
+        this.completedTasks = 0;
+        this.totalDrivers = 0;
+        this.queuedDrivers = 0;
+        this.startedDrivers = 0;
+        this.runningDrivers = 0;
+        this.completedDrivers = 0;
+        this.totalMemoryReservation = null;
+        this.totalScheduledTime = null;
+        this.totalCpuTime = null;
+        this.totalUserTime = null;
+        this.totalBlockedTime = null;
+        this.inputDataSize = null;
+        this.inputPositions = 0;
+        this.outputDataSize = null;
+        this.outputPositions = 0;
     }
 
     @JsonCreator
@@ -44,19 +83,73 @@ public class QueryStats
             @JsonProperty("executionStartTime") DateTime executionStartTime,
             @JsonProperty("lastHeartbeat") DateTime lastHeartbeat,
             @JsonProperty("endTime") DateTime endTime,
+
             @JsonProperty("queuedTime") Duration queuedTime,
             @JsonProperty("analysisTime") Duration analysisTime,
-            @JsonProperty("distributedPlanningTime") Duration distributedPlanningTime)
+            @JsonProperty("distributedPlanningTime") Duration distributedPlanningTime,
+
+            @JsonProperty("totalTasks") int totalTasks,
+            @JsonProperty("runningTasks") int runningTasks,
+            @JsonProperty("completedTasks") int completedTasks,
+
+            @JsonProperty("totalDrivers") int totalDrivers,
+            @JsonProperty("queuedDrivers") int queuedDrivers,
+            @JsonProperty("runningDrivers") int runningDrivers,
+            @JsonProperty("startedDrivers") int startedDrivers,
+            @JsonProperty("completedDrivers") int completedDrivers,
+
+            @JsonProperty("totalMemoryReservation") DataSize totalMemoryReservation,
+
+            @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
+            @JsonProperty("totalCpuTime") Duration totalCpuTime,
+            @JsonProperty("totalUserTime") Duration totalUserTime,
+            @JsonProperty("totalBlockedTime") Duration totalBlockedTime,
+
+            @JsonProperty("inputDataSize") DataSize inputDataSize,
+            @JsonProperty("inputPositions") long inputPositions,
+
+            @JsonProperty("outputDataSize") DataSize outputDataSize,
+            @JsonProperty("outputPositions") long outputPositions)
     {
-        this.createTime = createTime;
+        this.createTime = checkNotNull(createTime, "createTime is null");
         this.executionStartTime = executionStartTime;
-        this.lastHeartbeat = lastHeartbeat;
+        this.lastHeartbeat = checkNotNull(lastHeartbeat, "lastHeartbeat is null");
         this.endTime = endTime;
         this.queuedTime = queuedTime;
         this.analysisTime = analysisTime;
         this.distributedPlanningTime = distributedPlanningTime;
 
-        createNanos = -1;
+        checkArgument(totalTasks >= 0, "totalTasks is negative");
+        this.totalTasks = totalTasks;
+        checkArgument(runningTasks >= 0, "runningTasks is negative");
+        this.runningTasks = runningTasks;
+        checkArgument(completedTasks >= 0, "completedTasks is negative");
+        this.completedTasks = completedTasks;
+
+        checkArgument(totalDrivers >= 0, "totalDrivers is negative");
+        this.totalDrivers = totalDrivers;
+        checkArgument(queuedDrivers >= 0, "queuedDrivers is negative");
+        this.queuedDrivers = queuedDrivers;
+        checkArgument(startedDrivers >= 0, "startedDrivers is negative");
+        this.startedDrivers = startedDrivers;
+        checkArgument(runningDrivers >= 0, "runningDrivers is negative");
+        this.runningDrivers = runningDrivers;
+        checkArgument(completedDrivers >= 0, "completedDrivers is negative");
+        this.completedDrivers = completedDrivers;
+
+        this.totalMemoryReservation = checkNotNull(totalMemoryReservation, "totalMemoryReservation is null");
+        this.totalScheduledTime = checkNotNull(totalScheduledTime, "totalScheduledTime is null");
+        this.totalCpuTime = checkNotNull(totalCpuTime, "totalCpuTime is null");
+        this.totalUserTime = checkNotNull(totalUserTime, "totalUserTime is null");
+        this.totalBlockedTime = checkNotNull(totalBlockedTime, "totalBlockedTime is null");
+
+        this.inputDataSize = checkNotNull(inputDataSize, "inputDataSize is null");
+        checkArgument(inputPositions >= 0, "inputPositions is negative");
+        this.inputPositions = inputPositions;
+
+        this.outputDataSize = checkNotNull(outputDataSize, "outputDataSize is null");
+        checkArgument(outputPositions >= 0, "outputPositions is negative");
+        this.outputPositions = outputPositions;
     }
 
     @JsonProperty
@@ -66,73 +159,140 @@ public class QueryStats
     }
 
     @JsonProperty
-    public synchronized DateTime getExecutionStartTime()
+    public DateTime getExecutionStartTime()
     {
         return executionStartTime;
     }
 
     @JsonProperty
-    public synchronized DateTime getLastHeartbeat()
+    public DateTime getLastHeartbeat()
     {
         return lastHeartbeat;
     }
 
     @JsonProperty
-    public synchronized DateTime getEndTime()
+    public DateTime getEndTime()
     {
         return endTime;
     }
 
     @JsonProperty
-    public synchronized Duration getQueuedTime()
+    public Duration getQueuedTime()
     {
         return queuedTime;
     }
 
     @JsonProperty
-    public synchronized Duration getAnalysisTime()
+    public Duration getAnalysisTime()
     {
         return analysisTime;
     }
 
     @JsonProperty
-    public synchronized Duration getDistributedPlanningTime()
+    public Duration getDistributedPlanningTime()
     {
         return distributedPlanningTime;
     }
 
-    public synchronized void recordAnalysisStart()
+    @JsonProperty
+    public int getTotalTasks()
     {
-        Preconditions.checkState(createNanos > 0, "Can not record analysis start");
-        queuedTime = Duration.nanosSince(createNanos);
+        return totalTasks;
     }
 
-    public synchronized void recordHeartbeat()
+    @JsonProperty
+    public int getRunningTasks()
     {
-        this.lastHeartbeat = DateTime.now();
+        return runningTasks;
     }
 
-    public synchronized void recordExecutionStart()
+    @JsonProperty
+    public int getCompletedTasks()
     {
-        if (executionStartTime == null) {
-            this.executionStartTime = DateTime.now();
-        }
+        return completedTasks;
     }
 
-    public synchronized void recordEnd()
+    @JsonProperty
+    public int getTotalDrivers()
     {
-        if (endTime == null) {
-            endTime = DateTime.now();
-        }
+        return totalDrivers;
     }
 
-    public synchronized void recordAnalysisTime(long analysisStart)
+    @JsonProperty
+    public int getQueuedDrivers()
     {
-        analysisTime = Duration.nanosSince(analysisStart);
+        return queuedDrivers;
     }
 
-    public synchronized void recordDistributedPlanningTime(long distributedPlanningStart)
+    @JsonProperty
+    public int getStartedDrivers()
     {
-        distributedPlanningTime = Duration.nanosSince(distributedPlanningStart);
+        return startedDrivers;
+    }
+
+    @JsonProperty
+    public int getRunningDrivers()
+    {
+        return runningDrivers;
+    }
+
+    @JsonProperty
+    public int getCompletedDrivers()
+    {
+        return completedDrivers;
+    }
+
+    @JsonProperty
+    public DataSize getTotalMemoryReservation()
+    {
+        return totalMemoryReservation;
+    }
+
+    @JsonProperty
+    public Duration getTotalScheduledTime()
+    {
+        return totalScheduledTime;
+    }
+
+    @JsonProperty
+    public Duration getTotalCpuTime()
+    {
+        return totalCpuTime;
+    }
+
+    @JsonProperty
+    public Duration getTotalUserTime()
+    {
+        return totalUserTime;
+    }
+
+    @JsonProperty
+    public Duration getTotalBlockedTime()
+    {
+        return totalBlockedTime;
+    }
+
+    @JsonProperty
+    public DataSize getInputDataSize()
+    {
+        return inputDataSize;
+    }
+
+    @JsonProperty
+    public long getInputPositions()
+    {
+        return inputPositions;
+    }
+
+    @JsonProperty
+    public DataSize getOutputDataSize()
+    {
+        return outputDataSize;
+    }
+
+    @JsonProperty
+    public long getOutputPositions()
+    {
+        return outputPositions;
     }
 }

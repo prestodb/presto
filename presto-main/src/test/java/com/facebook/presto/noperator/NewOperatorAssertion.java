@@ -90,13 +90,11 @@ public final class NewOperatorAssertion
     public static MaterializedResult toMaterializedResult(List<TupleInfo> tupleInfos, List<Page> pages)
     {
         // materialize pages
-        MaterializingOperator materializingOperator = new MaterializingOperator(tupleInfos);
+        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(tupleInfos);
         for (Page outputPage : pages) {
-            assertEquals(materializingOperator.needsInput(), true);
-            materializingOperator.addInput(outputPage);
+            resultBuilder.page(outputPage);
         }
-        materializingOperator.finish();
-        return materializingOperator.getMaterializedResult();
+        return resultBuilder.build();
     }
 
     public static void assertOperatorEquals(NewOperator operator, List<Page> expected)

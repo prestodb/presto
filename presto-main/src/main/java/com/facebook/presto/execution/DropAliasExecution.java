@@ -62,7 +62,7 @@ public class DropAliasExecution
                 return;
             }
 
-            stateMachine.getStats().recordExecutionStart();
+            stateMachine.recordExecutionStart();
 
             dropAlias();
 
@@ -102,6 +102,12 @@ public class DropAliasExecution
     public void cancelStage(StageId stageId)
     {
         // no-op
+    }
+
+    @Override
+    public void recordHeartbeat()
+    {
+        stateMachine.recordHeartbeat();
     }
 
     @Override

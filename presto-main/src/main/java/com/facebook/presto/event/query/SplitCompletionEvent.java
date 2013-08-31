@@ -6,13 +6,12 @@ import com.facebook.presto.execution.TaskId;
 import com.google.common.base.Preconditions;
 import io.airlift.event.client.EventField;
 import io.airlift.event.client.EventType;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
-
-import static com.facebook.presto.operator.OperatorStats.SmallCounterStat.SmallCounterStatSnapshot;
 
 @Immutable
 @EventType("SplitCompletion")
@@ -30,8 +29,8 @@ public class SplitCompletionEvent
     private final Long timeToFirstByteMs;
     private final Long timeToLastByteMs;
 
-    private final SmallCounterStatSnapshot completedDataSize;
-    private final SmallCounterStatSnapshot completedPositions;
+    private final DataSize completedDataSize;
+    private final long completedPositions;
 
     private final Long wallTimeMs;
     private final Long cpuTimeMs;
@@ -48,8 +47,8 @@ public class SplitCompletionEvent
             @Nullable DateTime executionStartTime,
             @Nullable Duration timeToFirstByte,
             @Nullable Duration timeToLastByte,
-            SmallCounterStatSnapshot completedDataSize,
-            SmallCounterStatSnapshot completedPositions,
+            DataSize completedDataSize,
+            long completedPositions,
             @Nullable Duration wallTime,
             @Nullable Duration cpuTime,
             @Nullable Duration userTime,
@@ -138,85 +137,13 @@ public class SplitCompletionEvent
     @EventField
     public long getCompletedDataSizeTotal()
     {
-        return completedDataSize.getTotalCount();
-    }
-
-    @EventField
-    public double getCompletedDataSizeCountTenSec()
-    {
-        return completedDataSize.getTenSeconds().getCount();
-    }
-
-    @EventField
-    public double getCompletedDataSizeRateTenSec()
-    {
-        return completedDataSize.getTenSeconds().getRate();
-    }
-
-    @EventField
-    public double getCompletedDataSizeCountThirtySec()
-    {
-        return completedDataSize.getThirtySeconds().getCount();
-    }
-
-    @EventField
-    public double getCompletedDataSizeRateThirtySec()
-    {
-        return completedDataSize.getThirtySeconds().getRate();
-    }
-
-    @EventField
-    public double getCompletedDataSizeCountOneMin()
-    {
-        return completedDataSize.getOneMinute().getCount();
-    }
-
-    @EventField
-    public double getCompletedDataSizeRateOneMin()
-    {
-        return completedDataSize.getOneMinute().getRate();
+        return completedDataSize.toBytes();
     }
 
     @EventField
     public long getCompletedPositionsTotal()
     {
-        return completedPositions.getTotalCount();
-    }
-
-    @EventField
-    public double getCompletedPositionsCountTenSec()
-    {
-        return completedPositions.getTenSeconds().getCount();
-    }
-
-    @EventField
-    public double getCompletedPositionsRateTenSec()
-    {
-        return completedPositions.getTenSeconds().getRate();
-    }
-
-    @EventField
-    public double getCompletedPositionsCountThirtySec()
-    {
-        return completedPositions.getThirtySeconds().getCount();
-    }
-
-    @EventField
-    public double getCompletedPositionsRateThirtySec()
-    {
-        return completedPositions.getThirtySeconds().getRate();
-    }
-
-    @EventField
-    public double getCompletedPositionsCountOneMin()
-    {
-        return completedPositions.getOneMinute().getCount();
-    }
-
-    @EventField
-    public double getCompletedPositionsRateOneMin()
-    {
-        return completedPositions.getOneMinute().getRate();
+        return completedPositions;
     }
 
     @EventField

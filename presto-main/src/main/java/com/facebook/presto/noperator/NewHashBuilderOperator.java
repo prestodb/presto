@@ -3,9 +3,6 @@
  */
 package com.facebook.presto.noperator;
 
-import com.facebook.presto.execution.TaskMemoryManager;
-import com.facebook.presto.operator.ChannelHash;
-import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Function;
@@ -47,12 +44,12 @@ public class NewHashBuilderOperator
                 @Override
                 public NewSourceHash apply(HashData hashData)
                 {
-                    return new NewSourceHash(new ChannelHash(hashData.channelHash), hashData.pagesIndex);
+                    return new NewSourceHash(new NewChannelHash(hashData.channelHash), hashData.pagesIndex);
                 }
             });
         }
 
-        void setHash(ChannelHash channelHash, NewPagesIndex pagesIndex)
+        void setHash(NewChannelHash channelHash, NewPagesIndex pagesIndex)
         {
             HashData hashData = new HashData(
                     checkNotNull(channelHash, "channelHash is null"),
@@ -64,10 +61,10 @@ public class NewHashBuilderOperator
 
         private static class HashData
         {
-            private final ChannelHash channelHash;
+            private final NewChannelHash channelHash;
             private final NewPagesIndex pagesIndex;
 
-            private HashData(ChannelHash channelHash, NewPagesIndex pagesIndex)
+            private HashData(NewChannelHash channelHash, NewPagesIndex pagesIndex)
             {
                 this.channelHash = channelHash;
                 this.pagesIndex = pagesIndex;
@@ -78,16 +75,19 @@ public class NewHashBuilderOperator
     public static class NewHashBuilderOperatorFactory
             implements NewOperatorFactory
     {
+        private final int operatorId;
         private final NewHashSupplier hashSupplier;
         private final int hashChannel;
         private final int expectedPositions;
         private boolean closed;
 
         public NewHashBuilderOperatorFactory(
+                int operatorId,
                 List<TupleInfo> tupleInfos,
                 int hashChannel,
                 int expectedPositions)
         {
+            this.operatorId = operatorId;
             this.hashSupplier = new NewHashSupplier(checkNotNull(tupleInfos, "tupleInfos is null"));
             Preconditions.checkArgument(hashChannel >= 0, "hashChannel is negative");
             this.hashChannel = hashChannel;
@@ -106,10 +106,15 @@ public class NewHashBuilderOperator
         }
 
         @Override
-        public NewOperator createOperator(OperatorStats operatorStats, TaskMemoryManager taskMemoryManager)
+        public NewOperator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            return new NewHashBuilderOperator(hashSupplier, hashChannel, expectedPositions, taskMemoryManager);
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, NewHashBuilderOperator.class.getSimpleName());
+            return new NewHashBuilderOperator(
+                    operatorContext,
+                    hashSupplier,
+                    hashChannel,
+                    expectedPositions);
         }
 
         @Override
@@ -119,25 +124,33 @@ public class NewHashBuilderOperator
         }
     }
 
+    private final OperatorContext operatorContext;
     private final NewHashSupplier hashSupplier;
     private final int hashChannel;
-    private final TaskMemoryManager taskMemoryManager;
+
     private final NewPagesIndex pagesIndex;
 
     private boolean finished;
 
     public NewHashBuilderOperator(
+            OperatorContext operatorContext,
             NewHashSupplier hashSupplier,
             int hashChannel,
-            int expectedPositions,
-            TaskMemoryManager taskMemoryManager)
+            int expectedPositions)
     {
+        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         this.hashSupplier = checkNotNull(hashSupplier, "hashSupplier is null");
         this.hashChannel = hashChannel;
-        this.taskMemoryManager = taskMemoryManager;
-        this.pagesIndex = new NewPagesIndex(hashSupplier.getTupleInfos(), expectedPositions, taskMemoryManager);
+        this.pagesIndex = new NewPagesIndex(hashSupplier.getTupleInfos(), expectedPositions, operatorContext);
     }
 
+    @Override
+    public OperatorContext getOperatorContext()
+    {
+        return operatorContext;
+    }
+
+    @Override
     public List<TupleInfo> getTupleInfos()
     {
         return hashSupplier.getTupleInfos();
@@ -150,7 +163,7 @@ public class NewHashBuilderOperator
             return;
         }
 
-        ChannelHash channelHash = new ChannelHash(pagesIndex.getIndex(hashChannel), taskMemoryManager);
+        NewChannelHash channelHash = new NewChannelHash(pagesIndex.getIndex(hashChannel), operatorContext);
         hashSupplier.setHash(channelHash, pagesIndex);
         finished = true;
     }

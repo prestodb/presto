@@ -1,7 +1,5 @@
 package com.facebook.presto.noperator;
 
-import com.facebook.presto.execution.TaskMemoryManager;
-import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.tuple.TupleInfo;
 
 import java.io.Closeable;
@@ -12,7 +10,7 @@ public interface NewOperatorFactory
 {
     List<TupleInfo> getTupleInfos();
 
-    NewOperator createOperator(OperatorStats operatorStats, TaskMemoryManager taskMemoryManager);
+    NewOperator createOperator(DriverContext driverContext);
 
     void close();
 }

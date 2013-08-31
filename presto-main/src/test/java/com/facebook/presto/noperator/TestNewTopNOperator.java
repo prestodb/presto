@@ -1,18 +1,22 @@
 package com.facebook.presto.noperator;
 
-import com.facebook.presto.execution.TaskMemoryManager;
+import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.noperator.NewTopNOperator.NewTopNOperatorFactory;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.ProjectionFunctions;
+import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.tuple.FieldOrderedTupleComparator;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.util.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
-import io.airlift.units.DataSize;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.noperator.NewOperatorAssertion.assertOperatorEquals;
 import static com.facebook.presto.noperator.RowPagesBuilder.rowPagesBuilder;
@@ -23,9 +27,30 @@ import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 import static com.facebook.presto.util.MaterializedResult.resultBuilder;
+import static com.facebook.presto.util.Threads.daemonThreadsNamed;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class TestNewTopNOperator
 {
+    private ExecutorService executor;
+    private DriverContext driverContext;
+
+    @BeforeMethod
+    public void setUp()
+    {
+        executor = newCachedThreadPool(daemonThreadsNamed("test"));
+        Session session = new Session("user", "source", "catalog", "schema", "address", "agent");
+        driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session)
+                .addPipelineContext()
+                .addDriverContext();
+    }
+
+    @AfterMethod
+    public void tearDown()
+    {
+        executor.shutdownNow();
+    }
+
     @Test
     public void testSingleFieldKey()
             throws Exception
@@ -43,13 +68,15 @@ public class TestNewTopNOperator
                 .pageBreak()
                 .build();
 
-        NewOperator operator = new NewTopNOperator(
+        NewTopNOperatorFactory factory = new NewTopNOperatorFactory(
+                0,
                 2,
                 0,
                 ImmutableList.of(singleColumn(FIXED_INT_64, 0, 0), singleColumn(DOUBLE, 1, 0)),
                 Ordering.from(new FieldOrderedTupleComparator(ImmutableList.of(0), ImmutableList.of(SortItem.Ordering.DESCENDING))),
-                false,
-                new TaskMemoryManager(new DataSize(1, DataSize.Unit.MEGABYTE)));
+                false);
+
+        NewOperator operator = factory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(FIXED_INT_64, DOUBLE)
                 .row(6, 0.6)
@@ -76,14 +103,15 @@ public class TestNewTopNOperator
                 .row("e", 6)
                 .build();
 
-        NewOperator operator = new NewTopNOperator(
+        NewTopNOperatorFactory operatorFactory = new NewTopNOperatorFactory(
+                0,
                 3,
                 0,
                 ImmutableList.of(ProjectionFunctions.concat(singleColumn(VARIABLE_BINARY, 0, 0), singleColumn(FIXED_INT_64, 0, 1))),
                 Ordering.from(new FieldOrderedTupleComparator(ImmutableList.of(0, 1), ImmutableList.of(SortItem.Ordering.DESCENDING, SortItem.Ordering.DESCENDING))),
-                false,
-                new TaskMemoryManager(new DataSize(1, DataSize.Unit.MEGABYTE)));
+                false);
 
+        NewOperator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(tupleInfo)
                 .row("f", 3)
@@ -111,13 +139,15 @@ public class TestNewTopNOperator
                 .pageBreak()
                 .build();
 
-        NewOperator operator = new NewTopNOperator(
+        NewTopNOperatorFactory operatorFactory = new NewTopNOperatorFactory(
+                0,
                 2,
                 0,
                 ImmutableList.of(singleColumn(FIXED_INT_64, 0, 0), singleColumn(DOUBLE, 1, 0)),
                 Ordering.from(new FieldOrderedTupleComparator(ImmutableList.of(0), ImmutableList.of(SortItem.Ordering.ASCENDING))),
-                false,
-                new TaskMemoryManager(new DataSize(1, DataSize.Unit.MEGABYTE)));
+                false);
+
+        NewOperator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(FIXED_INT_64, DOUBLE)
                 .row(-1, -0.1)

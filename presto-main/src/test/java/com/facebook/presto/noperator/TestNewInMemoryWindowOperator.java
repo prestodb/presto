@@ -1,17 +1,22 @@
 package com.facebook.presto.noperator;
 
-import com.facebook.presto.execution.TaskMemoryManager;
+import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.noperator.NewInMemoryWindowOperator.NewInMemoryWindowOperatorFactory;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.window.RowNumberFunction;
 import com.facebook.presto.operator.window.WindowFunction;
+import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.util.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.noperator.NewOperatorAssertion.assertOperatorEquals;
 import static com.facebook.presto.noperator.NewOperatorAssertion.toPages;
@@ -23,11 +28,31 @@ import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 import static com.facebook.presto.util.MaterializedResult.resultBuilder;
+import static com.facebook.presto.util.Threads.daemonThreadsNamed;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class TestNewInMemoryWindowOperator
 {
-    private static final DataSize MAX_SIZE = new DataSize(1, Unit.MEGABYTE);
     private static final List<WindowFunction> ROW_NUMBER = ImmutableList.<WindowFunction>of(new RowNumberFunction());
+
+    private ExecutorService executor;
+    private DriverContext driverContext;
+
+    @BeforeMethod
+    public void setUp()
+    {
+        executor = newCachedThreadPool(daemonThreadsNamed("test"));
+        Session session = new Session("user", "source", "catalog", "schema", "address", "agent");
+        driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session)
+                .addPipelineContext()
+                .addDriverContext();
+    }
+
+    @AfterMethod
+    public void tearDown()
+    {
+        executor.shutdownNow();
+    }
 
     @Test
     public void testRowNumber()
@@ -42,7 +67,8 @@ public class TestNewInMemoryWindowOperator
                 .row(5, 0.4)
                 .build();
 
-        NewOperator operator = new NewInMemoryWindowOperator(
+        NewInMemoryWindowOperatorFactory operatorFactory = new NewInMemoryWindowOperatorFactory(
+                0,
                 ImmutableList.of(SINGLE_LONG, SINGLE_DOUBLE),
                 0,
                 ints(1, 0),
@@ -50,8 +76,9 @@ public class TestNewInMemoryWindowOperator
                 ints(),
                 ints(0),
                 bools(true),
-                10,
-                new TaskMemoryManager(MAX_SIZE));
+                10);
+
+        NewOperator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(DOUBLE, FIXED_INT_64, FIXED_INT_64)
                 .row(-0.1, -1, 1)
@@ -79,7 +106,8 @@ public class TestNewInMemoryWindowOperator
                 .row("a", 6, 0.1, true)
                 .build();
 
-        NewOperator operator = new NewInMemoryWindowOperator(
+        NewInMemoryWindowOperatorFactory operatorFactory = new NewInMemoryWindowOperatorFactory(
+                0,
                 ImmutableList.of(sourceTupleInfo),
                 0,
                 ints(0),
@@ -87,8 +115,9 @@ public class TestNewInMemoryWindowOperator
                 ints(0),
                 ints(1),
                 bools(true),
-                10,
-                new TaskMemoryManager(MAX_SIZE));
+                10);
+
+        NewOperator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(VARIABLE_BINARY, FIXED_INT_64, DOUBLE, BOOLEAN, FIXED_INT_64)
                 .row("a", 2, 0.3, false, 1)
@@ -117,7 +146,8 @@ public class TestNewInMemoryWindowOperator
                 .row(8)
                 .build();
 
-        NewOperator operator = new NewInMemoryWindowOperator(
+        NewInMemoryWindowOperatorFactory operatorFactory = new NewInMemoryWindowOperatorFactory(
+                0,
                 ImmutableList.of(SINGLE_LONG),
                 0,
                 ints(0),
@@ -125,8 +155,8 @@ public class TestNewInMemoryWindowOperator
                 ints(),
                 ints(),
                 bools(),
-                10,
-                new TaskMemoryManager(MAX_SIZE));
+                10);
+        NewOperator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(FIXED_INT_64, FIXED_INT_64)
                 .row(1, 1)
@@ -154,7 +184,13 @@ public class TestNewInMemoryWindowOperator
                 .row(4, 0.4)
                 .build();
 
-        NewOperator operator = new NewInMemoryWindowOperator(
+        Session session = new Session("user", "source", "catalog", "schema", "address", "agent");
+        DriverContext driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session, new DataSize(10, Unit.BYTE))
+                .addPipelineContext()
+                .addDriverContext();
+
+        NewInMemoryWindowOperatorFactory operatorFactory = new NewInMemoryWindowOperatorFactory(
+                0,
                 ImmutableList.of(SINGLE_LONG, SINGLE_DOUBLE),
                 0,
                 ints(1),
@@ -162,8 +198,9 @@ public class TestNewInMemoryWindowOperator
                 ints(),
                 ints(0),
                 bools(true),
-                10,
-                new TaskMemoryManager(new DataSize(10, Unit.BYTE)));
+                10);
+
+        NewOperator operator = operatorFactory.createOperator(driverContext);
 
         toPages(operator, input);
     }

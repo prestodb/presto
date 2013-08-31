@@ -21,18 +21,20 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class NewRecordProjectOperator
         implements NewOperator
 {
+    private final OperatorContext operatorContext;
     private final RecordCursor cursor;
     private final List<TupleInfo> tupleInfos;
     private final PageBuilder pageBuilder;
     private boolean finishing;
 
-    public NewRecordProjectOperator(RecordSet recordSet)
+    public NewRecordProjectOperator(OperatorContext operatorContext, RecordSet recordSet)
     {
-        this(recordSet.getColumnTypes(), recordSet.cursor());
+        this(operatorContext, recordSet.getColumnTypes(), recordSet.cursor());
     }
 
-    public NewRecordProjectOperator(List<ColumnType> columnTypes, RecordCursor cursor)
+    public NewRecordProjectOperator(OperatorContext operatorContext, List<ColumnType> columnTypes, RecordCursor cursor)
     {
+        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         this.cursor = checkNotNull(cursor, "cursor is null");
 
         // project each field into a separate channel
@@ -43,6 +45,12 @@ public class NewRecordProjectOperator
         this.tupleInfos = tupleInfos.build();
 
         pageBuilder = new PageBuilder(getTupleInfos());
+    }
+
+    @Override
+    public OperatorContext getOperatorContext()
+    {
+        return operatorContext;
     }
 
     public RecordCursor getCursor()

@@ -1,15 +1,20 @@
 package com.facebook.presto.noperator;
 
-import com.facebook.presto.execution.TaskMemoryManager;
+import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.noperator.NewInMemoryOrderByOperator.NewInMemoryOrderByOperatorFactory;
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.util.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.noperator.NewOperatorAssertion.assertOperatorEquals;
 import static com.facebook.presto.noperator.NewOperatorAssertion.toPages;
@@ -20,9 +25,30 @@ import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 import static com.facebook.presto.util.MaterializedResult.resultBuilder;
+import static com.facebook.presto.util.Threads.daemonThreadsNamed;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class TestNewInMemoryOrderByOperator
 {
+    private ExecutorService executor;
+    private DriverContext driverContext;
+
+    @BeforeMethod
+    public void setUp()
+    {
+        executor = newCachedThreadPool(daemonThreadsNamed("test"));
+        Session session = new Session("user", "source", "catalog", "schema", "address", "agent");
+        driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session)
+                .addPipelineContext()
+                .addDriverContext();
+    }
+
+    @AfterMethod
+    public void tearDown()
+    {
+        executor.shutdownNow();
+    }
+
     @Test
     public void testSingleFieldKey()
             throws Exception
@@ -35,12 +61,14 @@ public class TestNewInMemoryOrderByOperator
                 .row(4, 0.4)
                 .build();
 
-        NewOperator operator = new NewInMemoryOrderByOperator(
+        NewInMemoryOrderByOperatorFactory operatorFactory = new NewInMemoryOrderByOperatorFactory(
+                0,
                 ImmutableList.of(SINGLE_LONG, SINGLE_DOUBLE),
                 0,
                 new int[]{1},
-                10,
-                new TaskMemoryManager(new DataSize(1, Unit.MEGABYTE)));
+                10);
+
+        NewOperator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(DOUBLE)
                 .row(-0.1)
@@ -65,12 +93,14 @@ public class TestNewInMemoryOrderByOperator
                 .row("a", 4)
                 .build();
 
-        NewOperator operator = new NewInMemoryOrderByOperator(
+        NewInMemoryOrderByOperatorFactory operatorFactory = new NewInMemoryOrderByOperatorFactory(
+                0,
                 ImmutableList.of(tupleInfo),
                 0,
                 new int[]{0},
-                10,
-                new TaskMemoryManager(new DataSize(1, Unit.MEGABYTE)));
+                10);
+
+        NewOperator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(tupleInfo)
                 .row("a", 1)
@@ -94,14 +124,16 @@ public class TestNewInMemoryOrderByOperator
                 .row(4, 0.4)
                 .build();
 
-        NewOperator operator = new NewInMemoryOrderByOperator(
+        NewInMemoryOrderByOperatorFactory operatorFactory = new NewInMemoryOrderByOperatorFactory(
+                0,
                 ImmutableList.of(SINGLE_LONG, SINGLE_DOUBLE),
                 0,
                 new int[]{0},
                 10,
                 new int[]{0},
-                new boolean[]{false},
-                new TaskMemoryManager(new DataSize(1, Unit.MEGABYTE)));
+                new boolean[]{false});
+
+        NewOperator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(FIXED_INT_64)
                 .row(4)
@@ -125,12 +157,19 @@ public class TestNewInMemoryOrderByOperator
                 .row(4, 0.4)
                 .build();
 
-        NewOperator operator = new NewInMemoryOrderByOperator(
+        Session session = new Session("user", "source", "catalog", "schema", "address", "agent");
+        DriverContext driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session, new DataSize(10, Unit.BYTE))
+                .addPipelineContext()
+                .addDriverContext();
+
+        NewInMemoryOrderByOperatorFactory operatorFactory = new NewInMemoryOrderByOperatorFactory(
+                0,
                 ImmutableList.of(SINGLE_LONG, SINGLE_DOUBLE),
                 0,
                 new int[]{1},
-                10,
-                new TaskMemoryManager(new DataSize(10, Unit.BYTE)));
+                10);
+
+        NewOperator operator = operatorFactory.createOperator(driverContext);
 
         toPages(operator, input);
     }

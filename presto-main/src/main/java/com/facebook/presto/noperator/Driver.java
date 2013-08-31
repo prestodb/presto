@@ -1,6 +1,5 @@
 package com.facebook.presto.noperator;
 
-import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.split.CollocatedSplit;
@@ -20,22 +19,22 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public class Driver
 {
-    private final OperatorStats operatorStats;
+    private final DriverContext driverContext;
     private final List<NewOperator> operators;
     private final Map<PlanNodeId, NewSourceOperator> sourceOperators;
 
-    public Driver(OperatorStats operatorStats, NewOperator firstOperator, NewOperator... otherOperators)
+    public Driver(DriverContext driverContext, NewOperator firstOperator, NewOperator... otherOperators)
     {
-        this(checkNotNull(operatorStats, "operatorStats is null"),
+        this(checkNotNull(driverContext, "driverContext is null"),
                 ImmutableList.<NewOperator>builder()
                         .add(checkNotNull(firstOperator, "firstOperator is null"))
                         .add(checkNotNull(otherOperators, "otherOperators is null"))
                         .build());
     }
 
-    public Driver(OperatorStats operatorStats, List<NewOperator> operators)
+    public Driver(DriverContext driverContext, List<NewOperator> operators)
     {
-        this.operatorStats = checkNotNull(operatorStats, "operatorStats is null");
+        this.driverContext = checkNotNull(driverContext, "driverContext is null");
         this.operators = ImmutableList.copyOf(checkNotNull(operators, "operators is null"));
         checkArgument(!operators.isEmpty(), "There must be at least one operator");
 
@@ -49,9 +48,9 @@ public class Driver
         this.sourceOperators = sourceOperators.build();
     }
 
-    public OperatorStats getOperatorStats()
+    public DriverContext getDriverContext()
     {
-        return operatorStats;
+        return driverContext;
     }
 
     public Set<PlanNodeId> getSourceIds()
@@ -98,53 +97,63 @@ public class Driver
 
     public synchronized boolean isFinished()
     {
-        boolean finished = operatorStats.isDone() || operators.get(operators.size() - 1).isFinished();
+        boolean finished = driverContext.isDone() || operators.get(operators.size() - 1).isFinished();
         if (finished) {
-            operatorStats.finish();
+            driverContext.finished();
         }
         return finished;
     }
 
     public synchronized ListenableFuture<?> process()
     {
-        operatorStats.start();
+        driverContext.start();
 
         try {
-            for (int i = 0; i < operators.size() - 1 && !operatorStats.isDone(); i++) {
-
+            for (int i = 0; i < operators.size() - 1 && !driverContext.isDone(); i++) {
+                // check if current operator is blocked
                 NewOperator current = operators.get(i);
                 ListenableFuture<?> blocked = current.isBlocked();
                 if (!blocked.isDone()) {
+                    current.getOperatorContext().recordBlocked(blocked);
                     return blocked;
                 }
 
+                // check if next operator is blocked
                 NewOperator next = operators.get(i + 1);
                 blocked = next.isBlocked();
                 if (!blocked.isDone()) {
+                    next.getOperatorContext().recordBlocked(blocked);
                     return blocked;
                 }
 
+                // if current operator is finished...
                 if (current.isFinished()) {
                     // let next operator know there will be no more data
+                    next.getOperatorContext().startIntervalTimer();
                     next.finish();
+                    next.getOperatorContext().recordFinish();
                 }
-                else if (next.needsInput()) {
-                    Page page = current.getOutput();
-                    if (page != null) {
+                else {
+                    // if next operator needs input...
+                    if (next.needsInput()) {
+                        // get an output page from current operator
+                        current.getOperatorContext().startIntervalTimer();
+                        Page page = current.getOutput();
+                        current.getOperatorContext().recordGetOutput(page);
 
-                        // todo record per operator
-                        if (i == 0) {
-                            operatorStats.addCompletedDataSize(page.getDataSize().toBytes());
-                            operatorStats.addCompletedPositions(page.getPositionCount());
+                        // if we got an output page, add it to the next operator
+                        if (page != null) {
+                            next.getOperatorContext().startIntervalTimer();
+                            next.addInput(page);
+                            next.getOperatorContext().recordAddInput(page);
                         }
-                        next.addInput(page);
                     }
                 }
             }
             return NOT_BLOCKED;
         }
         catch (Throwable t) {
-            operatorStats.fail(t);
+            driverContext.failed(t);
             throw t;
         }
     }

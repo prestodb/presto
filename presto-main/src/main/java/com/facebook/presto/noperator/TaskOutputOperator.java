@@ -1,8 +1,6 @@
 package com.facebook.presto.noperator;
 
-import com.facebook.presto.execution.TaskMemoryManager;
-import com.facebook.presto.execution.TaskOutput;
-import com.facebook.presto.operator.OperatorStats;
+import com.facebook.presto.execution.SharedBuffer;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
@@ -19,28 +17,30 @@ public class TaskOutputOperator
     public static class TaskOutputFactory
             implements OutputFactory
     {
-        private final TaskOutput taskOutput;
+        private final SharedBuffer sharedBuffer;
 
-        public TaskOutputFactory(TaskOutput taskOutput)
+        public TaskOutputFactory(SharedBuffer sharedBuffer)
         {
-            this.taskOutput = checkNotNull(taskOutput, "taskOutput is null");
+            this.sharedBuffer = checkNotNull(sharedBuffer, "sharedBuffer is null");
         }
 
         @Override
-        public NewOperatorFactory createOutputOperator(List<TupleInfo> sourceTupleInfo)
+        public NewOperatorFactory createOutputOperator(int operatorId, List<TupleInfo> sourceTupleInfo)
         {
-            return new TaskOutputOperatorFactory(taskOutput);
+            return new TaskOutputOperatorFactory(operatorId, sharedBuffer);
         }
     }
 
     public static class TaskOutputOperatorFactory
             implements NewOperatorFactory
     {
-        private final TaskOutput taskOutput;
+        private final int operatorId;
+        private final SharedBuffer sharedBuffer;
 
-        public TaskOutputOperatorFactory(TaskOutput taskOutput)
+        public TaskOutputOperatorFactory(int operatorId, SharedBuffer sharedBuffer)
         {
-            this.taskOutput = checkNotNull(taskOutput, "taskOutput is null");
+            this.operatorId = operatorId;
+            this.sharedBuffer = checkNotNull(sharedBuffer, "sharedBuffer is null");
         }
 
         @Override
@@ -50,9 +50,10 @@ public class TaskOutputOperator
         }
 
         @Override
-        public NewOperator createOperator(OperatorStats operatorStats, TaskMemoryManager taskMemoryManager)
+        public NewOperator createOperator(DriverContext driverContext)
         {
-            return new TaskOutputOperator(taskOutput);
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, TaskOutputOperator.class.getSimpleName());
+            return new TaskOutputOperator(operatorContext, sharedBuffer);
         }
 
         @Override
@@ -61,13 +62,21 @@ public class TaskOutputOperator
         }
     }
 
-    private final TaskOutput taskOutput;
+    private final OperatorContext operatorContext;
+    private final SharedBuffer sharedBuffer;
     private ListenableFuture<?> blocked = NOT_BLOCKED;
     private boolean finished;
 
-    public TaskOutputOperator(TaskOutput taskOutput)
+    public TaskOutputOperator(OperatorContext operatorContext, SharedBuffer sharedBuffer)
     {
-        this.taskOutput = checkNotNull(taskOutput, "taskOutput is null");
+        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
+        this.sharedBuffer = checkNotNull(sharedBuffer, "sharedBuffer is null");
+    }
+
+    @Override
+    public OperatorContext getOperatorContext()
+    {
+        return operatorContext;
     }
 
     @Override
@@ -115,7 +124,7 @@ public class TaskOutputOperator
     {
         checkNotNull(page, "page is null");
         checkState(blocked == NOT_BLOCKED, "output is already blocked");
-        ListenableFuture<?> future = taskOutput.enqueuePage(page);
+        ListenableFuture<?> future = sharedBuffer.enqueue(page);
         if (!future.isDone()) {
             this.blocked = future;
         }

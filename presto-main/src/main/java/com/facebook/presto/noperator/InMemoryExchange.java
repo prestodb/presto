@@ -1,7 +1,5 @@
 package com.facebook.presto.noperator;
 
-import com.facebook.presto.execution.TaskMemoryManager;
-import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
@@ -38,10 +36,10 @@ public class InMemoryExchange
         return tupleInfos;
     }
 
-    public synchronized NewOperatorFactory createSinkFactory()
+    public synchronized NewOperatorFactory createSinkFactory(int operatorId)
     {
         sinkFactories++;
-        return new InMemoryExchangeSinkOperatorFactory();
+        return new InMemoryExchangeSinkOperatorFactory(operatorId);
     }
 
     private synchronized void addSink()
@@ -129,6 +127,13 @@ public class InMemoryExchange
     private class InMemoryExchangeSinkOperatorFactory
             implements NewOperatorFactory
     {
+        private final int operatorId;
+
+        private InMemoryExchangeSinkOperatorFactory(int operatorId)
+        {
+            this.operatorId = operatorId;
+        }
+
         @Override
         public List<TupleInfo> getTupleInfos()
         {
@@ -136,10 +141,11 @@ public class InMemoryExchange
         }
 
         @Override
-        public NewOperator createOperator(OperatorStats operatorStats, TaskMemoryManager taskMemoryManager)
+        public NewOperator createOperator(DriverContext driverContext)
         {
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, InMemoryExchangeSinkOperator.class.getSimpleName());
             addSink();
-            return new InMemoryExchangeSinkOperator(InMemoryExchange.this);
+            return new InMemoryExchangeSinkOperator(operatorContext, InMemoryExchange.this);
         }
 
         @Override

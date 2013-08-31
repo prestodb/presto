@@ -15,18 +15,26 @@ import static com.google.common.base.Preconditions.checkState;
 public abstract class NewAbstractFilterAndProjectOperator
         implements NewOperator
 {
+    private final OperatorContext operatorContext;
     private final List<TupleInfo> tupleInfos;
-    private final PageBuilder pageBuilder;
 
+    private final PageBuilder pageBuilder;
     private boolean finishing;
 
-    public NewAbstractFilterAndProjectOperator(Iterable<TupleInfo> tupleInfos)
+    public NewAbstractFilterAndProjectOperator(OperatorContext operatorContext, Iterable<TupleInfo> tupleInfos)
     {
+        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         this.tupleInfos = ImmutableList.copyOf(checkNotNull(tupleInfos, "tupleInfos is null"));
         this.pageBuilder = new PageBuilder(getTupleInfos());
     }
 
     protected abstract void filterAndProjectRowOriented(Block[] blocks, PageBuilder pageBuilder);
+
+    @Override
+    public OperatorContext getOperatorContext()
+    {
+        return operatorContext;
+    }
 
     @Override
     public final List<TupleInfo> getTupleInfos()
