@@ -19,7 +19,7 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.split.DataStreamManager;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
-import com.facebook.presto.sql.gen.ExpressionCompiler;
+import com.facebook.presto.sql.gen.NewExpressionCompiler;
 import com.facebook.presto.sql.planner.NewLocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.Symbol;
@@ -88,7 +88,7 @@ public class TestSqlTaskManager
                 new DataStreamManager(new DualDataStreamProvider()),
                 new MockLocalStorageManager(new File("target/temp")),
                 new MockExchangeClientSupplier(),
-                new ExpressionCompiler(metadata));
+                new NewExpressionCompiler(metadata));
 
         sqlTaskManager = new SqlTaskManager(
                 planner,

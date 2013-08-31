@@ -42,7 +42,7 @@ import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.gen.ExpressionCompiler;
+import com.facebook.presto.sql.gen.NewExpressionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DistributedLogicalPlanner;
 import com.facebook.presto.sql.planner.LogicalPlanner;
@@ -94,14 +94,15 @@ public class LocalQueryRunner
     private final LocalStorageManager storageManager;
     private final Session session;
     private final ExecutorService executor;
-    private final ExpressionCompiler compiler;
+    private final NewExpressionCompiler compiler;
     private boolean printPlan;
 
     public LocalQueryRunner(Metadata metadata,
             SplitManager splitManager,
             DataStreamProvider dataStreamProvider,
             LocalStorageManager storageManager,
-            Session session, ExecutorService executor)
+            Session session,
+            ExecutorService executor)
     {
         this.metadata = checkNotNull(metadata, "metadata is null");
         this.splitManager = checkNotNull(splitManager, "splitManager is null");
@@ -109,7 +110,7 @@ public class LocalQueryRunner
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
         this.session = checkNotNull(session, "session is null");
         this.executor = checkNotNull(executor, "executor is null");
-        this.compiler = new ExpressionCompiler(metadata);
+        this.compiler = new NewExpressionCompiler(metadata);
     }
 
     public LocalQueryRunner printPlan()
