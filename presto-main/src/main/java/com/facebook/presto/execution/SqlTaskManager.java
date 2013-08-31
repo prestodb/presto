@@ -17,8 +17,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Uninterruptibles;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
@@ -56,11 +54,13 @@ public class SqlTaskManager
 
     private final DataSize maxBufferSize;
 
-    private final ExecutorService taskMasterExecutor;
-    private final ThreadPoolExecutorMBean taskMasterExecutorMBean;
+    private final ExecutorService taskProcessorExecutor;
+    private final ThreadPoolExecutorMBean taskProcessorExecutorMBean;
 
-    private final ListeningExecutorService shardExecutor;
-    private final ThreadPoolExecutorMBean shardExecutorMBean;
+    private final ExecutorService taskNotificationExecutor;
+    private final ThreadPoolExecutorMBean taskNotificationExecutorMBean;
+
+    private final TaskExecutor taskExecutor;
 
     private final ScheduledExecutorService taskManagementExecutor;
     private final ThreadPoolExecutorMBean taskManagementExecutorMBean;
@@ -95,13 +95,13 @@ public class SqlTaskManager
         this.infoCacheTime = config.getInfoMaxAge();
         this.clientTimeout = config.getClientTimeout();
 
-        // we have an unlimited number of task master threads
-        taskMasterExecutor = Executors.newCachedThreadPool(threadsNamed("task-processor-%d"));
-        taskMasterExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) taskMasterExecutor);
+        taskNotificationExecutor = Executors.newCachedThreadPool(threadsNamed("task-notification-%d"));
+        taskNotificationExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) taskNotificationExecutor);
 
-        ExecutorService shardExecutor = Executors.newFixedThreadPool(config.getMaxShardProcessorThreads(), threadsNamed("shard-processor-%d"));
-        this.shardExecutor = MoreExecutors.listeningDecorator(shardExecutor);
-        this.shardExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) shardExecutor);
+        // TaskExecutor manages thread pool directly, so give it an unlimited pool
+        taskProcessorExecutor = Executors.newCachedThreadPool(threadsNamed("task-processor-%d"));
+        taskProcessorExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) taskProcessorExecutor);
+        taskExecutor = TaskExecutor.createTaskExecutor(taskProcessorExecutor, config.getMaxShardProcessorThreads());
 
         taskManagementExecutor = Executors.newScheduledThreadPool(5, threadsNamed("task-management-%d"));
         taskManagementExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) taskManagementExecutor);
@@ -129,8 +129,8 @@ public class SqlTaskManager
     @PreDestroy
     public void stop()
     {
-        taskMasterExecutor.shutdownNow();
-        shardExecutor.shutdownNow();
+        taskNotificationExecutor.shutdownNow();
+        taskProcessorExecutor.shutdownNow();
         taskManagementExecutor.shutdownNow();
     }
 
@@ -141,18 +141,18 @@ public class SqlTaskManager
         return stats;
     }
 
-    @Managed(description = "Gaurenteed thread for each task executor")
+    @Managed(description = "Task notification executor")
     @Nested
-    public ThreadPoolExecutorMBean getTaskMasterExecutor()
+    public ThreadPoolExecutorMBean getTaskNotificationExecutor()
     {
-        return taskMasterExecutorMBean;
+        return taskNotificationExecutorMBean;
     }
 
-    @Managed(description = "Shared thread task executor")
+    @Managed(description = "Task processor executor")
     @Nested
-    public ThreadPoolExecutorMBean getShardExecutor()
+    public ThreadPoolExecutorMBean getProcessorExecutor()
     {
-        return shardExecutorMBean;
+        return taskProcessorExecutorMBean;
     }
 
     @Managed(description = "Task garbage collector executor")
@@ -245,8 +245,8 @@ public class SqlTaskManager
                         fragment,
                         planner,
                         maxBufferSize,
-                        taskMasterExecutor,
-                        shardExecutor,
+                        taskExecutor,
+                        taskNotificationExecutor,
                         maxTaskMemoryUsage,
                         operatorPreAllocatedMemory,
                         queryMonitor,

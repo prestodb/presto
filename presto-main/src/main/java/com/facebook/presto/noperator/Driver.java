@@ -3,13 +3,14 @@ package com.facebook.presto.noperator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.spi.Split;
+import com.facebook.presto.split.CollocatedSplit;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -51,82 +52,87 @@ public class Driver
         return operatorStats;
     }
 
-    /**
-     * @deprecated temp hack to allow transformation to old Operator
-     */
-    @Deprecated
-    public List<NewOperator> getOperators()
-    {
-        return operators;
-    }
-
-    /**
-     * @deprecated temp hack to allow transformation to old Operator
-     */
-    @Deprecated
-    public NewOperator getOutputOperator()
-    {
-        return Iterables.getLast(operators);
-    }
-
     public Set<PlanNodeId> getSourceIds()
     {
         return sourceOperators.keySet();
     }
 
-    public void addSplit(PlanNodeId sourceId, Split split)
+    public synchronized void addSplit(PlanNodeId sourceId, Split split)
     {
         checkNotNull(sourceId, "sourceId is null");
         checkNotNull(split, "split is null");
 
-        NewSourceOperator sourceOperator = sourceOperators.get(sourceId);
-        checkArgument(sourceOperator != null, "No source %s", sourceId);
-        sourceOperator.addSplit(split);
+        if (split instanceof CollocatedSplit) {
+            CollocatedSplit collocatedSplit = (CollocatedSplit) split;
+            // unwind collocated splits
+            for (Entry<PlanNodeId, Split> entry : collocatedSplit.getSplits().entrySet()) {
+                addSplit(entry.getKey(), entry.getValue());
+            }
+        }
+        else {
+            NewSourceOperator sourceOperator = sourceOperators.get(sourceId);
+            if (sourceOperator != null) {
+                sourceOperator.addSplit(split);
+            }
+        }
     }
 
-    public void noMoreSplits(PlanNodeId sourceId)
+    public synchronized void noMoreSplits(PlanNodeId sourceId)
     {
         checkNotNull(sourceId, "sourceId is null");
 
         NewSourceOperator sourceOperator = sourceOperators.get(sourceId);
-        checkArgument(sourceOperator != null, "No source %s", sourceId);
-        sourceOperator.noMoreSplits();
+        if (sourceOperator != null) {
+            sourceOperator.noMoreSplits();
+        }
     }
 
-    public void finish()
+    public synchronized void finish()
     {
         for (NewOperator operator : operators) {
             operator.finish();
         }
     }
 
-    public boolean isFinished()
+    public synchronized boolean isFinished()
     {
-        return operatorStats.isDone() || operators.get(operators.size() - 1).isFinished();
+        boolean finished = operatorStats.isDone() || operators.get(operators.size() - 1).isFinished();
+        if (finished) {
+            operatorStats.finish();
+        }
+        return finished;
     }
 
-    public void process()
+    public synchronized void process()
     {
-        for (int i = 0; i < operators.size() - 1 && !operatorStats.isDone(); i++) {
-            NewOperator current = operators.get(i);
-            NewOperator next = operators.get(i + 1);
+        operatorStats.start();
 
-            if (current.isFinished()) {
-                // let next operator know there will be no more data
-                next.finish();
-            }
-            else if (next.needsInput()) {
-                Page page = current.getOutput();
-                if (page != null) {
+        try {
+            for (int i = 0; i < operators.size() - 1 && !operatorStats.isDone(); i++) {
+                NewOperator current = operators.get(i);
+                NewOperator next = operators.get(i + 1);
 
-                    // todo record per operator
-                    if (i == 0) {
-                        operatorStats.addCompletedDataSize(page.getDataSize().toBytes());
-                        operatorStats.addCompletedPositions(page.getPositionCount());
+                if (current.isFinished()) {
+                    // let next operator know there will be no more data
+                    next.finish();
+                }
+                else if (next.needsInput()) {
+                    Page page = current.getOutput();
+                    if (page != null) {
+
+                        // todo record per operator
+                        if (i == 0) {
+                            operatorStats.addCompletedDataSize(page.getDataSize().toBytes());
+                            operatorStats.addCompletedPositions(page.getPositionCount());
+                        }
+                        next.addInput(page);
                     }
-                    next.addInput(page);
                 }
             }
+        }
+        catch (Throwable t) {
+            operatorStats.fail(t);
+            throw t;
         }
     }
 }

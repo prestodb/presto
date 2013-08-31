@@ -65,6 +65,14 @@ public class OperatorStats
         splitInfo.add(info);
     }
 
+    public void fail(Throwable cause)
+    {
+        if (taskOutput != null) {
+            taskOutput.queryFailed(cause);
+        }
+        finished.set(true);
+    }
+
     public boolean isDone()
     {
         return finished.get() || (taskOutput != null && taskOutput.getState().isDone());
@@ -153,10 +161,10 @@ public class OperatorStats
 
     public void finish()
     {
-        if (finished.get()) {
+        if (finished.compareAndSet(false, true)) {
+            // already finished
             return;
         }
-        finished.set(true);
         timeToLastByte.set(Duration.nanosSince(startTime.get()));
 
         if (taskOutput == null) {
@@ -251,7 +259,11 @@ public class OperatorStats
             this.wall = wall;
             this.cpu = cpu;
             this.user = user;
-            this.splitInfo = ImmutableList.copyOf(splitInfo);
+            if (splitInfo != null) {
+                this.splitInfo = ImmutableList.copyOf(splitInfo);
+            } else {
+                this.splitInfo = null;
+            }
         }
 
         @JsonProperty
