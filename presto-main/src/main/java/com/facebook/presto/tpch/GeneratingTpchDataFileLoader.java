@@ -1,7 +1,7 @@
 package com.facebook.presto.tpch;
 
 import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.ingest.DelimitedRecordSet;
+import com.facebook.presto.util.DelimitedRecordSet;
 import com.facebook.presto.metadata.ColumnFileHandle;
 import com.facebook.presto.noperator.NewRecordProjectOperator;
 import com.facebook.presto.noperator.OperatorContext;

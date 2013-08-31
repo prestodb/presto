@@ -4,7 +4,7 @@
 package com.facebook.presto.noperator;
 
 import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.ingest.InfiniteRecordSet;
+import com.facebook.presto.util.InfiniteRecordSet;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.sql.analyzer.Session;

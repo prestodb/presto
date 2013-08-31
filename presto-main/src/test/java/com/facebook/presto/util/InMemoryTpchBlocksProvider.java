@@ -3,7 +3,6 @@ package com.facebook.presto.util;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.ingest.DelimitedRecordSet;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.RecordCursor;
