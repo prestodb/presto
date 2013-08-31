@@ -8,6 +8,7 @@ import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.ingest.RecordProjectOperator;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.noperator.NewOperator;
 import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.FilterFunctions;
 import com.facebook.presto.operator.Operator;
@@ -366,6 +367,12 @@ public final class FunctionAssertions
                     public Operator createDataStream(Split split, List<ColumnHandle> columns)
                     {
                         return source;
+                    }
+
+                    @Override
+                    public NewOperator createNewDataStream(Split split, List<ColumnHandle> columns)
+                    {
+                        throw new UnsupportedOperationException();
                     }
                 },
                 source.getTupleInfos(),

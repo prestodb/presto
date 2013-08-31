@@ -1,9 +1,12 @@
 package com.facebook.presto.connector.system;
 
 import com.facebook.presto.ingest.RecordProjectOperator;
+import com.facebook.presto.noperator.NewOperator;
+import com.facebook.presto.noperator.NewRecordProjectOperator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.SystemTable;
@@ -42,6 +45,17 @@ public class SystemDataStreamProvider
     @Override
     public Operator createDataStream(Split split, List<ColumnHandle> columns)
     {
+        return new RecordProjectOperator(createRecordSet(split, columns));
+    }
+
+    @Override
+    public NewOperator createNewDataStream(Split split, List<ColumnHandle> columns)
+    {
+        return new NewRecordProjectOperator(createRecordSet(split, columns));
+    }
+
+    private RecordSet createRecordSet(Split split, List<ColumnHandle> columns)
+    {
         checkNotNull(split, "split is null");
         checkArgument(split instanceof SystemSplit, "Split must be of type %s, not %s", SystemSplit.class.getName(), split.getClass().getName());
         SchemaTableName tableName = ((SystemSplit) split).getTableHandle().getSchemaTableName();
@@ -64,6 +78,6 @@ public class SystemDataStreamProvider
             userToSystemFieldIndex.add(columnMetadata.getOrdinalPosition());
         }
 
-        return new RecordProjectOperator(new MappedRecordSet(systemTable, userToSystemFieldIndex.build()));
+        return new MappedRecordSet(systemTable, userToSystemFieldIndex.build());
     }
 }

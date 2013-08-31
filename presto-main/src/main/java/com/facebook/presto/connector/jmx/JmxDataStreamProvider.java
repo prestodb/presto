@@ -1,10 +1,13 @@
 package com.facebook.presto.connector.jmx;
 
 import com.facebook.presto.ingest.RecordProjectOperator;
-import com.facebook.presto.spi.InMemoryRecordSet;
+import com.facebook.presto.noperator.NewOperator;
+import com.facebook.presto.noperator.NewRecordProjectOperator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnType;
+import com.facebook.presto.spi.InMemoryRecordSet;
+import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.split.ConnectorDataStreamProvider;
 import com.facebook.presto.util.IterableTransformer;
@@ -18,6 +21,7 @@ import javax.management.Attribute;
 import javax.management.JMException;
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -50,6 +54,17 @@ public class JmxDataStreamProvider
 
     @Override
     public Operator createDataStream(Split split, List<ColumnHandle> columns)
+    {
+        return new RecordProjectOperator(createRecordSet(split, columns));
+    }
+
+    @Override
+    public NewOperator createNewDataStream(Split split, List<ColumnHandle> columns)
+    {
+        return new NewRecordProjectOperator(createRecordSet(split, columns));
+    }
+
+    private RecordSet createRecordSet(Split split, List<ColumnHandle> columns)
     {
         checkNotNull(split, "split is null");
         checkArgument(split instanceof JmxSplit, "Split must be of type %s, not %s", JmxSplit.class.getName(), split.getClass().getName());
@@ -124,7 +139,7 @@ public class JmxDataStreamProvider
             rows = ImmutableList.of();
         }
 
-        return new RecordProjectOperator(new InMemoryRecordSet(columnTypes.values(), rows));
+        return new InMemoryRecordSet(columnTypes.values(), rows);
     }
 
     private Map<String, Object> getAttributes(Set<String> uniqueColumnNames, JmxTableHandle tableHandle)
