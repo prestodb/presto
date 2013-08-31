@@ -111,6 +111,20 @@ public class ExchangeClient
     }
 
     @Nullable
+    public Page pollPage()
+    {
+        checkState(!Thread.holdsLock(this), "Can not get next page while holding a lock on this");
+
+        if (closed.get()) {
+            return null;
+        }
+
+        Page page = pageBuffer.poll();
+        page = postProcessPage(page);
+        return page;
+    }
+
+    @Nullable
     public Page getNextPage(Duration maxWaitTime)
             throws InterruptedException
     {
@@ -127,6 +141,14 @@ public class ExchangeClient
         if (page == null && maxWaitTime.toMillis() >= 1 && !allClients.isEmpty()) {
             page = pageBuffer.poll(maxWaitTime.toMillis(), TimeUnit.MILLISECONDS);
         }
+
+        page = postProcessPage(page);
+        return page;
+    }
+
+    private Page postProcessPage(Page page)
+    {
+        checkState(!Thread.holdsLock(this), "Can not get next page while holding a lock on this");
 
         if (page == NO_MORE_PAGES) {
             // mark client closed
@@ -148,7 +170,6 @@ public class ExchangeClient
             }
             scheduleRequestIfNecessary();
         }
-
         return page;
     }
 
