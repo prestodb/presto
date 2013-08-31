@@ -19,6 +19,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.airlift.units.DataSize.Unit.BYTE;
 
 public class NewChannelSet
 {
@@ -56,6 +57,16 @@ public class NewChannelSet
         return addressValueSet.contains(SyntheticAddress.encodeSyntheticAddress(LOOKUP_SLICE_INDEX, cursor.getRawOffset()));
     }
 
+    public int size()
+    {
+        return addressValueSet.size();
+    }
+
+    public DataSize getEstimatedSize()
+    {
+        return new DataSize(addressValueSet.getEstimatedSize().toBytes() + strategy.getEstimatedSize().toBytes(), BYTE);
+    }
+
     private static class AddressValueSet
             extends LongOpenCustomHashSet
     {
@@ -71,7 +82,7 @@ public class NewChannelSet
 
         public DataSize getEstimatedSize()
         {
-            return new DataSize(sizeOf(this.key) + sizeOf(this.used), DataSize.Unit.BYTE);
+            return new DataSize(sizeOf(this.key) + sizeOf(this.used), BYTE);
         }
     }
 

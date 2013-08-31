@@ -40,8 +40,12 @@ public class TestQueryStats
 
             new DataSize(21, BYTE),
             22,
+
             new DataSize(23, BYTE),
-            24);
+            24,
+
+            new DataSize(25, BYTE),
+            26);
 
     @Test
     public void testJson()
@@ -81,10 +85,13 @@ public class TestQueryStats
         assertEquals(actual.getTotalUserTime(), new Duration(19, NANOSECONDS));
         assertEquals(actual.getTotalBlockedTime(), new Duration(20, NANOSECONDS));
 
-        assertEquals(actual.getInputDataSize(), new DataSize(21, BYTE));
-        assertEquals(actual.getInputPositions(), 22);
+        assertEquals(actual.getRawInputDataSize(), new DataSize(21, BYTE));
+        assertEquals(actual.getRawInputPositions(), 22);
 
-        assertEquals(actual.getOutputDataSize(), new DataSize(23, BYTE));
-        assertEquals(actual.getOutputPositions(), 24);
+        assertEquals(actual.getProcessedInputDataSize(), new DataSize(23, BYTE));
+        assertEquals(actual.getProcessedInputPositions(), 24);
+
+        assertEquals(actual.getOutputDataSize(), new DataSize(25, BYTE));
+        assertEquals(actual.getOutputPositions(), 26);
     }
 }

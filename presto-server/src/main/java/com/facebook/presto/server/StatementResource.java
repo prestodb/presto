@@ -452,8 +452,8 @@ public class StatementResource
                     .setUserTimeMillis(queryStats.getTotalUserTime().toMillis())
                     .setCpuTimeMillis(queryStats.getTotalCpuTime().toMillis())
                     .setWallTimeMillis(queryStats.getTotalScheduledTime().toMillis())
-                    .setProcessedRows(queryStats.getInputPositions())
-                    .setProcessedBytes(queryStats.getInputDataSize().toBytes())
+                    .setProcessedRows(queryStats.getRawInputPositions())
+                    .setProcessedBytes(queryStats.getRawInputDataSize().toBytes())
                     .setRootStage(toStageStats(queryInfo.getOutputStage()))
                     .build();
         }
@@ -490,8 +490,8 @@ public class StatementResource
                     .setUserTimeMillis(stageStats.getTotalUserTime().toMillis())
                     .setCpuTimeMillis(stageStats.getTotalCpuTime().toMillis())
                     .setWallTimeMillis(stageStats.getTotalScheduledTime().toMillis())
-                    .setProcessedRows(stageStats.getInputPositions())
-                    .setProcessedBytes(stageStats.getInputDataSize().toBytes())
+                    .setProcessedRows(stageStats.getRawInputPositions())
+                    .setProcessedBytes(stageStats.getRawInputDataSize().toBytes())
                     .setSubStages(subStages.build())
                     .build();
         }

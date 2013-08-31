@@ -135,10 +135,13 @@ public class NewLocalExecutionPlanner
         LocalExecutionPlanContext context = new LocalExecutionPlanContext(session, types);
 
         PhysicalOperation physicalOperation = plan.accept(new Visitor(), context);
-        DriverFactory driverFactory = new DriverFactory(ImmutableList.<NewOperatorFactory>builder()
-                .addAll(physicalOperation.getOperatorFactories())
-                .add(outputOperatorFactory.createOutputOperator(context.getNextOperatorId(), physicalOperation.getTupleInfos()))
-                .build());
+        DriverFactory driverFactory = new DriverFactory(
+                context.isInputDriver(),
+                true,
+                ImmutableList.<NewOperatorFactory>builder()
+                        .addAll(physicalOperation.getOperatorFactories())
+                        .add(outputOperatorFactory.createOutputOperator(context.getNextOperatorId(), physicalOperation.getTupleInfos()))
+                        .build());
         context.addDriverFactory(driverFactory);
 
         return new NewLocalExecutionPlan(context.getDriverFactories());
@@ -152,6 +155,7 @@ public class NewLocalExecutionPlanner
         private final List<DriverFactory> driverFactories;
 
         private int nextOperatorId;
+        private boolean inputDriver = true;
 
         public LocalExecutionPlanContext(Session session, Map<Symbol, Type> types)
         {
@@ -188,6 +192,16 @@ public class NewLocalExecutionPlanner
         private int getNextOperatorId()
         {
             return nextOperatorId++;
+        }
+
+        private boolean isInputDriver()
+        {
+            return inputDriver;
+        }
+
+        private void setInputDriver(boolean inputDriver)
+        {
+            this.inputDriver = inputDriver;
         }
 
         public LocalExecutionPlanContext createSubContext()
@@ -481,13 +495,17 @@ public class NewLocalExecutionPlanner
                     function = ProjectionFunctions.singleColumn(context.getTypes().get(reference).getRawType(), getFirst(source.getLayout().get(symbol)));
                 }
                 else {
-                    function = new InterpretedProjectionFunction(context.getTypes().get(symbol), expression, convertLayoutToInputMap(source.getLayout()), metadata, context.getSession(), inputTypes);
+                    function = new InterpretedProjectionFunction(context.getTypes().get(symbol),
+                            expression,
+                            convertLayoutToInputMap(source.getLayout()),
+                            metadata,
+                            context.getSession(),
+                            inputTypes);
                 }
                 projections.add(function);
 
                 outputMappings.put(symbol, new Input(i, 0)); // one field per channel
             }
-
             NewOperatorFactory operatorFactory = new NewFilterAndProjectOperatorFactory(context.getNextOperatorId(), filter, projections);
             return new PhysicalOperation(operatorFactory, outputMappings.build(), source);
         }
@@ -541,47 +559,52 @@ public class NewLocalExecutionPlanner
         {
             List<JoinNode.EquiJoinClause> clauses = node.getCriteria();
 
-            // introduce a projection to put all fields from the left side into a single channel if necessary
-            PhysicalOperation leftSource = node.getLeft().accept(this, context);
             List<Symbol> leftSymbols = Lists.transform(clauses, leftGetter());
-
-            // do the same on the right side
-            PhysicalOperation rightSource = node.getRight().accept(this, context);
             List<Symbol> rightSymbols = Lists.transform(clauses, rightGetter());
 
-            switch (node.getType())
-            {
+            switch (node.getType()) {
                 case INNER:
                 case LEFT:
-                    return createJoinOperator(node, leftSource, leftSymbols, rightSource, rightSymbols, context);
+                    return createJoinOperator(node, node.getLeft(), leftSymbols, node.getRight(), rightSymbols, context);
                 case RIGHT:
-                    return createJoinOperator(node, rightSource, rightSymbols, leftSource, leftSymbols, context);
+                    return createJoinOperator(node, node.getRight(), rightSymbols, node.getLeft(), leftSymbols, context);
                 default:
                     throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
             }
         }
 
-        private PhysicalOperation createJoinOperator(JoinNode node, PhysicalOperation probeSource, List<Symbol> probeSymbols, PhysicalOperation buildSource, List<Symbol> buildSymbols, LocalExecutionPlanContext context)
+        private PhysicalOperation createJoinOperator(JoinNode node,
+                PlanNode probeNode,
+                List<Symbol> probeSymbols,
+                PlanNode buildNode,
+                List<Symbol> buildSymbols,
+                LocalExecutionPlanContext context)
         {
-            // introduce a projection to put all fields from the probe side into a single channel if necessary
+            // Plan probe and introduce a projection to put all fields from the probe side into a single channel if necessary
+            PhysicalOperation probeSource = probeNode.accept(this, context);
             probeSource = packIfNecessary(probeSymbols, probeSource, context.getTypes(), context);
 
             // do the same on the build side
-            buildSource = packIfNecessary(buildSymbols, buildSource, context.getTypes(), context);
+            LocalExecutionPlanContext buildContext = context.createSubContext();
+            PhysicalOperation buildSource = buildNode.accept(this, buildContext);
+            buildSource = packIfNecessary(buildSymbols, buildSource, buildContext.getTypes(), buildContext);
 
             int probeChannel = Iterables.getOnlyElement(getChannelSetForSymbols(probeSymbols, probeSource.getLayout()));
             int buildChannel = Iterables.getOnlyElement(getChannelSetForSymbols(buildSymbols, buildSource.getLayout()));
 
             NewHashBuilderOperatorFactory hashBuilderOperatorFactory = new NewHashBuilderOperatorFactory(
-                    context.getNextOperatorId(),
+                    buildContext.getNextOperatorId(),
                     buildSource.getTupleInfos(),
                     buildChannel,
                     100_000);
             NewHashSupplier hashSupplier = hashBuilderOperatorFactory.getHashSupplier();
-            DriverFactory buildDriverFactory = new DriverFactory(ImmutableList.<NewOperatorFactory>builder()
-                    .addAll(buildSource.getOperatorFactories())
-                    .add(hashBuilderOperatorFactory)
-                    .build());
+            DriverFactory buildDriverFactory = new DriverFactory(
+                    buildContext.isInputDriver(),
+                    false,
+                    ImmutableList.<NewOperatorFactory>builder()
+                            .addAll(buildSource.getOperatorFactories())
+                            .add(hashBuilderOperatorFactory)
+                            .build());
             context.addDriverFactory(buildDriverFactory);
 
             ImmutableMultimap.Builder<Symbol, Input> outputMappings = ImmutableMultimap.builder();
@@ -620,21 +643,24 @@ public class NewLocalExecutionPlanner
         @Override
         public PhysicalOperation visitSemiJoin(SemiJoinNode node, LocalExecutionPlanContext context)
         {
-            PhysicalOperation probeSource = node.getSource().accept(this, context);
-            PhysicalOperation buildSource = node.getFilteringSource().accept(this, context);
-
             // introduce a projection to put all fields from the probe side into a single channel if necessary
+            PhysicalOperation probeSource = node.getSource().accept(this, context);
             probeSource = packIfNecessary(ImmutableList.of(node.getSourceJoinSymbol()), probeSource, context.getTypes(), context);
 
             // do the same on the build side
-            buildSource = packIfNecessary(ImmutableList.of(node.getFilteringSourceJoinSymbol()), buildSource, context.getTypes(), context);
+            LocalExecutionPlanContext buildContext = context.createSubContext();
+            PhysicalOperation buildSource = node.getFilteringSource().accept(this, buildContext);
+            buildSource = packIfNecessary(ImmutableList.of(node.getFilteringSourceJoinSymbol()), buildSource, buildContext.getTypes(), buildContext);
 
             int probeChannel = Iterables.getOnlyElement(getChannelSetForSymbols(ImmutableList.of(node.getSourceJoinSymbol()), probeSource.getLayout()));
             int buildChannel = Iterables.getOnlyElement(getChannelSetForSymbols(ImmutableList.of(node.getFilteringSourceJoinSymbol()), buildSource.getLayout()));
 
-            NewSetBuilderOperatorFactory setBuilderOperatorFactory = new NewSetBuilderOperatorFactory(context.getNextOperatorId(), buildSource.getTupleInfos(), buildChannel, 100_000);
+            NewSetBuilderOperatorFactory setBuilderOperatorFactory = new NewSetBuilderOperatorFactory(buildContext.getNextOperatorId(), buildSource.getTupleInfos(), buildChannel, 100_000);
             NewSetSupplier setProvider = setBuilderOperatorFactory.getSetProvider();
-            DriverFactory buildDriverFactory = new DriverFactory(ImmutableList.<NewOperatorFactory>builder()
+            DriverFactory buildDriverFactory = new DriverFactory(
+                    buildContext.isInputDriver(),
+                    false,
+                    ImmutableList.<NewOperatorFactory>builder()
                     .addAll(buildSource.getOperatorFactories())
                     .add(setBuilderOperatorFactory)
                     .build());
@@ -734,10 +760,13 @@ public class NewLocalExecutionPlanner
 
                 operatorFactories.add(inMemoryExchange.createSinkFactory(subContext.getNextOperatorId()));
 
-                DriverFactory driverFactory = new DriverFactory(operatorFactories);
+                DriverFactory driverFactory = new DriverFactory(subContext.isInputDriver(), false, operatorFactories);
                 context.addDriverFactory(driverFactory);
             }
             inMemoryExchange.noMoreSinkFactories();
+
+            // the main driver is not an input... the union sources are the input for the plan
+            context.setInputDriver(false);
 
             // Fow now, we assume that subplans always produce one symbol per channel. TODO: remove this assumption
             ImmutableMultimap.Builder<Symbol, Input> outputMappings = ImmutableMultimap.builder();

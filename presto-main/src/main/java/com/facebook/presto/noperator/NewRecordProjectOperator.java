@@ -13,10 +13,12 @@ import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.units.DataSize;
 
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static io.airlift.units.DataSize.Unit.BYTE;
 
 public class NewRecordProjectOperator
         implements NewOperator
@@ -26,6 +28,7 @@ public class NewRecordProjectOperator
     private final List<TupleInfo> tupleInfos;
     private final PageBuilder pageBuilder;
     private boolean finishing;
+    private long completedBytes;
 
     public NewRecordProjectOperator(OperatorContext operatorContext, RecordSet recordSet)
     {
@@ -99,7 +102,8 @@ public class NewRecordProjectOperator
     public Page getOutput()
     {
         if (!finishing) {
-            for (int i = 0; i < 16384; i++) {
+            int i = 0;
+            for (; i < 16384; i++) {
                 if (pageBuilder.isFull()) {
                     break;
                 }
@@ -132,6 +136,10 @@ public class NewRecordProjectOperator
                     }
                 }
             }
+
+            long bytesProcessed = cursor.getCompletedBytes() - completedBytes;
+            operatorContext.recordGeneratedInput(new DataSize(bytesProcessed, BYTE), i);
+            completedBytes += bytesProcessed;
         }
 
         // only return a full page is buffer is full or we are finishing

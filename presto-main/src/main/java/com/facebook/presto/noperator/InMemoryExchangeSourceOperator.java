@@ -104,6 +104,10 @@ public class InMemoryExchangeSourceOperator
     @Override
     public Page getOutput()
     {
-        return exchange.removePage();
+        Page page = exchange.removePage();
+        if (page != null) {
+            operatorContext.recordGeneratedInput(page.getDataSize(), page.getPositionCount());
+        }
+        return page;
     }
 }

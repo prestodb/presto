@@ -125,8 +125,11 @@ public class QueryStateMachine
         long totalUserTime = 0;
         long totalBlockedTime = 0;
 
-        long inputDataSize = 0;
-        long inputPositions = 0;
+        long rawInputDataSize = 0;
+        long rawInputPositions = 0;
+
+        long processedInputDataSize = 0;
+        long processedInputPositions = 0;
 
         long outputDataSize = 0;
         long outputPositions = 0;
@@ -151,12 +154,19 @@ public class QueryStateMachine
                 totalUserTime += stageStats.getTotalUserTime().roundTo(NANOSECONDS);
                 totalBlockedTime += stageStats.getTotalBlockedTime().roundTo(NANOSECONDS);
 
-                inputDataSize += stageStats.getInputDataSize().toBytes();
-                inputPositions += stageStats.getInputPositions();
+                if (stageInfo.getSubStages().isEmpty()) {
+                    rawInputDataSize += stageStats.getRawInputDataSize().toBytes();
+                    rawInputPositions += stageStats.getRawInputPositions();
 
-                outputDataSize += stageStats.getOutputDataSize().toBytes();
-                outputPositions += stageStats.getOutputPositions();
+                    processedInputDataSize += stageStats.getProcessedInputDataSize().toBytes();
+                    processedInputPositions += stageStats.getProcessedInputPositions();
+                }
             }
+
+
+            StageStats outputStageStats = rootStage.getStageStats();
+            outputDataSize += outputStageStats.getOutputDataSize().toBytes();
+            outputPositions += outputStageStats.getOutputPositions();
         }
 
         QueryStats queryStats = new QueryStats(
@@ -184,8 +194,10 @@ public class QueryStateMachine
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalUserTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                new DataSize(inputDataSize, BYTE).convertToMostSuccinctDataSize(),
-                inputPositions,
+                new DataSize(rawInputDataSize, BYTE).convertToMostSuccinctDataSize(),
+                rawInputPositions,
+                new DataSize(processedInputDataSize, BYTE).convertToMostSuccinctDataSize(),
+                processedInputPositions,
                 new DataSize(outputDataSize, BYTE).convertToMostSuccinctDataSize(),
                 outputPositions);
 

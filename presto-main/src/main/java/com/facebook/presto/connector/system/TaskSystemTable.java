@@ -45,18 +45,16 @@ public class TaskSystemTable
             .column("running_splits", LONG)
             .column("completed_splits", LONG)
 
-            .column("split_wall_time_ms", LONG)
+            .column("split_scheduled_time_ms", LONG)
             .column("split_cpu_time_ms", LONG)
             .column("split_user_time_ms", LONG)
+            .column("split_blocked_time_ms", LONG)
 
-            .column("sink_buffer_wait_time", LONG)
-            .column("exchange_wait_time", LONG)
+            .column("raw_input_bytes", LONG)
+            .column("raw_input_rows", LONG)
 
-            .column("input_bytes", LONG)
-            .column("input_rows", LONG)
-
-            .column("completed_bytes", LONG)
-            .column("completed_rows", LONG)
+            .column("processed_input_bytes", LONG)
+            .column("processed_input_rows", LONG)
 
             .column("output_bytes", LONG)
             .column("output_rows", LONG)
@@ -120,8 +118,11 @@ public class TaskSystemTable
                     toMillis(stats.getTotalUserTime()),
                     toMillis(stats.getTotalBlockedTime()),
 
-                    toBytes(stats.getInputDataSize()),
-                    stats.getInputPositions(),
+                    toBytes(stats.getRawInputDataSize()),
+                    stats.getRawInputPositions(),
+
+                    toBytes(stats.getProcessedInputDataSize()),
+                    stats.getProcessedInputPositions(),
 
                     toBytes(stats.getOutputDataSize()),
                     stats.getOutputPositions(),

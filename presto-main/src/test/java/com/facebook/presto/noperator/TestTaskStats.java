@@ -35,8 +35,12 @@ public class TestTaskStats
 
             new DataSize(16, BYTE),
             17,
+
             new DataSize(18, BYTE),
             19,
+
+            new DataSize(20, BYTE),
+            21,
 
             ImmutableList.of(TestPipelineStats.EXPECTED));
 
@@ -72,11 +76,14 @@ public class TestTaskStats
         assertEquals(actual.getTotalUserTime(), new Duration(14, NANOSECONDS));
         assertEquals(actual.getTotalBlockedTime(), new Duration(15, NANOSECONDS));
 
-        assertEquals(actual.getInputDataSize(), new DataSize(16, BYTE));
-        assertEquals(actual.getInputPositions(), 17);
+        assertEquals(actual.getRawInputDataSize(), new DataSize(16, BYTE));
+        assertEquals(actual.getRawInputPositions(), 17);
 
-        assertEquals(actual.getOutputDataSize(), new DataSize(18, BYTE));
-        assertEquals(actual.getOutputPositions(), 19);
+        assertEquals(actual.getProcessedInputDataSize(), new DataSize(18, BYTE));
+        assertEquals(actual.getProcessedInputPositions(), 19);
+
+        assertEquals(actual.getOutputDataSize(), new DataSize(20, BYTE));
+        assertEquals(actual.getOutputPositions(), 21);
 
         assertEquals(actual.getPipelines().size(), 1);
         assertExpectedPipelineStats(actual.getPipelines().get(0));
