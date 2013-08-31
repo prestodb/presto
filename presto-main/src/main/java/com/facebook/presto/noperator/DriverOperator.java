@@ -9,6 +9,7 @@ import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 
@@ -101,7 +102,7 @@ public class DriverOperator
                 boolean processed = false;
                 for (Driver driver : drivers) {
                     if (!driver.isFinished()) {
-                        driver.process();
+                        ListenableFuture<?> blocked = driver.process();
                         processed = true;
                     }
                 }

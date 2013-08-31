@@ -19,6 +19,7 @@ import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
@@ -155,6 +156,12 @@ public class NewHandTpchQuery1
         public boolean isFinished()
         {
             return finishing && pageBuilder.isEmpty();
+        }
+
+        @Override
+        public ListenableFuture<?> isBlocked()
+        {
+            return NOT_BLOCKED;
         }
 
         @Override

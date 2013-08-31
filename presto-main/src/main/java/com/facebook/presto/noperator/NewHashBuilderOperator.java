@@ -8,9 +8,12 @@ import com.facebook.presto.operator.ChannelHash;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 
-import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.List;
@@ -25,11 +28,7 @@ public class NewHashBuilderOperator
     public static class NewHashSupplier
     {
         private final List<TupleInfo> tupleInfos;
-
-        @GuardedBy("this")
-        private NewPagesIndex pagesIndex;
-        @GuardedBy("this")
-        private ChannelHash channelHash;
+        private final SettableFuture<HashData> hashFuture = SettableFuture.create();
 
         public NewHashSupplier(List<TupleInfo> tupleInfos)
         {
@@ -41,18 +40,38 @@ public class NewHashBuilderOperator
             return tupleInfos;
         }
 
-        public synchronized void setHash(ChannelHash channelHash, NewPagesIndex pagesIndex)
+        public ListenableFuture<NewSourceHash> getSourceHash()
         {
-            this.pagesIndex = checkNotNull(pagesIndex, "pagesIndex is null");
-            this.channelHash = checkNotNull(channelHash, "channelHash is null");
+            return Futures.transform(hashFuture, new Function<HashData, NewSourceHash>()
+            {
+                @Override
+                public NewSourceHash apply(HashData hashData)
+                {
+                    return new NewSourceHash(new ChannelHash(hashData.channelHash), hashData.pagesIndex);
+                }
+            });
         }
 
-        public synchronized NewSourceHash get()
+        void setHash(ChannelHash channelHash, NewPagesIndex pagesIndex)
         {
-            if (channelHash == null) {
-                return null;
+            HashData hashData = new HashData(
+                    checkNotNull(channelHash, "channelHash is null"),
+                    checkNotNull(pagesIndex, "pagesIndex is null"));
+
+            boolean wasSet = hashFuture.set(hashData);
+            checkState(wasSet, "Hash already set");
+        }
+
+        private static class HashData
+        {
+            private final ChannelHash channelHash;
+            private final NewPagesIndex pagesIndex;
+
+            private HashData(ChannelHash channelHash, NewPagesIndex pagesIndex)
+            {
+                this.channelHash = channelHash;
+                this.pagesIndex = pagesIndex;
             }
-            return new NewSourceHash(new ChannelHash(channelHash), pagesIndex);
         }
     }
 
@@ -140,6 +159,12 @@ public class NewHashBuilderOperator
     public boolean isFinished()
     {
         return finished;
+    }
+
+    @Override
+    public ListenableFuture<?> isBlocked()
+    {
+        return NOT_BLOCKED;
     }
 
     @Override

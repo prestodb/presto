@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
@@ -113,6 +114,12 @@ public class NewAggregationOperator
     public boolean isFinished()
     {
         return state == State.FINISHED;
+    }
+
+    @Override
+    public ListenableFuture<?> isBlocked()
+    {
+        return NOT_BLOCKED;
     }
 
     @Override

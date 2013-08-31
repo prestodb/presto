@@ -2,6 +2,7 @@ package com.facebook.presto.noperator;
 
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 
@@ -41,6 +42,12 @@ public class InMemoryExchangeSinkOperator
             finished = inMemoryExchange.isFinishing();
         }
         return finished;
+    }
+
+    @Override
+    public ListenableFuture<?> isBlocked()
+    {
+        return NOT_BLOCKED;
     }
 
     @Override

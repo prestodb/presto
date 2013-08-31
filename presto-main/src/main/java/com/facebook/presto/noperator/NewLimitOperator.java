@@ -5,6 +5,7 @@ import com.facebook.presto.execution.TaskMemoryManager;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 
@@ -76,6 +77,12 @@ public class NewLimitOperator
     public boolean isFinished()
     {
         return remainingLimit == 0 && nextPage == null;
+    }
+
+    @Override
+    public ListenableFuture<?> isBlocked()
+    {
+        return NOT_BLOCKED;
     }
 
     @Override

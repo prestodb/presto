@@ -10,9 +10,11 @@ import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 
+import static com.facebook.presto.util.MoreFutures.tryGetUnchecked;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -72,11 +74,13 @@ public class NewHashJoinOperator
         }
     }
 
+
+    private final ListenableFuture<NewSourceHash> sourceHashFuture;
+
     private final int probeJoinChannel;
     private final int probeJoinChannelFieldCount;
     private final boolean enableOuterJoin;
     private final List<TupleInfo> tupleInfos;
-    private final NewHashSupplier hashSupplier;
 
     private final BlockCursor[] cursors;
 
@@ -93,7 +97,7 @@ public class NewHashJoinOperator
         checkNotNull(probeTupleInfos, "probeTupleInfos is null");
         Preconditions.checkArgument(probeJoinChannel >= 0, "probeJoinChannel is negative");
 
-        this.hashSupplier = hashSupplier;
+        this.sourceHashFuture = hashSupplier.getSourceHash();
         this.probeJoinChannel = probeJoinChannel;
         this.probeJoinChannelFieldCount = probeTupleInfos.get(probeJoinChannel).getFieldCount();
         this.enableOuterJoin = enableOuterJoin;
@@ -137,6 +141,12 @@ public class NewHashJoinOperator
     }
 
     @Override
+    public ListenableFuture<?> isBlocked()
+    {
+        return sourceHashFuture;
+    }
+
+    @Override
     public boolean needsInput()
     {
         if (finishing) {
@@ -144,7 +154,7 @@ public class NewHashJoinOperator
         }
 
         if (hash == null) {
-            hash = hashSupplier.get();
+            hash = tryGetUnchecked(sourceHashFuture);
         }
         return hash != null && cursors[0] == null;
     }

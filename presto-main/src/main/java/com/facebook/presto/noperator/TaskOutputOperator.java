@@ -5,12 +5,13 @@ import com.facebook.presto.execution.TaskOutput;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 public class TaskOutputOperator
         implements NewOperator
@@ -61,6 +62,7 @@ public class TaskOutputOperator
     }
 
     private final TaskOutput taskOutput;
+    private ListenableFuture<?> blocked = NOT_BLOCKED;
     private boolean finished;
 
     public TaskOutputOperator(TaskOutput taskOutput)
@@ -83,28 +85,39 @@ public class TaskOutputOperator
     @Override
     public boolean isFinished()
     {
-        return finished;
+        if (blocked != NOT_BLOCKED && blocked.isDone()) {
+            blocked = NOT_BLOCKED;
+        }
+
+        return finished && blocked == NOT_BLOCKED;
+    }
+
+    @Override
+    public ListenableFuture<?> isBlocked()
+    {
+        if (blocked != NOT_BLOCKED && blocked.isDone()) {
+            blocked = NOT_BLOCKED;
+        }
+        return blocked;
     }
 
     @Override
     public boolean needsInput()
     {
-        // todo check if the buffer is full
-        return !finished;
+        if (blocked != NOT_BLOCKED && blocked.isDone()) {
+            blocked = NOT_BLOCKED;
+        }
+        return !finished && blocked == NOT_BLOCKED;
     }
 
     @Override
     public void addInput(Page page)
     {
         checkNotNull(page, "page is null");
-        try {
-            if (!taskOutput.addPage(page)) {
-                finished = true;
-            }
-        }
-        catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw Throwables.propagate(e);
+        checkState(blocked == NOT_BLOCKED, "output is already blocked");
+        ListenableFuture<?> future = taskOutput.enqueuePage(page);
+        if (!future.isDone()) {
+            this.blocked = future;
         }
     }
 

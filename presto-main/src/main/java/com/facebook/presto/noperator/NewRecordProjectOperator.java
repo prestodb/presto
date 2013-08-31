@@ -12,6 +12,7 @@ import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 
@@ -66,6 +67,12 @@ public class NewRecordProjectOperator
     public boolean isFinished()
     {
         return finishing && pageBuilder.isEmpty();
+    }
+
+    @Override
+    public ListenableFuture<?> isBlocked()
+    {
+        return NOT_BLOCKED;
     }
 
     @Override

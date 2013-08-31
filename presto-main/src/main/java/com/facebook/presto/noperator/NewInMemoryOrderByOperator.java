@@ -6,6 +6,7 @@ import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
 import it.unimi.dsi.fastutil.booleans.BooleanArrays;
 
 import java.util.List;
@@ -167,6 +168,12 @@ public class NewInMemoryOrderByOperator
     public boolean isFinished()
     {
         return state == State.FINISHED;
+    }
+
+    @Override
+    public ListenableFuture<?> isBlocked()
+    {
+        return NOT_BLOCKED;
     }
 
     @Override
