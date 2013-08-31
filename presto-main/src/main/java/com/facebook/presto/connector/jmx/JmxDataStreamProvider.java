@@ -3,6 +3,7 @@ package com.facebook.presto.connector.jmx;
 import com.facebook.presto.ingest.RecordProjectOperator;
 import com.facebook.presto.noperator.NewOperator;
 import com.facebook.presto.noperator.NewRecordProjectOperator;
+import com.facebook.presto.noperator.OperatorContext;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnType;
@@ -59,9 +60,9 @@ public class JmxDataStreamProvider
     }
 
     @Override
-    public NewOperator createNewDataStream(Split split, List<ColumnHandle> columns)
+    public NewOperator createNewDataStream(OperatorContext operatorContext, Split split, List<ColumnHandle> columns)
     {
-        return new NewRecordProjectOperator(createRecordSet(split, columns));
+        return new NewRecordProjectOperator(operatorContext, createRecordSet(split, columns));
     }
 
     private RecordSet createRecordSet(Split split, List<ColumnHandle> columns)

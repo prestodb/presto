@@ -6,17 +6,17 @@ package com.facebook.presto.server;
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.client.FailureInfo;
-import com.facebook.presto.execution.QueryId;
-import com.facebook.presto.execution.StageId;
-import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.LocationFactory;
+import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.QueryStats;
+import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.StageState;
 import com.facebook.presto.execution.StageStats;
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.tuple.TupleInfo;
@@ -29,6 +29,7 @@ import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
+
 import java.net.URI;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -176,7 +177,7 @@ public class MockQueryManager
                             locationFactory.createStageLocation(outputTaskId.getStageId()),
                             null,
                             TUPLE_INFOS,
-                            new StageStats().snapshot(),
+                            new StageStats(),
                             ImmutableList.<TaskInfo>of(outputTask),
                             ImmutableList.<StageInfo>of(),
                             ImmutableList.<FailureInfo>of()),

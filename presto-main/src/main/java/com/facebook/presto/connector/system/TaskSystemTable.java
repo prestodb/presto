@@ -2,6 +2,7 @@ package com.facebook.presto.connector.system;
 
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
+import com.facebook.presto.noperator.TaskStats;
 import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.InMemoryRecordSet.Builder;
 import com.facebook.presto.spi.ColumnType;
@@ -99,6 +100,7 @@ public class TaskSystemTable
     {
         Builder table = InMemoryRecordSet.builder(TASK_TABLE);
         for (TaskInfo taskInfo : taskManager.getAllTaskInfo(false)) {
+            TaskStats stats = taskInfo.getStats();
             table.addRow(
                     nodeId,
 
@@ -107,32 +109,27 @@ public class TaskSystemTable
                     taskInfo.getTaskId().getQueryId().toString(),
                     taskInfo.getState().toString(),
 
-                    (long) taskInfo.getStats().getSplits(),
-                    (long) taskInfo.getStats().getQueuedSplits(),
-                    (long) taskInfo.getStats().getStartedSplits(),
-                    (long) taskInfo.getStats().getRunningSplits(),
-                    (long) taskInfo.getStats().getCompletedSplits(),
+                    (long) stats.getTotalDrivers(),
+                    (long) stats.getQueuedDrivers(),
+                    (long) stats.getStartedDrivers(),
+                    (long) stats.getRunningDrivers(),
+                    (long) stats.getCompletedDrivers(),
 
-                    toMillis(taskInfo.getStats().getSplitWallTime()),
-                    toMillis(taskInfo.getStats().getSplitCpuTime()),
-                    toMillis(taskInfo.getStats().getSplitUserTime()),
+                    toMillis(stats.getTotalScheduledTime()),
+                    toMillis(stats.getTotalCpuTime()),
+                    toMillis(stats.getTotalUserTime()),
+                    toMillis(stats.getTotalBlockedTime()),
 
-                    toMillis(taskInfo.getStats().getSinkBufferWaitTime()),
-                    toMillis(taskInfo.getStats().getExchangeWaitTime()),
+                    toBytes(stats.getInputDataSize()),
+                    stats.getInputPositions(),
 
-                    toBytes(taskInfo.getStats().getInputDataSize()),
-                    taskInfo.getStats().getInputPositionCount(),
+                    toBytes(stats.getOutputDataSize()),
+                    stats.getOutputPositions(),
 
-                    toBytes(taskInfo.getStats().getCompletedDataSize()),
-                    taskInfo.getStats().getCompletedPositionCount(),
-
-                    toBytes(taskInfo.getStats().getOutputDataSize()),
-                    taskInfo.getStats().getOutputPositionCount(),
-
-                    toTimeStamp(taskInfo.getStats().getCreateTime()),
-                    toTimeStamp(taskInfo.getStats().getExecutionStartTime()),
-                    toTimeStamp(taskInfo.getStats().getLastHeartbeat()),
-                    toTimeStamp(taskInfo.getStats().getEndTime()));
+                    toTimeStamp(stats.getCreateTime()),
+                    toTimeStamp(stats.getStartTime()),
+                    toTimeStamp(taskInfo.getLastHeartbeat()),
+                    toTimeStamp(stats.getEndTime()));
         }
         return table.build().cursor();
     }

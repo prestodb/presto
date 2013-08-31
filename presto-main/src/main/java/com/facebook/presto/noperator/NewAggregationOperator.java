@@ -3,9 +3,7 @@ package com.facebook.presto.noperator;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.execution.TaskMemoryManager;
 import com.facebook.presto.operator.AggregationFunctionDefinition;
-import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.aggregation.AggregationFunction;
 import com.facebook.presto.operator.aggregation.FixedWidthAggregationFunction;
@@ -36,14 +34,15 @@ public class NewAggregationOperator
     public static class NewAggregationOperatorFactory
             implements NewOperatorFactory
     {
+        private final int operatorId;
         private final Step step;
         private final List<AggregationFunctionDefinition> functionDefinitions;
         private final List<TupleInfo> tupleInfos;
         private boolean closed;
 
-        public NewAggregationOperatorFactory(Step step, List<AggregationFunctionDefinition> functionDefinitions)
+        public NewAggregationOperatorFactory(int operatorId, Step step, List<AggregationFunctionDefinition> functionDefinitions)
         {
-
+            this.operatorId = operatorId;
             this.step = step;
             this.functionDefinitions = functionDefinitions;
             this.tupleInfos = toTupleInfos(step, functionDefinitions);
@@ -56,10 +55,11 @@ public class NewAggregationOperator
         }
 
         @Override
-        public NewOperator createOperator(OperatorStats operatorStats, TaskMemoryManager taskMemoryManager)
+        public NewOperator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            return new NewAggregationOperator(step, functionDefinitions);
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, NewAggregationOperator.class.getSimpleName());
+            return new NewAggregationOperator(operatorContext, step, functionDefinitions);
         }
 
         @Override
@@ -76,15 +76,18 @@ public class NewAggregationOperator
         FINISHED
     }
 
+    private final OperatorContext operatorContext;
     private final List<TupleInfo> tupleInfos;
     private final List<Aggregator> aggregates;
 
     private State state = State.NEEDS_INPUT;
 
-    public NewAggregationOperator(Step step, List<AggregationFunctionDefinition> functionDefinitions)
+    public NewAggregationOperator(OperatorContext operatorContext, Step step, List<AggregationFunctionDefinition> functionDefinitions)
     {
-        Preconditions.checkNotNull(step, "step is null");
-        Preconditions.checkNotNull(functionDefinitions, "functionDefinitions is null");
+        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
+
+        checkNotNull(step, "step is null");
+        checkNotNull(functionDefinitions, "functionDefinitions is null");
 
         this.tupleInfos = toTupleInfos(step, functionDefinitions);
 
@@ -94,6 +97,12 @@ public class NewAggregationOperator
             builder.add(createAggregator(functionDefinition, step));
         }
         aggregates = builder.build();
+    }
+
+    @Override
+    public OperatorContext getOperatorContext()
+    {
+        return operatorContext;
     }
 
     @Override

@@ -13,22 +13,27 @@ import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 
+import java.util.concurrent.ExecutorService;
+
 import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
+import static com.facebook.presto.util.Threads.daemonThreadsNamed;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class NewTop100Benchmark
         extends AbstractOperatorBenchmark
 {
-    public NewTop100Benchmark(TpchBlocksProvider tpchBlocksProvider)
+    public NewTop100Benchmark(ExecutorService executor, TpchBlocksProvider tpchBlocksProvider)
     {
-        super(tpchBlocksProvider, "top100", 5, 50);
+        super(executor, tpchBlocksProvider, "top100", 5, 50);
     }
 
     @Override
     protected Operator createBenchmarkedOperator()
     {
         BlockIterable blockIterable = getBlockIterable("orders", "totalprice", BlocksFileEncoding.RAW);
-        NewAlignmentOperatorFactory alignmentOperator = new NewAlignmentOperatorFactory(blockIterable);
+        NewAlignmentOperatorFactory alignmentOperator = new NewAlignmentOperatorFactory(0, blockIterable);
         NewTopNOperatorFactory topNOperator = new NewTopNOperatorFactory(
+                0,
                 100,
                 0,
                 ImmutableList.of(singleColumn(Type.DOUBLE, 0, 0)),
@@ -40,7 +45,8 @@ public class NewTop100Benchmark
 
     public static void main(String[] args)
     {
-        new NewTop100Benchmark(DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(
+        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test"));
+        new NewTop100Benchmark(executor, DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(
                 new SimpleLineBenchmarkResultWriter(System.out)
         );
     }

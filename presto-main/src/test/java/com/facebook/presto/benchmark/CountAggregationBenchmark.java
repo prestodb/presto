@@ -10,15 +10,19 @@ import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.google.common.collect.ImmutableList;
 
+import java.util.concurrent.ExecutorService;
+
 import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
 import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
+import static com.facebook.presto.util.Threads.daemonThreadsNamed;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class CountAggregationBenchmark
         extends AbstractOperatorBenchmark
 {
-    public CountAggregationBenchmark(TpchBlocksProvider tpchBlocksProvider)
+    public CountAggregationBenchmark(ExecutorService executor, TpchBlocksProvider tpchBlocksProvider)
     {
-        super(tpchBlocksProvider, "count_agg", 10, 100);
+        super(executor, tpchBlocksProvider, "count_agg", 10, 100);
     }
 
     @Override
@@ -31,7 +35,8 @@ public class CountAggregationBenchmark
 
     public static void main(String[] args)
     {
-        new CountAggregationBenchmark(DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(
+        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test"));
+        new CountAggregationBenchmark(executor, DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(
                 new SimpleLineBenchmarkResultWriter(System.out)
         );
     }

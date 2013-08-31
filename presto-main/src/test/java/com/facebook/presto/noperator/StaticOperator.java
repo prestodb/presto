@@ -16,11 +16,14 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class StaticOperator
         implements NewOperator
 {
+    private final OperatorContext operatorContext;
     private final ImmutableList<TupleInfo> tupleInfos;
     private final Iterator<Page> pages;
 
-    public StaticOperator(List<Page> pages)
+    public StaticOperator(OperatorContext operatorContext, List<Page> pages)
     {
+        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
+
         checkNotNull(pages, "pages is null");
         checkArgument(!pages.isEmpty(), "pages is empty");
 
@@ -30,6 +33,12 @@ public class StaticOperator
         }
         this.tupleInfos = tupleInfos.build();
         this.pages = ImmutableList.copyOf(pages).iterator();
+    }
+
+    @Override
+    public OperatorContext getOperatorContext()
+    {
+        return operatorContext;
     }
 
     @Override

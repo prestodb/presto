@@ -2,11 +2,8 @@ package com.facebook.presto.noperator;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.execution.TaskMemoryManager;
-import com.facebook.presto.execution.TaskOutput;
 import com.facebook.presto.metadata.ColumnFileHandle;
 import com.facebook.presto.metadata.LocalStorageManager;
-import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.TableWriterResult;
 import com.facebook.presto.spi.ColumnHandle;
@@ -14,6 +11,7 @@ import com.facebook.presto.spi.Split;
 import com.facebook.presto.split.NativeSplit;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -30,22 +28,23 @@ import static com.google.common.base.Preconditions.checkState;
 public class NewTableWriterOperator
         implements NewSourceOperator
 {
-    private final List<ColumnHandle> columnHandles;
-
     public static class NewTableWriterOperatorFactory
             implements NewSourceOperatorFactory
     {
+        private final int operatorId;
         private final PlanNodeId sourceId;
         private final LocalStorageManager storageManager;
         private final String nodeIdentifier;
         private final List<ColumnHandle> columnHandles;
 
         public NewTableWriterOperatorFactory(
+                int operatorId,
                 PlanNodeId sourceId,
                 LocalStorageManager storageManager,
                 String nodeIdentifier,
                 List<ColumnHandle> columnHandles)
         {
+            this.operatorId = operatorId;
             this.sourceId = checkNotNull(sourceId, "sourceId is null");
             this.storageManager = checkNotNull(storageManager, "storageManager is null");
             this.nodeIdentifier = checkNotNull(nodeIdentifier, "nodeIdentifier is null");
@@ -65,10 +64,16 @@ public class NewTableWriterOperator
         }
 
         @Override
-        public NewSourceOperator createOperator(OperatorStats operatorStats, TaskMemoryManager taskMemoryManager)
+        public NewSourceOperator createOperator(DriverContext driverContext)
         {
             try {
-                return new NewTableWriterOperator(sourceId, storageManager, nodeIdentifier, columnHandles);
+                OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, NewTableWriterOperator.class.getSimpleName());
+                return new NewTableWriterOperator(
+                        operatorContext,
+                        sourceId,
+                        storageManager,
+                        nodeIdentifier,
+                        columnHandles);
             }
             catch (IOException e) {
                 throw Throwables.propagate(e);
@@ -86,29 +91,38 @@ public class NewTableWriterOperator
         RUNNING, FINISHING, FINISHED
     }
 
+    private final OperatorContext operatorContext;
     private final PlanNodeId sourceId;
     private final LocalStorageManager storageManager;
     private final String nodeIdentifier;
+    private final List<ColumnHandle> columnHandles;
 
     private ColumnFileHandle columnFileHandle;
 
-    private final AtomicReference<TaskOutput> taskOutput = new AtomicReference<>();
     private final AtomicReference<NativeSplit> input = new AtomicReference<>();
 
     private State state = State.RUNNING;
     private long rowCount;
 
     public NewTableWriterOperator(
+            OperatorContext operatorContext,
             PlanNodeId sourceId,
             LocalStorageManager storageManager,
             String nodeIdentifier,
             List<ColumnHandle> columnHandles)
             throws IOException
     {
+        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         this.sourceId = checkNotNull(sourceId, "sourceId is null");
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
         this.nodeIdentifier = checkNotNull(nodeIdentifier, "nodeIdentifier is null");
         this.columnHandles = ImmutableList.copyOf(columnHandles);
+    }
+
+    @Override
+    public OperatorContext getOperatorContext()
+    {
+        return operatorContext;
     }
 
     @Override
@@ -117,18 +131,18 @@ public class NewTableWriterOperator
         return sourceId;
     }
 
-    public void setTaskOutput(TaskOutput taskOutput)
-    {
-        this.taskOutput.set(taskOutput);
-    }
-
     @Override
-    public void addSplit(Split split)
+    public void addSplit(final Split split)
     {
         checkNotNull(split, "split is null");
         checkState(split instanceof NativeSplit, "Non-native split added!");
         checkState(input.get() == null, "Shard Id %s was already set!", input.get());
         input.set((NativeSplit) split);
+
+        Object splitInfo = split.getInfo();
+        if (splitInfo != null) {
+            operatorContext.setInfoSupplier(Suppliers.ofInstance(splitInfo));
+        }
     }
 
     @Override
@@ -202,9 +216,7 @@ public class NewTableWriterOperator
                 throw Throwables.propagate(e);
             }
 
-            TaskOutput taskOutput = this.taskOutput.get();
-            checkState(taskOutput != null, "TaskOutput not set");
-            taskOutput.addOutput(sourceId, ImmutableSet.of(new TableWriterResult(input.get().getShardId(), nodeIdentifier)));
+            operatorContext.addOutputItems(sourceId, ImmutableSet.of(new TableWriterResult(input.get().getShardId(), nodeIdentifier)));
         }
 
         Block block = new BlockBuilder(SINGLE_LONG).append(rowCount).build();

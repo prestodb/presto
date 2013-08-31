@@ -9,6 +9,7 @@ import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.ingest.RecordProjectOperator;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.noperator.NewOperator;
+import com.facebook.presto.noperator.OperatorContext;
 import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.FilterFunctions;
 import com.facebook.presto.operator.Operator;
@@ -39,6 +40,7 @@ import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.sql.tree.InputReference;
 import com.facebook.presto.util.LocalQueryRunner;
 import com.facebook.presto.util.MaterializedResult;
+import com.facebook.presto.util.Threads;
 import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -51,6 +53,8 @@ import org.joda.time.DateTimeZone;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
@@ -76,6 +80,8 @@ import static org.testng.Assert.assertTrue;
 public final class FunctionAssertions
 {
     public static final Session SESSION = new Session("user", "source", "catalog", "schema", "address", "agent");
+
+    private static final ExecutorService EXECUTOR = Executors.newCachedThreadPool(Threads.daemonThreadsNamed("test-%s"));
 
     private static final ExpressionCompiler compiler = new ExpressionCompiler(new MetadataManager());
 
@@ -128,12 +134,12 @@ public final class FunctionAssertions
 
     public static Object selectSingleValue(String projection)
     {
-        return selectSingleValue(projection, createDualLocalQueryRunner(), SESSION);
+        return selectSingleValue(projection, createDualLocalQueryRunner(EXECUTOR), SESSION);
     }
 
     public static Object selectSingleValue(String projection, Session session)
     {
-        return selectSingleValue(projection, createDualLocalQueryRunner(session), session);
+        return selectSingleValue(projection, createDualLocalQueryRunner(session, EXECUTOR), session);
     }
 
     public static Object selectCompiledSingleValue(String projection)
@@ -370,7 +376,7 @@ public final class FunctionAssertions
                     }
 
                     @Override
-                    public NewOperator createNewDataStream(Split split, List<ColumnHandle> columns)
+                    public NewOperator createNewDataStream(OperatorContext operatorContext, Split split, List<ColumnHandle> columns)
                     {
                         throw new UnsupportedOperationException();
                     }

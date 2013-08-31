@@ -5,16 +5,15 @@ package com.facebook.presto.noperator;
 
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.operator.ChannelHash;
 import io.airlift.slice.Slice;
 
 public class NewSourceHash
 {
-    private final ChannelHash channelHash;
+    private final NewChannelHash channelHash;
     private final NewPagesIndex pagesIndex;
     private final int channelCount;
 
-    public NewSourceHash(ChannelHash channelHash, NewPagesIndex pagesIndex)
+    public NewSourceHash(NewChannelHash channelHash, NewPagesIndex pagesIndex)
     {
         this.channelHash = channelHash;
         this.pagesIndex = pagesIndex;

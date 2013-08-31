@@ -2,9 +2,7 @@ package com.facebook.presto.noperator;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.execution.TaskMemoryManager;
 import com.facebook.presto.operator.FilterFunction;
-import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.tuple.TupleInfo;
@@ -21,18 +19,20 @@ public class NewFilterAndProjectOperator
     public static class NewFilterAndProjectOperatorFactory
             implements NewOperatorFactory
     {
+        private final int operatorId;
         private final FilterFunction filterFunction;
         private final List<ProjectionFunction> projections;
         private final List<TupleInfo> tupleInfos;
         private boolean closed;
 
-        public NewFilterAndProjectOperatorFactory(FilterFunction filterFunction, ProjectionFunction... projections)
+        public NewFilterAndProjectOperatorFactory(int operatorId, FilterFunction filterFunction, ProjectionFunction... projections)
         {
-            this(filterFunction, ImmutableList.copyOf(checkNotNull(projections, "projections is null")));
+            this(operatorId, filterFunction, ImmutableList.copyOf(checkNotNull(projections, "projections is null")));
         }
 
-        public NewFilterAndProjectOperatorFactory(FilterFunction filterFunction, List<ProjectionFunction> projections)
+        public NewFilterAndProjectOperatorFactory(int operatorId, FilterFunction filterFunction, List<ProjectionFunction> projections)
         {
+            this.operatorId = operatorId;
             this.filterFunction = checkNotNull(filterFunction, "filterFunction is null");
             this.projections = ImmutableList.copyOf(projections);
             this.tupleInfos = toTupleInfos(checkNotNull(projections, "projections is null"));
@@ -45,10 +45,11 @@ public class NewFilterAndProjectOperator
         }
 
         @Override
-        public NewOperator createOperator(OperatorStats operatorStats, TaskMemoryManager taskMemoryManager)
+        public NewOperator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            return new NewFilterAndProjectOperator(filterFunction, projections);
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, NewFilterAndProjectOperator.class.getSimpleName());
+            return new NewFilterAndProjectOperator(operatorContext, filterFunction, projections);
         }
 
         @Override
@@ -61,14 +62,14 @@ public class NewFilterAndProjectOperator
     private final FilterFunction filterFunction;
     private final List<ProjectionFunction> projections;
 
-    public NewFilterAndProjectOperator(FilterFunction filterFunction, ProjectionFunction... projections)
+    public NewFilterAndProjectOperator(OperatorContext operatorContext, FilterFunction filterFunction, ProjectionFunction... projections)
     {
-        this(filterFunction, ImmutableList.copyOf(checkNotNull(projections, "projections is null")));
+        this(operatorContext, filterFunction, ImmutableList.copyOf(checkNotNull(projections, "projections is null")));
     }
 
-    public NewFilterAndProjectOperator(FilterFunction filterFunction, List<ProjectionFunction> projections)
+    public NewFilterAndProjectOperator(OperatorContext operatorContext, FilterFunction filterFunction, List<ProjectionFunction> projections)
     {
-        super(toTupleInfos(checkNotNull(projections, "projections is null")));
+        super(operatorContext, toTupleInfos(checkNotNull(projections, "projections is null")));
         this.filterFunction = checkNotNull(filterFunction, "filterFunction is null");
         this.projections = ImmutableList.copyOf(projections);
     }

@@ -8,7 +8,7 @@ import com.facebook.presto.TaskSource;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.SharedBuffer.QueueState;
-import com.facebook.presto.operator.OperatorStats.SplitExecutionStats;
+import com.facebook.presto.noperator.TaskContext;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.NewLocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -249,8 +249,7 @@ public class SqlTaskManager
                         taskNotificationExecutor,
                         maxTaskMemoryUsage,
                         operatorPreAllocatedMemory,
-                        queryMonitor,
-                        stats
+                        queryMonitor
                 );
                 tasks.put(taskId, taskExecution);
             }
@@ -328,16 +327,21 @@ public class SqlTaskManager
             if (taskInfo == null) {
                 // task does not exist yet, mark the task as canceled, so later if a late request
                 // comes in to create the task, the task remains canceled
-                ExecutionStats executionStats = new ExecutionStats();
-                executionStats.recordEnd();
+                TaskContext taskContext = new TaskContext(
+                        new TaskStateMachine(taskId, taskNotificationExecutor),
+                        taskManagementExecutor,
+                        null,
+                        maxTaskMemoryUsage,
+                        operatorPreAllocatedMemory);
+
                 taskInfo = new TaskInfo(taskId,
                         Long.MAX_VALUE,
                         TaskState.CANCELED,
                         URI.create("unknown"),
+                        DateTime.now(),
                         new SharedBufferInfo(QueueState.FINISHED, 0, 0, ImmutableList.<BufferInfo>of()),
                         ImmutableSet.<PlanNodeId>of(),
-                        executionStats.snapshot(false),
-                        ImmutableList.<SplitExecutionStats>of(),
+                        taskContext.getTaskStats(),
                         ImmutableList.<FailureInfo>of(),
                         ImmutableMap.<PlanNodeId, Set<?>>of());
                 TaskInfo existingTaskInfo = taskInfos.putIfAbsent(taskId, taskInfo);
@@ -380,7 +384,7 @@ public class SqlTaskManager
                 if (taskInfo.getState().isDone()) {
                     continue;
                 }
-                DateTime lastHeartbeat = taskInfo.getStats().getLastHeartbeat();
+                DateTime lastHeartbeat = taskInfo.getLastHeartbeat();
                 if (lastHeartbeat != null && lastHeartbeat.isBefore(oldestAllowedHeartbeat)) {
                     log.info("Failing abandoned task %s", taskExecution.getTaskId());
                     taskExecution.fail(new AbandonedException("Task " + taskInfo.getTaskId(), lastHeartbeat, now));

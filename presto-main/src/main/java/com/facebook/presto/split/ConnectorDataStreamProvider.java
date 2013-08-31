@@ -1,6 +1,7 @@
 package com.facebook.presto.split;
 
 import com.facebook.presto.noperator.NewOperator;
+import com.facebook.presto.noperator.OperatorContext;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Split;
@@ -13,5 +14,5 @@ public interface ConnectorDataStreamProvider
 
     Operator createDataStream(Split split, List<ColumnHandle> columns);
 
-    NewOperator createNewDataStream(Split split, List<ColumnHandle> columns);
+    NewOperator createNewDataStream(OperatorContext operatorContext, Split split, List<ColumnHandle> columns);
 }

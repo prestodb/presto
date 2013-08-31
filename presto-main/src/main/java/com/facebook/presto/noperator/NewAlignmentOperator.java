@@ -4,8 +4,6 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.block.BlockIterables;
-import com.facebook.presto.execution.TaskMemoryManager;
-import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Optional;
@@ -26,20 +24,23 @@ public class NewAlignmentOperator
     public static class NewAlignmentOperatorFactory
             implements NewOperatorFactory
     {
+        private final int operatorId;
         private final List<BlockIterable> channels;
         private final List<TupleInfo> tupleInfos;
         private boolean closed;
 
-        public NewAlignmentOperatorFactory(BlockIterable firstChannel, BlockIterable... otherChannels)
+        public NewAlignmentOperatorFactory(int operatorId, BlockIterable firstChannel, BlockIterable... otherChannels)
         {
-            this(ImmutableList.<BlockIterable>builder()
+            this(operatorId,
+                    ImmutableList.<BlockIterable>builder()
                     .add(checkNotNull(firstChannel, "firstChannel is null"))
                     .add(checkNotNull(otherChannels, "otherChannels is null"))
                     .build());
         }
 
-        public NewAlignmentOperatorFactory(Iterable<BlockIterable> channels)
+        public NewAlignmentOperatorFactory(int operatorId, Iterable<BlockIterable> channels)
         {
+            this.operatorId = operatorId;
             this.channels = ImmutableList.copyOf(checkNotNull(channels, "channels is null"));
             this.tupleInfos = toTupleInfos(channels);
         }
@@ -51,10 +52,11 @@ public class NewAlignmentOperator
         }
 
         @Override
-        public NewOperator createOperator(OperatorStats operatorStats, TaskMemoryManager taskMemoryManager)
+        public NewOperator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            return new NewAlignmentOperator(channels);
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, NewAlignmentOperator.class.getSimpleName());
+            return new NewAlignmentOperator(operatorContext, channels);
         }
 
         @Override
@@ -64,6 +66,7 @@ public class NewAlignmentOperator
         }
     }
 
+    private final OperatorContext operatorContext;
     private final List<TupleInfo> tupleInfos;
     private final Optional<DataSize> expectedDataSize;
     private final Optional<Integer> expectedPositionCount;
@@ -73,14 +76,15 @@ public class NewAlignmentOperator
 
     private boolean finished;
 
-    public NewAlignmentOperator(BlockIterable... channels)
+    public NewAlignmentOperator(OperatorContext operatorContext, BlockIterable... channels)
     {
-        this(ImmutableList.copyOf(channels));
+        this(operatorContext, ImmutableList.copyOf(channels));
     }
 
-    public NewAlignmentOperator(Iterable<BlockIterable> channels)
+    public NewAlignmentOperator(OperatorContext operatorContext, Iterable<BlockIterable> channels)
     {
-        this.tupleInfos = toTupleInfos(channels);
+        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
+        this.tupleInfos = toTupleInfos(checkNotNull(channels, "channels is null"));
 
         expectedDataSize = BlockIterables.getDataSize(channels);
         expectedPositionCount = BlockIterables.getPositionCount(channels);
@@ -104,6 +108,12 @@ public class NewAlignmentOperator
             }
             finished = true;
         }
+    }
+
+    @Override
+    public OperatorContext getOperatorContext()
+    {
+        return operatorContext;
     }
 
     @Override

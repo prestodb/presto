@@ -1,21 +1,25 @@
 package com.facebook.presto.event.query;
 
-import com.facebook.presto.execution.ExecutionStats;
 import com.facebook.presto.execution.QueryInfo;
-import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.execution.QueryStats;
+import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.noperator.DriverStats;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Throwables;
 import com.google.inject.Inject;
 import io.airlift.event.client.EventClient;
+import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
+import io.airlift.units.Duration;
 
-import static com.facebook.presto.execution.StageInfo.globalExecutionStats;
-import static com.facebook.presto.operator.OperatorStats.SplitExecutionStats;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class QueryMonitor
 {
+    private static final Logger log = Logger.get(QueryMonitor.class);
+
     private final ObjectMapper objectMapper;
     private final EventClient eventClient;
     private final String environment;
@@ -50,7 +54,7 @@ public class QueryMonitor
     public void completionEvent(QueryInfo queryInfo)
     {
         try {
-            ExecutionStats globalExecutionStats = globalExecutionStats(queryInfo.getOutputStage());
+            QueryStats queryStats = queryInfo.getQueryStats();
             eventClient.post(
                     new QueryCompletionEvent(
                             queryInfo.getQueryId(),
@@ -65,17 +69,17 @@ public class QueryMonitor
                             queryInfo.getSelf(),
                             queryInfo.getFieldNames(),
                             queryInfo.getQuery(),
-                            queryInfo.getQueryStats().getCreateTime(),
-                            queryInfo.getQueryStats().getExecutionStartTime(),
-                            queryInfo.getQueryStats().getEndTime(),
-                            queryInfo.getQueryStats().getQueuedTime(),
-                            queryInfo.getQueryStats().getAnalysisTime(),
-                            queryInfo.getQueryStats().getDistributedPlanningTime(),
-                            globalExecutionStats.getSplitWallTime(),
-                            globalExecutionStats.getSplitCpuTime(),
-                            globalExecutionStats.getCompletedDataSize(),
-                            globalExecutionStats.getCompletedPositionCount(),
-                            globalExecutionStats.getSplits(),
+                            queryStats.getCreateTime(),
+                            queryStats.getExecutionStartTime(),
+                            queryStats.getEndTime(),
+                            queryStats.getQueuedTime(),
+                            queryStats.getAnalysisTime(),
+                            queryStats.getDistributedPlanningTime(),
+                            queryStats.getTotalScheduledTime(),
+                            queryStats.getTotalCpuTime(),
+                            queryStats.getInputDataSize(),
+                            queryStats.getInputPositions(),
+                            queryStats.getTotalDrivers(),
                             objectMapper.writeValueAsString(queryInfo.getOutputStage()),
                             objectMapper.writeValueAsString(queryInfo.getFailureInfo())
                     )
@@ -86,30 +90,39 @@ public class QueryMonitor
         }
     }
 
-    public void splitCompletionEvent(TaskInfo taskInfo, SplitExecutionStats splitExecutionStats)
+    public void splitCompletionEvent(TaskId taskId, DriverStats driverStats)
     {
+        Duration timeToStart = null;
+        if (driverStats.getStartTime() != null) {
+            timeToStart = new Duration(driverStats.getStartTime().getMillis() - driverStats.getCreateTime().getMillis(), MILLISECONDS);
+        }
+        Duration timeToEnd = null;
+        if (driverStats.getEndTime() != null) {
+            timeToEnd = new Duration(driverStats.getEndTime().getMillis() - driverStats.getCreateTime().getMillis(), MILLISECONDS);
+        }
+
         try {
             eventClient.post(
                     new SplitCompletionEvent(
-                            taskInfo.getTaskId().getQueryId(),
-                            taskInfo.getTaskId().getStageId(),
-                            taskInfo.getTaskId(),
+                            taskId.getQueryId(),
+                            taskId.getStageId(),
+                            taskId,
                             environment,
-                            splitExecutionStats.getQueuedTime(),
-                            splitExecutionStats.getExecutionStartTime(),
-                            splitExecutionStats.getTimeToFirstByte(),
-                            splitExecutionStats.getTimeToLastByte(),
-                            splitExecutionStats.getCompletedDataSize(),
-                            splitExecutionStats.getCompletedPositions(),
-                            splitExecutionStats.getWall(),
-                            splitExecutionStats.getCpu(),
-                            splitExecutionStats.getUser(),
-                            objectMapper.writeValueAsString(splitExecutionStats.getSplitInfo())
+                            driverStats.getQueuedTime(),
+                            driverStats.getStartTime(),
+                            timeToStart,
+                            timeToEnd,
+                            driverStats.getInputDataSize(),
+                            driverStats.getInputPositions(),
+                            driverStats.getElapsedTime(),
+                            driverStats.getTotalCpuTime(),
+                            driverStats.getTotalUserTime(),
+                            objectMapper.writeValueAsString(driverStats)
                     )
             );
         }
         catch (JsonProcessingException e) {
-            throw Throwables.propagate(e);
+            log.error(e, "Error posting split completion event for task %s", taskId);
         }
     }
 }

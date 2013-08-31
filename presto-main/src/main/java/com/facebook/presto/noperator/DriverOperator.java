@@ -1,6 +1,5 @@
 package com.facebook.presto.noperator;
 
-import com.facebook.presto.execution.TaskMemoryManager;
 import com.facebook.presto.operator.AbstractPageIterator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
@@ -46,7 +45,7 @@ public class DriverOperator
         List<NewOperatorFactory> operators = newArrayList(operatorFactories);
 
         inMemoryExchange = new InMemoryExchange(Iterables.getLast(operators).getTupleInfos());
-        operators.add(inMemoryExchange.createSinkFactory());
+        operators.add(inMemoryExchange.createSinkFactory(99));
         inMemoryExchange.noMoreSinkFactories();
 
         driverFactories = ImmutableList.of(new DriverFactory(operators));
@@ -69,11 +68,11 @@ public class DriverOperator
     {
         checkNotNull(operatorStats, "operatorStats is null");
 
-        TaskMemoryManager taskMemoryManager = new TaskMemoryManager(maxMemory);
+        DriverContext driverContext = null;
 
         ImmutableList.Builder<Driver> drivers = ImmutableList.builder();
         for (DriverFactory driverFactory : driverFactories) {
-            drivers.add(driverFactory.createDriver(operatorStats, taskMemoryManager));
+            drivers.add(driverFactory.createDriver(driverContext));
         }
 
         return new DriverOperatorIterator(drivers.build(), inMemoryExchange, operatorStats);

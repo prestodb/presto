@@ -63,7 +63,7 @@ public class CreateAliasExecution
                 return;
             }
 
-            stateMachine.getStats().recordExecutionStart();
+            stateMachine.recordExecutionStart();
 
             createAlias();
 
@@ -103,6 +103,12 @@ public class CreateAliasExecution
     public void cancelStage(StageId stageId)
     {
         // no-op
+    }
+
+    @Override
+    public void recordHeartbeat()
+    {
+        stateMachine.recordHeartbeat();
     }
 
     @Override

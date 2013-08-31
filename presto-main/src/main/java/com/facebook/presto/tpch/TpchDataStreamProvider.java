@@ -3,6 +3,7 @@ package com.facebook.presto.tpch;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.noperator.NewAlignmentOperator;
 import com.facebook.presto.noperator.NewOperator;
+import com.facebook.presto.noperator.OperatorContext;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.serde.BlocksFileEncoding;
@@ -43,9 +44,9 @@ public class TpchDataStreamProvider
     }
 
     @Override
-    public NewOperator createNewDataStream(Split split, List<ColumnHandle> columns)
+    public NewOperator createNewDataStream(OperatorContext operatorContext, Split split, List<ColumnHandle> columns)
     {
-        return new NewAlignmentOperator(getChannels(split, columns));
+        return new NewAlignmentOperator(operatorContext, getChannels(split, columns));
     }
 
     private List<BlockIterable> getChannels(Split split, List<ColumnHandle> columns)

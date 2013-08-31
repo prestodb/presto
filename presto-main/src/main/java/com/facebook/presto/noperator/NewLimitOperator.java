@@ -1,8 +1,6 @@
 package com.facebook.presto.noperator;
 
 import com.facebook.presto.block.Block;
-import com.facebook.presto.execution.TaskMemoryManager;
-import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -19,12 +17,14 @@ public class NewLimitOperator
     public static class NewLimitOperatorFactory
             implements NewOperatorFactory
     {
+        private final int operatorId;
         private final List<TupleInfo> tupleInfos;
         private final long limit;
         private boolean closed;
 
-        public NewLimitOperatorFactory(List<TupleInfo> tupleInfos, long limit)
+        public NewLimitOperatorFactory(int operatorId, List<TupleInfo> tupleInfos, long limit)
         {
+            this.operatorId = operatorId;
             this.tupleInfos = tupleInfos;
             this.limit = limit;
         }
@@ -36,10 +36,11 @@ public class NewLimitOperator
         }
 
         @Override
-        public NewOperator createOperator(OperatorStats operatorStats, TaskMemoryManager taskMemoryManager)
+        public NewOperator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            return new NewLimitOperator(tupleInfos, limit);
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, NewLimitOperator.class.getSimpleName());
+            return new NewLimitOperator(operatorContext, tupleInfos, limit);
         }
 
         @Override
@@ -49,16 +50,24 @@ public class NewLimitOperator
         }
     }
 
+    private final OperatorContext operatorContext;
     private final List<TupleInfo> tupleInfos;
     private Page nextPage;
     private long remainingLimit;
 
-    public NewLimitOperator(List<TupleInfo> tupleInfos, long limit)
+    public NewLimitOperator(OperatorContext operatorContext, List<TupleInfo> tupleInfos, long limit)
     {
+        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         this.tupleInfos = checkNotNull(tupleInfos, "tupleInfos is null");
 
         checkArgument(limit >= 0, "limit must be at least zero");
         this.remainingLimit = limit;
+    }
+
+    @Override
+    public OperatorContext getOperatorContext()
+    {
+        return operatorContext;
     }
 
     @Override

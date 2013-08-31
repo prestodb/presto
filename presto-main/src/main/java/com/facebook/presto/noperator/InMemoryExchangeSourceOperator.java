@@ -1,13 +1,12 @@
 package com.facebook.presto.noperator;
 
-import com.facebook.presto.execution.TaskMemoryManager;
-import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 public class InMemoryExchangeSourceOperator
@@ -16,11 +15,13 @@ public class InMemoryExchangeSourceOperator
     public static class InMemoryExchangeSourceOperatorFactory
             implements NewOperatorFactory
     {
+        private final int operatorId;
         private final InMemoryExchange inMemoryExchange;
         private boolean closed;
 
-        public InMemoryExchangeSourceOperatorFactory(InMemoryExchange inMemoryExchange)
+        public InMemoryExchangeSourceOperatorFactory(int operatorId, InMemoryExchange inMemoryExchange)
         {
+            this.operatorId = operatorId;
             this.inMemoryExchange = inMemoryExchange;
         }
 
@@ -31,10 +32,11 @@ public class InMemoryExchangeSourceOperator
         }
 
         @Override
-        public NewOperator createOperator(OperatorStats operatorStats, TaskMemoryManager taskMemoryManager)
+        public NewOperator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            return new InMemoryExchangeSourceOperator(inMemoryExchange);
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, InMemoryExchangeSourceOperator.class.getSimpleName());
+            return new InMemoryExchangeSourceOperator(operatorContext, inMemoryExchange);
         }
 
         @Override
@@ -44,11 +46,19 @@ public class InMemoryExchangeSourceOperator
         }
     }
 
+    private final OperatorContext operatorContext;
     private final InMemoryExchange exchange;
 
-    public InMemoryExchangeSourceOperator(InMemoryExchange exchange)
+    public InMemoryExchangeSourceOperator(OperatorContext operatorContext, InMemoryExchange exchange)
     {
-        this.exchange = exchange;
+        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
+        this.exchange = checkNotNull(exchange, "exchange is null");
+    }
+
+    @Override
+    public OperatorContext getOperatorContext()
+    {
+        return operatorContext;
     }
 
     @Override

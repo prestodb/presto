@@ -5,6 +5,7 @@ import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.metadata.NativeColumnHandle;
 import com.facebook.presto.noperator.NewAlignmentOperator;
 import com.facebook.presto.noperator.NewOperator;
+import com.facebook.presto.noperator.OperatorContext;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.spi.ColumnHandle;
@@ -41,9 +42,9 @@ public class NativeDataStreamProvider
     }
 
     @Override
-    public NewOperator createNewDataStream(Split split, List<ColumnHandle> columns)
+    public NewOperator createNewDataStream(OperatorContext operatorContext, Split split, List<ColumnHandle> columns)
     {
-        return new NewAlignmentOperator(createChannels(split, columns));
+        return new NewAlignmentOperator(operatorContext, createChannels(split, columns));
     }
 
     private List<BlockIterable> createChannels(Split split, List<ColumnHandle> columns)

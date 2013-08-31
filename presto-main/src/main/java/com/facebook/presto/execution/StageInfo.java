@@ -4,7 +4,6 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.client.FailureInfo;
-import com.facebook.presto.execution.StageStats.StageStatsSnapshot;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.tuple.TupleInfo;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -16,6 +15,7 @@ import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
+
 import java.net.URI;
 import java.util.List;
 
@@ -27,18 +27,19 @@ public class StageInfo
     private final URI self;
     private final PlanFragment plan;
     private final List<TupleInfo> tupleInfos;
-    private final StageStatsSnapshot stageStats;
+    private final StageStats stageStats;
     private final List<TaskInfo> tasks;
     private final List<StageInfo> subStages;
     private final List<FailureInfo> failures;
 
     @JsonCreator
-    public StageInfo(@JsonProperty("stageId") StageId stageId,
+    public StageInfo(
+            @JsonProperty("stageId") StageId stageId,
             @JsonProperty("state") StageState state,
             @JsonProperty("self") URI self,
             @JsonProperty("plan") @Nullable PlanFragment plan,
             @JsonProperty("tupleInfos") List<TupleInfo> tupleInfos,
-            @JsonProperty("stageStats") StageStatsSnapshot stageStats,
+            @JsonProperty("stageStats") StageStats stageStats,
             @JsonProperty("tasks") List<TaskInfo> tasks,
             @JsonProperty("subStages") List<StageInfo> subStages,
             @JsonProperty("failures") List<FailureInfo> failures)
@@ -94,7 +95,7 @@ public class StageInfo
     }
 
     @JsonProperty
-    public StageStatsSnapshot getStageStats()
+    public StageStats getStageStats()
     {
         return stageStats;
     }
@@ -117,20 +118,6 @@ public class StageInfo
         return failures;
     }
 
-    public static ExecutionStats globalExecutionStats(@Nullable StageInfo stageInfo)
-    {
-        ExecutionStats executionStats = new ExecutionStats();
-        sumStats(stageInfo, executionStats, false);
-        return executionStats;
-    }
-
-    public static ExecutionStats stageOnlyExecutionStats(@Nullable StageInfo stageInfo)
-    {
-        ExecutionStats executionStats = new ExecutionStats();
-        sumTaskStats(stageInfo, executionStats);
-        return executionStats;
-    }
-
     @Override
     public String toString()
     {
@@ -139,7 +126,6 @@ public class StageInfo
                 .add("state", state)
                 .toString();
     }
-
 
     public static List<StageInfo> getAllStages(StageInfo stageInfo)
     {
@@ -166,28 +152,5 @@ public class StageInfo
                 return stageInfo.getState();
             }
         };
-    }
-
-    private static void sumStats(@Nullable StageInfo stageInfo, ExecutionStats executionStats, boolean sumLeafOnly)
-    {
-        if (stageInfo == null) {
-            return;
-        }
-        if (!sumLeafOnly || stageInfo.getSubStages().isEmpty()) {
-            sumTaskStats(stageInfo, executionStats);
-        }
-        for (StageInfo subStage : stageInfo.getSubStages()) {
-            sumStats(subStage, executionStats, sumLeafOnly);
-        }
-    }
-
-    private static void sumTaskStats(@Nullable StageInfo stageInfo, ExecutionStats executionStats)
-    {
-        if (stageInfo == null) {
-            return;
-        }
-        for (TaskInfo task : stageInfo.getTasks()) {
-            executionStats.add(task.getStats());
-        }
     }
 }

@@ -3,15 +3,19 @@ package com.facebook.presto.execution;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.sql.analyzer.Session;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
+
 import java.net.URI;
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -20,19 +24,38 @@ import static com.facebook.presto.execution.QueryState.CANCELED;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.FINISHED;
 import static com.facebook.presto.execution.QueryState.inDoneState;
+import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static io.airlift.units.DataSize.Unit.BYTE;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @ThreadSafe
 public class QueryStateMachine
 {
     private static final Logger log = Logger.get(QueryStateMachine.class);
 
+    private final DateTime createTime = DateTime.now();
+    private final long createNanos = System.nanoTime();
+
     private final QueryId queryId;
     private final String query;
     private final Session session;
     private final URI self;
-    private final QueryStats queryStats = new QueryStats();
+
+    @GuardedBy("this")
+    private DateTime lastHeartbeat = DateTime.now();
+    @GuardedBy("this")
+    private DateTime executionStartTime;
+    @GuardedBy("this")
+    private DateTime endTime;
+
+    @GuardedBy("this")
+    private Duration queuedTime;
+    @GuardedBy("this")
+    private Duration analysisTime;
+    @GuardedBy("this")
+    private Duration distributedPlanningTime;
 
     private final StateMachine<QueryState> queryState;
 
@@ -44,6 +67,7 @@ public class QueryStateMachine
 
     public QueryStateMachine(QueryId queryId, String query, Session session, URI self, Executor executor)
     {
+
         this.queryId = checkNotNull(queryId, "queryId is null");
         this.query = checkNotNull(query, "query is null");
         this.session = checkNotNull(session, "session is null");
@@ -69,17 +93,12 @@ public class QueryStateMachine
         return session;
     }
 
-    public QueryStats getStats()
-    {
-        return queryStats;
-    }
-
     public QueryInfo getQueryInfoWithoutDetails()
     {
         return getQueryInfo(null);
     }
 
-    public synchronized QueryInfo getQueryInfo(StageInfo stageInfo)
+    public synchronized QueryInfo getQueryInfo(StageInfo rootStage)
     {
         QueryState state = queryState.get();
 
@@ -88,6 +107,88 @@ public class QueryStateMachine
         if (state != FINISHED) {
             failureInfo = toFailure(failureCause);
         }
+
+        int totalTasks = 0;
+        int runningTasks = 0;
+        int completedTasks = 0;
+
+        int totalDrivers = 0;
+        int queuedDrivers = 0;
+        int startedDrivers = 0;
+        int runningDrivers = 0;
+        int completedDrivers = 0;
+
+        long totalMemoryReservation = 0;
+
+        long totalScheduledTime = 0;
+        long totalCpuTime = 0;
+        long totalUserTime = 0;
+        long totalBlockedTime = 0;
+
+        long inputDataSize = 0;
+        long inputPositions = 0;
+
+        long outputDataSize = 0;
+        long outputPositions = 0;
+
+        if (rootStage != null) {
+            for (StageInfo stageInfo : getAllStages(rootStage)) {
+                StageStats stageStats = stageInfo.getStageStats();
+                totalTasks += stageStats.getTotalTasks();
+                runningTasks += stageStats.getRunningTasks();
+                completedTasks += stageStats.getCompletedTasks();
+
+                totalDrivers = stageStats.getTotalDrivers();
+                queuedDrivers = stageStats.getQueuedDrivers();
+                startedDrivers = stageStats.getStartedDrivers();
+                runningDrivers = stageStats.getRunningDrivers();
+                completedDrivers = stageStats.getCompletedDrivers();
+
+                totalMemoryReservation += stageStats.getTotalMemoryReservation().toBytes();
+
+                totalScheduledTime += stageStats.getTotalScheduledTime().roundTo(NANOSECONDS);
+                totalCpuTime += stageStats.getTotalCpuTime().roundTo(NANOSECONDS);
+                totalUserTime += stageStats.getTotalUserTime().roundTo(NANOSECONDS);
+                totalBlockedTime += stageStats.getTotalBlockedTime().roundTo(NANOSECONDS);
+
+                inputDataSize += stageStats.getInputDataSize().toBytes();
+                inputPositions += stageStats.getInputPositions();
+
+                outputDataSize += stageStats.getOutputDataSize().toBytes();
+                outputPositions += stageStats.getOutputPositions();
+            }
+        }
+
+        QueryStats queryStats = new QueryStats(
+                createTime,
+                executionStartTime,
+                lastHeartbeat,
+                endTime,
+
+                queuedTime,
+                analysisTime,
+                distributedPlanningTime,
+
+                totalTasks,
+                runningTasks,
+                completedTasks,
+
+                totalDrivers,
+                queuedDrivers,
+                startedDrivers,
+                runningDrivers,
+                completedDrivers,
+
+                new DataSize(totalMemoryReservation, BYTE).convertToMostSuccinctDataSize(),
+                new Duration(totalScheduledTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                new Duration(totalUserTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                new Duration(totalBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                new DataSize(inputDataSize, BYTE).convertToMostSuccinctDataSize(),
+                inputPositions,
+                new DataSize(outputDataSize, BYTE).convertToMostSuccinctDataSize(),
+                outputPositions);
+
         return new QueryInfo(queryId,
                 session,
                 state,
@@ -95,7 +196,7 @@ public class QueryStateMachine
                 outputFieldNames,
                 query,
                 queryStats,
-                stageInfo,
+                rootStage,
                 failureInfo);
     }
 
@@ -123,7 +224,10 @@ public class QueryStateMachine
         }
 
         // planning has begun
-        queryStats.recordAnalysisStart();
+        synchronized (this) {
+            Preconditions.checkState(createNanos > 0, "Can not record analysis start");
+            queuedTime = Duration.nanosSince(createNanos).convertToMostSuccinctTimeUnit();
+        }
         return true;
     }
 
@@ -141,13 +245,21 @@ public class QueryStateMachine
 
     public boolean finished()
     {
-        queryStats.recordEnd();
+        synchronized (this) {
+            if (endTime == null) {
+                endTime = DateTime.now();
+            }
+        }
         return queryState.setIf(FINISHED, Predicates.not(inDoneState()));
     }
 
     public boolean cancel()
     {
-        queryStats.recordEnd();
+        synchronized (this) {
+            if (endTime == null) {
+                endTime = DateTime.now();
+            }
+        }
         synchronized (this) {
             if (failureCause == null) {
                 failureCause = new RuntimeException("Query was canceled");
@@ -158,7 +270,11 @@ public class QueryStateMachine
 
     public boolean fail(@Nullable Throwable cause)
     {
-        queryStats.recordEnd();
+        synchronized (this) {
+            if (endTime == null) {
+                endTime = DateTime.now();
+            }
+        }
         synchronized (this) {
             if (cause != null) {
                 if (failureCause == null) {
@@ -181,5 +297,27 @@ public class QueryStateMachine
             throws InterruptedException
     {
         return queryState.waitForStateChange(currentState, maxWait);
+    }
+
+    public synchronized void recordHeartbeat()
+    {
+        this.lastHeartbeat = DateTime.now();
+    }
+
+    public synchronized void recordExecutionStart()
+    {
+        if (executionStartTime == null) {
+            this.executionStartTime = DateTime.now();
+        }
+    }
+
+    public synchronized void recordAnalysisTime(long analysisStart)
+    {
+        analysisTime = Duration.nanosSince(analysisStart).convertToMostSuccinctTimeUnit();
+    }
+
+    public synchronized void recordDistributedPlanningTime(long distributedPlanningStart)
+    {
+        distributedPlanningTime = Duration.nanosSince(distributedPlanningStart).convertToMostSuccinctTimeUnit();
     }
 }

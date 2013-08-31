@@ -13,15 +13,19 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 
+import java.util.concurrent.ExecutorService;
+
 import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
 import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUBLE_SUM;
+import static com.facebook.presto.util.Threads.daemonThreadsNamed;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class HashAggregationBenchmark
         extends AbstractOperatorBenchmark
 {
-    public HashAggregationBenchmark(TpchBlocksProvider tpchBlocksProvider)
+    public HashAggregationBenchmark(ExecutorService executor, TpchBlocksProvider tpchBlocksProvider)
     {
-        super(tpchBlocksProvider, "hash_agg", 5, 25);
+        super(executor, tpchBlocksProvider, "hash_agg", 5, 25);
     }
 
     @Override
@@ -42,7 +46,8 @@ public class HashAggregationBenchmark
 
     public static void main(String[] args)
     {
-        new HashAggregationBenchmark(DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(
+        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test"));
+        new HashAggregationBenchmark(executor, DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(
                 new SimpleLineBenchmarkResultWriter(System.out)
         );
     }

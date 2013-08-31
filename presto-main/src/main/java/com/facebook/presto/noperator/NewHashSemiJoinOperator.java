@@ -4,10 +4,7 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
-import com.facebook.presto.execution.TaskMemoryManager;
 import com.facebook.presto.noperator.NewSetBuilderOperator.NewSetSupplier;
-import com.facebook.presto.operator.ChannelSet;
-import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
@@ -24,17 +21,21 @@ import static com.google.common.base.Preconditions.checkState;
 public class NewHashSemiJoinOperator 
         implements NewOperator
 {
+    private final OperatorContext operatorContext;
+
     public static class NewHashSemiJoinOperatorFactory
             implements NewOperatorFactory
     {
+        private final int operatorId;
         private final NewSetSupplier setSupplier;
         private final List<TupleInfo> probeTupleInfos;
         private final int probeJoinChannel;
         private final List<TupleInfo> tupleInfos;
         private boolean closed;
 
-        public NewHashSemiJoinOperatorFactory(NewSetSupplier setSupplier, List<TupleInfo> probeTupleInfos, int probeJoinChannel)
+        public NewHashSemiJoinOperatorFactory(int operatorId, NewSetSupplier setSupplier, List<TupleInfo> probeTupleInfos, int probeJoinChannel)
         {
+            this.operatorId = operatorId;
             this.setSupplier = setSupplier;
             this.probeTupleInfos = probeTupleInfos;
             checkArgument(probeJoinChannel >= 0, "probeJoinChannel is negative");
@@ -53,10 +54,11 @@ public class NewHashSemiJoinOperator
         }
 
         @Override
-        public NewOperator createOperator(OperatorStats operatorStats, TaskMemoryManager taskMemoryManager)
+        public NewOperator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            return new NewHashSemiJoinOperator(setSupplier, probeTupleInfos, probeJoinChannel);
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, NewHashBuilderOperator.class.getSimpleName());
+            return new NewHashSemiJoinOperator(operatorContext, setSupplier, probeTupleInfos, probeJoinChannel);
         }
 
         @Override
@@ -68,14 +70,16 @@ public class NewHashSemiJoinOperator
 
     private final int probeJoinChannel;
     private final List<TupleInfo> tupleInfos;
-    private final ListenableFuture<ChannelSet> channelSetFuture;
+    private final ListenableFuture<NewChannelSet> channelSetFuture;
 
-    private ChannelSet channelSet;
+    private NewChannelSet channelSet;
     private Page outputPage;
     private boolean finishing;
 
-    public NewHashSemiJoinOperator(NewSetSupplier channelSetFuture, List<TupleInfo> probeTupleInfos, int probeJoinChannel)
+    public NewHashSemiJoinOperator(OperatorContext operatorContext, NewSetSupplier channelSetFuture, List<TupleInfo> probeTupleInfos, int probeJoinChannel)
     {
+        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
+
         // todo pass in desired projection
         checkNotNull(channelSetFuture, "hashProvider is null");
         checkNotNull(probeTupleInfos, "probeTupleInfos is null");
@@ -89,6 +93,12 @@ public class NewHashSemiJoinOperator
                 .addAll(probeTupleInfos)
                 .add(TupleInfo.SINGLE_BOOLEAN)
                 .build();
+    }
+
+    @Override
+    public OperatorContext getOperatorContext()
+    {
+        return operatorContext;
     }
 
     @Override

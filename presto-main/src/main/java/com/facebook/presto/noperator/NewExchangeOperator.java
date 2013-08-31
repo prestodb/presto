@@ -3,9 +3,7 @@
  */
 package com.facebook.presto.noperator;
 
-import com.facebook.presto.execution.TaskMemoryManager;
 import com.facebook.presto.operator.ExchangeClient;
-import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.split.RemoteSplit;
@@ -27,13 +25,15 @@ public class NewExchangeOperator
     public static class NewExchangeOperatorFactory
             implements NewSourceOperatorFactory
     {
+        private final int operatorId;
         private final PlanNodeId sourceId;
         private final Supplier<ExchangeClient> exchangeClientSupplier;
         private final List<TupleInfo> tupleInfos;
         private boolean closed;
 
-        public NewExchangeOperatorFactory(PlanNodeId sourceId, Supplier<ExchangeClient> exchangeClientSupplier, List<TupleInfo> tupleInfos)
+        public NewExchangeOperatorFactory(int operatorId, PlanNodeId sourceId, Supplier<ExchangeClient> exchangeClientSupplier, List<TupleInfo> tupleInfos)
         {
+            this.operatorId = operatorId;
             this.sourceId = sourceId;
             this.exchangeClientSupplier = exchangeClientSupplier;
             this.tupleInfos = tupleInfos;
@@ -52,11 +52,16 @@ public class NewExchangeOperator
         }
 
         @Override
-        public NewSourceOperator createOperator(OperatorStats operatorStats, TaskMemoryManager taskMemoryManager)
+        public NewSourceOperator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
 
-            return new NewExchangeOperator(sourceId, exchangeClientSupplier.get(), tupleInfos);
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, NewExchangeOperator.class.getSimpleName());
+            return new NewExchangeOperator(
+                    operatorContext,
+                    tupleInfos,
+                    sourceId,
+                    exchangeClientSupplier.get());
         }
 
         @Override
@@ -66,15 +71,30 @@ public class NewExchangeOperator
         }
     }
 
+    private final OperatorContext operatorContext;
     private final PlanNodeId sourceId;
     private final ExchangeClient exchangeClient;
     private final List<TupleInfo> tupleInfos;
 
-    public NewExchangeOperator(PlanNodeId sourceId, ExchangeClient exchangeClient, List<TupleInfo> tupleInfos)
+    public NewExchangeOperator(
+            OperatorContext operatorContext,
+            List<TupleInfo> tupleInfos,
+            PlanNodeId sourceId,
+            final ExchangeClient exchangeClient)
     {
+        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         this.sourceId = checkNotNull(sourceId, "sourceId is null");
         this.exchangeClient = checkNotNull(exchangeClient, "exchangeClient is null");
         this.tupleInfos = checkNotNull(tupleInfos, "tupleInfos is null");
+
+        operatorContext.setInfoSupplier(new Supplier<Object>()
+        {
+            @Override
+            public Object get()
+            {
+                return exchangeClient.getStatus();
+            }
+        });
     }
 
     @Override
@@ -97,6 +117,12 @@ public class NewExchangeOperator
     public void noMoreSplits()
     {
         exchangeClient.noMoreLocations();
+    }
+
+    @Override
+    public OperatorContext getOperatorContext()
+    {
+        return operatorContext;
     }
 
     @Override

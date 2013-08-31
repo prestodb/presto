@@ -2,8 +2,6 @@ package com.facebook.presto.noperator;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.execution.TaskMemoryManager;
-import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.operator.ProjectionFunction;
@@ -33,6 +31,7 @@ public class NewTopNOperator
     public static class NewTopNOperatorFactory
             implements NewOperatorFactory
     {
+        private final int operatorId;
         private final int n;
         private final int keyChannelIndex;
         private final List<ProjectionFunction> projections;
@@ -42,12 +41,14 @@ public class NewTopNOperator
         private boolean closed;
 
         public NewTopNOperatorFactory(
+                int operatorId,
                 int n,
                 int keyChannelIndex,
                 List<ProjectionFunction> projections,
                 Ordering<TupleReadable> ordering,
                 boolean partial)
         {
+            this.operatorId = operatorId;
             this.n = n;
             this.keyChannelIndex = keyChannelIndex;
             this.projections = projections;
@@ -63,10 +64,17 @@ public class NewTopNOperator
         }
 
         @Override
-        public NewOperator createOperator(OperatorStats operatorStats, TaskMemoryManager taskMemoryManager)
+        public NewOperator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            return new NewTopNOperator(n, keyChannelIndex, projections, ordering, partial, taskMemoryManager);
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, NewTopNOperator.class.getSimpleName());
+            return new NewTopNOperator(
+                    operatorContext,
+                    n,
+                    keyChannelIndex,
+                    projections,
+                    ordering,
+                    partial);
         }
 
         @Override
@@ -79,6 +87,7 @@ public class NewTopNOperator
     private static final int MAX_INITIAL_PRIORITY_QUEUE_SIZE = 10000;
     private static final DataSize OVERHEAD_PER_TUPLE = new DataSize(100, DataSize.Unit.BYTE); // for estimating in-memory size. This is a completely arbitrary number
 
+    private final OperatorContext operatorContext;
     private final int n;
     private final int keyChannelIndex;
     private final List<ProjectionFunction> projections;
@@ -95,13 +104,15 @@ public class NewTopNOperator
     private Iterator<KeyAndTuples> outputIterator;
 
     public NewTopNOperator(
+            OperatorContext operatorContext,
             int n,
             int keyChannelIndex,
             List<ProjectionFunction> projections,
             Ordering<TupleReadable> ordering,
-            boolean partial,
-            TaskMemoryManager taskMemoryManager)
+            boolean partial)
     {
+        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
+
         checkArgument(n > 0, "n must be greater than zero");
         this.n = n;
 
@@ -116,11 +127,17 @@ public class NewTopNOperator
 
         this.partial = partial;
 
-        this.memoryManager = new TopNMemoryManager(checkNotNull(taskMemoryManager, "taskMemoryManager is null"));
+        this.memoryManager = new TopNMemoryManager(checkNotNull(operatorContext, "operatorContext is null"));
 
         this.tupleInfos = toTupleInfos(projections);
 
         this.pageBuilder = new PageBuilder(getTupleInfos());
+    }
+
+    @Override
+    public OperatorContext getOperatorContext()
+    {
+        return operatorContext;
     }
 
     @Override
@@ -329,25 +346,25 @@ public class NewTopNOperator
 
     public static class TopNMemoryManager
     {
-        private final TaskMemoryManager taskMemoryManager;
+        private final OperatorContext operatorContext;
         private long currentMemoryReservation;
 
-        public TopNMemoryManager(TaskMemoryManager taskMemoryManager)
+        public TopNMemoryManager(OperatorContext operatorContext)
         {
-            this.taskMemoryManager = taskMemoryManager;
+            this.operatorContext = operatorContext;
         }
 
         public boolean canUse(long memorySize)
         {
             // remove the pre-allocated memory from this size
-            memorySize -= taskMemoryManager.getOperatorPreAllocatedMemory().toBytes();
+            memorySize -= operatorContext.getOperatorPreAllocatedMemory().toBytes();
 
             long delta = memorySize - currentMemoryReservation;
             if (delta <= 0) {
                 return false;
             }
 
-            if (!taskMemoryManager.reserveBytes(delta)) {
+            if (!operatorContext.reserveMemory(delta)) {
                 return true;
             }
 
@@ -358,7 +375,7 @@ public class NewTopNOperator
 
         public Object getMaxMemorySize()
         {
-            return taskMemoryManager.getMaxMemorySize();
+            return operatorContext.getMaxMemorySize();
         }
     }
 

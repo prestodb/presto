@@ -3,14 +3,13 @@
  */
 package com.facebook.presto.noperator;
 
-import com.facebook.presto.execution.TaskMemoryManager;
-import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -27,14 +26,21 @@ public class NewTableScanOperator
     public static class NewTableScanOperatorFactory
             implements NewSourceOperatorFactory
     {
+        private final int operatorId;
         private final PlanNodeId sourceId;
         private final DataStreamProvider dataStreamProvider;
         private final List<TupleInfo> tupleInfos;
         private final List<ColumnHandle> columns;
         private boolean closed;
 
-        public NewTableScanOperatorFactory(PlanNodeId sourceId, DataStreamProvider dataStreamProvider, List<TupleInfo> tupleInfos, Iterable<ColumnHandle> columns)
+        public NewTableScanOperatorFactory(
+                int operatorId,
+                PlanNodeId sourceId,
+                DataStreamProvider dataStreamProvider,
+                List<TupleInfo> tupleInfos,
+                Iterable<ColumnHandle> columns)
         {
+            this.operatorId = operatorId;
             this.sourceId = checkNotNull(sourceId, "sourceId is null");
             this.tupleInfos = checkNotNull(tupleInfos, "tupleInfos is null");
             this.dataStreamProvider = checkNotNull(dataStreamProvider, "dataStreamProvider is null");
@@ -54,10 +60,16 @@ public class NewTableScanOperator
         }
 
         @Override
-        public NewSourceOperator createOperator(OperatorStats operatorStats, TaskMemoryManager taskMemoryManager)
+        public NewSourceOperator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            return new NewTableScanOperator(sourceId, operatorStats, dataStreamProvider, tupleInfos, columns);
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, NewTableScanOperator.class.getSimpleName());
+            return new NewTableScanOperator(
+                    operatorContext,
+                    sourceId,
+                    dataStreamProvider,
+                    tupleInfos,
+                    columns);
         }
 
         @Override
@@ -67,8 +79,8 @@ public class NewTableScanOperator
         }
     }
 
+    private final OperatorContext operatorContext;
     private final PlanNodeId planNodeId;
-    private final OperatorStats operatorStats;
     private final DataStreamProvider dataStreamProvider;
     private final List<TupleInfo> tupleInfos;
     private final List<ColumnHandle> columns;
@@ -76,17 +88,24 @@ public class NewTableScanOperator
     @GuardedBy("this")
     private NewOperator source;
 
-    public NewTableScanOperator(PlanNodeId planNodeId,
-            OperatorStats operatorStats,
+    public NewTableScanOperator(
+            OperatorContext operatorContext,
+            PlanNodeId planNodeId,
             DataStreamProvider dataStreamProvider,
             List<TupleInfo> tupleInfos,
             Iterable<ColumnHandle> columns)
     {
-        this.planNodeId = planNodeId;
-        this.operatorStats = checkNotNull(operatorStats, "operatorStats is null");
+        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
+        this.planNodeId = checkNotNull(planNodeId, "planNodeId is null");
         this.tupleInfos = checkNotNull(tupleInfos, "tupleInfos is null");
         this.dataStreamProvider = checkNotNull(dataStreamProvider, "dataStreamProvider is null");
         this.columns = ImmutableList.copyOf(checkNotNull(columns, "columns is null"));
+    }
+
+    @Override
+    public OperatorContext getOperatorContext()
+    {
+        return operatorContext;
     }
 
     @Override
@@ -96,19 +115,24 @@ public class NewTableScanOperator
     }
 
     @Override
-    public synchronized void addSplit(Split split)
+    public synchronized void addSplit(final Split split)
     {
         checkNotNull(split, "split is null");
         checkState(getSource() == null, "Table scan split already set");
 
-        source = dataStreamProvider.createNewDataStream(split, columns);
+        source = dataStreamProvider.createNewDataStream(operatorContext, split, columns);
+
+        Object splitInfo = split.getInfo();
+        if (splitInfo != null) {
+            operatorContext.setInfoSupplier(Suppliers.ofInstance(splitInfo));
+        }
     }
 
     @Override
     public synchronized void noMoreSplits()
     {
         if (source == null) {
-            source = new FinishedOperator(tupleInfos);
+            source = new FinishedOperator(operatorContext, tupleInfos);
         }
     }
 

@@ -6,6 +6,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.execution.NodeScheduler.NodeSelector;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.metadata.Node;
+import com.facebook.presto.noperator.TaskStats;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.OutputReceiver;
@@ -32,6 +33,8 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import io.airlift.log.Logger;
+import io.airlift.stats.Distribution;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import javax.annotation.Nullable;
@@ -60,6 +63,8 @@ import static com.google.common.collect.Iterables.all;
 import static com.google.common.collect.Iterables.any;
 import static com.google.common.collect.Iterables.transform;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static io.airlift.units.DataSize.Unit.BYTE;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @ThreadSafe
 public class SqlStageExecution
@@ -98,7 +103,9 @@ public class SqlStageExecution
 
     private final ExecutorService executor;
 
-    private final StageStats stageStats = new StageStats();
+    private final Distribution getSplitDistribution = new Distribution();
+    private final Distribution scheduleTaskDistribution = new Distribution();
+    private final Distribution addSplitDistribution = new Distribution();
 
     private final NodeSelector nodeSelector;
 
@@ -227,12 +234,89 @@ public class SqlStageExecution
             List<TaskInfo> taskInfos = IterableTransformer.on(tasks.values()).transform(taskInfoGetter()).list();
             List<StageInfo> subStageInfos = IterableTransformer.on(subStages.values()).transform(stageInfoGetter()).list();
 
+            int totalTasks = taskInfos.size();
+            int runningTasks = 0;
+            int completedTasks = 0;
+
+            int totalDrivers = 0;
+            int queuedDrivers = 0;
+            int startedDrivers = 0;
+            int runningDrivers = 0;
+            int completedDrivers = 0;
+
+            long totalMemoryReservation = 0;
+
+            long totalScheduledTime = 0;
+            long totalCpuTime = 0;
+            long totalUserTime = 0;
+            long totalBlockedTime = 0;
+
+            long inputDataSize = 0;
+            long inputPositions = 0;
+
+            long outputDataSize = 0;
+            long outputPositions = 0;
+
+            for (TaskInfo taskInfo : taskInfos) {
+                if (taskInfo.getState().isDone()) {
+                    completedTasks++;
+                } else {
+                    runningTasks++;
+                }
+
+                TaskStats taskStats = taskInfo.getStats();
+
+                totalDrivers = taskStats.getTotalDrivers();
+                queuedDrivers = taskStats.getQueuedDrivers();
+                startedDrivers = taskStats.getStartedDrivers();
+                runningDrivers = taskStats.getRunningDrivers();
+                completedDrivers = taskStats.getCompletedDrivers();
+
+                totalMemoryReservation += taskStats.getMemoryReservation().toBytes();
+
+                totalScheduledTime += taskStats.getTotalScheduledTime().roundTo(NANOSECONDS);
+                totalCpuTime += taskStats.getTotalCpuTime().roundTo(NANOSECONDS);
+                totalUserTime += taskStats.getTotalUserTime().roundTo(NANOSECONDS);
+                totalBlockedTime += taskStats.getTotalBlockedTime().roundTo(NANOSECONDS);
+
+                inputDataSize += taskStats.getInputDataSize().toBytes();
+                inputPositions += taskStats.getInputPositions();
+
+                outputDataSize += taskStats.getOutputDataSize().toBytes();
+                outputPositions += taskStats.getOutputPositions();
+            }
+
+            StageStats stageStats = new StageStats(
+                    getSplitDistribution.snapshot(),
+                    scheduleTaskDistribution.snapshot(),
+                    addSplitDistribution.snapshot(),
+
+                    totalTasks,
+                    runningTasks,
+                    completedTasks,
+
+                    totalDrivers,
+                    queuedDrivers,
+                    startedDrivers,
+                    runningDrivers,
+                    completedDrivers,
+
+                    new DataSize(totalMemoryReservation, BYTE).convertToMostSuccinctDataSize(),
+                    new Duration(totalScheduledTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                    new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                    new Duration(totalUserTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                    new Duration(totalBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                    new DataSize(inputDataSize, BYTE).convertToMostSuccinctDataSize(),
+                    inputPositions,
+                    new DataSize(outputDataSize, BYTE).convertToMostSuccinctDataSize(),
+                    outputPositions);
+
             return new StageInfo(stageId,
                     stageState.get(),
                     location,
                     fragment,
                     tupleInfos,
-                    stageStats.snapshot(),
+                    stageStats,
                     taskInfos,
                     subStageInfos,
                     toFailures(failureCauses));
@@ -361,7 +445,7 @@ public class SqlStageExecution
                 else {
                     long getSplitStart = System.nanoTime();
                     for (Split split : dataSource.get().getSplits()) {
-                        stageStats.addGetSplitDuration(Duration.nanosSince(getSplitStart));
+                        getSplitDistribution.add(System.nanoTime() - getSplitStart);
 
                         long scheduleSplitStart = System.nanoTime();
                         Node chosen = chooseNode(nodeSelector, split, nextTaskId);
@@ -374,11 +458,11 @@ public class SqlStageExecution
                         RemoteTask task = tasks.get(chosen);
                         if (task == null) {
                             scheduleTask(nextTaskId, chosen, split);
-                            stageStats.addScheduleTaskDuration(Duration.nanosSince(scheduleSplitStart));
+                            scheduleTaskDistribution.add(System.nanoTime() - scheduleSplitStart);
                         }
                         else {
                             task.addSplit(split);
-                            stageStats.addAddSplitDuration(Duration.nanosSince(scheduleSplitStart));
+                            addSplitDistribution.add(System.nanoTime() - scheduleSplitStart);
                         }
 
                         getSplitStart = System.nanoTime();

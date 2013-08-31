@@ -1,87 +1,257 @@
-/*
- * Copyright 2004-present Facebook. All Rights Reserved.
- */
 package com.facebook.presto.execution;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Objects;
-import io.airlift.stats.DistributionStat;
-import io.airlift.stats.DistributionStat.DistributionStatSnapshot;
+import com.google.common.annotations.VisibleForTesting;
+import io.airlift.stats.Distribution.DistributionSnapshot;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
-import java.util.concurrent.TimeUnit;
+import javax.annotation.concurrent.Immutable;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+
+@Immutable
 public class StageStats
 {
-    private final DistributionStat getSplitDistribution = new DistributionStat();
-    private final DistributionStat scheduleTaskDistribution = new DistributionStat();
-    private final DistributionStat addSplitDistribution = new DistributionStat();
+    private final DistributionSnapshot getSplitDistribution;
+    private final DistributionSnapshot scheduleTaskDistribution;
+    private final DistributionSnapshot addSplitDistribution;
 
-    public void addGetSplitDuration(Duration getSplitDuration)
+    private final int totalTasks;
+    private final int runningTasks;
+    private final int completedTasks;
+
+    private final int totalDrivers;
+    private final int queuedDrivers;
+    private final int startedDrivers;
+    private final int runningDrivers;
+    private final int completedDrivers;
+
+    private final DataSize totalMemoryReservation;
+
+    private final Duration totalScheduledTime;
+    private final Duration totalCpuTime;
+    private final Duration totalUserTime;
+    private final Duration totalBlockedTime;
+
+    private final DataSize inputDataSize;
+    private final long inputPositions;
+
+    private final DataSize outputDataSize;
+    private final long outputPositions;
+
+    @VisibleForTesting
+    public StageStats()
     {
-        getSplitDistribution.add(getSplitDuration.roundTo(TimeUnit.NANOSECONDS));
+        this.getSplitDistribution = null;
+        this.scheduleTaskDistribution = null;
+        this.addSplitDistribution = null;
+        this.totalTasks = 0;
+        this.runningTasks = 0;
+        this.completedTasks = 0;
+        this.totalDrivers = 0;
+        this.queuedDrivers = 0;
+        this.startedDrivers = 0;
+        this.runningDrivers = 0;
+        this.completedDrivers = 0;
+        this.totalMemoryReservation = null;
+        this.totalScheduledTime = null;
+        this.totalCpuTime = null;
+        this.totalUserTime = null;
+        this.totalBlockedTime = null;
+        this.inputDataSize = null;
+        this.inputPositions = 0;
+        this.outputDataSize = null;
+        this.outputPositions = 0;
+
     }
 
-    public void addScheduleTaskDuration(Duration scheduleTaskDuration)
+    @JsonCreator
+    public StageStats(
+            @JsonProperty("getSplitDistribution") DistributionSnapshot getSplitDistribution,
+            @JsonProperty("scheduleTaskDistribution") DistributionSnapshot scheduleTaskDistribution,
+            @JsonProperty("addSplitDistribution") DistributionSnapshot addSplitDistribution,
+
+            @JsonProperty("totalTasks") int totalTasks,
+            @JsonProperty("runningTasks") int runningTasks,
+            @JsonProperty("completedTasks") int completedTasks,
+
+            @JsonProperty("totalDrivers") int totalDrivers,
+            @JsonProperty("queuedDrivers") int queuedDrivers,
+            @JsonProperty("runningDrivers") int runningDrivers,
+            @JsonProperty("startedDrivers") int startedDrivers,
+            @JsonProperty("completedDrivers") int completedDrivers,
+
+            @JsonProperty("totalMemoryReservation") DataSize totalMemoryReservation,
+
+            @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
+            @JsonProperty("totalCpuTime") Duration totalCpuTime,
+            @JsonProperty("totalUserTime") Duration totalUserTime,
+            @JsonProperty("totalBlockedTime") Duration totalBlockedTime,
+
+            @JsonProperty("inputDataSize") DataSize inputDataSize,
+            @JsonProperty("inputPositions") long inputPositions,
+
+            @JsonProperty("outputDataSize") DataSize outputDataSize,
+            @JsonProperty("outputPositions") long outputPositions)
     {
-        scheduleTaskDistribution.add(scheduleTaskDuration.roundTo(TimeUnit.NANOSECONDS));
+        this.getSplitDistribution = checkNotNull(getSplitDistribution, "getSplitDistribution is null");
+        this.scheduleTaskDistribution = checkNotNull(scheduleTaskDistribution, "scheduleTaskDistribution is null");
+        this.addSplitDistribution = checkNotNull(addSplitDistribution, "addSplitDistribution is null");
+
+        checkArgument(totalTasks >= 0, "totalTasks is negative");
+        this.totalTasks = totalTasks;
+        checkArgument(runningTasks >= 0, "runningTasks is negative");
+        this.runningTasks = runningTasks;
+        checkArgument(completedTasks >= 0, "completedTasks is negative");
+        this.completedTasks = completedTasks;
+
+        checkArgument(totalDrivers >= 0, "totalDrivers is negative");
+        this.totalDrivers = totalDrivers;
+        checkArgument(queuedDrivers >= 0, "queuedDrivers is negative");
+        this.queuedDrivers = queuedDrivers;
+        checkArgument(startedDrivers >= 0, "startedDrivers is negative");
+        this.startedDrivers = startedDrivers;
+        checkArgument(runningDrivers >= 0, "runningDrivers is negative");
+        this.runningDrivers = runningDrivers;
+        checkArgument(completedDrivers >= 0, "completedDrivers is negative");
+        this.completedDrivers = completedDrivers;
+
+        this.totalMemoryReservation = checkNotNull(totalMemoryReservation, "totalMemoryReservation is null");
+
+        this.totalScheduledTime = checkNotNull(totalScheduledTime, "totalScheduledTime is null");
+        this.totalCpuTime = checkNotNull(totalCpuTime, "totalCpuTime is null");
+        this.totalUserTime = checkNotNull(totalUserTime, "totalUserTime is null");
+        this.totalBlockedTime = checkNotNull(totalBlockedTime, "totalBlockedTime is null");
+
+        this.inputDataSize = checkNotNull(inputDataSize, "inputDataSize is null");
+        checkArgument(inputPositions >= 0, "inputPositions is negative");
+        this.inputPositions = inputPositions;
+
+        this.outputDataSize = checkNotNull(outputDataSize, "outputDataSize is null");
+        checkArgument(outputPositions >= 0, "outputPositions is negative");
+        this.outputPositions = outputPositions;
     }
 
-    public void addAddSplitDuration(Duration addSplitDuration)
+    @JsonProperty
+    public DistributionSnapshot getGetSplitDistribution()
     {
-        addSplitDistribution.add(addSplitDuration.roundTo(TimeUnit.NANOSECONDS));
+        return getSplitDistribution;
     }
 
-    public StageStatsSnapshot snapshot()
+    @JsonProperty
+    public DistributionSnapshot getScheduleTaskDistribution()
     {
-        return new StageStatsSnapshot(getSplitDistribution.snapshot(), scheduleTaskDistribution.snapshot(), addSplitDistribution.snapshot());
+        return scheduleTaskDistribution;
     }
 
-    public static class StageStatsSnapshot
+    @JsonProperty
+    public DistributionSnapshot getAddSplitDistribution()
     {
+        return addSplitDistribution;
+    }
 
-        private final DistributionStatSnapshot getSplitDistribution;
-        private final DistributionStatSnapshot scheduleTaskDistribution;
-        private final DistributionStatSnapshot addSplitDistribution;
+    @JsonProperty
+    public int getTotalTasks()
+    {
+        return totalTasks;
+    }
 
-        @JsonCreator
-        public StageStatsSnapshot(
-                @JsonProperty("getSplitDistribution") DistributionStatSnapshot getSplitDistribution,
-                @JsonProperty("scheduleTaskDistribution") DistributionStatSnapshot scheduleTaskDistribution,
-                @JsonProperty("addSplitDistribution") DistributionStatSnapshot addSplitDistribution)
-        {
-            this.getSplitDistribution = getSplitDistribution;
-            this.scheduleTaskDistribution = scheduleTaskDistribution;
-            this.addSplitDistribution = addSplitDistribution;
-        }
+    @JsonProperty
+    public int getRunningTasks()
+    {
+        return runningTasks;
+    }
 
-        @JsonProperty
-        public DistributionStatSnapshot getGetSplitDistribution()
-        {
-            return getSplitDistribution;
-        }
+    @JsonProperty
+    public int getCompletedTasks()
+    {
+        return completedTasks;
+    }
 
-        @JsonProperty
-        public DistributionStatSnapshot getScheduleTaskDistribution()
-        {
-            return scheduleTaskDistribution;
-        }
+    @JsonProperty
+    public int getTotalDrivers()
+    {
+        return totalDrivers;
+    }
 
-        @JsonProperty
-        public DistributionStatSnapshot getAddSplitDistribution()
-        {
-            return addSplitDistribution;
-        }
+    @JsonProperty
+    public int getQueuedDrivers()
+    {
+        return queuedDrivers;
+    }
 
-        @Override
-        public String toString()
-        {
-            return Objects.toStringHelper(this)
-                    .add("getSplitDistribution", getSplitDistribution)
-                    .add("scheduleTaskDistribution", scheduleTaskDistribution)
-                    .add("addSplitDistribution", addSplitDistribution)
-                    .toString();
-        }
+    @JsonProperty
+    public int getStartedDrivers()
+    {
+        return startedDrivers;
+    }
+
+    @JsonProperty
+    public int getRunningDrivers()
+    {
+        return runningDrivers;
+    }
+
+    @JsonProperty
+    public int getCompletedDrivers()
+    {
+        return completedDrivers;
+    }
+
+    @JsonProperty
+    public DataSize getTotalMemoryReservation()
+    {
+        return totalMemoryReservation;
+    }
+
+    @JsonProperty
+    public Duration getTotalScheduledTime()
+    {
+        return totalScheduledTime;
+    }
+
+    @JsonProperty
+    public Duration getTotalCpuTime()
+    {
+        return totalCpuTime;
+    }
+
+    @JsonProperty
+    public Duration getTotalUserTime()
+    {
+        return totalUserTime;
+    }
+
+    @JsonProperty
+    public Duration getTotalBlockedTime()
+    {
+        return totalBlockedTime;
+    }
+
+    @JsonProperty
+    public DataSize getInputDataSize()
+    {
+        return inputDataSize;
+    }
+
+    @JsonProperty
+    public long getInputPositions()
+    {
+        return inputPositions;
+    }
+
+    @JsonProperty
+    public DataSize getOutputDataSize()
+    {
+        return outputDataSize;
+    }
+
+    @JsonProperty
+    public long getOutputPositions()
+    {
+        return outputPositions;
     }
 }

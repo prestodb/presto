@@ -1,6 +1,7 @@
 package com.facebook.presto.split;
 
 import com.facebook.presto.noperator.NewOperator;
+import com.facebook.presto.noperator.OperatorContext;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Split;
@@ -47,13 +48,14 @@ public class DataStreamManager
     }
 
     @Override
-    public NewOperator createNewDataStream(Split split, List<ColumnHandle> columns)
+    public NewOperator createNewDataStream(OperatorContext operatorContext, Split split, List<ColumnHandle> columns)
     {
+        checkNotNull(operatorContext, "operatorContext is null");
         checkNotNull(split, "split is null");
         checkNotNull(columns, "columns is null");
         checkArgument(!columns.isEmpty(), "no columns specified");
 
-        return getDataStreamProvider(split).createNewDataStream(split, columns);
+        return getDataStreamProvider(split).createNewDataStream(operatorContext, split, columns);
     }
 
     private ConnectorDataStreamProvider getDataStreamProvider(Split split)

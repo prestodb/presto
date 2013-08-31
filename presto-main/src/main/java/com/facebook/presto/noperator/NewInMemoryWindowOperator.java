@@ -1,8 +1,6 @@
 package com.facebook.presto.noperator;
 
-import com.facebook.presto.execution.TaskMemoryManager;
 import com.facebook.presto.operator.ChannelIndex;
-import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.operator.PagesIndex.MultiSliceFieldOrderedTupleComparator;
@@ -26,6 +24,7 @@ public class NewInMemoryWindowOperator
     public static class NewInMemoryWindowOperatorFactory
             implements NewOperatorFactory
     {
+        private final int operatorId;
         private final List<TupleInfo> sourceTupleInfos;
         private final int orderingChannel;
         private final int[] outputChannels;
@@ -38,6 +37,7 @@ public class NewInMemoryWindowOperator
         private boolean closed;
 
         public NewInMemoryWindowOperatorFactory(
+                int operatorId,
                 List<TupleInfo> sourceTupleInfos,
                 int orderingChannel,
                 int[] outputChannels,
@@ -47,6 +47,7 @@ public class NewInMemoryWindowOperator
                 boolean[] sortOrder,
                 int expectedPositions)
         {
+            this.operatorId = operatorId;
             this.sourceTupleInfos = sourceTupleInfos;
             this.orderingChannel = orderingChannel;
             this.outputChannels = outputChannels;
@@ -66,11 +67,13 @@ public class NewInMemoryWindowOperator
         }
 
         @Override
-        public NewOperator createOperator(OperatorStats operatorStats, TaskMemoryManager taskMemoryManager)
+        public NewOperator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
 
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, NewInMemoryWindowOperator.class.getSimpleName());
             return new NewInMemoryWindowOperator(
+                    operatorContext,
                     sourceTupleInfos,
                     orderingChannel,
                     outputChannels,
@@ -78,8 +81,7 @@ public class NewInMemoryWindowOperator
                     partitionFields,
                     sortFields,
                     sortOrder,
-                    expectedPositions,
-                    taskMemoryManager);
+                    expectedPositions);
         }
 
         @Override
@@ -96,6 +98,7 @@ public class NewInMemoryWindowOperator
         FINISHED
     }
 
+    private final OperatorContext operatorContext;
     private final int orderingChannel;
     private final int[] outputChannels;
     private final List<WindowFunction> windowFunctions;
@@ -120,6 +123,7 @@ public class NewInMemoryWindowOperator
     private int peerGroupCount;
 
     public NewInMemoryWindowOperator(
+            OperatorContext operatorContext,
             List<TupleInfo> sourceTupleInfos,
             int orderingChannel,
             int[] outputChannels,
@@ -127,9 +131,9 @@ public class NewInMemoryWindowOperator
             int[] partitionFields,
             int[] sortFields,
             boolean[] sortOrder,
-            int expectedPositions,
-            TaskMemoryManager taskMemoryManager)
+            int expectedPositions)
     {
+        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         this.orderingChannel = orderingChannel;
         this.outputChannels = checkNotNull(outputChannels, "outputChannels is null").clone();
         this.windowFunctions = checkNotNull(windowFunctions, "windowFunctions is null");
@@ -139,8 +143,14 @@ public class NewInMemoryWindowOperator
 
         this.tupleInfos = toTupleInfos(sourceTupleInfos, outputChannels, windowFunctions);
 
-        this.pageIndex = new NewPagesIndex(sourceTupleInfos, expectedPositions, taskMemoryManager);
+        this.pageIndex = new NewPagesIndex(sourceTupleInfos, expectedPositions, operatorContext);
         this.pageBuilder = new PageBuilder(this.tupleInfos);
+    }
+
+    @Override
+    public OperatorContext getOperatorContext()
+    {
+        return operatorContext;
     }
 
     @Override

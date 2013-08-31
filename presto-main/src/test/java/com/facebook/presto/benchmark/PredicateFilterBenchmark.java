@@ -11,14 +11,18 @@ import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.tuple.TupleReadable;
 
+import java.util.concurrent.ExecutorService;
+
 import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
+import static com.facebook.presto.util.Threads.daemonThreadsNamed;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class PredicateFilterBenchmark
         extends AbstractOperatorBenchmark
 {
-    public PredicateFilterBenchmark(TpchBlocksProvider tpchBlocksProvider)
+    public PredicateFilterBenchmark(ExecutorService executor, TpchBlocksProvider tpchBlocksProvider)
     {
-        super(tpchBlocksProvider, "predicate_filter", 5, 50);
+        super(executor, tpchBlocksProvider, "predicate_filter", 5, 50);
     }
 
     @Override
@@ -53,7 +57,8 @@ public class PredicateFilterBenchmark
 
     public static void main(String[] args)
     {
-        new PredicateFilterBenchmark(DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(
+        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test"));
+        new PredicateFilterBenchmark(executor, DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(
                 new SimpleLineBenchmarkResultWriter(System.out)
         );
     }

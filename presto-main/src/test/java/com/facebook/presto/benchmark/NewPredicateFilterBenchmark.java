@@ -12,22 +12,26 @@ import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.tuple.TupleReadable;
 
+import java.util.concurrent.ExecutorService;
+
 import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
+import static com.facebook.presto.util.Threads.daemonThreadsNamed;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class NewPredicateFilterBenchmark
         extends AbstractOperatorBenchmark
 {
-    public NewPredicateFilterBenchmark(TpchBlocksProvider tpchBlocksProvider)
+    public NewPredicateFilterBenchmark(ExecutorService executor, TpchBlocksProvider tpchBlocksProvider)
     {
-        super(tpchBlocksProvider, "predicate_filter", 5, 50);
+        super(executor, tpchBlocksProvider, "predicate_filter", 5, 50);
     }
 
     @Override
     protected Operator createBenchmarkedOperator()
     {
         BlockIterable blockIterable = getBlockIterable("orders", "totalprice", BlocksFileEncoding.RAW);
-        NewAlignmentOperatorFactory alignmentOperator = new NewAlignmentOperatorFactory(blockIterable);
-        NewFilterAndProjectOperatorFactory filterAndProjectOperator = new NewFilterAndProjectOperatorFactory(new DoubleFilter(50000.00), singleColumn(Type.DOUBLE, 0, 0));
+        NewAlignmentOperatorFactory alignmentOperator = new NewAlignmentOperatorFactory(0, blockIterable);
+        NewFilterAndProjectOperatorFactory filterAndProjectOperator = new NewFilterAndProjectOperatorFactory(1, new DoubleFilter(50000.00), singleColumn(Type.DOUBLE, 0, 0));
 
         return new DriverOperator(alignmentOperator, filterAndProjectOperator);
     }
@@ -56,7 +60,8 @@ public class NewPredicateFilterBenchmark
 
     public static void main(String[] args)
     {
-        new NewPredicateFilterBenchmark(DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(
+        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test"));
+        new NewPredicateFilterBenchmark(executor, DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(
                 new SimpleLineBenchmarkResultWriter(System.out)
         );
     }

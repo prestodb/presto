@@ -1,13 +1,19 @@
 package com.facebook.presto.noperator;
 
+import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.noperator.NewAggregationOperator.NewAggregationOperatorFactory;
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.util.MaterializedResult;
 import com.google.common.collect.ImmutableList;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.block.BlockAssertions.COMPOSITE_SEQUENCE_TUPLE_INFO;
 import static com.facebook.presto.noperator.NewOperatorAssertion.assertOperatorEquals;
@@ -25,9 +31,30 @@ import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 import static com.facebook.presto.util.MaterializedResult.resultBuilder;
+import static com.facebook.presto.util.Threads.daemonThreadsNamed;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class TestNewAggregationOperator
 {
+    private ExecutorService executor;
+    private DriverContext driverContext;
+
+    @BeforeMethod
+    public void setUp()
+    {
+        executor = newCachedThreadPool(daemonThreadsNamed("test"));
+        Session session = new Session("user", "source", "catalog", "schema", "address", "agent");
+        driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session)
+                .addPipelineContext()
+                .addDriverContext();
+    }
+
+    @AfterMethod
+    public void tearDown()
+    {
+        executor.shutdownNow();
+    }
+
     @Test
     public void testAggregation()
             throws Exception
@@ -36,7 +63,8 @@ public class TestNewAggregationOperator
                 .addSequencePage(100, 0, 0, 300, 500)
                 .build();
 
-        NewAggregationOperator operator = new NewAggregationOperator(
+        NewOperatorFactory operatorFactory = new NewAggregationOperatorFactory(
+                0,
                 Step.SINGLE,
                 ImmutableList.of(aggregation(COUNT, new Input(0, 0)),
                         aggregation(LONG_SUM, new Input(1, 0)),
@@ -46,6 +74,7 @@ public class TestNewAggregationOperator
                         aggregation(LONG_SUM, new Input(3, 1)),
                         aggregation(DOUBLE_SUM, new Input(3, 2)),
                         aggregation(VAR_BINARY_MAX, new Input(3, 3))));
+        NewOperator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(FIXED_INT_64, FIXED_INT_64, DOUBLE, VARIABLE_BINARY, FIXED_INT_64, FIXED_INT_64, DOUBLE, VARIABLE_BINARY)
                 .row(100, 4950, 49.5, "399", 100, 54950, 54950.0, "599")

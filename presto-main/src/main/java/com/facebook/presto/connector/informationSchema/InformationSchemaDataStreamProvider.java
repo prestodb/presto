@@ -8,6 +8,7 @@ import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.noperator.NewAlignmentOperator;
 import com.facebook.presto.noperator.NewOperator;
+import com.facebook.presto.noperator.OperatorContext;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.spi.ColumnHandle;
@@ -64,10 +65,10 @@ public class InformationSchemaDataStreamProvider
     }
 
     @Override
-    public NewOperator createNewDataStream(Split split, List<ColumnHandle> columns)
+    public NewOperator createNewDataStream(OperatorContext operatorContext, Split split, List<ColumnHandle> columns)
     {
         List<BlockIterable> channels = createChannels(split, columns);
-        return new NewAlignmentOperator(channels);
+        return new NewAlignmentOperator(operatorContext, channels);
     }
 
     private List<BlockIterable> createChannels(Split split, List<ColumnHandle> columns)

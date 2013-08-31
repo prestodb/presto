@@ -1,10 +1,16 @@
 package com.facebook.presto.noperator;
 
 import com.facebook.presto.block.BlockIterable;
+import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.noperator.NewAlignmentOperator.NewAlignmentOperatorFactory;
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.sql.analyzer.Session;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.block.BlockAssertions.blockIterableBuilder;
 import static com.facebook.presto.noperator.NewOperatorAssertion.assertOperatorEquals;
@@ -15,10 +21,30 @@ import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
+import static com.facebook.presto.util.Threads.daemonThreadsNamed;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 
 public class TestNewAlignmentOperator
 {
+    private ExecutorService executor;
+    private DriverContext driverContext;
+
+    @BeforeMethod
+    public void setUp()
+    {
+        executor = newCachedThreadPool(daemonThreadsNamed("test"));
+        Session session = new Session("user", "source", "catalog", "schema", "address", "agent");
+        driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session)
+                .addPipelineContext()
+                .addDriverContext();
+    }
+
+    @AfterMethod
+    public void tearDown()
+    {
+        executor.shutdownNow();
+    }
     @Test
     public void testAlignment()
             throws Exception
@@ -88,7 +114,7 @@ public class TestNewAlignmentOperator
         assertEquals(operator.getOutput(), null);
     }
 
-    private NewAlignmentOperator createAlignmentOperator()
+    private NewOperator createAlignmentOperator()
     {
         BlockIterable channel0 = blockIterableBuilder(VARIABLE_BINARY)
                 .append("alice")
@@ -122,6 +148,6 @@ public class TestNewAlignmentOperator
                 .append(11)
                 .build();
 
-        return new NewAlignmentOperator(channel0, channel1);
+        return new NewAlignmentOperatorFactory(0, channel0, channel1).createOperator(driverContext);
     }
 }

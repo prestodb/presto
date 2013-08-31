@@ -3,6 +3,8 @@ package com.facebook.presto.benchmark;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockIterable;
+import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.noperator.TaskContext;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.OperatorStats.SplitExecutionStats;
@@ -13,6 +15,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.tpch.CachingTpchDataFileLoader;
 import com.facebook.presto.tpch.DataFileTpchBlocksProvider;
 import com.facebook.presto.tpch.GeneratingTpchDataFileLoader;
@@ -26,6 +29,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.tpch.TpchMetadata.TPCH_SCHEMA_NAME;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -43,13 +47,19 @@ public abstract class AbstractOperatorBenchmark
     public static final TpchBlocksProvider DEFAULT_TPCH_BLOCKS_PROVIDER = new DataFileTpchBlocksProvider(new CachingTpchDataFileLoader(new GeneratingTpchDataFileLoader()));
 
     private final TpchBlocksProvider tpchBlocksProvider;
+    protected TaskContext taskContext;
 
-    protected AbstractOperatorBenchmark(TpchBlocksProvider tpchBlocksProvider, String benchmarkName,
+    protected AbstractOperatorBenchmark(
+            ExecutorService executor,
+            TpchBlocksProvider tpchBlocksProvider,
+            String benchmarkName,
             int warmupIterations,
             int measuredIterations)
     {
         super(benchmarkName, warmupIterations, measuredIterations);
         this.tpchBlocksProvider = tpchBlocksProvider;
+        Session session = new Session("user", "source", "catalog", "schema", "address", "agent");
+        this.taskContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session);
     }
 
     protected TpchBlocksProvider getTpchBlocksProvider()

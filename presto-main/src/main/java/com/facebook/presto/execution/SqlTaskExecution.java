@@ -6,11 +6,14 @@ package com.facebook.presto.execution;
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
+import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.TaskExecutor.TaskHandle;
 import com.facebook.presto.noperator.Driver;
 import com.facebook.presto.noperator.DriverFactory;
+import com.facebook.presto.noperator.PipelineContext;
+import com.facebook.presto.noperator.TaskContext;
 import com.facebook.presto.noperator.TaskOutputOperator.TaskOutputFactory;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.sql.analyzer.Session;
@@ -29,9 +32,9 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.GuardedBy;
-
 
 import java.lang.ref.WeakReference;
 import java.net.URI;
@@ -43,7 +46,9 @@ import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
+import static com.facebook.presto.util.Failures.toFailures;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.max;
 
@@ -51,15 +56,20 @@ public class SqlTaskExecution
         implements TaskExecution
 {
     private final TaskId taskId;
-    private final TaskOutput taskOutput;
+    private final URI location;
     private final TaskExecutor taskExecutor;
-    private final TaskMemoryManager taskMemoryManager;
+    private final TaskStateMachine taskStateMachine;
+    private final TaskContext taskContext;
+    private final SharedBuffer sharedBuffer;
+
     private final QueryMonitor queryMonitor;
 
     private final TaskHandle taskHandle;
 
     private final AtomicInteger pendingWorkerCount = new AtomicInteger();
 
+    @GuardedBy("this")
+    private final Set<PlanNodeId> noMoreSplits = new HashSet<>();
     @GuardedBy("this")
     private final Set<PlanNodeId> completedUnpartitionedSources = new HashSet<>();
     @GuardedBy("this")
@@ -68,10 +78,15 @@ public class SqlTaskExecution
     private final List<WeakReference<Driver>> drivers = new ArrayList<>();
     @GuardedBy("this")
     private long maxAcknowledgedSplit = Long.MIN_VALUE;
+    @GuardedBy("this")
+    private DateTime lastHeartbeat = DateTime.now();
 
     private final PlanNodeId partitionedSourceId;
+    private final PipelineContext partitionedPipelineContext;
     private final DriverFactory partitionedDriverFactory;
     private final List<Driver> unpartitionedDrivers;
+
+    private final AtomicLong nextTaskInfoVersion = new AtomicLong(TaskInfo.STARTING_VERSION);
 
     public static SqlTaskExecution createSqlTaskExecution(Session session,
             TaskId taskId,
@@ -83,8 +98,7 @@ public class SqlTaskExecution
             ExecutorService notificationExecutor,
             DataSize maxTaskMemoryUsage,
             DataSize operatorPreAllocatedMemory,
-            QueryMonitor queryMonitor,
-            SqlTaskManagerStats globalStats)
+            QueryMonitor queryMonitor)
     {
         SqlTaskExecution task = new SqlTaskExecution(session,
                 taskId,
@@ -96,8 +110,8 @@ public class SqlTaskExecution
                 maxTaskMemoryUsage,
                 operatorPreAllocatedMemory,
                 queryMonitor,
-                notificationExecutor,
-                globalStats);
+                notificationExecutor
+        );
 
         try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)) {
             task.start();
@@ -115,26 +129,16 @@ public class SqlTaskExecution
             DataSize maxTaskMemoryUsage,
             DataSize operatorPreAllocatedMemory,
             QueryMonitor queryMonitor,
-            Executor notificationExecutor,
-            SqlTaskManagerStats globalStats)
+            Executor notificationExecutor)
     {
         try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)) {
             this.taskId = checkNotNull(taskId, "taskId is null");
+            this.location = checkNotNull(location, "location is null");
             this.taskExecutor = checkNotNull(taskExecutor, "driverExecutor is null");
-            this.taskMemoryManager = new TaskMemoryManager(
-                    checkNotNull(maxTaskMemoryUsage, "maxTaskMemoryUsage is null"),
-                    checkNotNull(operatorPreAllocatedMemory, "operatorPreAllocatedMemory is null"));
-            this.queryMonitor = checkNotNull(queryMonitor, "queryMonitor is null");
 
-            // create output buffers
-            this.taskOutput = new TaskOutput(taskId,
-                    checkNotNull(location, "location is null"),
-                    checkNotNull(maxBufferSize, "maxBufferSize is null"),
-                    checkNotNull(notificationExecutor, "notificationExecutor is null"),
-                    checkNotNull(globalStats, "globalStats is null"));
-
-            taskHandle = taskExecutor.addTask(taskId);
-            taskOutput.addStateChangeListener(new StateChangeListener<TaskState>() {
+            this.taskStateMachine = new TaskStateMachine(taskId, notificationExecutor);
+            taskStateMachine.addStateChangeListener(new StateChangeListener<TaskState>()
+            {
                 @Override
                 public void stateChanged(TaskState taskState)
                 {
@@ -144,7 +148,19 @@ public class SqlTaskExecution
                 }
             });
 
-            NewLocalExecutionPlan localExecutionPlan = planner.plan(session, fragment.getRoot(), fragment.getSymbols(), new TaskOutputFactory(taskOutput));
+            this.taskContext = new TaskContext(taskStateMachine,
+                    notificationExecutor,
+                    session,
+                    checkNotNull(maxTaskMemoryUsage, "maxTaskMemoryUsage is null"),
+                    checkNotNull(operatorPreAllocatedMemory, "operatorPreAllocatedMemory is null"));
+
+            this.sharedBuffer = new SharedBuffer(checkNotNull(maxBufferSize, "maxBufferSize is null"));
+
+            this.queryMonitor = checkNotNull(queryMonitor, "queryMonitor is null");
+
+            taskHandle = taskExecutor.addTask(taskId);
+
+            NewLocalExecutionPlan localExecutionPlan = planner.plan(session, fragment.getRoot(), fragment.getSymbols(), new TaskOutputFactory(sharedBuffer));
             List<DriverFactory> driverFactories = localExecutionPlan.getDriverFactories();
 
             // index driver factories
@@ -155,7 +171,8 @@ public class SqlTaskExecution
                     partitionedDriverFactory = driverFactory;
                 }
                 else {
-                    Driver driver = driverFactory.createDriver(taskOutput, taskMemoryManager);
+                    PipelineContext pipelineContext = taskContext.addPipelineContext();
+                    Driver driver = driverFactory.createDriver(pipelineContext.addDriverContext());
                     unpartitionedDrivers.add(driver);
                 }
             }
@@ -163,9 +180,11 @@ public class SqlTaskExecution
 
             if (fragment.isPartitioned()) {
                 this.partitionedSourceId = fragment.getPartitionedSource();
+                this.partitionedPipelineContext = taskContext.addPipelineContext();
                 this.partitionedDriverFactory = partitionedDriverFactory;
             } else {
                 this.partitionedSourceId = null;
+                this.partitionedPipelineContext = null;
                 this.partitionedDriverFactory = null;
             }
         }
@@ -191,17 +210,34 @@ public class SqlTaskExecution
     public void waitForStateChange(TaskState currentState, Duration maxWait)
             throws InterruptedException
     {
-        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskOutput.getTaskId())) {
-            taskOutput.waitForStateChange(currentState, maxWait);
+        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)) {
+            taskStateMachine.waitForStateChange(currentState, maxWait);
         }
     }
 
     @Override
     public TaskInfo getTaskInfo(boolean full)
     {
-        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskOutput.getTaskId())) {
+        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)) {
             checkTaskCompletion();
-            return taskOutput.getTaskInfo(full);
+
+            TaskState state = taskStateMachine.getState();
+            List<FailureInfo> failures = ImmutableList.of();
+            if (state == TaskState.FAILED) {
+                failures = toFailures(taskStateMachine.getFailureCauses());
+            }
+
+            return new TaskInfo(
+                    taskStateMachine.getTaskId(),
+                    nextTaskInfoVersion.getAndIncrement(),
+                    state,
+                    location,
+                    lastHeartbeat,
+                    sharedBuffer.getInfo(),
+                    getNoMoreSplits(),
+                    taskContext.getTaskStats(),
+                    failures,
+                    taskContext.getOutputItems());
         }
     }
 
@@ -210,7 +246,7 @@ public class SqlTaskExecution
     {
         checkNotNull(sources, "sources is null");
 
-        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskOutput.getTaskId())) {
+        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)) {
             long newMaxAcknowledgedSplit = maxAcknowledgedSplit;
             for (TaskSource source : sources) {
                 PlanNodeId sourceId = source.getPlanNodeId();
@@ -234,12 +270,12 @@ public class SqlTaskExecution
     {
         checkNotNull(outputIds, "outputIds is null");
 
-        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskOutput.getTaskId())) {
+        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)) {
             for (String bufferId : outputIds.getBufferIds()) {
-                taskOutput.addResultQueue(bufferId);
+                sharedBuffer.addQueue(bufferId);
             }
             if (outputIds.isNoMoreBufferIds()) {
-                taskOutput.noMoreResultQueues();
+                sharedBuffer.noMoreQueues();
             }
         }
     }
@@ -268,14 +304,10 @@ public class SqlTaskExecution
     private synchronized void addPartitionDriver(Split partitionedSplit)
     {
         // create a new split worker
-        Driver driver = partitionedDriverFactory.createDriver(taskOutput, taskMemoryManager);
+        Driver driver = partitionedDriverFactory.createDriver(partitionedPipelineContext.addDriverContext());
 
         // TableScanOperator requires partitioned split to be added before task is started
         driver.addSplit(partitionedSourceId, partitionedSplit);
-        Object splitInfo = partitionedSplit.getInfo();
-        if (splitInfo != null) {
-            driver.getOperatorStats().addSplitInfo(splitInfo);
-        }
 
         // add unpartitioned sources
         for (Entry<PlanNodeId, Split> entry : unpartitionedSources.entries()) {
@@ -296,7 +328,6 @@ public class SqlTaskExecution
         // record new worker
         drivers.add(new WeakReference<>(driver));
         pendingWorkerCount.incrementAndGet();
-        taskOutput.getStats().addSplits(1);
 
         // execute worker
         final ListenableFuture<?> finishedFuture = taskExecutor.addSplit(taskHandle, new SplitRunner()
@@ -320,24 +351,24 @@ public class SqlTaskExecution
             @Override
             public void onSuccess(Object result)
             {
-                try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskOutput.getTaskId())) {
+                try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)) {
                     pendingWorkerCount.decrementAndGet();
                     checkTaskCompletion();
 
                     // todo add failure info to split completion event
-                    queryMonitor.splitCompletionEvent(taskOutput.getTaskInfo(false), driver.getOperatorStats().snapshot());
+                    queryMonitor.splitCompletionEvent(taskId, driver.getDriverContext().getDriverStats());
                 }
             }
 
             @Override
-            public void onFailure(Throwable t)
+            public void onFailure(Throwable cause)
             {
-                try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskOutput.getTaskId())) {
-                    taskOutput.queryFailed(t);
+                try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)) {
+                    taskStateMachine.failed(cause);
                     pendingWorkerCount.decrementAndGet();
 
                     // todo add failure info to split completion event
-                    queryMonitor.splitCompletionEvent(taskOutput.getTaskInfo(false), driver.getOperatorStats().snapshot());
+                    queryMonitor.splitCompletionEvent(taskId, driver.getDriverContext().getDriverStats());
                 }
             }
         });
@@ -346,7 +377,7 @@ public class SqlTaskExecution
     private synchronized void noMoreSplits(PlanNodeId sourceId)
     {
         // don't bother updating is this source has already been closed
-        if (!taskOutput.noMoreSplits(sourceId)) {
+        if (!noMoreSplits.add(sourceId)) {
             return;
         }
 
@@ -369,33 +400,47 @@ public class SqlTaskExecution
         }
     }
 
+    private synchronized Set<PlanNodeId> getNoMoreSplits()
+    {
+        return noMoreSplits;
+    }
+
     private synchronized void checkTaskCompletion()
     {
         // are there more partition splits expected?
-        if (partitionedSourceId != null && !taskOutput.getNoMoreSplits().contains(partitionedSourceId)) {
+        if (partitionedSourceId != null && !noMoreSplits.contains(partitionedSourceId)) {
             return;
         }
         // do we still have running tasks?
         if (pendingWorkerCount.get() != 0) {
             return;
         }
+
+        // no more output will be created
+        sharedBuffer.finish();
+
+        // are there still pages in the output buffer
+        if (!sharedBuffer.isFinished()) {
+            return;
+        }
+
         // Cool! All done!
-        taskOutput.finish();
+        taskStateMachine.finished();
     }
 
     @Override
     public void cancel()
     {
-        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskOutput.getTaskId())) {
-            taskOutput.cancel();
+        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)) {
+            taskStateMachine.cancel();
         }
     }
 
     @Override
     public void fail(Throwable cause)
     {
-        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskOutput.getTaskId())) {
-            taskOutput.queryFailed(cause);
+        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)) {
+            taskStateMachine.failed(cause);
         }
     }
 
@@ -407,25 +452,23 @@ public class SqlTaskExecution
         Preconditions.checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
         checkNotNull(maxWait, "maxWait is null");
 
-        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskOutput.getTaskId())) {
-            return taskOutput.getResults(outputId, startingSequenceId, maxSize, maxWait);
+        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)) {
+            return sharedBuffer.get(outputId, startingSequenceId, maxSize, maxWait);
         }
     }
 
     @Override
     public void abortResults(String outputId)
     {
-        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskOutput.getTaskId())) {
-            taskOutput.abortResults(outputId);
+        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)) {
+            sharedBuffer.abort(outputId);
         }
     }
 
     @Override
-    public void recordHeartbeat()
+    public synchronized void recordHeartbeat()
     {
-        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskOutput.getTaskId())) {
-            taskOutput.getStats().recordHeartbeat();
-        }
+        this.lastHeartbeat = DateTime.now();
     }
 
     @Override
@@ -434,7 +477,6 @@ public class SqlTaskExecution
         return Objects.toStringHelper(this)
                 .add("taskId", taskId)
                 .add("unpartitionedSources", unpartitionedSources)
-                .add("taskOutput", taskOutput)
                 .toString();
     }
 }

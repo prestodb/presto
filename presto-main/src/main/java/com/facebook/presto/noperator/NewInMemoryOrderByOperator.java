@@ -1,7 +1,5 @@
 package com.facebook.presto.noperator;
 
-import com.facebook.presto.execution.TaskMemoryManager;
-import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.tuple.TupleInfo;
@@ -20,6 +18,7 @@ public class NewInMemoryOrderByOperator
     public static class NewInMemoryOrderByOperatorFactory
             implements NewOperatorFactory
     {
+        private final int operatorId;
         private final List<TupleInfo> sourceTupleInfos;
         private final int orderByChannel;
         private final int[] outputChannels;
@@ -30,12 +29,14 @@ public class NewInMemoryOrderByOperator
         private boolean closed;
 
         public NewInMemoryOrderByOperatorFactory(
+                int operatorId,
                 List<TupleInfo> sourceTupleInfos,
                 int orderByChannel,
                 int[] outputChannels,
                 int expectedPositions)
         {
             this(
+                    operatorId,
                     sourceTupleInfos,
                     orderByChannel,
                     outputChannels,
@@ -45,6 +46,7 @@ public class NewInMemoryOrderByOperator
         }
 
         public NewInMemoryOrderByOperatorFactory(
+                int operatorId,
                 List<TupleInfo> sourceTupleInfos,
                 int orderByChannel,
                 int[] outputChannels,
@@ -52,6 +54,7 @@ public class NewInMemoryOrderByOperator
                 int[] sortFields,
                 boolean[] sortOrder)
         {
+            this.operatorId = operatorId;
             this.sourceTupleInfos = sourceTupleInfos;
             this.orderByChannel = orderByChannel;
             this.outputChannels = outputChannels;
@@ -69,18 +72,19 @@ public class NewInMemoryOrderByOperator
         }
 
         @Override
-        public NewOperator createOperator(OperatorStats operatorStats, TaskMemoryManager taskMemoryManager)
+        public NewOperator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
 
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, NewInMemoryOrderByOperator.class.getSimpleName());
             return new NewInMemoryOrderByOperator(
+                    operatorContext,
                     sourceTupleInfos,
                     orderByChannel,
                     outputChannels,
                     expectedPositions,
                     sortFields,
-                    sortOrder,
-                    taskMemoryManager);
+                    sortOrder);
         }
 
         @Override
@@ -97,6 +101,7 @@ public class NewInMemoryOrderByOperator
         FINISHED
     }
 
+    private final OperatorContext operatorContext;
     private final int orderByChannel;
     private final int[] sortFields;
     private final boolean[] sortOrder;
@@ -111,40 +116,30 @@ public class NewInMemoryOrderByOperator
     private State state = State.NEEDS_INPUT;
 
     public NewInMemoryOrderByOperator(
-            List<TupleInfo> sourceTupleInfos,
-            int orderByChannel,
-            int[] outputChannels,
-            int expectedPositions,
-            TaskMemoryManager taskMemoryManager)
-    {
-        this(
-                sourceTupleInfos,
-                orderByChannel,
-                outputChannels,
-                expectedPositions,
-                defaultSortFields(sourceTupleInfos, orderByChannel),
-                defaultSortOrder(sourceTupleInfos, orderByChannel),
-                taskMemoryManager);
-    }
-
-    public NewInMemoryOrderByOperator(
+            OperatorContext operatorContext,
             List<TupleInfo> sourceTupleInfos,
             int orderByChannel,
             int[] outputChannels,
             int expectedPositions,
             int[] sortFields,
-            boolean[] sortOrder,
-            TaskMemoryManager taskMemoryManager)
+            boolean[] sortOrder)
     {
+        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         this.orderByChannel = orderByChannel;
-        this.outputChannels = outputChannels;
+        this.outputChannels = checkNotNull(outputChannels, "outputChannels is null");
         this.tupleInfos = toTupleInfos(sourceTupleInfos, outputChannels);
-        this.sortFields = sortFields;
-        this.sortOrder = sortOrder;
+        this.sortFields = checkNotNull(sortFields, "sortFields is null");
+        this.sortOrder = checkNotNull(sortOrder, "sortOrder is null");
 
-        this.pageIndex = new NewPagesIndex(sourceTupleInfos, expectedPositions, taskMemoryManager);
+        this.pageIndex = new NewPagesIndex(sourceTupleInfos, expectedPositions, operatorContext);
 
         this.pageBuilder = new PageBuilder(this.tupleInfos);
+    }
+
+    @Override
+    public OperatorContext getOperatorContext()
+    {
+        return operatorContext;
     }
 
     @Override

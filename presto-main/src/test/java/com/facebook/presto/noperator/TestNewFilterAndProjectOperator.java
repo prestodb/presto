@@ -1,15 +1,21 @@
 package com.facebook.presto.noperator;
 
+import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.noperator.NewFilterAndProjectOperator.NewFilterAndProjectOperatorFactory;
 import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.ProjectionFunctions;
 import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleReadable;
 import com.facebook.presto.util.MaterializedResult;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.noperator.NewOperatorAssertion.assertOperatorEquals;
 import static com.facebook.presto.noperator.RowPagesBuilder.rowPagesBuilder;
@@ -19,9 +25,30 @@ import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 import static com.facebook.presto.util.MaterializedResult.resultBuilder;
+import static com.facebook.presto.util.Threads.daemonThreadsNamed;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class TestNewFilterAndProjectOperator
 {
+    private ExecutorService executor;
+    private DriverContext driverContext;
+
+    @BeforeMethod
+    public void setUp()
+    {
+        executor = newCachedThreadPool(daemonThreadsNamed("test"));
+        Session session = new Session("user", "source", "catalog", "schema", "address", "agent");
+        driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session)
+                .addPipelineContext()
+                .addDriverContext();
+    }
+
+    @AfterMethod
+    public void tearDown()
+    {
+        executor.shutdownNow();
+    }
+
     @Test
     public void testAlignment()
             throws Exception
@@ -30,7 +57,7 @@ public class TestNewFilterAndProjectOperator
                 .addSequencePage(100, 0, 0)
                 .build();
 
-        NewOperator operator = new NewFilterAndProjectOperator(new FilterFunction()
+        NewOperatorFactory operatorFactory = new NewFilterAndProjectOperatorFactory(0, new FilterFunction()
         {
             @Override
             public boolean filter(TupleReadable... cursors)
@@ -46,6 +73,8 @@ public class TestNewFilterAndProjectOperator
                 return 10 <= value && value < 20;
             }
         }, ProjectionFunctions.concat(singleColumn(VARIABLE_BINARY, 0, 0), singleColumn(FIXED_INT_64, 1, 0)));
+
+        NewOperator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(new TupleInfo(VARIABLE_BINARY, FIXED_INT_64))
                 .row("10", 10)

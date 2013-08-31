@@ -12,12 +12,20 @@ import static com.google.common.base.Preconditions.checkState;
 public class InMemoryExchangeSinkOperator
         implements NewOperator
 {
+    private final OperatorContext operatorContext;
     private final InMemoryExchange inMemoryExchange;
     private boolean finished;
 
-    InMemoryExchangeSinkOperator(InMemoryExchange inMemoryExchange)
+    InMemoryExchangeSinkOperator(OperatorContext operatorContext, InMemoryExchange inMemoryExchange)
     {
-        this.inMemoryExchange = inMemoryExchange;
+        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
+        this.inMemoryExchange = checkNotNull(inMemoryExchange, "inMemoryExchange is null");
+    }
+
+    @Override
+    public OperatorContext getOperatorContext()
+    {
+        return operatorContext;
     }
 
     @Override
