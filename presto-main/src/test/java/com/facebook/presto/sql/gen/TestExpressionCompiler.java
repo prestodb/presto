@@ -1,13 +1,10 @@
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.operator.FilterAndProjectOperator;
-import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.scalar.JsonFunctions;
 import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.operator.scalar.RegexpFunctions;
 import com.facebook.presto.operator.scalar.StringFunctions;
 import com.facebook.presto.operator.scalar.UnixTimeFunctions;
-import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.LikeUtils;
 import com.facebook.presto.sql.tree.Extract.Field;
 import com.google.common.base.Charsets;
@@ -42,15 +39,9 @@ import java.util.Objects;
 import java.util.Set;
 
 import static com.facebook.presto.operator.scalar.FunctionAssertions.SESSION;
-import static com.facebook.presto.operator.scalar.FunctionAssertions.SOURCE;
 import static com.facebook.presto.operator.scalar.FunctionAssertions.assertFilter;
-import static com.facebook.presto.operator.scalar.FunctionAssertions.createCompiledOperatorFactory;
-import static com.facebook.presto.operator.scalar.FunctionAssertions.createInterpretedOperator;
-import static com.facebook.presto.operator.scalar.FunctionAssertions.createRecordProjectOperator;
-import static com.facebook.presto.operator.scalar.FunctionAssertions.createTableScanOperator;
-import static com.facebook.presto.operator.scalar.FunctionAssertions.execute;
+import static com.facebook.presto.operator.scalar.FunctionAssertions.selectSingleValue;
 import static com.google.common.base.Charsets.UTF_8;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.cos;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
@@ -1091,31 +1082,5 @@ public class TestExpressionCompiler
         for (String expression : expressions) {
             assertExecute(expression, expected);
         }
-    }
-
-    private static Object selectSingleValue(String projection)
-    {
-        checkNotNull(projection, "projection is null");
-
-        // compile operator
-        OperatorFactory operatorFactory = createCompiledOperatorFactory(projection);
-
-        // execute using table scan over plain old operator
-        Operator operator = operatorFactory.createOperator(createTableScanOperator(SOURCE), SESSION);
-        Object directOperatorValue = execute(operator);
-        Type expressionType = Type.fromRaw(operator.getTupleInfos().get(0).getTypes().get(0));
-
-        // execute using table scan over record set
-        Object recordValue = execute(operatorFactory.createOperator(createTableScanOperator(createRecordProjectOperator()), SESSION));
-        assertEquals(recordValue, directOperatorValue);
-
-        // interpret
-        FilterAndProjectOperator interpretedOperator = createInterpretedOperator(projection, expressionType);
-        Object interpretedValue = execute(interpretedOperator);
-
-        // verify interpreted and compiled value are the same
-        assertEquals(interpretedValue, directOperatorValue);
-
-        return directOperatorValue;
     }
 }

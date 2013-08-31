@@ -36,7 +36,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
-import com.facebook.presto.sql.gen.ExpressionCompiler;
+import com.facebook.presto.sql.gen.NewExpressionCompiler;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -56,8 +56,10 @@ import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Input;
+import com.facebook.presto.sql.tree.InputReference;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.tuple.FieldOrderedTupleComparator;
@@ -109,7 +111,7 @@ public class NewLocalExecutionPlanner
     private final DataStreamProvider dataStreamProvider;
     private final LocalStorageManager storageManager;
     private final Supplier<ExchangeClient> exchangeClientSupplier;
-    private final ExpressionCompiler compiler;
+    private final NewExpressionCompiler compiler;
 
     @Inject
     public NewLocalExecutionPlanner(NodeInfo nodeInfo,
@@ -117,7 +119,7 @@ public class NewLocalExecutionPlanner
             DataStreamProvider dataStreamProvider,
             LocalStorageManager storageManager,
             Supplier<ExchangeClient> exchangeClientSupplier,
-            ExpressionCompiler compiler)
+            NewExpressionCompiler compiler)
     {
         this.nodeInfo = checkNotNull(nodeInfo, "nodeInfo is null");
         this.dataStreamProvider = dataStreamProvider;
@@ -450,10 +452,34 @@ public class NewLocalExecutionPlanner
             PhysicalOperation source = node.getSource().accept(this, context);
             Map<Input, Type> inputTypes = getInputTypes(source.getLayout(), source.getTupleInfos());
 
-            FilterFunction filter = new InterpretedFilterFunction(node.getPredicate(), convertLayoutToInputMap(source.getLayout()), metadata, context.getSession(), inputTypes);
-            IdentityProjectionInfo mappings = computeIdentityMapping(node.getOutputSymbols(), source.getLayout(), context.getTypes());
-            NewOperatorFactory operatorFactory = new NewFilterAndProjectOperatorFactory(context.getNextOperatorId(), filter, mappings.getProjections());
-            return new PhysicalOperation(operatorFactory, mappings.getOutputLayout(), source);
+            try {
+                Expression filterExpression = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(convertLayoutToInputMap(source.getLayout())), node.getPredicate());
+
+                ImmutableMultimap.Builder<Symbol, Input> outputMappings = ImmutableMultimap.builder();
+                List<Expression> projections = new ArrayList<>();
+                for (int i = 0; i < node.getOutputSymbols().size(); i++) {
+                    Symbol symbol = node.getOutputSymbols().get(i);
+
+                    Input input = getFirst(source.getLayout().get(symbol));
+                    checkArgument(input != null, "Cannot resolve symbol %s", symbol.getName());
+
+                    projections.add(new InputReference(input));
+                    outputMappings.put(symbol, new Input(i, 0)); // one field per channel
+                }
+
+                NewOperatorFactory operatorFactory = compiler.compileFilterAndProjectOperator(context.getNextOperatorId(), filterExpression, projections, inputTypes);
+
+                return new PhysicalOperation(operatorFactory, outputMappings.build(), source);
+            }
+            catch (Exception e) {
+                // compilation failed, use interpreter
+                log.error(e, "Compile failed for filter=%s inputTypes=%s error=%s", node.getPredicate(), inputTypes, e);
+
+                FilterFunction filter = new InterpretedFilterFunction(node.getPredicate(), convertLayoutToInputMap(source.getLayout()), metadata, context.getSession(), inputTypes);
+                IdentityProjectionInfo mappings = computeIdentityMapping(node.getOutputSymbols(), source.getLayout(), context.getTypes());
+                NewOperatorFactory operatorFactory = new NewFilterAndProjectOperatorFactory(context.getNextOperatorId(), filter, mappings.getProjections());
+                return new PhysicalOperation(operatorFactory, mappings.getOutputLayout(), source);
+            }
         }
 
         @Override
@@ -474,40 +500,61 @@ public class NewLocalExecutionPlanner
 
             List<Expression> expressions = node.getExpressions();
             Map<Input, Type> inputTypes = null;
-            FilterFunction filter;
-            if (filterExpression != BooleanLiteral.TRUE_LITERAL) {
-                filter = new InterpretedFilterFunction(filterExpression, convertLayoutToInputMap(source.getLayout()), metadata, context.getSession(), inputTypes);
-            }
-            else {
-                filter = FilterFunctions.TRUE_FUNCTION;
-            }
+            try {
+                Expression rewrittenFilterExpression = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(convertLayoutToInputMap(source.getLayout())), filterExpression);
 
-            ImmutableMultimap.Builder<Symbol, Input> outputMappings = ImmutableMultimap.builder();
-            List<ProjectionFunction> projections = new ArrayList<>();
-            for (int i = 0; i < expressions.size(); i++) {
-                Symbol symbol = node.getOutputSymbols().get(i);
-                Expression expression = expressions.get(i);
+                ImmutableMultimap.Builder<Symbol, Input> outputMappings = ImmutableMultimap.builder();
+                List<Expression> projections = new ArrayList<>();
+                for (int i = 0; i < expressions.size(); i++) {
+                    Symbol symbol = node.getOutputSymbols().get(i);
+                    projections.add(ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(convertLayoutToInputMap(source.getLayout())), expressions.get(i)));
+                    outputMappings.put(symbol, new Input(i, 0)); // one field per channel
+                }
 
-                ProjectionFunction function;
-                if (expression instanceof QualifiedNameReference) {
-                    // fast path when we know it's a direct symbol reference
-                    Symbol reference = Symbol.fromQualifiedName(((QualifiedNameReference) expression).getName());
-                    function = ProjectionFunctions.singleColumn(context.getTypes().get(reference).getRawType(), getFirst(source.getLayout().get(symbol)));
+                inputTypes = getInputTypes(source.getLayout(), source.getTupleInfos());
+                NewOperatorFactory operatorFactory = compiler.compileFilterAndProjectOperator(context.getNextOperatorId(), rewrittenFilterExpression, projections, inputTypes);
+                return new PhysicalOperation(operatorFactory, outputMappings.build(), source);
+            }
+            catch (Exception e) {
+                // compilation failed, use interpreter
+                log.error(e, "Compile failed for filter=%s projections=%s inputTypes=%s error=%s", filterExpression, node.getExpressions(), inputTypes, e);
+
+                FilterFunction filter;
+                if (filterExpression != BooleanLiteral.TRUE_LITERAL) {
+                    filter = new InterpretedFilterFunction(filterExpression, convertLayoutToInputMap(source.getLayout()), metadata, context.getSession(), inputTypes);
                 }
                 else {
-                    function = new InterpretedProjectionFunction(context.getTypes().get(symbol),
-                            expression,
-                            convertLayoutToInputMap(source.getLayout()),
-                            metadata,
-                            context.getSession(),
-                            inputTypes);
+                    filter = FilterFunctions.TRUE_FUNCTION;
                 }
-                projections.add(function);
 
-                outputMappings.put(symbol, new Input(i, 0)); // one field per channel
+                ImmutableMultimap.Builder<Symbol, Input> outputMappings = ImmutableMultimap.builder();
+                List<ProjectionFunction> projections = new ArrayList<>();
+                for (int i = 0; i < expressions.size(); i++) {
+                    Symbol symbol = node.getOutputSymbols().get(i);
+                    Expression expression = expressions.get(i);
+
+                    ProjectionFunction function;
+                    if (expression instanceof QualifiedNameReference) {
+                        // fast path when we know it's a direct symbol reference
+                        Symbol reference = Symbol.fromQualifiedName(((QualifiedNameReference) expression).getName());
+                        function = ProjectionFunctions.singleColumn(context.getTypes().get(reference).getRawType(), getFirst(source.getLayout().get(symbol)));
+                    }
+                    else {
+                        function = new InterpretedProjectionFunction(context.getTypes().get(symbol),
+                                expression,
+                                convertLayoutToInputMap(source.getLayout()),
+                                metadata,
+                                context.getSession(),
+                                inputTypes);
+                    }
+                    projections.add(function);
+
+                    outputMappings.put(symbol, new Input(i, 0)); // one field per channel
+                }
+
+                NewOperatorFactory operatorFactory = new NewFilterAndProjectOperatorFactory(context.getNextOperatorId(), filter, projections);
+                return new PhysicalOperation(operatorFactory, outputMappings.build(), source);
             }
-            NewOperatorFactory operatorFactory = new NewFilterAndProjectOperatorFactory(context.getNextOperatorId(), filter, projections);
-            return new PhysicalOperation(operatorFactory, outputMappings.build(), source);
         }
 
         private Map<Input, Type> getInputTypes(Multimap<Symbol, Input> layout, List<TupleInfo> tupleInfos)

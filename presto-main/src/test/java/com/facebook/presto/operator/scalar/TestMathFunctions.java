@@ -1,11 +1,10 @@
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.sql.analyzer.Type;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.operator.scalar.FunctionAssertions.SESSION;
 import static com.facebook.presto.operator.scalar.FunctionAssertions.assertFunction;
-import static com.facebook.presto.operator.scalar.FunctionAssertions.selectCompiledSingleValue;
-import static com.facebook.presto.operator.scalar.FunctionAssertions.selectInterpretedSingleValue;
+import static com.facebook.presto.operator.scalar.FunctionAssertions.executeProjectionWithAll;
 
 public class TestMathFunctions
 {
@@ -225,8 +224,8 @@ public class TestMathFunctions
     public void testRandom()
     {
         // random is non-deterministic
-        selectCompiledSingleValue("rand()");
-        selectInterpretedSingleValue("random()", Type.DOUBLE);
+        executeProjectionWithAll("rand()", SESSION);
+        executeProjectionWithAll("random()", SESSION);
     }
 
     @Test
