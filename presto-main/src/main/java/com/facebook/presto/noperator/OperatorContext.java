@@ -108,6 +108,12 @@ public class OperatorContext
         }
     }
 
+    public void recordGeneratedOutput(DataSize dataSize, long positions)
+    {
+        outputDataSize.getAndAdd(dataSize.toBytes());
+        outputPositions.getAndAdd(positions);
+    }
+
     public void recordAddInput(Page page)
     {
         addInputWallNanos.getAndAdd((nanosBetween(intervalWallStart.get(), System.nanoTime())));
@@ -118,6 +124,12 @@ public class OperatorContext
             inputDataSize.getAndAdd((page.getDataSize().toBytes()));
             inputPositions.getAndAdd((page.getPositionCount()));
         }
+    }
+
+    public void recordGeneratedInput(DataSize dataSize, long positions)
+    {
+        inputDataSize.getAndAdd(dataSize.toBytes());
+        inputPositions.getAndAdd(positions);
     }
 
     public void recordBlocked(ListenableFuture<?> blocked)

@@ -4,6 +4,7 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.noperator.Driver;
+import com.facebook.presto.noperator.DriverContext;
 import com.facebook.presto.noperator.DriverFactory;
 import com.facebook.presto.noperator.DriverOperator;
 import com.facebook.presto.noperator.NewAlignmentOperator.NewAlignmentOperatorFactory;
@@ -43,7 +44,8 @@ public class NewHashBuildAndJoinBenchmark
         NewAlignmentOperatorFactory ordersTableScan = new NewAlignmentOperatorFactory(0, orderOrderKey, totalPrice);
         NewHashBuilderOperatorFactory hashBuilder = new NewHashBuilderOperatorFactory(1, ordersTableScan.getTupleInfos(), 0, 1_500_000);
 
-        Driver driver = new DriverFactory(ordersTableScan, hashBuilder).createDriver(taskContext.addPipelineContext().addDriverContext());
+        DriverContext driverContext = taskContext.addPipelineContext(true, false).addDriverContext();
+        Driver driver = new DriverFactory(true, false, ordersTableScan, hashBuilder).createDriver(driverContext);
         while (!driver.isFinished()) {
             driver.process();
         }

@@ -251,8 +251,11 @@ public class SqlStageExecution
             long totalUserTime = 0;
             long totalBlockedTime = 0;
 
-            long inputDataSize = 0;
-            long inputPositions = 0;
+            long rawInputDataSize = 0;
+            long rawInputPositions = 0;
+
+            long processedInputDataSize = 0;
+            long processedInputPositions = 0;
 
             long outputDataSize = 0;
             long outputPositions = 0;
@@ -279,8 +282,11 @@ public class SqlStageExecution
                 totalUserTime += taskStats.getTotalUserTime().roundTo(NANOSECONDS);
                 totalBlockedTime += taskStats.getTotalBlockedTime().roundTo(NANOSECONDS);
 
-                inputDataSize += taskStats.getInputDataSize().toBytes();
-                inputPositions += taskStats.getInputPositions();
+                rawInputDataSize += taskStats.getRawInputDataSize().toBytes();
+                rawInputPositions += taskStats.getRawInputPositions();
+
+                processedInputDataSize += taskStats.getProcessedInputDataSize().toBytes();
+                processedInputPositions += taskStats.getProcessedInputPositions();
 
                 outputDataSize += taskStats.getOutputDataSize().toBytes();
                 outputPositions += taskStats.getOutputPositions();
@@ -306,8 +312,10 @@ public class SqlStageExecution
                     new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                     new Duration(totalUserTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                     new Duration(totalBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                    new DataSize(inputDataSize, BYTE).convertToMostSuccinctDataSize(),
-                    inputPositions,
+                    new DataSize(rawInputDataSize, BYTE).convertToMostSuccinctDataSize(),
+                    rawInputPositions,
+                    new DataSize(processedInputDataSize, BYTE).convertToMostSuccinctDataSize(),
+                    processedInputPositions,
                     new DataSize(outputDataSize, BYTE).convertToMostSuccinctDataSize(),
                     outputPositions);
 

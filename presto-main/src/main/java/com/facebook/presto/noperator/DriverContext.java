@@ -159,21 +159,29 @@ public class DriverContext
         }
 
         OperatorStats inputOperator = getFirst(operators, null);
-        DataSize inputDataSize;
-        long inputPositions;
+        DataSize rawInputDataSize;
+        long rawInputPositions;
+        DataSize processedInputDataSize;
+        long processedInputPositions;
         DataSize outputDataSize;
         long outputPositions;
         if (inputOperator != null) {
-            inputDataSize = inputOperator.getInputDataSize();
-            inputPositions = inputOperator.getInputPositions();
+            rawInputDataSize = inputOperator.getInputDataSize();
+            rawInputPositions = inputOperator.getInputPositions();
+
+            processedInputDataSize = inputOperator.getOutputDataSize();
+            processedInputPositions = inputOperator.getOutputPositions();
 
             OperatorStats outputOperator = checkNotNull(getLast(operators, null));
             outputDataSize = outputOperator.getOutputDataSize();
             outputPositions = outputOperator.getOutputPositions();
         }
         else {
-            inputDataSize = new DataSize(0, BYTE);
-            inputPositions = 0;
+            rawInputDataSize = new DataSize(0, BYTE);
+            rawInputPositions = 0;
+
+            processedInputDataSize = new DataSize(0, BYTE);
+            processedInputPositions = 0;
 
             outputDataSize = new DataSize(0, BYTE);
             outputPositions = 0;
@@ -205,8 +213,10 @@ public class DriverContext
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalUserTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                inputDataSize.convertToMostSuccinctDataSize(),
-                inputPositions,
+                rawInputDataSize.convertToMostSuccinctDataSize(),
+                rawInputPositions,
+                processedInputDataSize.convertToMostSuccinctDataSize(),
+                processedInputPositions,
                 outputDataSize.convertToMostSuccinctDataSize(),
                 outputPositions,
                 ImmutableList.copyOf(Iterables.transform(operatorContexts, operatorStatsGetter())));

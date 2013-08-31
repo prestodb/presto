@@ -171,7 +171,7 @@ public class SqlTaskExecution
                     partitionedDriverFactory = driverFactory;
                 }
                 else {
-                    PipelineContext pipelineContext = taskContext.addPipelineContext();
+                    PipelineContext pipelineContext = taskContext.addPipelineContext(driverFactory.isInputDriver(), driverFactory.isOutputDriver());
                     Driver driver = driverFactory.createDriver(pipelineContext.addDriverContext());
                     unpartitionedDrivers.add(driver);
                 }
@@ -180,12 +180,12 @@ public class SqlTaskExecution
 
             if (fragment.isPartitioned()) {
                 this.partitionedSourceId = fragment.getPartitionedSource();
-                this.partitionedPipelineContext = taskContext.addPipelineContext();
                 this.partitionedDriverFactory = partitionedDriverFactory;
+                this.partitionedPipelineContext = taskContext.addPipelineContext(partitionedDriverFactory.isInputDriver(), partitionedDriverFactory.isOutputDriver());
             } else {
                 this.partitionedSourceId = null;
-                this.partitionedPipelineContext = null;
                 this.partitionedDriverFactory = null;
+                this.partitionedPipelineContext = null;
             }
         }
     }

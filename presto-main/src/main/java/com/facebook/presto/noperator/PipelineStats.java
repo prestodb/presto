@@ -17,6 +17,9 @@ import static com.google.common.base.Preconditions.checkNotNull;
 @Immutable
 public class PipelineStats
 {
+    private final boolean inputPipeline;
+    private final boolean outputPipeline;
+
     private final int totalDrivers;
     private final int queuedDrivers;
     private final int startedDrivers;
@@ -32,8 +35,11 @@ public class PipelineStats
     private final Duration totalUserTime;
     private final Duration totalBlockedTime;
 
-    private final DataSize inputDataSize;
-    private final long inputPositions;
+    private final DataSize rawInputDataSize;
+    private final long rawInputPositions;
+
+    private final DataSize processedInputDataSize;
+    private final long processedInputPositions;
 
     private final DataSize outputDataSize;
     private final long outputPositions;
@@ -43,6 +49,9 @@ public class PipelineStats
 
     @JsonCreator
     public PipelineStats(
+            @JsonProperty("inputPipeline") boolean inputPipeline,
+            @JsonProperty("outputPipeline") boolean outputPipeline,
+
             @JsonProperty("totalDrivers") int totalDrivers,
             @JsonProperty("queuedDrivers") int queuedDrivers,
             @JsonProperty("startedDrivers") int startedDrivers,
@@ -58,8 +67,11 @@ public class PipelineStats
             @JsonProperty("totalUserTime") Duration totalUserTime,
             @JsonProperty("totalBlockedTime") Duration totalBlockedTime,
 
-            @JsonProperty("inputDataSize") DataSize inputDataSize,
-            @JsonProperty("inputPositions") long inputPositions,
+            @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
+            @JsonProperty("rawInputPositions") long rawInputPositions,
+
+            @JsonProperty("processedInputDataSize") DataSize processedInputDataSize,
+            @JsonProperty("processedInputPositions") long processedInputPositions,
 
             @JsonProperty("outputDataSize") DataSize outputDataSize,
             @JsonProperty("outputPositions") long outputPositions,
@@ -67,6 +79,9 @@ public class PipelineStats
             @JsonProperty("operatorSummaries") List<OperatorStats> operatorSummaries,
             @JsonProperty("runningDrivers") List<DriverStats> runningDrivers)
     {
+        this.inputPipeline = inputPipeline;
+        this.outputPipeline = outputPipeline;
+
         checkArgument(totalDrivers >= 0, "totalDrivers is negative");
         this.totalDrivers = totalDrivers;
         checkArgument(queuedDrivers >= 0, "queuedDrivers is negative");
@@ -86,9 +101,13 @@ public class PipelineStats
         this.totalUserTime = checkNotNull(totalUserTime, "totalUserTime is null");
         this.totalBlockedTime = checkNotNull(totalBlockedTime, "totalBlockedTime is null");
 
-        this.inputDataSize = checkNotNull(inputDataSize, "inputDataSize is null");
-        checkArgument(inputPositions >= 0, "inputPositions is negative");
-        this.inputPositions = inputPositions;
+        this.rawInputDataSize = checkNotNull(rawInputDataSize, "rawInputDataSize is null");
+        checkArgument(rawInputPositions >= 0, "rawInputPositions is negative");
+        this.rawInputPositions = rawInputPositions;
+
+        this.processedInputDataSize = checkNotNull(processedInputDataSize, "processedInputDataSize is null");
+        checkArgument(processedInputPositions >= 0, "processedInputPositions is negative");
+        this.processedInputPositions = processedInputPositions;
 
         this.outputDataSize = checkNotNull(outputDataSize, "outputDataSize is null");
         checkArgument(outputPositions >= 0, "outputPositions is negative");
@@ -96,6 +115,18 @@ public class PipelineStats
 
         this.operatorSummaries = ImmutableList.copyOf(checkNotNull(operatorSummaries, "operatorSummaries is null"));
         this.runningDrivers = ImmutableList.copyOf(checkNotNull(runningDrivers, "runningDrivers is null"));
+    }
+
+    @JsonProperty
+    public boolean isInputPipeline()
+    {
+        return inputPipeline;
+    }
+
+    @JsonProperty
+    public boolean isOutputPipeline()
+    {
+        return outputPipeline;
     }
 
     @JsonProperty
@@ -165,15 +196,27 @@ public class PipelineStats
     }
 
     @JsonProperty
-    public DataSize getInputDataSize()
+    public DataSize getRawInputDataSize()
     {
-        return inputDataSize;
+        return rawInputDataSize;
     }
 
     @JsonProperty
-    public long getInputPositions()
+    public long getRawInputPositions()
     {
-        return inputPositions;
+        return rawInputPositions;
+    }
+
+    @JsonProperty
+    public DataSize getProcessedInputDataSize()
+    {
+        return processedInputDataSize;
+    }
+
+    @JsonProperty
+    public long getProcessedInputPositions()
+    {
+        return processedInputPositions;
     }
 
     @JsonProperty

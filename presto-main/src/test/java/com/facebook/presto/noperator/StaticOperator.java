@@ -83,6 +83,10 @@ public class StaticOperator
         if (!pages.hasNext()) {
             return null;
         }
-        return pages.next();
+        Page page = pages.next();
+        if (page != null) {
+            operatorContext.recordGeneratedInput(page.getDataSize(), page.getPositionCount());
+        }
+        return page;
     }
 }

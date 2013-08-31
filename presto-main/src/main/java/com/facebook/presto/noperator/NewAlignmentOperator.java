@@ -198,7 +198,9 @@ public class NewAlignmentOperator
             blocks[i] = cursors.get(i).getRegionAndAdvance(length);
         }
 
-        return new Page(blocks);
+        Page page = new Page(blocks);
+        operatorContext.recordGeneratedInput(page.getDataSize(), page.getPositionCount());
+        return page;
     }
 
     private static List<TupleInfo> toTupleInfos(Iterable<BlockIterable> channels)

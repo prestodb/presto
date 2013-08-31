@@ -37,8 +37,12 @@ public class TestStageStats
 
             new DataSize(17, BYTE),
             18,
+
             new DataSize(19, BYTE),
-            20);
+            20,
+
+            new DataSize(21, BYTE),
+            22);
 
     @Test
     public void testJson()
@@ -74,11 +78,14 @@ public class TestStageStats
         assertEquals(actual.getTotalUserTime(), new Duration(15, NANOSECONDS));
         assertEquals(actual.getTotalBlockedTime(), new Duration(16, NANOSECONDS));
 
-        assertEquals(actual.getInputDataSize(), new DataSize(17, BYTE));
-        assertEquals(actual.getInputPositions(), 18);
+        assertEquals(actual.getRawInputDataSize(), new DataSize(17, BYTE));
+        assertEquals(actual.getRawInputPositions(), 18);
 
-        assertEquals(actual.getOutputDataSize(), new DataSize(19, BYTE));
-        assertEquals(actual.getOutputPositions(), 20);
+        assertEquals(actual.getProcessedInputDataSize(), new DataSize(19, BYTE));
+        assertEquals(actual.getProcessedInputPositions(), 20);
+
+        assertEquals(actual.getOutputDataSize(), new DataSize(21, BYTE));
+        assertEquals(actual.getOutputPositions(), 22);
     }
 
     private static DistributionSnapshot getTestDistribution(int count)

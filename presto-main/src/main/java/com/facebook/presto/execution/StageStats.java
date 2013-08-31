@@ -36,8 +36,11 @@ public class StageStats
     private final Duration totalUserTime;
     private final Duration totalBlockedTime;
 
-    private final DataSize inputDataSize;
-    private final long inputPositions;
+    private final DataSize rawInputDataSize;
+    private final long rawInputPositions;
+
+    private final DataSize processedInputDataSize;
+    private final long processedInputPositions;
 
     private final DataSize outputDataSize;
     private final long outputPositions;
@@ -61,8 +64,10 @@ public class StageStats
         this.totalCpuTime = null;
         this.totalUserTime = null;
         this.totalBlockedTime = null;
-        this.inputDataSize = null;
-        this.inputPositions = 0;
+        this.rawInputDataSize = null;
+        this.rawInputPositions = 0;
+        this.processedInputDataSize = null;
+        this.processedInputPositions = 0;
         this.outputDataSize = null;
         this.outputPositions = 0;
 
@@ -91,8 +96,11 @@ public class StageStats
             @JsonProperty("totalUserTime") Duration totalUserTime,
             @JsonProperty("totalBlockedTime") Duration totalBlockedTime,
 
-            @JsonProperty("inputDataSize") DataSize inputDataSize,
-            @JsonProperty("inputPositions") long inputPositions,
+            @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
+            @JsonProperty("rawInputPositions") long rawInputPositions,
+
+            @JsonProperty("processedInputDataSize") DataSize processedInputDataSize,
+            @JsonProperty("processedInputPositions") long processedInputPositions,
 
             @JsonProperty("outputDataSize") DataSize outputDataSize,
             @JsonProperty("outputPositions") long outputPositions)
@@ -126,9 +134,13 @@ public class StageStats
         this.totalUserTime = checkNotNull(totalUserTime, "totalUserTime is null");
         this.totalBlockedTime = checkNotNull(totalBlockedTime, "totalBlockedTime is null");
 
-        this.inputDataSize = checkNotNull(inputDataSize, "inputDataSize is null");
-        checkArgument(inputPositions >= 0, "inputPositions is negative");
-        this.inputPositions = inputPositions;
+        this.rawInputDataSize = checkNotNull(rawInputDataSize, "rawInputDataSize is null");
+        checkArgument(rawInputPositions >= 0, "rawInputPositions is negative");
+        this.rawInputPositions = rawInputPositions;
+
+        this.processedInputDataSize = checkNotNull(processedInputDataSize, "processedInputDataSize is null");
+        checkArgument(processedInputPositions >= 0, "processedInputPositions is negative");
+        this.processedInputPositions = processedInputPositions;
 
         this.outputDataSize = checkNotNull(outputDataSize, "outputDataSize is null");
         checkArgument(outputPositions >= 0, "outputPositions is negative");
@@ -232,15 +244,27 @@ public class StageStats
     }
 
     @JsonProperty
-    public DataSize getInputDataSize()
+    public DataSize getRawInputDataSize()
     {
-        return inputDataSize;
+        return rawInputDataSize;
     }
 
     @JsonProperty
-    public long getInputPositions()
+    public long getRawInputPositions()
     {
-        return inputPositions;
+        return rawInputPositions;
+    }
+
+    @JsonProperty
+    public DataSize getProcessedInputDataSize()
+    {
+        return processedInputDataSize;
+    }
+
+    @JsonProperty
+    public long getProcessedInputPositions()
+    {
+        return processedInputPositions;
     }
 
     @JsonProperty

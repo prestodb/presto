@@ -112,6 +112,7 @@ public class MaterializingOperator
         checkState(!finished, "operator finished");
 
         resultBuilder.page(page);
+        operatorContext.recordGeneratedOutput(page.getDataSize(), page.getPositionCount());
     }
 
     @Override

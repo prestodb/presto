@@ -25,8 +25,6 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.noperator.OperatorContext.operatorStatsGetter;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.collect.Iterables.getFirst;
-import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -36,6 +34,9 @@ public class PipelineContext
 {
     private final TaskContext taskContext;
     private final Executor executor;
+
+    private final boolean inputPipeline;
+    private final boolean outputPipeline;
 
     private final List<DriverContext> runningDrivers = new CopyOnWriteArrayList<>();
 
@@ -51,18 +52,33 @@ public class PipelineContext
     private final AtomicLong totalUserTime = new AtomicLong();
     private final AtomicLong totalBlockedTime = new AtomicLong();
 
-    private final AtomicLong inputDataSize = new AtomicLong();
-    private final AtomicLong inputPositions = new AtomicLong();
+    private final AtomicLong rawInputDataSize = new AtomicLong();
+    private final AtomicLong rawInputPositions = new AtomicLong();
+
+    private final AtomicLong processedInputDataSize = new AtomicLong();
+    private final AtomicLong processedInputPositions = new AtomicLong();
 
     private final AtomicLong outputDataSize = new AtomicLong();
     private final AtomicLong outputPositions = new AtomicLong();
 
     private final ConcurrentMap<Integer, OperatorStats> operatorSummaries = new ConcurrentHashMap<>();
 
-    public PipelineContext(TaskContext taskContext, Executor executor)
+    public PipelineContext(TaskContext taskContext, Executor executor, boolean inputPipeline, boolean outputPipeline)
     {
+        this.inputPipeline = inputPipeline;
+        this.outputPipeline = outputPipeline;
         this.taskContext = checkNotNull(taskContext, "taskContext is null");
         this.executor = checkNotNull(executor, "executor is null");
+    }
+
+    public boolean isInputPipeline()
+    {
+        return inputPipeline;
+    }
+
+    public boolean isOutputPipeline()
+    {
+        return outputPipeline;
     }
 
     public DriverContext addDriverContext()
@@ -118,15 +134,14 @@ public class PipelineContext
             operatorSummaries.put(operator.getOperatorId(), operatorSummary);
         }
 
-        OperatorStats inputOperator = getFirst(operators, null);
-        if (inputOperator != null) {
-            inputDataSize.getAndAdd((inputOperator.getInputDataSize().toBytes()));
-            inputPositions.getAndAdd((inputOperator.getInputPositions()));
+        rawInputDataSize.getAndAdd(driverStats.getRawInputDataSize().toBytes());
+        rawInputPositions.getAndAdd(driverStats.getRawInputPositions());
 
-            OperatorStats outputOperator = checkNotNull(getLast(operators, null));
-            outputDataSize.getAndAdd((outputOperator.getOutputDataSize().toBytes()));
-            outputPositions.getAndAdd((outputOperator.getOutputPositions()));
-        }
+        processedInputDataSize.getAndAdd(driverStats.getProcessedInputDataSize().toBytes());
+        processedInputPositions.getAndAdd(driverStats.getProcessedInputPositions());
+
+        outputDataSize.getAndAdd(driverStats.getOutputDataSize().toBytes());
+        outputPositions.getAndAdd(driverStats.getOutputPositions());
     }
 
     public void start()
@@ -174,7 +189,6 @@ public class PipelineContext
         List<DriverContext> runningDrivers = ImmutableList.copyOf(this.runningDrivers);
 
         int totalDriers = completedDrivers.get() + runningDrivers.size();
-
         int queuedDrivers = 0;
         int startedDrivers = 0;
         int completedDrivers = this.completedDrivers.get();
@@ -187,8 +201,11 @@ public class PipelineContext
         long totalUserTime = this.totalUserTime.get();
         long totalBlockedTime = this.totalBlockedTime.get();
 
-        long inputDataSize = this.inputDataSize.get();
-        long inputPositions = this.inputPositions.get();
+        long rawInputDataSize = this.rawInputDataSize.get();
+        long rawInputPositions = this.rawInputPositions.get();
+
+        long processedInputDataSize = this.processedInputDataSize.get();
+        long processedInputPositions = this.processedInputPositions.get();
 
         long outputDataSize = this.outputDataSize.get();
         long outputPositions = this.outputPositions.get();
@@ -220,15 +237,14 @@ public class PipelineContext
                 runningOperators.put(operator.getOperatorId(), operator);
             }
 
-            OperatorStats inputOperator = getFirst(operators, null);
-            if (inputOperator != null) {
-                inputDataSize += inputOperator.getInputDataSize().toBytes();
-                inputPositions += inputOperator.getInputPositions();
+            rawInputDataSize += driverStats.getRawInputDataSize().toBytes();
+            rawInputPositions += driverStats.getRawInputPositions();
 
-                OperatorStats outputOperator = checkNotNull(getLast(operators, null));
-                outputDataSize += outputOperator.getOutputDataSize().toBytes();
-                outputPositions += outputOperator.getOutputPositions();
-            }
+            processedInputDataSize += driverStats.getProcessedInputDataSize().toBytes();
+            processedInputPositions += driverStats.getProcessedInputPositions();
+
+            outputDataSize += driverStats.getOutputDataSize().toBytes();
+            outputPositions += driverStats.getOutputPositions();
         }
 
         // merge the operator stats into the operator summary
@@ -240,21 +256,33 @@ public class PipelineContext
         }
 
         return new PipelineStats(
+                inputPipeline,
+                outputPipeline,
+
                 totalDriers,
                 queuedDrivers,
                 startedDrivers,
                 completedDrivers,
+
                 new DataSize(memoryReservation.get(), BYTE).convertToMostSuccinctDataSize(),
+
                 queuedTime.snapshot(),
                 elapsedTime.snapshot(),
+
                 new Duration(totalScheduledTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalUserTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                new DataSize(inputDataSize, BYTE).convertToMostSuccinctDataSize(),
-                inputPositions,
+
+                new DataSize(rawInputDataSize, BYTE).convertToMostSuccinctDataSize(),
+                rawInputPositions,
+
+                new DataSize(processedInputDataSize, BYTE).convertToMostSuccinctDataSize(),
+                processedInputPositions,
+
                 new DataSize(outputDataSize, BYTE).convertToMostSuccinctDataSize(),
                 outputPositions,
+
                 ImmutableList.copyOf(operatorSummaries.values()),
                 drivers);
     }

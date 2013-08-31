@@ -279,7 +279,8 @@ public class LocalQueryRunner
         Map<PlanNodeId, Driver> driversBySource = new HashMap<>();
         List<DriverFactory> driverFactories = localExecutionPlan.getDriverFactories();
         for (DriverFactory driverFactory : driverFactories) {
-            Driver driver = driverFactory.createDriver(taskContext.addPipelineContext().addDriverContext());
+            DriverContext driverContext = taskContext.addPipelineContext(driverFactory.isInputDriver(), driverFactory.isOutputDriver()).addDriverContext();
+            Driver driver = driverFactory.createDriver(driverContext);
             drivers.add(driver);
             for (PlanNodeId sourceId : driver.getSourceIds()) {
                 driversBySource.put(sourceId, driver);

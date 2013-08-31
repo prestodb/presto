@@ -17,6 +17,9 @@ import static org.testng.Assert.assertEquals;
 public class TestPipelineStats
 {
     public static final PipelineStats EXPECTED = new PipelineStats(
+            true,
+            false,
+
             1,
             2,
             3,
@@ -34,8 +37,12 @@ public class TestPipelineStats
 
             new DataSize(12, BYTE),
             13,
+            
             new DataSize(14, BYTE),
             15,
+
+            new DataSize(16, BYTE),
+            17,
 
             ImmutableList.of(TestOperatorStats.EXPECTED),
             ImmutableList.of(TestDriverStats.EXPECTED));
@@ -53,6 +60,9 @@ public class TestPipelineStats
 
     public static void assertExpectedPipelineStats(PipelineStats actual)
     {
+        assertEquals(actual.isInputPipeline(), true);
+        assertEquals(actual.isOutputPipeline(), false);
+
         assertEquals(actual.getTotalDrivers(), 1);
         assertEquals(actual.getQueuedDrivers(), 2);
         assertEquals(actual.getStartedDrivers(), 3);
@@ -68,11 +78,14 @@ public class TestPipelineStats
         assertEquals(actual.getTotalUserTime(), new Duration(10, NANOSECONDS));
         assertEquals(actual.getTotalBlockedTime(), new Duration(11, NANOSECONDS));
 
-        assertEquals(actual.getInputDataSize(), new DataSize(12, BYTE));
-        assertEquals(actual.getInputPositions(), 13);
+        assertEquals(actual.getRawInputDataSize(), new DataSize(12, BYTE));
+        assertEquals(actual.getRawInputPositions(), 13);
 
-        assertEquals(actual.getOutputDataSize(), new DataSize(14, BYTE));
-        assertEquals(actual.getOutputPositions(), 15);
+        assertEquals(actual.getProcessedInputDataSize(), new DataSize(14, BYTE));
+        assertEquals(actual.getProcessedInputPositions(), 15);
+
+        assertEquals(actual.getOutputDataSize(), new DataSize(16, BYTE));
+        assertEquals(actual.getOutputPositions(), 17);
 
         assertEquals(actual.getOperatorSummaries().size(), 1);
         assertExpectedOperatorStats(actual.getOperatorSummaries().get(0));

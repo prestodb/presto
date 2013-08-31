@@ -193,6 +193,7 @@ public class NewHashBuilderOperator
         checkState(!isFinished(), "Operator is already finished");
 
         pagesIndex.addPage(page);
+        operatorContext.recordGeneratedOutput(page.getDataSize(), page.getPositionCount());
     }
 
     @Override

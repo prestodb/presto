@@ -47,7 +47,7 @@ public class TestNewHashSemiJoinOperator
     public void testSemiJoin()
             throws Exception
     {
-        DriverContext driverContext = taskContext.addPipelineContext().addDriverContext();
+        DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
 
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, StaticOperator.class.getSimpleName());
@@ -100,7 +100,7 @@ public class TestNewHashSemiJoinOperator
     public void testBuildSideNulls()
             throws Exception
     {
-        DriverContext driverContext = taskContext.addPipelineContext().addDriverContext();
+        DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
 
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, StaticOperator.class.getSimpleName());
@@ -146,7 +146,7 @@ public class TestNewHashSemiJoinOperator
     public void testProbeSideNulls()
             throws Exception
     {
-        DriverContext driverContext = taskContext.addPipelineContext().addDriverContext();
+        DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
 
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, StaticOperator.class.getSimpleName());
@@ -192,7 +192,7 @@ public class TestNewHashSemiJoinOperator
     public void testProbeAndBuildNulls()
             throws Exception
     {
-        DriverContext driverContext = taskContext.addPipelineContext().addDriverContext();
+        DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
 
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, StaticOperator.class.getSimpleName());
@@ -242,7 +242,7 @@ public class TestNewHashSemiJoinOperator
     {
         Session session = new Session("user", "source", "catalog", "schema", "address", "agent");
         DriverContext driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session, new DataSize(100, BYTE))
-                .addPipelineContext()
+                .addPipelineContext(true, true)
                 .addDriverContext();
 
         OperatorContext operatorContext = driverContext.addOperatorContext(0, StaticOperator.class.getSimpleName());

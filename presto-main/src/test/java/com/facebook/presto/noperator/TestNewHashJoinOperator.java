@@ -50,7 +50,7 @@ public class TestNewHashJoinOperator
     public void testInnerJoin()
             throws Exception
     {
-        DriverContext driverContext = taskContext.addPipelineContext().addDriverContext();
+        DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
 
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, StaticOperator.class.getSimpleName());
@@ -75,7 +75,7 @@ public class TestNewHashJoinOperator
                 ImmutableList.of(SINGLE_VARBINARY, SINGLE_LONG, SINGLE_LONG),
                 0);
 
-        NewOperator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext().addDriverContext());
+        NewOperator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
 
         // expected
         MaterializedResult expected = resultBuilder(new TupleInfo(VARIABLE_BINARY, FIXED_INT_64, FIXED_INT_64, VARIABLE_BINARY, FIXED_INT_64, FIXED_INT_64))
@@ -98,7 +98,7 @@ public class TestNewHashJoinOperator
     public void testInnerJoinWithNullProbe()
             throws Exception
     {
-        DriverContext driverContext = taskContext.addPipelineContext().addDriverContext();
+        DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
 
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, StaticOperator.class.getSimpleName());
@@ -128,7 +128,7 @@ public class TestNewHashJoinOperator
                 hashBuilderOperatorFactory.getHashSupplier(),
                 ImmutableList.of(SINGLE_VARBINARY),
                 0);
-        NewOperator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext().addDriverContext());
+        NewOperator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
 
         // expected
         MaterializedResult expected = resultBuilder(new TupleInfo(VARIABLE_BINARY, VARIABLE_BINARY))
@@ -144,7 +144,7 @@ public class TestNewHashJoinOperator
     public void testInnerJoinWithNullBuild()
             throws Exception
     {
-        DriverContext driverContext = taskContext.addPipelineContext().addDriverContext();
+        DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
 
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, StaticOperator.class.getSimpleName());
@@ -175,7 +175,7 @@ public class TestNewHashJoinOperator
                 hashBuilderOperatorFactory.getHashSupplier(),
                 ImmutableList.of(SINGLE_VARBINARY),
                 0);
-        NewOperator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext().addDriverContext());
+        NewOperator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
 
         // expected
         MaterializedResult expected = resultBuilder(new TupleInfo(VARIABLE_BINARY, VARIABLE_BINARY))
@@ -191,7 +191,7 @@ public class TestNewHashJoinOperator
     public void testInnerJoinWithNullOnBothSides()
             throws Exception
     {
-        DriverContext driverContext = taskContext.addPipelineContext().addDriverContext();
+        DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
 
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, StaticOperator.class.getSimpleName());
@@ -223,7 +223,7 @@ public class TestNewHashJoinOperator
                 hashBuilderOperatorFactory.getHashSupplier(),
                 ImmutableList.of(SINGLE_VARBINARY),
                 0);
-        NewOperator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext().addDriverContext());
+        NewOperator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
 
         // expected
         MaterializedResult expected = resultBuilder(new TupleInfo(VARIABLE_BINARY, VARIABLE_BINARY))
@@ -239,7 +239,7 @@ public class TestNewHashJoinOperator
     public void testProbeOuterJoin()
             throws Exception
     {
-        DriverContext driverContext = taskContext.addPipelineContext().addDriverContext();
+        DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
 
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, StaticOperator.class.getSimpleName());
@@ -264,7 +264,7 @@ public class TestNewHashJoinOperator
                 hashBuilderOperatorFactory.getHashSupplier(),
                 ImmutableList.of(SINGLE_VARBINARY, SINGLE_LONG, SINGLE_LONG),
                 0);
-        NewOperator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext().addDriverContext());
+        NewOperator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
 
         // expected
         // expected
@@ -293,7 +293,7 @@ public class TestNewHashJoinOperator
     public void testOuterJoinWithNullProbe()
             throws Exception
     {
-        DriverContext driverContext = taskContext.addPipelineContext().addDriverContext();
+        DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
 
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, StaticOperator.class.getSimpleName());
@@ -323,7 +323,7 @@ public class TestNewHashJoinOperator
                 hashBuilderOperatorFactory.getHashSupplier(),
                 ImmutableList.of(SINGLE_VARBINARY),
                 0);
-        NewOperator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext().addDriverContext());
+        NewOperator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
 
         // expected
         MaterializedResult expected = resultBuilder(new TupleInfo(VARIABLE_BINARY, VARIABLE_BINARY))
@@ -341,7 +341,7 @@ public class TestNewHashJoinOperator
     public void testOuterJoinWithNullBuild()
             throws Exception
     {
-        DriverContext driverContext = taskContext.addPipelineContext().addDriverContext();
+        DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
 
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, StaticOperator.class.getSimpleName());
@@ -371,7 +371,7 @@ public class TestNewHashJoinOperator
                 hashBuilderOperatorFactory.getHashSupplier(),
                 ImmutableList.of(SINGLE_VARBINARY),
                 0);
-        NewOperator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext().addDriverContext());
+        NewOperator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
 
         // expected
         MaterializedResult expected = resultBuilder(new TupleInfo(VARIABLE_BINARY, VARIABLE_BINARY))
@@ -388,7 +388,7 @@ public class TestNewHashJoinOperator
     public void testOuterJoinWithNullOnBothSides()
             throws Exception
     {
-        DriverContext driverContext = taskContext.addPipelineContext().addDriverContext();
+        DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
 
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, StaticOperator.class.getSimpleName());
@@ -419,7 +419,7 @@ public class TestNewHashJoinOperator
                 hashBuilderOperatorFactory.getHashSupplier(),
                 ImmutableList.of(SINGLE_VARBINARY),
                 0);
-        NewOperator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext().addDriverContext());
+        NewOperator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
 
         // expected
         MaterializedResult expected = resultBuilder(new TupleInfo(VARIABLE_BINARY, VARIABLE_BINARY))
@@ -439,7 +439,7 @@ public class TestNewHashJoinOperator
     {
         Session session = new Session("user", "source", "catalog", "schema", "address", "agent");
         DriverContext driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session, new DataSize(100, BYTE))
-                .addPipelineContext()
+                .addPipelineContext(true, true)
                 .addDriverContext();
 
         OperatorContext operatorContext = driverContext.addOperatorContext(0, StaticOperator.class.getSimpleName());

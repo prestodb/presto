@@ -128,6 +128,7 @@ public class TaskOutputOperator
         if (!future.isDone()) {
             this.blocked = future;
         }
+        operatorContext.recordGeneratedOutput(page.getDataSize(), page.getPositionCount());
     }
 
     @Override

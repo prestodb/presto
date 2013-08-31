@@ -43,8 +43,8 @@ public class NewHashJoinBenchmark
             NewAlignmentOperatorFactory ordersTableScan = new NewAlignmentOperatorFactory(0, orderOrderKey, totalPrice);
             NewHashBuilderOperatorFactory hashBuilder = new NewHashBuilderOperatorFactory(1, ordersTableScan.getTupleInfos(), 0, 1_500_000);
 
-            DriverContext driverContext = taskContext.addPipelineContext().addDriverContext();
-            Driver driver = new DriverFactory(ordersTableScan, hashBuilder).createDriver(driverContext);
+            DriverContext driverContext = taskContext.addPipelineContext(false, false).addDriverContext();
+            Driver driver = new DriverFactory(false, false, ordersTableScan, hashBuilder).createDriver(driverContext);
             while (!driver.isFinished()) {
                 driver.process();
             }

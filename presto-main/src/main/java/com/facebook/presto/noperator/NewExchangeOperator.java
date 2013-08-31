@@ -169,6 +169,9 @@ public class NewExchangeOperator
     public Page getOutput()
     {
         Page page = exchangeClient.pollPage();
+        if (page != null) {
+            operatorContext.recordGeneratedInput(page.getDataSize(), page.getPositionCount());
+        }
         return page;
     }
 }

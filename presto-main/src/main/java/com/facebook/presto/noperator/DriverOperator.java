@@ -48,7 +48,7 @@ public class DriverOperator
         operators.add(inMemoryExchange.createSinkFactory(99));
         inMemoryExchange.noMoreSinkFactories();
 
-        driverFactories = ImmutableList.of(new DriverFactory(operators));
+        driverFactories = ImmutableList.of(new DriverFactory(false, false, operators));
     }
 
     @Override

@@ -29,8 +29,6 @@ import static com.facebook.presto.noperator.PipelineContext.pipelineStatsGetter;
 import static com.facebook.presto.util.Threads.checkNotSameThreadExecutor;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.collect.Iterables.getFirst;
-import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -101,9 +99,9 @@ public class TaskContext
         });
     }
 
-    public PipelineContext addPipelineContext()
+    public PipelineContext addPipelineContext(boolean inputPipeline, boolean outputPipeline)
     {
-        PipelineContext pipelineContext = new PipelineContext(this, executor);
+        PipelineContext pipelineContext = new PipelineContext(this, executor, inputPipeline, outputPipeline);
         pipelineContexts.add(pipelineContext);
         return pipelineContext;
     }
@@ -196,8 +194,11 @@ public class TaskContext
         long totalUserTime = 0;
         long totalBlockedTime = 0;
 
-        long inputDataSize = 0;
-        long inputPositions = 0;
+        long rawInputDataSize = 0;
+        long rawInputPositions = 0;
+
+        long processedInputDataSize = 0;
+        long processedInputPositions = 0;
 
         long outputDataSize = 0;
         long outputPositions = 0;
@@ -214,14 +215,17 @@ public class TaskContext
             totalUserTime += pipeline.getTotalUserTime().roundTo(NANOSECONDS);
             totalBlockedTime += pipeline.getTotalBlockedTime().roundTo(NANOSECONDS);
 
-            OperatorStats inputOperator = getFirst(pipeline.getOperatorSummaries(), null);
-            if (inputOperator != null) {
-                inputDataSize += inputOperator.getInputDataSize().toBytes();
-                inputPositions += inputOperator.getInputPositions();
+            if (pipeline.isInputPipeline()) {
+                rawInputDataSize += pipeline.getRawInputDataSize().toBytes();
+                rawInputPositions += pipeline.getRawInputPositions();
 
-                OperatorStats outputOperator = checkNotNull(getLast(pipeline.getOperatorSummaries(), null));
-                outputDataSize += outputOperator.getOutputDataSize().toBytes();
-                outputPositions += outputOperator.getOutputPositions();
+                processedInputDataSize += pipeline.getProcessedInputDataSize().toBytes();
+                processedInputPositions += pipeline.getProcessedInputPositions();
+            }
+
+            if (pipeline.isOutputPipeline()) {
+                outputDataSize += pipeline.getOutputDataSize().toBytes();
+                outputPositions += pipeline.getOutputPositions();
             }
         }
 
@@ -256,8 +260,10 @@ public class TaskContext
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalUserTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                new DataSize(inputDataSize, BYTE).convertToMostSuccinctDataSize(),
-                inputPositions,
+                new DataSize(rawInputDataSize, BYTE).convertToMostSuccinctDataSize(),
+                rawInputPositions,
+                new DataSize(processedInputDataSize, BYTE).convertToMostSuccinctDataSize(),
+                processedInputPositions,
                 new DataSize(outputDataSize, BYTE).convertToMostSuccinctDataSize(),
                 outputPositions,
                 pipelineStats);

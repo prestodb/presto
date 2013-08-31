@@ -15,20 +15,27 @@ import static com.google.common.base.Preconditions.checkState;
 public class DriverFactory
         implements Closeable
 {
+    private final boolean inputDriver;
+    private final boolean outputDriver;
     private final List<NewOperatorFactory> operatorFactories;
     private final Set<PlanNodeId> sourceIds;
     private boolean closed;
 
-    public DriverFactory(NewOperatorFactory firstOperatorFactory, NewOperatorFactory... otherOperatorFactories)
+    public DriverFactory(boolean inputDriver, boolean outputDriver, NewOperatorFactory firstOperatorFactory, NewOperatorFactory... otherOperatorFactories)
     {
-        this(ImmutableList.<NewOperatorFactory>builder()
-                .add(checkNotNull(firstOperatorFactory, "firstOperatorFactory is null"))
-                .add(checkNotNull(otherOperatorFactories, "otherOperatorFactories is null"))
-                .build());
+        this(inputDriver,
+                outputDriver,
+                ImmutableList.<NewOperatorFactory>builder()
+                        .add(checkNotNull(firstOperatorFactory, "firstOperatorFactory is null"))
+                        .add(checkNotNull(otherOperatorFactories, "otherOperatorFactories is null"))
+                        .build()
+        );
     }
 
-    public DriverFactory(List<NewOperatorFactory> operatorFactories)
+    public DriverFactory(boolean inputDriver, boolean outputDriver, List<NewOperatorFactory> operatorFactories)
     {
+        this.inputDriver = inputDriver;
+        this.outputDriver = outputDriver;
         this.operatorFactories = ImmutableList.copyOf(checkNotNull(operatorFactories, "operatorFactories is null"));
         checkArgument(!operatorFactories.isEmpty(), "There must be at least one operator");
 
@@ -40,6 +47,16 @@ public class DriverFactory
             }
         }
         this.sourceIds = sourceIds.build();
+    }
+
+    public boolean isInputDriver()
+    {
+        return inputDriver;
+    }
+
+    public boolean isOutputDriver()
+    {
+        return outputDriver;
     }
 
     public Set<PlanNodeId> getSourceIds()

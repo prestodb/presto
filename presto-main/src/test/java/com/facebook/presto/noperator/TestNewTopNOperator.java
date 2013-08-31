@@ -41,7 +41,7 @@ public class TestNewTopNOperator
         executor = newCachedThreadPool(daemonThreadsNamed("test"));
         Session session = new Session("user", "source", "catalog", "schema", "address", "agent");
         driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session)
-                .addPipelineContext()
+                .addPipelineContext(true, true)
                 .addDriverContext();
     }
 

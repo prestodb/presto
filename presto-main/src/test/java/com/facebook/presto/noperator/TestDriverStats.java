@@ -35,6 +35,9 @@ public class TestDriverStats
             new DataSize(13, BYTE),
             14,
 
+            new DataSize(15, BYTE),
+            16,
+
             ImmutableList.of(TestOperatorStats.EXPECTED));
 
     @Test
@@ -63,11 +66,14 @@ public class TestDriverStats
         assertEquals(actual.getTotalUserTime(), new Duration(9, NANOSECONDS));
         assertEquals(actual.getTotalBlockedTime(), new Duration(10, NANOSECONDS));
 
-        assertEquals(actual.getInputDataSize(), new DataSize(11, BYTE));
-        assertEquals(actual.getInputPositions(), 12);
+        assertEquals(actual.getRawInputDataSize(), new DataSize(11, BYTE));
+        assertEquals(actual.getRawInputPositions(), 12);
 
-        assertEquals(actual.getOutputDataSize(), new DataSize(13, BYTE));
-        assertEquals(actual.getOutputPositions(), 14);
+        assertEquals(actual.getProcessedInputDataSize(), new DataSize(13, BYTE));
+        assertEquals(actual.getProcessedInputPositions(), 14);
+
+        assertEquals(actual.getOutputDataSize(), new DataSize(15, BYTE));
+        assertEquals(actual.getOutputPositions(), 16);
 
         assertEquals(actual.getOperatorStats().size(), 1);
         assertExpectedOperatorStats(actual.getOperatorStats().get(0));
