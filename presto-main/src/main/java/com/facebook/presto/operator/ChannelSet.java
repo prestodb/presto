@@ -37,51 +37,17 @@ public class ChannelSet
         checkArgument(tupleInfo.getFieldCount() == 1, "ChannelSet only supports single field set building channels");
         // Supporting multi-field channel sets (e.g. tuples) is much more difficult because of null handling, and hence is not supported by this class.
 
-        // Construct the set from the source
-        strategy = new SliceHashStrategy(tupleInfo);
-        addressValueSet = new AddressValueSet(expectedPositions, strategy);
-
-        // allocate the first slice of the set
-        Slice slice = Slices.allocate((int) BlockBuilder.DEFAULT_MAX_BLOCK_SIZE.toBytes());
-        strategy.addSlice(slice);
-        BlockBuilder blockBuilder = new BlockBuilder(tupleInfo, slice.length(), slice.getOutput());
-
-        int currentBlockId = 0;
-        long currentSize = 0;
-        boolean containsNull = false;
+        ChannelSetBuilder builder = new ChannelSetBuilder(tupleInfo, expectedPositions, taskMemoryManager);
         try (PageIterator pageIterator = source) {
             while (pageIterator.hasNext() && !operatorStats.isDone()) {
-                currentSize = taskMemoryManager.updateOperatorReservation(currentSize, getEstimatedSize());
-
                 Block sourceBlock = pageIterator.next().getBlock(setChannel);
-                BlockCursor sourceCursor = sourceBlock.cursor();
-                Slice sourceSlice = ((UncompressedBlock) sourceBlock).getSlice();
-                strategy.setLookupSlice(sourceSlice);
-
-                for (int position = 0; position < sourceBlock.getPositionCount(); position++) {
-                    checkState(sourceCursor.advanceNextPosition());
-
-                    // Record whether we have seen a null
-                    containsNull |= sourceCursor.isNull(0); // There should only be one field in this channel!
-
-                    long sourceAddress = encodeSyntheticAddress(LOOKUP_SLICE_INDEX, sourceCursor.getRawOffset());
-
-                    if (!addressValueSet.contains(sourceAddress)) {
-                        int length = tupleInfo.size(sourceSlice, sourceCursor.getRawOffset());
-                        if (blockBuilder.writableBytes() < length) {
-                            slice = Slices.allocate(Math.max((int) BlockBuilder.DEFAULT_MAX_BLOCK_SIZE.toBytes(), length));
-                            strategy.addSlice(slice);
-                            blockBuilder = new BlockBuilder(tupleInfo, slice.length(), slice.getOutput());
-                            currentBlockId++;
-                        }
-                        int blockRawOffset = blockBuilder.size();
-                        blockBuilder.appendTuple(sourceSlice, sourceCursor.getRawOffset(), length);
-                        addressValueSet.add(encodeSyntheticAddress(currentBlockId, blockRawOffset));
-                    }
-                }
+                builder.addBlock(sourceBlock);
             }
         }
-        this.containsNull = containsNull;
+
+        this.strategy = builder.strategy;
+        this.addressValueSet = builder.addressValueSet;
+        this.containsNull = builder.containsNull;
     }
 
     public ChannelSet(ChannelSet channelSet)
@@ -92,14 +58,16 @@ public class ChannelSet
         this.containsNull = channelSet.containsNull;
     }
 
+    private ChannelSet(SliceHashStrategy strategy, AddressValueSet addressValueSet, boolean containsNull)
+    {
+        this.strategy = strategy;
+        this.addressValueSet = addressValueSet;
+        this.containsNull = containsNull;
+    }
+
     public boolean containsNull()
     {
         return containsNull;
-    }
-
-    public DataSize getEstimatedSize()
-    {
-        return new DataSize(addressValueSet.getEstimatedSize().toBytes() + strategy.getEstimatedSize().toBytes(), DataSize.Unit.BYTE);
     }
 
     public void setLookupSlice(Slice lookupSlice)
@@ -128,6 +96,79 @@ public class ChannelSet
         public DataSize getEstimatedSize()
         {
             return new DataSize(sizeOf(this.key) + sizeOf(this.used), DataSize.Unit.BYTE);
+        }
+    }
+
+    public static class ChannelSetBuilder
+    {
+        private final SliceHashStrategy strategy;
+        private final AddressValueSet addressValueSet;
+        private final TaskMemoryManager taskMemoryManager;
+        private final TupleInfo tupleInfo;
+
+        private int currentBlockId;
+        private long currentSize;
+        private boolean containsNull;
+        private BlockBuilder blockBuilder;
+
+        public ChannelSetBuilder(TupleInfo tupleInfo, int expectedPositions, TaskMemoryManager taskMemoryManager)
+        {
+            this.tupleInfo = checkNotNull(tupleInfo, "tupleInfo is null");
+            checkArgument(expectedPositions >= 0, "expectedPositions must be greater than or equal to zero");
+            this.taskMemoryManager = checkNotNull(taskMemoryManager, "taskMemoryManager is null");
+
+            checkArgument(tupleInfo.getFieldCount() == 1, "ChannelSet only supports single field set building channels");
+            // Supporting multi-field channel sets (e.g. tuples) is much more difficult because of null handling, and hence is not supported by this class.
+
+            // Construct the set from the source
+            strategy = new SliceHashStrategy(tupleInfo);
+            addressValueSet = new AddressValueSet(expectedPositions, strategy);
+
+            // allocate the first slice of the set
+            Slice slice = Slices.allocate((int) BlockBuilder.DEFAULT_MAX_BLOCK_SIZE.toBytes());
+            strategy.addSlice(slice);
+            blockBuilder = new BlockBuilder(tupleInfo, slice.length(), slice.getOutput());
+        }
+
+        public void addBlock(Block sourceBlock)
+        {
+            currentSize = taskMemoryManager.updateOperatorReservation(currentSize, getEstimatedSize());
+
+            BlockCursor sourceCursor = sourceBlock.cursor();
+            Slice sourceSlice = ((UncompressedBlock) sourceBlock).getSlice();
+            strategy.setLookupSlice(sourceSlice);
+
+            for (int position = 0; position < sourceBlock.getPositionCount(); position++) {
+                checkState(sourceCursor.advanceNextPosition());
+
+                // Record whether we have seen a null
+                containsNull |= sourceCursor.isNull(0); // There should only be one field in this channel!
+
+                long sourceAddress = encodeSyntheticAddress(LOOKUP_SLICE_INDEX, sourceCursor.getRawOffset());
+
+                if (!addressValueSet.contains(sourceAddress)) {
+                    int length = tupleInfo.size(sourceSlice, sourceCursor.getRawOffset());
+                    if (blockBuilder.writableBytes() < length) {
+                        Slice slice = Slices.allocate(Math.max((int) BlockBuilder.DEFAULT_MAX_BLOCK_SIZE.toBytes(), length));
+                        strategy.addSlice(slice);
+                        blockBuilder = new BlockBuilder(tupleInfo, slice.length(), slice.getOutput());
+                        currentBlockId++;
+                    }
+                    int blockRawOffset = blockBuilder.size();
+                    blockBuilder.appendTuple(sourceSlice, sourceCursor.getRawOffset(), length);
+                    addressValueSet.add(encodeSyntheticAddress(currentBlockId, blockRawOffset));
+                }
+            }
+        }
+
+        public DataSize getEstimatedSize()
+        {
+            return new DataSize(addressValueSet.getEstimatedSize().toBytes() + strategy.getEstimatedSize().toBytes(), DataSize.Unit.BYTE);
+        }
+
+        public ChannelSet build()
+        {
+            return new ChannelSet(strategy, addressValueSet, containsNull);
         }
     }
 }
