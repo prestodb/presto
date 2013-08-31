@@ -84,7 +84,7 @@ public class HandTpchQuery1
 
         TpchQuery1Operator tpchQuery1Operator = new TpchQuery1Operator(alignmentOperator);
         return new HashAggregationOperator(tpchQuery1Operator,
-                1,
+                0,
                 Step.SINGLE,
                 ImmutableList.of(
                         aggregation(DOUBLE_SUM, new Input(1, 0)),
