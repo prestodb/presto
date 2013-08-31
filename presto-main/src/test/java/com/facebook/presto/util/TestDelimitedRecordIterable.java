@@ -1,8 +1,9 @@
-package com.facebook.presto.ingest;
+package com.facebook.presto.util;
 
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.util.DelimitedRecordSet;
 import com.google.common.base.Splitter;
 import org.testng.annotations.Test;
 

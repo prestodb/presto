@@ -1,7 +1,7 @@
 /*
  * Copyright 2004-present Facebook. All Rights Reserved.
  */
-package com.facebook.presto.ingest;
+package com.facebook.presto.util;
 
 import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.RecordCursor;
