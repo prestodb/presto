@@ -6,6 +6,8 @@ import com.facebook.presto.metadata.InternalTable;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
+import com.facebook.presto.noperator.NewAlignmentOperator;
+import com.facebook.presto.noperator.NewOperator;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.spi.ColumnHandle;
@@ -58,6 +60,18 @@ public class InformationSchemaDataStreamProvider
     @Override
     public Operator createDataStream(Split split, List<ColumnHandle> columns)
     {
+        return new AlignmentOperator(createChannels(split, columns));
+    }
+
+    @Override
+    public NewOperator createNewDataStream(Split split, List<ColumnHandle> columns)
+    {
+        List<BlockIterable> channels = createChannels(split, columns);
+        return new NewAlignmentOperator(channels);
+    }
+
+    private List<BlockIterable> createChannels(Split split, List<ColumnHandle> columns)
+    {
         checkNotNull(split, "split is null");
         checkArgument(split instanceof InformationSchemaSplit, "Split must be of type %s, not %s", InformationSchemaSplit.class.getName(), split.getClass().getName());
 
@@ -76,9 +90,7 @@ public class InformationSchemaDataStreamProvider
 
             list.add(table.getColumn(internalColumn.getColumnName()));
         }
-        ImmutableList<BlockIterable> channels = list.build();
-
-        return new AlignmentOperator(channels);
+        return list.build();
     }
 
     public InternalTable getInformationSchemaTable(String catalog, SchemaTableName table, Map<String, Object> filters)
