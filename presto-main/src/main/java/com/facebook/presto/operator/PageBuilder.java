@@ -94,6 +94,15 @@ public class PageBuilder
         return blockBuilders.length == 0 ? declaredPositions == 0 : blockBuilders[0].isEmpty();
     }
 
+    public long getSize()
+    {
+        long sizeInBytes = 0;
+        for (BlockBuilder blockBuilder : blockBuilders) {
+            sizeInBytes += blockBuilder.size();
+        }
+        return sizeInBytes;
+    }
+
     public Page build()
     {
         if (blockBuilders.length == 0) {
