@@ -5,12 +5,11 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.noperator.DriverContext;
-import com.facebook.presto.noperator.DriverOperator;
 import com.facebook.presto.noperator.NewAlignmentOperator.NewAlignmentOperatorFactory;
 import com.facebook.presto.noperator.NewHashAggregationOperator.NewHashAggregationOperatorFactory;
 import com.facebook.presto.noperator.NewOperator;
+import com.facebook.presto.noperator.NewOperatorFactory;
 import com.facebook.presto.noperator.OperatorContext;
-import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.serde.BlocksFileEncoding;
@@ -38,7 +37,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class NewHandTpchQuery1
-        extends AbstractOperatorBenchmark
+        extends AbstractSimpleOperatorBenchmark
 {
     public NewHandTpchQuery1(ExecutorService executor, TpchBlocksProvider tpchBlocksProvider)
     {
@@ -46,7 +45,7 @@ public class NewHandTpchQuery1
     }
 
     @Override
-    protected Operator createBenchmarkedOperator()
+    protected List<? extends NewOperatorFactory> createOperatorFactories()
     {
         // select
         //     returnflag,
@@ -90,7 +89,7 @@ public class NewHandTpchQuery1
 
         TpchQuery1OperatorFactory tpchQuery1Operator = new TpchQuery1OperatorFactory(1);
         NewHashAggregationOperatorFactory aggregationOperator = new NewHashAggregationOperatorFactory(
-                0,
+                2,
                 tpchQuery1Operator.getTupleInfos().get(0),
                 0,
                 Step.SINGLE,
@@ -105,7 +104,7 @@ public class NewHandTpchQuery1
                 ),
                 10_000);
 
-        return new DriverOperator(alignmentOperator, tpchQuery1Operator, aggregationOperator);
+        return ImmutableList.of(alignmentOperator, tpchQuery1Operator, aggregationOperator);
     }
 
     public static class TpchQuery1Operator

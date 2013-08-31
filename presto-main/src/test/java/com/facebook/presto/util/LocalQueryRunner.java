@@ -20,17 +20,12 @@ import com.facebook.presto.metadata.MockLocalStorageManager;
 import com.facebook.presto.noperator.Driver;
 import com.facebook.presto.noperator.DriverContext;
 import com.facebook.presto.noperator.DriverFactory;
-import com.facebook.presto.noperator.DriverOperator.DriverOperatorIterator;
-import com.facebook.presto.noperator.InMemoryExchange;
 import com.facebook.presto.noperator.MaterializingOperator;
 import com.facebook.presto.noperator.NewOperator;
 import com.facebook.presto.noperator.NewOperatorFactory;
 import com.facebook.presto.noperator.OperatorContext;
 import com.facebook.presto.noperator.OutputFactory;
 import com.facebook.presto.noperator.TaskContext;
-import com.facebook.presto.operator.Operator;
-import com.facebook.presto.operator.OperatorStats;
-import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.Split;
@@ -65,8 +60,10 @@ import com.facebook.presto.tpch.TpchSplitManager;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicates;
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Multimap;
 import io.airlift.node.NodeConfig;
 import io.airlift.node.NodeInfo;
 import org.intellij.lang.annotations.Language;
@@ -75,6 +72,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
@@ -180,60 +178,12 @@ public class LocalQueryRunner
         return outputFactory.getMaterializingOperator().getMaterializedResult();
     }
 
-    private static class InMemoryExchangeOutputFactory
-            implements OutputFactory
+    public List<Driver> createDrivers(@Language("SQL") String sql, OutputFactory outputFactory)
     {
-        private InMemoryExchange inMemoryExchange;
-
-        private InMemoryExchange getInMemoryExchange()
-        {
-            checkState(inMemoryExchange != null, "Output not created");
-            return inMemoryExchange;
-        }
-
-        @Override
-        public NewOperatorFactory createOutputOperator(int operatorId, final List<TupleInfo> sourceTupleInfo)
-        {
-            checkNotNull(sourceTupleInfo, "sourceTupleInfo is null");
-
-            checkState(inMemoryExchange == null, "Output already created");
-            inMemoryExchange = new InMemoryExchange(sourceTupleInfo);
-            NewOperatorFactory operatorFactory = inMemoryExchange.createSinkFactory(operatorId);
-            inMemoryExchange.noMoreSinkFactories();
-
-            return operatorFactory;
-        }
+        return createDrivers(sql, outputFactory, new TaskContext(new TaskId("query", "stage", "task"), executor, session));
     }
 
-    public Operator plan(@Language("SQL") String sql)
-    {
-        InMemoryExchangeOutputFactory outputFactory = new InMemoryExchangeOutputFactory();
-        final List<Driver> drivers = createDrivers(sql, outputFactory);
-        final InMemoryExchange inMemoryExchange = outputFactory.getInMemoryExchange();
-
-        return new Operator()
-        {
-            @Override
-            public int getChannelCount()
-            {
-                return getTupleInfos().size();
-            }
-
-            @Override
-            public List<TupleInfo> getTupleInfos()
-            {
-                return inMemoryExchange.getTupleInfos();
-            }
-
-            @Override
-            public PageIterator iterator(OperatorStats operatorStats)
-            {
-                return new DriverOperatorIterator(drivers, inMemoryExchange, operatorStats);
-            }
-        };
-    }
-
-    private List<Driver> createDrivers(String sql, OutputFactory outputFactory)
+    public List<Driver> createDrivers(@Language("SQL") String sql, OutputFactory outputFactory, TaskContext taskContext)
     {
         Statement statement = SqlParser.createStatement(sql);
 
@@ -273,13 +223,23 @@ public class LocalQueryRunner
                 plan.getTypes(),
                 outputFactory);
 
-        TaskContext taskContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session);
+        // generate splits
+        Multimap<PlanNodeId, Split> splits = ArrayListMultimap.create();
+        for (PlanNode source : subplan.getFragment().getSources()) {
+            TableScanNode tableScan = (TableScanNode) source;
+
+            splits.putAll(source.getId(), splitManager.getSplits(session,
+                    tableScan.getTable(),
+                    tableScan.getPartitionPredicate(),
+                    tableScan.getUpstreamPredicateHint(),
+                    Predicates.<Partition>alwaysTrue(),
+                    tableScan.getAssignments()).getSplits());
+        }
 
         // create drivers
         List<Driver> drivers = new ArrayList<>();
         Map<PlanNodeId, Driver> driversBySource = new HashMap<>();
-        List<DriverFactory> driverFactories = localExecutionPlan.getDriverFactories();
-        for (DriverFactory driverFactory : driverFactories) {
+        for (DriverFactory driverFactory : localExecutionPlan.getDriverFactories()) {
             DriverContext driverContext = taskContext.addPipelineContext(driverFactory.isInputDriver(), driverFactory.isOutputDriver()).addDriverContext();
             Driver driver = driverFactory.createDriver(driverContext);
             drivers.add(driver);
@@ -290,22 +250,12 @@ public class LocalQueryRunner
         }
 
         // add the splits to the drivers
-        for (PlanNode source : subplan.getFragment().getSources()) {
-            TableScanNode tableScan = (TableScanNode) source;
-
-            List<Split> splits = ImmutableList.copyOf(splitManager.getSplits(session,
-                    tableScan.getTable(),
-                    tableScan.getPartitionPredicate(),
-                    tableScan.getUpstreamPredicateHint(),
-                    Predicates.<Partition>alwaysTrue(),
-                    tableScan.getAssignments()).getSplits());
-
-            Driver driver = driversBySource.get(source.getId());
-            checkState(driver != null, "Unknown source %s", source.getId());
-            for (Split split : splits) {
-                driver.addSplit(source.getId(), split);
-            }
+        for (Entry<PlanNodeId, Split> entry : splits.entries()) {
+            Driver driver = driversBySource.get(entry.getKey());
+            checkState(driver != null, "Unknown source %s", entry.getKey());
+            driver.addSplit(entry.getKey(), entry.getValue());
         }
+
         for (Driver driver : drivers) {
             for (PlanNodeId sourceId : driver.getSourceIds()) {
                 driver.noMoreSplits(sourceId);
