@@ -1,9 +1,9 @@
 package com.facebook.presto.noperator;
 
+import com.facebook.presto.noperator.NewPagesIndex.MultiSliceFieldOrderedTupleComparator;
 import com.facebook.presto.operator.ChannelIndex;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageBuilder;
-import com.facebook.presto.operator.PagesIndex.MultiSliceFieldOrderedTupleComparator;
 import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
