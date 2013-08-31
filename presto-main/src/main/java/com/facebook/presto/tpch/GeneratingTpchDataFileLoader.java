@@ -1,11 +1,16 @@
 package com.facebook.presto.tpch;
 
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.ingest.DelimitedRecordSet;
-import com.facebook.presto.ingest.ImportingOperator;
-import com.facebook.presto.ingest.RecordProjectOperator;
+import com.facebook.presto.metadata.ColumnFileHandle;
+import com.facebook.presto.noperator.NewRecordProjectOperator;
+import com.facebook.presto.noperator.OperatorContext;
+import com.facebook.presto.noperator.TaskContext;
+import com.facebook.presto.operator.Page;
 import com.facebook.presto.serde.BlocksFileEncoding;
-import com.facebook.presto.serde.BlocksFileWriter;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.util.Threads;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
 import com.google.common.hash.Hashing;
@@ -17,13 +22,14 @@ import com.google.common.io.Resources;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.jar.JarFile;
 
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.io.CharStreams.newReaderSupplier;
-import static com.google.common.io.Files.newOutputStreamSupplier;
 
 /**
  * Extracts TPCH data into serialized column file formats.
@@ -128,6 +134,7 @@ public class GeneratingTpchDataFileLoader
         checkNotNull(encoding, "encoding is null");
 
         String tableName = tableHandle.getTableName();
+        ExecutorService executor = Executors.newCachedThreadPool(Threads.daemonThreadsNamed("tpch-generate-%s"));
         try {
             String hash = ByteStreams.hash(ByteStreams.slice(tableInputSupplierFactory.getInputSupplier(tableName), 0, 1024 * 1024), Hashing.murmur3_32()).toString();
 
@@ -144,14 +151,33 @@ public class GeneratingTpchDataFileLoader
 
             DelimitedRecordSet records = new DelimitedRecordSet(newReaderSupplier(inputSupplier, UTF_8), Splitter.on("|"), columnMetadata);
 
-            RecordProjectOperator source = new RecordProjectOperator(records);
+            Session session = new Session("user", "source", "catalog", "schema", "address", "agent");
+            OperatorContext operatorContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session)
+                    .addPipelineContext(true, true)
+                    .addDriverContext()
+                    .addOperatorContext(0, "tpch-generate");
 
-            ImportingOperator.importData(source, new BlocksFileWriter(encoding, newOutputStreamSupplier(cachedFile)));
+            NewRecordProjectOperator source = new NewRecordProjectOperator(operatorContext, records);
+
+            ColumnFileHandle columnFileHandle = ColumnFileHandle.builder(0)
+                    .addColumn(columnHandle, cachedFile, encoding)
+                    .build();
+
+            while (!source.isFinished()) {
+                Page page = source.getOutput();
+                if (page != null) {
+                    columnFileHandle.append(page);
+                }
+            }
+            columnFileHandle.commit();
 
             return cachedFile;
         }
         catch (IOException e) {
             throw Throwables.propagate(e);
+        }
+        finally {
+            executor.shutdownNow();
         }
     }
 
