@@ -1,14 +1,15 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.noperator.DriverOperator;
 import com.facebook.presto.noperator.NewAlignmentOperator.NewAlignmentOperatorFactory;
 import com.facebook.presto.noperator.NewInMemoryOrderByOperator.NewInMemoryOrderByOperatorFactory;
 import com.facebook.presto.noperator.NewLimitOperator.NewLimitOperatorFactory;
-import com.facebook.presto.operator.Operator;
+import com.facebook.presto.noperator.NewOperatorFactory;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.tpch.TpchBlocksProvider;
+import com.google.common.collect.ImmutableList;
 
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.block.BlockIterables.concat;
@@ -17,7 +18,7 @@ import static java.util.Collections.nCopies;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class NewInMemoryOrderByBenchmark
-        extends AbstractOperatorBenchmark
+        extends AbstractSimpleOperatorBenchmark
 {
     private static final int ROWS = 1_500_000;
 
@@ -27,7 +28,7 @@ public class NewInMemoryOrderByBenchmark
     }
 
     @Override
-    protected Operator createBenchmarkedOperator()
+    protected List<? extends NewOperatorFactory> createOperatorFactories()
     {
         BlockIterable totalPrice = getBlockIterable("orders", "totalprice", BlocksFileEncoding.RAW);
         BlockIterable clerk = getBlockIterable("orders", "clerk", BlocksFileEncoding.RAW);
@@ -43,7 +44,7 @@ public class NewInMemoryOrderByBenchmark
                 new int[]{1},
                 ROWS);
 
-        return new DriverOperator(alignmentOperator, limitOperator, orderByOperator);
+        return ImmutableList.of(alignmentOperator, limitOperator, orderByOperator);
     }
 
     public static void main(String[] args)

@@ -1,30 +1,29 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.block.BlockIterable;
+import com.facebook.presto.noperator.NewAggregationOperator.NewAggregationOperatorFactory;
 import com.facebook.presto.noperator.NewAlignmentOperator.NewAlignmentOperatorFactory;
 import com.facebook.presto.noperator.NewOperatorFactory;
-import com.facebook.presto.noperator.NewTopNOperator.NewTopNOperatorFactory;
 import com.facebook.presto.serde.BlocksFileEncoding;
-import com.facebook.presto.sql.tree.SortItem;
+import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
+import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.tpch.TpchBlocksProvider;
-import com.facebook.presto.tuple.FieldOrderedTupleComparator;
-import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Ordering;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 
-import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
+import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
+import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUBLE_SUM;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
-public class NewTop100Benchmark
+public class NewDoubleSumAggregationBenchmark
         extends AbstractSimpleOperatorBenchmark
 {
-    public NewTop100Benchmark(ExecutorService executor, TpchBlocksProvider tpchBlocksProvider)
+    public NewDoubleSumAggregationBenchmark(ExecutorService executor, TpchBlocksProvider tpchBlocksProvider)
     {
-        super(executor, tpchBlocksProvider, "top100", 5, 50);
+        super(executor, tpchBlocksProvider, "double_sum_agg", 10, 100);
     }
 
     @Override
@@ -32,20 +31,14 @@ public class NewTop100Benchmark
     {
         BlockIterable blockIterable = getBlockIterable("orders", "totalprice", BlocksFileEncoding.RAW);
         NewAlignmentOperatorFactory alignmentOperator = new NewAlignmentOperatorFactory(0, blockIterable);
-        NewTopNOperatorFactory topNOperator = new NewTopNOperatorFactory(
-                1,
-                100,
-                0,
-                ImmutableList.of(singleColumn(Type.DOUBLE, 0, 0)),
-                Ordering.from(new FieldOrderedTupleComparator(ImmutableList.of(0), ImmutableList.of(SortItem.Ordering.DESCENDING))),
-                false);
-        return ImmutableList.of(alignmentOperator, topNOperator);
+        NewAggregationOperatorFactory aggregationOperator = new NewAggregationOperatorFactory(1, Step.SINGLE, ImmutableList.of(aggregation(DOUBLE_SUM, new Input(0, 0))));
+        return ImmutableList.of(alignmentOperator, aggregationOperator);
     }
 
     public static void main(String[] args)
     {
         ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        new NewTop100Benchmark(executor, DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(
+        new NewDoubleSumAggregationBenchmark(executor, DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(
                 new SimpleLineBenchmarkResultWriter(System.out)
         );
     }

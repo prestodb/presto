@@ -1,17 +1,18 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.noperator.DriverOperator;
 import com.facebook.presto.noperator.NewAlignmentOperator.NewAlignmentOperatorFactory;
 import com.facebook.presto.noperator.NewFilterAndProjectOperator.NewFilterAndProjectOperatorFactory;
+import com.facebook.presto.noperator.NewOperatorFactory;
 import com.facebook.presto.operator.FilterFunction;
-import com.facebook.presto.operator.Operator;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.tuple.TupleReadable;
+import com.google.common.collect.ImmutableList;
 
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
@@ -19,7 +20,7 @@ import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class NewPredicateFilterBenchmark
-        extends AbstractOperatorBenchmark
+        extends AbstractSimpleOperatorBenchmark
 {
     public NewPredicateFilterBenchmark(ExecutorService executor, TpchBlocksProvider tpchBlocksProvider)
     {
@@ -27,13 +28,13 @@ public class NewPredicateFilterBenchmark
     }
 
     @Override
-    protected Operator createBenchmarkedOperator()
+    protected List<? extends NewOperatorFactory> createOperatorFactories()
     {
         BlockIterable blockIterable = getBlockIterable("orders", "totalprice", BlocksFileEncoding.RAW);
         NewAlignmentOperatorFactory alignmentOperator = new NewAlignmentOperatorFactory(0, blockIterable);
         NewFilterAndProjectOperatorFactory filterAndProjectOperator = new NewFilterAndProjectOperatorFactory(1, new DoubleFilter(50000.00), singleColumn(Type.DOUBLE, 0, 0));
 
-        return new DriverOperator(alignmentOperator, filterAndProjectOperator);
+        return ImmutableList.of(alignmentOperator, filterAndProjectOperator);
     }
 
     public static class DoubleFilter implements FilterFunction {

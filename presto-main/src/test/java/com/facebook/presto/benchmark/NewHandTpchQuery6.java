@@ -5,13 +5,11 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.noperator.DriverContext;
-import com.facebook.presto.noperator.DriverOperator;
 import com.facebook.presto.noperator.NewAggregationOperator.NewAggregationOperatorFactory;
 import com.facebook.presto.noperator.NewAlignmentOperator.NewAlignmentOperatorFactory;
 import com.facebook.presto.noperator.NewOperator;
 import com.facebook.presto.noperator.NewOperatorFactory;
 import com.facebook.presto.noperator.OperatorContext;
-import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
@@ -33,7 +31,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class NewHandTpchQuery6
-        extends AbstractOperatorBenchmark
+        extends AbstractSimpleOperatorBenchmark
 {
     public NewHandTpchQuery6(ExecutorService executor, TpchBlocksProvider tpchBlocksProvider)
     {
@@ -41,7 +39,7 @@ public class NewHandTpchQuery6
     }
 
     @Override
-    protected Operator createBenchmarkedOperator()
+    protected List<? extends NewOperatorFactory> createOperatorFactories()
     {
         // select sum(extendedprice * discount) as revenue
         // from lineitem
@@ -67,7 +65,7 @@ public class NewHandTpchQuery6
                         aggregation(DOUBLE_SUM, new Input(0, 0))
                 ));
 
-        return new DriverOperator(alignmentOperator, tpchQuery6Operator, aggregationOperator);
+        return ImmutableList.of(alignmentOperator, tpchQuery6Operator, aggregationOperator);
     }
 
     public static class TpchQuery6Operator

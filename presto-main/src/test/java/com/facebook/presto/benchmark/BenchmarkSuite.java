@@ -24,18 +24,19 @@ public class BenchmarkSuite
     public static List<AbstractBenchmark> createBenchmarks(ExecutorService executor, TpchBlocksProvider tpchBlocksProvider)
     {
         return ImmutableList.<AbstractBenchmark>of(
-                new CountAggregationBenchmark(executor, tpchBlocksProvider),
-                new DoubleSumAggregationBenchmark(executor, tpchBlocksProvider),
-                new HashAggregationBenchmark(executor, tpchBlocksProvider),
-                new PredicateFilterBenchmark(executor, tpchBlocksProvider),
-                new RawStreamingBenchmark(executor, tpchBlocksProvider),
-                new Top100Benchmark(executor, tpchBlocksProvider),
-
-                // benchmarks for new non-integrated features
-                new InMemoryOrderByBenchmark(executor, tpchBlocksProvider),
-                new HashBuildBenchmark(executor, tpchBlocksProvider),
-                new HashJoinBenchmark(executor, tpchBlocksProvider),
-                new HashBuildAndJoinBenchmark(executor, tpchBlocksProvider),
+                // hand built benchmarks
+                new NewCountAggregationBenchmark(executor, tpchBlocksProvider),
+                new NewDoubleSumAggregationBenchmark(executor, tpchBlocksProvider),
+                new NewHashAggregationBenchmark(executor, tpchBlocksProvider),
+                new NewPredicateFilterBenchmark(executor, tpchBlocksProvider),
+                new NewRawStreamingBenchmark(executor, tpchBlocksProvider),
+                new NewTop100Benchmark(executor, tpchBlocksProvider),
+                new NewInMemoryOrderByBenchmark(executor, tpchBlocksProvider),
+                new NewHashBuildBenchmark(executor, tpchBlocksProvider),
+                new NewHashJoinBenchmark(executor, tpchBlocksProvider),
+                new NewHashBuildAndJoinBenchmark(executor, tpchBlocksProvider),
+                new NewHandTpchQuery1(executor, tpchBlocksProvider),
+                new NewHandTpchQuery6(executor, tpchBlocksProvider),
 
                 // sql benchmarks
                 new GroupBySumWithArithmeticSqlBenchmark(executor, tpchBlocksProvider),
@@ -53,7 +54,6 @@ public class BenchmarkSuite
                 new SqlDistinctSingleField(executor, tpchBlocksProvider),
                 new SqlTpchQuery1(executor, tpchBlocksProvider),
                 new SqlTpchQuery6(executor, tpchBlocksProvider),
-                new HandTpchQuery6(executor, tpchBlocksProvider),
                 new SqlLikeBenchmark(executor, tpchBlocksProvider),
                 new SqlInBenchmark(executor, tpchBlocksProvider),
                 new SqlSemiJoinInPredicateBenchmark(executor, tpchBlocksProvider),
@@ -96,7 +96,7 @@ public class BenchmarkSuite
     {
         ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test"));
         try {
-            List<AbstractBenchmark> benchmarks = createBenchmarks(executor, AbstractOperatorBenchmark.DEFAULT_TPCH_BLOCKS_PROVIDER);
+            List<AbstractBenchmark> benchmarks = createBenchmarks(executor, AbstractNewOperatorBenchmark.DEFAULT_TPCH_BLOCKS_PROVIDER);
 
             LOGGER.info("=== Pre-running all benchmarks for JVM warmup ===");
             for (AbstractBenchmark benchmark : benchmarks) {
