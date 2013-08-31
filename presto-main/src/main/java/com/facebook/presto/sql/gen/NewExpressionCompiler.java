@@ -17,6 +17,7 @@ import com.facebook.presto.byteCode.MethodDefinition;
 import com.facebook.presto.byteCode.NamedParameterDefinition;
 import com.facebook.presto.byteCode.ParameterizedType;
 import com.facebook.presto.byteCode.SmartClassWriter;
+import com.facebook.presto.byteCode.control.ForLoop;
 import com.facebook.presto.byteCode.control.ForLoop.ForLoopBuilder;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.byteCode.control.IfStatement.IfStatementBuilder;
@@ -24,13 +25,19 @@ import com.facebook.presto.byteCode.instruction.LabelNode;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.noperator.DriverContext;
 import com.facebook.presto.noperator.NewAbstractFilterAndProjectOperator;
+import com.facebook.presto.noperator.NewAbstractScanFilterAndProjectOperator;
 import com.facebook.presto.noperator.NewOperator;
 import com.facebook.presto.noperator.NewOperatorFactory;
+import com.facebook.presto.noperator.NewSourceOperator;
+import com.facebook.presto.noperator.NewSourceOperatorFactory;
 import com.facebook.presto.noperator.OperatorContext;
 import com.facebook.presto.operator.PageBuilder;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.tuple.TupleInfo;
@@ -76,6 +83,7 @@ import static com.facebook.presto.byteCode.Access.PUBLIC;
 import static com.facebook.presto.byteCode.Access.STATIC;
 import static com.facebook.presto.byteCode.Access.a;
 import static com.facebook.presto.byteCode.NamedParameterDefinition.arg;
+import static com.facebook.presto.byteCode.OpCodes.NOP;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.ParameterizedType.typeFromPathName;
 import static com.facebook.presto.byteCode.control.ForLoop.forLoopBuilder;
@@ -107,6 +115,17 @@ public class NewExpressionCompiler
                         throws Exception
                 {
                     return internalCompileFilterAndProjectOperator(key.getFilter(), key.getProjections(), key.getInputTypes());
+                }
+            });
+
+    private final LoadingCache<OperatorCacheKey, ScanFilterAndProjectOperatorFactoryFactory> sourceOperatorFactories = CacheBuilder.newBuilder().maximumSize(1000).build(
+            new CacheLoader<OperatorCacheKey, ScanFilterAndProjectOperatorFactoryFactory>()
+            {
+                @Override
+                public ScanFilterAndProjectOperatorFactoryFactory load(OperatorCacheKey key)
+                        throws Exception
+                {
+                    return internalCompileScanFilterAndProjectOperator(key.getSourceId(), key.getFilter(), key.getProjections(), key.getInputTypes());
                 }
             });
 
@@ -164,7 +183,12 @@ public class NewExpressionCompiler
 
     public NewOperatorFactory compileFilterAndProjectOperator(int operatorId, Expression filter, List<Expression> projections, Map<Input, Type> inputTypes)
     {
-        return operatorFactories.getUnchecked(new OperatorCacheKey(filter, projections, inputTypes)).create(operatorId);
+        return operatorFactories.getUnchecked(new OperatorCacheKey(filter, projections, inputTypes, null)).create(operatorId);
+    }
+
+    private DynamicClassLoader createClassLoader()
+    {
+        return new DynamicClassLoader(bootstrapMethod.getDeclaringClass().getClassLoader());
     }
 
     @VisibleForTesting
@@ -185,11 +209,6 @@ public class NewExpressionCompiler
         FilterAndProjectOperatorFactoryFactory operatorFactoryFactory = new FilterAndProjectOperatorFactoryFactory(constructor, typedNewOperatorClass.getTupleInfos());
 
         return operatorFactoryFactory;
-    }
-
-    private DynamicClassLoader createClassLoader()
-    {
-        return new DynamicClassLoader(bootstrapMethod.getDeclaringClass().getClassLoader());
     }
 
     private TypedNewOperatorClass compileFilterAndProjectOperator(
@@ -271,6 +290,140 @@ public class NewExpressionCompiler
                 .retObject();
 
         Class<? extends NewOperator> filterAndProjectClass = defineClass(classDefinition, NewOperator.class, classLoader);
+        return new TypedNewOperatorClass(filterAndProjectClass, tupleInfos);
+    }
+
+    public NewSourceOperatorFactory compileScanFilterAndProjectOperator(
+            int operatorId,
+            PlanNodeId sourceId,
+            DataStreamProvider dataStreamProvider,
+            List<ColumnHandle> columns,
+            Expression filter,
+            List<Expression> projections,
+            Map<Input, Type> inputTypes)
+    {
+        return sourceOperatorFactories.getUnchecked(new OperatorCacheKey(filter, projections, inputTypes, sourceId)).create(operatorId, dataStreamProvider, columns);
+    }
+
+    @VisibleForTesting
+    public ScanFilterAndProjectOperatorFactoryFactory internalCompileScanFilterAndProjectOperator(
+            PlanNodeId sourceId,
+            Expression filter,
+            List<Expression> projections,
+            Map<Input, Type> inputTypes)
+    {
+        DynamicClassLoader classLoader = createClassLoader();
+
+        // create filter and project page iterator class
+        TypedNewOperatorClass typedNewOperatorClass = compileScanFilterAndProjectOperator(filter, projections, inputTypes, classLoader);
+
+        Constructor<? extends NewSourceOperator> constructor;
+        try {
+            constructor = typedNewOperatorClass.getNewOperatorClass().asSubclass(NewSourceOperator.class).getConstructor(
+                    OperatorContext.class,
+                    PlanNodeId.class,
+                    DataStreamProvider.class,
+                    Iterable.class,
+                    Iterable.class);
+        }
+        catch (NoSuchMethodException e) {
+            throw Throwables.propagate(e);
+        }
+
+        ScanFilterAndProjectOperatorFactoryFactory operatorFactoryFactory = new ScanFilterAndProjectOperatorFactoryFactory(
+                constructor,
+                sourceId,
+                typedNewOperatorClass.getTupleInfos());
+
+        return operatorFactoryFactory;
+    }
+
+    private TypedNewOperatorClass compileScanFilterAndProjectOperator(
+            Expression filter,
+            List<Expression> projections,
+            Map<Input, Type> inputTypes,
+            DynamicClassLoader classLoader)
+    {
+        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(bootstrapMethod),
+                a(PUBLIC, FINAL),
+                typeFromPathName("ScanFilterAndProjectOperator_" + CLASS_ID.incrementAndGet()),
+                type(NewAbstractScanFilterAndProjectOperator.class));
+
+        // declare fields
+        FieldDefinition sessionField = classDefinition.declareField(a(PRIVATE, FINAL), "session", Session.class);
+
+        // constructor
+        classDefinition.declareConstructor(new CompilerContext(bootstrapMethod),
+                a(PUBLIC),
+                arg("operatorContext", OperatorContext.class),
+                arg("sourceId", PlanNodeId.class),
+                arg("dataStreamProvider", DataStreamProvider.class),
+                arg("columns", type(Iterable.class, ColumnHandle.class)),
+                arg("tupleInfos", type(Iterable.class, TupleInfo.class)))
+                .getBody()
+                .comment("super(operatorContext, sourceId, dataStreamProvider, columns, tupleInfos);")
+                .pushThis()
+                .getVariable("operatorContext")
+                .getVariable("sourceId")
+                .getVariable("dataStreamProvider")
+                .getVariable("columns")
+                .getVariable("tupleInfos")
+                .invokeConstructor(NewAbstractScanFilterAndProjectOperator.class, OperatorContext.class, PlanNodeId.class, DataStreamProvider.class, Iterable.class, Iterable.class)
+                .comment("this.session = operatorContext.getSession();")
+                .pushThis()
+                .getVariable("operatorContext")
+                .invokeVirtual(OperatorContext.class, "getSession", Session.class)
+                .putField(sessionField)
+                .ret();
+
+        generateFilterAndProjectRowOriented(classDefinition, projections, inputTypes);
+        generateFilterAndProjectCursorMethod(classDefinition, projections);
+
+        //
+        // filter method
+        //
+        generateFilterMethod(classDefinition, filter, inputTypes, true);
+        generateFilterMethod(classDefinition, filter, inputTypes, false);
+
+        //
+        // project methods
+        //
+        List<TupleInfo> tupleInfos = new ArrayList<>();
+        int projectionIndex = 0;
+        for (Expression projection : projections) {
+            Class<?> type = generateProjectMethod(classDefinition, "project_" + projectionIndex, projection, inputTypes, true);
+            generateProjectMethod(classDefinition, "project_" + projectionIndex, projection, inputTypes, false);
+            if (type == boolean.class) {
+                tupleInfos.add(TupleInfo.SINGLE_BOOLEAN);
+            }
+            // todo remove assumption that void is a long
+            else if (type == long.class || type == void.class) {
+                tupleInfos.add(TupleInfo.SINGLE_LONG);
+            }
+            else if (type == double.class) {
+                tupleInfos.add(TupleInfo.SINGLE_DOUBLE);
+            }
+            else if (type == Slice.class) {
+                tupleInfos.add(TupleInfo.SINGLE_VARBINARY);
+            }
+            else {
+                throw new IllegalStateException("Type " + type.getName() + "can be output");
+            }
+            projectionIndex++;
+        }
+
+        //
+        // toString method
+        //
+        classDefinition.declareMethod(new CompilerContext(bootstrapMethod), a(PUBLIC), "toString", type(String.class))
+                .getBody()
+                .push(toStringHelper(classDefinition.getType().getJavaClassName())
+                        .add("filter", filter)
+                        .add("projections", projections)
+                        .toString())
+                .retObject();
+
+        Class<? extends NewSourceOperator> filterAndProjectClass = defineClass(classDefinition, NewSourceOperator.class, classLoader);
         return new TypedNewOperatorClass(filterAndProjectClass, tupleInfos);
     }
 
@@ -396,6 +549,98 @@ public class NewExpressionCompiler
         }
 
         filterAndProjectMethod.getBody().ret();
+    }
+
+    private void generateFilterAndProjectCursorMethod(ClassDefinition classDefinition, List<Expression> projections)
+    {
+        MethodDefinition filterAndProjectMethod = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
+                a(PUBLIC),
+                "filterAndProjectRowOriented",
+                type(int.class),
+                arg("cursor", RecordCursor.class),
+                arg("pageBuilder", PageBuilder.class));
+
+        CompilerContext compilerContext = filterAndProjectMethod.getCompilerContext();
+
+        LocalVariableDefinition completedPositionsVariable = compilerContext.declareVariable(int.class, "completedPositions");
+        filterAndProjectMethod.getBody()
+                .comment("int completedPositions = 0;")
+                .putVariable(completedPositionsVariable, 0);
+
+        //
+        // for loop loop body
+        //
+        LabelNode done = new LabelNode("done");
+        ForLoopBuilder forLoop = ForLoop.forLoopBuilder(compilerContext)
+                .initialize(NOP)
+                .condition(new Block(compilerContext)
+                        .comment("completedPositions < 16384")
+                        .getVariable(completedPositionsVariable)
+                        .push(16384)
+                        .invokeStatic(Operations.class, "lessThan", boolean.class, int.class, int.class)
+                )
+                .update(new Block(compilerContext)
+                        .comment("completedPositions++")
+                        .incrementVariable(completedPositionsVariable, (byte) 1)
+                );
+
+        Block forLoopBody = new Block(compilerContext);
+        forLoop.body(forLoopBody);
+
+
+        forLoopBody.comment("if (pageBuilder.isFull()) break;")
+                .append(new Block(compilerContext)
+                        .getVariable("pageBuilder")
+                        .invokeVirtual(PageBuilder.class, "isFull", boolean.class)
+                        .ifTrueGoto(done));
+
+
+        forLoopBody.comment("if (!cursor.advanceNextPosition()) break;")
+                .append(new Block(compilerContext)
+                        .getVariable("cursor")
+                        .invokeInterface(RecordCursor.class, "advanceNextPosition", boolean.class)
+                        .ifFalseGoto(done));
+
+        // if (filter(cursor))
+        IfStatementBuilder ifStatement = new IfStatementBuilder(compilerContext);
+        ifStatement.condition(new Block(compilerContext)
+                .pushThis()
+                .getVariable("cursor")
+                .invokeVirtual(classDefinition.getType(), "filter", type(boolean.class), type(RecordCursor.class)));
+
+        Block trueBlock = new Block(compilerContext);
+        ifStatement.ifTrue(trueBlock);
+        if (projections.isEmpty()) {
+            // pageBuilder.declarePosition();
+            trueBlock.getVariable("pageBuilder").invokeVirtual(PageBuilder.class, "declarePosition", void.class);
+        }
+        else {
+            // project_43(cursor_0, cursor_1, pageBuilder.getBlockBuilder(42)));
+            for (int projectionIndex = 0; projectionIndex < projections.size(); projectionIndex++) {
+                trueBlock.pushThis();
+                trueBlock.getVariable("cursor");
+
+                // pageBuilder.getBlockBuilder(0)
+                trueBlock.getVariable("pageBuilder")
+                        .push(projectionIndex)
+                        .invokeVirtual(PageBuilder.class, "getBlockBuilder", BlockBuilder.class, int.class);
+
+                // project(cursor_0, cursor_1, blockBuilder)
+                trueBlock.invokeVirtual(classDefinition.getType(),
+                        "project_" + projectionIndex,
+                        type(void.class),
+                        type(RecordCursor.class),
+                        type(BlockBuilder.class));
+            }
+        }
+        forLoopBody.append(ifStatement.build());
+
+        filterAndProjectMethod.getBody()
+                .append(forLoop.build())
+                .visitLabel(done)
+                .comment("return completedPositions;")
+                .getVariable("completedPositions")
+                .retInt();
     }
 
     private void generateFilterMethod(ClassDefinition classDefinition,
@@ -631,12 +876,14 @@ public class NewExpressionCompiler
         private final Expression filter;
         private final List<Expression> projections;
         private final Map<Input, Type> inputTypes;
+        private final PlanNodeId sourceId;
 
-        private OperatorCacheKey(Expression expression, List<Expression> projections, Map<Input, Type> inputTypes)
+        private OperatorCacheKey(Expression expression, List<Expression> projections, Map<Input, Type> inputTypes, PlanNodeId sourceId)
         {
             this.filter = expression;
             this.projections = ImmutableList.copyOf(projections);
             this.inputTypes = inputTypes;
+            this.sourceId = sourceId;
         }
 
         private Expression getFilter()
@@ -654,10 +901,15 @@ public class NewExpressionCompiler
             return inputTypes;
         }
 
+        private PlanNodeId getSourceId()
+        {
+            return sourceId;
+        }
+
         @Override
         public int hashCode()
         {
-            return Objects.hashCode(filter, projections, inputTypes);
+            return Objects.hashCode(filter, projections, inputTypes, sourceId);
         }
 
         @Override
@@ -670,7 +922,10 @@ public class NewExpressionCompiler
                 return false;
             }
             final OperatorCacheKey other = (OperatorCacheKey) obj;
-            return Objects.equal(this.filter, other.filter) && Objects.equal(this.projections, other.projections) && Objects.equal(this.inputTypes, other.inputTypes);
+            return Objects.equal(this.filter, other.filter) &&
+                    Objects.equal(this.projections, other.projections) &&
+                    Objects.equal(this.inputTypes, other.inputTypes) &&
+                    Objects.equal(this.sourceId, other.sourceId);
         }
 
         @Override
@@ -680,6 +935,7 @@ public class NewExpressionCompiler
                     .add("filter", filter)
                     .add("projections", projections)
                     .add("inputTypes", inputTypes)
+                    .add("sourceId", sourceId)
                     .toString();
         }
     }
@@ -695,23 +951,27 @@ public class NewExpressionCompiler
             this.tupleInfos = ImmutableList.copyOf(checkNotNull(tupleInfos, "tupleInfos is null"));
         }
 
-        public NewOperatorFactory create(int operatorId) {
-            return new FilterAndProjectOperatorFactory(operatorId, constructor, tupleInfos);
+        public NewOperatorFactory create(int operatorId)
+        {
+            return new FilterAndProjectOperatorFactory(constructor, operatorId, tupleInfos);
         }
     }
 
     private static class FilterAndProjectOperatorFactory
             implements NewOperatorFactory
     {
-        private final int operatorId;
         private final Constructor<? extends NewOperator> constructor;
+        private final int operatorId;
         private final List<TupleInfo> tupleInfos;
         private boolean closed;
 
-        public FilterAndProjectOperatorFactory(int operatorId, Constructor<? extends NewOperator> constructor, List<TupleInfo> tupleInfos)
+        public FilterAndProjectOperatorFactory(
+                Constructor<? extends NewOperator> constructor,
+                int operatorId,
+                List<TupleInfo> tupleInfos)
         {
-            this.operatorId = operatorId;
             this.constructor = checkNotNull(constructor, "constructor is null");
+            this.operatorId = operatorId;
             this.tupleInfos = ImmutableList.copyOf(checkNotNull(tupleInfos, "tupleInfos is null"));
         }
 
@@ -728,6 +988,88 @@ public class NewExpressionCompiler
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, constructor.getDeclaringClass().getSimpleName());
             try {
                 return constructor.newInstance(operatorContext, tupleInfos);
+            }
+            catch (Exception e) {
+                throw Throwables.propagate(e);
+            }
+        }
+
+        @Override
+        public void close()
+        {
+            closed = true;
+        }
+
+    }
+
+    private static class ScanFilterAndProjectOperatorFactoryFactory
+    {
+        private final Constructor<? extends NewSourceOperator> constructor;
+        private final PlanNodeId sourceId;
+        private final List<TupleInfo> tupleInfos;
+
+        public ScanFilterAndProjectOperatorFactoryFactory(
+                Constructor<? extends NewSourceOperator> constructor,
+                PlanNodeId sourceId,
+                List<TupleInfo> tupleInfos)
+        {
+            this.sourceId = checkNotNull(sourceId, "sourceId is null");
+            this.constructor = checkNotNull(constructor, "constructor is null");
+            this.tupleInfos = ImmutableList.copyOf(checkNotNull(tupleInfos, "tupleInfos is null"));
+        }
+
+        public NewSourceOperatorFactory create(int operatorId, DataStreamProvider dataStreamProvider, List<ColumnHandle> columns)
+        {
+            return new ScanFilterAndProjectOperatorFactory(constructor, operatorId, sourceId, dataStreamProvider, columns, tupleInfos);
+        }
+    }
+
+    private static class ScanFilterAndProjectOperatorFactory
+            implements NewSourceOperatorFactory
+    {
+        private final Constructor<? extends NewSourceOperator> constructor;
+        private final int operatorId;
+        private final PlanNodeId sourceId;
+        private final DataStreamProvider dataStreamProvider;
+        private final List<ColumnHandle> columns;
+        private final List<TupleInfo> tupleInfos;
+        private boolean closed;
+
+        public ScanFilterAndProjectOperatorFactory(
+                Constructor<? extends NewSourceOperator> constructor,
+                int operatorId,
+                PlanNodeId sourceId,
+                DataStreamProvider dataStreamProvider,
+                List<ColumnHandle> columns,
+                List<TupleInfo> tupleInfos)
+        {
+            this.constructor = checkNotNull(constructor, "constructor is null");
+            this.operatorId = operatorId;
+            this.sourceId = checkNotNull(sourceId, "sourceId is null");
+            this.dataStreamProvider = checkNotNull(dataStreamProvider, "dataStreamProvider is null");
+            this.columns = ImmutableList.copyOf(checkNotNull(columns, "columns is null"));
+            this.tupleInfos = ImmutableList.copyOf(checkNotNull(tupleInfos, "tupleInfos is null"));
+        }
+
+        @Override
+        public PlanNodeId getSourceId()
+        {
+            return sourceId;
+        }
+
+        @Override
+        public List<TupleInfo> getTupleInfos()
+        {
+            return tupleInfos;
+        }
+
+        @Override
+        public NewSourceOperator createOperator(DriverContext driverContext)
+        {
+            checkState(!closed, "Factory is already closed");
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, constructor.getDeclaringClass().getSimpleName());
+            try {
+                return constructor.newInstance(operatorContext, sourceId, dataStreamProvider, columns, tupleInfos);
             }
             catch (Exception e) {
                 throw Throwables.propagate(e);

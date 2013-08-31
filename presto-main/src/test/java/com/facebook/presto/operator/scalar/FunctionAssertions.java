@@ -11,13 +11,22 @@ import com.facebook.presto.noperator.DriverContext;
 import com.facebook.presto.noperator.NewFilterAndProjectOperator.NewFilterAndProjectOperatorFactory;
 import com.facebook.presto.noperator.NewOperator;
 import com.facebook.presto.noperator.NewOperatorFactory;
+import com.facebook.presto.noperator.NewRecordProjectOperator;
 import com.facebook.presto.noperator.NewSourceOperator;
 import com.facebook.presto.noperator.NewSourceOperatorFactory;
+import com.facebook.presto.noperator.OperatorContext;
+import com.facebook.presto.noperator.StaticOperator;
 import com.facebook.presto.noperator.TaskContext;
 import com.facebook.presto.operator.FilterFunction;
+import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.ProjectionFunction;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.InMemoryRecordSet;
+import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.Split;
+import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
@@ -26,6 +35,7 @@ import com.facebook.presto.sql.planner.InterpretedFilterFunction;
 import com.facebook.presto.sql.planner.InterpretedProjectionFunction;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolToInputRewriter;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
@@ -55,10 +65,17 @@ import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
+import static com.facebook.presto.operator.scalar.FunctionAssertions.TestSplit.createNormalSplit;
+import static com.facebook.presto.operator.scalar.FunctionAssertions.TestSplit.createRecordSetSplit;
+import static com.facebook.presto.spi.ColumnType.BOOLEAN;
+import static com.facebook.presto.spi.ColumnType.DOUBLE;
+import static com.facebook.presto.spi.ColumnType.LONG;
+import static com.facebook.presto.spi.ColumnType.STRING;
 import static com.facebook.presto.sql.parser.SqlParser.createExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.util.LocalQueryRunner.createDualLocalQueryRunner;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static io.airlift.testing.Assertions.assertInstanceOf;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -102,9 +119,10 @@ public final class FunctionAssertions
             .put(new Symbol("bound_null_string"), new Input(6, 0))
             .build();
 
-    private FunctionAssertions()
-    {
-    }
+    private static final DataStreamProvider DATA_STREAM_PROVIDER = new TestDataStreamProvider();
+    private static final PlanNodeId SOURCE_ID = new PlanNodeId("scan");
+
+    private FunctionAssertions() {}
 
     public static void assertFunction(String projection, Object expected)
     {
@@ -155,6 +173,15 @@ public final class FunctionAssertions
         // interpret
         Object interpretedValue = selectSingleValue(interpretedFilterProject(TRUE_LITERAL, projectionExpression, expressionType, session));
         results.add(interpretedValue);
+
+        // execute over normal operator
+        NewSourceOperatorFactory scanProjectOperatorFactory = compileScanFilterProject(TRUE_LITERAL, projectionExpression);
+        Object scanOperatorValue = selectSingleValue(scanProjectOperatorFactory, createNormalSplit(), session);
+        results.add(scanOperatorValue);
+
+        // execute over record set
+        Object recordValue = selectSingleValue(scanProjectOperatorFactory, createRecordSetSplit(), session);
+        results.add(recordValue);
 
         //
         // If the projection does not need bound values, execute query using full engine
@@ -239,6 +266,15 @@ public final class FunctionAssertions
         boolean interpretedValue = executeFilter(interpretedFilterProject(filterExpression, TRUE_LITERAL, expressionType, session));
         results.add(interpretedValue);
 
+        // execute over normal operator
+        NewSourceOperatorFactory scanProjectOperatorFactory = compileScanFilterProject(filterExpression, TRUE_LITERAL);
+        boolean scanOperatorValue = executeFilter(scanProjectOperatorFactory, createNormalSplit(), session);
+        results.add(scanOperatorValue);
+
+        // execute over record set
+        boolean recordValue = executeFilter(scanProjectOperatorFactory, createRecordSetSplit(), session);
+        results.add(recordValue);
+
         //
         // If the filter does not need bound values, execute query using full engine
         if (!needsBoundValue(filterExpression)) {
@@ -268,6 +304,14 @@ public final class FunctionAssertions
     private static boolean executeFilter(NewOperatorFactory operatorFactory, Session session)
     {
         return executeFilter(operatorFactory.createOperator(createDriverContext(session)));
+    }
+
+    private static boolean executeFilter(NewSourceOperatorFactory operatorFactory, Split split, Session session)
+    {
+        NewSourceOperator operator = operatorFactory.createOperator(createDriverContext(session));
+        operator.addSplit(split);
+        operator.noMoreSplits();
+        return executeFilter(operator);
     }
 
     private static boolean executeFilter(NewOperator operator)
@@ -342,6 +386,29 @@ public final class FunctionAssertions
         }
     }
 
+    private static NewSourceOperatorFactory compileScanFilterProject(Expression filter, Expression projection)
+    {
+        filter = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), filter);
+        projection = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), projection);
+
+        try {
+            return COMPILER.compileScanFilterAndProjectOperator(
+                    0,
+                    SOURCE_ID,
+                    DATA_STREAM_PROVIDER,
+                    ImmutableList.<ColumnHandle>of(),
+                    filter,
+                    ImmutableList.of(projection),
+                    INPUT_TYPES);
+        }
+        catch (Throwable e) {
+            if (e instanceof UncheckedExecutionException) {
+                e = e.getCause();
+            }
+            throw new RuntimeException("Error compiling " + projection + ": " + e.getMessage(), e);
+        }
+    }
+
     private static Page getAtMostOnePage(NewOperator operator)
     {
         // add our input page if needed
@@ -375,5 +442,81 @@ public final class FunctionAssertions
         return new TaskContext(new TaskId("query", "stage", "task"), EXECUTOR, session)
                 .addPipelineContext(true, true)
                 .addDriverContext();
+    }
+
+    private static class TestDataStreamProvider
+            implements DataStreamProvider
+    {
+        @Override
+        public Operator createDataStream(Split split, List<ColumnHandle> columns)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public NewOperator createNewDataStream(OperatorContext operatorContext, Split split, List<ColumnHandle> columns)
+        {
+            assertInstanceOf(split, FunctionAssertions.TestSplit.class);
+            FunctionAssertions.TestSplit testSplit = (FunctionAssertions.TestSplit) split;
+            if (testSplit.isRecordSet()) {
+                RecordSet records = InMemoryRecordSet.builder(ImmutableList.of(LONG, STRING, DOUBLE, BOOLEAN, LONG, STRING, STRING)).addRow(
+                        1234L,
+                        "hello",
+                        12.34,
+                        true,
+                        MILLISECONDS.toSeconds(new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis()),
+                        "%el%",
+                        null
+                ).build();
+                return new NewRecordProjectOperator(operatorContext, records);
+            }
+            else {
+                return new StaticOperator(operatorContext, ImmutableList.of(SOURCE_PAGE));
+            }
+        }
+    }
+
+    static class TestSplit
+            implements Split
+    {
+        static Split createRecordSetSplit()
+        {
+            return new TestSplit(true);
+        }
+
+        static Split createNormalSplit()
+        {
+            return new TestSplit(false);
+        }
+
+        private final boolean recordSet;
+
+        private TestSplit(boolean recordSet)
+        {
+            this.recordSet = recordSet;
+        }
+
+        private boolean isRecordSet()
+        {
+            return recordSet;
+        }
+
+        @Override
+        public boolean isRemotelyAccessible()
+        {
+            return false;
+        }
+
+        @Override
+        public List<HostAddress> getAddresses()
+        {
+            return ImmutableList.of();
+        }
+
+        @Override
+        public Object getInfo()
+        {
+            return this;
+        }
     }
 }
