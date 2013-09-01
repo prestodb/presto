@@ -11,6 +11,10 @@
     <artifactId>presto-jdbc</artifactId>
     <name>presto-jdbc</name>
 
+    <properties>
+        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>com.facebook.presto</groupId>

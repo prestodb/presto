@@ -12,6 +12,10 @@
     <name>presto-hive-plugin</name>
     <description>Presto - Hive Connector Plugin</description>
 
+    <properties>
+        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>com.facebook.presto</groupId>

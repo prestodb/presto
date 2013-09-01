@@ -11,6 +11,10 @@
     <artifactId>presto-main</artifactId>
     <name>presto-main</name>
 
+    <properties>
+        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>org.jruby.joni</groupId>
