@@ -12,6 +12,10 @@
     <name>presto-docs</name>
     <packaging>pom</packaging>
 
+    <properties>
+        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+    </properties>
+
     <!--
     Genarate HTML docs quickly while developing:
 

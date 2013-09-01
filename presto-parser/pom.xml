@@ -11,6 +11,10 @@
     <artifactId>presto-parser</artifactId>
     <name>presto-parser</name>
 
+    <properties>
+        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>com.google.code.findbugs</groupId>

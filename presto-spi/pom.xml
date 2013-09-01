@@ -11,6 +11,10 @@
     <artifactId>presto-spi</artifactId>
     <name>presto-spi</name>
 
+    <properties>
+        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+    </properties>
+
     <!-- the SPI should have only minimal dependencies -->
     <dependencies>
         <dependency>

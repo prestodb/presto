@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>8</version>
+        <version>10-SNAPSHOT</version>
     </parent>
 
     <groupId>com.facebook.presto</groupId>
@@ -45,9 +45,10 @@
     </distributionManagement>
 
     <properties>
+        <air.main.basedir>${project.basedir}</air.main.basedir>
+
         <air.check.skip-extended>true</air.check.skip-extended>
-        <air.check.fail-all>false</air.check.fail-all>
-        <air.check.fail-basic>true</air.check.fail-basic>
+        <air.check.skip-license>false</air.check.skip-license>
 
         <dep.antlr.version>3.4</dep.antlr.version>
         <dep.airlift.version>0.80</dep.airlift.version>
