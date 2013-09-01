@@ -26,6 +26,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.io.Files;
 import com.google.inject.Inject;
+import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -33,13 +34,17 @@ import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.TransactionStatus;
 import org.skife.jdbi.v2.VoidTransactionCallback;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import javax.annotation.PreDestroy;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
 
 import static com.facebook.presto.util.Threads.threadsNamed;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -62,6 +67,7 @@ public class DatabaseLocalStorageManager
     private static final int DICTIONARY_CARDINALITY_CUTOFF = 1000;
 
     private final ExecutorService executor;
+    private final ThreadPoolExecutorMBean executorMBean;
     private final KeyBoundedExecutor<Long> shardBoundedExecutor;
 
     private final IDBI dbi;
@@ -97,6 +103,7 @@ public class DatabaseLocalStorageManager
         this.dao = dbi.onDemand(StorageManagerDao.class);
 
         this.executor = newFixedThreadPool(config.getTasksPerNode(), threadsNamed("local-storage-manager-%s"));
+        this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) executor);
         this.shardBoundedExecutor = new KeyBoundedExecutor<>(executor);
 
         dao.createTableColumns();
@@ -106,6 +113,13 @@ public class DatabaseLocalStorageManager
     public void stop()
     {
         executor.shutdown();
+    }
+
+    @Managed
+    @Nested
+    public ThreadPoolExecutorMBean getExecutor()
+    {
+        return executorMBean;
     }
 
     @Override

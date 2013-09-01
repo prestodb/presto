@@ -27,7 +27,7 @@ public class QueryManagerConfig
     private DataSize exchangeMaxBufferSize = new DataSize(32, Unit.MEGABYTE);
     private int exchangeConcurrentRequestMultiplier = 3;
 
-    private int queryManagerExecutorPoolSize = 100;
+    private int queryManagerExecutorPoolSize = 5;
 
     private int remoteTaskMaxConsecutiveErrorCount = 10;
     private Duration remoteTaskMinErrorDuration = new Duration(2, TimeUnit.MINUTES);

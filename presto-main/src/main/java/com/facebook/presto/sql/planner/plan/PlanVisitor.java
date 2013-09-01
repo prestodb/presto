@@ -56,6 +56,11 @@ public class PlanVisitor<C, R>
         return visitPlan(node, context);
     }
 
+    public R visitSemiJoin(SemiJoinNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
     public R visitSort(SortNode node, C context)
     {
         return visitPlan(node, context);

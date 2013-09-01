@@ -236,8 +236,7 @@ public final class TreeRewriter<C>
                         groupBy.build(),
                         Optional.fromNullable(having),
                         orderBy.build(),
-                        node.getLimit(),
-                        node.getSamplingRatio());
+                        node.getLimit());
             }
 
             return node;

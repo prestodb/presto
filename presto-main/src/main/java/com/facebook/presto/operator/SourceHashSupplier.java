@@ -12,19 +12,19 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 @ThreadSafe
 public class SourceHashSupplier
         implements Supplier<SourceHash>
 {
-    private final Operator source;
+    private final StoppableOperator stoppableSource;
     private final int hashChannel;
     private final int expectedPositions;
     private final OperatorStats operatorStats;
     private final TaskMemoryManager taskMemoryManager;
-
-    private final AtomicBoolean closed = new AtomicBoolean();
 
     @GuardedBy("this")
     private SourceHash sourceHash;
@@ -34,7 +34,13 @@ public class SourceHashSupplier
 
     public SourceHashSupplier(Operator source, int hashChannel, int expectedPositions, TaskMemoryManager taskMemoryManager, OperatorStats operatorStats)
     {
-        this.source = source;
+        checkNotNull(source, "source is null");
+        checkArgument(hashChannel >= 0, "hashChannel must be greater than or equal to zero");
+        checkArgument(expectedPositions >= 0, "expectedPositions must be greater than or equal to zero");
+        checkNotNull(taskMemoryManager, "taskMemoryManager is null");
+        checkNotNull(operatorStats, "operatorStats is null");
+
+        this.stoppableSource = new StoppableOperator(source);
         this.hashChannel = hashChannel;
         this.expectedPositions = expectedPositions;
         this.operatorStats = operatorStats;
@@ -43,17 +49,12 @@ public class SourceHashSupplier
 
     public int getChannelCount()
     {
-        return source.getChannelCount();
-    }
-
-    public int getHashChannel()
-    {
-        return hashChannel;
+        return stoppableSource.getChannelCount();
     }
 
     public List<TupleInfo> getTupleInfos()
     {
-        return source.getTupleInfos();
+        return stoppableSource.getTupleInfos();
     }
 
     @Override
@@ -65,7 +66,7 @@ public class SourceHashSupplier
             }
 
             try {
-                PageIterator iterator = new StoppablePageIterator(source.iterator(operatorStats));
+                PageIterator iterator = stoppableSource.iterator(operatorStats);
                 sourceHash = new SourceHash(iterator, hashChannel, expectedPositions, taskMemoryManager, operatorStats);
             }
             catch (Throwable e) {
@@ -78,33 +79,6 @@ public class SourceHashSupplier
 
     public void close()
     {
-        closed.set(true);
-    }
-
-    private class StoppablePageIterator
-            extends AbstractPageIterator
-    {
-        private final PageIterator iterator;
-
-        private StoppablePageIterator(PageIterator iterator)
-        {
-            super(iterator.getTupleInfos());
-            this.iterator = iterator;
-        }
-
-        @Override
-        protected Page computeNext()
-        {
-            if (closed.get() || !iterator.hasNext()) {
-                return endOfData();
-            }
-            return iterator.next();
-        }
-
-        @Override
-        protected void doClose()
-        {
-            iterator.close();
-        }
+        stoppableSource.stopIterators();
     }
 }

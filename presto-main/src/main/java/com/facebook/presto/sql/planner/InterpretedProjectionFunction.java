@@ -7,8 +7,8 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.Input;
-import com.facebook.presto.sql.tree.TreeRewriter;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleReadable;
 import io.airlift.slice.Slice;
@@ -30,7 +30,7 @@ public class InterpretedProjectionFunction
         this.type = type;
 
         // pre-compute symbol -> input mappings and replace the corresponding nodes in the tree
-        this.expression = TreeRewriter.rewriteWith(new SymbolToInputRewriter(symbolToInputMapping), expression);
+        this.expression = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(symbolToInputMapping), expression);
 
         evaluator = ExpressionInterpreter.expressionInterpreter(resolver, metadata, session);
 

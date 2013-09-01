@@ -7,6 +7,7 @@ import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
@@ -15,14 +16,12 @@ import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.IsNullPredicate;
+import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.facebook.presto.sql.tree.TreeRewriter;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
 import java.util.ArrayList;
@@ -31,10 +30,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
+import static com.facebook.presto.sql.ExpressionUtils.expressionOrNullSymbols;
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
-import static com.facebook.presto.sql.ExpressionUtils.or;
 import static com.facebook.presto.sql.ExpressionUtils.stripNonDeterministicConjuncts;
 import static com.facebook.presto.sql.planner.EqualityInference.createEqualityInference;
 import static com.google.common.base.Preconditions.checkState;
@@ -161,7 +159,7 @@ public class EffectivePredicateExtractor
     {
         Expression firstUnderlyingPredicate = node.getSources().get(0).accept(this, context);
         // Rewrite in terms of output symbols
-        Expression firstOutputPredicate = TreeRewriter.rewriteWith(new ExpressionSymbolInliner(node.outputSymbolMap(0)), firstUnderlyingPredicate);
+        Expression firstOutputPredicate = ExpressionTreeRewriter.rewriteWith(new ExpressionSymbolInliner(node.outputSymbolMap(0)), firstUnderlyingPredicate);
 
         Set<Expression> conjuncts = ImmutableSet.copyOf(extractConjuncts(firstOutputPredicate));
 
@@ -169,7 +167,7 @@ public class EffectivePredicateExtractor
         for (int i = 1; i < node.getSources().size(); i++) {
             Expression underlyingPredicate = node.getSources().get(i).accept(this, context);
             // Rewrite in terms of output symbols
-            Expression outputPredicate = TreeRewriter.rewriteWith(new ExpressionSymbolInliner(node.outputSymbolMap(i)), underlyingPredicate);
+            Expression outputPredicate = ExpressionTreeRewriter.rewriteWith(new ExpressionSymbolInliner(node.outputSymbolMap(i)), underlyingPredicate);
 
             // TODO: use a more precise way to determine overlapping conjuncts (e.g. commutative predicates)
             conjuncts = Sets.intersection(conjuncts, ImmutableSet.copyOf(extractConjuncts(outputPredicate)));
@@ -215,25 +213,11 @@ public class EffectivePredicateExtractor
         }
     }
 
-    private static Function<Expression, Expression> expressionOrNullSymbols(final Predicate<Symbol> nullSymbolScope)
+    @Override
+    public Expression visitSemiJoin(SemiJoinNode node, Void context)
     {
-        return new Function<Expression, Expression>()
-        {
-            @Override
-            public Expression apply(Expression expression)
-            {
-                Iterable<Symbol> symbols = filter(DependencyExtractor.extractUnique(expression), nullSymbolScope);
-                if (Iterables.isEmpty(symbols)) {
-                    return expression;
-                }
-
-                ImmutableList.Builder<Expression> nullConjuncts = ImmutableList.builder();
-                for (Symbol symbol : symbols) {
-                    nullConjuncts.add(new IsNullPredicate(new QualifiedNameReference(symbol.toQualifiedName())));
-                }
-                return or(expression, and(nullConjuncts.build()));
-            }
-        };
+        // Filtering source does not change the effective predicate over the output symbols
+        return node.getSource().accept(this, context);
     }
 
     private static Expression pullExpressionThroughSymbols(Expression expression, Collection<Symbol> symbols)

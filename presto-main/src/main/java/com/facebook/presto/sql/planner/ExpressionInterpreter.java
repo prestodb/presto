@@ -305,8 +305,16 @@ public class ExpressionInterpreter
     @Override
     protected Object visitInPredicate(InPredicate node, Void context)
     {
+        Object value = process(node.getValue(), context);
+        if (value == null) {
+            return null;
+        }
+
         Expression valueListExpression = node.getValueList();
         if (!(valueListExpression instanceof InListExpression)) {
+            if (!optimize) {
+                throw new UnsupportedOperationException("IN predicate value list type not yet implemented: " + valueListExpression.getClass().getName());
+            }
             return node;
         }
         InListExpression valueList = (InListExpression) valueListExpression;
@@ -325,11 +333,6 @@ public class ExpressionInterpreter
                 }
             }
             IN_LIST_CACHE.put(valueList, set);
-        }
-
-        Object value = process(node.getValue(), context);
-        if (value == null) {
-            return null;
         }
 
         if (set != null && !(value instanceof Expression)) {

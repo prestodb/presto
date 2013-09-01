@@ -15,6 +15,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
 import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
@@ -22,12 +23,11 @@ import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.ExpressionRewriter;
+import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.NodeRewriter;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.SortItem;
-import com.facebook.presto.sql.tree.TreeRewriter;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -232,6 +232,15 @@ public class UnaliasSymbolReferences
         }
 
         @Override
+        public PlanNode rewriteSemiJoin(SemiJoinNode node, Void context, PlanRewriter<Void> planRewriter)
+        {
+            PlanNode source = planRewriter.rewrite(node.getSource(), context);
+            PlanNode filteringSource = planRewriter.rewrite(node.getFilteringSource(), context);
+
+            return new SemiJoinNode(node.getId(), source, filteringSource, canonicalize(node.getSourceJoinSymbol()), canonicalize(node.getFilteringSourceJoinSymbol()), canonicalize(node.getSemiJoinOutput()));
+        }
+
+        @Override
         public PlanNode rewriteUnion(UnionNode node, Void context, PlanRewriter<Void> planRewriter)
         {
             ImmutableList.Builder<PlanNode> rewrittenSources = ImmutableList.builder();
@@ -259,10 +268,10 @@ public class UnaliasSymbolReferences
 
         private Expression canonicalize(Expression value)
         {
-            return TreeRewriter.rewriteWith(new NodeRewriter<Void>()
+            return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
             {
                 @Override
-                public Node rewriteQualifiedNameReference(QualifiedNameReference node, Void context, TreeRewriter<Void> treeRewriter)
+                public Expression rewriteQualifiedNameReference(QualifiedNameReference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
                 {
                     Symbol canonical = canonicalize(Symbol.fromQualifiedName(node.getName()));
                     return new QualifiedNameReference(canonical.toQualifiedName());

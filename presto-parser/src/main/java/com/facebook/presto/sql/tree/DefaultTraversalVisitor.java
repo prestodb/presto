@@ -1,7 +1,7 @@
 package com.facebook.presto.sql.tree;
 
-public class DefaultTraversalVisitor<R, C>
-    extends AstVisitor<R, C>
+public abstract class DefaultTraversalVisitor<R, C>
+        extends AstVisitor<R, C>
 {
     @Override
     protected R visitExtract(Extract node, C context)
@@ -291,8 +291,10 @@ public class DefaultTraversalVisitor<R, C>
     protected R visitQuerySpecification(QuerySpecification node, C context)
     {
         process(node.getSelect(), context);
-        for (Relation relation : node.getFrom()) {
-            process(relation, context);
+        if (node.getFrom() != null) {
+            for (Relation relation : node.getFrom()) {
+                process(relation, context);
+            }
         }
         if (node.getWhere().isPresent()) {
             process(node.getWhere().get(), context);

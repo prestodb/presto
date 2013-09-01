@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.MockLocalStorageManager;
+import com.facebook.presto.operator.JoinBuildSourceSupplierFactory;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.SourceHashSupplierFactory;
@@ -151,7 +152,7 @@ public class LocalQueryRunner
         LocalExecutionPlan localExecutionPlan = executionPlanner.plan(session,
                 subplan.getFragment().getRoot(),
                 plan.getTypes(),
-                new SourceHashSupplierFactory(taskMemoryManager),
+                new JoinBuildSourceSupplierFactory(taskMemoryManager),
                 taskMemoryManager,
                 new OperatorStats());
 
