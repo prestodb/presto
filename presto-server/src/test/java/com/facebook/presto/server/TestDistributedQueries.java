@@ -211,7 +211,15 @@ public class TestDistributedQueries
             MaterializedResult importResult = computeActual(format("CREATE MATERIALIZED VIEW default.default.%s AS SELECT * FROM %s",
                     qualifiedTableName.getTableName(),
                     qualifiedTableName));
-            log.info("Imported %s rows for %s", importResult.getMaterializedTuples().get(0).getField(0), qualifiedTableName.getTableName());
+
+            Object rowsImported;
+            if (importResult.getMaterializedTuples().isEmpty()) {
+                rowsImported = 0;
+            }
+            else {
+                rowsImported = importResult.getMaterializedTuples().get(0).getField(0);
+            }
+            log.info("Imported %s rows for %s", rowsImported, qualifiedTableName.getTableName());
         }
     }
 

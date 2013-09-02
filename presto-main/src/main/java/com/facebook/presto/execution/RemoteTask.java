@@ -16,23 +16,21 @@ package com.facebook.presto.execution;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.google.common.collect.Multimap;
 import io.airlift.units.Duration;
 
-import java.net.URI;
 import java.util.Set;
 
 public interface RemoteTask
 {
+    String getNodeId();
+
     TaskInfo getTaskInfo();
 
     void start();
 
-    void addSplit(Split split);
+    void addSplit(PlanNodeId sourceId, Split split);
 
-    void noMoreSplits();
-
-    void addExchangeLocations(Multimap<PlanNodeId, URI> exchangeLocations, boolean noMore);
+    void noMoreSplits(PlanNodeId sourceId);
 
     void addOutputBuffers(Set<String> outputBuffers, boolean noMore);
 
