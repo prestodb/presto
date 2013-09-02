@@ -44,6 +44,7 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.util.Threads;
 import com.google.common.base.Optional;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -218,13 +219,14 @@ public class TestSqlStageExecution
             this.executor = executor;
         }
 
-        public RemoteTask createRemoteTask(Session session,
+        @Override
+        public RemoteTask createRemoteTask(
+                Session session,
                 TaskId taskId,
                 Node node,
                 PlanFragment fragment,
-                Split initialSplit,
+                Multimap<PlanNodeId, Split> initialSplits,
                 Map<PlanNodeId, OutputReceiver> outputReceivers,
-                Multimap<PlanNodeId, URI> initialExchangeLocations,
                 Set<String> initialOutputIds)
         {
             return new MockRemoteTask(taskId, fragment, executor);
@@ -246,7 +248,7 @@ public class TestSqlStageExecution
             private final Set<PlanNodeId> noMoreSplits = new HashSet<>();
 
             @GuardedBy("this")
-            private int splits;
+            private final Multimap<PlanNodeId, Split> splits = HashMultimap.create();
 
             public MockRemoteTask(TaskId taskId,
                     PlanFragment fragment,
@@ -261,6 +263,12 @@ public class TestSqlStageExecution
 
                 this.sharedBuffer = new SharedBuffer(checkNotNull(new DataSize(1, Unit.BYTE), "maxBufferSize is null"));
                 this.fragment = checkNotNull(fragment, "fragment is null");
+            }
+
+            @Override
+            public String getNodeId()
+            {
+                return "node";
             }
 
             @Override
@@ -291,31 +299,18 @@ public class TestSqlStageExecution
             }
 
             @Override
-            public void addSplit(Split split)
+            public void addSplit(PlanNodeId sourceId, Split split)
             {
                 checkNotNull(split, "split is null");
-                splits++;
+                splits.put(sourceId, split);
             }
 
             @Override
-            public void noMoreSplits()
+            public void noMoreSplits(PlanNodeId sourceId)
             {
-                noMoreSplits.add(fragment.getPartitionedSource());
+                noMoreSplits.add(sourceId);
                 if (noMoreSplits.containsAll(fragment.getSources())) {
                     taskStateMachine.finished();
-                }
-            }
-
-            @Override
-            public void addExchangeLocations(Multimap<PlanNodeId, URI> exchangeLocations, boolean noMore)
-            {
-                if (noMore) {
-                    for (PlanNodeId planNodeId : exchangeLocations.keys()) {
-                        noMoreSplits.add(planNodeId);
-                    }
-                    if (noMoreSplits.containsAll(fragment.getSources())) {
-                        taskStateMachine.finished();
-                    }
                 }
             }
 
@@ -368,7 +363,7 @@ public class TestSqlStageExecution
                 if (taskStateMachine.getState().isDone()) {
                     return 0;
                 }
-                return splits;
+                return splits.size();
             }
         }
     }
