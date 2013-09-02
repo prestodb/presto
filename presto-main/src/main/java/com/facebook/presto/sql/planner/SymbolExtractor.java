@@ -129,7 +129,7 @@ public class SymbolExtractor
         public Void visitOutput(OutputNode node, Void context)
         {
             node.getSource().accept(this, context);
-
+            builder.addAll(node.getOutputSymbols());
             return null;
         }
 
