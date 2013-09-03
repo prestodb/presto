@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.operator.Page;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Objects;
@@ -20,6 +21,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Sets;
+import com.google.common.collect.Sets.SetView;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -43,6 +46,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.execution.BufferResult.emptyResults;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @ThreadSafe
@@ -67,8 +72,10 @@ public class SharedBuffer
     private final long maxBufferedBytes;
 
     @GuardedBy("this")
-    private long bufferedBytes;
+    private OutputBuffers outputBuffers;
 
+    @GuardedBy("this")
+    private long bufferedBytes;
     @GuardedBy("this")
     private final LinkedList<Page> masterQueue = new LinkedList<>();
     @GuardedBy("this")
@@ -89,10 +96,14 @@ public class SharedBuffer
      */
     private final AtomicBoolean closed = new AtomicBoolean();
 
-    public SharedBuffer(DataSize maxBufferSize)
+    public SharedBuffer(DataSize maxBufferSize, OutputBuffers outputBuffers)
     {
-        Preconditions.checkArgument(maxBufferSize.toBytes() > 0, "maxBufferSize must be at least 1");
+        checkNotNull(maxBufferSize, "maxBufferSize is null");
+        checkArgument(maxBufferSize.toBytes() > 0, "maxBufferSize must be at least 1");
         this.maxBufferedBytes = maxBufferSize.toBytes();
+
+        this.outputBuffers = checkNotNull(outputBuffers, "outputBuffers is null");
+        updateOutputBuffers();
     }
 
     public synchronized boolean isFinished()
@@ -109,35 +120,49 @@ public class SharedBuffer
         return new SharedBufferInfo(state, masterSequenceId, pagesAdded.get(), infos.build());
     }
 
-    public synchronized void addQueue(String queueId)
+    public synchronized void setOutputBuffers(OutputBuffers newOutputBuffers)
     {
-        Preconditions.checkNotNull(queueId, "queueId is null");
+        checkNotNull(newOutputBuffers, "newOutputBuffers is null");
         // ignore buffers added after query finishes, which can happen when a query is canceled
-        // also ignore duplicates, which is normal
-        if (state == QueueState.FINISHED || namedQueues.containsKey(queueId)) {
+        // also ignore old versions, which is normal
+        if (state == QueueState.FINISHED || outputBuffers.getVersion() >= newOutputBuffers.getVersion()) {
             return;
         }
-        Preconditions.checkState(state == QueueState.OPEN, "%s is not OPEN", SharedBuffer.class.getSimpleName());
-        NamedQueue namedQueue = new NamedQueue(queueId);
-        namedQueues.put(queueId, namedQueue);
-        openQueuesBySequenceId.add(namedQueue);
+
+        SetView<String> missingBuffers = Sets.difference(outputBuffers.getBufferIds(), newOutputBuffers.getBufferIds());
+        checkArgument(missingBuffers.isEmpty(), "newOutputBuffers does not have existing buffers %s", missingBuffers);
+        checkArgument(!outputBuffers.isNoMoreBufferIds() || newOutputBuffers.isNoMoreBufferIds(), "Expected newOutputBuffers to have noMoreBufferIds set");
+        outputBuffers = newOutputBuffers;
+
+        updateOutputBuffers();
     }
 
-    public synchronized void noMoreQueues()
+    private synchronized void updateOutputBuffers()
     {
-        namedQueues = ImmutableMap.copyOf(namedQueues);
-        if (state != QueueState.OPEN) {
-            return;
+        for (String bufferId : outputBuffers.getBufferIds()) {
+            if (!namedQueues.containsKey(bufferId)) {
+                Preconditions.checkState(state == QueueState.OPEN, "%s is not OPEN", SharedBuffer.class.getSimpleName());
+                NamedQueue namedQueue = new NamedQueue(bufferId);
+                namedQueues.put(bufferId, namedQueue);
+                openQueuesBySequenceId.add(namedQueue);
+            }
         }
 
-        state = QueueState.NO_MORE_QUEUES;
+        if (outputBuffers.isNoMoreBufferIds()) {
+            namedQueues = ImmutableMap.copyOf(namedQueues);
+            if (state != QueueState.OPEN) {
+                return;
+            }
 
-        updateState();
+            state = QueueState.NO_MORE_QUEUES;
+
+            updateState();
+        }
     }
 
     public synchronized ListenableFuture<?> enqueue(Page page)
     {
-        Preconditions.checkNotNull(page, "page is null");
+        checkNotNull(page, "page is null");
 
         // is the output done
         if (closed.get()) {
@@ -169,7 +194,7 @@ public class SharedBuffer
     @VisibleForTesting
     public synchronized void acknowledge(String outputId, long sequenceId)
     {
-        Preconditions.checkNotNull(outputId, "outputId is null");
+        checkNotNull(outputId, "outputId is null");
 
         NamedQueue namedQueue = namedQueues.get(outputId);
         if (namedQueue == null) {
@@ -202,9 +227,9 @@ public class SharedBuffer
     public synchronized BufferResult get(String outputId, long startingSequenceId, DataSize maxSize, Duration maxWait)
             throws InterruptedException
     {
-        Preconditions.checkNotNull(outputId, "outputId is null");
-        Preconditions.checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
-        Preconditions.checkNotNull(maxWait, "maxWait is null");
+        checkNotNull(outputId, "outputId is null");
+        checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
+        checkNotNull(maxWait, "maxWait is null");
 
         NamedQueue namedQueue = namedQueues.get(outputId);
         if (namedQueue == null) {
@@ -249,7 +274,7 @@ public class SharedBuffer
 
     public synchronized void abort(String outputId)
     {
-        Preconditions.checkNotNull(outputId, "outputId is null");
+        checkNotNull(outputId, "outputId is null");
         NamedQueue namedQueue = namedQueues.get(outputId);
         if (namedQueue == null || namedQueue.isFinished()) {
             return;
@@ -425,7 +450,7 @@ public class SharedBuffer
         public BufferResult getPages(long startingSequenceId, DataSize maxSize)
         {
             Preconditions.checkState(Thread.holdsLock(SharedBuffer.this), "Thread must hold a lock on the %s", SharedBuffer.class.getSimpleName());
-            Preconditions.checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
+            checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
 
             acknowledge(startingSequenceId);
 

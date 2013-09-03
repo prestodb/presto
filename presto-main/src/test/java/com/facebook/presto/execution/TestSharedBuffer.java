@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.operator.Page;
 import com.google.common.base.Throwables;
@@ -65,7 +66,7 @@ public class TestSharedBuffer
             throws Exception
     {
         try {
-            new SharedBuffer(new DataSize(0, Unit.BYTE));
+            new SharedBuffer(new DataSize(0, Unit.BYTE), new OutputBuffers(0, true));
             fail("Expected IllegalStateException");
         }
         catch (IllegalArgumentException e) {
@@ -76,7 +77,7 @@ public class TestSharedBuffer
     public void testSimple()
             throws Exception
     {
-        SharedBuffer sharedBuffer = new SharedBuffer(sizeOfPages(10));
+        SharedBuffer sharedBuffer = new SharedBuffer(sizeOfPages(10), new OutputBuffers(0, false));
 
         // add three items
         for (int i = 0; i < 3; i++) {
@@ -84,7 +85,7 @@ public class TestSharedBuffer
         }
 
         // add a queue
-        sharedBuffer.addQueue("first");
+        sharedBuffer.setOutputBuffers(new OutputBuffers(1, false, "first"));
         assertQueueState(sharedBuffer, "first", 3, 0);
 
         // get the three elements
@@ -116,7 +117,7 @@ public class TestSharedBuffer
 
         //
         // add another buffer and verify it sees all pages
-        sharedBuffer.addQueue("second");
+        sharedBuffer.setOutputBuffers(new OutputBuffers(2, false, "first", "second"));
         assertQueueState(sharedBuffer, "second", 10, 0);
         assertBufferResultEquals(sharedBuffer.get("second", 0, sizeOfPages(10), NO_WAIT), bufferResult(0, createPage(0),
                 createPage(1),
@@ -136,7 +137,7 @@ public class TestSharedBuffer
 
         //
         // tell shared buffer there will be no more queues
-        sharedBuffer.noMoreQueues();
+        sharedBuffer.setOutputBuffers(new OutputBuffers(3, true, "first", "second"));
 
         // since both queues consumed the first three pages, the blocked page future from above should be done
         future.get(1, TimeUnit.SECONDS);
@@ -208,15 +209,14 @@ public class TestSharedBuffer
     public void testDuplicateRequests()
             throws Exception
     {
-        SharedBuffer sharedBuffer = new SharedBuffer(sizeOfPages(10));
-
+        SharedBuffer sharedBuffer = new SharedBuffer(sizeOfPages(10), new OutputBuffers(0, false));
         // add three items
         for (int i = 0; i < 3; i++) {
             addPage(sharedBuffer, createPage(i));
         }
 
         // add a queue
-        sharedBuffer.addQueue("first");
+        sharedBuffer.setOutputBuffers(new OutputBuffers(1, false, "first"));
         assertQueueState(sharedBuffer, "first", 3, 0);
 
         // get the three elements
@@ -242,23 +242,23 @@ public class TestSharedBuffer
     public void testAddQueueAfterNoMoreQueues()
             throws Exception
     {
-        SharedBuffer sharedBuffer = new SharedBuffer(sizeOfPages(10));
+        SharedBuffer sharedBuffer = new SharedBuffer(sizeOfPages(10), new OutputBuffers(0, false));
         assertFalse(sharedBuffer.isFinished());
 
         // tell buffer no more queues will be added
-        sharedBuffer.noMoreQueues();
+        sharedBuffer.setOutputBuffers(new OutputBuffers(1, true));
         assertFalse(sharedBuffer.isFinished());
 
-        // call no more queues a second time to assure that we don't get an exception or such
-        sharedBuffer.noMoreQueues();
+        // set no more queues a second time to assure that we don't get an exception or such
+        sharedBuffer.setOutputBuffers(new OutputBuffers(2, true));
         assertFalse(sharedBuffer.isFinished());
 
-        // call no more queues a second time to assure that we don't get an exception or such
-        sharedBuffer.noMoreQueues();
+        // set no more queues a third time to assure that we don't get an exception or such
+        sharedBuffer.setOutputBuffers(new OutputBuffers(3, true));
         assertFalse(sharedBuffer.isFinished());
 
         try {
-            sharedBuffer.addQueue("foo");
+            sharedBuffer.setOutputBuffers(new OutputBuffers(4, true, "foo"));
             fail("Expected IllegalStateException from addQueue after noMoreQueues has been called");
         }
         catch (IllegalStateException expected) {
@@ -269,30 +269,30 @@ public class TestSharedBuffer
     public void testAddQueueAfterDestroy()
             throws Exception
     {
-        SharedBuffer sharedBuffer = new SharedBuffer(sizeOfPages(10));
+        SharedBuffer sharedBuffer = new SharedBuffer(sizeOfPages(10), new OutputBuffers(0, false));
         assertFalse(sharedBuffer.isFinished());
 
         // destroy buffer
         sharedBuffer.destroy();
         assertFinished(sharedBuffer);
 
-        // call no more queues a second time to assure that we don't get an exception or such
-        sharedBuffer.noMoreQueues();
+        // set no more queues to assure that we don't get an exception or such
+        sharedBuffer.setOutputBuffers(new OutputBuffers(1, true));
         assertFinished(sharedBuffer);
 
-        // call no more queues a second time to assure that we don't get an exception or such
-        sharedBuffer.noMoreQueues();
+        // set no more queues a second time to assure that we don't get an exception or such
+        sharedBuffer.setOutputBuffers(new OutputBuffers(2, true));
         assertFinished(sharedBuffer);
 
         // add queue calls after finish should be ignored
-        sharedBuffer.addQueue("foo");
+        sharedBuffer.setOutputBuffers(new OutputBuffers(3, true, "foo"));
     }
 
     @Test
     public void testOperationsOnUnknownQueues()
             throws Exception
     {
-        SharedBuffer sharedBuffer = new SharedBuffer(sizeOfPages(10));
+        SharedBuffer sharedBuffer = new SharedBuffer(sizeOfPages(10), new OutputBuffers(0, false));
         assertFalse(sharedBuffer.isFinished());
 
         // verify operations on unknown queue throw an exception
@@ -319,7 +319,7 @@ public class TestSharedBuffer
         sharedBuffer.abort("unknown");
 
         // set no more queues and try operations again
-        sharedBuffer.noMoreQueues();
+        sharedBuffer.setOutputBuffers(new OutputBuffers(1, true));
         try {
             sharedBuffer.get("unknown", 0, sizeOfPages(1), NO_WAIT);
             fail("Expected NoSuchBufferException from operation on unknown queue");
@@ -348,14 +348,14 @@ public class TestSharedBuffer
             throws Exception
     {
         // add after finish
-        SharedBuffer sharedBuffer = new SharedBuffer(sizeOfPages(10));
+        SharedBuffer sharedBuffer = new SharedBuffer(sizeOfPages(10), new OutputBuffers(0, false));
         sharedBuffer.finish();
         addPage(sharedBuffer, createPage(0));
         addPage(sharedBuffer, createPage(0));
         assertEquals(sharedBuffer.getInfo().getPagesAdded(), 0);
 
         // add after destroy
-        sharedBuffer = new SharedBuffer(sizeOfPages(10));
+        sharedBuffer = new SharedBuffer(sizeOfPages(10), new OutputBuffers(0, false));
         sharedBuffer.destroy();
         addPage(sharedBuffer, createPage(0));
         addPage(sharedBuffer, createPage(0));
@@ -366,7 +366,7 @@ public class TestSharedBuffer
     public void testAbort()
             throws Exception
     {
-        SharedBuffer sharedBuffer = new SharedBuffer(sizeOfPages(10));
+        SharedBuffer sharedBuffer = new SharedBuffer(sizeOfPages(10), new OutputBuffers(0, false));
 
         // fill the buffer
         for (int i = 0; i < 10; i++) {
@@ -374,14 +374,13 @@ public class TestSharedBuffer
         }
         sharedBuffer.finish();
 
-        sharedBuffer.addQueue("first");
+        sharedBuffer.setOutputBuffers(new OutputBuffers(1, false, "first"));
         assertBufferResultEquals(sharedBuffer.get("first", 0, sizeOfPages(1), NO_WAIT), bufferResult(0, createPage(0)));
         sharedBuffer.abort("first");
         assertQueueClosed(sharedBuffer, "first", 0);
         assertBufferResultEquals(sharedBuffer.get("first", 1, sizeOfPages(1), NO_WAIT), emptyResults(1, true));
 
-        sharedBuffer.addQueue("second");
-        sharedBuffer.noMoreQueues();
+        sharedBuffer.setOutputBuffers(new OutputBuffers(2, true, "first", "second"));
         assertBufferResultEquals(sharedBuffer.get("second", 0, sizeOfPages(1), NO_WAIT), bufferResult(0, createPage(0)));
         sharedBuffer.abort("second");
         assertQueueClosed(sharedBuffer, "second", 0);
@@ -393,9 +392,7 @@ public class TestSharedBuffer
     public void testFinishClosesEmptyQueues()
             throws Exception
     {
-        SharedBuffer sharedBuffer = new SharedBuffer(sizeOfPages(10));
-        sharedBuffer.addQueue("first");
-        sharedBuffer.addQueue("second");
+        SharedBuffer sharedBuffer = new SharedBuffer(sizeOfPages(10), new OutputBuffers(0, false, "first", "second"));
 
         // finish while queues are empty
         sharedBuffer.finish();
@@ -408,8 +405,7 @@ public class TestSharedBuffer
     public void testAbortFreesReader()
             throws Exception
     {
-        SharedBuffer sharedBuffer = new SharedBuffer(sizeOfPages(5));
-        sharedBuffer.addQueue("queue");
+        SharedBuffer sharedBuffer = new SharedBuffer(sizeOfPages(5), new OutputBuffers(0, false, "queue"));
         assertFalse(sharedBuffer.isFinished());
 
         ExecutorService executor = Executors.newCachedThreadPool();
@@ -443,8 +439,7 @@ public class TestSharedBuffer
     public void testFinishFreesReader()
             throws Exception
     {
-        SharedBuffer sharedBuffer = new SharedBuffer(sizeOfPages(5));
-        sharedBuffer.addQueue("queue");
+        SharedBuffer sharedBuffer = new SharedBuffer(sizeOfPages(5), new OutputBuffers(0, false, "queue"));
         assertFalse(sharedBuffer.isFinished());
 
         ExecutorService executor = Executors.newCachedThreadPool();
@@ -478,9 +473,7 @@ public class TestSharedBuffer
     public void testFinishFreesWriter()
             throws Exception
     {
-        SharedBuffer sharedBuffer = new SharedBuffer(sizeOfPages(5));
-        sharedBuffer.addQueue("queue");
-        sharedBuffer.noMoreQueues();
+        SharedBuffer sharedBuffer = new SharedBuffer(sizeOfPages(5), new OutputBuffers(0, true, "queue"));
         assertFalse(sharedBuffer.isFinished());
 
         ExecutorService executor = Executors.newCachedThreadPool();
@@ -524,8 +517,7 @@ public class TestSharedBuffer
     public void testDestroyFreesReader()
             throws Exception
     {
-        SharedBuffer sharedBuffer = new SharedBuffer(sizeOfPages(5));
-        sharedBuffer.addQueue("queue");
+        SharedBuffer sharedBuffer = new SharedBuffer(sizeOfPages(5), new OutputBuffers(0, true, "queue"));
         assertFalse(sharedBuffer.isFinished());
 
         ExecutorService executor = Executors.newCachedThreadPool();
@@ -559,9 +551,7 @@ public class TestSharedBuffer
     public void testDestroyFreesWriter()
             throws Exception
     {
-        SharedBuffer sharedBuffer = new SharedBuffer(sizeOfPages(5));
-        sharedBuffer.addQueue("queue");
-        sharedBuffer.noMoreQueues();
+        SharedBuffer sharedBuffer = new SharedBuffer(sizeOfPages(5), new OutputBuffers(0, true, "queue"));
         assertFalse(sharedBuffer.isFinished());
 
         ExecutorService executor = Executors.newCachedThreadPool();

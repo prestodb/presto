@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.client.Input;
+import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.importer.PeriodicImportManager;
 import com.facebook.presto.metadata.Metadata;
@@ -152,8 +153,7 @@ public class SqlQueryExecution
                 SqlStageExecution stage = outputStage.get();
 
                 if (!stateMachine.isDone()) {
-                    stage.addOutputBuffer(ROOT_OUTPUT_BUFFER_NAME);
-                    stage.noMoreOutputBuffers();
+                    stage.setOutputBuffers(new OutputBuffers(0, true, ROOT_OUTPUT_BUFFER_NAME));
                     stage.start();
                 }
                 else {

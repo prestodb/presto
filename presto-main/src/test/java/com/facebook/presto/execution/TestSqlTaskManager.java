@@ -154,7 +154,7 @@ public class TestSqlTaskManager
                 taskId,
                 testFragment,
                 ImmutableList.<TaskSource>of(),
-                new OutputBuffers(ImmutableSet.<String>of(), false));
+                new OutputBuffers(0, false, ImmutableSet.<String>of()));
         assertEquals(taskInfo.getState(), TaskState.RUNNING);
 
         taskInfo = sqlTaskManager.getTaskInfo(taskInfo.getTaskId(), false);
@@ -164,7 +164,7 @@ public class TestSqlTaskManager
                 taskId,
                 testFragment,
                 ImmutableList.<TaskSource>of(new TaskSource(tableScanNodeId, ImmutableSet.<ScheduledSplit>of(), true)),
-                new OutputBuffers(ImmutableSet.<String>of(), true));
+                new OutputBuffers(1, true, ImmutableSet.<String>of()));
         assertEquals(taskInfo.getState(), TaskState.FINISHED);
 
         taskInfo = sqlTaskManager.getTaskInfo(taskInfo.getTaskId(), false);
@@ -179,7 +179,7 @@ public class TestSqlTaskManager
                 taskId,
                 testFragment,
                 ImmutableList.<TaskSource>of(new TaskSource(tableScanNodeId, ImmutableSet.of(new ScheduledSplit(0, split)), true)),
-                new OutputBuffers(ImmutableSet.of("out"), true));
+                new OutputBuffers(0, true, "out"));
         assertEquals(taskInfo.getState(), TaskState.RUNNING);
 
         taskInfo = sqlTaskManager.getTaskInfo(taskInfo.getTaskId(), false);
@@ -210,7 +210,7 @@ public class TestSqlTaskManager
                 taskId,
                 testFragment,
                 ImmutableList.<TaskSource>of(),
-                new OutputBuffers(ImmutableSet.<String>of(), false));
+                new OutputBuffers(0, false));
         assertEquals(taskInfo.getState(), TaskState.RUNNING);
         assertNull(taskInfo.getStats().getEndTime());
 
@@ -235,7 +235,7 @@ public class TestSqlTaskManager
                 taskId,
                 testFragment,
                 ImmutableList.<TaskSource>of(new TaskSource(tableScanNodeId, ImmutableSet.of(new ScheduledSplit(0, split)), true)),
-                new OutputBuffers(ImmutableSet.of("out"), true));
+                new OutputBuffers(0, true, "out"));
         assertEquals(taskInfo.getState(), TaskState.RUNNING);
 
         taskInfo = sqlTaskManager.getTaskInfo(taskInfo.getTaskId(), false);
@@ -266,7 +266,7 @@ public class TestSqlTaskManager
                 taskId,
                 testFragment,
                 ImmutableList.<TaskSource>of(),
-                new OutputBuffers(ImmutableSet.<String>of(), false));
+                new OutputBuffers(0, false));
         assertEquals(taskInfo.getState(), TaskState.RUNNING);
 
         taskInfo = sqlTaskManager.cancelTask(taskId);

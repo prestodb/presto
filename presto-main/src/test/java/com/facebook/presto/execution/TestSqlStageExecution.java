@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.connector.dual.DualMetadata;
 import com.facebook.presto.connector.dual.DualSplit;
@@ -105,8 +106,7 @@ public class TestSqlStageExecution
                     1,
                     executor);
 
-            stageExecution.addOutputBuffer("out");
-            stageExecution.noMoreOutputBuffers();
+            stageExecution.setOutputBuffers(new OutputBuffers(0, true, "out"));
             Future<?> future = stageExecution.start();
 
             long start = System.nanoTime();
@@ -227,7 +227,7 @@ public class TestSqlStageExecution
                 PlanFragment fragment,
                 Multimap<PlanNodeId, Split> initialSplits,
                 Map<PlanNodeId, OutputReceiver> outputReceivers,
-                Set<String> initialOutputIds)
+                OutputBuffers outputBuffers)
         {
             return new MockRemoteTask(taskId, fragment, executor);
         }
@@ -261,7 +261,7 @@ public class TestSqlStageExecution
 
                 this.location = URI.create("fake://task/" + taskId);
 
-                this.sharedBuffer = new SharedBuffer(checkNotNull(new DataSize(1, Unit.BYTE), "maxBufferSize is null"));
+                this.sharedBuffer = new SharedBuffer(checkNotNull(new DataSize(1, Unit.BYTE), "maxBufferSize is null"), new OutputBuffers(0, false));
                 this.fragment = checkNotNull(fragment, "fragment is null");
             }
 
@@ -315,14 +315,9 @@ public class TestSqlStageExecution
             }
 
             @Override
-            public void addOutputBuffers(Set<String> outputBuffers, boolean noMore)
+            public void setOutputBuffers(OutputBuffers outputBuffers)
             {
-                for (String bufferId : outputBuffers) {
-                    sharedBuffer.addQueue(bufferId);
-                }
-                if (noMore) {
-                    sharedBuffer.noMoreQueues();
-                }
+                sharedBuffer.setOutputBuffers(outputBuffers);
             }
 
             @Override

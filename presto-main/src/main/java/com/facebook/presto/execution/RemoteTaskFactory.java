@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.metadata.Node;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.sql.analyzer.Session;
@@ -22,7 +23,6 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.Multimap;
 
 import java.util.Map;
-import java.util.Set;
 
 public interface RemoteTaskFactory
 {
@@ -32,5 +32,5 @@ public interface RemoteTaskFactory
             PlanFragment fragment,
             Multimap<PlanNodeId, Split> initialSplits,
             Map<PlanNodeId, OutputReceiver> outputReceivers,
-            Set<String> initialOutputIds);
+            OutputBuffers outputBuffers);
 }
