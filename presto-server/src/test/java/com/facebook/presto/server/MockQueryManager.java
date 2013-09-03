@@ -34,7 +34,6 @@ import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -119,7 +118,7 @@ public class MockQueryManager
                 outputTaskId,
                 null,
                 ImmutableList.<TaskSource>of(),
-                new OutputBuffers(ImmutableSet.<String>of("out"), true));
+                new OutputBuffers(0, true, "out"));
 
         SimpleQuery simpleQuery = new SimpleQuery(outputTaskId, locationFactory.createQueryLocation(outputTaskId.getQueryId()), mockTaskManager, locationFactory);
         queries.put(outputTaskId.getQueryId(), simpleQuery);
