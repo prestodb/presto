@@ -22,8 +22,6 @@ import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.operator.Page;
 import com.google.common.reflect.TypeToken;
-import com.google.common.util.concurrent.RateLimiter;
-import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
@@ -49,7 +47,8 @@ import java.util.NoSuchElementException;
 
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CURRENT_STATE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_SEQUENCE_ID;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -138,15 +137,12 @@ public class TaskResource
         return Response.status(Status.NOT_FOUND).build();
     }
 
-    private static final Logger log = Logger.get(TaskResource.class);
-    private final RateLimiter limiter = RateLimiter.create(0.2);
-
     @GET
-    @Path("{taskId}/results/{outputId}/{pageSequenceId}")
+    @Path("{taskId}/results/{outputId}/{token}")
     @Produces(PrestoMediaTypes.PRESTO_PAGES)
     public Response getResults(@PathParam("taskId") TaskId taskId,
             @PathParam("outputId") String outputId,
-            @PathParam("pageSequenceId") long pageSequenceId)
+            @PathParam("token") long token)
             throws InterruptedException
     {
         checkNotNull(taskId, "taskId is null");
@@ -160,16 +156,27 @@ public class TaskResource
         while (remainingNanos > 0) {
             // todo we need a much better way to determine if a task is unknown (e.g. not scheduled yet), done, or there is current no more data
             try {
-                BufferResult result = taskManager.getTaskResults(taskId, outputId, pageSequenceId, DEFAULT_MAX_SIZE, new Duration(remainingNanos, NANOSECONDS));
-                if (!result.isEmpty()) {
-                    GenericEntity<?> entity = new GenericEntity<>(result.getElements(), new TypeToken<List<Page>>() {}.getType());
-                    return Response.ok(entity).header(PRESTO_PAGE_SEQUENCE_ID, result.getStartingSequenceId()).build();
+                BufferResult result = taskManager.getTaskResults(taskId, outputId, token, DEFAULT_MAX_SIZE, new Duration(remainingNanos, NANOSECONDS));
+                List<Page> pages = result.getPages();
+
+                if (!pages.isEmpty()) {
+                    GenericEntity<?> entity = new GenericEntity<>(pages, new TypeToken<List<Page>>() {}.getType());
+                    return Response.ok(entity)
+                            .header(PRESTO_PAGE_TOKEN, result.getToken())
+                            .header(PRESTO_PAGE_NEXT_TOKEN, result.getNextToken())
+                            .build();
                 }
                 else if (result.isBufferClosed()) {
-                    return Response.status(Status.GONE).header(PRESTO_PAGE_SEQUENCE_ID, result.getStartingSequenceId()).build();
+                    return Response.status(Status.GONE)
+                            .header(PRESTO_PAGE_TOKEN, result.getToken())
+                            .header(PRESTO_PAGE_NEXT_TOKEN, result.getNextToken())
+                            .build();
                 }
                 else {
-                    return Response.status(Status.NO_CONTENT).header(PRESTO_PAGE_SEQUENCE_ID, result.getStartingSequenceId()).build();
+                    return Response.status(Status.NO_CONTENT)
+                            .header(PRESTO_PAGE_TOKEN, result.getToken())
+                            .header(PRESTO_PAGE_NEXT_TOKEN, result.getNextToken())
+                            .build();
                 }
             }
             catch (NoSuchElementException | NoSuchBufferException ignored) {
@@ -183,7 +190,10 @@ public class TaskResource
         }
 
         // task doesn't exist yet and wait time has expired
-        return Response.status(Status.NO_CONTENT).header(PRESTO_PAGE_SEQUENCE_ID, pageSequenceId).build();
+        return Response.status(Status.NO_CONTENT)
+                .header(PRESTO_PAGE_TOKEN, token)
+                .header(PRESTO_PAGE_NEXT_TOKEN, token)
+                .build();
     }
 
     @DELETE
