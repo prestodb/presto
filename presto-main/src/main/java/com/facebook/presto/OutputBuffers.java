@@ -16,32 +16,31 @@ package com.facebook.presto;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableMap;
 
-import java.util.Set;
+import java.util.Map;
+import java.util.Map.Entry;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 public final class OutputBuffers
 {
+    public static final OutputBuffers INITIAL_EMPTY_OUTPUT_BUFFERS = new OutputBuffers(0, false, ImmutableMap.<String, PagePartitionFunction>of());
+
     private final long version;
     private final boolean noMoreBufferIds;
-    private final Set<String> bufferIds;
+    private final Map<String, PagePartitionFunction> buffers;
 
-    public OutputBuffers(long version, boolean noMoreBufferIds, String... bufferIds)
-    {
-        this(version, noMoreBufferIds, ImmutableSet.copyOf(bufferIds));
-    }
-
+    // Visible only for Jackson... Use the "with" methods instead
     @JsonCreator
     public OutputBuffers(
             @JsonProperty("version") long version,
             @JsonProperty("noMoreBufferIds") boolean noMoreBufferIds,
-            @JsonProperty("bufferIds") Set<String> bufferIds)
+            @JsonProperty("buffers") Map<String, PagePartitionFunction> buffers)
     {
         this.version = version;
-        this.bufferIds = ImmutableSet.copyOf(checkNotNull(bufferIds, "bufferIds is null"));
+        this.buffers = ImmutableMap.copyOf(checkNotNull(buffers, "buffers is null"));
         this.noMoreBufferIds = noMoreBufferIds;
     }
 
@@ -58,15 +57,15 @@ public final class OutputBuffers
     }
 
     @JsonProperty
-    public Set<String> getBufferIds()
+    public Map<String, PagePartitionFunction> getBuffers()
     {
-        return bufferIds;
+        return buffers;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(version, noMoreBufferIds, bufferIds);
+        return Objects.hashCode(version, noMoreBufferIds, buffers);
     }
 
     @Override
@@ -81,7 +80,7 @@ public final class OutputBuffers
         final OutputBuffers other = (OutputBuffers) obj;
         return Objects.equal(this.version, other.version) &&
                 Objects.equal(this.noMoreBufferIds, other.noMoreBufferIds) &&
-                Objects.equal(this.bufferIds, other.bufferIds);
+                Objects.equal(this.buffers, other.buffers);
     }
 
     @Override
@@ -90,33 +89,67 @@ public final class OutputBuffers
         return Objects.toStringHelper(this)
                 .add("version", version)
                 .add("noMoreBufferIds", noMoreBufferIds)
-                .add("bufferIds", bufferIds)
+                .add("bufferIds", buffers)
                 .toString();
     }
 
-    public static OutputBuffers addOutputBufferId(OutputBuffers outputBuffers, String bufferId)
+    public OutputBuffers withBuffer(String bufferId, PagePartitionFunction pagePartitionFunction)
     {
-        checkNotNull(outputBuffers, "outputBuffers is null");
         checkNotNull(bufferId, "bufferId is null");
-        checkState(!outputBuffers.isNoMoreBufferIds(), "No more buffer ids already set");
-        return new OutputBuffers(
-                outputBuffers.getVersion() + 1,
-                false,
-                ImmutableSet.<String>builder()
-                        .addAll(outputBuffers.getBufferIds())
-                        .add(bufferId).build());
-    }
+        checkState(!noMoreBufferIds, "No more buffer ids already set");
 
-    public static OutputBuffers setNoMoreOutputBufferIds(OutputBuffers outputBuffers)
-    {
-        checkNotNull(outputBuffers, "outputBuffers is null");
-        if (outputBuffers.isNoMoreBufferIds()) {
-            return outputBuffers;
+        if (buffers.containsKey(bufferId)) {
+            checkHasBuffer(bufferId, pagePartitionFunction);
+            return this;
         }
 
         return new OutputBuffers(
-                outputBuffers.getVersion() + 1,
-                true,
-                outputBuffers.getBufferIds());
+                version + 1,
+                false,
+                ImmutableMap.<String, PagePartitionFunction>builder()
+                        .putAll(buffers)
+                        .put(bufferId, pagePartitionFunction)
+                        .build());
+    }
+
+    public OutputBuffers withBuffers(Map<String, PagePartitionFunction> buffers)
+    {
+        checkNotNull(buffers, "buffers is null");
+        checkState(!noMoreBufferIds, "No more buffer ids already set");
+
+        ImmutableMap.Builder<String, PagePartitionFunction> newBuffers = ImmutableMap.builder();
+        newBuffers.putAll(this.buffers);
+        for (Entry<String, PagePartitionFunction> entry : buffers.entrySet()) {
+            String bufferId = entry.getKey();
+            PagePartitionFunction pagePartitionFunction = entry.getValue();
+
+            // it is ok to have a duplicate buffer declaration but it must have the same page partition function
+            if (this.buffers.containsKey(bufferId)) {
+                checkHasBuffer(bufferId, pagePartitionFunction);
+                continue;
+            }
+
+            newBuffers.put(bufferId, pagePartitionFunction);
+        }
+        return new OutputBuffers(version + 1, false, newBuffers.build());
+    }
+
+    public OutputBuffers withNoMoreBufferIds()
+    {
+        checkNotNull(this, "this is null");
+        if (noMoreBufferIds) {
+            return this;
+        }
+
+        return new OutputBuffers(version + 1, true, buffers);
+    }
+
+    private void checkHasBuffer(String bufferId, PagePartitionFunction pagePartitionFunction)
+    {
+        checkState(getBuffers().get(bufferId).equals(pagePartitionFunction),
+                "outputBuffers already contains buffer %s, but partition function is %s not %s",
+                bufferId,
+                buffers.get(bufferId),
+                pagePartitionFunction);
     }
 }

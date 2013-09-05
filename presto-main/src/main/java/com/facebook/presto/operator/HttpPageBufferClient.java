@@ -18,7 +18,6 @@ import com.google.common.base.Objects;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.MediaType;
-import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import io.airlift.http.client.AsyncHttpClient;
@@ -46,7 +45,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES_TYPE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_SIZE;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_SEQUENCE_ID;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
@@ -88,7 +88,7 @@ public class HttpPageBufferClient
     @GuardedBy("this")
     private DateTime lastUpdate = DateTime.now();
     @GuardedBy("this")
-    private long sequenceId;
+    private long token;
 
     private final AtomicInteger pagesReceived = new AtomicInteger();
 
@@ -128,11 +128,6 @@ public class HttpPageBufferClient
         return future != null;
     }
 
-    public synchronized long getSequenceId()
-    {
-        return sequenceId;
-    }
-
     public void close()
     {
         boolean shouldSendDelete;
@@ -169,7 +164,7 @@ public class HttpPageBufferClient
             return;
         }
 
-        final URI uri = HttpUriBuilder.uriBuilderFrom(location).appendPath(String.valueOf(sequenceId)).build();
+        final URI uri = HttpUriBuilder.uriBuilderFrom(location).appendPath(String.valueOf(token)).build();
         future = httpClient.executeAsync(prepareGet()
                 .setHeader(PRESTO_MAX_SIZE, maxResponseSize.toString())
                 .setUri(uri).build(), new PageResponseHandler());
@@ -187,8 +182,12 @@ public class HttpPageBufferClient
 
                 List<Page> pages;
                 synchronized (HttpPageBufferClient.this) {
-                    pages = result.getPages(sequenceId);
-                    sequenceId += pages.size();
+                    if (result.getToken() == token) {
+                        pages = result.getPages();
+                        token = result.getNextToken();
+                    } else {
+                        pages = ImmutableList.of();
+                    }
                 }
 
                 // add pages
@@ -295,38 +294,44 @@ public class HttpPageBufferClient
         @Override
         public PagesResponse handle(Request request, Response response)
         {
-            String sequenceIdHeader = response.getHeader(PRESTO_PAGE_SEQUENCE_ID);
-            if (sequenceIdHeader == null) {
-                throw new IllegalStateException("Expected " + PRESTO_PAGE_SEQUENCE_ID + " header");
+            String tokenHeader = response.getHeader(PRESTO_PAGE_TOKEN);
+            if (tokenHeader == null) {
+                throw new IllegalStateException("Expected " + PRESTO_PAGE_TOKEN + " header");
             }
-            long startingSequenceId = Long.parseLong(sequenceIdHeader);
+            long token = Long.parseLong(tokenHeader);
+
+            String nextTokenHeader = response.getHeader(PRESTO_PAGE_NEXT_TOKEN);
+            if (nextTokenHeader == null) {
+                throw new IllegalStateException("Expected " + PRESTO_PAGE_NEXT_TOKEN + " header");
+            }
+            long nextToken = Long.parseLong(nextTokenHeader);
 
             // job is finished when we get a GONE response
             if (response.getStatusCode() == HttpStatus.GONE.code()) {
-                return PagesResponse.createClosedResponse(startingSequenceId);
+                return PagesResponse.createClosedResponse(token, nextToken);
             }
 
             // no content means no content was created within the wait period, but query is still ok
             if (response.getStatusCode() == HttpStatus.NO_CONTENT.code()) {
-                return PagesResponse.createEmptyPagesResponse(startingSequenceId);
+                return PagesResponse.createEmptyPagesResponse(token, nextToken);
             }
 
             // otherwise we must have gotten an OK response, everything else is considered fatal
             if (response.getStatusCode() != HttpStatus.OK.code()) {
                 log.debug("Expected response code to be 200, but was %s: request=%s, response=%s", response.getStatusCode(), request, response);
-                return PagesResponse.createEmptyPagesResponse(startingSequenceId);
+                return PagesResponse.createEmptyPagesResponse(token, nextToken);
             }
 
             String contentType = response.getHeader(CONTENT_TYPE);
             if (contentType == null || !MediaType.parse(contentType).is(PRESTO_PAGES_TYPE)) {
                 // this can happen when an error page is returned, but is unlikely given the above 200
                 log.debug("Expected %s response from server but got %s: uri=%s, response=%s", PRESTO_PAGES_TYPE, contentType, request.getUri(), response);
-                return PagesResponse.createEmptyPagesResponse(startingSequenceId);
+                return PagesResponse.createEmptyPagesResponse(token, nextToken);
             }
 
             try {
                 InputStreamSliceInput sliceInput = new InputStreamSliceInput(response.getInputStream());
-                return PagesResponse.createPagesResponse(startingSequenceId, ImmutableList.copyOf(PagesSerde.readPages(sliceInput)));
+                return PagesResponse.createPagesResponse(token, nextToken, ImmutableList.copyOf(PagesSerde.readPages(sliceInput)));
             }
             catch (IOException e) {
                 throw Throwables.propagate(e);
@@ -336,50 +341,47 @@ public class HttpPageBufferClient
 
     public static class PagesResponse
     {
-        public static PagesResponse createPagesResponse(long startingSequenceId, Iterable<Page> pages)
+        public static PagesResponse createPagesResponse(long token, long nextToken, Iterable<Page> pages)
         {
-            return new PagesResponse(startingSequenceId, pages, false);
+            return new PagesResponse(token, nextToken, pages, false);
         }
 
-        public static PagesResponse createEmptyPagesResponse(long startingSequenceId)
+        public static PagesResponse createEmptyPagesResponse(long token, long nextToken)
         {
-            return new PagesResponse(startingSequenceId, ImmutableList.<Page>of(), false);
+            return new PagesResponse(token, nextToken, ImmutableList.<Page>of(), false);
         }
 
-        public static PagesResponse createClosedResponse(long startingSequenceId)
+        public static PagesResponse createClosedResponse(long token, long nextToken)
         {
-            return new PagesResponse(startingSequenceId, ImmutableList.<Page>of(), true);
+            return new PagesResponse(token, nextToken, ImmutableList.<Page>of(), true);
         }
 
-        private final long startingSequenceId;
+        private final long token;
+        private final long nextToken;
         private final List<Page> pages;
         private final boolean clientClosed;
 
-        public PagesResponse(long startingSequenceId, Iterable<Page> pages, boolean clientClosed)
+        public PagesResponse(long token, long nextToken, Iterable<Page> pages, boolean clientClosed)
         {
-            this.startingSequenceId = startingSequenceId;
+            this.token = token;
+            this.nextToken = nextToken;
             this.pages = ImmutableList.copyOf(pages);
             this.clientClosed = clientClosed;
         }
 
-        public List<Page> getPages(long sequenceId)
+        public long getToken()
         {
-            // if sequenceId is before the start of this response, return an empty list
-            if (sequenceId < startingSequenceId) {
-                log.warn("Unexpected response: expected startingSequenceId %s to be less than or equal to %s", startingSequenceId, sequenceId);
-                // this will cause the request to be resent with the existing sequence id
-                return ImmutableList.of();
-            }
+            return token;
+        }
 
-            // if sequenceId is after the end of this response, return and empty list
-            int startOffset = Ints.saturatedCast(sequenceId - startingSequenceId);
-            if (startOffset >= pages.size()) {
-                // most likely a duplicate of an old request
-                return ImmutableList.of();
-            }
+        public long getNextToken()
+        {
+            return nextToken;
+        }
 
-            // return the pages from the requested sequenceId to the end of this response
-            return pages.subList(startOffset, pages.size());
+        public List<Page> getPages()
+        {
+            return pages;
         }
 
         public boolean isClientClosed()
@@ -391,7 +393,8 @@ public class HttpPageBufferClient
         public String toString()
         {
             return Objects.toStringHelper(this)
-                    .add("startingSequenceId", startingSequenceId)
+                    .add("token", token)
+                    .add("nextToken", nextToken)
                     .add("pages.size()", pages.size())
                     .add("clientClosed", clientClosed)
                     .toString();

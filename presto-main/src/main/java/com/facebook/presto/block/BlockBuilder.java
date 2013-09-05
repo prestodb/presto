@@ -14,8 +14,8 @@
 package com.facebook.presto.block;
 
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
-import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.tuple.TupleReadable;
 import com.google.common.base.Charsets;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -136,14 +136,14 @@ public class BlockBuilder
         return this;
     }
 
-    public BlockBuilder append(Tuple tuple)
+    public BlockBuilder append(TupleReadable tuple)
     {
         tupleBuilder.append(tuple);
         flushTupleIfNecessary();
         return this;
     }
 
-    public BlockBuilder append(Tuple tuple, int index)
+    public BlockBuilder append(TupleReadable tuple, int index)
     {
         tupleBuilder.append(tuple, index);
         flushTupleIfNecessary();

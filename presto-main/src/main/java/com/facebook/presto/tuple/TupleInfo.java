@@ -641,7 +641,7 @@ public class TupleInfo
             return this;
         }
 
-        public Builder append(Tuple tuple)
+        public Builder append(TupleReadable tuple)
         {
             // TODO: optimization - single copy of block of fixed length fields
 
@@ -651,7 +651,7 @@ public class TupleInfo
             return this;
         }
 
-        public Builder append(Tuple tuple, int index)
+        public Builder append(TupleReadable tuple, int index)
         {
             Type type = TupleInfo.this.getTypes().get(currentField);
             checkArgument(type == tuple.getTupleInfo().getTypes().get(index), "Current field (%s) type (%s) does not match tuple field (%s) type (%s)",

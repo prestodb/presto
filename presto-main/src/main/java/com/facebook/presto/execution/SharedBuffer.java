@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers;
+import com.facebook.presto.PagePartitionFunction;
 import com.facebook.presto.operator.Page;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Objects;
@@ -40,6 +41,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -129,7 +131,7 @@ public class SharedBuffer
             return;
         }
 
-        SetView<String> missingBuffers = Sets.difference(outputBuffers.getBufferIds(), newOutputBuffers.getBufferIds());
+        SetView<String> missingBuffers = Sets.difference(outputBuffers.getBuffers().keySet(), newOutputBuffers.getBuffers().keySet());
         checkArgument(missingBuffers.isEmpty(), "newOutputBuffers does not have existing buffers %s", missingBuffers);
         checkArgument(!outputBuffers.isNoMoreBufferIds() || newOutputBuffers.isNoMoreBufferIds(), "Expected newOutputBuffers to have noMoreBufferIds set");
         outputBuffers = newOutputBuffers;
@@ -139,10 +141,11 @@ public class SharedBuffer
 
     private synchronized void updateOutputBuffers()
     {
-        for (String bufferId : outputBuffers.getBufferIds()) {
+        for (Entry<String, PagePartitionFunction> entry : outputBuffers.getBuffers().entrySet()) {
+            String bufferId = entry.getKey();
             if (!namedQueues.containsKey(bufferId)) {
                 Preconditions.checkState(state == QueueState.OPEN, "%s is not OPEN", SharedBuffer.class.getSimpleName());
-                NamedQueue namedQueue = new NamedQueue(bufferId);
+                NamedQueue namedQueue = new NamedQueue(bufferId, entry.getValue());
                 namedQueues.put(bufferId, namedQueue);
                 openQueuesBySequenceId.add(namedQueue);
             }
@@ -379,13 +382,15 @@ public class SharedBuffer
             implements Comparable<NamedQueue>
     {
         private final String queueId;
+        private final PagePartitionFunction partitionFunction;
 
         private long sequenceId;
         private boolean finished;
 
-        private NamedQueue(String queueId)
+        private NamedQueue(String queueId, PagePartitionFunction partitionFunction)
         {
             this.queueId = queueId;
+            this.partitionFunction = partitionFunction;
         }
 
         public String getQueueId()
@@ -477,7 +482,7 @@ public class SharedBuffer
                 pages.add(page);
             }
 
-            return new BufferResult(startingSequenceId, false, ImmutableList.copyOf(pages));
+            return new BufferResult(startingSequenceId, startingSequenceId + pages.size(), false, ImmutableList.copyOf(pages), partitionFunction);
         }
 
         @Override

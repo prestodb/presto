@@ -34,7 +34,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_SEQUENCE_ID;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static org.testng.Assert.assertEquals;
@@ -46,7 +47,7 @@ public class MockExchangeRequestProcessor
     private final ConcurrentMap<URI, BlockingQueue<Page>> pagesByLocation = new ConcurrentHashMap<>();
     private final ConcurrentMap<URI, Boolean> completeByLocation = new ConcurrentHashMap<>();
     private final DataSize expectedMaxSize;
-    private final ConcurrentMap<URI, Long> sequenceIdByLocation = new ConcurrentHashMap<>();
+    private final ConcurrentMap<URI, Long> tokenByLocation = new ConcurrentHashMap<>();
 
     public MockExchangeRequestProcessor(DataSize expectedMaxSize)
     {
@@ -61,7 +62,7 @@ public class MockExchangeRequestProcessor
             queue = new LinkedBlockingQueue<>();
             BlockingQueue<Page> existingValue = pagesByLocation.putIfAbsent(location, queue);
             queue = (existingValue != null ? existingValue : queue);
-            sequenceIdByLocation.put(location, 0L);
+            tokenByLocation.put(location, 0L);
         }
         queue.add(page);
     }
@@ -87,17 +88,23 @@ public class MockExchangeRequestProcessor
         URI location = requestLocation.getLocation();
 
         BlockingQueue<Page> pages = pagesByLocation.get(location);
-        long sequenceId = sequenceIdByLocation.get(location);
+        long token = tokenByLocation.get(location);
         // if location is complete return GONE
         if (completeByLocation.get(location) == Boolean.TRUE && (pages == null || pages.isEmpty())) {
-            return new TestingResponse(HttpStatus.GONE, ImmutableListMultimap.of(PRESTO_PAGE_SEQUENCE_ID, String.valueOf(sequenceId)), new byte[0]);
+            return new TestingResponse(HttpStatus.GONE, ImmutableListMultimap.of(
+                    PRESTO_PAGE_TOKEN, String.valueOf(token),
+                    PRESTO_PAGE_NEXT_TOKEN, String.valueOf(token)
+            ), new byte[0]);
         }
         // if no pages, return NO CONTENT
         if (pages == null) {
-            return new TestingResponse(HttpStatus.NO_CONTENT, ImmutableListMultimap.of(PRESTO_PAGE_SEQUENCE_ID, String.valueOf(sequenceId)), new byte[0]);
+            return new TestingResponse(HttpStatus.NO_CONTENT, ImmutableListMultimap.of(
+                    PRESTO_PAGE_TOKEN, String.valueOf(token),
+                    PRESTO_PAGE_NEXT_TOKEN, String.valueOf(token)
+            ), new byte[0]);
         }
 
-        assertEquals(requestLocation.getSequenceId(), sequenceId, "sequenceId");
+        assertEquals(requestLocation.getSequenceId(), token, "token");
 
         // wait for a single page to arrive
         Page page = null;
@@ -110,7 +117,10 @@ public class MockExchangeRequestProcessor
 
         // if no page, return NO CONTENT
         if (page == null) {
-            return new TestingResponse(HttpStatus.NO_CONTENT, ImmutableListMultimap.of(PRESTO_PAGE_SEQUENCE_ID, String.valueOf(sequenceId)), new byte[0]);
+            return new TestingResponse(HttpStatus.NO_CONTENT, ImmutableListMultimap.of(
+                    PRESTO_PAGE_TOKEN, String.valueOf(token),
+                    PRESTO_PAGE_NEXT_TOKEN, String.valueOf(token)
+            ), new byte[0]);
         }
 
         // add pages up to the size limit
@@ -127,7 +137,8 @@ public class MockExchangeRequestProcessor
         }
 
         // update sequence id
-        sequenceIdByLocation.put(location, sequenceId + responsePages.size());
+        long nextToken = token + responsePages.size();
+        tokenByLocation.put(location, nextToken);
 
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(64);
         PagesSerde.writePages(sliceOutput, responsePages);
@@ -135,7 +146,8 @@ public class MockExchangeRequestProcessor
         return new TestingResponse(HttpStatus.OK,
                 ImmutableListMultimap.of(
                         CONTENT_TYPE, PRESTO_PAGES,
-                        PRESTO_PAGE_SEQUENCE_ID, String.valueOf(sequenceId)
+                        PRESTO_PAGE_TOKEN, String.valueOf(token),
+                        PRESTO_PAGE_NEXT_TOKEN, String.valueOf(nextToken)
                 ),
                 bytes);
     }
