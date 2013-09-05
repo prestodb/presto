@@ -165,6 +165,13 @@ public class TestDistributedQueries
         long startTime = System.nanoTime();
         distributeData(catalog, schema);
         log.info("Loading complete in %.2fs", nanosSince(startTime).getValue(SECONDS));
+
+        // There is a race condition between writing data to the native store and
+        // when that data is visible to be queried.  This is a brain dead work around
+        // for this race condition that doesn't really fix the problem, but makes
+        // it very unlikely.
+        // todo remove this when import flow is fixed
+        Thread.sleep(1000);
     }
 
     private boolean allNodesGloballyVisible()
