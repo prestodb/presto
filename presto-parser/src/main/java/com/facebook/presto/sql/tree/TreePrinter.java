@@ -241,6 +241,16 @@ public class TreePrinter
             }
 
             @Override
+            protected Void visitSampledRelation(SampledRelation node, Integer indentLevel)
+            {
+                print(indentLevel, "TABLESAMPLE[" + node.getType() + " (" + node.getSamplePercentage() + ")]");
+
+                super.visitSampledRelation(node, indentLevel + 1);
+
+                return null;
+            }
+
+            @Override
             protected Void visitTableSubquery(TableSubquery node, Integer indentLevel)
             {
                 print(indentLevel, "SubQuery");

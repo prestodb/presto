@@ -28,6 +28,7 @@ import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
+import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
@@ -107,6 +108,12 @@ class RelationPlanner
         TupleDescriptor outputDescriptor = analysis.getOutputDescriptor(node);
 
         return new RelationPlan(subPlan.getRoot(), outputDescriptor, subPlan.getOutputSymbols());
+    }
+
+    @Override
+    protected RelationPlan visitSampledRelation(SampledRelation node, Void context)
+    {
+        throw new UnsupportedOperationException("TABLESAMPLE not yet implemented");
     }
 
     @Override

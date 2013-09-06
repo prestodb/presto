@@ -13,6 +13,7 @@ import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
+import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SelectItem;
@@ -268,6 +269,20 @@ public final class SqlFormatter
                     .append(node.getAlias());
 
             appendAliasColumns(builder, node.getColumnNames());
+
+            return null;
+        }
+
+        @Override
+        protected Void visitSampledRelation(SampledRelation node, Integer indent)
+        {
+            process(node.getRelation(), indent);
+
+            builder.append(" TABLESAMPLE ")
+                    .append(node.getType())
+                    .append(" (")
+                    .append(node.getSamplePercentage())
+                    .append(')');
 
             return null;
         }
