@@ -38,6 +38,7 @@ import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.sql.planner.PlanFragment.Partitioning;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -121,10 +122,17 @@ public class TestSqlTaskManager
                 new TaskManagerConfig());
 
         tableScanNodeId = new PlanNodeId("tableScan");
-        testFragment = new PlanFragment(new PlanFragmentId("fragment"),
-                tableScanNodeId,
+        testFragment = new PlanFragment(
+                new PlanFragmentId("fragment"),
+                new TableScanNode(
+                        tableScanNodeId,
+                        tableHandle,
+                        ImmutableList.of(symbol),
+                        ImmutableMap.of(symbol, columnHandle),
+                        Optional.<GeneratedPartitions>absent()),
                 ImmutableMap.<Symbol, Type>of(symbol, Type.VARCHAR),
-                new TableScanNode(tableScanNodeId, tableHandle, ImmutableList.of(symbol), ImmutableMap.of(symbol, columnHandle), Optional.<GeneratedPartitions>absent()));
+                Partitioning.SOURCE,
+                tableScanNodeId);
 
         taskId = new TaskId("query", "stage", "task");
         session = new Session("user", "test", "default", "default", "test", "test");

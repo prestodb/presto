@@ -33,6 +33,7 @@ import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.OutputReceiver;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.sql.planner.PlanFragment.Partitioning;
 import com.facebook.presto.sql.planner.StageExecutionPlan;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
@@ -166,10 +167,12 @@ public class TestSqlStageExecution
         StageExecutionPlan probe = createTableScanPlan("probe", metadata, 10);
 
         // join build and probe
-        PlanFragment joinPlan = new PlanFragment(new PlanFragmentId(planId),
-                new PlanNodeId(planId),
+        PlanFragment joinPlan = new PlanFragment(
+                new PlanFragmentId(planId),
+                new JoinNode(new PlanNodeId(planId), JoinNode.Type.INNER, probe.getFragment().getRoot(), exchangeNode, ImmutableList.<EquiJoinClause>of()),
                 probe.getFragment().getSymbols(), // this is wrong, but it works
-                new JoinNode(new PlanNodeId(planId), JoinNode.Type.INNER, probe.getFragment().getRoot(), exchangeNode, ImmutableList.<EquiJoinClause>of()));
+                Partitioning.SOURCE,
+                new PlanNodeId(planId));
 
         return new StageExecutionPlan(joinPlan,
                 probe.getDataSource(),
@@ -186,10 +189,17 @@ public class TestSqlStageExecution
         // table scan with 3 splits
         Split split = new DualSplit(HostAddress.fromString("127.0.0.1"));
         PlanNodeId tableScanNodeId = new PlanNodeId(planId);
-        PlanFragment testFragment = new PlanFragment(new PlanFragmentId(planId),
-                tableScanNodeId,
+        PlanFragment testFragment = new PlanFragment(
+                new PlanFragmentId(planId),
+                new TableScanNode(
+                        tableScanNodeId,
+                        tableHandle,
+                        ImmutableList.of(symbol),
+                        ImmutableMap.of(symbol, columnHandle),
+                        Optional.<GeneratedPartitions>absent()),
                 ImmutableMap.<Symbol, Type>of(symbol, Type.VARCHAR),
-                new TableScanNode(tableScanNodeId, tableHandle, ImmutableList.of(symbol), ImmutableMap.of(symbol, columnHandle), Optional.<GeneratedPartitions>absent()));
+                Partitioning.SOURCE,
+                tableScanNodeId);
         DataSource dataSource = new DataSource(null, ImmutableList.copyOf(Collections.nCopies(splitCount, split)));
 
         return new StageExecutionPlan(testFragment,
