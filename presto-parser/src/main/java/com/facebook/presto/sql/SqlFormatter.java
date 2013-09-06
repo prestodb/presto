@@ -209,12 +209,7 @@ public final class SqlFormatter
         @Override
         protected Void visitAllColumns(AllColumns node, Integer context)
         {
-            if (node.getPrefix().isPresent()) {
-                builder.append(node.getPrefix().isPresent())
-                        .append('.');
-            }
-
-            builder.append('*');
+            builder.append(node.toString());
 
             return null;
         }
