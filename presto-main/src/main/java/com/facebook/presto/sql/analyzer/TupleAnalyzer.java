@@ -31,6 +31,7 @@ import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
+import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SortItem;
@@ -168,6 +169,12 @@ class TupleAnalyzer
 
         analysis.setOutputDescriptor(relation, descriptor);
         return descriptor;
+    }
+
+    @Override
+    protected TupleDescriptor visitSampledRelation(SampledRelation relation, AnalysisContext context)
+    {
+        throw new SemanticException(NOT_SUPPORTED, relation, "TABLESAMPLE not yet implemented");
     }
 
     @Override

@@ -80,6 +80,7 @@ tokens {
     COLUMN_DEF;
     NOT_NULL;
     ALIASED_RELATION;
+    SAMPLED_RELATION;
     QUERY_SPEC;
 }
 
@@ -271,11 +272,21 @@ selectSublist
     ;
 
 tableRef
-    : ( tablePrimary -> tablePrimary )
-      ( CROSS JOIN tablePrimary                 -> ^(CROSS_JOIN $tableRef tablePrimary)
-      | joinType JOIN tablePrimary joinCriteria -> ^(QUALIFIED_JOIN joinType joinCriteria $tableRef tablePrimary)
-      | NATURAL joinType JOIN tablePrimary      -> ^(QUALIFIED_JOIN joinType NATURAL $tableRef tablePrimary)
+    : ( tableFactor -> tableFactor )
+      ( CROSS JOIN tableFactor                 -> ^(CROSS_JOIN $tableRef tableFactor)
+      | joinType JOIN tableFactor joinCriteria -> ^(QUALIFIED_JOIN joinType joinCriteria $tableRef tableFactor)
+      | NATURAL joinType JOIN tableFactor      -> ^(QUALIFIED_JOIN joinType NATURAL $tableRef tableFactor)
       )*
+    ;
+
+sampleType
+    : BERNOULLI
+    | SYSTEM
+    ;
+
+tableFactor
+    : ( tablePrimary -> tablePrimary )
+      ( TABLESAMPLE sampleType '(' expr ')' -> ^(SAMPLED_RELATION $tableFactor sampleType expr) )?
     ;
 
 tablePrimary
@@ -668,6 +679,7 @@ nonReserved
     | REFRESH | MATERIALIZED | VIEW | ALIAS
     | YEAR | MONTH | DAY | HOUR | MINUTE | SECOND
     | EXPLAIN | FORMAT | TYPE | TEXT | GRAPHVIZ | LOGICAL | DISTRIBUTED
+    | TABLESAMPLE | SYSTEM | BERNOULLI
     ;
 
 SELECT: 'SELECT';
@@ -782,6 +794,9 @@ ALIAS: 'ALIAS';
 UNION: 'UNION';
 EXCEPT: 'EXCEPT';
 INTERSECT: 'INTERSECT';
+SYSTEM: 'SYSTEM';
+BERNOULLI: 'BERNOULLI';
+TABLESAMPLE: 'TABLESAMPLE';
 
 EQ  : '=';
 NEQ : '<>' | '!=';
