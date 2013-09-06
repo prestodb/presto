@@ -75,10 +75,12 @@ import static com.facebook.presto.operator.aggregation.BooleanMinAggregation.BOO
 import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
 import static com.facebook.presto.operator.aggregation.CountColumnAggregation.COUNT_COLUMN;
 import static com.facebook.presto.operator.aggregation.CountIfAggregation.COUNT_IF;
+import static com.facebook.presto.operator.aggregation.DoubleApproximateAverageAggregation.DOUBLE_APPROX_AVERAGE;
 import static com.facebook.presto.operator.aggregation.DoubleAverageAggregation.DOUBLE_AVERAGE;
 import static com.facebook.presto.operator.aggregation.DoubleMaxAggregation.DOUBLE_MAX;
 import static com.facebook.presto.operator.aggregation.DoubleMinAggregation.DOUBLE_MIN;
 import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUBLE_SUM;
+import static com.facebook.presto.operator.aggregation.LongApproximateAverageAggregation.LONG_APPROX_AVERAGE;
 import static com.facebook.presto.operator.aggregation.LongAverageAggregation.LONG_AVERAGE;
 import static com.facebook.presto.operator.aggregation.LongMaxAggregation.LONG_MAX;
 import static com.facebook.presto.operator.aggregation.LongMinAggregation.LONG_MIN;
@@ -146,6 +148,8 @@ public class FunctionRegistry
                 .aggregate("approx_percentile", LONG, ImmutableList.of(LONG, LONG, DOUBLE), STRING, LongApproximatePercentileWeightedAggregation.INSTANCE)
                 .aggregate("approx_percentile", DOUBLE, ImmutableList.of(DOUBLE, DOUBLE), STRING, DoubleApproximatePercentileAggregation.INSTANCE)
                 .aggregate("approx_percentile", DOUBLE, ImmutableList.of(DOUBLE, LONG, DOUBLE), STRING, DoubleApproximatePercentileWeightedAggregation.INSTANCE)
+                .aggregate("approx_avg", STRING, ImmutableList.of(LONG), STRING, LONG_APPROX_AVERAGE)
+                .aggregate("approx_avg", STRING, ImmutableList.of(DOUBLE), STRING, DOUBLE_APPROX_AVERAGE)
                 .scalar(StringFunctions.class)
                 .scalar(RegexpFunctions.class)
                 .scalar(UrlFunctions.class)
