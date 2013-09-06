@@ -20,6 +20,7 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
@@ -462,6 +463,16 @@ class QueryPlanner
         if (orderBy.isEmpty() && limit.isPresent()) {
             long limitValue = Long.valueOf(limit.get());
             return new PlanBuilder(subPlan.getTranslations(), new LimitNode(idAllocator.getNextId(), subPlan.getRoot(), limitValue));
+        }
+
+        return subPlan;
+    }
+
+    private PlanBuilder sample(PlanBuilder subPlan, Optional<String> samplingRatio)
+    {
+        if (samplingRatio.isPresent()) {
+            double samplingRatioValue = Double.valueOf(samplingRatio.get());
+            return new PlanBuilder(subPlan.getTranslations(), new SampleNode(idAllocator.getNextId(), subPlan.getRoot(), samplingRatioValue));
         }
 
         return subPlan;

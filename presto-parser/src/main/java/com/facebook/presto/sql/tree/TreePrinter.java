@@ -95,6 +95,10 @@ public class TreePrinter
                     print(indentLevel, "Limit: " + node.getLimit().get());
                 }
 
+                if (node.getSamplingRatio().isPresent()) {
+                    print(indentLevel, "SamplingRatio: " + node.getSamplingRatio().get());
+                }
+
                 return null;
             }
 

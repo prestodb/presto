@@ -88,7 +88,8 @@ querySpec returns [QuerySpecification value]
         groupClause?
         havingClause?
         orderClause?
-        limitClause?)
+        limitClause?
+        sampleClause?)
         { $value = new QuerySpecification(
             $selectClause.value,
             $fromClause.value,
@@ -96,7 +97,8 @@ querySpec returns [QuerySpecification value]
             Objects.firstNonNull($groupClause.value, ImmutableList.<Expression>of()),
             Optional.fromNullable($havingClause.value),
             Objects.firstNonNull($orderClause.value, ImmutableList.<SortItem>of()),
-            Optional.fromNullable($limitClause.value));
+            Optional.fromNullable($limitClause.value),
+            Optional.fromNullable($sampleClause.value));
         }
     ;
 
@@ -107,7 +109,9 @@ setOperation returns [SetOperation value]
     ;
 
 restrictedSelectStmt returns [Query value]
-    : selectClause fromClause
+    : selectClause
+      fromClause
+      sampleClause?
         { $value = new Query(
             Optional.<With>absent(),
             new QuerySpecification(
@@ -117,7 +121,8 @@ restrictedSelectStmt returns [Query value]
                 ImmutableList.<Expression>of(),
                 Optional.<Expression>absent(),
                 ImmutableList.<SortItem>of(),
-                Optional.<String>absent()),
+                Optional.<String>absent(),
+                Optional.fromNullable($sampleClause.value)),
             ImmutableList.<SortItem>of(),
             Optional.<String>absent());
         }
@@ -167,6 +172,10 @@ fromClause returns [List<Relation> value]
 
 whereClause returns [Expression value]
     : ^(WHERE expr) { $value = $expr.value; }
+    ;
+
+sampleClause returns [String value]
+    : ^(SAMPLEWITH decimal) { $value = $decimal.value; }
     ;
 
 groupClause returns [List<Expression> value]

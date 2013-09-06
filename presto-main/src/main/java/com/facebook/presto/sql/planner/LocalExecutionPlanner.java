@@ -47,6 +47,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
@@ -450,6 +451,15 @@ public class LocalExecutionPlanner
             PhysicalOperation source = node.getSource().accept(this, context);
 
             return new PhysicalOperation(new LimitOperator(source.getOperator(), node.getCount()), source.getLayout());
+        }
+
+        @Override
+        public PhysicalOperation visitSample(SampleNode node, LocalExecutionPlanContext context)
+        {
+            PhysicalOperation source = node.getSource().accept(this, context);
+            IdentityProjectionInfo mappings = computeIdentityMapping(node.getOutputSymbols(), source.getLayout(), context.getTypes());
+            Operator operator = new SamplingOperator(source.getOperator(), node.getSamplingRatio(), mappings.getProjections());
+            return new PhysicalOperation(operator, mappings.getOutputLayout());
         }
 
         @Override

@@ -160,6 +160,11 @@ public final class SqlFormatter
                 append(indent, "LIMIT " + node.getLimit().get())
                         .append('\n');
             }
+
+            if (node.getSamplingRatio().isPresent()) {
+                append(indent, "SAMPLEWITH " + node.getSamplingRatio().get())
+                        .append('\n');
+            }
             return null;
         }
 

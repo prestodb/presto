@@ -204,11 +204,13 @@ simpleQuery
       whereClause?
       groupClause?
       havingClause?
+      sampleClause?
     ;
 
 restrictedSelectStmt
     : selectClause
       fromClause
+      sampleClause?
     ;
 
 withClause
@@ -225,6 +227,10 @@ fromClause
 
 whereClause
     : WHERE expr -> ^(WHERE expr)
+    ;
+
+sampleClause
+    : SAMPLEWITH decimal -> ^(SAMPLEWITH decimal)
     ;
 
 groupClause
@@ -662,12 +668,17 @@ integer
     : INTEGER_VALUE
     ;
 
+decimal
+    : DECIMAL_VALUE
+    ;
+
 nonReserved
     : SHOW | TABLES | COLUMNS | PARTITIONS | FUNCTIONS | SCHEMAS
     | OVER | PARTITION | RANGE | ROWS | PRECEDING | FOLLOWING | CURRENT | ROW
     | REFRESH | MATERIALIZED | VIEW | ALIAS
     | YEAR | MONTH | DAY | HOUR | MINUTE | SECOND
     | EXPLAIN | FORMAT | TYPE | TEXT | GRAPHVIZ | LOGICAL | DISTRIBUTED
+    | SAMPLEWITH
     ;
 
 SELECT: 'SELECT';
@@ -782,6 +793,7 @@ ALIAS: 'ALIAS';
 UNION: 'UNION';
 EXCEPT: 'EXCEPT';
 INTERSECT: 'INTERSECT';
+SAMPLEWITH: 'SAMPLEWITH';
 
 EQ  : '=';
 NEQ : '<>' | '!=';
