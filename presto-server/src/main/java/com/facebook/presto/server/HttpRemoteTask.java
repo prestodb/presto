@@ -209,7 +209,7 @@ public class HttpRemoteTask
             }));
 
             if (initialSplit != null) {
-                checkState(planFragment.isPartitioned(), "Plan is not partitioned");
+                checkState(planFragment.getPartitioning() != PlanFragment.Partitioning.NONE, "Plan is not partitioned");
                 pendingSplits.put(planFragment.getPartitionedSource(), new ScheduledSplit(nextSplitId.getAndIncrement(), initialSplit));
             }
 
@@ -250,7 +250,7 @@ public class HttpRemoteTask
         try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             checkNotNull(split, "split is null");
             checkState(!noMoreSplits, "noMoreSplits has already been set");
-            checkState(planFragment.isPartitioned(), "Plan is not partitioned");
+            checkState(planFragment.getPartitioning() != PlanFragment.Partitioning.NONE, "Plan is not partitioned");
 
             // only add pending split if not done
             if (!getTaskInfo().getState().isDone()) {
@@ -332,7 +332,7 @@ public class HttpRemoteTask
     {
         try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             int pendingSplitCount = 0;
-            if (planFragment.isPartitioned()) {
+            if (planFragment.getPartitioning() != PlanFragment.Partitioning.NONE) {
                 pendingSplitCount = pendingSplits.get(planFragment.getPartitionedSource()).size();
             }
             return pendingSplitCount + taskInfo.get().getStats().getQueuedDrivers();
@@ -444,7 +444,7 @@ public class HttpRemoteTask
     private synchronized List<TaskSource> getSources()
     {
         ImmutableList.Builder<TaskSource> sources = ImmutableList.builder();
-        if (planFragment.isPartitioned()) {
+        if (planFragment.getPartitioning() != PlanFragment.Partitioning.NONE) {
             Set<ScheduledSplit> splits = pendingSplits.get(planFragment.getPartitionedSource());
             if (!splits.isEmpty() || noMoreSplits) {
                 sources.add(new TaskSource(planFragment.getPartitionedSource(), splits, noMoreSplits));

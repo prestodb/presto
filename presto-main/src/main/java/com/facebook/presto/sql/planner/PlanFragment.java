@@ -24,7 +24,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Objects;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.Immutable;
@@ -32,42 +31,42 @@ import javax.annotation.concurrent.Immutable;
 import java.util.List;
 import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 @Immutable
 public class PlanFragment
 {
+    public enum Partitioning {
+        NONE,
+        HASH,
+        SOURCE
+    }
+
     private final PlanFragmentId id;
     private final PlanNode root;
-    private final PlanNodeId partitionedSource;
     private final Map<Symbol, Type> symbols;
+    private final Partitioning partitioning;
+    private final PlanNodeId partitionedSource;
 
     @JsonCreator
-    public PlanFragment(@JsonProperty("id") PlanFragmentId id, @JsonProperty("partitionedSource") PlanNodeId partitionedSource, @JsonProperty("symbols") Map<Symbol, Type> symbols, @JsonProperty("root") PlanNode root)
+    public PlanFragment(
+            @JsonProperty("id") PlanFragmentId id,
+            @JsonProperty("root") PlanNode root,
+            @JsonProperty("symbols") Map<Symbol, Type> symbols,
+            @JsonProperty("partitioning") Partitioning partitioning,
+            @JsonProperty("partitionedSource") PlanNodeId partitionedSource)
     {
-        Preconditions.checkNotNull(id, "id is null");
-        Preconditions.checkNotNull(symbols, "symbols is null");
-        Preconditions.checkNotNull(root, "root is null");
-
-        this.id = id;
-        this.root = root;
+        this.id = checkNotNull(id, "id is null");
+        this.root = checkNotNull(root, "root is null");
+        this.symbols = checkNotNull(symbols, "symbols is null");
+        this.partitioning = checkNotNull(partitioning, "partitioning is null");
         this.partitionedSource = partitionedSource;
-        this.symbols = symbols;
     }
 
     @JsonProperty
     public PlanFragmentId getId()
     {
         return id;
-    }
-
-    public boolean isPartitioned()
-    {
-        return partitionedSource != null;
-    }
-
-    @JsonProperty
-    public PlanNodeId getPartitionedSource()
-    {
-        return partitionedSource;
     }
 
     @JsonProperty
@@ -80,6 +79,18 @@ public class PlanFragment
     public Map<Symbol, Type> getSymbols()
     {
         return symbols;
+    }
+
+    @JsonProperty
+    public Partitioning getPartitioning()
+    {
+        return partitioning;
+    }
+
+    @JsonProperty
+    public PlanNodeId getPartitionedSource()
+    {
+        return partitionedSource;
     }
 
     public List<TupleInfo> getTupleInfos()
@@ -121,6 +132,7 @@ public class PlanFragment
     {
         return Objects.toStringHelper(this)
                 .add("id", id)
+                .add("partitioning", partitioning)
                 .add("partitionedSource", partitionedSource)
                 .toString();
     }
