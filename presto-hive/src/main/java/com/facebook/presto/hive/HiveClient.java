@@ -678,10 +678,11 @@ public class HiveClient
 
                             // get the filesystem for the target path -- it may be a different hdfs instance
                             FileSystem targetFilesystem = split.getPath().getFileSystem(configuration);
+                            FileStatus fileStatus = targetFilesystem.getFileStatus(split.getPath());
                             markerQueue.addToQueue(createHiveSplits(
                                     partitionName,
-                                    targetFilesystem.getFileStatus(split.getPath()),
-                                    targetFilesystem.getFileBlockLocations(split.getPath(), split.getStart(), split.getLength()),
+                                    fileStatus,
+                                    targetFilesystem.getFileBlockLocations(fileStatus, split.getStart(), split.getLength()),
                                     split.getStart(),
                                     split.getLength(),
                                     schema,
