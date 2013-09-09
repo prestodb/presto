@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.AliasDao;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.ShardManager;
+import com.facebook.presto.sql.planner.optimizations.ImplementSampleAsFilter;
 import com.facebook.presto.sql.planner.optimizations.LimitPushDown;
 import com.facebook.presto.sql.planner.optimizations.MergeProjections;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
@@ -50,7 +51,8 @@ public class PlanOptimizersFactory
 
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
 
-        builder.add(new SimplifyExpressions(metadata),
+        builder.add(new ImplementSampleAsFilter(),
+                new SimplifyExpressions(metadata),
                 new PruneUnreferencedOutputs(),
                 new UnaliasSymbolReferences(),
                 new PruneRedundantProjections(),

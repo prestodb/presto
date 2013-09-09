@@ -22,6 +22,7 @@ import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
@@ -134,6 +135,14 @@ public class SymbolExtractor
 
         @Override
         public Void visitLimit(LimitNode node, Void context)
+        {
+            node.getSource().accept(this, context);
+
+            return null;
+        }
+
+        @Override
+        public Void visitSample(SampleNode node, Void context)
         {
             node.getSource().accept(this, context);
 

@@ -149,6 +149,25 @@ public final class PlanRewriter<C>
         }
 
         @Override
+        public PlanNode visitSample(SampleNode node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                PlanNode result = nodeRewriter.rewriteSample(node, context.get(), PlanRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            PlanNode source = rewrite(node.getSource(), context.get());
+
+            if (source != node.getSource()) {
+                return new SampleNode(node.getId(), source, node.getSampleRatio());
+            }
+
+            return node;
+        }
+
+        @Override
         public PlanNode visitProject(ProjectNode node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {

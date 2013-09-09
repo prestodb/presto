@@ -24,6 +24,8 @@ import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.NoOpSymbolResolver;
+import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolResolver;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.ComparisonExpression;
@@ -80,6 +82,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATE_OR_GROUP_BY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_WINDOW_FUNCTION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_WINDOW;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NON_NUMERIC_SAMPLE_PERCENTAGE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.ORDER_BY_MUST_BE_IN_SELECT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
@@ -185,9 +188,42 @@ class TupleAnalyzer
     }
 
     @Override
-    protected TupleDescriptor visitSampledRelation(SampledRelation relation, AnalysisContext context)
+    protected TupleDescriptor visitSampledRelation(final SampledRelation relation, AnalysisContext context)
     {
-        throw new SemanticException(NOT_SUPPORTED, relation, "TABLESAMPLE not yet implemented");
+        if (relation.getType() == SampledRelation.Type.SYSTEM) {
+            throw new SemanticException(NOT_SUPPORTED, relation, "TABLESAMPLE SYSTEM not yet implemented");
+        }
+
+        // We use the optimizer to be able to produce a semantic exception if columns are referenced in the expression.
+        // We can't do this with the interpreter yet because it's designed for the execution stage and has the wrong shape.
+        // So, for now, we punt on supporting non-deterministic functions.
+        ExpressionInterpreter samplePercentageEval = ExpressionInterpreter.expressionOptimizer(new SymbolResolver()
+        {
+            @Override
+            public Object getValue(Symbol symbol)
+            {
+                throw new SemanticException(NON_NUMERIC_SAMPLE_PERCENTAGE, relation.getSamplePercentage(), "Sample percentage cannot contain column references");
+            }
+        }, metadata, session);
+
+        Object samplePercentageObject = samplePercentageEval.process(relation.getSamplePercentage(), null);
+
+        if (!(samplePercentageObject instanceof Number)) {
+            throw new SemanticException(SemanticErrorCode.NON_NUMERIC_SAMPLE_PERCENTAGE, relation.getSamplePercentage(), "Sample percentage should evaluate to a numeric expression");
+        }
+
+        double samplePercentageValue = ((Number) samplePercentageObject).doubleValue();
+
+        if (samplePercentageValue < 0.0 || samplePercentageValue > 100.0) {
+            throw new SemanticException(SemanticErrorCode.SAMPLE_PERCENTAGE_OUT_OF_RANGE, relation.getSamplePercentage(), "Sample percentage must be between 0 and 100");
+        }
+
+        TupleDescriptor descriptor = process(relation.getRelation(), context);
+
+        analysis.setOutputDescriptor(relation, descriptor);
+        analysis.setSampleRatio(relation, samplePercentageValue / 100);
+
+        return descriptor;
     }
 
     @Override
