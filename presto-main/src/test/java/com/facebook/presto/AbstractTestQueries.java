@@ -48,6 +48,7 @@ import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.airlift.slice.Slices;
 import io.airlift.units.Duration;
+import org.apache.commons.math.stat.descriptive.DescriptiveStatistics;
 import org.intellij.lang.annotations.Language;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
@@ -2556,6 +2557,38 @@ public abstract class AbstractTestQueries
                 "    WHERE partkey % 2 = 0)\n" +
                 "  AND\n" +
                 "    orderkey % 2 = 0");
+    }
+
+    @Test
+    public void testTableSampleBernoulliBoundaryValues()
+            throws Exception
+    {
+
+        MaterializedResult fullSample = computeActual("SELECT * FROM orders TABLESAMPLE BERNOULLI (100)");
+        MaterializedResult emptySample = computeActual("SELECT * FROM orders TABLESAMPLE BERNOULLI (0)");
+        MaterializedResult all = computeExpected("SELECT * FROM orders", fullSample.getTupleInfo());
+
+        assertTrue(all.getMaterializedTuples().containsAll(fullSample.getMaterializedTuples()));
+        assertEquals(emptySample.getMaterializedTuples().size(), 0);
+    }
+
+    @Test
+    public void testTableSampleBernoulli()
+            throws Exception
+    {
+        DescriptiveStatistics stats = new DescriptiveStatistics();
+
+        int total = computeExpected("SELECT orderkey FROM orders", TupleInfo.SINGLE_LONG).getMaterializedTuples().size();
+
+        for (int i = 0; i < 100; i++) {
+            List<MaterializedTuple> values = computeActual("SELECT orderkey FROM ORDERS TABLESAMPLE BERNOULLI (50)").getMaterializedTuples();
+
+            assertEquals(values.size(), ImmutableSet.copyOf(values).size(), "TABLESAMPLE produced duplicate rows");
+            stats.addValue(values.size() * 1.0 / total);
+        }
+
+        double mean = stats.getGeometricMean();
+        assertTrue(mean > 0.45 && mean < 0.55, String.format("Expected mean sampling rate to be ~0.5, but was %s", mean));
     }
 
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\QUnexpected parameters (bigint) for function length. Expected: length(varchar)\\E")
