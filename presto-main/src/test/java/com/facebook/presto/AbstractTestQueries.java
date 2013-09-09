@@ -2125,33 +2125,33 @@ public abstract class AbstractTestQueries
                 "  IN (\n" +
                 "    SELECT orderkey\n" +
                 "    FROM lineitem\n" +
-                "    WHERE orderkey % 3 = 0)\n" +
-                "FROM (SELECT * FROM orders WHERE custkey % 128 = 0) o1\n" +
-                "JOIN (SELECT * FROM orders WHERE custkey % 128 = 0) o2\n" +
+                "    WHERE orderkey % 5 = 0)\n" +
+                "FROM (SELECT * FROM orders WHERE custkey % 256 = 0) o1\n" +
+                "JOIN (SELECT * FROM orders WHERE custkey % 256 = 0) o2\n" +
                 "  ON (o1.orderkey IN (SELECT orderkey FROM lineitem WHERE orderkey % 4 = 0)) = (o2.orderkey IN (SELECT orderkey FROM lineitem WHERE orderkey % 4 = 0))\n" +
                 "WHERE o1.orderkey\n" +
                 "  IN (\n" +
                 "    SELECT orderkey\n" +
                 "    FROM lineitem\n" +
-                "    WHERE orderkey % 2 = 0)\n" +
+                "    WHERE orderkey % 4 = 0)\n" +
                 "ORDER BY o1.orderkey\n" +
                 "  IN (\n" +
                 "    SELECT orderkey\n" +
                 "    FROM lineitem\n" +
-                "    WHERE orderkey % 6 = 0)");
+                "    WHERE orderkey % 7 = 0)");
         assertQuery("" +
                 "SELECT orderkey\n" +
                 "  IN (\n" +
                 "    SELECT orderkey\n" +
                 "    FROM lineitem\n" +
-                "    WHERE partkey % 2 = 0),\n" +
+                "    WHERE partkey % 4 = 0),\n" +
                 "  SUM(\n" +
                 "    CASE\n" +
                 "      WHEN orderkey\n" +
                 "        IN (\n" +
                 "          SELECT orderkey\n" +
                 "          FROM lineitem\n" +
-                "          WHERE suppkey % 2 = 0)\n" +
+                "          WHERE suppkey % 4 = 0)\n" +
                 "      THEN 1\n" +
                 "      ELSE 0\n" +
                 "      END)\n" +
@@ -2160,14 +2160,14 @@ public abstract class AbstractTestQueries
                 "  IN (\n" +
                 "    SELECT orderkey\n" +
                 "    FROM lineitem\n" +
-                "    WHERE partkey % 2 = 0)\n" +
+                "    WHERE partkey % 4 = 0)\n" +
                 "HAVING SUM(\n" +
                 "  CASE\n" +
                 "    WHEN orderkey\n" +
                 "      IN (\n" +
                 "        SELECT orderkey\n" +
                 "        FROM lineitem\n" +
-                "        WHERE suppkey % 2 = 0)\n" +
+                "        WHERE suppkey % 4 = 0)\n" +
                 "      THEN 1\n" +
                 "      ELSE 0\n" +
                 "      END) > 1");
@@ -2472,6 +2472,7 @@ public abstract class AbstractTestQueries
         Assert.assertTrue(count > 0 && count < 1000);
     }
 
+    @Test
     public void testSemiJoinPredicateMoveAround()
             throws Exception
     {
