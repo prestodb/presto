@@ -158,27 +158,29 @@ public class NewPagesIndex
                 int comparison;
                 switch (type) {
                     case BOOLEAN:
-                        comparison = Boolean.compare(tupleInfo.getBoolean(leftSlice, leftOffset, field), tupleInfo.getBoolean(rightSlice, rightOffset, field));
+                        comparison = Boolean.compare(
+                                tupleInfo.getBoolean(leftSlice, leftOffset, field),
+                                tupleInfo.getBoolean(rightSlice, rightOffset, field));
                         break;
                     case FIXED_INT_64:
-                        comparison = Long.compare(tupleInfo.getLong(leftSlice, leftOffset, field), tupleInfo.getLong(rightSlice, rightOffset, field));
+                        comparison = Long.compare(
+                                tupleInfo.getLong(leftSlice, leftOffset, field),
+                                tupleInfo.getLong(rightSlice, rightOffset, field));
                         break;
                     case DOUBLE:
-                        comparison = Double.compare(tupleInfo.getDouble(leftSlice, leftOffset, field), tupleInfo.getDouble(rightSlice, rightOffset, field));
+                        comparison = Double.compare(
+                                tupleInfo.getDouble(leftSlice, leftOffset, field),
+                                tupleInfo.getDouble(rightSlice, rightOffset, field));
                         break;
                     case VARIABLE_BINARY:
-                        comparison = tupleInfo.getSlice(leftSlice, leftOffset, field).compareTo(tupleInfo.getSlice(rightSlice, rightOffset, field));
+                        comparison = tupleInfo.getSlice(leftSlice, leftOffset, field)
+                                .compareTo(tupleInfo.getSlice(rightSlice, rightOffset, field));
                         break;
                     default:
                         throw new AssertionError("unimplemented type: " + type);
                 }
                 if (comparison != 0) {
-                    if (sortOrder[i]) {
-                        return comparison;
-                    }
-                    else {
-                        return -comparison;
-                    }
+                    return sortOrder[i] ? comparison : -comparison;
                 }
             }
             return 0;

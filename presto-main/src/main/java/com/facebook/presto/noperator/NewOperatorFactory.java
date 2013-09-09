@@ -12,5 +12,6 @@ public interface NewOperatorFactory
 
     NewOperator createOperator(DriverContext driverContext);
 
+    @Override
     void close();
 }

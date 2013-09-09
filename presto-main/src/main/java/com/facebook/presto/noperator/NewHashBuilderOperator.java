@@ -7,6 +7,7 @@ import com.facebook.presto.operator.Page;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -29,7 +30,7 @@ public class NewHashBuilderOperator
 
         public NewHashSupplier(List<TupleInfo> tupleInfos)
         {
-            this.tupleInfos = tupleInfos;
+            this.tupleInfos = ImmutableList.copyOf(checkNotNull(tupleInfos, "tupleInfos is null"));
         }
 
         public List<TupleInfo> getTupleInfos()

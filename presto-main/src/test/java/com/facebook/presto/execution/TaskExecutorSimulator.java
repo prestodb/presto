@@ -3,6 +3,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.execution.TaskExecutor.TaskHandle;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
+import com.google.common.base.Ticker;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
@@ -61,7 +62,17 @@ public class TaskExecutorSimulator
     public TaskExecutorSimulator()
     {
         executor = MoreExecutors.listeningDecorator(Executors.newCachedThreadPool(threadsNamed("task-processor-%d")));
-        taskExecutor = createTaskExecutor(executor, 16);
+        taskExecutor = createTaskExecutor(executor, 24, new Ticker() {
+            private final long start = System.nanoTime();
+
+            @Override
+            public long read()
+            {
+                // run 10 times faster than reality
+                long now = System.nanoTime();
+                return (now - start) * 100;
+            }
+        });
     }
 
     @Override
@@ -82,20 +93,20 @@ public class TaskExecutorSimulator
         long start = System.nanoTime();
 
         // large tasks
-        for (int userId = 0; userId < 3; userId++) {
-            ListenableFuture<?> future = createUser("Large-" + userId, 100, taskExecutor, done, tasks);
+        for (int userId = 0; userId < 2; userId++) {
+            ListenableFuture<?> future = createUser("large_" + userId, 100, taskExecutor, done, tasks);
             finishFutures.add(future);
         }
 
         // small tasks
         for (int userId = 0; userId < 4; userId++) {
-            ListenableFuture<?> future = createUser("Small-" + userId, 5, taskExecutor, done, tasks);
+            ListenableFuture<?> future = createUser("small_" + userId, 5, taskExecutor, done, tasks);
             finishFutures.add(future);
         }
 
         // tiny tasks
         for (int userId = 0; userId < 1; userId++) {
-            ListenableFuture<?> future = createUser("Tiny-" + userId, 1, taskExecutor, done, tasks);
+            ListenableFuture<?> future = createUser("tiny_" + userId, 1, taskExecutor, done, tasks);
             finishFutures.add(future);
         }
 
@@ -114,7 +125,7 @@ public class TaskExecutorSimulator
                 System.out.println("    " + Joiner.on("\n    ").join(taskExecutor.getRunningSplits()));
             }
             if (PRINT_PREEMPTED_SPLITS) {
-                System.out.println("        " + Joiner.on("\n        ").join(taskExecutor.getPreemptedSplits()));
+                System.out.println("        " + Joiner.on("\n        ").join(taskExecutor.getPendingSplits()));
             }
         }
 
@@ -200,7 +211,7 @@ public class TaskExecutorSimulator
             {
                 long taskId = 0;
                 while (!done.get()) {
-                    SimulationTask task = new SimulationTask(taskExecutor, userId + "-" + taskId++);
+                    SimulationTask task = new SimulationTask(taskExecutor, new TaskId(userId, "0", String.valueOf(taskId++)));
                     task.schedule(splitsPerTask, executor, new Duration(0, MILLISECONDS)).get();
                     task.destroy();
 
@@ -262,7 +273,7 @@ public class TaskExecutorSimulator
         private final List<ListenableFuture<?>> splitFutures = new ArrayList<>();
         private final TaskHandle taskHandle;
 
-        private SimulationTask(TaskExecutor taskExecutor, Object taskId)
+        private SimulationTask(TaskExecutor taskExecutor, TaskId taskId)
         {
             this.taskExecutor = taskExecutor;
             this.taskId = taskId;
@@ -285,7 +296,7 @@ public class TaskExecutorSimulator
                 {
                     try {
                         for (int splitId = 0; splitId < splits; splitId++) {
-                            SimulationSplit split = new SimulationSplit(new Duration(20, TimeUnit.MILLISECONDS), new Duration(1, TimeUnit.MILLISECONDS));
+                            SimulationSplit split = new SimulationSplit(new Duration(80, TimeUnit.MILLISECONDS), new Duration(1, TimeUnit.MILLISECONDS));
                             SimulationTask.this.splits.add(split);
                             splitFutures.add(taskExecutor.addSplit(taskHandle, split));
                             Thread.sleep(entryDelay.toMillis());

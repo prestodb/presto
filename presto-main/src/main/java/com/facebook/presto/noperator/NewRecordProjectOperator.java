@@ -23,6 +23,7 @@ import static io.airlift.units.DataSize.Unit.BYTE;
 public class NewRecordProjectOperator
         implements NewOperator
 {
+    private static final int ROWS_PER_REQUEST = 16384;
     private final OperatorContext operatorContext;
     private final RecordCursor cursor;
     private final List<TupleInfo> tupleInfos;
@@ -103,7 +104,7 @@ public class NewRecordProjectOperator
     {
         if (!finishing) {
             int i = 0;
-            for (; i < 16384; i++) {
+            for (; i < ROWS_PER_REQUEST; i++) {
                 if (pageBuilder.isFull()) {
                     break;
                 }
@@ -119,7 +120,8 @@ public class NewRecordProjectOperator
                         output.appendNull();
                     }
                     else {
-                        switch (getTupleInfos().get(column).getTypes().get(0)) {
+                        Type type = getTupleInfos().get(column).getTypes().get(0);
+                        switch (type) {
                             case BOOLEAN:
                                 output.append(cursor.getBoolean(column));
                                 break;
@@ -132,6 +134,8 @@ public class NewRecordProjectOperator
                             case VARIABLE_BINARY:
                                 output.append(cursor.getString(column));
                                 break;
+                            default:
+                                   throw new AssertionError("unimplemented type: " + type);
                         }
                     }
                 }
