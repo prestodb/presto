@@ -21,13 +21,20 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
+import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joni.Regex;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.BeforeSuite;
 import org.testng.annotations.Test;
 
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -76,6 +83,28 @@ public class TestExpressionCompiler
             "$.bar",
             null
     };
+
+    private static final Logger log = Logger.get(TestExpressionCompiler.class);
+    private long start;
+
+    @BeforeSuite
+    public void setupClass()
+    {
+        Logging.initialize();
+    }
+
+    @BeforeMethod
+    public void setUp()
+    {
+        start = System.nanoTime();
+    }
+
+    @AfterMethod
+    public void tearDown(Method method)
+            throws Exception
+    {
+        log.info("FINISHED %s in %s", method.getName(), Duration.nanosSince(start));
+    }
 
     @Test
     public void smokeTest()
@@ -149,7 +178,7 @@ public class TestExpressionCompiler
     }
 
     @Test
-    public void testBinaryOperators()
+    public void testBinaryOperatorsBoolean()
     {
         for (Boolean left : booleanValues) {
             for (Boolean right : booleanValues) {
@@ -160,7 +189,11 @@ public class TestExpressionCompiler
                 assertExecute(generateExpression("%s is distinct from %s", left, right), !Objects.equals(left, right));
             }
         }
+    }
 
+    @Test
+    public void testBinaryOperatorsLongLong()
+    {
         for (Long left : longLefts) {
             for (Long right : longRights) {
                 assertExecute(generateExpression("%s = %s", left, right), left == null || right == null ? null : (long) left == right);
@@ -180,7 +213,11 @@ public class TestExpressionCompiler
                 assertExecute(generateExpression("%s %% %s", left, right), left == null || right == null ? null : left % right);
             }
         }
+    }
 
+    @Test
+    public void testBinaryOperatorsLongDouble()
+    {
         for (Long left : longLefts) {
             for (Double right : doubleRights) {
                 assertExecute(generateExpression("%s = %s", left, right), left == null || right == null ? null : (double) left == right);
@@ -217,6 +254,11 @@ public class TestExpressionCompiler
             }
         }
 
+    }
+
+    @Test
+    public void testBinaryOperatorsDoubleLong()
+    {
         for (Double left : doubleLefts) {
             for (Long right : longRights) {
                 assertExecute(generateExpression("%s = %s", left, right), left == null || right == null ? null : left == (double) right);
@@ -237,6 +279,11 @@ public class TestExpressionCompiler
             }
         }
 
+    }
+
+    @Test
+    public void testBinaryOperatorsDoubleDouble()
+    {
         for (Double left : doubleLefts) {
             for (Double right : doubleRights) {
                 assertExecute(generateExpression("%s = %s", left, right), left == null || right == null ? null : (double) left == right);
@@ -256,7 +303,11 @@ public class TestExpressionCompiler
                 assertExecute(generateExpression("%s %% %s", left, right), left == null || right == null ? null : left % right);
             }
         }
+    }
 
+    @Test
+    public void testBinaryOperatorsString()
+    {
         for (String left : stringLefts) {
             for (String right : stringRights) {
                 assertExecute(generateExpression("%s = %s", left, right), left == null || right == null ? null : left.equals(right));
@@ -296,7 +347,7 @@ public class TestExpressionCompiler
     }
 
     @Test
-    public void testTernaryOperators()
+    public void testTernaryOperatorsLongLong()
     {
         for (Long first : longLefts) {
             for (Long second : longLefts) {
@@ -306,7 +357,11 @@ public class TestExpressionCompiler
                 }
             }
         }
+    }
 
+    @Test
+    public void testTernaryOperatorsLongDouble()
+    {
         for (Long first : longLefts) {
             for (Double second : doubleLefts) {
                 for (Long third : longRights) {
@@ -315,7 +370,11 @@ public class TestExpressionCompiler
                 }
             }
         }
+    }
 
+    @Test
+    public void testTernaryOperatorsDoubleDouble()
+    {
         for (Double first : doubleLefts) {
             for (Double second : doubleLefts) {
                 for (Long third : longRights) {
@@ -325,6 +384,11 @@ public class TestExpressionCompiler
             }
         }
 
+    }
+
+    @Test
+    public void testTernaryOperatorsString()
+    {
         for (String first : stringLefts) {
             for (String second : stringLefts) {
                 for (String third : stringRights) {
@@ -503,8 +567,7 @@ public class TestExpressionCompiler
     }
 
     @Test
-    public void testSearchCase()
-            throws Exception
+    public void testSearchCaseSingle()
     {
         assertExecute("case when null and true then 1 else 0 end", 0L);
         for (Double value : doubleLefts) {
@@ -531,6 +594,11 @@ public class TestExpressionCompiler
             }
         }
 
+    }
+
+    @Test
+    public void testSearchCaseMultiple()
+    {
         for (Double value : doubleLefts) {
             for (Long firstTest : longLefts) {
                 for (Double secondTest : doubleRights) {
@@ -668,7 +736,6 @@ public class TestExpressionCompiler
 
     @Test
     public void testFunctionCall()
-            throws Exception
     {
         for (Long left : longLefts) {
             for (Long right : longRights) {
@@ -709,6 +776,11 @@ public class TestExpressionCompiler
             }
         }
 
+    }
+
+    @Test
+    public void testFunctionCallRegexp()
+    {
         for (String value : stringLefts) {
             for (String pattern : stringRights) {
                 assertExecute(generateExpression("regexp_like(%s, %s)", value, pattern),
@@ -720,6 +792,11 @@ public class TestExpressionCompiler
             }
         }
 
+    }
+
+    @Test
+    public void testFunctionCallJson()
+    {
         for (String value : jsonValues) {
             for (String pattern : jsonPatterns) {
                 assertExecute(generateExpression("json_extract(%s, %s)", value, pattern),
