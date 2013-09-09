@@ -200,6 +200,11 @@ limitClause returns [String value]
     : ^(LIMIT integer) { $value = $integer.value; }
     ;
 
+sampleType returns [SampledRelation.Type value]
+    : BERNOULLI { $value = SampledRelation.Type.BERNOULLI; }
+    | SYSTEM    { $value = SampledRelation.Type.SYSTEM; }
+    ;
+
 relationList returns [List<Relation> value = new ArrayList<>()]
     : ( relation { $value.add($relation.value); } )+
     ;
@@ -207,6 +212,7 @@ relationList returns [List<Relation> value = new ArrayList<>()]
 relation returns [Relation value]
     : relationType      { $value = $relationType.value; }
     | aliasedRelation   { $value = $aliasedRelation.value; }
+    | sampledRelation   { $value = $sampledRelation.value; }
     ;
 
 relationType returns [Relation value]
@@ -231,6 +237,10 @@ joinRelation returns [Join value]
 
 aliasedRelation returns [AliasedRelation value]
     : ^(ALIASED_RELATION r=relation i=ident c=aliasedColumns?) { $value = new AliasedRelation($r.value, $i.value, $c.value); }
+    ;
+
+sampledRelation returns [SampledRelation value]
+    : ^(SAMPLED_RELATION r=relation t=sampleType p=expr) { $value = new SampledRelation($r.value, $t.value, $p.value); }
     ;
 
 aliasedColumns returns [List<String> value]

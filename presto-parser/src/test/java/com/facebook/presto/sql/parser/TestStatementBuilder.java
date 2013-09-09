@@ -70,6 +70,9 @@ public class TestStatementBuilder
         printStatement("select * from a.b.c@d");
 
         printStatement("select \"TOTALPRICE\" \"my price\" from \"ORDERS\"");
+
+        printStatement("select * from foo tablesample system (10+1)");
+        printStatement("select * from foo tablesample system (10) join bar tablesample bernoulli (30) on a.id = b.id");
     }
 
     @Test
