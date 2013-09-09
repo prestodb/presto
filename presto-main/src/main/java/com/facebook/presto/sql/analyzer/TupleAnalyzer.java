@@ -11,6 +11,7 @@ import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.NoOpSymbolResolver;
+import com.facebook.presto.sql.planner.TupleInputResolver;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.ComparisonExpression;
@@ -174,7 +175,29 @@ class TupleAnalyzer
     @Override
     protected TupleDescriptor visitSampledRelation(SampledRelation relation, AnalysisContext context)
     {
-        throw new SemanticException(NOT_SUPPORTED, relation, "TABLESAMPLE not yet implemented");
+        if (relation.getType() == SampledRelation.Type.SYSTEM) {
+            throw new SemanticException(NOT_SUPPORTED, relation, "TABLESAMPLE SYSTEM not yet implemented");
+        }
+
+        // Using the optimizer here so that we don't evaluate non-deterministic functions
+        ExpressionInterpreter samplePercentageEval = ExpressionInterpreter.expressionOptimizer(NoOpSymbolResolver.INSTANCE, metadata, session);
+        Object samplePercentageObject = samplePercentageEval.process(relation.getSamplePercentage(), null);
+
+        if (!(samplePercentageObject instanceof Number)) {
+            throw new SemanticException(SemanticErrorCode.NON_NUMERIC_SAMPLE_PERCENTAGE, relation.getSamplePercentage(), "Sample Percentage should evaluate to a numeric expression");
+        }
+
+        double samplePercentageValue = ((Number) samplePercentageObject).doubleValue();
+
+        if (samplePercentageValue < 0.0 || samplePercentageValue > 100.0) {
+            throw new SemanticException(SemanticErrorCode.SAMPLE_PERCENTAGE_OUT_OF_RANGE, relation.getSamplePercentage(), "Sample Percentage must be between 0 and 100");
+        }
+
+        TupleDescriptor descriptor = process(relation.getRelation(), context);
+
+        analysis.setOutputDescriptor(relation, descriptor);
+
+        return descriptor;
     }
 
     @Override

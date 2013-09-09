@@ -15,6 +15,7 @@ import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
@@ -113,7 +114,19 @@ class RelationPlanner
     @Override
     protected RelationPlan visitSampledRelation(SampledRelation node, Void context)
     {
-        throw new UnsupportedOperationException("TABLESAMPLE not yet implemented");
+        if (node.getType() == SampledRelation.Type.SYSTEM) {
+            throw new UnsupportedOperationException("TABLESAMPLE SYSTEM not yet implemented");
+        }
+
+        RelationPlan subPlan = process(node.getRelation(), context);
+
+        TupleDescriptor outputDescriptor = analysis.getOutputDescriptor(node);
+
+        // Using the optimizer here so that we don't evaluate non-deterministic functions
+        ExpressionInterpreter samplePercentageEval = ExpressionInterpreter.expressionOptimizer(NoOpSymbolResolver.INSTANCE, metadata, session);
+        double samplePercentage = ((Number) samplePercentageEval.process(node.getSamplePercentage(), null)).doubleValue();
+
+        return new RelationPlan(new SampleNode(idAllocator.getNextId(), subPlan.getRoot(), samplePercentage/100.0), outputDescriptor, subPlan.getOutputSymbols());
     }
 
     @Override

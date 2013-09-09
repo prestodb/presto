@@ -2545,6 +2545,40 @@ public abstract class AbstractTestQueries
                 "    orderkey % 2 = 0");
     }
 
+    @Test
+    public void testTableSampleBernoulliWithRandomPercentage()
+            throws Exception
+    {
+        assertQuery("SELECT * FROM orders TABLESAMPLE BERNOULLI (rand())");
+    }
+
+    @Test
+    public void testTableSampleBernoulliBoundaryValues()
+            throws Exception
+    {
+
+        MaterializedResult full_sample = computeActual("SELECT * FROM orders TABLESAMPLE BERNOULLI (100)");
+        MaterializedResult empty_sample = computeActual("SELECT * FROM orders TABLESAMPLE BERNOULLI (0)");
+        MaterializedResult all = computeExpected("SELECT * FROM orders", full_sample.getTupleInfo());
+
+        assertTrue(all.getMaterializedTuples().containsAll(full_sample.getMaterializedTuples()));
+        assertEquals(empty_sample.getMaterializedTuples().size(), 0);
+    }
+
+    @Test
+    public void testTableSampleBernoulli()
+            throws Exception
+    {
+        MaterializedResult sample_1 = computeActual("SELECT orderkey FROM ORDERS TABLESAMPLE BERNOULLI (25)");
+        MaterializedResult sample_2 = computeActual("SELECT orderkey FROM ORDERS TABLESAMPLE BERNOULLI (50)");
+        MaterializedResult sample_3 = computeActual("SELECT orderkey FROM ORDERS TABLESAMPLE BERNOULLI (75)");
+        MaterializedResult all = computeExpected("SELECT orderkey FROM ORDERS", sample_1.getTupleInfo());
+
+        assertTrue(all.getMaterializedTuples().containsAll(sample_1.getMaterializedTuples()));
+        assertTrue(all.getMaterializedTuples().containsAll(sample_2.getMaterializedTuples()));
+        assertTrue(all.getMaterializedTuples().containsAll(sample_3.getMaterializedTuples()));
+    }
+
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\QUnexpected parameters (bigint) for function length. Expected: length(varchar)\\E")
     public void testFunctionNotRegistered()
     {
