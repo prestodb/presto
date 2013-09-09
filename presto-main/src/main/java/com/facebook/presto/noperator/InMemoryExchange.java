@@ -102,11 +102,10 @@ public class InMemoryExchange
 
     private synchronized void notifyBlockedCallers()
     {
-        List<SettableFuture<?>> callers = blockedCallers;
-        blockedCallers.clear();
-        for (SettableFuture<?> blockedCaller : callers) {
+        for (SettableFuture<?> blockedCaller : blockedCallers) {
             blockedCaller.set(null);
         }
+        blockedCallers.clear();
     }
 
     public synchronized ListenableFuture<?> waitForNotEmpty()

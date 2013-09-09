@@ -186,7 +186,7 @@ public class NewHashJoinOperator
         UncompressedBlock probeJoinBlock = (UncompressedBlock) page.getBlock(probeJoinChannel);
         hash.setProbeSlice(probeJoinBlock.getSlice());
 
-        // initialize to invalid join position to force, output code to advance the cursors
+        // initialize to invalid join position to force output code to advance the cursors
         joinPosition = -1;
     }
 

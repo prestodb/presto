@@ -269,11 +269,11 @@ public class SqlStageExecution
 
                 TaskStats taskStats = taskInfo.getStats();
 
-                totalDrivers = taskStats.getTotalDrivers();
-                queuedDrivers = taskStats.getQueuedDrivers();
-                startedDrivers = taskStats.getStartedDrivers();
-                runningDrivers = taskStats.getRunningDrivers();
-                completedDrivers = taskStats.getCompletedDrivers();
+                totalDrivers += taskStats.getTotalDrivers();
+                queuedDrivers += taskStats.getQueuedDrivers();
+                startedDrivers += taskStats.getStartedDrivers();
+                runningDrivers += taskStats.getRunningDrivers();
+                completedDrivers += taskStats.getCompletedDrivers();
 
                 totalMemoryReservation += taskStats.getMemoryReservation().toBytes();
 

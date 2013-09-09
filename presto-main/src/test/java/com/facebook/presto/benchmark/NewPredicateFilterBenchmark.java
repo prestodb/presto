@@ -37,7 +37,9 @@ public class NewPredicateFilterBenchmark
         return ImmutableList.of(alignmentOperator, filterAndProjectOperator);
     }
 
-    public static class DoubleFilter implements FilterFunction {
+    public static class DoubleFilter
+            implements FilterFunction
+    {
 
         private final double minValue;
 

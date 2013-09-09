@@ -24,7 +24,7 @@ public class TaskExecutorTest
             throws Exception
     {
         TaskExecutor taskExecutor = createTaskExecutor(executor, 4);
-        TaskHandle taskHandle = taskExecutor.addTask("test");
+        TaskHandle taskHandle = taskExecutor.addTask(new TaskId("test", "test", "test"));
 
         final Phaser beginPhase = new Phaser();
         beginPhase.register();

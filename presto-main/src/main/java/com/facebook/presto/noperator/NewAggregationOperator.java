@@ -140,7 +140,7 @@ public class NewAggregationOperator
     @Override
     public void addInput(Page page)
     {
-        checkState(state == State.NEEDS_INPUT, "Operator is already finishing");
+        checkState(needsInput(), "Operator is already finishing");
         checkNotNull(page, "page is null");
 
         for (Aggregator aggregate : aggregates) {

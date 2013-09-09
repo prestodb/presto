@@ -55,12 +55,12 @@ public class NewInMemoryOrderByOperator
                 boolean[] sortOrder)
         {
             this.operatorId = operatorId;
-            this.sourceTupleInfos = sourceTupleInfos;
+            this.sourceTupleInfos = ImmutableList.copyOf(checkNotNull(sourceTupleInfos, "sourceTupleInfos is null"));
             this.orderByChannel = orderByChannel;
-            this.outputChannels = outputChannels;
+            this.outputChannels = checkNotNull(outputChannels, "outputChannels is null");
             this.expectedPositions = expectedPositions;
-            this.sortFields = sortFields;
-            this.sortOrder = sortOrder;
+            this.sortFields = checkNotNull(sortFields, "sortFields is null");
+            this.sortOrder = checkNotNull(sortOrder, "sortOrder is null");
 
             this.tupleInfos = toTupleInfos(sourceTupleInfos, outputChannels);
         }
@@ -219,18 +219,16 @@ public class NewInMemoryOrderByOperator
 
     private static boolean[] defaultSortOrder(List<TupleInfo> sourceTupleInfos, int orderByChannel)
     {
-        boolean[] sortOrder;
         TupleInfo orderByTupleInfo = sourceTupleInfos.get(orderByChannel);
-        sortOrder = new boolean[orderByTupleInfo.getFieldCount()];
+        boolean[] sortOrder = new boolean[orderByTupleInfo.getFieldCount()];
         BooleanArrays.fill(sortOrder, true);
         return sortOrder;
     }
 
     private static int[] defaultSortFields(List<TupleInfo> sourceTupleInfos, int orderByChannel)
     {
-        int[] sortFields;
         TupleInfo orderByTupleInfo = sourceTupleInfos.get(orderByChannel);
-        sortFields = new int[orderByTupleInfo.getFieldCount()];
+        int[] sortFields = new int[orderByTupleInfo.getFieldCount()];
         for (int i = 0; i < sortFields.length; i++) {
             sortFields[i] = i;
         }

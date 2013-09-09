@@ -103,6 +103,8 @@ public class NewLimitOperator
     @Override
     public void addInput(Page page)
     {
+        checkState(needsInput());
+
         if (page.getPositionCount() <= remainingLimit) {
             remainingLimit -= page.getPositionCount();
             nextPage = page;

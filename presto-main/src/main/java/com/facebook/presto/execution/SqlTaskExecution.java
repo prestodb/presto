@@ -196,7 +196,7 @@ public class SqlTaskExecution
     {
         // start unpartitioned drivers
         for (Driver driver : unpartitionedDrivers) {
-            addSplitWorker(driver);
+            enqueueDriver(driver);
         }
     }
 
@@ -320,10 +320,10 @@ public class SqlTaskExecution
         }
 
         // add the worker
-        addSplitWorker(driver);
+        enqueueDriver(driver);
     }
 
-    private synchronized void addSplitWorker(final Driver driver)
+    private synchronized void enqueueDriver(final Driver driver)
     {
         // record new worker
         drivers.add(new WeakReference<>(driver));
@@ -342,6 +342,9 @@ public class SqlTaskExecution
             public ListenableFuture<?> process()
                     throws Exception
             {
+                if (driver == null) {
+                    driver = buildDriver();
+                }
                 return driver.process();
             }
         });
