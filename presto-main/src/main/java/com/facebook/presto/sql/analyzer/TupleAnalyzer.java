@@ -174,9 +174,6 @@ class TupleAnalyzer
     @Override
     protected TupleDescriptor visitSampledRelation(SampledRelation relation, AnalysisContext context)
     {
-        if (relation.getType() == SampledRelation.Type.SYSTEM) {
-            throw new SemanticException(NOT_SUPPORTED, relation, "TABLESAMPLE SYSTEM not yet implemented");
-        }
 
         TupleDescriptor descriptor = process(relation.getRelation(), context);
 

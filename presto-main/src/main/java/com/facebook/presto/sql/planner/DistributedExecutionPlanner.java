@@ -1,6 +1,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.execution.DataSource;
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.Split;
@@ -25,6 +26,7 @@ import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -141,7 +143,40 @@ public class DistributedExecutionPlanner
         @Override
         public NodeSplits visitSample(SampleNode node, Predicate<Partition> tableWriterPartitionPredicate)
         {
-            return node.getSource().accept(this, tableWriterPartitionPredicate);
+            if (node.getSampleType() == SampleNode.Type.BERNOULLI) {
+                return node.getSource().accept(this, tableWriterPartitionPredicate);
+            }
+            else if (node.getSampleType() == SampleNode.Type.SYSTEM) {
+                // Get sampling percentage
+                ExpressionInterpreter evaluator = ExpressionInterpreter.expressionInterpreter(new TupleInputResolver(), new MetadataManager(), session);
+                Object samplePercentage = evaluator.process(node.getSamplePercentage(), null);
+                double percentage;
+                if (samplePercentage instanceof Long) {
+                    percentage = ((Long) samplePercentage).doubleValue();
+                }
+                else if (samplePercentage instanceof Double) {
+                    percentage = (double) samplePercentage;
+                }
+                else {
+                    throw new IllegalArgumentException("Illegal argument for samplePercentage");
+                }
+                Preconditions.checkArgument(percentage >= 0.0 && percentage <= 100.0, "sampling percentage must be between 0 and 100");
+
+
+                NodeSplits nodeSplits = node.getSource().accept(this, tableWriterPartitionPredicate);
+                ImmutableList<Split> allSplits = ImmutableList.copyOf(nodeSplits.dataSource.get().getSplits());
+                ImmutableList.Builder<Split> sampledSplits = ImmutableList.builder();
+                for (Split split : allSplits) {
+
+                    if (Math.random() <= percentage / 100.0) {
+                        sampledSplits.add(split);
+                    }
+                }
+                return new NodeSplits(node.getId(), new DataSource(nodeSplits.dataSource.get().getDataSourceName(), sampledSplits.build()));
+            }
+            else {
+                throw new UnsupportedOperationException("Sampling is not supported for type " + node.getSampleType());
+            }
         }
 
         @Override
