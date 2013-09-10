@@ -26,8 +26,6 @@ import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.RemoteTaskFactory;
-import com.facebook.presto.execution.Sitevars;
-import com.facebook.presto.execution.SitevarsConfig;
 import com.facebook.presto.execution.SqlQueryExecution.SqlQueryExecutionFactory;
 import com.facebook.presto.execution.SqlQueryManager;
 import com.facebook.presto.execution.SqlTaskManager;
@@ -290,10 +288,6 @@ public class ServerMainModule
         binder.bind(PeriodicImportRunnable.PeriodicImportRunnableFactory.class).in(Scopes.SINGLETON);
         newExporter(binder).export(PeriodicImportController.class).as("com.facebook.presto:name=periodic-import");
         HttpClientBinder.httpClientBinder(binder).bindAsyncHttpClient("periodic-importer", ForPeriodicImport.class).withTracing();
-
-        bindConfig(binder).to(SitevarsConfig.class);
-        binder.bind(Sitevars.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(Sitevars.class).as("com.facebook.presto:name=sitevars");
 
         binder.bind(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         newExporter(binder).export(SqlQueryExecutionFactory.class).withGeneratedName();

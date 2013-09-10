@@ -1,6 +1,5 @@
 package com.facebook.presto.sql.planner.optimizations;
 
-import com.facebook.presto.execution.Sitevars;
 import com.facebook.presto.metadata.AliasDao;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Node;
@@ -39,19 +38,16 @@ public class TableAliasSelector
     private final AliasDao aliasDao;
     private final NodeManager nodeManager;
     private final ShardManager shardManager;
-    private final Sitevars sitevars;
 
     public TableAliasSelector(Metadata metadata,
             AliasDao aliasDao,
             NodeManager nodeManager,
-            ShardManager shardManager,
-            Sitevars sitevars)
+            ShardManager shardManager)
     {
         this.metadata = checkNotNull(metadata, "metadata is null");
         this.aliasDao = checkNotNull(aliasDao, "aliasDao is null");
         this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
         this.shardManager = checkNotNull(shardManager, "shardManager is null");
-        this.sitevars = checkNotNull(sitevars, "sitevars is null");
     }
 
     @Override
@@ -69,27 +65,20 @@ public class TableAliasSelector
             return plan;
         }
 
-        if (sitevars.isAliasEnabled()) {
-            return PlanRewriter.rewriteWith(new Rewriter(), plan);
-        }
-        else {
-            return plan;
-        }
+        return PlanRewriter.rewriteWith(new Rewriter(), plan);
     }
 
-    private boolean containsTableWriter(PlanNode plan)
+    private static boolean containsTableWriter(PlanNode plan)
     {
         if (plan == null) {
             return false;
         }
-        else if (plan instanceof TableWriterNode) {
+        if (plan instanceof TableWriterNode) {
             return true;
         }
-        else {
-            for (PlanNode sourceNode : plan.getSources()) {
-                if (containsTableWriter(sourceNode)) {
-                    return true;
-                }
+        for (PlanNode sourceNode : plan.getSources()) {
+            if (containsTableWriter(sourceNode)) {
+                return true;
             }
         }
 

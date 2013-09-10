@@ -35,8 +35,6 @@ public class DropAliasExecution
     private final DropAlias statement;
     private final MetadataManager metadataManager;
     private final AliasDao aliasDao;
-    private final Sitevars sitevars;
-
     private final QueryStateMachine stateMachine;
 
     DropAliasExecution(QueryId queryId,
@@ -46,22 +44,18 @@ public class DropAliasExecution
             DropAlias statement,
             MetadataManager metadataManager,
             AliasDao aliasDao,
-            Sitevars sitevars,
             Executor executor)
     {
         this.statement = statement;
-        this.sitevars = sitevars;
         this.metadataManager = metadataManager;
         this.aliasDao = aliasDao;
-
         this.stateMachine = new QueryStateMachine(queryId, query, session, self, executor);
     }
 
+    @Override
     public void start()
     {
         try {
-            checkState(sitevars.isAliasEnabled(), "table aliasing is disabled");
-
             // transition to starting
             if (!stateMachine.starting()) {
                 // query already started or finished
@@ -107,6 +101,7 @@ public class DropAliasExecution
     @Override
     public void cancelStage(StageId stageId)
     {
+        // no-op
     }
 
     @Override
@@ -139,20 +134,15 @@ public class DropAliasExecution
         private final LocationFactory locationFactory;
         private final MetadataManager metadataManager;
         private final AliasDao aliasDao;
-        private final Sitevars sitevars;
         private final ExecutorService executor;
         private final ThreadPoolExecutorMBean executorMBean;
 
         @Inject
-        DropAliasExecutionFactory(LocationFactory locationFactory,
-                MetadataManager metadataManager,
-                AliasDao aliasDao,
-                Sitevars sitevars)
+        DropAliasExecutionFactory(LocationFactory locationFactory, MetadataManager metadataManager, AliasDao aliasDao)
         {
             this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
             this.metadataManager = checkNotNull(metadataManager, "metadataManager is null");
             this.aliasDao = checkNotNull(aliasDao, "aliasDao is null");
-            this.sitevars = checkNotNull(sitevars, "sitevars is null");
             this.executor = Executors.newCachedThreadPool(daemonThreadsNamed("drop-alias-scheduler-%d"));
             this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) executor);
         }
@@ -164,6 +154,7 @@ public class DropAliasExecution
             return executorMBean;
         }
 
+        @Override
         public DropAliasExecution createQueryExecution(QueryId queryId, String query, Session session, Statement statement)
         {
             return new DropAliasExecution(queryId,
@@ -173,7 +164,6 @@ public class DropAliasExecution
                     (DropAlias) statement,
                     metadataManager,
                     aliasDao,
-                    sitevars,
                     executor);
         }
     }
