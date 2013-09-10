@@ -1,7 +1,6 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.execution.TaskExecutor.TaskHandle;
-import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ArrayListMultimap;
@@ -33,7 +32,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static com.facebook.presto.execution.TaskExecutor.createTaskExecutor;
 import static com.facebook.presto.util.Threads.threadsNamed;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -41,9 +39,6 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 public class TaskExecutorSimulator
         implements Closeable
 {
-    private static final boolean PRINT_RUNNING_SPLITS = false;
-    private static final boolean PRINT_PREEMPTED_SPLITS = false;
-
     private static final boolean PRINT_TASK_COMPLETION = false;
     private static final boolean PRINT_SPLIT_COMPLETION = false;
 
@@ -61,8 +56,9 @@ public class TaskExecutorSimulator
 
     public TaskExecutorSimulator()
     {
-        executor = MoreExecutors.listeningDecorator(Executors.newCachedThreadPool(threadsNamed("task-processor-%d")));
-        taskExecutor = createTaskExecutor(executor, 24, new Ticker() {
+        executor = MoreExecutors.listeningDecorator(Executors.newCachedThreadPool(threadsNamed(getClass().getSimpleName() + "-%d")));
+
+        taskExecutor = new TaskExecutor(24, new Ticker() {
             private final long start = System.nanoTime();
 
             @Override
@@ -73,12 +69,14 @@ public class TaskExecutorSimulator
                 return (now - start) * 100;
             }
         });
+        taskExecutor.start();
     }
 
     @Override
     public void close()
     {
-        taskExecutor.close();
+
+        taskExecutor.stop();
         executor.shutdownNow();
     }
 
@@ -121,12 +119,6 @@ public class TaskExecutorSimulator
         for (int i = 0; i < 60; i++) {
             TimeUnit.MILLISECONDS.sleep(1000);
             System.out.println(taskExecutor);
-            if (PRINT_RUNNING_SPLITS) {
-                System.out.println("    " + Joiner.on("\n    ").join(taskExecutor.getRunningSplits()));
-            }
-            if (PRINT_PREEMPTED_SPLITS) {
-                System.out.println("        " + Joiner.on("\n        ").join(taskExecutor.getPendingSplits()));
-            }
         }
 
         // capture finished tasks

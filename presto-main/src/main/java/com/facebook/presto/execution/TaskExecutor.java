@@ -4,18 +4,23 @@ import com.facebook.presto.util.SetThreadName;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Objects;
 import com.google.common.base.Ticker;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
+import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
+import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.NotThreadSafe;
 import javax.annotation.concurrent.ThreadSafe;
+import javax.inject.Inject;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -26,14 +31,19 @@ import java.util.List;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicLongArray;
 
+import static com.facebook.presto.util.Threads.threadsNamed;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -48,12 +58,15 @@ public class TaskExecutor
     private static final AtomicLong NEXT_RUNNER_ID = new AtomicLong();
     private static final AtomicLong NEXT_WORKER_ID = new AtomicLong();
 
-    private final Executor executor;
+    private final ExecutorService executor;
+    private final ThreadPoolExecutorMBean executorMBean;
+
     private final int runnerThreads;
     private final int minimumNumberOfTasks;
 
     private final Ticker ticker;
 
+    @GuardedBy("this")
     private final List<TaskHandle> tasks;
 
     private final Set<PrioritizedSplitRunner> allSplits = new HashSet<>();
@@ -61,34 +74,41 @@ public class TaskExecutor
     private final Set<PrioritizedSplitRunner> runningSplits = Sets.newSetFromMap(new ConcurrentHashMap<PrioritizedSplitRunner, Boolean>());
     private final Set<PrioritizedSplitRunner> blockedSplits = Sets.newSetFromMap(new ConcurrentHashMap<PrioritizedSplitRunner, Boolean>());
 
+    private final AtomicLongArray completedTasksPerLevel = new AtomicLongArray(5);
+
     private boolean closed;
 
-    public static TaskExecutor createTaskExecutor(Executor executor, int runnerThreads)
+    @Inject
+    public TaskExecutor(QueryManagerConfig config)
     {
-        return createTaskExecutor(executor, runnerThreads, Ticker.systemTicker());
+        this(checkNotNull(config, "config is null").getMaxShardProcessorThreads());
+    }
+
+    public TaskExecutor(int runnerThreads)
+    {
+        this(runnerThreads, Ticker.systemTicker());
     }
 
     @VisibleForTesting
-    public static TaskExecutor createTaskExecutor(Executor executor, int runnerThreads, Ticker ticker)
+    public TaskExecutor(int runnerThreads, Ticker ticker)
     {
-        TaskExecutor taskExecutor = new TaskExecutor(executor, runnerThreads, ticker);
-        taskExecutor.start();
-        return taskExecutor;
-    }
+        checkArgument(runnerThreads > 0, "runnerThreads must be at least 1");
 
-    private TaskExecutor(Executor executor, int runnerThreads, Ticker ticker)
-    {
-        this.executor = executor;
+        // we manages thread pool size directly, so create an unlimited pool
+        this.executor = Executors.newCachedThreadPool(threadsNamed("task-processor-%d"));
+        this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) executor);
         this.runnerThreads = runnerThreads;
-        this.ticker = ticker;
+
+        this.ticker = checkNotNull(ticker, "ticker is null");
 
         // we assume we need at least two tasks per runner thread to keep the system busy
-        this.minimumNumberOfTasks = 2 * runnerThreads;
+        this.minimumNumberOfTasks = 2 * this.runnerThreads;
         this.pendingSplits = new PriorityBlockingQueue<>(Runtime.getRuntime().availableProcessors() * 10);
         this.tasks = new LinkedList<>();
     }
 
-    private synchronized void start()
+    @PostConstruct
+    public synchronized void start()
     {
         checkState(!closed, "TaskExecutor is closed");
         for (int i = 0; i < runnerThreads; i++) {
@@ -96,19 +116,11 @@ public class TaskExecutor
         }
     }
 
-    public List<PrioritizedSplitRunner> getPendingSplits()
+    @PreDestroy
+    public synchronized void stop()
     {
-        return ImmutableList.copyOf(pendingSplits);
-    }
-
-    public Set<PrioritizedSplitRunner> getRunningSplits()
-    {
-        return ImmutableSet.copyOf(runningSplits);
-    }
-
-    public Set<PrioritizedSplitRunner> getBlockedSplits()
-    {
-        return ImmutableSet.copyOf(blockedSplits);
+        closed = true;
+        executor.shutdownNow();
     }
 
     @Override
@@ -121,11 +133,6 @@ public class TaskExecutor
                 .add("runningSplits", runningSplits.size())
                 .add("blockedSplits", blockedSplits.size())
                 .toString();
-    }
-
-    public synchronized void close()
-    {
-        closed = true;
     }
 
     private synchronized void addRunnerThread()
@@ -148,6 +155,11 @@ public class TaskExecutor
     {
         taskHandle.destroy();
         tasks.remove(taskHandle);
+
+        // record completed stats
+        long threadUsageNanos = taskHandle.getThreadUsageNanos();
+        int priorityLevel = calculatePriorityLevel(threadUsageNanos);
+        completedTasksPerLevel.incrementAndGet(priorityLevel);
     }
 
     public synchronized ListenableFuture<?> addSplit(TaskHandle taskHandle, SplitRunner taskSplit)
@@ -514,5 +526,129 @@ public class TaskExecutor
                 }
             }
         }
+    }
+
+    //
+    // STATS
+    //
+
+    @Managed
+    public int getTasks()
+    {
+        return tasks.size();
+    }
+
+    @Managed
+    public int getRunnerThreads()
+    {
+        return runnerThreads;
+    }
+
+    @Managed
+    public int getMinimumNumberOfTasks()
+    {
+        return minimumNumberOfTasks;
+    }
+
+    @Managed
+    public int getTotalSplits()
+    {
+        return allSplits.size();
+    }
+
+    @Managed
+    public int getPendingSplits()
+    {
+        return pendingSplits.size();
+    }
+
+    @Managed
+    public int getRunningSplits()
+    {
+        return runningSplits.size();
+    }
+
+    @Managed
+    public int getBlockedSplits()
+    {
+        return blockedSplits.size();
+    }
+
+    @Managed
+    public long getCompletedTasksLevel0()
+    {
+        return completedTasksPerLevel.get(0);
+    }
+
+    @Managed
+    public long getCompletedTasksLevel1()
+    {
+        return completedTasksPerLevel.get(1);
+    }
+
+    @Managed
+    public long getCompletedTasksLevel2()
+    {
+        return completedTasksPerLevel.get(2);
+    }
+
+    @Managed
+    public long getCompletedTasksLevel3()
+    {
+        return completedTasksPerLevel.get(3);
+    }
+
+    @Managed
+    public long getCompletedTasksLevel4()
+    {
+        return completedTasksPerLevel.get(4);
+    }
+
+    @Managed
+    public long getRunningTasksLevel0()
+    {
+        return calculateRunningTasksForLevel(0);
+    }
+
+    @Managed
+    public long getRunningTasksLevel1()
+    {
+        return calculateRunningTasksForLevel(1);
+    }
+
+    @Managed
+    public long getRunningTasksLevel2()
+    {
+        return calculateRunningTasksForLevel(2);
+    }
+
+    @Managed
+    public long getRunningTasksLevel3()
+    {
+        return calculateRunningTasksForLevel(3);
+    }
+
+    @Managed
+    public long getRunningTasksLevel4()
+    {
+        return calculateRunningTasksForLevel(4);
+    }
+
+    private synchronized int calculateRunningTasksForLevel(int level)
+    {
+        int count = 0;
+        for (TaskHandle task : tasks) {
+            if (calculatePriorityLevel(task.getThreadUsageNanos()) == level) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    @Managed(description = "Task processor executor")
+    @Nested
+    public ThreadPoolExecutorMBean getProcessorExecutor()
+    {
+        return executorMBean;
     }
 }

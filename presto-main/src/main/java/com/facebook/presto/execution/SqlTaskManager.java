@@ -54,9 +54,6 @@ public class SqlTaskManager
 
     private final DataSize maxBufferSize;
 
-    private final ExecutorService taskProcessorExecutor;
-    private final ThreadPoolExecutorMBean taskProcessorExecutorMBean;
-
     private final ExecutorService taskNotificationExecutor;
     private final ThreadPoolExecutorMBean taskNotificationExecutorMBean;
 
@@ -81,11 +78,13 @@ public class SqlTaskManager
     public SqlTaskManager(
             NewLocalExecutionPlanner planner,
             LocationFactory locationFactory,
+            TaskExecutor taskExecutor,
             QueryMonitor queryMonitor,
             QueryManagerConfig config)
     {
         this.planner = checkNotNull(planner, "planner is null");
         this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
+        this.taskExecutor = checkNotNull(taskExecutor, "taskExecutor is null");
         this.queryMonitor = checkNotNull(queryMonitor, "queryMonitor is null");
 
         checkNotNull(config, "config is null");
@@ -97,11 +96,6 @@ public class SqlTaskManager
 
         taskNotificationExecutor = Executors.newCachedThreadPool(threadsNamed("task-notification-%d"));
         taskNotificationExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) taskNotificationExecutor);
-
-        // TaskExecutor manages thread pool directly, so give it an unlimited pool
-        taskProcessorExecutor = Executors.newCachedThreadPool(threadsNamed("task-processor-%d"));
-        taskProcessorExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) taskProcessorExecutor);
-        taskExecutor = TaskExecutor.createTaskExecutor(taskProcessorExecutor, config.getMaxShardProcessorThreads());
 
         taskManagementExecutor = Executors.newScheduledThreadPool(5, threadsNamed("task-management-%d"));
         taskManagementExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) taskManagementExecutor);
@@ -130,7 +124,6 @@ public class SqlTaskManager
     public void stop()
     {
         taskNotificationExecutor.shutdownNow();
-        taskProcessorExecutor.shutdownNow();
         taskManagementExecutor.shutdownNow();
     }
 
@@ -146,13 +139,6 @@ public class SqlTaskManager
     public ThreadPoolExecutorMBean getTaskNotificationExecutor()
     {
         return taskNotificationExecutorMBean;
-    }
-
-    @Managed(description = "Task processor executor")
-    @Nested
-    public ThreadPoolExecutorMBean getProcessorExecutor()
-    {
-        return taskProcessorExecutorMBean;
     }
 
     @Managed(description = "Task garbage collector executor")

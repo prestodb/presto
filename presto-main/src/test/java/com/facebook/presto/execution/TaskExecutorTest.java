@@ -5,95 +5,96 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import org.testng.annotations.Test;
 
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static com.facebook.presto.execution.TaskExecutor.createTaskExecutor;
-import static com.facebook.presto.util.Threads.threadsNamed;
 import static org.testng.Assert.assertEquals;
 
 public class TaskExecutorTest
 {
-    private ExecutorService executor = Executors.newCachedThreadPool(threadsNamed("task-processor-%d"));
-
     @Test(invocationCount = 100)
     public void test()
             throws Exception
     {
-        TaskExecutor taskExecutor = createTaskExecutor(executor, 4);
-        TaskHandle taskHandle = taskExecutor.addTask(new TaskId("test", "test", "test"));
+        TaskExecutor taskExecutor = new TaskExecutor(4);
+        taskExecutor.start();
 
-        final Phaser beginPhase = new Phaser();
-        beginPhase.register();
-        final Phaser verificationComplete = new Phaser();
-        verificationComplete.register();
+        try {
+            TaskHandle taskHandle = taskExecutor.addTask(new TaskId("test", "test", "test"));
 
-        // add two jobs
-        TestingJob driver1 = new TestingJob(beginPhase, verificationComplete, 10);
-        ListenableFuture<?> future1 = taskExecutor.addSplit(taskHandle, driver1);
-        TestingJob driver2 = new TestingJob(beginPhase, verificationComplete, 10);
-        ListenableFuture<?> future2 = taskExecutor.addSplit(taskHandle, driver2);
-        assertEquals(driver1.getCompletedPhases(), 0);
-        assertEquals(driver2.getCompletedPhases(), 0);
+            final Phaser beginPhase = new Phaser();
+            beginPhase.register();
+            final Phaser verificationComplete = new Phaser();
+            verificationComplete.register();
 
-        // verify worker have arrived but haven't processed yet
-        beginPhase.arriveAndAwaitAdvance();
-        assertEquals(driver1.getCompletedPhases(), 0);
-        assertEquals(driver2.getCompletedPhases(), 0);
-        verificationComplete.arriveAndAwaitAdvance();
+            // add two jobs
+            TestingJob driver1 = new TestingJob(beginPhase, verificationComplete, 10);
+            ListenableFuture<?> future1 = taskExecutor.addSplit(taskHandle, driver1);
+            TestingJob driver2 = new TestingJob(beginPhase, verificationComplete, 10);
+            ListenableFuture<?> future2 = taskExecutor.addSplit(taskHandle, driver2);
+            assertEquals(driver1.getCompletedPhases(), 0);
+            assertEquals(driver2.getCompletedPhases(), 0);
 
-        // advance one phase and verify
-        beginPhase.arriveAndAwaitAdvance();
-        assertEquals(driver1.getCompletedPhases(), 1);
-        assertEquals(driver2.getCompletedPhases(), 1);
+            // verify worker have arrived but haven't processed yet
+            beginPhase.arriveAndAwaitAdvance();
+            assertEquals(driver1.getCompletedPhases(), 0);
+            assertEquals(driver2.getCompletedPhases(), 0);
+            verificationComplete.arriveAndAwaitAdvance();
 
-        verificationComplete.arriveAndAwaitAdvance();
+            // advance one phase and verify
+            beginPhase.arriveAndAwaitAdvance();
+            assertEquals(driver1.getCompletedPhases(), 1);
+            assertEquals(driver2.getCompletedPhases(), 1);
 
-        // add one more job
-        TestingJob driver3 = new TestingJob(beginPhase, verificationComplete, 10);
-        ListenableFuture<?> future3 = taskExecutor.addSplit(taskHandle, driver3);
+            verificationComplete.arriveAndAwaitAdvance();
 
-        // advance one phase and verify
-        beginPhase.arriveAndAwaitAdvance();
-        assertEquals(driver1.getCompletedPhases(), 2);
-        assertEquals(driver2.getCompletedPhases(), 2);
-        assertEquals(driver3.getCompletedPhases(), 0);
-        verificationComplete.arriveAndAwaitAdvance();
+            // add one more job
+            TestingJob driver3 = new TestingJob(beginPhase, verificationComplete, 10);
+            ListenableFuture<?> future3 = taskExecutor.addSplit(taskHandle, driver3);
 
-        // advance to the end of the first two task and verify
-        beginPhase.arriveAndAwaitAdvance();
-        for (int i = 0; i < 7; i++) {
+            // advance one phase and verify
+            beginPhase.arriveAndAwaitAdvance();
+            assertEquals(driver1.getCompletedPhases(), 2);
+            assertEquals(driver2.getCompletedPhases(), 2);
+            assertEquals(driver3.getCompletedPhases(), 0);
+            verificationComplete.arriveAndAwaitAdvance();
+
+            // advance to the end of the first two task and verify
+            beginPhase.arriveAndAwaitAdvance();
+            for (int i = 0; i < 7; i++) {
+                verificationComplete.arriveAndAwaitAdvance();
+                beginPhase.arriveAndAwaitAdvance();
+                assertEquals(beginPhase.getPhase(), verificationComplete.getPhase() + 1);
+            }
+            assertEquals(driver1.getCompletedPhases(), 10);
+            assertEquals(driver2.getCompletedPhases(), 10);
+            assertEquals(driver3.getCompletedPhases(), 8);
+            future1.get(1, TimeUnit.SECONDS);
+            future2.get(1, TimeUnit.SECONDS);
+            verificationComplete.arriveAndAwaitAdvance();
+
+            // advance two more times and verify
+            beginPhase.arriveAndAwaitAdvance();
             verificationComplete.arriveAndAwaitAdvance();
             beginPhase.arriveAndAwaitAdvance();
-            assertEquals(beginPhase.getPhase(), verificationComplete.getPhase() + 1);
+            assertEquals(driver1.getCompletedPhases(), 10);
+            assertEquals(driver2.getCompletedPhases(), 10);
+            assertEquals(driver3.getCompletedPhases(), 10);
+            future3.get(1, TimeUnit.SECONDS);
+            verificationComplete.arriveAndAwaitAdvance();
+
+            assertEquals(driver1.getFirstPhase(), 0);
+            assertEquals(driver2.getFirstPhase(), 0);
+            assertEquals(driver3.getFirstPhase(), 2);
+
+            assertEquals(driver1.getLastPhase(), 10);
+            assertEquals(driver2.getLastPhase(), 10);
+            assertEquals(driver3.getLastPhase(), 12);
         }
-        assertEquals(driver1.getCompletedPhases(), 10);
-        assertEquals(driver2.getCompletedPhases(), 10);
-        assertEquals(driver3.getCompletedPhases(), 8);
-        future1.get(1, TimeUnit.SECONDS);
-        future2.get(1, TimeUnit.SECONDS);
-        verificationComplete.arriveAndAwaitAdvance();
-
-        // advance two more times and verify
-        beginPhase.arriveAndAwaitAdvance();
-        verificationComplete.arriveAndAwaitAdvance();
-        beginPhase.arriveAndAwaitAdvance();
-        assertEquals(driver1.getCompletedPhases(), 10);
-        assertEquals(driver2.getCompletedPhases(), 10);
-        assertEquals(driver3.getCompletedPhases(), 10);
-        future3.get(1, TimeUnit.SECONDS);
-        verificationComplete.arriveAndAwaitAdvance();
-
-        assertEquals(driver1.getFirstPhase(), 0);
-        assertEquals(driver2.getFirstPhase(), 0);
-        assertEquals(driver3.getFirstPhase(), 2);
-
-        assertEquals(driver1.getLastPhase(), 10);
-        assertEquals(driver2.getLastPhase(), 10);
-        assertEquals(driver3.getLastPhase(), 12);
+        finally {
+            taskExecutor.stop();
+        }
     }
 
     private static class TestingJob
