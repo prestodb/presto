@@ -14,7 +14,6 @@ import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.storage.StorageManager;
 import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
@@ -46,8 +45,6 @@ public class DropTableExecution
     private final StorageManager storageManager;
     private final ShardManager shardManager;
     private final PeriodicImportManager periodicImportManager;
-    private final Sitevars sitevars;
-
     private final QueryStateMachine stateMachine;
 
     DropTableExecution(QueryId queryId,
@@ -59,24 +56,20 @@ public class DropTableExecution
             StorageManager storageManager,
             ShardManager shardManager,
             PeriodicImportManager periodicImportManager,
-            Sitevars sitevars,
             Executor executor)
     {
         this.statement = statement;
-        this.sitevars = sitevars;
         this.metadataManager = metadataManager;
         this.storageManager = storageManager;
         this.shardManager = shardManager;
         this.periodicImportManager = periodicImportManager;
-
         this.stateMachine = new QueryStateMachine(queryId, query, session, self, executor);
     }
 
+    @Override
     public void start()
     {
         try {
-            checkState(sitevars.isDropEnabled(), "table dropping is disabled");
-
             // transition to starting
             if (!stateMachine.starting()) {
                 // query already started or finished
@@ -122,6 +115,7 @@ public class DropTableExecution
     @Override
     public void cancelStage(StageId stageId)
     {
+        // no-op
     }
 
     @Override
@@ -138,7 +132,7 @@ public class DropTableExecution
 
         final Optional<TableHandle> tableHandle = metadataManager.getTableHandle(tableName);
         checkState(tableHandle.isPresent(), "Table %s does not exist", tableName);
-        Preconditions.checkState(tableHandle.get() instanceof NativeTableHandle, "Can drop only native tables");
+        checkState(tableHandle.get() instanceof NativeTableHandle, "Can drop only native tables");
 
         storageManager.dropTableSource((NativeTableHandle) tableHandle.get());
 
@@ -168,7 +162,6 @@ public class DropTableExecution
         private final StorageManager storageManager;
         private final ShardManager shardManager;
         private final PeriodicImportManager periodicImportManager;
-        private final Sitevars sitevars;
         private final ExecutorService executor;
         private final ThreadPoolExecutorMBean executorMBean;
 
@@ -177,15 +170,13 @@ public class DropTableExecution
                 MetadataManager metadataManager,
                 StorageManager storageManager,
                 ShardManager shardManager,
-                PeriodicImportManager periodicImportManager,
-                Sitevars sitevars)
+                PeriodicImportManager periodicImportManager)
         {
             this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
             this.metadataManager = checkNotNull(metadataManager, "metadataManager is null");
             this.storageManager = checkNotNull(storageManager, "storageManager is null");
             this.shardManager = checkNotNull(shardManager, "shardManager is null");
             this.periodicImportManager = checkNotNull(periodicImportManager, "periodicImportManager is null");
-            this.sitevars = checkNotNull(sitevars, "sitevars is null");
             this.executor = Executors.newCachedThreadPool(daemonThreadsNamed("drop-table-scheduler-%d"));
             this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) executor);
         }
@@ -197,6 +188,7 @@ public class DropTableExecution
             return executorMBean;
         }
 
+        @Override
         public DropTableExecution createQueryExecution(QueryId queryId, String query, Session session, Statement statement)
         {
             return new DropTableExecution(queryId,
@@ -208,7 +200,6 @@ public class DropTableExecution
                     storageManager,
                     shardManager,
                     periodicImportManager,
-                    sitevars,
                     executor);
         }
     }

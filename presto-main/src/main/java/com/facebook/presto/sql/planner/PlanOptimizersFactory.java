@@ -1,6 +1,5 @@
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.execution.Sitevars;
 import com.facebook.presto.metadata.AliasDao;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NodeManager;
@@ -19,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 
 import javax.inject.Provider;
+
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -55,23 +55,20 @@ public class PlanOptimizersFactory
     }
 
     @Inject(optional = true)
-    public synchronized void injectAdditionalDependencies(AliasDao aliasDao,
-            NodeManager nodeManager,
-            ShardManager shardManager,
-            Sitevars sitevars)
+    public synchronized void injectAdditionalDependencies(AliasDao aliasDao, NodeManager nodeManager, ShardManager shardManager)
     {
         checkNotNull(aliasDao, "aliasDao is null");
         checkNotNull(nodeManager, "nodeManager is null");
         checkNotNull(shardManager, "shardManager is null");
-        checkNotNull(sitevars, "sitevars is null");
 
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
         builder.addAll(optimizers);
-        builder.add(new TableAliasSelector(metadata, aliasDao, nodeManager, shardManager, sitevars));
+        builder.add(new TableAliasSelector(metadata, aliasDao, nodeManager, shardManager));
 
         this.optimizers = builder.build();
     }
 
+    @Override
     public synchronized List<PlanOptimizer> get()
     {
         return optimizers;

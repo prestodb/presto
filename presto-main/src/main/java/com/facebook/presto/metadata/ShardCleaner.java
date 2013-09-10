@@ -1,6 +1,5 @@
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.execution.Sitevars;
 import com.facebook.presto.util.KeyBoundedExecutor;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -25,6 +24,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -45,7 +45,6 @@ public class ShardCleaner
 
     private final NodeManager nodeManager;
     private final ShardManager shardManager;
-    private final Sitevars sitevars;
     private final HttpClient httpClient;
 
     private final Duration interval;
@@ -58,25 +57,22 @@ public class ShardCleaner
     private final AtomicReference<ScheduledFuture<?>> scheduledFuture = new AtomicReference<>();
 
     private final KeyBoundedExecutor<String> nodeBoundedExecutor;
-    private final ScheduledExecutorService nodeExecutor;
 
     @Inject
     public ShardCleaner(NodeManager nodeManager,
             ShardManager shardManager,
             @ForShardCleaner HttpClient httpClient,
-            ShardCleanerConfig config,
-            Sitevars sitevars)
+            ShardCleanerConfig config)
     {
         this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
         this.shardManager = checkNotNull(shardManager, "shardManager is null");
         this.httpClient = checkNotNull(httpClient, "httpClient is null");
-        this.sitevars = checkNotNull(sitevars, "sitevar is null");
 
         checkNotNull(config, "config is null");
 
         this.interval = config.getCleanerInterval();
 
-        this.nodeExecutor = newScheduledThreadPool(config.getMaxThreads(), daemonThreadsNamed("shard-cleaner-worker-%s"));
+        ExecutorService nodeExecutor = newScheduledThreadPool(config.getMaxThreads(), daemonThreadsNamed("shard-cleaner-worker-%s"));
         this.nodeBoundedExecutor = new KeyBoundedExecutor<>(nodeExecutor, config.getMaxThreads());
         this.enabled = config.isEnabled();
     }
@@ -107,10 +103,6 @@ public class ShardCleaner
         public void run()
         {
             try {
-                if (!sitevars.isShardCleaningEnabled()) {
-                    return;
-                }
-
                 Map<String, Node> activeNodes = Maps.uniqueIndex(nodeManager.getAllNodes().getActiveNodes(), getIdentifierFunction());
                 Iterable<String> shardNodes = shardManager.getAllNodesInUse();
 
@@ -126,9 +118,6 @@ public class ShardCleaner
                     Node node = activeNodes.get(nodeIdentifier);
 
                     for (Long shardId : orphanedShards) {
-                        if (!sitevars.isShardCleaningEnabled()) {
-                            break; // for(Long shardId ...
-                        }
                         ListenableFutureTask<Void> task = ListenableFutureTask.create(new ShardDropJob(shardId, node), null);
                         nodeBoundedExecutor.execute(nodeIdentifier, task);
                         builder.add(task);
