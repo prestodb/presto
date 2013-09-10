@@ -296,7 +296,7 @@ public class TaskExecutor
     }
 
     private static class PrioritizedSplitRunner
-            implements SplitRunner, Comparable<PrioritizedSplitRunner>
+            implements Comparable<PrioritizedSplitRunner>
     {
         private final TaskHandle taskHandle;
         private final long workerId;
@@ -306,7 +306,8 @@ public class TaskExecutor
 
         private final SettableFuture<?> finishedFuture = SettableFuture.create();
 
-        private final AtomicBoolean closed = new AtomicBoolean();
+        private final AtomicBoolean initialized = new AtomicBoolean();
+        private final AtomicBoolean destroyed = new AtomicBoolean();
 
         private final AtomicInteger priorityLevel = new AtomicInteger();
         private final AtomicLong threadUsageNanos = new AtomicLong();
@@ -330,22 +331,27 @@ public class TaskExecutor
             return finishedFuture;
         }
 
-        public void destroy()
+        public void initializeIfNecessary()
         {
-            closed.set(true);
+            if (initialized.compareAndSet(false, true)) {
+                split.initialize();
+            }
         }
 
-        @Override
+        public void destroy()
+        {
+            destroyed.set(true);
+        }
+
         public boolean isFinished()
         {
             boolean finished = split.isFinished();
             if (finished) {
                 finishedFuture.set(null);
             }
-            return finished || closed.get();
+            return finished || destroyed.get();
         }
 
-        @Override
         public ListenableFuture<?> process()
                 throws Exception
         {
@@ -458,13 +464,14 @@ public class TaskExecutor
                         Thread.currentThread().interrupt();
                         return;
                     }
-                    // todo do we need a runner id?
+
                     try (SetThreadName splitName = new SetThreadName(split.toString())) {
                         runningSplits.add(split);
 
                         boolean finished;
                         ListenableFuture<?> blocked;
                         try {
+                            split.initializeIfNecessary();
                             blocked = split.process();
                             finished = split.isFinished();
                         }

@@ -380,6 +380,11 @@ public class TaskExecutorSimulator
         }
 
         @Override
+        public void initialize()
+        {
+        }
+
+        @Override
         public boolean isFinished()
         {
             return doneNanos.get() >= 0;
