@@ -37,6 +37,7 @@ import io.airlift.node.NodeInfo;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -55,6 +56,7 @@ public class TestSqlTaskManager
 {
     private SqlTaskManager sqlTaskManager;
     private PlanFragment testFragment;
+    private TaskExecutor taskExecutor;
     private NewLocalExecutionPlanner planner;
     private TaskId taskId;
     private Session session;
@@ -90,9 +92,13 @@ public class TestSqlTaskManager
                 new MockExchangeClientSupplier(),
                 new NewExpressionCompiler(metadata));
 
+        taskExecutor = new TaskExecutor(8);
+        taskExecutor.start();
+
         sqlTaskManager = new SqlTaskManager(
                 planner,
                 new MockLocationFactory(),
+                taskExecutor,
                 new QueryMonitor(new ObjectMapperProvider().get(), new NullEventClient(), new NodeInfo("test")),
                 new QueryManagerConfig());
 
@@ -104,6 +110,14 @@ public class TestSqlTaskManager
 
         taskId = new TaskId("query", "stage", "task");
         session = new Session("user", "test", "default", "default", "test", "test");
+    }
+
+    @AfterMethod
+    public void tearDown()
+            throws Exception
+    {
+        sqlTaskManager.stop();
+        taskExecutor.stop();
     }
 
     @Test
@@ -218,6 +232,7 @@ public class TestSqlTaskManager
         sqlTaskManager = new SqlTaskManager(
                 planner,
                 new MockLocationFactory(),
+                taskExecutor,
                 new QueryMonitor(new ObjectMapperProvider().get(), new NullEventClient(), new NodeInfo("test")),
                 new QueryManagerConfig().setInfoMaxAge(new Duration(5, TimeUnit.MILLISECONDS)));
 

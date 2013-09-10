@@ -29,6 +29,7 @@ import com.facebook.presto.execution.RemoteTaskFactory;
 import com.facebook.presto.execution.SqlQueryExecution.SqlQueryExecutionFactory;
 import com.facebook.presto.execution.SqlQueryManager;
 import com.facebook.presto.execution.SqlTaskManager;
+import com.facebook.presto.execution.TaskExecutor;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.guice.AbstractConfigurationAwareModule;
@@ -154,6 +155,8 @@ public class ServerMainModule
         binder.bind(TaskResource.class).in(Scopes.SINGLETON);
         binder.bind(TaskManager.class).to(SqlTaskManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(TaskManager.class).withGeneratedName();
+        binder.bind(TaskExecutor.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(TaskExecutor.class).withGeneratedName();
         binder.bind(NewLocalExecutionPlanner.class).in(Scopes.SINGLETON);
         binder.bind(NewExpressionCompiler.class).in(Scopes.SINGLETON);
 
