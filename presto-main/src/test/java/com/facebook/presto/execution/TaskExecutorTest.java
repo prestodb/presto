@@ -132,6 +132,11 @@ public class TaskExecutorTest
         }
 
         @Override
+        public void initialize()
+        {
+        }
+
+        @Override
         public ListenableFuture<?> process()
                 throws Exception
         {
