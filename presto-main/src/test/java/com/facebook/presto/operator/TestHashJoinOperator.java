@@ -53,6 +53,57 @@ public class TestHashJoinOperator
     }
 
     @Test
+    public void testInnerJoinWithNullProbe()
+            throws Exception
+    {
+        Operator probeSource = createOperator(new Page(createStringsBlock("a", null, null, "a", "b")));
+        Operator buildSource = createOperator(new Page(createStringsBlock("a", "b", "c")));
+
+        SourceHashSupplier sourceHashSupplier = new SourceHashSupplier(buildSource, 0, 10, new TaskMemoryManager(new DataSize(1, MEGABYTE)), new OperatorStats());
+        HashJoinOperator joinOperator = HashJoinOperator.innerJoin(sourceHashSupplier, probeSource, 0);
+
+        Operator expected = createOperator(new Page(
+                createStringsBlock("a", "a", "b"),
+                createStringsBlock("a", "a", "b")));
+
+        assertOperatorEquals(joinOperator, expected);
+    }
+
+    @Test
+    public void testInnerJoinWithNullBuild()
+            throws Exception
+    {
+        Operator probeSource = createOperator(new Page(createStringsBlock("a", "b", "c")));
+        Operator buildSource = createOperator(new Page(createStringsBlock("a", null, null, "a", "b")));
+
+        SourceHashSupplier sourceHashSupplier = new SourceHashSupplier(buildSource, 0, 10, new TaskMemoryManager(new DataSize(1, MEGABYTE)), new OperatorStats());
+        HashJoinOperator joinOperator = HashJoinOperator.innerJoin(sourceHashSupplier, probeSource, 0);
+
+        Operator expected = createOperator(new Page(
+                createStringsBlock("a", "a", "b"),
+                createStringsBlock("a", "a", "b")));
+
+        assertOperatorEquals(joinOperator, expected);
+    }
+
+    @Test
+    public void testInnerJoinWithNullOnBothSides()
+            throws Exception
+    {
+        Operator probeSource = createOperator(new Page(createStringsBlock("a", "b", null, "c")));
+        Operator buildSource = createOperator(new Page(createStringsBlock("a", null, null, "a", "b")));
+
+        SourceHashSupplier sourceHashSupplier = new SourceHashSupplier(buildSource, 0, 10, new TaskMemoryManager(new DataSize(1, MEGABYTE)), new OperatorStats());
+        HashJoinOperator joinOperator = HashJoinOperator.innerJoin(sourceHashSupplier, probeSource, 0);
+
+        Operator expected = createOperator(new Page(
+                createStringsBlock("a", "a", "b"),
+                createStringsBlock("a", "a", "b")));
+
+        assertOperatorEquals(joinOperator, expected);
+    }
+
+    @Test
     public void testProbeOuterJoin()
             throws Exception
     {
@@ -76,6 +127,57 @@ public class TestHashJoinOperator
                 createStringsBlock(concat(createStringNullSequence(20), createStringSequence(20, 30), createStringNullSequence(970))),
                 createLongsBlock(concat(createLongNullSequence(20), createLongSequence(30, 40), createLongNullSequence(970))),
                 createLongsBlock(concat(createLongNullSequence(20), createLongSequence(40, 50), createLongNullSequence(970)))));
+
+        assertOperatorEquals(joinOperator, expected);
+    }
+
+    @Test
+    public void testOuterJoinWithNullProbe()
+            throws Exception
+    {
+        Operator probeSource = createOperator(new Page(createStringsBlock("a", null, null, "a", "b")));
+        Operator buildSource = createOperator(new Page(createStringsBlock("a", "b", "c")));
+
+        SourceHashSupplier sourceHashSupplier = new SourceHashSupplier(buildSource, 0, 10, new TaskMemoryManager(new DataSize(1, MEGABYTE)), new OperatorStats());
+        HashJoinOperator joinOperator = HashJoinOperator.outerjoin(sourceHashSupplier, probeSource, 0);
+
+        Operator expected = createOperator(new Page(
+                createStringsBlock("a", null, null, "a", "b"),
+                createStringsBlock("a", null, null, "a", "b")));
+
+        assertOperatorEquals(joinOperator, expected);
+    }
+
+    @Test
+    public void testOuterJoinWithNullBuild()
+            throws Exception
+    {
+        Operator probeSource = createOperator(new Page(createStringsBlock("a", "b", "c")));
+        Operator buildSource = createOperator(new Page(createStringsBlock("a", null, null, "a", "b")));
+
+        SourceHashSupplier sourceHashSupplier = new SourceHashSupplier(buildSource, 0, 10, new TaskMemoryManager(new DataSize(1, MEGABYTE)), new OperatorStats());
+        HashJoinOperator joinOperator = HashJoinOperator.outerjoin(sourceHashSupplier, probeSource, 0);
+
+        Operator expected = createOperator(new Page(
+                createStringsBlock("a", "a", "b", "c"),
+                createStringsBlock("a", "a", "b", null)));
+
+        assertOperatorEquals(joinOperator, expected);
+    }
+
+    @Test
+    public void testOuterJoinWithNullOnBothSides()
+            throws Exception
+    {
+        Operator probeSource = createOperator(new Page(createStringsBlock("a", "b", null, "c")));
+        Operator buildSource = createOperator(new Page(createStringsBlock("a", null, null, "a", "b")));
+
+        SourceHashSupplier sourceHashSupplier = new SourceHashSupplier(buildSource, 0, 10, new TaskMemoryManager(new DataSize(1, MEGABYTE)), new OperatorStats());
+        HashJoinOperator joinOperator = HashJoinOperator.outerjoin(sourceHashSupplier, probeSource, 0);
+
+        Operator expected = createOperator(new Page(
+                createStringsBlock("a", "a", "b", null, "c"),
+                createStringsBlock("a", "a", "b", null, null)));
 
         assertOperatorEquals(joinOperator, expected);
     }

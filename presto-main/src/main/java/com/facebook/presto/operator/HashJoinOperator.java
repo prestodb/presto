@@ -70,6 +70,7 @@ public class HashJoinOperator
     {
         private final PageIterator probeIterator;
         private final int probeJoinChannel;
+        private final int probeJoinChannelFieldCount;
         private final boolean enableOuterJoin;
         private final SourceHashSupplier sourceHashSupplier;
         private final OperatorStats operatorStats;
@@ -93,6 +94,8 @@ public class HashJoinOperator
 
             this.cursors = new BlockCursor[probeSource.getChannelCount()];
             this.pageBuilder = new PageBuilder(getTupleInfos());
+
+            probeJoinChannelFieldCount = getTupleInfos().get(probeJoinChannel).getFieldCount();
         }
 
         protected Page computeNext()
@@ -148,7 +151,13 @@ public class HashJoinOperator
             }
 
             // update join position
-            joinPosition = hash.getJoinPosition(cursors[probeJoinChannel]);
+            if (tupleContainsNull(cursors[probeJoinChannel])) {
+                // Null values will never match in an equijoin, so just omit them from the probe side
+                joinPosition = -1;
+            }
+            else {
+                joinPosition = hash.getJoinPosition(cursors[probeJoinChannel]);
+            }
 
             return true;
         }
@@ -210,6 +219,15 @@ public class HashJoinOperator
                 checkState(advanced == cursors[i].advanceNextPosition());
             }
             return advanced;
+        }
+
+        private boolean tupleContainsNull(BlockCursor cursor)
+        {
+            boolean containsNull = false;
+            for (int i = 0; i < probeJoinChannelFieldCount; i++) {
+                containsNull |= cursor.isNull(i);
+            }
+            return containsNull;
         }
     }
 }
