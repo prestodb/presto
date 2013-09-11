@@ -878,6 +878,25 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testJoinWithNullValues()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT *\n" +
+                "FROM (\n" +
+                "  SELECT CASE WHEN orderkey % 3 = 0 THEN NULL ELSE orderkey END AS orderkey\n" +
+                "  FROM lineitem\n" +
+                "  WHERE partkey % 512 = 0\n" +
+                ") AS lineitem \n" +
+                "JOIN (\n" +
+                "  SELECT CASE WHEN orderkey % 2 = 0 THEN NULL ELSE orderkey END AS orderkey\n" +
+                "  FROM orders\n" +
+                "  WHERE custkey % 512 = 0\n" +
+                ") AS orders\n" +
+                "ON lineitem.orderkey = orders.orderkey");
+    }
+
+    @Test
     public void testLeftFilteredJoin()
             throws Exception
     {
@@ -1022,6 +1041,25 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testLeftJoinWithNullValues()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT *\n" +
+                "FROM (\n" +
+                "  SELECT CASE WHEN orderkey % 3 = 0 THEN NULL ELSE orderkey END AS orderkey\n" +
+                "  FROM lineitem\n" +
+                "  WHERE partkey % 512 = 0\n" +
+                ") AS lineitem \n" +
+                "LEFT JOIN (\n" +
+                "  SELECT CASE WHEN orderkey % 2 = 0 THEN NULL ELSE orderkey END AS orderkey\n" +
+                "  FROM orders\n" +
+                "  WHERE custkey % 512 = 0\n" +
+                ") AS orders\n" +
+                "ON lineitem.orderkey = orders.orderkey");
+    }
+
+    @Test
     public void testSimpleRightJoin()
             throws Exception
     {
@@ -1129,6 +1167,25 @@ public abstract class AbstractTestQueries
                 "RIGHT JOIN (SELECT * FROM lineitem WHERE orderkey % 4 = 0 AND suppkey % 2 = partkey % 2 AND linenumber % 3 = orderkey % 3) lineitem\n" +
                 "ON lineitem.linenumber % 3 = orders.orderkey % 4 AND lineitem.orderkey % 3 = orders.custkey % 3\n" +
                 "WHERE lineitem.suppkey % 2 = lineitem.linenumber % 3");
+    }
+
+    @Test
+    public void testRightJoinWithNullValues()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT lineitem.orderkey, orders.orderkey\n" +
+                "FROM (\n" +
+                "  SELECT CASE WHEN orderkey % 3 = 0 THEN NULL ELSE orderkey END AS orderkey\n" +
+                "  FROM lineitem\n" +
+                "  WHERE partkey % 512 = 0\n" +
+                ") AS lineitem \n" +
+                "RIGHT JOIN (\n" +
+                "  SELECT CASE WHEN orderkey % 2 = 0 THEN NULL ELSE orderkey END AS orderkey\n" +
+                "  FROM orders\n" +
+                "  WHERE custkey % 512 = 0\n" +
+                ") AS orders\n" +
+                "ON lineitem.orderkey = orders.orderkey");
     }
 
     @Test
