@@ -24,6 +24,7 @@ import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.OutputProducingOperator;
 import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.operator.ProjectionFunctions;
+import com.facebook.presto.operator.SamplingOperator;
 import com.facebook.presto.operator.SourceHashSupplier;
 import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.operator.SourceSetSupplier;
@@ -33,6 +34,9 @@ import com.facebook.presto.operator.TopNOperator;
 import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.split.DataStreamProvider;
+import com.facebook.presto.split.ExpressionUtil;
+import com.facebook.presto.sql.analyzer.SemanticErrorCode;
+import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
@@ -47,6 +51,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
@@ -55,14 +60,7 @@ import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
-import com.facebook.presto.sql.tree.BooleanLiteral;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.Input;
-import com.facebook.presto.sql.tree.InputReference;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.facebook.presto.sql.tree.SortItem;
+import com.facebook.presto.sql.tree.*;
 import com.facebook.presto.tuple.FieldOrderedTupleComparator;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleReadable;
@@ -453,6 +451,32 @@ public class LocalExecutionPlanner
         }
 
         @Override
+        public PhysicalOperation visitSample(SampleNode node, LocalExecutionPlanContext context)
+        {
+            PhysicalOperation source = node.getSource().accept(this, context);
+
+            if (node.getSampleType() == SampleNode.Type.BERNOULLI) {
+		    IdentityProjectionInfo mappings = computeIdentityMapping(node.getOutputSymbols(), source.getLayout(), context.getTypes());
+		    ExpressionInterpreter samplePercentageEvaluator = ExpressionInterpreter.expressionInterpreter(new TupleInputResolver(), metadata, context.getSession());
+		    Object samplePercentageObject = samplePercentageEvaluator.process(node.getSamplePercentage(), null);
+
+		    if (!(samplePercentageObject instanceof Number))
+			throw new SemanticException(SemanticErrorCode.NON_NUMERIC_SAMPLE_PERCENTAGE, node.getSamplePercentage(), "Sample Percentage should evaluate to a numeric expression");
+
+		    double samplePercentageValue = ((Number) samplePercentageObject).doubleValue();
+
+		    Operator operator = new SamplingOperator(source.getOperator(), samplePercentageValue, mappings.getProjections());
+		    return new PhysicalOperation(operator, mappings.getOutputLayout());
+            }
+            else if (node.getSampleType() == SampleNode.Type.SYSTEM) {
+                return new PhysicalOperation(source.getOperator(), source.getLayout());
+            }
+            else {
+                throw new IllegalArgumentException("Invalid sampling type");
+            }
+        }
+
+        @Override
         public PhysicalOperation visitAggregation(AggregationNode node, LocalExecutionPlanContext context)
         {
             PhysicalOperation source = node.getSource().accept(this, context);
@@ -560,7 +584,12 @@ public class LocalExecutionPlanner
                         function = ProjectionFunctions.singleColumn(context.getTypes().get(reference).getRawType(), getFirst(source.getLayout().get(symbol)));
                     }
                     else {
-                        function = new InterpretedProjectionFunction(context.getTypes().get(symbol), expression, convertLayoutToInputMap(source.getLayout()), metadata, context.getSession(), inputTypes);
+                        function = new InterpretedProjectionFunction(context.getTypes().get(symbol),
+                                expression,
+                                convertLayoutToInputMap(source.getLayout()),
+                                metadata,
+                                context.getSession(),
+                                inputTypes);
                     }
                     projections.add(function);
 
@@ -630,8 +659,7 @@ public class LocalExecutionPlanner
             PhysicalOperation rightSource = node.getRight().accept(this, context);
             List<Symbol> rightSymbols = Lists.transform(clauses, rightGetter());
 
-            switch (node.getType())
-            {
+            switch (node.getType()) {
                 case INNER:
                 case LEFT:
                     return createJoinOperator(node, leftSource, leftSymbols, rightSource, rightSymbols, context);

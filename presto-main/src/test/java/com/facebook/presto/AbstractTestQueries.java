@@ -2108,6 +2108,14 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testTableSample()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*) FROM (SELECT * FROM orders TABLESAMPLE SYSTEM (100))", "SELECT COUNT(*) FROM orders");
+        assertQuery("SELECT COUNT(*) FROM (SELECT * FROM orders TABLESAMPLE BERNOULLI (100))", "SELECT COUNT(*) FROM orders");
+    }
+
+    @Test
     public void testMultiColumnUnionAll()
             throws Exception
     {
