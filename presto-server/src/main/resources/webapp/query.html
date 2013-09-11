@@ -74,8 +74,26 @@
         <dt>Schema</dt>
         <dd id="sessionSchema"></dd>
 
+        <dt>Elapsed</dt>
+        <dd id="elapsedTime"></dd>
+
+        <dt>Memory</dt>
+        <dd id="memory"></dd>
+
+        <dt>CPU Time</dt>
+        <dd id="cpuTime"></dd>
+
+        <dt>Rows</dt>
+        <dd id="rows"></dd>
+
+        <dt>Data Size</dt>
+        <dd id="dataSize"></dd>
+
         <dt>Raw</dt>
         <dd><a id="rawJson"></a></dd>
+
+        <dt>Message</dt>
+        <dd id="failureMessage"></dd>
 
     </dl>
 
@@ -118,6 +136,16 @@ d3.json('/v1/query/' + window.location.search.substring(1), function (query) {
     d3.select('#sessionSource').text(query.session.source);
     d3.select('#sessionCatalog').text(query.session.catalog);
     d3.select('#sessionSchema').text(query.session.schema);
+    d3.select('#elapsedTime').text(query.queryStats.elapsedTime);
+    d3.select('#memory').text(query.queryStats.totalMemoryReservation);
+    d3.select('#cpuTime').text(query.queryStats.totalCpuTime);
+    d3.select('#rows').text(formatCount(query.queryStats.rawInputPositions));
+    d3.select('#dataSize').text(query.queryStats.rawInputDataSize);
+
+    if (query.failureInfo) {
+        d3.select('#failureMessage').text(query.failureInfo.type + ": " + query.failureInfo.message);
+    }
+
 
     var uri = "/v1/query/" + query.queryId + "?pretty"
     d3.select('#rawJson').text(uri);
@@ -163,9 +191,9 @@ function getTasks(stage) {
 }
 
 function taskData(d) {
-    var elapsed = parseFloat(d.stats.splitWallTime.replace('ms'));
-    var rows = d.stats.completedPositionCount;
-    var bytes = parseInt(d.stats.completedDataSize.replace('B'));
+    var elapsed = parseDuration(d.stats.elapsedTime);
+    var rows = d.stats.rawInputPositions;
+    var bytes = parseDataSize(d.stats.rawInputDataSize);
 
     var allBuffers = d.outputBuffers.buffers.length;
     var finishedBuffers = d3.sum(d.outputBuffers.buffers, function (i) {
@@ -183,9 +211,9 @@ function taskData(d) {
         formatCount(computeRate(rows, elapsed)),
         formatDataSize(bytes),
         formatDataSize(computeRate(bytes, elapsed)),
-        Math.max(d.stats.splits - d.stats.startedSplits, 0),
-        Math.max(d.stats.startedSplits - d.stats.completedSplits, 0),
-        d.stats.completedSplits,
+        d.stats.queuedDrivers,
+        d.stats.runningDrivers,
+        d.stats.completedDrivers,
         finishedBuffers + ' / ' + allBuffers,
         bufferedPages
     ];
@@ -223,6 +251,32 @@ function formatCount(count) {
     return precisionRound(count) + unit;
 }
 
+
+function parseDataSize(value) {
+    var DATA_SIZE_PATTERN = /^\s*(\d+(?:\.\d+)?)\s*([a-zA-Z]+)\s*$/
+    var match = DATA_SIZE_PATTERN.exec(value);
+    if (match == null) {
+        return null;
+    }
+    var number = parseInt(match[1]);
+    switch (match[2]) {
+        case "B":
+            return number;
+        case "kB":
+            return number << 10;
+        case "MB":
+            return number << 20;
+        case "GB":
+            return number << 30;
+        case "TB":
+            return number << 40;
+        case "PB":
+            return number << 50;
+        default:
+            return null;
+    }
+}
+
 function formatDataSize(size) {
     var unit = "B";
     if (size >= 1024) {
@@ -246,6 +300,34 @@ function formatDataSize(size) {
         unit = "P";
     }
     return precisionRound(size) + unit;
+}
+
+function parseDuration(value) {
+    var DURATION_PATTERN = /^\s*(\d+(?:\.\d+)?)\s*([a-zA-Z]+)\s*$/
+
+    var match = DURATION_PATTERN.exec(value);
+    if (match == null) {
+        return null;
+    }
+    var number = parseInt(match[1]);
+    switch (match[2]) {
+        case "ns":
+            return number / 1000000.0;
+        case "us":
+            return number / 1000.0;;
+        case "ms":
+            return number;
+        case "s":
+            return number * 1000;
+        case "m":
+            return number * 1000 * 60;
+        case "h":
+            return number * 1000 * 60 * 60;
+        case "d":
+            return number * 1000 * 60 * 60 * 24;
+        default:
+            return null;
+    }
 }
 
 function precisionRound(n) {

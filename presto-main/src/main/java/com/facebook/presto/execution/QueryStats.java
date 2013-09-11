@@ -21,6 +21,7 @@ public class QueryStats
     private final DateTime lastHeartbeat;
     private final DateTime endTime;
 
+    private final Duration elapsedTime;
     private final Duration queuedTime;
     private final Duration analysisTime;
     private final Duration distributedPlanningTime;
@@ -58,6 +59,7 @@ public class QueryStats
         this.executionStartTime = null;
         this.lastHeartbeat = null;
         this.endTime = null;
+        this.elapsedTime = null;
         this.queuedTime = null;
         this.analysisTime = null;
         this.distributedPlanningTime = null;
@@ -89,6 +91,7 @@ public class QueryStats
             @JsonProperty("lastHeartbeat") DateTime lastHeartbeat,
             @JsonProperty("endTime") DateTime endTime,
 
+            @JsonProperty("elapsedTime") Duration elapsedTime,
             @JsonProperty("queuedTime") Duration queuedTime,
             @JsonProperty("analysisTime") Duration analysisTime,
             @JsonProperty("distributedPlanningTime") Duration distributedPlanningTime,
@@ -123,6 +126,8 @@ public class QueryStats
         this.executionStartTime = executionStartTime;
         this.lastHeartbeat = checkNotNull(lastHeartbeat, "lastHeartbeat is null");
         this.endTime = endTime;
+
+        this.elapsedTime = elapsedTime;
         this.queuedTime = queuedTime;
         this.analysisTime = analysisTime;
         this.distributedPlanningTime = distributedPlanningTime;
@@ -186,6 +191,12 @@ public class QueryStats
     public DateTime getEndTime()
     {
         return endTime;
+    }
+
+    @JsonProperty
+    public Duration getElapsedTime()
+    {
+        return elapsedTime;
     }
 
     @JsonProperty

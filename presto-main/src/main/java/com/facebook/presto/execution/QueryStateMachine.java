@@ -28,6 +28,7 @@ import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @ThreadSafe
@@ -102,6 +103,13 @@ public class QueryStateMachine
     {
         QueryState state = queryState.get();
 
+        Duration elapsedTime;
+        if (endTime != null) {
+            elapsedTime = new Duration(endTime.getMillis() - createTime.getMillis(), MILLISECONDS);
+        } else {
+            elapsedTime = Duration.nanosSince(createNanos);
+        }
+
         // don't report failure info is query is marked as success
         FailureInfo failureInfo = null;
         if (state != FINISHED) {
@@ -175,6 +183,7 @@ public class QueryStateMachine
                 lastHeartbeat,
                 endTime,
 
+                elapsedTime.convertToMostSuccinctTimeUnit(),
                 queuedTime,
                 analysisTime,
                 distributedPlanningTime,
