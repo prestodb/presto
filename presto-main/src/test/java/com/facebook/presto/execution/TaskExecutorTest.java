@@ -3,6 +3,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.execution.TaskExecutor.TaskHandle;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.concurrent.Phaser;
@@ -138,7 +139,7 @@ public class TaskExecutorTest
         }
 
         @Override
-        public ListenableFuture<?> process()
+        public ListenableFuture<?> processFor(Duration duration)
                 throws Exception
         {
             int phase = awaitWorkers.arriveAndAwaitAdvance();

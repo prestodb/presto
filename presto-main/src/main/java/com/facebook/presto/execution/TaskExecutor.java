@@ -55,6 +55,9 @@ public class TaskExecutor
     // each task is guaranteed a minimum number of tasks
     private static final int GUARANTEED_SPLITS_PER_TASK = 5;
 
+    // each time we run a split, run it for this length before returning to the pool
+    private static final Duration SPLIT_RUN_QUANTA = new Duration(1, TimeUnit.SECONDS);
+
     private static final AtomicLong NEXT_RUNNER_ID = new AtomicLong();
     private static final AtomicLong NEXT_WORKER_ID = new AtomicLong();
 
@@ -369,7 +372,7 @@ public class TaskExecutor
         {
             try {
                 long start = ticker.read();
-                ListenableFuture<?> blocked = split.process();
+                ListenableFuture<?> blocked = split.processFor(SPLIT_RUN_QUANTA);
                 long endTime = ticker.read();
 
                 // update priority level base on total thread usage of task

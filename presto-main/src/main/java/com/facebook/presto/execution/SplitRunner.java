@@ -1,6 +1,7 @@
 package com.facebook.presto.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.units.Duration;
 
 public interface SplitRunner
 {
@@ -8,6 +9,6 @@ public interface SplitRunner
 
     boolean isFinished();
 
-    ListenableFuture<?> process()
+    ListenableFuture<?> processFor(Duration duration)
             throws Exception;
 }

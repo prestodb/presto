@@ -544,10 +544,9 @@ public class SqlTaskExecution
         }
 
         @Override
-        public synchronized ListenableFuture<?> process()
-                throws Exception
+        public ListenableFuture<?> processFor(Duration duration)
         {
-            return driver.process();
+            return driver.processFor(duration);
         }
     }
 }

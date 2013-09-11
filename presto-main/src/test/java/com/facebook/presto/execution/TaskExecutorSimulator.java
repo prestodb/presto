@@ -383,7 +383,7 @@ public class TaskExecutorSimulator
         }
 
         @Override
-        public ListenableFuture<?> process()
+        public ListenableFuture<?> processFor(Duration duration)
                 throws Exception
         {
             long callStart = System.nanoTime();

@@ -7,11 +7,13 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.units.Duration;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.noperator.NewOperator.NOT_BLOCKED;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -156,5 +158,22 @@ public class Driver
             driverContext.failed(t);
             throw t;
         }
+    }
+
+    public synchronized ListenableFuture<?> processFor(Duration duration)
+    {
+        checkNotNull(duration, "duration is null");
+
+        long maxRuntime = duration.roundTo(TimeUnit.NANOSECONDS);
+
+        long start = System.nanoTime();
+        do {
+            ListenableFuture<?> future = process();
+            if (!future.isDone()) {
+                return future;
+            }
+        } while (System.nanoTime() - start < maxRuntime && !isFinished());
+
+        return NOT_BLOCKED;
     }
 }
