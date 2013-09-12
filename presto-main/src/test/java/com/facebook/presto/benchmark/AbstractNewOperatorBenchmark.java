@@ -2,9 +2,9 @@ package com.facebook.presto.benchmark;
 
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.noperator.Driver;
-import com.facebook.presto.noperator.TaskContext;
-import com.facebook.presto.noperator.TaskStats;
+import com.facebook.presto.operator.Driver;
+import com.facebook.presto.operator.TaskContext;
+import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorMetadata;

@@ -1,8 +1,8 @@
-package com.facebook.presto.noperator;
+package com.facebook.presto.operator;
 
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.noperator.NewAlignmentOperator.NewAlignmentOperatorFactory;
+import com.facebook.presto.operator.NewAlignmentOperator.NewAlignmentOperatorFactory;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.sql.analyzer.Session;
 import org.testng.annotations.AfterMethod;
@@ -13,9 +13,9 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.block.BlockAssertions.blockIterableBuilder;
-import static com.facebook.presto.noperator.NewOperatorAssertion.assertOperatorEquals;
-import static com.facebook.presto.noperator.RowPageBuilder.rowPageBuilder;
-import static com.facebook.presto.noperator.RowPagesBuilder.rowPagesBuilder;
+import static com.facebook.presto.operator.NewOperatorAssertion.assertOperatorEquals;
+import static com.facebook.presto.operator.RowPageBuilder.rowPageBuilder;
+import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;

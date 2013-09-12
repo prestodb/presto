@@ -1,4 +1,4 @@
-package com.facebook.presto.noperator;
+package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.TaskId;
@@ -25,7 +25,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.noperator.PipelineContext.pipelineStatsGetter;
+import static com.facebook.presto.operator.PipelineContext.pipelineStatsGetter;
 import static com.facebook.presto.util.Threads.checkNotSameThreadExecutor;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;

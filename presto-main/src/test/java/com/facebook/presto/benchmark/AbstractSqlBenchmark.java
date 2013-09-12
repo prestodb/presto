@@ -1,8 +1,8 @@
 package com.facebook.presto.benchmark;
 
-import com.facebook.presto.noperator.Driver;
-import com.facebook.presto.noperator.NullOutputOperator.NullOutputFactory;
-import com.facebook.presto.noperator.TaskContext;
+import com.facebook.presto.operator.Driver;
+import com.facebook.presto.operator.NullOutputOperator.NullOutputFactory;
+import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.facebook.presto.util.LocalQueryRunner;
 import org.intellij.lang.annotations.Language;

@@ -11,7 +11,7 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Node;
 import com.facebook.presto.metadata.NodeVersion;
 import com.facebook.presto.metadata.QualifiedTableName;
-import com.facebook.presto.noperator.TaskContext;
+import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Split;

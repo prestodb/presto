@@ -4,12 +4,12 @@ import com.facebook.presto.benchmark.NewHandTpchQuery6.TpchQuery6Operator.TpchQu
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.noperator.DriverContext;
-import com.facebook.presto.noperator.NewAggregationOperator.NewAggregationOperatorFactory;
-import com.facebook.presto.noperator.NewAlignmentOperator.NewAlignmentOperatorFactory;
-import com.facebook.presto.noperator.NewOperator;
-import com.facebook.presto.noperator.NewOperatorFactory;
-import com.facebook.presto.noperator.OperatorContext;
+import com.facebook.presto.operator.DriverContext;
+import com.facebook.presto.operator.NewAggregationOperator.NewAggregationOperatorFactory;
+import com.facebook.presto.operator.NewAlignmentOperator.NewAlignmentOperatorFactory;
+import com.facebook.presto.operator.NewOperator;
+import com.facebook.presto.operator.NewOperatorFactory;
+import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
@@ -69,7 +69,7 @@ public class NewHandTpchQuery6
     }
 
     public static class TpchQuery6Operator
-            extends com.facebook.presto.noperator.NewAbstractFilterAndProjectOperator
+            extends com.facebook.presto.operator.NewAbstractFilterAndProjectOperator
     {
         public static class TpchQuery6OperatorFactory
                 implements NewOperatorFactory

@@ -1,6 +1,6 @@
-package com.facebook.presto.noperator;
+package com.facebook.presto.operator;
 
-import com.facebook.presto.noperator.NewPagesIndex.MultiSliceFieldOrderedTupleComparator;
+import com.facebook.presto.operator.NewPagesIndex.MultiSliceFieldOrderedTupleComparator;
 import com.facebook.presto.operator.ChannelIndex;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageBuilder;

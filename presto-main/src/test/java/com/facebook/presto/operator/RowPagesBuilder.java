@@ -1,4 +1,4 @@
-package com.facebook.presto.noperator;
+package com.facebook.presto.operator;
 
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.tuple.TupleInfo;
@@ -6,7 +6,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.facebook.presto.noperator.RowPageBuilder.rowPageBuilder;
+import static com.facebook.presto.operator.RowPageBuilder.rowPageBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 

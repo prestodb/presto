@@ -1,10 +1,10 @@
-package com.facebook.presto.noperator;
+package com.facebook.presto.operator;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
-import com.facebook.presto.noperator.NewSetBuilderOperator.NewSetSupplier;
+import com.facebook.presto.operator.NewSetBuilderOperator.NewSetSupplier;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;

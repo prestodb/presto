@@ -1,4 +1,4 @@
-package com.facebook.presto.noperator;
+package com.facebook.presto.operator;
 
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.tuple.TupleInfo;
@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-import static com.facebook.presto.noperator.NewOperator.NOT_BLOCKED;
+import static com.facebook.presto.operator.NewOperator.NOT_BLOCKED;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
