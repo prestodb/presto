@@ -1,4 +1,4 @@
-package com.facebook.presto.noperator;
+package com.facebook.presto.operator;
 
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;

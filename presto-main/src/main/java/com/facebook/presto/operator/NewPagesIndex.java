@@ -1,7 +1,7 @@
 /*
  * Copyright 2004-present Facebook. All Rights Reserved.
  */
-package com.facebook.presto.noperator;
+package com.facebook.presto.operator;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;

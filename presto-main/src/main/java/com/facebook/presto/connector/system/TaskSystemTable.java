@@ -2,7 +2,7 @@ package com.facebook.presto.connector.system;
 
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
-import com.facebook.presto.noperator.TaskStats;
+import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.InMemoryRecordSet.Builder;
 import com.facebook.presto.spi.ColumnType;

@@ -1,9 +1,9 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.noperator.NewAlignmentOperator.NewAlignmentOperatorFactory;
-import com.facebook.presto.noperator.NewFilterAndProjectOperator.NewFilterAndProjectOperatorFactory;
-import com.facebook.presto.noperator.NewOperatorFactory;
+import com.facebook.presto.operator.NewAlignmentOperator.NewAlignmentOperatorFactory;
+import com.facebook.presto.operator.NewFilterAndProjectOperator.NewFilterAndProjectOperatorFactory;
+import com.facebook.presto.operator.NewOperatorFactory;
 import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.spi.RecordCursor;

@@ -1,7 +1,7 @@
-package com.facebook.presto.noperator;
+package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.noperator.NewLimitOperator.NewLimitOperatorFactory;
+import com.facebook.presto.operator.NewLimitOperator.NewLimitOperatorFactory;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.sql.analyzer.Session;
 import com.google.common.collect.ImmutableList;
@@ -12,7 +12,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 
-import static com.facebook.presto.noperator.RowPagesBuilder.rowPagesBuilder;
+import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;

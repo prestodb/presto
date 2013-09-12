@@ -5,7 +5,7 @@ import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
-import com.facebook.presto.noperator.NewAggregationOperator.Aggregator;
+import com.facebook.presto.operator.NewAggregationOperator.Aggregator;
 import com.facebook.presto.operator.AggregationFunctionDefinition;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
@@ -22,7 +22,7 @@ import java.util.List;
 
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
-import static com.facebook.presto.noperator.NewAggregationOperator.createAggregator;
+import static com.facebook.presto.operator.NewAggregationOperator.createAggregator;
 import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
 import static com.facebook.presto.tuple.Tuples.createTuple;
 import static org.testng.Assert.assertEquals;

@@ -4,12 +4,12 @@ import com.facebook.presto.benchmark.NewHandTpchQuery1.TpchQuery1Operator.TpchQu
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.noperator.DriverContext;
-import com.facebook.presto.noperator.NewAlignmentOperator.NewAlignmentOperatorFactory;
-import com.facebook.presto.noperator.NewHashAggregationOperator.NewHashAggregationOperatorFactory;
-import com.facebook.presto.noperator.NewOperator;
-import com.facebook.presto.noperator.NewOperatorFactory;
-import com.facebook.presto.noperator.OperatorContext;
+import com.facebook.presto.operator.DriverContext;
+import com.facebook.presto.operator.NewAlignmentOperator.NewAlignmentOperatorFactory;
+import com.facebook.presto.operator.NewHashAggregationOperator.NewHashAggregationOperatorFactory;
+import com.facebook.presto.operator.NewOperator;
+import com.facebook.presto.operator.NewOperatorFactory;
+import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.serde.BlocksFileEncoding;
@@ -108,7 +108,7 @@ public class NewHandTpchQuery1
     }
 
     public static class TpchQuery1Operator
-            implements com.facebook.presto.noperator.NewOperator
+            implements com.facebook.presto.operator.NewOperator
     {
         private static final ImmutableList<TupleInfo> TUPLE_INFOS = ImmutableList.of(new TupleInfo(Type.VARIABLE_BINARY, Type.VARIABLE_BINARY),
                 TupleInfo.SINGLE_DOUBLE,
@@ -118,7 +118,7 @@ public class NewHandTpchQuery1
                 TupleInfo.SINGLE_DOUBLE);
 
         public static class TpchQuery1OperatorFactory
-                implements com.facebook.presto.noperator.NewOperatorFactory
+                implements com.facebook.presto.operator.NewOperatorFactory
         {
             private final int operatorId;
 

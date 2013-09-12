@@ -1,10 +1,10 @@
 /*
  * Copyright 2004-present Facebook. All Rights Reserved.
  */
-package com.facebook.presto.noperator;
+package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.noperator.NewExchangeOperator.NewExchangeOperatorFactory;
+import com.facebook.presto.operator.NewExchangeOperator.NewExchangeOperatorFactory;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.serde.PagesSerde;
@@ -44,7 +44,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_SEQUENCE_ID;
-import static com.facebook.presto.noperator.SequencePageBuilder.createSequencePage;
+import static com.facebook.presto.operator.SequencePageBuilder.createSequencePage;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;

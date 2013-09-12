@@ -1,4 +1,4 @@
-package com.facebook.presto.noperator;
+package com.facebook.presto.operator;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
@@ -8,8 +8,8 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.noperator.TestDriverStats.assertExpectedDriverStats;
-import static com.facebook.presto.noperator.TestOperatorStats.assertExpectedOperatorStats;
+import static com.facebook.presto.operator.TestDriverStats.assertExpectedDriverStats;
+import static com.facebook.presto.operator.TestOperatorStats.assertExpectedOperatorStats;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.testng.Assert.assertEquals;

@@ -1,8 +1,8 @@
-package com.facebook.presto.noperator;
+package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.noperator.NewHashBuilderOperator.NewHashBuilderOperatorFactory;
-import com.facebook.presto.noperator.NewHashJoinOperator.NewHashJoinOperatorFactory;
+import com.facebook.presto.operator.NewHashBuilderOperator.NewHashBuilderOperatorFactory;
+import com.facebook.presto.operator.NewHashJoinOperator.NewHashJoinOperatorFactory;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.tuple.TupleInfo;
@@ -16,8 +16,8 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 
-import static com.facebook.presto.noperator.NewOperatorAssertion.assertOperatorEquals;
-import static com.facebook.presto.noperator.RowPagesBuilder.rowPagesBuilder;
+import static com.facebook.presto.operator.NewOperatorAssertion.assertOperatorEquals;
+import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;

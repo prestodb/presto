@@ -1,9 +1,9 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.noperator.NewAlignmentOperator.NewAlignmentOperatorFactory;
-import com.facebook.presto.noperator.NewHashAggregationOperator.NewHashAggregationOperatorFactory;
-import com.facebook.presto.noperator.NewOperatorFactory;
+import com.facebook.presto.operator.NewAlignmentOperator.NewAlignmentOperatorFactory;
+import com.facebook.presto.operator.NewHashAggregationOperator.NewHashAggregationOperatorFactory;
+import com.facebook.presto.operator.NewOperatorFactory;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.tree.Input;

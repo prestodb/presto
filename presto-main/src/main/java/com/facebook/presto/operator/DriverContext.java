@@ -1,4 +1,4 @@
-package com.facebook.presto.noperator;
+package com.facebook.presto.operator;
 
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -17,7 +17,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.noperator.OperatorContext.operatorStatsGetter;
+import static com.facebook.presto.operator.OperatorContext.operatorStatsGetter;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.getFirst;

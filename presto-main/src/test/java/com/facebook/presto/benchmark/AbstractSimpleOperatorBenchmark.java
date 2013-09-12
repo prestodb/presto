@@ -1,11 +1,11 @@
 package com.facebook.presto.benchmark;
 
-import com.facebook.presto.noperator.Driver;
-import com.facebook.presto.noperator.DriverContext;
-import com.facebook.presto.noperator.DriverFactory;
-import com.facebook.presto.noperator.NewOperatorFactory;
-import com.facebook.presto.noperator.NullOutputOperator.NullOutputOperatorFactory;
-import com.facebook.presto.noperator.TaskContext;
+import com.facebook.presto.operator.Driver;
+import com.facebook.presto.operator.DriverContext;
+import com.facebook.presto.operator.DriverFactory;
+import com.facebook.presto.operator.NewOperatorFactory;
+import com.facebook.presto.operator.NullOutputOperator.NullOutputOperatorFactory;
+import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;

@@ -1,8 +1,8 @@
-package com.facebook.presto.noperator;
+package com.facebook.presto.operator;
 
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
-import com.facebook.presto.noperator.NewHashBuilderOperator.NewHashSupplier;
+import com.facebook.presto.operator.NewHashBuilderOperator.NewHashSupplier;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.tuple.TupleInfo;

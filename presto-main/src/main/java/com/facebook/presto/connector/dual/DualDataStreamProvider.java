@@ -2,9 +2,9 @@ package com.facebook.presto.connector.dual;
 
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.metadata.InternalTable;
-import com.facebook.presto.noperator.NewAlignmentOperator;
-import com.facebook.presto.noperator.NewOperator;
-import com.facebook.presto.noperator.OperatorContext;
+import com.facebook.presto.operator.NewAlignmentOperator;
+import com.facebook.presto.operator.NewOperator;
+import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.split.ConnectorDataStreamProvider;

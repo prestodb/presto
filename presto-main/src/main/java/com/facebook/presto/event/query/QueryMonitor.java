@@ -3,7 +3,7 @@ package com.facebook.presto.event.query;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.noperator.DriverStats;
+import com.facebook.presto.operator.DriverStats;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Throwables;

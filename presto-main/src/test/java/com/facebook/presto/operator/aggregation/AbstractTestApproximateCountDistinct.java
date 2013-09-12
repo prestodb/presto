@@ -4,7 +4,7 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.noperator.NewAggregationOperator.Aggregator;
+import com.facebook.presto.operator.NewAggregationOperator.Aggregator;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.tree.Input;
@@ -24,7 +24,7 @@ import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.facebook.presto.noperator.NewAggregationOperator.createAggregator;
+import static com.facebook.presto.operator.NewAggregationOperator.createAggregator;
 import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
 import static io.airlift.testing.Assertions.assertLessThan;
 import static org.testng.Assert.assertEquals;

@@ -1,7 +1,7 @@
-package com.facebook.presto.noperator;
+package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.noperator.NewAggregationOperator.NewAggregationOperatorFactory;
+import com.facebook.presto.operator.NewAggregationOperator.NewAggregationOperatorFactory;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
@@ -16,8 +16,8 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.block.BlockAssertions.COMPOSITE_SEQUENCE_TUPLE_INFO;
-import static com.facebook.presto.noperator.NewOperatorAssertion.assertOperatorEquals;
-import static com.facebook.presto.noperator.RowPagesBuilder.rowPagesBuilder;
+import static com.facebook.presto.operator.NewOperatorAssertion.assertOperatorEquals;
+import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
 import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
 import static com.facebook.presto.operator.aggregation.CountColumnAggregation.COUNT_COLUMN;

@@ -1,8 +1,8 @@
 package com.facebook.presto.split;
 
-import com.facebook.presto.noperator.NewOperator;
-import com.facebook.presto.noperator.NewRecordProjectOperator;
-import com.facebook.presto.noperator.OperatorContext;
+import com.facebook.presto.operator.NewOperator;
+import com.facebook.presto.operator.NewRecordProjectOperator;
+import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.Split;

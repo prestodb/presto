@@ -1,11 +1,11 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.noperator.DriverContext;
-import com.facebook.presto.noperator.NewAlignmentOperator.NewAlignmentOperatorFactory;
-import com.facebook.presto.noperator.NewOperator;
-import com.facebook.presto.noperator.NewOperatorAssertion;
-import com.facebook.presto.noperator.TaskContext;
+import com.facebook.presto.operator.DriverContext;
+import com.facebook.presto.operator.NewAlignmentOperator.NewAlignmentOperatorFactory;
+import com.facebook.presto.operator.NewOperator;
+import com.facebook.presto.operator.NewOperatorAssertion;
+import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.sql.analyzer.Session;
@@ -26,8 +26,8 @@ import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 
-import static com.facebook.presto.noperator.NewOperatorAssertion.toMaterializedResult;
-import static com.facebook.presto.noperator.RowPagesBuilder.rowPagesBuilder;
+import static com.facebook.presto.operator.NewOperatorAssertion.toMaterializedResult;
+import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;

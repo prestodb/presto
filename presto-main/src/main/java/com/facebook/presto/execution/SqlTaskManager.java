@@ -8,7 +8,7 @@ import com.facebook.presto.TaskSource;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.SharedBuffer.QueueState;
-import com.facebook.presto.noperator.TaskContext;
+import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.NewLocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;

@@ -1,7 +1,7 @@
-package com.facebook.presto.noperator;
+package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.noperator.NewFilterAndProjectOperator.NewFilterAndProjectOperatorFactory;
+import com.facebook.presto.operator.NewFilterAndProjectOperator.NewFilterAndProjectOperatorFactory;
 import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.ProjectionFunctions;
@@ -17,8 +17,8 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 
-import static com.facebook.presto.noperator.NewOperatorAssertion.assertOperatorEquals;
-import static com.facebook.presto.noperator.RowPagesBuilder.rowPagesBuilder;
+import static com.facebook.presto.operator.NewOperatorAssertion.assertOperatorEquals;
+import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
