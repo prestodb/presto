@@ -8,17 +8,15 @@ import com.facebook.presto.TaskSource;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.SharedBuffer.QueueState;
-import com.facebook.presto.operator.OperatorStats.SplitExecutionStats;
+import com.facebook.presto.noperator.TaskContext;
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.planner.LocalExecutionPlanner;
+import com.facebook.presto.sql.planner.NewLocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Uninterruptibles;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
@@ -31,6 +29,7 @@ import org.weakref.jmx.Nested;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
+
 import java.net.URI;
 import java.util.HashMap;
 import java.util.List;
@@ -55,16 +54,15 @@ public class SqlTaskManager
 
     private final DataSize maxBufferSize;
 
-    private final ExecutorService taskMasterExecutor;
-    private final ThreadPoolExecutorMBean taskMasterExecutorMBean;
+    private final ExecutorService taskNotificationExecutor;
+    private final ThreadPoolExecutorMBean taskNotificationExecutorMBean;
 
-    private final ListeningExecutorService shardExecutor;
-    private final ThreadPoolExecutorMBean shardExecutorMBean;
+    private final TaskExecutor taskExecutor;
 
     private final ScheduledExecutorService taskManagementExecutor;
     private final ThreadPoolExecutorMBean taskManagementExecutorMBean;
 
-    private final LocalExecutionPlanner planner;
+    private final NewLocalExecutionPlanner planner;
     private final LocationFactory locationFactory;
     private final QueryMonitor queryMonitor;
     private final DataSize maxTaskMemoryUsage;
@@ -78,13 +76,15 @@ public class SqlTaskManager
 
     @Inject
     public SqlTaskManager(
-            LocalExecutionPlanner planner,
+            NewLocalExecutionPlanner planner,
             LocationFactory locationFactory,
+            TaskExecutor taskExecutor,
             QueryMonitor queryMonitor,
             QueryManagerConfig config)
     {
         this.planner = checkNotNull(planner, "planner is null");
         this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
+        this.taskExecutor = checkNotNull(taskExecutor, "taskExecutor is null");
         this.queryMonitor = checkNotNull(queryMonitor, "queryMonitor is null");
 
         checkNotNull(config, "config is null");
@@ -94,13 +94,8 @@ public class SqlTaskManager
         this.infoCacheTime = config.getInfoMaxAge();
         this.clientTimeout = config.getClientTimeout();
 
-        // we have an unlimited number of task master threads
-        taskMasterExecutor = Executors.newCachedThreadPool(threadsNamed("task-processor-%d"));
-        taskMasterExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) taskMasterExecutor);
-
-        ExecutorService shardExecutor = Executors.newFixedThreadPool(config.getMaxShardProcessorThreads(), threadsNamed("shard-processor-%d"));
-        this.shardExecutor = MoreExecutors.listeningDecorator(shardExecutor);
-        this.shardExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) shardExecutor);
+        taskNotificationExecutor = Executors.newCachedThreadPool(threadsNamed("task-notification-%d"));
+        taskNotificationExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) taskNotificationExecutor);
 
         taskManagementExecutor = Executors.newScheduledThreadPool(5, threadsNamed("task-management-%d"));
         taskManagementExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) taskManagementExecutor);
@@ -128,8 +123,7 @@ public class SqlTaskManager
     @PreDestroy
     public void stop()
     {
-        taskMasterExecutor.shutdownNow();
-        shardExecutor.shutdownNow();
+        taskNotificationExecutor.shutdownNow();
         taskManagementExecutor.shutdownNow();
     }
 
@@ -140,18 +134,11 @@ public class SqlTaskManager
         return stats;
     }
 
-    @Managed(description = "Gaurenteed thread for each task executor")
+    @Managed(description = "Task notification executor")
     @Nested
-    public ThreadPoolExecutorMBean getTaskMasterExecutor()
+    public ThreadPoolExecutorMBean getTaskNotificationExecutor()
     {
-        return taskMasterExecutorMBean;
-    }
-
-    @Managed(description = "Shared thread task executor")
-    @Nested
-    public ThreadPoolExecutorMBean getShardExecutor()
-    {
-        return shardExecutorMBean;
+        return taskNotificationExecutorMBean;
     }
 
     @Managed(description = "Task garbage collector executor")
@@ -244,12 +231,11 @@ public class SqlTaskManager
                         fragment,
                         planner,
                         maxBufferSize,
-                        taskMasterExecutor,
-                        shardExecutor,
+                        taskExecutor,
+                        taskNotificationExecutor,
                         maxTaskMemoryUsage,
                         operatorPreAllocatedMemory,
-                        queryMonitor,
-                        stats
+                        queryMonitor
                 );
                 tasks.put(taskId, taskExecution);
             }
@@ -327,16 +313,21 @@ public class SqlTaskManager
             if (taskInfo == null) {
                 // task does not exist yet, mark the task as canceled, so later if a late request
                 // comes in to create the task, the task remains canceled
-                ExecutionStats executionStats = new ExecutionStats();
-                executionStats.recordEnd();
+                TaskContext taskContext = new TaskContext(
+                        new TaskStateMachine(taskId, taskNotificationExecutor),
+                        taskManagementExecutor,
+                        null,
+                        maxTaskMemoryUsage,
+                        operatorPreAllocatedMemory);
+
                 taskInfo = new TaskInfo(taskId,
                         Long.MAX_VALUE,
                         TaskState.CANCELED,
                         URI.create("unknown"),
+                        DateTime.now(),
                         new SharedBufferInfo(QueueState.FINISHED, 0, 0, ImmutableList.<BufferInfo>of()),
                         ImmutableSet.<PlanNodeId>of(),
-                        executionStats.snapshot(false),
-                        ImmutableList.<SplitExecutionStats>of(),
+                        taskContext.getTaskStats(),
                         ImmutableList.<FailureInfo>of(),
                         ImmutableMap.<PlanNodeId, Set<?>>of());
                 TaskInfo existingTaskInfo = taskInfos.putIfAbsent(taskId, taskInfo);
@@ -379,7 +370,7 @@ public class SqlTaskManager
                 if (taskInfo.getState().isDone()) {
                     continue;
                 }
-                DateTime lastHeartbeat = taskInfo.getStats().getLastHeartbeat();
+                DateTime lastHeartbeat = taskInfo.getLastHeartbeat();
                 if (lastHeartbeat != null && lastHeartbeat.isBefore(oldestAllowedHeartbeat)) {
                     log.info("Failing abandoned task %s", taskExecution.getTaskId());
                     taskExecution.fail(new AbandonedException("Task " + taskInfo.getTaskId(), lastHeartbeat, now));

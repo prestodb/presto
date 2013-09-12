@@ -4,40 +4,45 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.ingest.RecordProjectOperator;
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.operator.FilterAndProjectOperator;
-import com.facebook.presto.operator.FilterFunctions;
-import com.facebook.presto.operator.Operator;
-import com.facebook.presto.operator.OperatorStats;
-import com.facebook.presto.operator.OperatorStats.SplitExecutionStats;
+import com.facebook.presto.noperator.DriverContext;
+import com.facebook.presto.noperator.NewFilterAndProjectOperator.NewFilterAndProjectOperatorFactory;
+import com.facebook.presto.noperator.NewOperator;
+import com.facebook.presto.noperator.NewOperatorFactory;
+import com.facebook.presto.noperator.NewRecordProjectOperator;
+import com.facebook.presto.noperator.NewSourceOperator;
+import com.facebook.presto.noperator.NewSourceOperatorFactory;
+import com.facebook.presto.noperator.OperatorContext;
+import com.facebook.presto.noperator.StaticOperator;
+import com.facebook.presto.noperator.TaskContext;
+import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.operator.Page;
-import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.operator.ProjectionFunction;
-import com.facebook.presto.operator.TableScanOperator;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.InMemoryRecordSet;
-import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.split.DataStreamProvider;
+import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
-import com.facebook.presto.sql.gen.ExpressionCompiler;
-import com.facebook.presto.sql.gen.OperatorFactory;
+import com.facebook.presto.sql.gen.NewExpressionCompiler;
+import com.facebook.presto.sql.planner.InterpretedFilterFunction;
 import com.facebook.presto.sql.planner.InterpretedProjectionFunction;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolToInputRewriter;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.Input;
-import com.facebook.presto.sql.tree.InputReference;
+import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.util.LocalQueryRunner;
 import com.facebook.presto.util.MaterializedResult;
+import com.facebook.presto.util.Threads;
 import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -47,28 +52,32 @@ import io.airlift.slice.Slice;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 
-import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
-import static com.facebook.presto.noperator.RowPagesBuilder.rowPagesBuilder;
-import static com.facebook.presto.operator.OperatorAssertions.createOperator;
+import static com.facebook.presto.operator.scalar.FunctionAssertions.TestSplit.createNormalSplit;
+import static com.facebook.presto.operator.scalar.FunctionAssertions.TestSplit.createRecordSetSplit;
+import static com.facebook.presto.spi.ColumnType.BOOLEAN;
+import static com.facebook.presto.spi.ColumnType.DOUBLE;
+import static com.facebook.presto.spi.ColumnType.LONG;
+import static com.facebook.presto.spi.ColumnType.STRING;
 import static com.facebook.presto.sql.parser.SqlParser.createExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_BOOLEAN;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 import static com.facebook.presto.util.LocalQueryRunner.createDualLocalQueryRunner;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static io.airlift.testing.Assertions.assertGreaterThan;
+import static io.airlift.testing.Assertions.assertInstanceOf;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
@@ -76,16 +85,18 @@ public final class FunctionAssertions
 {
     public static final Session SESSION = new Session("user", "source", "catalog", "schema", "address", "agent");
 
-    private static final ExpressionCompiler compiler = new ExpressionCompiler(new MetadataManager());
+    private static final ExecutorService EXECUTOR = Executors.newCachedThreadPool(Threads.daemonThreadsNamed("test-%s"));
 
-    public static final Operator SOURCE = createOperator(new Page(
+    private static final NewExpressionCompiler COMPILER = new NewExpressionCompiler(new MetadataManager());
+
+    private static final Page SOURCE_PAGE = new Page(
             createLongsBlock(1234L),
             createStringsBlock("hello"),
             createDoublesBlock(12.34),
             createBooleansBlock(true),
             createLongsBlock(MILLISECONDS.toSeconds(new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis())),
             createStringsBlock("%el%"),
-            createStringsBlock((String) null)));
+            createStringsBlock((String) null));
 
     private static final Map<Input, Type> INPUT_TYPES = ImmutableMap.<Input, Type>builder()
             .put(new Input(0, 0), Type.LONG)
@@ -107,6 +118,9 @@ public final class FunctionAssertions
             .put(new Symbol("bound_null_string"), new Input(6, 0))
             .build();
 
+    private static final DataStreamProvider DATA_STREAM_PROVIDER = new TestDataStreamProvider();
+    private static final PlanNodeId SOURCE_ID = new PlanNodeId("scan");
+
     private FunctionAssertions() {}
 
     public static void assertFunction(String projection, Object expected)
@@ -127,194 +141,89 @@ public final class FunctionAssertions
 
     public static Object selectSingleValue(String projection)
     {
-        return selectSingleValue(projection, createDualLocalQueryRunner(), SESSION);
+        return selectSingleValue(projection, SESSION);
     }
 
     public static Object selectSingleValue(String projection, Session session)
     {
-        return selectSingleValue(projection, createDualLocalQueryRunner(session), session);
+        List<Object> results = executeProjectionWithAll(projection, session);
+        HashSet<Object> resultSet = new HashSet<>(results);
+
+        // we should only have a single result
+        assertTrue(resultSet.size() == 1, "Expected only one result unique result, but got " + resultSet);
+
+        return Iterables.getOnlyElement(resultSet);
     }
 
-    public static Object selectCompiledSingleValue(String projection)
+    public static List<Object> executeProjectionWithAll(String projection, Session session)
     {
         checkNotNull(projection, "projection is null");
 
-        // compile
-        Operator compiledOperator = createCompiledOperatorFactory(projection).createOperator(SOURCE, SESSION);
-        return execute(compiledOperator);
-    }
+        Expression projectionExpression = createExpression(projection);
 
-    public static Object selectInterpretedSingleValue(String projection, Type expressionType)
-    {
-        checkNotNull(projection, "projection is null");
+        List<Object> results = new ArrayList<>();
 
-        // compile
-        FilterAndProjectOperator interpretedOperator = createInterpretedOperator(projection, expressionType, SESSION);
-        return execute(interpretedOperator);
-    }
-
-    public static void assertFilter(String expression, boolean expected)
-    {
-        assertFilter(expression, expected, SESSION);
-    }
-
-    public static void assertFilter(String expression, boolean expected, Session session)
-    {
-        Expression parsedExpression = FunctionAssertions.parseExpression(expression);
-
-        OperatorFactory operatorFactory;
-        try {
-            operatorFactory = compiler.compileFilterAndProjectOperator(parsedExpression, ImmutableList.<Expression>of(TRUE_LITERAL), INPUT_TYPES);
-        }
-        catch (Throwable e) {
-            throw new RuntimeException("Error compiling " + expression, e);
-        }
-
-        List<Page> input = rowPagesBuilder(SINGLE_LONG, SINGLE_VARBINARY, SINGLE_DOUBLE, SINGLE_BOOLEAN, SINGLE_LONG, SINGLE_VARBINARY, SINGLE_VARBINARY).row(
-                1234L,
-                "hello",
-                12.34,
-                true,
-                MILLISECONDS.toSeconds(new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis()),
-                "%el%",
-                null
-        ).build();
-
-        Operator source = createOperator(input);
-        Operator operator = operatorFactory.createOperator(source, session);
-
-        PageIterator pageIterator = operator.iterator(new OperatorStats());
-
-        boolean value;
-        if (pageIterator.hasNext()) {
-            Page page = pageIterator.next();
-            assertEquals(page.getPositionCount(), 1);
-            assertEquals(page.getChannelCount(), 1);
-
-            BlockCursor cursor = page.getBlock(0).cursor();
-            assertTrue(cursor.advanceNextPosition());
-            assertTrue(cursor.getBoolean(0));
-            value = true;
-        } else {
-            value = false;
-        }
-        assertEquals(value, expected);
-    }
-
-    private static Object selectSingleValue(String projection, LocalQueryRunner runner, Session session)
-    {
-        checkNotNull(projection, "projection is null");
-
-        // compile operator
-        OperatorFactory operatorFactory = createCompiledOperatorFactory(projection);
-
-        // execute using table scan over plain old operator
-        Operator operator = operatorFactory.createOperator(createTableScanOperator(SOURCE), session);
-        Object directOperatorValue = execute(operator);
-        Type expressionType = Type.fromRaw(operator.getTupleInfos().get(0).getTypes().get(0));
-
-        // execute using table scan over record set
-        Object recordValue = execute(operatorFactory.createOperator(createTableScanOperator(createRecordProjectOperator()), session));
-        assertEquals(recordValue, directOperatorValue);
+        // execute as standalone operator
+        NewOperatorFactory operatorFactory = compileFilterProject(TRUE_LITERAL, projectionExpression);
+        Type expressionType = Type.fromRaw(operatorFactory.getTupleInfos().get(0).getTypes().get(0));
+        Object directOperatorValue = selectSingleValue(operatorFactory, session);
+        results.add(directOperatorValue);
 
         // interpret
-        FilterAndProjectOperator interpretedOperator = createInterpretedOperator(projection, expressionType, session);
-        Object interpretedValue = execute(interpretedOperator);
+        Object interpretedValue = selectSingleValue(interpretedFilterProject(TRUE_LITERAL, projectionExpression, expressionType, session));
+        results.add(interpretedValue);
 
-        // verify interpreted and compiled value are the same
-        assertEquals(interpretedValue, directOperatorValue);
+        // execute over normal operator
+        NewSourceOperatorFactory scanProjectOperatorFactory = compileScanFilterProject(TRUE_LITERAL, projectionExpression);
+        Object scanOperatorValue = selectSingleValue(scanProjectOperatorFactory, createNormalSplit(), session);
+        results.add(scanOperatorValue);
+
+        // execute over record set
+        Object recordValue = selectSingleValue(scanProjectOperatorFactory, createRecordSetSplit(), session);
+        results.add(recordValue);
 
         //
         // If the projection does not need bound values, execute query using full engine
-        boolean needsBoundValues = parseExpression(projection).accept(new DefaultTraversalVisitor<Boolean, Object>()
-        {
-            @Override
-            public Boolean visitInputReference(InputReference node, Object context)
-            {
-                return true;
+        if (!needsBoundValue(projectionExpression)) {
+            try {
+                LocalQueryRunner runner = createDualLocalQueryRunner(session, EXECUTOR);
+                MaterializedResult result = runner.execute("SELECT " + projection + " FROM dual");
+                assertEquals(result.getTupleInfo().getFieldCount(), 1);
+                assertEquals(result.getMaterializedTuples().size(), 1);
+                Object queryResult = Iterables.getOnlyElement(result.getMaterializedTuples()).getField(0);
+                results.add(queryResult);
             }
-        }, null) == Boolean.TRUE;
-
-        if (!needsBoundValues) {
-            MaterializedResult result = runner.execute("SELECT " + projection + " FROM dual");
-            assertEquals(result.getTupleInfo().getFieldCount(), 1);
-            assertEquals(result.getMaterializedTuples().size(), 1);
-            Object queryResult = Iterables.getOnlyElement(result.getMaterializedTuples()).getField(0);
-            assertEquals(directOperatorValue, queryResult);
-        }
-
-        return directOperatorValue;
-    }
-
-    public static FilterAndProjectOperator createInterpretedOperator(String projection, Type expressionType)
-    {
-        return createInterpretedOperator(projection, expressionType, SESSION);
-    }
-
-    public static FilterAndProjectOperator createInterpretedOperator(String projection, Type expressionType, Session session)
-    {
-        ProjectionFunction projectionFunction = new InterpretedProjectionFunction(expressionType,
-                createExpression(projection),
-                INPUT_MAPPING,
-                new MetadataManager(),
-                session,
-                INPUT_TYPES);
-
-        return new FilterAndProjectOperator(SOURCE, FilterFunctions.TRUE_FUNCTION, ImmutableList.of(projectionFunction));
-    }
-
-    public static OperatorFactory createCompiledOperatorFactory(String projection)
-    {
-        Expression parsedExpression = parseExpression(projection);
-
-        // compile and execute
-        OperatorFactory operatorFactory;
-        try {
-            operatorFactory = compiler.compileFilterAndProjectOperator(TRUE_LITERAL, ImmutableList.of(parsedExpression), INPUT_TYPES);
-        }
-        catch (Throwable e) {
-            if (e instanceof UncheckedExecutionException) {
-                e = e.getCause();
+            catch (Exception e) {
+                // todo remove this when analyzer supports null types and full numeric type promotion
             }
-            throw new RuntimeException("Error compiling " + parsedExpression + ": " + e.getMessage(), e);
         }
-        return operatorFactory;
+
+        return results;
     }
 
-    public static Object execute(Operator operator)
+    public static Object selectSingleValue(NewOperatorFactory operatorFactory, Session session)
     {
-        OperatorStats operatorStats = new OperatorStats();
-
-        PageIterator pageIterator = operator.iterator(operatorStats);
-        assertTrue(pageIterator.hasNext());
-        Page page = pageIterator.next();
-        assertFalse(pageIterator.hasNext());
-
-        assertEquals(page.getPositionCount(), 1);
-        assertEquals(page.getChannelCount(), 1);
-
-        SplitExecutionStats snapshot = operatorStats.snapshot();
-        assertEquals(snapshot.getCompletedPositions().getTotalCount(), 1);
-        assertGreaterThan(snapshot.getCompletedDataSize().getTotalCount(), 1L);
-
-        return getSingleCellValue(page.getBlock(0));
+        NewOperator operator = operatorFactory.createOperator(createDriverContext(session));
+        return selectSingleValue(operator);
     }
 
-    public static Object execute(ProjectionFunction projectionFunction)
+    public static Object selectSingleValue(NewSourceOperatorFactory operatorFactory, Split split, Session session)
     {
-        RecordCursor cursor = createRecordProjectOperator().cursor();
-        assertTrue(cursor.advanceNextPosition());
-
-        BlockBuilder output = new BlockBuilder(projectionFunction.getTupleInfo());
-        projectionFunction.project(cursor, output);
-
-        assertFalse(cursor.advanceNextPosition());
-
-        return getSingleCellValue(output.build());
+        NewSourceOperator operator = operatorFactory.createOperator(createDriverContext(session));
+        operator.addSplit(split);
+        operator.noMoreSplits();
+        return selectSingleValue(operator);
     }
 
-    private static Object getSingleCellValue(Block block)
+    public static Object selectSingleValue(NewOperator operator)
     {
+        Page output = getAtMostOnePage(operator);
+
+        assertNotNull(output);
+        assertEquals(output.getPositionCount(), 1);
+        assertEquals(output.getChannelCount(), 1);
+
+        Block block = output.getBlock(0);
         assertEquals(block.getPositionCount(), 1);
         assertEquals(block.getTupleInfo().getFieldCount(), 1);
 
@@ -328,70 +237,279 @@ public final class FunctionAssertions
         }
     }
 
-    public static Expression parseExpression(String expression)
+    public static void assertFilter(String filter, boolean expected)
     {
-        Expression parsedExpression = createExpression(expression);
+        List<Boolean> results = executeFilterWithAll(filter, SESSION);
+        HashSet<Boolean> resultSet = new HashSet<>(results);
 
-        parsedExpression = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), parsedExpression);
-        return parsedExpression;
+        // we should only have a single result
+        assertTrue(resultSet.size() == 1, "Expected only [" + expected + "] result unique result, but got " + resultSet);
+
+        assertEquals((boolean) Iterables.getOnlyElement(resultSet), expected);
     }
 
-    public static RecordProjectOperator createRecordProjectOperator()
+    public static List<Boolean> executeFilterWithAll(String filter, Session session)
     {
-        return new RecordProjectOperator(new InMemoryRecordSet(
-                ImmutableList.of(
-                        ColumnType.LONG,
-                        ColumnType.STRING,
-                        ColumnType.DOUBLE,
-                        ColumnType.BOOLEAN,
-                        ColumnType.LONG,
-                        ColumnType.STRING,
-                        ColumnType.STRING),
-                ImmutableList.of(Arrays.<Object>asList(
+        checkNotNull(filter, "filter is null");
+
+        Expression filterExpression = createExpression(filter);
+
+        List<Boolean> results = new ArrayList<>();
+
+        // execute as standalone operator
+        NewOperatorFactory operatorFactory = compileFilterProject(filterExpression, TRUE_LITERAL);
+        Type expressionType = Type.fromRaw(operatorFactory.getTupleInfos().get(0).getTypes().get(0));
+        results.add(executeFilter(operatorFactory, session));
+
+        // interpret
+        boolean interpretedValue = executeFilter(interpretedFilterProject(filterExpression, TRUE_LITERAL, expressionType, session));
+        results.add(interpretedValue);
+
+        // execute over normal operator
+        NewSourceOperatorFactory scanProjectOperatorFactory = compileScanFilterProject(filterExpression, TRUE_LITERAL);
+        boolean scanOperatorValue = executeFilter(scanProjectOperatorFactory, createNormalSplit(), session);
+        results.add(scanOperatorValue);
+
+        // execute over record set
+        boolean recordValue = executeFilter(scanProjectOperatorFactory, createRecordSetSplit(), session);
+        results.add(recordValue);
+
+        //
+        // If the filter does not need bound values, execute query using full engine
+        if (!needsBoundValue(filterExpression)) {
+            try {
+                LocalQueryRunner runner = createDualLocalQueryRunner(session, EXECUTOR);
+                MaterializedResult result = runner.execute("SELECT TRUE FROM dual WHERE " + filter);
+                assertEquals(result.getTupleInfo().getFieldCount(), 1);
+
+                Boolean queryResult;
+                if (result.getMaterializedTuples().isEmpty()) {
+                    queryResult = false;
+                }
+                else {
+                    assertEquals(result.getMaterializedTuples().size(), 1);
+                    queryResult = (Boolean) Iterables.getOnlyElement(result.getMaterializedTuples()).getField(0);
+                }
+                results.add(queryResult);
+            }
+            catch (SemanticException e) {
+                // todo remove this when analyzer supports null types and full numeric type promotion
+            }
+        }
+
+        return results;
+    }
+
+    private static boolean executeFilter(NewOperatorFactory operatorFactory, Session session)
+    {
+        return executeFilter(operatorFactory.createOperator(createDriverContext(session)));
+    }
+
+    private static boolean executeFilter(NewSourceOperatorFactory operatorFactory, Split split, Session session)
+    {
+        NewSourceOperator operator = operatorFactory.createOperator(createDriverContext(session));
+        operator.addSplit(split);
+        operator.noMoreSplits();
+        return executeFilter(operator);
+    }
+
+    private static boolean executeFilter(NewOperator operator)
+    {
+        Page page = getAtMostOnePage(operator);
+
+        boolean value;
+        if (page != null) {
+            assertEquals(page.getPositionCount(), 1);
+            assertEquals(page.getChannelCount(), 1);
+
+            BlockCursor cursor = page.getBlock(0).cursor();
+            assertTrue(cursor.advanceNextPosition());
+            assertTrue(cursor.getBoolean(0));
+            value = true;
+        }
+        else {
+            value = false;
+        }
+        return value;
+    }
+
+    private static boolean needsBoundValue(Expression projectionExpression)
+    {
+        final AtomicBoolean hasQualifiedNameReference = new AtomicBoolean();
+        projectionExpression.accept(new DefaultTraversalVisitor<Void, Void>()
+        {
+            @Override
+            protected Void visitQualifiedNameReference(QualifiedNameReference node, Void context)
+            {
+                hasQualifiedNameReference.set(true);
+                return null;
+            }
+        }, null);
+        return hasQualifiedNameReference.get();
+    }
+
+    private static NewOperator interpretedFilterProject(Expression filter, Expression projection, Type expressionType, Session session)
+    {
+        FilterFunction filterFunction = new InterpretedFilterFunction(
+                filter,
+                INPUT_MAPPING,
+                new MetadataManager(),
+                session,
+                INPUT_TYPES);
+
+        ProjectionFunction projectionFunction = new InterpretedProjectionFunction(
+                expressionType,
+                projection,
+                INPUT_MAPPING,
+                new MetadataManager(),
+                session,
+                INPUT_TYPES);
+
+        NewOperatorFactory operatorFactory = new NewFilterAndProjectOperatorFactory(0, filterFunction, ImmutableList.of(projectionFunction));
+        return operatorFactory.createOperator(createDriverContext(session));
+    }
+
+    private static NewOperatorFactory compileFilterProject(Expression filter, Expression projection)
+    {
+        filter = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), filter);
+        projection = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), projection);
+
+        try {
+            return COMPILER.compileFilterAndProjectOperator(0, filter, ImmutableList.of(projection), INPUT_TYPES);
+        }
+        catch (Throwable e) {
+            if (e instanceof UncheckedExecutionException) {
+                e = e.getCause();
+            }
+            throw new RuntimeException("Error compiling " + projection + ": " + e.getMessage(), e);
+        }
+    }
+
+    private static NewSourceOperatorFactory compileScanFilterProject(Expression filter, Expression projection)
+    {
+        filter = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), filter);
+        projection = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), projection);
+
+        try {
+            return COMPILER.compileScanFilterAndProjectOperator(
+                    0,
+                    SOURCE_ID,
+                    DATA_STREAM_PROVIDER,
+                    ImmutableList.<ColumnHandle>of(),
+                    filter,
+                    ImmutableList.of(projection),
+                    INPUT_TYPES);
+        }
+        catch (Throwable e) {
+            if (e instanceof UncheckedExecutionException) {
+                e = e.getCause();
+            }
+            throw new RuntimeException("Error compiling " + projection + ": " + e.getMessage(), e);
+        }
+    }
+
+    private static Page getAtMostOnePage(NewOperator operator)
+    {
+        // add our input page if needed
+        if (operator.needsInput()) {
+            operator.addInput(SOURCE_PAGE);
+        }
+
+        // try to get the output page
+        Page result = operator.getOutput();
+
+        // tell operator to finish
+        operator.finish();
+
+        // try to get output until the operator is finished
+        while (!operator.isFinished()) {
+            // operator should never block
+            assertTrue(operator.isBlocked().isDone());
+
+            Page output = operator.getOutput();
+            if (output != null) {
+                assertNull(result);
+                result = output;
+            }
+        }
+
+        return result;
+    }
+
+    private static DriverContext createDriverContext(Session session)
+    {
+        return new TaskContext(new TaskId("query", "stage", "task"), EXECUTOR, session)
+                .addPipelineContext(true, true)
+                .addDriverContext();
+    }
+
+    private static class TestDataStreamProvider
+            implements DataStreamProvider
+    {
+        @Override
+        public NewOperator createNewDataStream(OperatorContext operatorContext, Split split, List<ColumnHandle> columns)
+        {
+            assertInstanceOf(split, FunctionAssertions.TestSplit.class);
+            FunctionAssertions.TestSplit testSplit = (FunctionAssertions.TestSplit) split;
+            if (testSplit.isRecordSet()) {
+                RecordSet records = InMemoryRecordSet.builder(ImmutableList.of(LONG, STRING, DOUBLE, BOOLEAN, LONG, STRING, STRING)).addRow(
                         1234L,
                         "hello",
                         12.34,
                         true,
                         MILLISECONDS.toSeconds(new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis()),
                         "%el%",
-                        null))));
+                        null
+                ).build();
+                return new NewRecordProjectOperator(operatorContext, records);
+            }
+            else {
+                return new StaticOperator(operatorContext, ImmutableList.of(SOURCE_PAGE));
+            }
+        }
     }
 
-    public static TableScanOperator createTableScanOperator(final Operator source)
+    static class TestSplit
+            implements Split
     {
-        TableScanOperator tableScanOperator = new TableScanOperator(
-                new DataStreamProvider()
-                {
-                    @Override
-                    public Operator createDataStream(Split split, List<ColumnHandle> columns)
-                    {
-                        return source;
-                    }
-                },
-                source.getTupleInfos(),
-                ImmutableList.<ColumnHandle>of());
-
-        tableScanOperator.addSplit(new Split()
+        static Split createRecordSetSplit()
         {
-            @Override
-            public boolean isRemotelyAccessible()
-            {
-                throw new UnsupportedOperationException();
-            }
+            return new TestSplit(true);
+        }
 
-            @Override
-            public List<HostAddress> getAddresses()
-            {
-                throw new UnsupportedOperationException();
-            }
+        static Split createNormalSplit()
+        {
+            return new TestSplit(false);
+        }
 
-            @Override
-            public Object getInfo()
-            {
-                throw new UnsupportedOperationException();
-            }
-        });
+        private final boolean recordSet;
 
-        return tableScanOperator;
+        private TestSplit(boolean recordSet)
+        {
+            this.recordSet = recordSet;
+        }
+
+        private boolean isRecordSet()
+        {
+            return recordSet;
+        }
+
+        @Override
+        public boolean isRemotelyAccessible()
+        {
+            return false;
+        }
+
+        @Override
+        public List<HostAddress> getAddresses()
+        {
+            return ImmutableList.of();
+        }
+
+        @Override
+        public Object getInfo()
+        {
+            return this;
+        }
     }
 }

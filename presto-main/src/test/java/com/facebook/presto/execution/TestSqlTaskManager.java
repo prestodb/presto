@@ -19,8 +19,8 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.split.DataStreamManager;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
-import com.facebook.presto.sql.gen.ExpressionCompiler;
-import com.facebook.presto.sql.planner.LocalExecutionPlanner;
+import com.facebook.presto.sql.gen.NewExpressionCompiler;
+import com.facebook.presto.sql.planner.NewLocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
@@ -37,6 +37,7 @@ import io.airlift.node.NodeInfo;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -55,7 +56,8 @@ public class TestSqlTaskManager
 {
     private SqlTaskManager sqlTaskManager;
     private PlanFragment testFragment;
-    private LocalExecutionPlanner planner;
+    private TaskExecutor taskExecutor;
+    private NewLocalExecutionPlanner planner;
     private TaskId taskId;
     private Session session;
     private Symbol symbol;
@@ -82,17 +84,21 @@ public class TestSqlTaskManager
         split = Iterables.getOnlyElement(dualSplitManager.getPartitionSplits(tableHandle, dualSplitManager.getPartitions(tableHandle, ImmutableMap.<ColumnHandle, Object>of())));
 
 
-        planner = new LocalExecutionPlanner(
+        planner = new NewLocalExecutionPlanner(
                 new NodeInfo("test"),
                 metadata,
                 new DataStreamManager(new DualDataStreamProvider()),
                 new MockLocalStorageManager(new File("target/temp")),
                 new MockExchangeClientSupplier(),
-                new ExpressionCompiler(metadata));
+                new NewExpressionCompiler(metadata));
+
+        taskExecutor = new TaskExecutor(8);
+        taskExecutor.start();
 
         sqlTaskManager = new SqlTaskManager(
                 planner,
                 new MockLocationFactory(),
+                taskExecutor,
                 new QueryMonitor(new ObjectMapperProvider().get(), new NullEventClient(), new NodeInfo("test")),
                 new QueryManagerConfig());
 
@@ -104,6 +110,14 @@ public class TestSqlTaskManager
 
         taskId = new TaskId("query", "stage", "task");
         session = new Session("user", "test", "default", "default", "test", "test");
+    }
+
+    @AfterMethod
+    public void tearDown()
+            throws Exception
+    {
+        sqlTaskManager.stop();
+        taskExecutor.stop();
     }
 
     @Test
@@ -218,6 +232,7 @@ public class TestSqlTaskManager
         sqlTaskManager = new SqlTaskManager(
                 planner,
                 new MockLocationFactory(),
+                taskExecutor,
                 new QueryMonitor(new ObjectMapperProvider().get(), new NullEventClient(), new NodeInfo("test")),
                 new QueryManagerConfig().setInfoMaxAge(new Duration(5, TimeUnit.MILLISECONDS)));
 

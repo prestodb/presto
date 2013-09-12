@@ -5,27 +5,33 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.TaskSource;
-import com.facebook.presto.execution.SqlTaskManagerStats;
-import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.execution.BufferResult;
+import com.facebook.presto.execution.SharedBuffer;
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
-import com.facebook.presto.execution.TaskOutput;
 import com.facebook.presto.execution.TaskState;
+import com.facebook.presto.execution.TaskStateMachine;
+import com.facebook.presto.noperator.TaskContext;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.util.Threads;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.airlift.http.server.HttpServerInfo;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
+import org.joda.time.DateTime;
 
 import javax.inject.Inject;
+
 import java.net.URI;
 import java.util.Collections;
 import java.util.List;
@@ -34,9 +40,13 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
+import static com.facebook.presto.util.Failures.toFailures;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class MockTaskManager
         implements TaskManager
@@ -47,7 +57,8 @@ public class MockTaskManager
     private final DataSize maxBufferSize;
     private final int initialPages;
 
-    private final ConcurrentMap<TaskId, TaskOutput> tasks = new ConcurrentHashMap<>();
+    private final ConcurrentMap<TaskId, MockTask> tasks = new ConcurrentHashMap<>();
+
 
     @Inject
     public MockTaskManager(HttpServerInfo httpServerInfo)
@@ -57,7 +68,7 @@ public class MockTaskManager
 
     public MockTaskManager(HttpServerInfo httpServerInfo, DataSize maxBufferSize, int initialPages)
     {
-        Preconditions.checkNotNull(httpServerInfo, "httpServerInfo is null");
+        checkNotNull(httpServerInfo, "httpServerInfo is null");
         Preconditions.checkArgument(maxBufferSize.toBytes() > 0, "pageBufferMax must be at least 1");
         Preconditions.checkArgument(initialPages >= 0, "initialPages is negative");
         Preconditions.checkArgument(initialPages <= maxBufferSize.toBytes(), "initialPages is greater than maxBufferSize");
@@ -70,8 +81,8 @@ public class MockTaskManager
     public synchronized List<TaskInfo> getAllTaskInfo(boolean full)
     {
         ImmutableList.Builder<TaskInfo> builder = ImmutableList.builder();
-        for (TaskOutput taskOutput : tasks.values()) {
-            builder.add(taskOutput.getTaskInfo(false));
+        for (MockTask task : tasks.values()) {
+            builder.add(task.getTaskInfo());
         }
         return builder.build();
     }
@@ -85,96 +96,164 @@ public class MockTaskManager
     @Override
     public synchronized TaskInfo getTaskInfo(TaskId taskId, boolean full)
     {
-        Preconditions.checkNotNull(taskId, "taskId is null");
+        checkNotNull(taskId, "taskId is null");
 
-        TaskOutput taskOutput = tasks.get(taskId);
-        if (taskOutput == null) {
+        MockTask task = tasks.get(taskId);
+        if (task == null) {
             throw new NoSuchElementException();
         }
-        return taskOutput.getTaskInfo(false);
+        return task.getTaskInfo();
     }
 
     @Override
-    public synchronized TaskInfo updateTask(Session session, TaskId taskId, PlanFragment ignored, List<TaskSource> sources, OutputBuffers outputIds)
+    public synchronized TaskInfo updateTask(Session session, TaskId taskId, PlanFragment ignored, List<TaskSource> sources, OutputBuffers outputBuffers)
     {
-        Preconditions.checkNotNull(session, "session is null");
-        Preconditions.checkNotNull(taskId, "taskId is null");
-        Preconditions.checkNotNull(sources, "sources is null");
-        Preconditions.checkNotNull(outputIds, "outputIds is null");
+        checkNotNull(session, "session is null");
+        checkNotNull(taskId, "taskId is null");
+        checkNotNull(sources, "sources is null");
+        checkNotNull(outputBuffers, "outputBuffers is null");
 
-        TaskOutput taskOutput = tasks.get(taskId);
-        if (taskOutput == null) {
-            URI location = uriBuilderFrom(httpServerInfo.getHttpUri()).appendPath("v1/task").appendPath(taskId.toString()).build();
-            taskOutput = new TaskOutput(taskId, location, maxBufferSize, executor, new SqlTaskManagerStats());
-            tasks.put(taskId, taskOutput);
-
-            List<String> data = ImmutableList.of("apple", "banana", "cherry", "date");
-
-            // load initial pages
-            for (int i = 0; i < initialPages; i++) {
-                try {
-                    taskOutput.addPage(new Page(createStringsBlock(Iterables.concat(Collections.nCopies(i + 1, data)))));
-                }
-                catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    throw Throwables.propagate(e);
-                }
-            }
-            taskOutput.finish();
+        MockTask task = tasks.get(taskId);
+        if (task == null) {
+            task = new MockTask(session, taskId,
+                    uriBuilderFrom(httpServerInfo.getHttpUri()).appendPath("v1/task").appendPath(taskId.toString()).build(), maxBufferSize, initialPages, executor
+            );
+            tasks.put(taskId, task);
         }
+        task.addOutputBuffers(outputBuffers);
 
-        for (String outputId : outputIds.getBufferIds()) {
-            taskOutput.addResultQueue(outputId);
-        }
-        if (outputIds.isNoMoreBufferIds()) {
-            taskOutput.noMoreResultQueues();
-        }
-
-        return taskOutput.getTaskInfo(false);
+        return task.getTaskInfo();
     }
 
     @Override
     public BufferResult getTaskResults(TaskId taskId, String outputId, long startingSequenceId, DataSize maxSize, Duration maxWaitTime)
             throws InterruptedException
     {
-        Preconditions.checkNotNull(taskId, "taskId is null");
-        Preconditions.checkNotNull(outputId, "outputId is null");
+        checkNotNull(taskId, "taskId is null");
+        checkNotNull(outputId, "outputId is null");
 
-        TaskOutput taskOutput;
+        MockTask task;
         synchronized (this) {
-            taskOutput = tasks.get(taskId);
-            if (taskOutput == null) {
-                throw new NoSuchElementException();
-            }
+            task = tasks.get(taskId);
         }
-        return taskOutput.getResults(outputId, startingSequenceId, maxSize, maxWaitTime);
+
+        if (task == null) {
+            throw new NoSuchElementException();
+        }
+        return task.getResults(outputId, startingSequenceId, maxSize, maxWaitTime);
     }
 
     @Override
     public synchronized TaskInfo abortTaskResults(TaskId taskId, String outputId)
     {
-        Preconditions.checkNotNull(taskId, "taskId is null");
-        Preconditions.checkNotNull(outputId, "outputId is null");
+        checkNotNull(taskId, "taskId is null");
+        checkNotNull(outputId, "outputId is null");
 
-        TaskOutput taskOutput = tasks.get(taskId);
-        if (taskOutput == null) {
+        MockTask task = tasks.get(taskId);
+        if (task == null) {
             throw new NoSuchElementException();
         }
-        taskOutput.abortResults(outputId);
-        return taskOutput.getTaskInfo(false);
+        task.abortResults(outputId);
+        return task.getTaskInfo();
     }
 
     @Override
     public synchronized TaskInfo cancelTask(TaskId taskId)
     {
-        Preconditions.checkNotNull(taskId, "taskId is null");
+        checkNotNull(taskId, "taskId is null");
 
-        TaskOutput taskOutput = tasks.get(taskId);
-        if (taskOutput != null) {
-            taskOutput.cancel();
-            return taskOutput.getTaskInfo(false);
-        } else {
+        MockTask task = tasks.get(taskId);
+        if (task == null) {
             return null;
+        }
+
+        task.cancel();
+        return task.getTaskInfo();
+    }
+
+    public static class MockTask
+    {
+        private final AtomicLong nextTaskInfoVersion = new AtomicLong(TaskInfo.STARTING_VERSION);
+
+        private final URI location;
+        private final TaskStateMachine taskStateMachine;
+        private final TaskContext taskContext;
+        private final SharedBuffer sharedBuffer;
+
+        public MockTask(Session session,
+                TaskId taskId,
+                URI location,
+                DataSize maxBufferSize,
+                int initialPages,
+                Executor executor)
+        {
+            this.taskStateMachine = new TaskStateMachine(checkNotNull(taskId, "taskId is null"), checkNotNull(executor, "executor is null"));
+            this.taskContext = new TaskContext(taskStateMachine, executor, session, new DataSize(256, MEGABYTE), new DataSize(1, MEGABYTE));
+
+            this.location = checkNotNull(location, "location is null");
+
+            this.sharedBuffer = new SharedBuffer(checkNotNull(maxBufferSize, "maxBufferSize is null"));
+
+            List<String> data = ImmutableList.of("apple", "banana", "cherry", "date");
+
+            // load initial pages
+            for (int i = 0; i < initialPages; i++) {
+                try {
+                    sharedBuffer.add(new Page(createStringsBlock(Iterables.concat(Collections.nCopies(i + 1, data)))));
+                }
+                catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw Throwables.propagate(e);
+                }
+            }
+            sharedBuffer.finish();
+        }
+
+        public void abortResults(String outputId)
+        {
+            sharedBuffer.abort(outputId);
+        }
+
+        public void addOutputBuffers(OutputBuffers outputBuffers)
+        {
+            for (String outputId : outputBuffers.getBufferIds()) {
+                sharedBuffer.addQueue(outputId);
+            }
+            if (outputBuffers.isNoMoreBufferIds()) {
+                sharedBuffer.noMoreQueues();
+            }
+        }
+
+        public void cancel()
+        {
+            taskStateMachine.cancel();
+        }
+
+        public BufferResult getResults(String outputId, long startingSequenceId, DataSize maxSize, Duration maxWaitTime)
+                throws InterruptedException
+        {
+            return sharedBuffer.get(outputId, startingSequenceId, maxSize, maxWaitTime);
+        }
+
+        public TaskInfo getTaskInfo()
+        {
+            TaskState state = taskStateMachine.getState();
+            List<FailureInfo> failures = ImmutableList.of();
+            if (state == TaskState.FAILED) {
+                failures = toFailures(taskStateMachine.getFailureCauses());
+            }
+
+            return new TaskInfo(
+                    taskStateMachine.getTaskId(),
+                    nextTaskInfoVersion.getAndIncrement(),
+                    state,
+                    location,
+                    DateTime.now(),
+                    sharedBuffer.getInfo(),
+                    ImmutableSet.<PlanNodeId>of(),
+                    taskContext.getTaskStats(),
+                    failures,
+                    taskContext.getOutputItems());
         }
     }
 }

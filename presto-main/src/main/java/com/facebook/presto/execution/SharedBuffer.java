@@ -11,12 +11,16 @@ import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.NotThreadSafe;
 import javax.annotation.concurrent.ThreadSafe;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -62,6 +66,8 @@ public class SharedBuffer
 
     @GuardedBy("this")
     private final LinkedList<Page> masterQueue = new LinkedList<>();
+    @GuardedBy("this")
+    private final LinkedList<QueuedPage> queuedPages = new LinkedList<>();
     @GuardedBy("this")
     private long masterSequenceId;
     @GuardedBy("this")
@@ -165,6 +171,26 @@ public class SharedBuffer
 
         addInternal(page);
         return true;
+    }
+
+    public synchronized ListenableFuture<?> enqueue(Page page)
+    {
+        Preconditions.checkNotNull(page, "page is null");
+
+        // is the output done
+        if (closed.get() || failed.get()) {
+            return Futures.immediateFuture(true);
+        }
+
+        // is there room in the buffer
+        if (bufferedBytes < maxBufferedBytes) {
+            addInternal(page);
+            return Futures.immediateFuture(true);
+        }
+
+        QueuedPage queuedPage = new QueuedPage(page);
+        queuedPages.addLast(queuedPage);
+        return queuedPage.getFuture();
     }
 
     private synchronized void addInternal(Page page)
@@ -305,6 +331,13 @@ public class SharedBuffer
                 Page page = masterQueue.removeFirst();
                 bufferedBytes -= page.getDataSize().toBytes();
             }
+
+            // refill buffer from queued pages
+            while (!queuedPages.isEmpty() && bufferedBytes >= maxBufferedBytes) {
+                QueuedPage queuedPage = queuedPages.removeFirst();
+                addInternal(queuedPage.getPage());
+                queuedPage.getFuture().set(null);
+            }
         }
 
         if (state == QueueState.NO_MORE_QUEUES && closed.get() && openQueuesBySequenceId.isEmpty()) {
@@ -357,6 +390,12 @@ public class SharedBuffer
         // clear the buffer
         masterQueue.clear();
         bufferedBytes = 0;
+
+        // free queued page waiters
+        for (QueuedPage queuedPage : queuedPages) {
+            queuedPage.getFuture().set(null);
+        }
+        queuedPages.clear();
 
         // notify readers that the buffer has been destroyed
         this.notifyAll();
@@ -424,6 +463,7 @@ public class SharedBuffer
             if (listOffset >= masterQueue.size()) {
                 return 0;
             }
+            // todo include queued pages?
             return masterQueue.size() - listOffset;
         }
 
@@ -486,6 +526,27 @@ public class SharedBuffer
                     .add("sequenceId", sequenceId)
                     .add("finished", finished)
                     .toString();
+        }
+    }
+
+    private static class QueuedPage
+    {
+        private final Page page;
+        private final SettableFuture<?> future = SettableFuture.create();
+
+        private QueuedPage(Page page)
+        {
+            this.page = page;
+        }
+
+        private Page getPage()
+        {
+            return page;
+        }
+
+        private SettableFuture<?> getFuture()
+        {
+            return future;
         }
     }
 }

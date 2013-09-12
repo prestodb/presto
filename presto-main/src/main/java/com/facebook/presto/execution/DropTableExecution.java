@@ -76,7 +76,7 @@ public class DropTableExecution
                 return;
             }
 
-            stateMachine.getStats().recordExecutionStart();
+            stateMachine.recordExecutionStart();
 
             dropTable();
 
@@ -116,6 +116,12 @@ public class DropTableExecution
     public void cancelStage(StageId stageId)
     {
         // no-op
+    }
+
+    @Override
+    public void recordHeartbeat()
+    {
+        stateMachine.recordHeartbeat();
     }
 
     @Override

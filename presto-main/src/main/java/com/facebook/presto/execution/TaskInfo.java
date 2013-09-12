@@ -4,16 +4,15 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.client.FailureInfo;
-import com.facebook.presto.execution.ExecutionStats.ExecutionStatsSnapshot;
-import com.facebook.presto.operator.OperatorStats.SplitExecutionStats;
+import com.facebook.presto.noperator.TaskStats;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -21,6 +20,8 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 @Immutable
 public class TaskInfo
@@ -46,10 +47,10 @@ public class TaskInfo
     private final long version;
     private final TaskState state;
     private final URI self;
+    private final DateTime lastHeartbeat;
     private final SharedBufferInfo outputBuffers;
     private final Set<PlanNodeId> noMoreSplits;
-    private final ExecutionStatsSnapshot stats;
-    private final List<SplitExecutionStats> splitStats;
+    private final TaskStats stats;
     private final List<FailureInfo> failures;
     private final Map<PlanNodeId, Set<?>> outputs;
 
@@ -58,36 +59,21 @@ public class TaskInfo
             @JsonProperty("version") long version,
             @JsonProperty("state") TaskState state,
             @JsonProperty("self") URI self,
+            @JsonProperty("lastHeartbeat") DateTime lastHeartbeat,
             @JsonProperty("outputBuffers") SharedBufferInfo outputBuffers,
             @JsonProperty("noMoreSplits") Set<PlanNodeId> noMoreSplits,
-            @JsonProperty("stats") ExecutionStatsSnapshot stats,
-            @JsonProperty("splitStats") List<SplitExecutionStats> splitStats,
+            @JsonProperty("stats") TaskStats stats,
             @JsonProperty("failures") List<FailureInfo> failures,
             @JsonProperty("outputs") Map<PlanNodeId, Set<?>> outputs)
     {
-        Preconditions.checkNotNull(taskId, "taskId is null");
-        Preconditions.checkNotNull(state, "state is null");
-        Preconditions.checkNotNull(self, "self is null");
-        Preconditions.checkNotNull(outputBuffers, "outputBufferStates is null");
-        Preconditions.checkNotNull(noMoreSplits, "noMoreSplits is null");
-        Preconditions.checkNotNull(stats, "stats is null");
-        Preconditions.checkNotNull(failures, "failures is null");
-        Preconditions.checkNotNull(outputs, "outputs is null");
-
-        this.taskId = taskId;
-        this.version = version;
-        this.state = state;
-        this.self = self;
-        this.outputBuffers = outputBuffers;
-        this.noMoreSplits = noMoreSplits;
-        this.stats = stats;
-
-        if (splitStats != null) {
-            this.splitStats = ImmutableList.copyOf(splitStats);
-        }
-        else {
-            this.splitStats = ImmutableList.of();
-        }
+        this.taskId = checkNotNull(taskId, "taskId is null");
+        this.version = checkNotNull(version, "version is null");
+        this.state = checkNotNull(state, "state is null");
+        this.self = checkNotNull(self, "self is null");
+        this.lastHeartbeat = checkNotNull(lastHeartbeat, "lastHeartbeat is null");
+        this.outputBuffers = checkNotNull(outputBuffers, "outputBuffers is null");
+        this.noMoreSplits = checkNotNull(noMoreSplits, "noMoreSplits is null");
+        this.stats = checkNotNull(stats, "stats is null");
 
         if (failures != null) {
             this.failures = ImmutableList.copyOf(failures);
@@ -96,7 +82,7 @@ public class TaskInfo
             this.failures = ImmutableList.of();
         }
 
-        this.outputs = ImmutableMap.copyOf(outputs);
+        this.outputs = ImmutableMap.copyOf(checkNotNull(outputs, "outputs is null"));
     }
 
     @JsonProperty
@@ -124,6 +110,12 @@ public class TaskInfo
     }
 
     @JsonProperty
+    public DateTime getLastHeartbeat()
+    {
+        return lastHeartbeat;
+    }
+
+    @JsonProperty
     public SharedBufferInfo getOutputBuffers()
     {
         return outputBuffers;
@@ -136,15 +128,9 @@ public class TaskInfo
     }
 
     @JsonProperty
-    public ExecutionStatsSnapshot getStats()
+    public TaskStats getStats()
     {
         return stats;
-    }
-
-    @JsonProperty
-    public List<SplitExecutionStats> getSplitStats()
-    {
-        return splitStats;
     }
 
     @JsonProperty

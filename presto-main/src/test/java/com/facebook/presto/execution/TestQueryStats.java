@@ -1,0 +1,100 @@
+package com.facebook.presto.execution;
+
+import io.airlift.json.JsonCodec;
+import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
+import org.joda.time.DateTime;
+import org.testng.annotations.Test;
+
+import static io.airlift.units.DataSize.Unit.BYTE;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static org.testng.Assert.assertEquals;
+
+public class TestQueryStats
+{
+    public static final QueryStats EXPECTED = new QueryStats(
+            new DateTime(1),
+            new DateTime(2),
+            new DateTime(3),
+            new DateTime(4),
+            new Duration(5, NANOSECONDS),
+            new Duration(6, NANOSECONDS),
+            new Duration(7, NANOSECONDS),
+            new Duration(8, NANOSECONDS),
+
+            9,
+            10,
+            11,
+
+            12,
+            13,
+            14,
+            15,
+            16,
+
+            new DataSize(17, BYTE),
+
+            new Duration(18, NANOSECONDS),
+            new Duration(19, NANOSECONDS),
+            new Duration(20, NANOSECONDS),
+            new Duration(21, NANOSECONDS),
+
+            new DataSize(22, BYTE),
+            23,
+
+            new DataSize(24, BYTE),
+            25,
+
+            new DataSize(26, BYTE),
+            27);
+
+    @Test
+    public void testJson()
+    {
+        JsonCodec<QueryStats> codec = JsonCodec.jsonCodec(QueryStats.class);
+
+        String json = codec.toJson(EXPECTED);
+        QueryStats actual = codec.fromJson(json);
+
+        assertExpectedQueryStats(actual);
+    }
+
+    public static void assertExpectedQueryStats(QueryStats actual)
+    {
+        assertEquals(actual.getCreateTime(), new DateTime(1));
+        assertEquals(actual.getExecutionStartTime(), new DateTime(2));
+        assertEquals(actual.getLastHeartbeat(), new DateTime(3));
+        assertEquals(actual.getEndTime(), new DateTime(4));
+
+        assertEquals(actual.getElapsedTime(), new Duration(5, NANOSECONDS));
+        assertEquals(actual.getQueuedTime(), new Duration(6, NANOSECONDS));
+        assertEquals(actual.getAnalysisTime(), new Duration(7, NANOSECONDS));
+        assertEquals(actual.getDistributedPlanningTime(), new Duration(8, NANOSECONDS));
+
+        assertEquals(actual.getTotalTasks(), 9);
+        assertEquals(actual.getRunningTasks(), 10);
+        assertEquals(actual.getCompletedTasks(), 11);
+
+        assertEquals(actual.getTotalDrivers(), 12);
+        assertEquals(actual.getQueuedDrivers(), 13);
+        assertEquals(actual.getRunningDrivers(), 14);
+        assertEquals(actual.getStartedDrivers(), 15);
+        assertEquals(actual.getCompletedDrivers(), 16);
+
+        assertEquals(actual.getTotalMemoryReservation(), new DataSize(17, BYTE));
+
+        assertEquals(actual.getTotalScheduledTime(), new Duration(18, NANOSECONDS));
+        assertEquals(actual.getTotalCpuTime(), new Duration(19, NANOSECONDS));
+        assertEquals(actual.getTotalUserTime(), new Duration(20, NANOSECONDS));
+        assertEquals(actual.getTotalBlockedTime(), new Duration(21, NANOSECONDS));
+
+        assertEquals(actual.getRawInputDataSize(), new DataSize(22, BYTE));
+        assertEquals(actual.getRawInputPositions(), 23);
+
+        assertEquals(actual.getProcessedInputDataSize(), new DataSize(24, BYTE));
+        assertEquals(actual.getProcessedInputPositions(), 25);
+
+        assertEquals(actual.getOutputDataSize(), new DataSize(26, BYTE));
+        assertEquals(actual.getOutputPositions(), 27);
+    }
+}

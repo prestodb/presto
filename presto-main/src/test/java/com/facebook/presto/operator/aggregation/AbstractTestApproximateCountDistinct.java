@@ -4,7 +4,7 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.operator.AggregationOperator;
+import com.facebook.presto.noperator.NewAggregationOperator.Aggregator;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.tree.Input;
@@ -24,8 +24,8 @@ import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
+import static com.facebook.presto.noperator.NewAggregationOperator.createAggregator;
 import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
-import static com.facebook.presto.operator.AggregationOperator.createAggregator;
 import static io.airlift.testing.Assertions.assertLessThan;
 import static org.testng.Assert.assertEquals;
 
@@ -116,7 +116,7 @@ public abstract class AbstractTestApproximateCountDistinct
 
     private long estimateCount(List<Object> values, int field)
     {
-        AggregationOperator.Aggregator aggregator = createAggregator(aggregation(getAggregationFunction(), new Input(0, field)), AggregationNode.Step.SINGLE);
+        Aggregator aggregator = createAggregator(aggregation(getAggregationFunction(), new Input(0, field)), AggregationNode.Step.SINGLE);
 
         if (!values.isEmpty()) {
             BlockCursor cursor = createBlock(values, field + 1).cursor();
@@ -131,7 +131,7 @@ public abstract class AbstractTestApproximateCountDistinct
 
     private long estimateCountVectorized(List<Object> values, int field)
     {
-        AggregationOperator.Aggregator aggregator = createAggregator(aggregation(getAggregationFunction(), new Input(0, field)), AggregationNode.Step.SINGLE);
+        Aggregator aggregator = createAggregator(aggregation(getAggregationFunction(), new Input(0, field)), AggregationNode.Step.SINGLE);
 
         if (!values.isEmpty()) {
             aggregator.addValue(new Page(createBlock(values, field + 1)));
@@ -147,7 +147,7 @@ public abstract class AbstractTestApproximateCountDistinct
         Block first = aggregatePartial(values.subList(0, size), field);
         Block second = aggregatePartial(values.subList(size, values.size()), field);
 
-        AggregationOperator.Aggregator aggregator = createAggregator(aggregation(getAggregationFunction(), new Input(0, field)), AggregationNode.Step.FINAL);
+        Aggregator aggregator = createAggregator(aggregation(getAggregationFunction(), new Input(0, field)), AggregationNode.Step.FINAL);
 
         BlockCursor cursor = first.cursor();
         while (cursor.advanceNextPosition()) {
@@ -165,7 +165,7 @@ public abstract class AbstractTestApproximateCountDistinct
 
     private Block aggregatePartial(List<Object> values, int field)
     {
-        AggregationOperator.Aggregator aggregator = createAggregator(aggregation(getAggregationFunction(), new Input(0, field)), AggregationNode.Step.PARTIAL);
+        Aggregator aggregator = createAggregator(aggregation(getAggregationFunction(), new Input(0, field)), AggregationNode.Step.PARTIAL);
 
         if (!values.isEmpty()) {
             BlockCursor cursor = createBlock(values, field + 1).cursor();

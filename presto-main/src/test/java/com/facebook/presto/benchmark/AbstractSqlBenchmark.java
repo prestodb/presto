@@ -1,30 +1,40 @@
 package com.facebook.presto.benchmark;
 
-import com.facebook.presto.operator.Operator;
+import com.facebook.presto.noperator.Driver;
+import com.facebook.presto.noperator.NullOutputOperator.NullOutputFactory;
+import com.facebook.presto.noperator.TaskContext;
 import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.facebook.presto.util.LocalQueryRunner;
 import org.intellij.lang.annotations.Language;
 
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+
 import static com.facebook.presto.util.LocalQueryRunner.createTpchLocalQueryRunner;
 
 public abstract class AbstractSqlBenchmark
-        extends AbstractOperatorBenchmark
+        extends AbstractNewOperatorBenchmark
 {
     @Language("SQL")
     private final String query;
     private final LocalQueryRunner tpchLocalQueryRunner;
 
-    protected AbstractSqlBenchmark(TpchBlocksProvider tpchBlocksProvider, String benchmarkName, int warmupIterations, int measuredIterations, @Language("SQL") String query)
+    protected AbstractSqlBenchmark(
+            ExecutorService executor,
+            TpchBlocksProvider tpchBlocksProvider,
+            String benchmarkName,
+            int warmupIterations,
+            int measuredIterations,
+            @Language("SQL") String query)
     {
-        super(tpchBlocksProvider, benchmarkName, warmupIterations, measuredIterations);
+        super(executor, tpchBlocksProvider, benchmarkName, warmupIterations, measuredIterations);
         this.query = query;
-        this.tpchLocalQueryRunner = createTpchLocalQueryRunner(getTpchBlocksProvider());
+        this.tpchLocalQueryRunner = createTpchLocalQueryRunner(getTpchBlocksProvider(), executor);
     }
 
     @Override
-    protected Operator createBenchmarkedOperator()
+    protected List<Driver> createDrivers(TaskContext taskContext)
     {
-        Operator operator = tpchLocalQueryRunner.plan(query);
-        return operator;
+        return tpchLocalQueryRunner.createDrivers(query, new NullOutputFactory(), taskContext);
     }
 }

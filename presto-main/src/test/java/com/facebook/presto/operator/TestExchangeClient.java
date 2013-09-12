@@ -247,9 +247,6 @@ public class TestExchangeClient
         PageBufferClientStatus clientStatus = exchangeClient.getStatus().getPageBufferClientStatuses().get(0);
         assertEquals(clientStatus.getUri(), location);
         assertEquals(clientStatus.getState(), "closed", "status");
-        assertEquals(clientStatus.getPagesReceived(), 2, "pagesReceived");
-        assertEquals(clientStatus.getRequestsScheduled(), 2, "requestsScheduled");
-        assertEquals(clientStatus.getRequestsCompleted(), 2, "requestsCompleted");
         assertEquals(clientStatus.getHttpRequestState(), "queued", "httpRequestState");
     }
 
