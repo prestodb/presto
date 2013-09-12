@@ -12,6 +12,11 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.IfExpression;
+import com.facebook.presto.sql.tree.InListExpression;
+import com.facebook.presto.sql.tree.InPredicate;
+import com.facebook.presto.sql.tree.IsNotNullPredicate;
+import com.facebook.presto.sql.tree.IsNullPredicate;
+import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.NegativeExpression;
@@ -188,6 +193,36 @@ public class AggregationAnalyzer
         protected Boolean visitLiteral(Literal node, Void context)
         {
             return true;
+        }
+
+        @Override
+        protected Boolean visitIsNotNullPredicate(IsNotNullPredicate node, Void context)
+        {
+            return process(node.getValue(), context);
+        }
+
+        @Override
+        protected Boolean visitIsNullPredicate(IsNullPredicate node, Void context)
+        {
+            return process(node.getValue(), context);
+        }
+
+        @Override
+        protected Boolean visitLikePredicate(LikePredicate node, Void context)
+        {
+            return process(node.getValue(), context) && process(node.getPattern(), context);
+        }
+
+        @Override
+        protected Boolean visitInListExpression(InListExpression node, Void context)
+        {
+            return Iterables.all(node.getValues(), isConstantPredicate());
+        }
+
+        @Override
+        protected Boolean visitInPredicate(InPredicate node, Void context)
+        {
+            return process(node.getValue(), context) && process(node.getValueList(), context);
         }
 
         @Override
