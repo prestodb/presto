@@ -19,8 +19,8 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.split.DataStreamManager;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
-import com.facebook.presto.sql.gen.NewExpressionCompiler;
-import com.facebook.presto.sql.planner.NewLocalExecutionPlanner;
+import com.facebook.presto.sql.gen.ExpressionCompiler;
+import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
@@ -57,7 +57,7 @@ public class TestSqlTaskManager
     private SqlTaskManager sqlTaskManager;
     private PlanFragment testFragment;
     private TaskExecutor taskExecutor;
-    private NewLocalExecutionPlanner planner;
+    private LocalExecutionPlanner planner;
     private TaskId taskId;
     private Session session;
     private Symbol symbol;
@@ -84,13 +84,13 @@ public class TestSqlTaskManager
         split = Iterables.getOnlyElement(dualSplitManager.getPartitionSplits(tableHandle, dualSplitManager.getPartitions(tableHandle, ImmutableMap.<ColumnHandle, Object>of())));
 
 
-        planner = new NewLocalExecutionPlanner(
+        planner = new LocalExecutionPlanner(
                 new NodeInfo("test"),
                 metadata,
                 new DataStreamManager(new DualDataStreamProvider()),
                 new MockLocalStorageManager(new File("target/temp")),
                 new MockExchangeClientSupplier(),
-                new NewExpressionCompiler(metadata));
+                new ExpressionCompiler(metadata));
 
         taskExecutor = new TaskExecutor(8);
         taskExecutor.start();

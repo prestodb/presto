@@ -6,5 +6,5 @@ import java.util.List;
 
 public interface OutputFactory
 {
-    NewOperatorFactory createOutputOperator(int operatorId, List<TupleInfo> sourceTupleInfo);
+    OperatorFactory createOutputOperator(int operatorId, List<TupleInfo> sourceTupleInfo);
 }

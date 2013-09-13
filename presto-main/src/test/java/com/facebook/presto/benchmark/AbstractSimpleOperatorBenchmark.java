@@ -3,7 +3,7 @@ package com.facebook.presto.benchmark;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.DriverFactory;
-import com.facebook.presto.operator.NewOperatorFactory;
+import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.NullOutputOperator.NullOutputOperatorFactory;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.tpch.TpchBlocksProvider;
@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 
 public abstract class AbstractSimpleOperatorBenchmark
-        extends AbstractNewOperatorBenchmark
+        extends AbstractOperatorBenchmark
 {
     protected AbstractSimpleOperatorBenchmark(ExecutorService executor,
             TpchBlocksProvider tpchBlocksProvider,
@@ -24,11 +24,11 @@ public abstract class AbstractSimpleOperatorBenchmark
         super(executor, tpchBlocksProvider, benchmarkName, warmupIterations, measuredIterations);
     }
 
-    protected abstract List<? extends NewOperatorFactory> createOperatorFactories();
+    protected abstract List<? extends OperatorFactory> createOperatorFactories();
 
     protected DriverFactory createDriverFactory()
     {
-        List<NewOperatorFactory> operatorFactories = new ArrayList<>(createOperatorFactories());
+        List<OperatorFactory> operatorFactories = new ArrayList<>(createOperatorFactories());
 
         operatorFactories.add(new NullOutputOperatorFactory(999, Iterables.getLast(operatorFactories).getTupleInfos()));
 

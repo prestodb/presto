@@ -2,9 +2,9 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.DriverContext;
-import com.facebook.presto.operator.NewAlignmentOperator.NewAlignmentOperatorFactory;
-import com.facebook.presto.operator.NewOperator;
-import com.facebook.presto.operator.NewOperatorAssertion;
+import com.facebook.presto.operator.AlignmentOperator.AlignmentOperatorFactory;
+import com.facebook.presto.operator.Operator;
+import com.facebook.presto.operator.OperatorAssertion;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.spi.ColumnHandle;
@@ -26,7 +26,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 
-import static com.facebook.presto.operator.NewOperatorAssertion.toMaterializedResult;
+import static com.facebook.presto.operator.OperatorAssertion.toMaterializedResult;
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
@@ -102,15 +102,15 @@ public class TestDatabaseLocalStorageManager
 
         assertTrue(storageManager.shardExists(shardId));
 
-        NewAlignmentOperatorFactory factory = new NewAlignmentOperatorFactory(0,
+        AlignmentOperatorFactory factory = new AlignmentOperatorFactory(0,
                 storageManager.getBlocks(shardId, columnHandles.get(0)),
                 storageManager.getBlocks(shardId, columnHandles.get(1)));
-        NewOperator operator = factory.createOperator(driverContext);
+        Operator operator = factory.createOperator(driverContext);
 
         // materialize pages to force comparision only on contents and not page boundaries
         MaterializedResult expected = toMaterializedResult(operator.getTupleInfos(), pages);
 
-        NewOperatorAssertion.assertOperatorEquals(operator, expected);
+        OperatorAssertion.assertOperatorEquals(operator, expected);
     }
 
     @Test

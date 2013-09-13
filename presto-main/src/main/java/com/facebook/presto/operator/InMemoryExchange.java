@@ -1,6 +1,5 @@
 package com.facebook.presto.operator;
 
-import com.facebook.presto.operator.Page;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -11,7 +10,7 @@ import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-import static com.facebook.presto.operator.NewOperator.NOT_BLOCKED;
+import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -36,7 +35,7 @@ public class InMemoryExchange
         return tupleInfos;
     }
 
-    public synchronized NewOperatorFactory createSinkFactory(int operatorId)
+    public synchronized OperatorFactory createSinkFactory(int operatorId)
     {
         sinkFactories++;
         return new InMemoryExchangeSinkOperatorFactory(operatorId);
@@ -124,7 +123,7 @@ public class InMemoryExchange
     }
 
     private class InMemoryExchangeSinkOperatorFactory
-            implements NewOperatorFactory
+            implements OperatorFactory
     {
         private final int operatorId;
 
@@ -140,7 +139,7 @@ public class InMemoryExchange
         }
 
         @Override
-        public NewOperator createOperator(DriverContext driverContext)
+        public Operator createOperator(DriverContext driverContext)
         {
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, InMemoryExchangeSinkOperator.class.getSimpleName());
             addSink();

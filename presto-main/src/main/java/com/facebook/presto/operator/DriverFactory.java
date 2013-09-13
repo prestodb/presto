@@ -17,22 +17,22 @@ public class DriverFactory
 {
     private final boolean inputDriver;
     private final boolean outputDriver;
-    private final List<NewOperatorFactory> operatorFactories;
+    private final List<OperatorFactory> operatorFactories;
     private final Set<PlanNodeId> sourceIds;
     private boolean closed;
 
-    public DriverFactory(boolean inputDriver, boolean outputDriver, NewOperatorFactory firstOperatorFactory, NewOperatorFactory... otherOperatorFactories)
+    public DriverFactory(boolean inputDriver, boolean outputDriver, OperatorFactory firstOperatorFactory, OperatorFactory... otherOperatorFactories)
     {
         this(inputDriver,
                 outputDriver,
-                ImmutableList.<NewOperatorFactory>builder()
+                ImmutableList.<OperatorFactory>builder()
                         .add(checkNotNull(firstOperatorFactory, "firstOperatorFactory is null"))
                         .add(checkNotNull(otherOperatorFactories, "otherOperatorFactories is null"))
                         .build()
         );
     }
 
-    public DriverFactory(boolean inputDriver, boolean outputDriver, List<NewOperatorFactory> operatorFactories)
+    public DriverFactory(boolean inputDriver, boolean outputDriver, List<OperatorFactory> operatorFactories)
     {
         this.inputDriver = inputDriver;
         this.outputDriver = outputDriver;
@@ -40,9 +40,9 @@ public class DriverFactory
         checkArgument(!operatorFactories.isEmpty(), "There must be at least one operator");
 
         ImmutableSet.Builder<PlanNodeId> sourceIds = ImmutableSet.builder();
-        for (NewOperatorFactory operatorFactory : operatorFactories) {
-            if (operatorFactory instanceof NewSourceOperatorFactory) {
-                NewSourceOperatorFactory sourceOperatorFactory = (NewSourceOperatorFactory) operatorFactory;
+        for (OperatorFactory operatorFactory : operatorFactories) {
+            if (operatorFactory instanceof SourceOperatorFactory) {
+                SourceOperatorFactory sourceOperatorFactory = (SourceOperatorFactory) operatorFactory;
                 sourceIds.add(sourceOperatorFactory.getSourceId());
             }
         }
@@ -68,9 +68,9 @@ public class DriverFactory
     {
         checkState(!closed, "DriverFactory is already closed");
         checkNotNull(driverContext, "driverContext is null");
-        ImmutableList.Builder<NewOperator> operators = ImmutableList.builder();
-        for (NewOperatorFactory operatorFactory : operatorFactories) {
-            NewOperator operator = operatorFactory.createOperator(driverContext);
+        ImmutableList.Builder<Operator> operators = ImmutableList.builder();
+        for (OperatorFactory operatorFactory : operatorFactories) {
+            Operator operator = operatorFactory.createOperator(driverContext);
             operators.add(operator);
         }
         return new Driver(driverContext, operators.build());
@@ -80,7 +80,7 @@ public class DriverFactory
     public synchronized void close()
     {
         closed = true;
-        for (NewOperatorFactory operatorFactory : operatorFactories) {
+        for (OperatorFactory operatorFactory : operatorFactories) {
             operatorFactory.close();
         }
     }

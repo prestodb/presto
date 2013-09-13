@@ -1,6 +1,5 @@
 package com.facebook.presto.operator;
 
-import com.facebook.presto.operator.Page;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.util.MaterializedResult;
@@ -13,10 +12,10 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 public class MaterializingOperator
-        implements NewOperator
+        implements Operator
 {
     public static class MaterializingOperatorFactory
-            implements NewOperatorFactory
+            implements OperatorFactory
     {
         private final int operatorId;
         private final List<TupleInfo> sourceTupleInfos;

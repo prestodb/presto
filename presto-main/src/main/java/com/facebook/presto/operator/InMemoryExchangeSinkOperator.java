@@ -1,6 +1,5 @@
 package com.facebook.presto.operator;
 
-import com.facebook.presto.operator.Page;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -10,7 +9,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 public class InMemoryExchangeSinkOperator
-        implements NewOperator
+        implements Operator
 {
     private final OperatorContext operatorContext;
     private final InMemoryExchange inMemoryExchange;

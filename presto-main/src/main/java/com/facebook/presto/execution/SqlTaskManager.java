@@ -10,7 +10,7 @@ import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.SharedBuffer.QueueState;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.planner.NewLocalExecutionPlanner;
+import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Preconditions;
@@ -62,7 +62,7 @@ public class SqlTaskManager
     private final ScheduledExecutorService taskManagementExecutor;
     private final ThreadPoolExecutorMBean taskManagementExecutorMBean;
 
-    private final NewLocalExecutionPlanner planner;
+    private final LocalExecutionPlanner planner;
     private final LocationFactory locationFactory;
     private final QueryMonitor queryMonitor;
     private final DataSize maxTaskMemoryUsage;
@@ -76,7 +76,7 @@ public class SqlTaskManager
 
     @Inject
     public SqlTaskManager(
-            NewLocalExecutionPlanner planner,
+            LocalExecutionPlanner planner,
             LocationFactory locationFactory,
             TaskExecutor taskExecutor,
             QueryMonitor queryMonitor,

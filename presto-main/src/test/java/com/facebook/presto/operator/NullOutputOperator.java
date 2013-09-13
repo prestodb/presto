@@ -1,6 +1,5 @@
 package com.facebook.presto.operator;
 
-import com.facebook.presto.operator.Page;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -10,20 +9,20 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class NullOutputOperator
-        implements NewOperator
+        implements Operator
 {
     public static class NullOutputFactory
             implements OutputFactory
     {
         @Override
-        public NewOperatorFactory createOutputOperator(int operatorId, List<TupleInfo> sourceTupleInfo)
+        public OperatorFactory createOutputOperator(int operatorId, List<TupleInfo> sourceTupleInfo)
         {
             return new NullOutputOperatorFactory(operatorId, sourceTupleInfo);
         }
     }
 
     public static class NullOutputOperatorFactory
-            implements NewOperatorFactory
+            implements OperatorFactory
     {
         private final int operatorId;
         private final List<TupleInfo> tupleInfos;
@@ -41,7 +40,7 @@ public class NullOutputOperator
         }
 
         @Override
-        public NewOperator createOperator(DriverContext driverContext)
+        public Operator createOperator(DriverContext driverContext)
         {
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, NullOutputOperator.class.getSimpleName());
             return new NullOutputOperator(operatorContext, tupleInfos);

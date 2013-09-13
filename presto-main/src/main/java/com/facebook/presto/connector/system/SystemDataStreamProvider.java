@@ -1,7 +1,7 @@
 package com.facebook.presto.connector.system;
 
-import com.facebook.presto.operator.NewOperator;
-import com.facebook.presto.operator.NewRecordProjectOperator;
+import com.facebook.presto.operator.Operator;
+import com.facebook.presto.operator.RecordProjectOperator;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -42,9 +42,9 @@ public class SystemDataStreamProvider
     }
 
     @Override
-    public NewOperator createNewDataStream(OperatorContext operatorContext, Split split, List<ColumnHandle> columns)
+    public Operator createNewDataStream(OperatorContext operatorContext, Split split, List<ColumnHandle> columns)
     {
-        return new NewRecordProjectOperator(operatorContext, createRecordSet(split, columns));
+        return new RecordProjectOperator(operatorContext, createRecordSet(split, columns));
     }
 
     private RecordSet createRecordSet(Split split, List<ColumnHandle> columns)

@@ -13,7 +13,7 @@ import java.util.concurrent.ExecutorService;
 import static com.facebook.presto.util.LocalQueryRunner.createTpchLocalQueryRunner;
 
 public abstract class AbstractSqlBenchmark
-        extends AbstractNewOperatorBenchmark
+        extends AbstractOperatorBenchmark
 {
     @Language("SQL")
     private final String query;

@@ -18,8 +18,8 @@ import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskOutputOperator.TaskOutputFactory;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.planner.NewLocalExecutionPlanner;
-import com.facebook.presto.sql.planner.NewLocalExecutionPlanner.NewLocalExecutionPlan;
+import com.facebook.presto.sql.planner.LocalExecutionPlanner;
+import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.util.SetThreadName;
@@ -103,7 +103,7 @@ public class SqlTaskExecution
             TaskId taskId,
             URI location,
             PlanFragment fragment,
-            NewLocalExecutionPlanner planner,
+            LocalExecutionPlanner planner,
             DataSize maxBufferSize,
             TaskExecutor taskExecutor,
             ExecutorService notificationExecutor,
@@ -134,7 +134,7 @@ public class SqlTaskExecution
             TaskId taskId,
             URI location,
             PlanFragment fragment,
-            NewLocalExecutionPlanner planner,
+            LocalExecutionPlanner planner,
             DataSize maxBufferSize,
             TaskExecutor taskExecutor,
             DataSize maxTaskMemoryUsage,
@@ -171,7 +171,7 @@ public class SqlTaskExecution
 
             taskHandle = taskExecutor.addTask(taskId);
 
-            NewLocalExecutionPlan localExecutionPlan = planner.plan(session, fragment.getRoot(), fragment.getSymbols(), new TaskOutputFactory(sharedBuffer));
+            LocalExecutionPlan localExecutionPlan = planner.plan(session, fragment.getRoot(), fragment.getSymbols(), new TaskOutputFactory(sharedBuffer));
             List<DriverFactory> driverFactories = localExecutionPlan.getDriverFactories();
 
             // index driver factories
