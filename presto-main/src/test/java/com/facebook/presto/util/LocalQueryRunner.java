@@ -21,8 +21,8 @@ import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.MaterializingOperator;
-import com.facebook.presto.operator.NewOperator;
-import com.facebook.presto.operator.NewOperatorFactory;
+import com.facebook.presto.operator.Operator;
+import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.TaskContext;
@@ -37,12 +37,12 @@ import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.gen.NewExpressionCompiler;
+import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DistributedLogicalPlanner;
+import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.LogicalPlanner;
-import com.facebook.presto.sql.planner.NewLocalExecutionPlanner;
-import com.facebook.presto.sql.planner.NewLocalExecutionPlanner.NewLocalExecutionPlan;
+import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.PlanOptimizersFactory;
@@ -92,7 +92,7 @@ public class LocalQueryRunner
     private final LocalStorageManager storageManager;
     private final Session session;
     private final ExecutorService executor;
-    private final NewExpressionCompiler compiler;
+    private final ExpressionCompiler compiler;
     private boolean printPlan;
 
     public LocalQueryRunner(Metadata metadata,
@@ -108,7 +108,7 @@ public class LocalQueryRunner
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
         this.session = checkNotNull(session, "session is null");
         this.executor = checkNotNull(executor, "executor is null");
-        this.compiler = new NewExpressionCompiler(metadata);
+        this.compiler = new ExpressionCompiler(metadata);
     }
 
     public LocalQueryRunner printPlan()
@@ -129,11 +129,11 @@ public class LocalQueryRunner
         }
 
         @Override
-        public NewOperatorFactory createOutputOperator(final int operatorId, final List<TupleInfo> sourceTupleInfo)
+        public OperatorFactory createOutputOperator(final int operatorId, final List<TupleInfo> sourceTupleInfo)
         {
             checkNotNull(sourceTupleInfo, "sourceTupleInfo is null");
 
-            return new NewOperatorFactory()
+            return new OperatorFactory()
             {
                 @Override
                 public List<TupleInfo> getTupleInfos()
@@ -142,7 +142,7 @@ public class LocalQueryRunner
                 }
 
                 @Override
-                public NewOperator createOperator(DriverContext driverContext)
+                public Operator createOperator(DriverContext driverContext)
                 {
                     checkState(materializingOperator == null, "Output already created");
                     OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, MaterializingOperator.class.getSimpleName());
@@ -207,7 +207,7 @@ public class LocalQueryRunner
         SubPlan subplan = new DistributedLogicalPlanner(metadata, idAllocator).createSubplans(plan, true);
         assertTrue(subplan.getChildren().isEmpty(), "Expected subplan to have no children");
 
-        NewLocalExecutionPlanner executionPlanner = new NewLocalExecutionPlanner(
+        LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(
                 new NodeInfo(new NodeConfig()
                         .setEnvironment("test")
                         .setNodeId("test-node")),
@@ -218,7 +218,7 @@ public class LocalQueryRunner
                 compiler);
 
         // plan query
-        NewLocalExecutionPlan localExecutionPlan = executionPlanner.plan(session,
+        LocalExecutionPlan localExecutionPlan = executionPlanner.plan(session,
                 subplan.getFragment().getRoot(),
                 plan.getTypes(),
                 outputFactory);

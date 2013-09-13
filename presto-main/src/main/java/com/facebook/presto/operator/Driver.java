@@ -14,35 +14,35 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.operator.NewOperator.NOT_BLOCKED;
+import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class Driver
 {
     private final DriverContext driverContext;
-    private final List<NewOperator> operators;
-    private final Map<PlanNodeId, NewSourceOperator> sourceOperators;
+    private final List<Operator> operators;
+    private final Map<PlanNodeId, SourceOperator> sourceOperators;
 
-    public Driver(DriverContext driverContext, NewOperator firstOperator, NewOperator... otherOperators)
+    public Driver(DriverContext driverContext, Operator firstOperator, Operator... otherOperators)
     {
         this(checkNotNull(driverContext, "driverContext is null"),
-                ImmutableList.<NewOperator>builder()
+                ImmutableList.<Operator>builder()
                         .add(checkNotNull(firstOperator, "firstOperator is null"))
                         .add(checkNotNull(otherOperators, "otherOperators is null"))
                         .build());
     }
 
-    public Driver(DriverContext driverContext, List<NewOperator> operators)
+    public Driver(DriverContext driverContext, List<Operator> operators)
     {
         this.driverContext = checkNotNull(driverContext, "driverContext is null");
         this.operators = ImmutableList.copyOf(checkNotNull(operators, "operators is null"));
         checkArgument(!operators.isEmpty(), "There must be at least one operator");
 
-        ImmutableMap.Builder<PlanNodeId, NewSourceOperator> sourceOperators = ImmutableMap.builder();
-        for (NewOperator operator : operators) {
-            if (operator instanceof NewSourceOperator) {
-                NewSourceOperator sourceOperator = (NewSourceOperator) operator;
+        ImmutableMap.Builder<PlanNodeId, SourceOperator> sourceOperators = ImmutableMap.builder();
+        for (Operator operator : operators) {
+            if (operator instanceof SourceOperator) {
+                SourceOperator sourceOperator = (SourceOperator) operator;
                 sourceOperators.put(sourceOperator.getSourceId(), sourceOperator);
             }
         }
@@ -72,7 +72,7 @@ public class Driver
             }
         }
         else {
-            NewSourceOperator sourceOperator = sourceOperators.get(sourceId);
+            SourceOperator sourceOperator = sourceOperators.get(sourceId);
             if (sourceOperator != null) {
                 sourceOperator.addSplit(split);
             }
@@ -83,7 +83,7 @@ public class Driver
     {
         checkNotNull(sourceId, "sourceId is null");
 
-        NewSourceOperator sourceOperator = sourceOperators.get(sourceId);
+        SourceOperator sourceOperator = sourceOperators.get(sourceId);
         if (sourceOperator != null) {
             sourceOperator.noMoreSplits();
         }
@@ -91,7 +91,7 @@ public class Driver
 
     public synchronized void finish()
     {
-        for (NewOperator operator : operators) {
+        for (Operator operator : operators) {
             operator.finish();
         }
     }
@@ -112,7 +112,7 @@ public class Driver
         try {
             for (int i = 0; i < operators.size() - 1 && !driverContext.isDone(); i++) {
                 // check if current operator is blocked
-                NewOperator current = operators.get(i);
+                Operator current = operators.get(i);
                 ListenableFuture<?> blocked = current.isBlocked();
                 if (!blocked.isDone()) {
                     current.getOperatorContext().recordBlocked(blocked);
@@ -120,7 +120,7 @@ public class Driver
                 }
 
                 // check if next operator is blocked
-                NewOperator next = operators.get(i + 1);
+                Operator next = operators.get(i + 1);
                 blocked = next.isBlocked();
                 if (!blocked.isDone()) {
                     next.getOperatorContext().recordBlocked(blocked);

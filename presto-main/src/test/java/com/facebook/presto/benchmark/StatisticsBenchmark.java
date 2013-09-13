@@ -4,7 +4,7 @@ import com.facebook.presto.tpch.TpchBlocksProvider;
 
 import java.util.concurrent.ExecutorService;
 
-import static com.facebook.presto.benchmark.AbstractNewOperatorBenchmark.DEFAULT_TPCH_BLOCKS_PROVIDER;
+import static com.facebook.presto.benchmark.AbstractOperatorBenchmark.DEFAULT_TPCH_BLOCKS_PROVIDER;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 

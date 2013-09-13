@@ -1,7 +1,6 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.SharedBuffer;
-import com.facebook.presto.operator.Page;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -12,7 +11,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 public class TaskOutputOperator
-        implements NewOperator
+        implements Operator
 {
     public static class TaskOutputFactory
             implements OutputFactory
@@ -25,14 +24,14 @@ public class TaskOutputOperator
         }
 
         @Override
-        public NewOperatorFactory createOutputOperator(int operatorId, List<TupleInfo> sourceTupleInfo)
+        public OperatorFactory createOutputOperator(int operatorId, List<TupleInfo> sourceTupleInfo)
         {
             return new TaskOutputOperatorFactory(operatorId, sharedBuffer);
         }
     }
 
     public static class TaskOutputOperatorFactory
-            implements NewOperatorFactory
+            implements OperatorFactory
     {
         private final int operatorId;
         private final SharedBuffer sharedBuffer;
@@ -50,7 +49,7 @@ public class TaskOutputOperator
         }
 
         @Override
-        public NewOperator createOperator(DriverContext driverContext)
+        public Operator createOperator(DriverContext driverContext)
         {
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, TaskOutputOperator.class.getSimpleName());
             return new TaskOutputOperator(operatorContext, sharedBuffer);

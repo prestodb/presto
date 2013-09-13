@@ -8,12 +8,12 @@ import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.DriverContext;
-import com.facebook.presto.operator.NewFilterAndProjectOperator.NewFilterAndProjectOperatorFactory;
-import com.facebook.presto.operator.NewOperator;
-import com.facebook.presto.operator.NewOperatorFactory;
-import com.facebook.presto.operator.NewRecordProjectOperator;
-import com.facebook.presto.operator.NewSourceOperator;
-import com.facebook.presto.operator.NewSourceOperatorFactory;
+import com.facebook.presto.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory;
+import com.facebook.presto.operator.Operator;
+import com.facebook.presto.operator.OperatorFactory;
+import com.facebook.presto.operator.RecordProjectOperator;
+import com.facebook.presto.operator.SourceOperator;
+import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.StaticOperator;
 import com.facebook.presto.operator.TaskContext;
@@ -29,7 +29,7 @@ import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
-import com.facebook.presto.sql.gen.NewExpressionCompiler;
+import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.planner.InterpretedFilterFunction;
 import com.facebook.presto.sql.planner.InterpretedProjectionFunction;
 import com.facebook.presto.sql.planner.Symbol;
@@ -87,7 +87,7 @@ public final class FunctionAssertions
 
     private static final ExecutorService EXECUTOR = Executors.newCachedThreadPool(Threads.daemonThreadsNamed("test-%s"));
 
-    private static final NewExpressionCompiler COMPILER = new NewExpressionCompiler(new MetadataManager());
+    private static final ExpressionCompiler COMPILER = new ExpressionCompiler(new MetadataManager());
 
     private static final Page SOURCE_PAGE = new Page(
             createLongsBlock(1234L),
@@ -164,7 +164,7 @@ public final class FunctionAssertions
         List<Object> results = new ArrayList<>();
 
         // execute as standalone operator
-        NewOperatorFactory operatorFactory = compileFilterProject(TRUE_LITERAL, projectionExpression);
+        OperatorFactory operatorFactory = compileFilterProject(TRUE_LITERAL, projectionExpression);
         Type expressionType = Type.fromRaw(operatorFactory.getTupleInfos().get(0).getTypes().get(0));
         Object directOperatorValue = selectSingleValue(operatorFactory, session);
         results.add(directOperatorValue);
@@ -174,7 +174,7 @@ public final class FunctionAssertions
         results.add(interpretedValue);
 
         // execute over normal operator
-        NewSourceOperatorFactory scanProjectOperatorFactory = compileScanFilterProject(TRUE_LITERAL, projectionExpression);
+        SourceOperatorFactory scanProjectOperatorFactory = compileScanFilterProject(TRUE_LITERAL, projectionExpression);
         Object scanOperatorValue = selectSingleValue(scanProjectOperatorFactory, createNormalSplit(), session);
         results.add(scanOperatorValue);
 
@@ -201,21 +201,21 @@ public final class FunctionAssertions
         return results;
     }
 
-    public static Object selectSingleValue(NewOperatorFactory operatorFactory, Session session)
+    public static Object selectSingleValue(OperatorFactory operatorFactory, Session session)
     {
-        NewOperator operator = operatorFactory.createOperator(createDriverContext(session));
+        Operator operator = operatorFactory.createOperator(createDriverContext(session));
         return selectSingleValue(operator);
     }
 
-    public static Object selectSingleValue(NewSourceOperatorFactory operatorFactory, Split split, Session session)
+    public static Object selectSingleValue(SourceOperatorFactory operatorFactory, Split split, Session session)
     {
-        NewSourceOperator operator = operatorFactory.createOperator(createDriverContext(session));
+        SourceOperator operator = operatorFactory.createOperator(createDriverContext(session));
         operator.addSplit(split);
         operator.noMoreSplits();
         return selectSingleValue(operator);
     }
 
-    public static Object selectSingleValue(NewOperator operator)
+    public static Object selectSingleValue(Operator operator)
     {
         Page output = getAtMostOnePage(operator);
 
@@ -257,7 +257,7 @@ public final class FunctionAssertions
         List<Boolean> results = new ArrayList<>();
 
         // execute as standalone operator
-        NewOperatorFactory operatorFactory = compileFilterProject(filterExpression, TRUE_LITERAL);
+        OperatorFactory operatorFactory = compileFilterProject(filterExpression, TRUE_LITERAL);
         Type expressionType = Type.fromRaw(operatorFactory.getTupleInfos().get(0).getTypes().get(0));
         results.add(executeFilter(operatorFactory, session));
 
@@ -266,7 +266,7 @@ public final class FunctionAssertions
         results.add(interpretedValue);
 
         // execute over normal operator
-        NewSourceOperatorFactory scanProjectOperatorFactory = compileScanFilterProject(filterExpression, TRUE_LITERAL);
+        SourceOperatorFactory scanProjectOperatorFactory = compileScanFilterProject(filterExpression, TRUE_LITERAL);
         boolean scanOperatorValue = executeFilter(scanProjectOperatorFactory, createNormalSplit(), session);
         results.add(scanOperatorValue);
 
@@ -300,20 +300,20 @@ public final class FunctionAssertions
         return results;
     }
 
-    private static boolean executeFilter(NewOperatorFactory operatorFactory, Session session)
+    private static boolean executeFilter(OperatorFactory operatorFactory, Session session)
     {
         return executeFilter(operatorFactory.createOperator(createDriverContext(session)));
     }
 
-    private static boolean executeFilter(NewSourceOperatorFactory operatorFactory, Split split, Session session)
+    private static boolean executeFilter(SourceOperatorFactory operatorFactory, Split split, Session session)
     {
-        NewSourceOperator operator = operatorFactory.createOperator(createDriverContext(session));
+        SourceOperator operator = operatorFactory.createOperator(createDriverContext(session));
         operator.addSplit(split);
         operator.noMoreSplits();
         return executeFilter(operator);
     }
 
-    private static boolean executeFilter(NewOperator operator)
+    private static boolean executeFilter(Operator operator)
     {
         Page page = getAtMostOnePage(operator);
 
@@ -348,7 +348,7 @@ public final class FunctionAssertions
         return hasQualifiedNameReference.get();
     }
 
-    private static NewOperator interpretedFilterProject(Expression filter, Expression projection, Type expressionType, Session session)
+    private static Operator interpretedFilterProject(Expression filter, Expression projection, Type expressionType, Session session)
     {
         FilterFunction filterFunction = new InterpretedFilterFunction(
                 filter,
@@ -365,11 +365,11 @@ public final class FunctionAssertions
                 session,
                 INPUT_TYPES);
 
-        NewOperatorFactory operatorFactory = new NewFilterAndProjectOperatorFactory(0, filterFunction, ImmutableList.of(projectionFunction));
+        OperatorFactory operatorFactory = new FilterAndProjectOperatorFactory(0, filterFunction, ImmutableList.of(projectionFunction));
         return operatorFactory.createOperator(createDriverContext(session));
     }
 
-    private static NewOperatorFactory compileFilterProject(Expression filter, Expression projection)
+    private static OperatorFactory compileFilterProject(Expression filter, Expression projection)
     {
         filter = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), filter);
         projection = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), projection);
@@ -385,7 +385,7 @@ public final class FunctionAssertions
         }
     }
 
-    private static NewSourceOperatorFactory compileScanFilterProject(Expression filter, Expression projection)
+    private static SourceOperatorFactory compileScanFilterProject(Expression filter, Expression projection)
     {
         filter = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), filter);
         projection = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), projection);
@@ -408,7 +408,7 @@ public final class FunctionAssertions
         }
     }
 
-    private static Page getAtMostOnePage(NewOperator operator)
+    private static Page getAtMostOnePage(Operator operator)
     {
         // add our input page if needed
         if (operator.needsInput()) {
@@ -447,7 +447,7 @@ public final class FunctionAssertions
             implements DataStreamProvider
     {
         @Override
-        public NewOperator createNewDataStream(OperatorContext operatorContext, Split split, List<ColumnHandle> columns)
+        public Operator createNewDataStream(OperatorContext operatorContext, Split split, List<ColumnHandle> columns)
         {
             assertInstanceOf(split, FunctionAssertions.TestSplit.class);
             FunctionAssertions.TestSplit testSplit = (FunctionAssertions.TestSplit) split;
@@ -461,7 +461,7 @@ public final class FunctionAssertions
                         "%el%",
                         null
                 ).build();
-                return new NewRecordProjectOperator(operatorContext, records);
+                return new RecordProjectOperator(operatorContext, records);
             }
             else {
                 return new StaticOperator(operatorContext, ImmutableList.of(SOURCE_PAGE));

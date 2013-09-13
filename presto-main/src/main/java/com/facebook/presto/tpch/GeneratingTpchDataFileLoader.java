@@ -1,9 +1,9 @@
 package com.facebook.presto.tpch;
 
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.operator.RecordProjectOperator;
 import com.facebook.presto.util.DelimitedRecordSet;
 import com.facebook.presto.metadata.ColumnFileHandle;
-import com.facebook.presto.operator.NewRecordProjectOperator;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.Page;
@@ -157,7 +157,7 @@ public class GeneratingTpchDataFileLoader
                     .addDriverContext()
                     .addOperatorContext(0, "tpch-generate");
 
-            NewRecordProjectOperator source = new NewRecordProjectOperator(operatorContext, records);
+            RecordProjectOperator source = new RecordProjectOperator(operatorContext, records);
 
             ColumnFileHandle columnFileHandle = ColumnFileHandle.builder(0)
                     .addColumn(columnHandle, cachedFile, encoding)

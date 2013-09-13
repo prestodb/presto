@@ -1,0 +1,57 @@
+package com.facebook.presto.benchmark;
+
+import com.facebook.presto.block.BlockIterable;
+import com.facebook.presto.operator.AlignmentOperator.AlignmentOperatorFactory;
+import com.facebook.presto.operator.LimitOperator.LimitOperatorFactory;
+import com.facebook.presto.operator.OrderByOperator.InMemoryOrderByOperatorFactory;
+import com.facebook.presto.operator.OperatorFactory;
+import com.facebook.presto.serde.BlocksFileEncoding;
+import com.facebook.presto.tpch.TpchBlocksProvider;
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+
+import static com.facebook.presto.block.BlockIterables.concat;
+import static com.facebook.presto.util.Threads.daemonThreadsNamed;
+import static java.util.Collections.nCopies;
+import static java.util.concurrent.Executors.newCachedThreadPool;
+
+public class OrderByBenchmark
+        extends AbstractSimpleOperatorBenchmark
+{
+    private static final int ROWS = 1_500_000;
+
+    public OrderByBenchmark(ExecutorService executor, TpchBlocksProvider tpchBlocksProvider)
+    {
+        super(executor, tpchBlocksProvider, "in_memory_orderby_1.5M", 5, 10);
+    }
+
+    @Override
+    protected List<? extends OperatorFactory> createOperatorFactories()
+    {
+        BlockIterable totalPrice = getBlockIterable("orders", "totalprice", BlocksFileEncoding.RAW);
+        BlockIterable clerk = getBlockIterable("orders", "clerk", BlocksFileEncoding.RAW);
+
+        AlignmentOperatorFactory alignmentOperator = new AlignmentOperatorFactory(0, concat(nCopies(100, totalPrice)), concat(nCopies(100, clerk)));
+
+        LimitOperatorFactory limitOperator = new LimitOperatorFactory(1, alignmentOperator.getTupleInfos(), ROWS);
+
+        InMemoryOrderByOperatorFactory orderByOperator = new InMemoryOrderByOperatorFactory(
+                2,
+                limitOperator.getTupleInfos(),
+                0,
+                new int[]{1},
+                ROWS);
+
+        return ImmutableList.of(alignmentOperator, limitOperator, orderByOperator);
+    }
+
+    public static void main(String[] args)
+    {
+        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test"));
+        new OrderByBenchmark(executor, DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(
+                new SimpleLineBenchmarkResultWriter(System.out)
+        );
+    }
+}

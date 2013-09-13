@@ -1,7 +1,6 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.block.Block;
-import com.facebook.presto.operator.Page;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
@@ -14,7 +13,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class StaticOperator
-        implements NewOperator
+        implements Operator
 {
     private final OperatorContext operatorContext;
     private final ImmutableList<TupleInfo> tupleInfos;

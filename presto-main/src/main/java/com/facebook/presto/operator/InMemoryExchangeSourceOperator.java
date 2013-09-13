@@ -1,6 +1,5 @@
 package com.facebook.presto.operator;
 
-import com.facebook.presto.operator.Page;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -10,10 +9,10 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 public class InMemoryExchangeSourceOperator
-        implements NewOperator
+        implements Operator
 {
     public static class InMemoryExchangeSourceOperatorFactory
-            implements NewOperatorFactory
+            implements OperatorFactory
     {
         private final int operatorId;
         private final InMemoryExchange inMemoryExchange;
@@ -32,7 +31,7 @@ public class InMemoryExchangeSourceOperator
         }
 
         @Override
-        public NewOperator createOperator(DriverContext driverContext)
+        public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, InMemoryExchangeSourceOperator.class.getSimpleName());

@@ -4,7 +4,7 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.block.BlockUtils;
 import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.operator.NewAlignmentOperator;
+import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.Page;
@@ -227,7 +227,7 @@ public class DatabaseLocalStorageManager
                     .addDriverContext()
                     .addOperatorContext(0, "OptimizeEncodings");
 
-            NewAlignmentOperator source = new NewAlignmentOperator(operatorContext, sources);
+            AlignmentOperator source = new AlignmentOperator(operatorContext, sources);
             importData(source, targetFileHandle);
         }
 
@@ -251,7 +251,7 @@ public class DatabaseLocalStorageManager
         }
     }
 
-    private void importData(NewAlignmentOperator source, ColumnFileHandle fileHandle)
+    private void importData(AlignmentOperator source, ColumnFileHandle fileHandle)
     {
         while (!source.isFinished()) {
             Page page = source.getOutput();
