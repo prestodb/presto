@@ -188,7 +188,6 @@ public class AnnotationDefinition
         AnnotationVisitor annotationVisitor = visitor.visitParameterAnnotation(parameterIndex, type.getType(), true);
         visit(annotationVisitor);
         annotationVisitor.visitEnd();
-
     }
 
     private void visit(AnnotationVisitor visitor)
@@ -228,7 +227,6 @@ public class AnnotationDefinition
         }
         else {
             visitor.visit(name, value);
-
         }
     }
 }

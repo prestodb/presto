@@ -15,7 +15,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockAssertions;
-import com.facebook.presto.operator.Page;
 import com.facebook.presto.tuple.TupleInfo;
 
 import java.util.List;

@@ -19,7 +19,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 @Immutable
 public class Extract
-    extends Expression
+        extends Expression
 {
     private final Expression expression;
     private final Field field;
@@ -98,5 +98,4 @@ public class Extract
         result = 31 * result + field.hashCode();
         return result;
     }
-
 }

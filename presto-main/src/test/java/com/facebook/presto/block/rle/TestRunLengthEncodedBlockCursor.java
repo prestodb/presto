@@ -19,9 +19,9 @@ import com.facebook.presto.block.Block;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.tuple.Tuples.createTuple;
 
-public class TestRunLengthEncodedBlockCursor extends AbstractTestBlockCursor
+public class TestRunLengthEncodedBlockCursor
+        extends AbstractTestBlockCursor
 {
-
     @Override
     protected RunLengthEncodedBlockCursor createTestCursor()
     {

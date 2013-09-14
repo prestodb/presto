@@ -221,7 +221,6 @@ public class TestSqlStageExecution
                 Multimap<PlanNodeId, URI> initialExchangeLocations,
                 Set<String> initialOutputIds)
         {
-
             return new MockRemoteTask(taskId, fragment, executor);
         }
 

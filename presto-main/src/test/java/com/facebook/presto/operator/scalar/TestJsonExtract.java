@@ -190,7 +190,6 @@ public class TestJsonExtract
     {
         Slice value = JsonExtract.extractInternal(Slices.wrappedBuffer(inputJson.getBytes(Charsets.UTF_8)), generateExtractor(jsonPath, true));
         return (value == null) ? null : value.toString(Charsets.UTF_8);
-
     }
 
     private static String doJsonExtract(String inputJson, String jsonPath)
@@ -198,6 +197,5 @@ public class TestJsonExtract
     {
         Slice value = JsonExtract.extractInternal(Slices.wrappedBuffer(inputJson.getBytes(Charsets.UTF_8)), generateExtractor(jsonPath, false));
         return (value == null) ? null : value.toString(Charsets.UTF_8);
-
     }
 }

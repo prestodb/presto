@@ -115,7 +115,6 @@ public class MetadataManager
             if (tableHandle != null) {
                 return Optional.of(tableHandle);
             }
-
         }
         return Optional.absent();
     }

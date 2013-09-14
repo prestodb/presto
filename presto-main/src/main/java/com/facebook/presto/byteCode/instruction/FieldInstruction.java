@@ -13,22 +13,26 @@
  */
 package com.facebook.presto.byteCode.instruction;
 
-import com.google.common.base.Objects;
-import com.google.common.collect.ImmutableList;
-import org.objectweb.asm.MethodVisitor;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ByteCodeVisitor;
 import com.facebook.presto.byteCode.OpCodes;
 import com.facebook.presto.byteCode.ParameterizedType;
+import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableList;
+import org.objectweb.asm.MethodVisitor;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.List;
 
-import static com.facebook.presto.byteCode.OpCodes.*;
+import static com.facebook.presto.byteCode.OpCodes.GETFIELD;
+import static com.facebook.presto.byteCode.OpCodes.GETSTATIC;
+import static com.facebook.presto.byteCode.OpCodes.PUTFIELD;
+import static com.facebook.presto.byteCode.OpCodes.PUTSTATIC;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 
-public abstract class FieldInstruction implements InstructionNode
+public abstract class FieldInstruction
+        implements InstructionNode
 {
     public static FieldInstruction getFieldInstruction(Field field)
     {
@@ -130,7 +134,8 @@ public abstract class FieldInstruction implements InstructionNode
                 .toString();
     }
 
-    public static class GetFieldInstruction extends FieldInstruction
+    public static class GetFieldInstruction
+            extends FieldInstruction
     {
         public GetFieldInstruction(boolean isStatic, ParameterizedType classType, String fieldName, ParameterizedType fieldType)
         {
@@ -149,7 +154,8 @@ public abstract class FieldInstruction implements InstructionNode
         }
     }
 
-    public static class PutFieldInstruction extends FieldInstruction
+    public static class PutFieldInstruction
+            extends FieldInstruction
     {
         public PutFieldInstruction(boolean isStatic, ParameterizedType classType, String fieldName, ParameterizedType fieldType)
         {

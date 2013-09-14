@@ -131,10 +131,12 @@ public class EqualityInference
     /**
      * Dumps the inference equalities as equality expressions that are partitioned by the symbolScope.
      * All stored equalities are returned in a compact set and will be classified into three groups as determined by the symbol scope:
-     * 1) equalities that fit entirely within the symbol scope
-     * 2) equalities that fit entirely outside of the symbol scope
-     * 3) equalities that straddle the symbol scope
-     *
+     * <ol>
+     * <li>equalities that fit entirely within the symbol scope</li>
+     * <li>equalities that fit entirely outside of the symbol scope</li>
+     * <li>equalities that straddle the symbol scope</li>
+     * </ol>
+     * <pre>
      * Example:
      *   Stored Equalities:
      *     a = b = c
@@ -152,6 +154,7 @@ public class EqualityInference
      *     Scope Straddling Equalities
      *       a = c
      *       d = f
+     * </pre>
      */
     public EqualityPartition generateEqualitiesPartitionedBy(Predicate<Symbol> symbolScope)
     {

@@ -50,6 +50,7 @@ public interface Metadata
 
     /**
      * Return the metadata for the specified table handle.
+     *
      * @throws RuntimeException if table handle is no longer valid
      */
     @NotNull
@@ -63,6 +64,7 @@ public interface Metadata
 
     /**
      * Returns a handle for the specified table column.
+     *
      * @throws RuntimeException if table handle is no longer valid
      */
     @NotNull
@@ -70,6 +72,7 @@ public interface Metadata
 
     /**
      * Gets all of the columns on the specified table, or an empty map if the columns can not be enumerated.
+     *
      * @throws RuntimeException if table handle is no longer valid
      */
     @NotNull
@@ -77,6 +80,7 @@ public interface Metadata
 
     /**
      * Gets the metadata for the specified table column.
+     *
      * @throws RuntimeException if table or column handles are no longer valid
      */
     @NotNull
@@ -96,6 +100,7 @@ public interface Metadata
 
     /**
      * Drops the specified table
+     *
      * @throws RuntimeException if the table can not be dropped or table handle is no longer valid
      */
     void dropTable(TableHandle tableHandle);

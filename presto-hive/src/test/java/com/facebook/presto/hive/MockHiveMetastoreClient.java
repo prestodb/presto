@@ -96,7 +96,6 @@ public class MockHiveMetastoreClient
         return new Database(TEST_DATABASE, null, null, null);
     }
 
-
     @Override
     public Table get_table(String dbname, String tbl_name)
             throws MetaException, NoSuchObjectException, TException

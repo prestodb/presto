@@ -270,17 +270,19 @@ public class ExpressionInterpreter
                     return node;
                 }
 
-                if (operand instanceof Long && value instanceof  Long) {
+                if (operand instanceof Long && value instanceof Long) {
                     if (((Long) operand).longValue() == ((Long) value).longValue()) {
                         resultClause = whenClause.getResult();
                         break;
                     }
-                } else if (operand instanceof Number && value instanceof  Number) {
+                }
+                else if (operand instanceof Number && value instanceof Number) {
                     if (((Number) operand).doubleValue() == ((Number) value).doubleValue()) {
                         resultClause = whenClause.getResult();
                         break;
                     }
-                } else if (operand.equals(value)) {
+                }
+                else if (operand.equals(value)) {
                     resultClause = whenClause.getResult();
                     break;
                 }
@@ -793,7 +795,6 @@ public class ExpressionInterpreter
         if (value instanceof Slice &&
                 pattern instanceof Slice &&
                 (escape == null || escape instanceof Slice)) {
-
             Regex regex = LikeUtils.likeToPattern((Slice) pattern, (Slice) escape);
 
             return LikeUtils.regexMatches(regex, (Slice) value);

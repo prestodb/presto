@@ -24,6 +24,7 @@ import com.facebook.presto.split.ConnectorDataStreamProvider;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 
 import javax.inject.Inject;
+
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkNotNull;

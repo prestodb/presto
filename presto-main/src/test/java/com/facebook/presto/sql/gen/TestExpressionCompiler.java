@@ -66,7 +66,7 @@ public class TestExpressionCompiler
     private static final Long[] longRights = {3L, -3L, 10151082135029369L, null};
     private static final Long[] longMiddle = {9L, -3L, 88L, null};
     private static final Double[] doubleLefts = {9.0, 10.0, 11.0, -9.0, -10.0, -11.0, 9.1, 10.1, 11.1, -9.1, -10.1, -11.1,
-            Double.MIN_VALUE, Double.MAX_VALUE, Double.MIN_NORMAL, null};
+                                                 Double.MIN_VALUE, Double.MAX_VALUE, Double.MIN_NORMAL, null};
     private static final Double[] doubleRights = {3.0, -3.0, 3.1, -3.1, null};
     private static final Double[] doubleMiddle = {9.0, -3.1, 88.0, null};
     private static final String[] stringLefts = {"hello", "foo", "mellow", "fellow", "", null};
@@ -257,7 +257,6 @@ public class TestExpressionCompiler
                 assertExecute(generateExpression("%s %% %s", left, right), left == null || right == null ? null : left % right);
             }
         }
-
     }
 
     @Test
@@ -282,7 +281,6 @@ public class TestExpressionCompiler
                 assertExecute(generateExpression("%s %% %s", left, right), left == null || right == null ? null : left % right);
             }
         }
-
     }
 
     @Test
@@ -387,7 +385,6 @@ public class TestExpressionCompiler
                 }
             }
         }
-
     }
 
     @Test
@@ -597,7 +594,6 @@ public class TestExpressionCompiler
                 }
             }
         }
-
     }
 
     @Test
@@ -723,7 +719,6 @@ public class TestExpressionCompiler
         assertExecute("bound_double in (12.34, " + Joiner.on(", ").join(doubleValues) + ")", true);
         assertExecute("bound_double in (" + Joiner.on(", ").join(doubleValues) + ")", false);
 
-
         Iterable<Object> stringValues = Iterables.transform(Range.openClosed(2000, 7000).asSet(DiscreteDomain.integers()), new Function<Integer, Object>()
         {
             @Override
@@ -734,8 +729,6 @@ public class TestExpressionCompiler
         });
         assertExecute("bound_string in ('hello', " + Joiner.on(", ").join(stringValues) + ")", true);
         assertExecute("bound_string in (" + Joiner.on(", ").join(stringValues) + ")", false);
-
-
     }
 
     @Test
@@ -779,7 +772,6 @@ public class TestExpressionCompiler
                 }
             }
         }
-
     }
 
     @Test
@@ -795,7 +787,6 @@ public class TestExpressionCompiler
                         value == null || pattern == null ? null : RegexpFunctions.regexpExtract(Slices.copiedBuffer(value, UTF_8), Slices.copiedBuffer(pattern, UTF_8)));
             }
         }
-
     }
 
     @Test

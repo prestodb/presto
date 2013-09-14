@@ -20,7 +20,6 @@ import java.util.List;
 public class MockPeriodicImportManager
         implements PeriodicImportManager
 {
-
     @Override
     public long insertJob(PeriodicImportJob job)
     {

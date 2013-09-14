@@ -17,9 +17,9 @@ import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.instruction.Constant;
 import com.facebook.presto.operator.Description;
 import com.facebook.presto.sql.gen.DefaultFunctionBinder;
-import com.facebook.presto.sql.gen.TypedByteCodeNode;
 import com.facebook.presto.sql.gen.FunctionBinder;
 import com.facebook.presto.sql.gen.FunctionBinding;
+import com.facebook.presto.sql.gen.TypedByteCodeNode;
 import com.facebook.presto.util.ThreadLocalCache;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -151,14 +151,14 @@ public final class RegexpFunctions
                 throw Throwables.propagate(e);
             }
         }
-    
+
         public FunctionBinding bindFunction(long bindingId, String name, ByteCodeNode getSessionByteCode, List<TypedByteCodeNode> arguments)
         {
             MethodHandle methodHandle;
             boolean nullable = false;
             TypedByteCodeNode patternNode = arguments.get(1);
             if (patternNode.getNode() instanceof Constant) {
-                switch(name) {
+                switch (name) {
                     case "regexp_like":
                         methodHandle = constantRegexpLike;
                         break;
@@ -182,7 +182,7 @@ public final class RegexpFunctions
                 Slice patternSlice = (Slice) ((Constant) patternNode.getNode()).getValue();
 
                 Pattern pattern = Pattern.compile(patternSlice.toString(UTF_8));
-    
+
                 methodHandle = MethodHandles.insertArguments(methodHandle, 1, pattern);
 
                 // remove the pattern argument
@@ -191,7 +191,7 @@ public final class RegexpFunctions
                 arguments = ImmutableList.copyOf(arguments);
             }
             else {
-                switch(name) {
+                switch (name) {
                     case "regexp_like":
                         methodHandle = dynamicRegexpLike;
                         break;
@@ -214,7 +214,7 @@ public final class RegexpFunctions
 
                 methodHandle = methodHandle.bindTo(new PatternCache(100));
             }
-    
+
             return DefaultFunctionBinder.bindConstantArguments(bindingId, name, getSessionByteCode, arguments, methodHandle, nullable);
         }
     }

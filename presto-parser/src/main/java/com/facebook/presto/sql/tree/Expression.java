@@ -16,7 +16,7 @@ package com.facebook.presto.sql.tree;
 import com.facebook.presto.sql.ExpressionFormatter;
 
 public abstract class Expression
-    extends Node
+        extends Node
 {
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)

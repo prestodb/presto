@@ -18,10 +18,10 @@ import com.facebook.presto.metadata.QualifiedTableName;
 
 /**
  * Handles the sources for materialized view.
- *
+ * <p/>
  * TODO (after discussion). These methods should be part of the metadata manager and the metadata manager
  * should handle resolution of table handles (and information storage).
- *
+ * <p/>
  * This change should be made after the big import client / metadata changes went in.
  */
 public interface StorageManager

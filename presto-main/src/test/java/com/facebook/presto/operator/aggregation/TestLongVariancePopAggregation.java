@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import org.apache.commons.math.stat.descriptive.moment.Variance;
@@ -46,7 +45,7 @@ public class TestLongVariancePopAggregation
             return null;
         }
 
-        double [] values = new double [length];
+        double[] values = new double[length];
         for (int i = 0; i < length; i++) {
             values[i] = start + i;
         }
@@ -54,5 +53,4 @@ public class TestLongVariancePopAggregation
         Variance variance = new Variance(false);
         return variance.evaluate(values);
     }
-
 }

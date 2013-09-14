@@ -50,7 +50,7 @@ public class PlanSanityChecker
     }
 
     private static class Visitor
-        extends PlanVisitor<Void, Void>
+            extends PlanVisitor<Void, Void>
     {
         private final Map<PlanNodeId, PlanNode> nodesById = new HashMap<>();
 

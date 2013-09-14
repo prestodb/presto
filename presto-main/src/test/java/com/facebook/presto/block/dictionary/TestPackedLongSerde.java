@@ -24,16 +24,21 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-public class TestPackedLongSerde {
+public class TestPackedLongSerde
+{
     private SliceOutput sliceOutput;
 
     @BeforeMethod(alwaysRun = true)
-    public void setUp() throws Exception {
+    public void setUp()
+            throws Exception
+    {
         sliceOutput = new DynamicSliceOutput(128);
     }
 
     @Test
-    public void testFullLong() throws Exception {
+    public void testFullLong()
+            throws Exception
+    {
         List<Long> list = Arrays.asList(0L, -1L, 2L, Long.MAX_VALUE, Long.MIN_VALUE);
         new PackedLongSerde(Long.SIZE).serialize(list, sliceOutput);
         Assert.assertTrue(
@@ -45,8 +50,10 @@ public class TestPackedLongSerde {
     }
 
     @Test
-    public void testLowDensity() throws Exception {
-        List<Long> list = Arrays.asList(0L, -1L, 2L, Long.MAX_VALUE/2, Long.MIN_VALUE/2);
+    public void testLowDensity()
+            throws Exception
+    {
+        List<Long> list = Arrays.asList(0L, -1L, 2L, Long.MAX_VALUE / 2, Long.MIN_VALUE / 2);
         new PackedLongSerde(Long.SIZE - 1).serialize(list, sliceOutput);
         Assert.assertTrue(
                 Iterables.elementsEqual(
@@ -57,8 +64,10 @@ public class TestPackedLongSerde {
     }
 
     @Test
-    public void testAligned() throws Exception {
-        List<Long> list = Arrays.asList(0L, -1L, 2L,(long) Integer.MAX_VALUE, (long) Integer.MIN_VALUE);
+    public void testAligned()
+            throws Exception
+    {
+        List<Long> list = Arrays.asList(0L, -1L, 2L, (long) Integer.MAX_VALUE, (long) Integer.MIN_VALUE);
         new PackedLongSerde(Integer.SIZE).serialize(list, sliceOutput);
         Assert.assertTrue(
                 Iterables.elementsEqual(
@@ -69,7 +78,9 @@ public class TestPackedLongSerde {
     }
 
     @Test
-    public void testUnaligned() throws Exception {
+    public void testUnaligned()
+            throws Exception
+    {
         List<Long> list = Arrays.asList(0L, -1L, 2L, 65535L, -65536L, 64L, -3L);
         new PackedLongSerde(17).serialize(list, sliceOutput);
         Assert.assertTrue(
@@ -81,7 +92,9 @@ public class TestPackedLongSerde {
     }
 
     @Test
-    public void testEmpty() throws Exception {
+    public void testEmpty()
+            throws Exception
+    {
         List<Long> list = Collections.EMPTY_LIST;
         new PackedLongSerde(1).serialize(list, sliceOutput);
         Assert.assertTrue(

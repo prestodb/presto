@@ -14,9 +14,9 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.util.InfiniteRecordSet;
 import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.util.InfiniteRecordSet;
 import com.facebook.presto.util.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterMethod;
@@ -62,7 +62,8 @@ public class TestRecordProjectOperator
     public void testSingleColumn()
             throws Exception
     {
-        InMemoryRecordSet records = new InMemoryRecordSet(ImmutableList.of(STRING), ImmutableList.copyOf(new List<?>[]{ImmutableList.of("abc"), ImmutableList.of("def"), ImmutableList.of("g")}));
+        InMemoryRecordSet records = new InMemoryRecordSet(ImmutableList.of(STRING), ImmutableList.copyOf(new List<?>[] {ImmutableList.of("abc"), ImmutableList.of("def"),
+                                                                                                                        ImmutableList.of("g")}));
 
         OperatorContext operatorContext = driverContext.addOperatorContext(0, RecordProjectOperator.class.getSimpleName());
         Operator operator = new RecordProjectOperator(operatorContext, records);
@@ -80,7 +81,9 @@ public class TestRecordProjectOperator
     public void testMultiColumn()
             throws Exception
     {
-        InMemoryRecordSet records = new InMemoryRecordSet(ImmutableList.of(STRING, LONG), ImmutableList.copyOf(new List<?>[]{ImmutableList.of("abc", 1L), ImmutableList.of("def", 2L), ImmutableList.of("g", 0L)}));
+        InMemoryRecordSet records = new InMemoryRecordSet(ImmutableList.of(STRING, LONG), ImmutableList.copyOf(new List<?>[] {ImmutableList.of("abc", 1L),
+                                                                                                                              ImmutableList.of("def", 2L),
+                                                                                                                              ImmutableList.of("g", 0L)}));
 
         OperatorContext operatorContext = driverContext.addOperatorContext(0, RecordProjectOperator.class.getSimpleName());
         Operator operator = new RecordProjectOperator(operatorContext, records);

@@ -33,15 +33,15 @@ import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.byteCode.control.IfStatement.IfStatementBuilder;
 import com.facebook.presto.byteCode.instruction.LabelNode;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.operator.AbstractFilterAndProjectOperator;
 import com.facebook.presto.operator.AbstractScanFilterAndProjectOperator;
 import com.facebook.presto.operator.DriverContext;
-import com.facebook.presto.operator.AbstractFilterAndProjectOperator;
 import com.facebook.presto.operator.Operator;
+import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OperatorFactory;
+import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.operator.SourceOperatorFactory;
-import com.facebook.presto.operator.OperatorContext;
-import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.split.DataStreamProvider;
@@ -461,7 +461,6 @@ public class ExpressionCompiler
                 .invokeInterface(com.facebook.presto.block.Block.class, "getPositionCount", int.class)
                 .putVariable(rowsVariable);
 
-
         List<LocalVariableDefinition> cursorVariables = new ArrayList<>();
         int channels = Ordering.natural().max(transform(inputTypes.keySet(), Input.channelGetter())) + 1;
         for (int i = 0; i < channels; i++) {
@@ -597,13 +596,11 @@ public class ExpressionCompiler
         Block forLoopBody = new Block(compilerContext);
         forLoop.body(forLoopBody);
 
-
         forLoopBody.comment("if (pageBuilder.isFull()) break;")
                 .append(new Block(compilerContext)
                         .getVariable("pageBuilder")
                         .invokeVirtual(PageBuilder.class, "isFull", boolean.class)
                         .ifTrueGoto(done));
-
 
         forLoopBody.comment("if (!cursor.advanceNextPosition()) break;")
                 .append(new Block(compilerContext)
@@ -1009,7 +1006,6 @@ public class ExpressionCompiler
         {
             closed = true;
         }
-
     }
 
     private static class ScanFilterAndProjectOperatorFactoryFactory

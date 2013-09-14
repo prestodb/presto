@@ -113,5 +113,4 @@ public class SimplifyExpressions
             return ExpressionInterpreter.toExpression(interpreter.process(input, null));
         }
     }
-
 }

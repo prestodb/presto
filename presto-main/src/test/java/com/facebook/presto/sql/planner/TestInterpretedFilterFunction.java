@@ -30,7 +30,6 @@ import static org.testng.Assert.assertEquals;
 
 public class TestInterpretedFilterFunction
 {
-
     @Test
     public void testNullLiteral()
     {
@@ -156,7 +155,7 @@ public class TestInterpretedFilterFunction
         assertFilter("42.42 >= 88.88", false);
         assertFilter("'bar' >= 'foo'", false);
 
-        assertFilter("88 >= 42",  true);
+        assertFilter("88 >= 42", true);
         assertFilter("88.8 >= 42.0", true);
         assertFilter("88.8 >= 42.42", true);
         assertFilter("'foo' >= 'bar'", true);

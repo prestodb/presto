@@ -193,7 +193,7 @@ public class MetadataUtil
             return this;
         }
 
-        public ImmutableMap<SchemaTableName,TableMetadata> build()
+        public ImmutableMap<SchemaTableName, TableMetadata> build()
         {
             return tables.build();
         }

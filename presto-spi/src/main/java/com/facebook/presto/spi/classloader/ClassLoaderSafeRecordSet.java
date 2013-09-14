@@ -47,7 +47,6 @@ public class ClassLoaderSafeRecordSet
         }
     }
 
-
     @Override
     public String toString()
     {

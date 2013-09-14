@@ -20,7 +20,7 @@ import static com.facebook.presto.operator.aggregation.LongAverageAggregation.LO
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 
 public class TestLongAverageAggregation
-    extends AbstractTestAggregationFunction
+        extends AbstractTestAggregationFunction
 {
     @Override
     public Block getSequenceBlock(int start, int length)
@@ -51,5 +51,4 @@ public class TestLongAverageAggregation
         }
         return sum / length;
     }
-
 }

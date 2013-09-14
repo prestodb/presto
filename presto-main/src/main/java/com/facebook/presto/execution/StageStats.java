@@ -83,7 +83,6 @@ public class StageStats
         this.processedInputPositions = 0;
         this.outputDataSize = null;
         this.outputPositions = 0;
-
     }
 
     @JsonCreator

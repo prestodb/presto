@@ -35,6 +35,7 @@ public interface FixedWidthAggregationFunction
 
     /**
      * Add all of the values in the specified block to the aggregation.
+     *
      * @param positionCount number of positions in this page
      * @param block the block containing values for the aggregation; null for no-arg aggregations
      * @param field
@@ -43,6 +44,7 @@ public interface FixedWidthAggregationFunction
 
     /**
      * Add the current value of the specified cursor to the aggregation.
+     *
      * @param cursor the value to add to the aggregation; null for no-arg aggregations
      * @param field
      */

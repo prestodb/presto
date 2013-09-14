@@ -14,7 +14,6 @@
 package com.facebook.presto.importer;
 
 import com.facebook.presto.importer.JobStateFactory.JobState;
-
 import io.airlift.log.Logger;
 
 import static com.google.common.base.Preconditions.checkNotNull;

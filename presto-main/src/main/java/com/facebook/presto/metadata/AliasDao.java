@@ -82,6 +82,5 @@ public interface AliasDao
                 }
             }
         }
-
     }
 }

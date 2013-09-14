@@ -346,7 +346,8 @@ public abstract class AbstractTestHiveClient
                     assertEquals(e.getTableName(), tableOfflinePartition);
                     assertEquals(e.getPartition(), "ds=2012-12-30");
                 }
-            } else {
+            }
+            else {
                 Iterables.size(splitManager.getPartitionSplits(tableHandle, ImmutableList.of(partition)));
             }
         }
@@ -358,7 +359,7 @@ public abstract class AbstractTestHiveClient
     {
         TableHandle tableHandle = metadata.getTableHandle(table);
         TableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
-        List<ColumnHandle>  columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
+        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
         List<Partition> partitions = splitManager.getPartitions(tableHandle, ImmutableMap.<ColumnHandle, Object>of());
@@ -476,7 +477,7 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         TableHandle tableHandle = metadata.getTableHandle(table);
-        List<ColumnHandle>  columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
+        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
         List<Partition> partitions = splitManager.getPartitions(tableHandle, ImmutableMap.<ColumnHandle, Object>of());
@@ -512,7 +513,7 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         TableHandle tableHandle = metadata.getTableHandle(tableUnpartitioned);
-        List<ColumnHandle>  columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
+        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
         List<Partition> partitions = splitManager.getPartitions(tableHandle, ImmutableMap.<ColumnHandle, Object>of());

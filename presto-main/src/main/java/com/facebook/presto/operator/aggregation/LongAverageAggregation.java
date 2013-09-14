@@ -132,7 +132,8 @@ public class LongAverageAggregation
             value.setLong(0, TUPLE_INFO.getLong(valueSlice, valueOffset, 0));
             value.setDouble(SIZE_OF_LONG, TUPLE_INFO.getDouble(valueSlice, valueOffset, 1));
             output.append(value);
-        } else {
+        }
+        else {
             output.appendNull();
         }
     }
@@ -144,7 +145,8 @@ public class LongAverageAggregation
             long count = TUPLE_INFO.getLong(valueSlice, valueOffset, 0);
             double sum = TUPLE_INFO.getDouble(valueSlice, valueOffset, 1);
             output.append(sum / count);
-        } else {
+        }
+        else {
             output.appendNull();
         }
     }

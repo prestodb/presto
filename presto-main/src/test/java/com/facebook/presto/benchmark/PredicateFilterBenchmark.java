@@ -16,8 +16,8 @@ package com.facebook.presto.benchmark;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.operator.AlignmentOperator.AlignmentOperatorFactory;
 import com.facebook.presto.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory;
-import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.FilterFunction;
+import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.tpch.TpchBlocksProvider;
@@ -53,7 +53,6 @@ public class PredicateFilterBenchmark
     public static class DoubleFilter
             implements FilterFunction
     {
-
         private final double minValue;
 
         public DoubleFilter(double minValue)

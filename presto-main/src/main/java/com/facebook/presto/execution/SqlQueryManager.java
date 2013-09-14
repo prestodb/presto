@@ -200,7 +200,8 @@ public class SqlQueryManager
         final QueryExecution queryExecution = queryExecutionFactory.createQueryExecution(queryId, query, session, statement);
         queryMonitor.createdEvent(queryExecution.getQueryInfo());
 
-        queryExecution.addStateChangeListener(new StateChangeListener<QueryState>() {
+        queryExecution.addStateChangeListener(new StateChangeListener<QueryState>()
+        {
             @Override
             public void stateChanged(QueryState newValue)
             {
@@ -349,7 +350,7 @@ public class SqlQueryManager
         @Override
         public void run()
         {
-            try (SetThreadName setThreadName = new SetThreadName("Query-%s", queryExecution.getQueryInfo().getQueryId())){
+            try (SetThreadName setThreadName = new SetThreadName("Query-%s", queryExecution.getQueryInfo().getQueryId())) {
                 stats.queryStarted();
                 queryExecution.start();
             }

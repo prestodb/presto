@@ -56,7 +56,7 @@ import static com.google.common.collect.Iterables.transform;
 
 /**
  * Computes the effective predicate at the top of the specified PlanNode
- *
+ * <p/>
  * Note: non-deterministic predicates can not be pulled up (so they will be ignored)
  */
 public class EffectivePredicateExtractor

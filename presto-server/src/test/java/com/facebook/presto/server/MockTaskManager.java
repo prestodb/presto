@@ -23,8 +23,8 @@ import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStateMachine;
-import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -68,7 +68,6 @@ public class MockTaskManager
     private final int initialPages;
 
     private final ConcurrentMap<TaskId, MockTask> tasks = new ConcurrentHashMap<>();
-
 
     @Inject
     public MockTaskManager(HttpServerInfo httpServerInfo)

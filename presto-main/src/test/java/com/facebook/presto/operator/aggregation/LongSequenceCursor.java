@@ -27,7 +27,7 @@ import static com.google.common.base.Preconditions.checkState;
  * A cursor that enumerates longs up to a max
  */
 public class LongSequenceCursor
-    implements BlockCursor
+        implements BlockCursor
 {
     private final int max;
 

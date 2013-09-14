@@ -124,7 +124,8 @@ public abstract class AbstractScanFilterAndProjectOperator
     {
         if (operator != null) {
             operator.finish();
-        } else {
+        }
+        else {
             cursor.close();
         }
         finishing = true;
@@ -145,7 +146,8 @@ public abstract class AbstractScanFilterAndProjectOperator
     {
         if (operator != null) {
             return operator.isBlocked();
-        } else {
+        }
+        else {
             return NOT_BLOCKED;
         }
     }

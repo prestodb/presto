@@ -143,7 +143,7 @@ public class RecordProjectOperator
                                 output.append(cursor.getString(column));
                                 break;
                             default:
-                                   throw new AssertionError("unimplemented type: " + type);
+                                throw new AssertionError("unimplemented type: " + type);
                         }
                     }
                 }

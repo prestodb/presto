@@ -26,7 +26,6 @@ import java.util.List;
 public class MockLocalStorageManager
         implements LocalStorageManager
 {
-
     public static MockLocalStorageManager createMockLocalStorageManager()
     {
         try {
@@ -95,5 +94,4 @@ public class MockLocalStorageManager
     {
         columnFileHandle.commit();
     }
-
 }

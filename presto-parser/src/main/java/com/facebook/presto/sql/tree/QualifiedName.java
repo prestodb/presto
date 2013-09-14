@@ -24,6 +24,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
 import javax.annotation.Nullable;
+
 import java.util.List;
 
 public class QualifiedName

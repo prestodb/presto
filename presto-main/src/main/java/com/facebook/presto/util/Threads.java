@@ -29,7 +29,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public class Threads
 {
-
     private static final Class<? extends ListeningExecutorService> GUAVA_SAME_THREAD_EXECUTOR_CLASS = MoreExecutors.sameThreadExecutor().getClass();
 
     public static ThreadFactory threadsNamed(String nameFormat)

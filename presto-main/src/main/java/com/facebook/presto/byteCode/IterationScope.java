@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.byteCode;
 
-
 import com.facebook.presto.byteCode.instruction.LabelNode;
 
 public class IterationScope

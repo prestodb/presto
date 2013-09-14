@@ -32,7 +32,7 @@ import static org.testng.Assert.fail;
 
 public abstract class AbstractTestBlockCursor
 {
-    private final SortedMap<Integer,Tuple> expectedValues = BlockCursorAssertions.toTuplesMap(createTestCursor());
+    private final SortedMap<Integer, Tuple> expectedValues = BlockCursorAssertions.toTuplesMap(createTestCursor());
 
     protected abstract Block createExpectedValues();
 

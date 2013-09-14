@@ -56,7 +56,8 @@ import static java.lang.String.format;
 
 public final class GraphvizPrinter
 {
-    enum NodeType {
+    enum NodeType
+    {
         EXCHANGE,
         AGGREGATE,
         FILTER,
@@ -368,7 +369,7 @@ public final class GraphvizPrinter
             String columns = "";
             String columnName = "";
             int nameWidth = 0;
-            while(columnNames.hasNext()) {
+            while (columnNames.hasNext()) {
                 columnName = columnNames.next();
                 columns += columnName;
                 nameWidth += columnName.length();
@@ -393,7 +394,6 @@ public final class GraphvizPrinter
                     .replace(">", "\\>")
                     .replace("\"", "\\\"");
         }
-
     }
 
     private static class EdgePrinter
@@ -456,7 +456,7 @@ public final class GraphvizPrinter
             planNodeIds = new HashMap<PlanNode, Integer>();
         }
 
-        public String getNodeId (PlanNode from)
+        public String getNodeId(PlanNode from)
         {
             int nodeId;
 

@@ -59,7 +59,7 @@ public class DropTable
     public String toString()
     {
         return Objects.toStringHelper(this)
-            .add("tableName", tableName)
-            .toString();
+                .add("tableName", tableName)
+                .toString();
     }
 }

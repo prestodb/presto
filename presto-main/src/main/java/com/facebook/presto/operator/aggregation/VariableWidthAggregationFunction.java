@@ -16,10 +16,6 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.sql.tree.Input;
-
-import javax.annotation.Nullable;
-import java.util.List;
 
 public interface VariableWidthAggregationFunction<T>
         extends AggregationFunction
@@ -31,6 +27,7 @@ public interface VariableWidthAggregationFunction<T>
 
     /**
      * Add all of the values in the specified block to the aggregation.
+     *
      * @param positionCount number of positions in this page
      * @param blocks the blocks containing values for the aggregation; empty for no-arg aggregations
      * @param fields
@@ -39,6 +36,7 @@ public interface VariableWidthAggregationFunction<T>
 
     /**
      * Add the current value of the specified cursor to the aggregation.
+     *
      * @param cursors the values to add to the aggregation; empty for no-arg aggregations
      * @param fields
      */
@@ -47,6 +45,7 @@ public interface VariableWidthAggregationFunction<T>
     /**
      * Add the intermediate value at specified cursor to the aggregation.
      * The intermediate value is a value produced by the <code>evaluateIntermediate</code> function.
+     *
      * @param cursors the values to add to the aggregation; empty for no-arg aggregations
      * @param fields
      */

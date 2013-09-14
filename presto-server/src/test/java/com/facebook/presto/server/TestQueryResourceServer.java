@@ -137,7 +137,7 @@ public class TestQueryResourceServer
         long sequenceId = 0;
         PagesResponse response = client.execute(
                 prepareGet().setUri(uriBuilderFrom(outputLocation).appendPath(String.valueOf(sequenceId)).build()).build(),
-                        new PageResponseHandler());
+                new PageResponseHandler());
         List<Page> pages = response.getPages(sequenceId);
         assertEquals(countPositions(pages), 220);
         assertQueryStatus(location, QueryState.RUNNING);

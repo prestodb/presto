@@ -24,7 +24,7 @@ import java.io.OutputStream;
 import java.util.Map;
 
 public class JsonBenchmarkResultWriter
-    implements BenchmarkResultHook
+        implements BenchmarkResultHook
 {
     private final JsonGenerator jsonGenerator;
 
@@ -35,7 +35,8 @@ public class JsonBenchmarkResultWriter
             jsonGenerator = new JsonFactory().createJsonGenerator(outputStream, JsonEncoding.UTF8);
             jsonGenerator.writeStartObject();
             jsonGenerator.writeArrayFieldStart("samples");
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             throw Throwables.propagate(e);
         }
     }
@@ -50,7 +51,8 @@ public class JsonBenchmarkResultWriter
                 jsonGenerator.writeNumberField(entry.getKey(), entry.getValue());
             }
             jsonGenerator.writeEndObject();
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             throw Throwables.propagate(e);
         }
         return this;
@@ -63,7 +65,8 @@ public class JsonBenchmarkResultWriter
             jsonGenerator.writeEndArray();
             jsonGenerator.writeEndObject();
             jsonGenerator.close();
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             throw Throwables.propagate(e);
         }
     }

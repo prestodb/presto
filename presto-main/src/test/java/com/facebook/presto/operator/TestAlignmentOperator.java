@@ -26,9 +26,9 @@ import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.block.BlockAssertions.blockIterableBuilder;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
+import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.operator.RowPageBuilder.rowPageBuilder;
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
-import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
@@ -57,6 +57,7 @@ public class TestAlignmentOperator
     {
         executor.shutdownNow();
     }
+
     @Test
     public void testAlignment()
             throws Exception

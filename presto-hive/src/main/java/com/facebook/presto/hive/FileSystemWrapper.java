@@ -25,7 +25,7 @@ import java.io.IOException;
 
 /**
  * FileSystemWrapper provides a framework for intercepting HDFS FileSystem type objects.
- *
+ * <p/>
  * The class encapsulates the relationship between HDFS FileSystem objects as they get
  * converted between each other (e.g. FileSystem produces Path, which produces FileStatus).
  * As each one of these types are returned through the API, the framework will guarantee
@@ -112,7 +112,8 @@ public class FileSystemWrapper
 
     private FileSystem wrapFileSystem(FileSystem fileSystem)
     {
-        return new ForwardingFileSystem(fileSystem) {
+        return new ForwardingFileSystem(fileSystem)
+        {
             private FileStatus[] wrapFileStatuses(FileStatus[] fileStatuses)
             {
                 if (fileStatuses == null) {

@@ -43,7 +43,6 @@ public class RetryDriver
         this.sleepTime = sleepTime;
         this.maxRetryTime = maxRetryTime;
         this.exceptionWhiteList = exceptionWhiteList;
-
     }
 
     private RetryDriver()
@@ -80,7 +79,6 @@ public class RetryDriver
                 .addAll(exceptionWhiteList)
                 .addAll(Arrays.asList(classes))
                 .build();
-
 
         return new RetryDriver(maxRetryAttempts, sleepTime, maxRetryTime, exceptions);
     }

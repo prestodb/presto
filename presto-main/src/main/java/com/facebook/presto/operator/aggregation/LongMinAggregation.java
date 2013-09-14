@@ -109,7 +109,8 @@ public class LongMinAggregation
         if (!SINGLE_LONG.isNull(valueSlice, valueOffset, 0)) {
             long currentValue = SINGLE_LONG.getLong(valueSlice, valueOffset, 0);
             output.append(currentValue);
-        } else {
+        }
+        else {
             output.appendNull();
         }
     }

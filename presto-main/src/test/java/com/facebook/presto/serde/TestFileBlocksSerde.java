@@ -78,7 +78,8 @@ public class TestFileBlocksSerde
         assertEquals(stats.getUniqueCount(), 4);
     }
 
-    private static class DynamicSliceOutputSupplier implements OutputSupplier<DynamicSliceOutput>
+    private static class DynamicSliceOutputSupplier
+            implements OutputSupplier<DynamicSliceOutput>
     {
         private final int estimatedSize;
         private DynamicSliceOutput lastOutput;

@@ -42,7 +42,8 @@ public class PageBuilder
     {
         if (!tupleInfos.isEmpty()) {
             maxBlockSize = (int) (maxSize.toBytes() / tupleInfos.size());
-        } else {
+        }
+        else {
             maxBlockSize = 0;
         }
 

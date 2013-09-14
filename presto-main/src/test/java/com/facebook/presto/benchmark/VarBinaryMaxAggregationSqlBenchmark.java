@@ -21,7 +21,7 @@ import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class VarBinaryMaxAggregationSqlBenchmark
-    extends AbstractSqlBenchmark
+        extends AbstractSqlBenchmark
 {
     public VarBinaryMaxAggregationSqlBenchmark(ExecutorService executor, TpchBlocksProvider tpchBlocksProvider)
     {

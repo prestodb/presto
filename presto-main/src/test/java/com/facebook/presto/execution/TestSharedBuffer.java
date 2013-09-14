@@ -68,7 +68,6 @@ public class TestSharedBuffer
             fail("Expected IllegalStateException");
         }
         catch (IllegalArgumentException e) {
-
         }
     }
 
@@ -130,7 +129,7 @@ public class TestSharedBuffer
                 createPage(9)));
         // page not acknowledged yet so state is the same
         assertQueueState(sharedBuffer, "second", 10, 0);
-         // acknowledge the 10 pages
+        // acknowledge the 10 pages
         assertBufferResultEquals(sharedBuffer.get("second", 10, sizeOfPages(10), NO_WAIT), emptyResults(10, false));
         assertQueueState(sharedBuffer, "second", 0, 10);
 
@@ -330,7 +329,6 @@ public class TestSharedBuffer
 
         // abort on unknown buffer is allowed
         sharedBuffer.abort("unknown");
-
 
         // destroy and try operations again
         sharedBuffer.destroy();
@@ -719,12 +717,12 @@ public class TestSharedBuffer
             for (int channel = 0; channel < actualPage.getChannelCount(); channel++) {
                 assertBlockEquals(actualPage.getBlock(channel), expectedPage.getBlock(channel));
             }
-
         }
         assertEquals(actual.isBufferClosed(), expected.isBufferClosed());
     }
 
-    private static class GetPagesJob implements Runnable
+    private static class GetPagesJob
+            implements Runnable
     {
         private final SharedBuffer sharedBuffer;
         private final int pagesToGet;
@@ -825,7 +823,8 @@ public class TestSharedBuffer
         }
     }
 
-    private static class AddPagesJob implements Runnable
+    private static class AddPagesJob
+            implements Runnable
     {
         private final SharedBuffer sharedBuffer;
         private final ArrayBlockingQueue<Page> elements;

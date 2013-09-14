@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import com.google.common.base.Function;
@@ -109,7 +109,8 @@ public class QualifiedTableName
 
     public static Function<SchemaTableName, QualifiedTableName> convertFromSchemaTableName(final String catalogName)
     {
-        return new Function<SchemaTableName, QualifiedTableName>() {
+        return new Function<SchemaTableName, QualifiedTableName>()
+        {
             @Override
             public QualifiedTableName apply(SchemaTableName input)
             {

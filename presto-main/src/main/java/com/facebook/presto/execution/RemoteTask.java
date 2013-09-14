@@ -24,7 +24,6 @@ import java.util.Set;
 
 public interface RemoteTask
 {
-
     TaskInfo getTaskInfo();
 
     void start();

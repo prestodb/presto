@@ -42,8 +42,8 @@ public class SimpleLineBenchmarkResultWriter
             Joiner.on(",").withKeyValueSeparator(":").appendTo(writer, results);
             writer.write('\n');
             writer.flush();
-
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             Throwables.propagate(e);
         }
         return this;

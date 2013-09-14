@@ -175,7 +175,6 @@ public class TestHashJoinOperator
             driver.process();
         }
 
-
         // probe
         List<Page> probeInput = rowPagesBuilder(SINGLE_VARBINARY)
                 .row("a")
@@ -221,7 +220,6 @@ public class TestHashJoinOperator
         while (!driver.isFinished()) {
             driver.process();
         }
-
 
         // probe
         List<Page> probeInput = rowPagesBuilder(SINGLE_VARBINARY)

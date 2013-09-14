@@ -28,7 +28,8 @@ import static com.facebook.presto.byteCode.ByteCodeNodes.buildBlock;
 import static com.facebook.presto.byteCode.ExpectedType.BOOLEAN;
 import static com.facebook.presto.byteCode.ExpectedType.VOID;
 
-public class IfStatement implements FlowControl
+public class IfStatement
+        implements FlowControl
 {
     public static IfStatementBuilder ifStatementBuilder(CompilerContext context)
     {

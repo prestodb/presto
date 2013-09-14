@@ -20,6 +20,7 @@ import io.airlift.units.Duration;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -48,6 +49,7 @@ public class StateMachine<T>
 
     /**
      * Creates a state machine with the specified initial value
+     *
      * @param name name of this state machine to use in debug statements
      * @param executor executor for firing state change events; must not be a same thread executor
      * @param initialState the initial value
@@ -68,6 +70,7 @@ public class StateMachine<T>
     /**
      * Sets the state.
      * If the new state does not {@code ==} the current state, listeners and waiters will be notified.
+     *
      * @return the old state
      */
     public T set(final T newState)
@@ -95,6 +98,7 @@ public class StateMachine<T>
     /**
      * Sets the state if the current state satisfies the specified predicate.
      * If the new state does not {@code ==} the current state, listeners and waiters will be notified.
+     *
      * @return the old state
      */
     public boolean setIf(T newValue, Predicate<T> predicate)
@@ -119,6 +123,7 @@ public class StateMachine<T>
     /**
      * Sets the state if the current state {@code ==} the specified expected state.
      * If the new state does not {@code ==} the current state, listeners and waiters will be notified.
+     *
      * @return the old state
      */
     public boolean compareAndSet(T expectedState, T newState)

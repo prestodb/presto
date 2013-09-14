@@ -207,7 +207,6 @@ public class TestMathFunctions
     @Test
     public void testPow()
     {
-
         for (long left : longLefts) {
             for (long right : longRights) {
                 assertFunction("pow(" + left + ", " + right + ")", Math.pow(left, right));

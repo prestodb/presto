@@ -15,9 +15,9 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
+import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.split.NativeSplit;
-import com.facebook.presto.spi.Split;
 
 public class NativeHandleResolver
         implements ConnectorHandleResolver

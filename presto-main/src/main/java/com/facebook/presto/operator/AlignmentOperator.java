@@ -45,9 +45,9 @@ public class AlignmentOperator
         {
             this(operatorId,
                     ImmutableList.<BlockIterable>builder()
-                    .add(checkNotNull(firstChannel, "firstChannel is null"))
-                    .add(checkNotNull(otherChannels, "otherChannels is null"))
-                    .build());
+                            .add(checkNotNull(firstChannel, "firstChannel is null"))
+                            .add(checkNotNull(otherChannels, "otherChannels is null"))
+                            .build());
         }
 
         public AlignmentOperatorFactory(int operatorId, Iterable<BlockIterable> channels)

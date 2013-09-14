@@ -40,7 +40,6 @@ public class SqlUtils
         }
     }
 
-
     /**
      * Run a SQL query as Runnable ignoring any constraint violations.
      * This is a HACK to allow us to support idempotent inserts on

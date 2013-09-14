@@ -20,7 +20,7 @@ import static com.facebook.presto.operator.aggregation.DoubleAverageAggregation.
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
 
 public class TestDoubleAverageAggregation
-    extends AbstractTestAggregationFunction
+        extends AbstractTestAggregationFunction
 {
     @Override
     public Block getSequenceBlock(int start, int length)
@@ -51,5 +51,4 @@ public class TestDoubleAverageAggregation
         }
         return sum / length;
     }
-
 }

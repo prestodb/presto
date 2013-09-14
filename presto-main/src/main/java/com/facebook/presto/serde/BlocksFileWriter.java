@@ -34,7 +34,8 @@ import static com.facebook.presto.block.BlockUtils.toTupleIterable;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-public class BlocksFileWriter implements Closeable
+public class BlocksFileWriter
+        implements Closeable
 {
     public static void writeBlocks(BlocksFileEncoding encoding, OutputSupplier<? extends OutputStream> sliceOutput, Block... blocks)
     {
@@ -91,7 +92,8 @@ public class BlocksFileWriter implements Closeable
             OutputStream outputStream = outputSupplier.getOutput();
             if (outputStream instanceof SliceOutput) {
                 sliceOutput = (SliceOutput) outputStream;
-            } else {
+            }
+            else {
                 sliceOutput = new OutputStreamSliceOutput(outputStream);
             }
             encoder = encoding.createBlocksWriter(sliceOutput);

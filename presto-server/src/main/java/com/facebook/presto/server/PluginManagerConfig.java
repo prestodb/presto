@@ -19,6 +19,7 @@ import io.airlift.configuration.Config;
 import io.airlift.resolver.ArtifactResolver;
 
 import javax.validation.constraints.NotNull;
+
 import java.io.File;
 import java.util.List;
 
@@ -58,7 +59,8 @@ public class PluginManagerConfig
     {
         if (plugins == null) {
             this.plugins = null;
-        } else {
+        }
+        else {
             this.plugins = ImmutableList.copyOf(Splitter.on(',').omitEmptyStrings().trimResults().split(plugins));
         }
         return this;

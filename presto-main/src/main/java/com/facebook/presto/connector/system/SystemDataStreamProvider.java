@@ -14,8 +14,8 @@
 package com.facebook.presto.connector.system;
 
 import com.facebook.presto.operator.Operator;
-import com.facebook.presto.operator.RecordProjectOperator;
 import com.facebook.presto.operator.OperatorContext;
+import com.facebook.presto.operator.RecordProjectOperator;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.RecordSet;

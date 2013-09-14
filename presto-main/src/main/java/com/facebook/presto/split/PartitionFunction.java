@@ -28,14 +28,13 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class PartitionFunction
-    implements Function<TablePartition, Partition>
+        implements Function<TablePartition, Partition>
 {
     private final Map<String, ColumnHandle> columnHandles;
     private final Multimap<String, ? extends PartitionKey> allPartitionKeys;
 
-
     PartitionFunction(Map<String, ColumnHandle> columnHandles,
-                             Multimap<String, ? extends PartitionKey> allPartitionKeys)
+            Multimap<String, ? extends PartitionKey> allPartitionKeys)
     {
         this.columnHandles = checkNotNull(columnHandles, "columnHandles is null");
         this.allPartitionKeys = checkNotNull(allPartitionKeys, "allPartitionKeys is null");
@@ -53,33 +52,33 @@ public class PartitionFunction
 
             String value = partitionKey.getValue();
             switch (partitionKey.getType()) {
-            case BOOLEAN:
-                if (value.length() == 0) {
-                    builder.put(columnHandle, false);
-                }
-                else {
-                    builder.put(columnHandle, Boolean.parseBoolean(value));
-                }
-                break;
-            case LONG:
-                if (value.length() == 0) {
-                    builder.put(columnHandle, 0L);
-                }
-                else {
-                    builder.put(columnHandle, Long.parseLong(value));
-                }
-                break;
-            case DOUBLE:
-                if (value.length() == 0) {
-                    builder.put(columnHandle, 0L);
-                }
-                else {
-                    builder.put(columnHandle, Double.parseDouble(value));
-                }
-                break;
-            case STRING:
-                builder.put(columnHandle, value);
-                break;
+                case BOOLEAN:
+                    if (value.length() == 0) {
+                        builder.put(columnHandle, false);
+                    }
+                    else {
+                        builder.put(columnHandle, Boolean.parseBoolean(value));
+                    }
+                    break;
+                case LONG:
+                    if (value.length() == 0) {
+                        builder.put(columnHandle, 0L);
+                    }
+                    else {
+                        builder.put(columnHandle, Long.parseLong(value));
+                    }
+                    break;
+                case DOUBLE:
+                    if (value.length() == 0) {
+                        builder.put(columnHandle, 0L);
+                    }
+                    else {
+                        builder.put(columnHandle, Double.parseDouble(value));
+                    }
+                    break;
+                case STRING:
+                    builder.put(columnHandle, value);
+                    break;
             }
         }
 

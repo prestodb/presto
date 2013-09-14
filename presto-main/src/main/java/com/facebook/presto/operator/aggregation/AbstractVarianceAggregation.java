@@ -152,7 +152,7 @@ public abstract class AbstractVarianceAggregation
         double m2 = VARIANCE_CONTEXT_INFO.getDouble(valueSlice, valueOffset, 2);
 
         if (population) {
-            return m2/count;
+            return m2 / count;
         }
         else {
             return (count == 1) ? null : (m2 / (count - 1));

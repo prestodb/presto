@@ -24,12 +24,12 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class UncompressedTupleInfoSerde
 {
     /**
-     *
      * @param tupleInfo
      * @param sliceOutput
      * @return number of bytes written
      */
-    public static int serialize(TupleInfo tupleInfo, SliceOutput sliceOutput) {
+    public static int serialize(TupleInfo tupleInfo, SliceOutput sliceOutput)
+    {
         checkNotNull(tupleInfo, "tupleInfo is null");
         checkNotNull(sliceOutput, "sliceOutput is null");
 
@@ -43,7 +43,8 @@ public class UncompressedTupleInfoSerde
         return bytes;
     }
 
-    public static TupleInfo deserialize(SliceInput sliceInput) {
+    public static TupleInfo deserialize(SliceInput sliceInput)
+    {
         checkNotNull(sliceInput, "slice is null");
 
         int fieldCount = sliceInput.readUnsignedByte();

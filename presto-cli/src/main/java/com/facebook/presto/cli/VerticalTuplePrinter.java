@@ -61,7 +61,7 @@ public class VerticalTuplePrinter
         int valuesWidth = 0;
         for (List<?> row : rows) {
             for (Object o : row) {
-                valuesWidth = max(valuesWidth,  maxLineLength(formatValue(o)));
+                valuesWidth = max(valuesWidth, maxLineLength(formatValue(o)));
             }
         }
 

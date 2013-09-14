@@ -40,13 +40,13 @@ import static com.google.common.base.Preconditions.checkNotNull;
 @Produces(MediaType.APPLICATION_JSON)
 public class MetadataResource
 {
-    private static final Function<QualifiedTableName, String> EXTRACT_TABLE_NAME = new Function<QualifiedTableName, String>() {
+    private static final Function<QualifiedTableName, String> EXTRACT_TABLE_NAME = new Function<QualifiedTableName, String>()
+    {
         @Override
         public String apply(QualifiedTableName input)
         {
             return input.getTableName();
         }
-
     };
 
     private final Metadata metadata;
