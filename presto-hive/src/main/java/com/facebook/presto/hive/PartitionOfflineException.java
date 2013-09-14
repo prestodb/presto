@@ -18,7 +18,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class PartitionOfflineException
-    extends RuntimeException
+        extends RuntimeException
 {
     private final SchemaTableName tableName;
     private final String partition;

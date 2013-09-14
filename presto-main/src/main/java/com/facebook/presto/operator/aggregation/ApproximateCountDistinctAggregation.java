@@ -162,7 +162,7 @@ public class ApproximateCountDistinctAggregation
     }
 
     public static class DoubleHasher
-        implements CursorHasher
+            implements CursorHasher
     {
         private static final HashFunction HASH = Hashing.murmur3_128();
 
@@ -188,7 +188,7 @@ public class ApproximateCountDistinctAggregation
     }
 
     public static class SliceHasher
-        implements CursorHasher
+            implements CursorHasher
     {
         private static final HashFunction HASH = Hashing.murmur3_128();
 
@@ -199,6 +199,5 @@ public class ApproximateCountDistinctAggregation
 
             return HASH.hashBytes(value.getBytes()).asLong();
         }
-
     }
 }

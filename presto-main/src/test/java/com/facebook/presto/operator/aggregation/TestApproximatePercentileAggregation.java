@@ -18,8 +18,8 @@ import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
-import com.facebook.presto.operator.AggregationOperator.Aggregator;
 import com.facebook.presto.operator.AggregationFunctionDefinition;
+import com.facebook.presto.operator.AggregationOperator.Aggregator;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.tree.Input;
@@ -35,8 +35,8 @@ import java.util.List;
 
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
-import static com.facebook.presto.operator.AggregationOperator.createAggregator;
 import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
+import static com.facebook.presto.operator.AggregationOperator.createAggregator;
 import static com.facebook.presto.tuple.Tuples.createTuple;
 import static org.testng.Assert.assertEquals;
 
@@ -48,25 +48,27 @@ public class TestApproximatePercentileAggregation
     {
         // regular approx_percentile
         assertSingleStep(LongApproximatePercentileAggregation.INSTANCE, createPage(new Long[] {}, 0.5), null);
-        assertSingleStep(LongApproximatePercentileAggregation.INSTANCE, createPage(new Long[] { 1L }, 0.5), 1L);
-        assertSingleStep(LongApproximatePercentileAggregation.INSTANCE, createPage(new Long[] { 1L, 2L, 2L, 2L, 2L, 2L, 2L, 3L, 3L, 3L, 3L, 4L, 5L, 6L, 7L }, 0.5), 3L);
-        assertSingleStep(LongApproximatePercentileAggregation.INSTANCE, createPage(new Long[] { null, null, null }, 0.5), null);
-        assertSingleStep(LongApproximatePercentileAggregation.INSTANCE, createPage(new Long[] { 1L, null, 2L, 2L, null, 2L, 2L, null, 2L, 2L, 3L, 3L, 3L, 3L, 4L, 5L, 6L, 7L }, 0.5), 3L);
-        assertSingleStep(LongApproximatePercentileAggregation.INSTANCE, createPage(new Long[] { -7L, -6L, -5L, -4L, -3L, -2L, -1L, 0L, 1L, 2L, 3L }, 0.5), -2L);
+        assertSingleStep(LongApproximatePercentileAggregation.INSTANCE, createPage(new Long[] {1L}, 0.5), 1L);
+        assertSingleStep(LongApproximatePercentileAggregation.INSTANCE, createPage(new Long[] {1L, 2L, 2L, 2L, 2L, 2L, 2L, 3L, 3L, 3L, 3L, 4L, 5L, 6L, 7L}, 0.5), 3L);
+        assertSingleStep(LongApproximatePercentileAggregation.INSTANCE, createPage(new Long[] {null, null, null}, 0.5), null);
+        assertSingleStep(LongApproximatePercentileAggregation.INSTANCE, createPage(new Long[] {1L, null, 2L, 2L, null, 2L, 2L, null, 2L, 2L, 3L, 3L, 3L, 3L, 4L, 5L, 6L,
+                                                                                               7L}, 0.5), 3L);
+        assertSingleStep(LongApproximatePercentileAggregation.INSTANCE, createPage(new Long[] {-7L, -6L, -5L, -4L, -3L, -2L, -1L, 0L, 1L, 2L, 3L}, 0.5), -2L);
 
         // weighted approx_percentile
         assertSingleStep(LongApproximatePercentileWeightedAggregation.INSTANCE, createPage(new Long[] {}, new Long[] {}, 0.5), null);
-        assertSingleStep(LongApproximatePercentileWeightedAggregation.INSTANCE, createPage(new Long[] { 1L }, new Long[] { 1L }, 0.5), 1L);
-        assertSingleStep(LongApproximatePercentileWeightedAggregation.INSTANCE, createPage(new Long[] { 1L, 2L, 3L, 4L, 5L, 6L, 7L }, new Long[] { 1L, 6L, 4L, 1L, 1L, 1L, 1L }, 0.5), 3L);
-        assertSingleStep(LongApproximatePercentileWeightedAggregation.INSTANCE, createPage(new Long[] { null, null, null }, new Long[] { 1L, 1L, 1L }, 0.5), null);
+        assertSingleStep(LongApproximatePercentileWeightedAggregation.INSTANCE, createPage(new Long[] {1L}, new Long[] {1L}, 0.5), 1L);
+        assertSingleStep(LongApproximatePercentileWeightedAggregation.INSTANCE, createPage(new Long[] {1L, 2L, 3L, 4L, 5L, 6L, 7L}, new Long[] {1L, 6L, 4L, 1L, 1L, 1L,
+                                                                                                                                                1L}, 0.5), 3L);
+        assertSingleStep(LongApproximatePercentileWeightedAggregation.INSTANCE, createPage(new Long[] {null, null, null}, new Long[] {1L, 1L, 1L}, 0.5), null);
         assertSingleStep(LongApproximatePercentileWeightedAggregation.INSTANCE, createPage(
-                new Long[] { 1L, null, 2L, null, 2L, null, 2L, 3L, 4L, 5L, 6L, 7L },
-                new Long[] { 1L, null, 2L, null, 2L, null, 2L, 4L, 1L, 1L, 1L, 1L },
+                new Long[] {1L, null, 2L, null, 2L, null, 2L, 3L, 4L, 5L, 6L, 7L},
+                new Long[] {1L, null, 2L, null, 2L, null, 2L, 4L, 1L, 1L, 1L, 1L},
                 0.5), 3L);
 
         assertSingleStep(LongApproximatePercentileWeightedAggregation.INSTANCE, createPage(
-                new Long[] { -7L, -6L, -5L, -4L, -3L, -2L, -1L, 0L, 1L, 2L, 3L },
-                new Long[] { 1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L },
+                new Long[] {-7L, -6L, -5L, -4L, -3L, -2L, -1L, 0L, 1L, 2L, 3L},
+                new Long[] {1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L},
                 0.5), -2L);
     }
 
@@ -76,27 +78,29 @@ public class TestApproximatePercentileAggregation
     {
         // regular approx_percentile
         assertSingleStep(DoubleApproximatePercentileAggregation.INSTANCE, createPage(new Double[] {}, 0.5), null);
-        assertSingleStep(DoubleApproximatePercentileAggregation.INSTANCE, createPage(new Double[] { 1.0 }, 0.5), 1.0);
-        assertSingleStep(DoubleApproximatePercentileAggregation.INSTANCE, createPage(new Double[] { 1.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 3.0, 3.0, 3.0, 3.0, 4.0, 5.0, 6.0, 7.0 }, 0.5), 3.0);
-        assertSingleStep(DoubleApproximatePercentileAggregation.INSTANCE, createPage(new Double[] { null, null, null }, 0.5), null);
-        assertSingleStep(DoubleApproximatePercentileAggregation.INSTANCE, createPage(new Double[] { 1.0, null, 2.0, 2.0, null, 2.0, 2.0, null, 2.0, 2.0, 3.0, 3.0, 3.0, 3.0, 4.0, 5.0, 6.0, 7.0 }, 0.5), 3.0);
-        assertSingleStep(DoubleApproximatePercentileAggregation.INSTANCE, createPage(new Double[] { -7.0, -6.0, -5.0, -4.0, -3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0 }, 0.5), -2.0);
+        assertSingleStep(DoubleApproximatePercentileAggregation.INSTANCE, createPage(new Double[] {1.0}, 0.5), 1.0);
+        assertSingleStep(DoubleApproximatePercentileAggregation.INSTANCE, createPage(new Double[] {1.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 3.0, 3.0, 3.0, 3.0, 4.0, 5.0, 6.0,
+                                                                                                   7.0}, 0.5), 3.0);
+        assertSingleStep(DoubleApproximatePercentileAggregation.INSTANCE, createPage(new Double[] {null, null, null}, 0.5), null);
+        assertSingleStep(DoubleApproximatePercentileAggregation.INSTANCE, createPage(new Double[] {1.0, null, 2.0, 2.0, null, 2.0, 2.0, null, 2.0, 2.0, 3.0, 3.0, 3.0, 3.0, 4.0,
+                                                                                                   5.0, 6.0, 7.0}, 0.5), 3.0);
+        assertSingleStep(DoubleApproximatePercentileAggregation.INSTANCE, createPage(new Double[] {-7.0, -6.0, -5.0, -4.0, -3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0}, 0.5), -2.0);
 
         // weighted approx_percentile
         assertSingleStep(DoubleApproximatePercentileWeightedAggregation.INSTANCE, createPage(new Double[] {}, new Long[] {}, 0.5), null);
-        assertSingleStep(DoubleApproximatePercentileWeightedAggregation.INSTANCE, createPage(new Double[] { 1.0 }, new Long[] { 1L }, 0.5), 1.0);
-        assertSingleStep(DoubleApproximatePercentileWeightedAggregation.INSTANCE, createPage(new Double[] { 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0 }, new Long[] { 1L, 6L, 4L, 1L, 1L, 1L, 1L }, 0.5), 3.0);
-        assertSingleStep(DoubleApproximatePercentileWeightedAggregation.INSTANCE, createPage(new Double[] { null, null, null }, new Long[] { 1L, 1L, 1L }, 0.5), null);
+        assertSingleStep(DoubleApproximatePercentileWeightedAggregation.INSTANCE, createPage(new Double[] {1.0}, new Long[] {1L}, 0.5), 1.0);
+        assertSingleStep(DoubleApproximatePercentileWeightedAggregation.INSTANCE, createPage(new Double[] {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0}, new Long[] {1L, 6L, 4L, 1L, 1L, 1L,
+                                                                                                                                                           1L}, 0.5), 3.0);
+        assertSingleStep(DoubleApproximatePercentileWeightedAggregation.INSTANCE, createPage(new Double[] {null, null, null}, new Long[] {1L, 1L, 1L}, 0.5), null);
         assertSingleStep(DoubleApproximatePercentileWeightedAggregation.INSTANCE, createPage(
-                new Double[] { 1.0, null, 2.0, null, 2.0, null, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0 },
-                new Long[] { 1L, null, 2L, null, 2L, null, 2L, 4L, 1L, 1L, 1L, 1L },
+                new Double[] {1.0, null, 2.0, null, 2.0, null, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0},
+                new Long[] {1L, null, 2L, null, 2L, null, 2L, 4L, 1L, 1L, 1L, 1L},
                 0.5), 3.0);
 
         assertSingleStep(DoubleApproximatePercentileWeightedAggregation.INSTANCE, createPage(
-                new Double[] { -7.0, -6.0, -5.0, -4.0, -3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0 },
-                new Long[] { 1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L },
+                new Double[] {-7.0, -6.0, -5.0, -4.0, -3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0},
+                new Long[] {1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L},
                 0.5), -2.0);
-
     }
 
     @Test
@@ -105,59 +109,58 @@ public class TestApproximatePercentileAggregation
     {
         // regular approx_percentile
         assertFinal(LongApproximatePercentileAggregation.INSTANCE, new Page[] {
-                createPage(new Long[] { null }, 0.5),
-                createPage(new Long[] { null }, 0.5) },
+                createPage(new Long[] {null}, 0.5),
+                createPage(new Long[] {null}, 0.5)},
                 null);
 
         assertFinal(LongApproximatePercentileAggregation.INSTANCE, new Page[] {
-                createPage(new Long[] { null }, 0.5),
-                createPage(new Long[] { 1L }, 0.5) },
+                createPage(new Long[] {null}, 0.5),
+                createPage(new Long[] {1L}, 0.5)},
                 1L);
 
         assertFinal(LongApproximatePercentileAggregation.INSTANCE, new Page[] {
-                createPage(new Long[] { null }, 0.5),
-                createPage(new Long[] { 1L, 2L, 3L }, 0.5) },
+                createPage(new Long[] {null}, 0.5),
+                createPage(new Long[] {1L, 2L, 3L}, 0.5)},
                 2L);
 
         assertFinal(LongApproximatePercentileAggregation.INSTANCE, new Page[] {
-                createPage(new Long[] { 1L }, 0.5),
-                createPage(new Long[] { 2L, 3L }, 0.5) },
+                createPage(new Long[] {1L}, 0.5),
+                createPage(new Long[] {2L, 3L}, 0.5)},
                 2L);
 
         assertFinal(LongApproximatePercentileAggregation.INSTANCE, new Page[] {
-                createPage(new Long[] { 1L, null, 2L, 2L, null, 2L, 2L, null }, 0.5),
-                createPage(new Long[] { 2L, 2L, null, 3L, 3L, null, 3L, null, 3L, 4L, 5L, 6L, 7L }, 0.5) },
+                createPage(new Long[] {1L, null, 2L, 2L, null, 2L, 2L, null}, 0.5),
+                createPage(new Long[] {2L, 2L, null, 3L, 3L, null, 3L, null, 3L, 4L, 5L, 6L, 7L}, 0.5)},
                 3L);
-
 
         // weighted approx_percentile
         assertFinal(LongApproximatePercentileWeightedAggregation.INSTANCE, new Page[] {
-                createPage(new Long[] { null }, new Long[] { 1L }, 0.5),
-                createPage(new Long[] { null }, new Long[] { 1L }, 0.5) },
+                createPage(new Long[] {null}, new Long[] {1L}, 0.5),
+                createPage(new Long[] {null}, new Long[] {1L}, 0.5)},
                 null);
 
         assertFinal(LongApproximatePercentileWeightedAggregation.INSTANCE, new Page[] {
-                createPage(new Long[] { null }, new Long[] { 1L }, 0.5),
-                createPage(new Long[] { 1L }, new Long[] { 1L }, 0.5) },
+                createPage(new Long[] {null}, new Long[] {1L}, 0.5),
+                createPage(new Long[] {1L}, new Long[] {1L}, 0.5)},
                 1L);
 
         assertFinal(LongApproximatePercentileWeightedAggregation.INSTANCE, new Page[] {
-                createPage(new Long[] { null }, new Long[] { 1L }, 0.5),
-                createPage(new Long[] { 1L, 2L, 3L }, new Long[] { 1L, 1L, 1L }, 0.5) },
+                createPage(new Long[] {null}, new Long[] {1L}, 0.5),
+                createPage(new Long[] {1L, 2L, 3L}, new Long[] {1L, 1L, 1L}, 0.5)},
                 2L);
 
         assertFinal(LongApproximatePercentileWeightedAggregation.INSTANCE, new Page[] {
-                createPage(new Long[] { 1L }, new Long[] { 1L }, 0.5),
-                createPage(new Long[] { 2L, 3L }, new Long[] { 1L, 1L }, 0.5) },
+                createPage(new Long[] {1L}, new Long[] {1L}, 0.5),
+                createPage(new Long[] {2L, 3L}, new Long[] {1L, 1L}, 0.5)},
                 2L);
 
         assertFinal(LongApproximatePercentileWeightedAggregation.INSTANCE, new Page[] {
-                createPage(new Long[] { 1L, null, 2L, null, 2L, null },
-                        new Long[] { 1L, 1L, 2L, 1L, 2L, 1L },
+                createPage(new Long[] {1L, null, 2L, null, 2L, null},
+                        new Long[] {1L, 1L, 2L, 1L, 2L, 1L},
                         0.5),
-                createPage(new Long[] { 2L, null, 3L, null, 3L, null, 3L, 4L, 5L, 6L, 7L },
-                        new Long[] { 2L, 1L, 2L, 1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L },
-                        0.5) },
+                createPage(new Long[] {2L, null, 3L, null, 3L, null, 3L, 4L, 5L, 6L, 7L},
+                        new Long[] {2L, 1L, 2L, 1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L},
+                        0.5)},
                 3L);
     }
 
@@ -167,62 +170,60 @@ public class TestApproximatePercentileAggregation
     {
         // regular approx_percentile
         assertFinal(DoubleApproximatePercentileAggregation.INSTANCE, new Page[] {
-                createPage(new Double[] { null }, 0.5),
-                createPage(new Double[] { null }, 0.5) },
+                createPage(new Double[] {null}, 0.5),
+                createPage(new Double[] {null}, 0.5)},
                 null);
 
         assertFinal(DoubleApproximatePercentileAggregation.INSTANCE, new Page[] {
-                createPage(new Double[] { null }, 0.5),
-                createPage(new Double[] { 1.0 }, 0.5) },
+                createPage(new Double[] {null}, 0.5),
+                createPage(new Double[] {1.0}, 0.5)},
                 1.0);
 
         assertFinal(DoubleApproximatePercentileAggregation.INSTANCE, new Page[] {
-                createPage(new Double[] { null }, 0.5),
-                createPage(new Double[] { 1.0, 2.0, 3.0 }, 0.5) },
+                createPage(new Double[] {null}, 0.5),
+                createPage(new Double[] {1.0, 2.0, 3.0}, 0.5)},
                 2.0);
 
         assertFinal(DoubleApproximatePercentileAggregation.INSTANCE, new Page[] {
-                createPage(new Double[] { 1.0 }, 0.5),
-                createPage(new Double[] { 2.0, 3.0 }, 0.5) },
+                createPage(new Double[] {1.0}, 0.5),
+                createPage(new Double[] {2.0, 3.0}, 0.5)},
                 2.0);
 
         assertFinal(DoubleApproximatePercentileAggregation.INSTANCE, new Page[] {
-                createPage(new Double[] { 1.0, null, 2.0, 2.0, null, 2.0, 2.0, null }, 0.5),
-                createPage(new Double[] { 2.0, 2.0, null, 3.0, 3.0, null, 3.0, null, 3.0, 4.0, 5.0, 6.0, 7.0 }, 0.5) },
+                createPage(new Double[] {1.0, null, 2.0, 2.0, null, 2.0, 2.0, null}, 0.5),
+                createPage(new Double[] {2.0, 2.0, null, 3.0, 3.0, null, 3.0, null, 3.0, 4.0, 5.0, 6.0, 7.0}, 0.5)},
                 3.0);
-
 
         // weighted approx_percentile
         assertFinal(DoubleApproximatePercentileWeightedAggregation.INSTANCE, new Page[] {
-                createPage(new Double[] { null }, new Long[] { 1L }, 0.5),
-                createPage(new Double[] { null }, new Long[] { 1L }, 0.5) },
+                createPage(new Double[] {null}, new Long[] {1L}, 0.5),
+                createPage(new Double[] {null}, new Long[] {1L}, 0.5)},
                 null);
 
         assertFinal(DoubleApproximatePercentileWeightedAggregation.INSTANCE, new Page[] {
-                createPage(new Double[] { null }, new Long[] { 1L }, 0.5),
-                createPage(new Double[] { 1.0 }, new Long[] { 1L }, 0.5) },
+                createPage(new Double[] {null}, new Long[] {1L}, 0.5),
+                createPage(new Double[] {1.0}, new Long[] {1L}, 0.5)},
                 1.0);
 
         assertFinal(DoubleApproximatePercentileWeightedAggregation.INSTANCE, new Page[] {
-                createPage(new Double[] { null }, new Long[] { 1L }, 0.5),
-                createPage(new Double[] { 1.0, 2.0, 3.0 }, new Long[] { 1L, 1L, 1L}, 0.5) },
+                createPage(new Double[] {null}, new Long[] {1L}, 0.5),
+                createPage(new Double[] {1.0, 2.0, 3.0}, new Long[] {1L, 1L, 1L}, 0.5)},
                 2.0);
 
         assertFinal(DoubleApproximatePercentileWeightedAggregation.INSTANCE, new Page[] {
-                createPage(new Double[] { 1.0 }, new Long[] { 1L }, 0.5),
-                createPage(new Double[] { 2.0, 3.0 }, new Long[] { 1L, 1L }, 0.5) },
+                createPage(new Double[] {1.0}, new Long[] {1L}, 0.5),
+                createPage(new Double[] {2.0, 3.0}, new Long[] {1L, 1L}, 0.5)},
                 2.0);
 
         assertFinal(DoubleApproximatePercentileWeightedAggregation.INSTANCE, new Page[] {
-                createPage(new Double[] { 1.0, null, 2.0, null, 2.0, null },
-                        new Long[] { 1L, 1L, 2L, 1L, 2L, 1L},
+                createPage(new Double[] {1.0, null, 2.0, null, 2.0, null},
+                        new Long[] {1L, 1L, 2L, 1L, 2L, 1L},
                         0.5),
-                createPage(new Double[] { 2.0, null, 3.0, null, 3.0, null, 3.0, 4.0, 5.0, 6.0, 7.0 },
-                        new Long[] { 2L, 1L, 2L, 1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L },
-                        0.5) },
+                createPage(new Double[] {2.0, null, 3.0, null, 3.0, null, 3.0, 4.0, 5.0, 6.0, 7.0},
+                        new Long[] {2L, 1L, 2L, 1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L},
+                        0.5)},
                 3.0);
     }
-
 
     private static void assertFinal(AggregationFunction function, Page[] inputs, Object expectedValue)
     {
@@ -256,7 +257,6 @@ public class TestApproximatePercentileAggregation
         }
 
         assertEquals(getResult(function.getFinalTupleInfo(), aggregator2), expected);
-
     }
 
     private static void assertSingleStep(AggregationFunction function, Page input, Object expectedValue)
@@ -268,7 +268,7 @@ public class TestApproximatePercentileAggregation
         AggregationFunctionDefinition definition = aggregation(function, inputs);
 
         MaterializedResult expected = MaterializedResult.resultBuilder(function.getFinalTupleInfo())
-                .row(new Object[] { expectedValue })
+                .row(new Object[] {expectedValue})
                 .build();
 
         // verify addInput(Page)

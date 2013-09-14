@@ -19,6 +19,7 @@ import io.airlift.event.client.EventType;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.Immutable;
+
 import java.net.URI;
 
 @Immutable

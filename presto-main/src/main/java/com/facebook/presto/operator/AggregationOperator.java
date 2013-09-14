@@ -35,7 +35,6 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-
 /**
  * Group input data and produce a single block for each sequence of identical values.
  */
@@ -356,7 +355,6 @@ public class AggregationOperator
                 intermediateValue = function.addInput(blockCursors, fields, intermediateValue);
             }
         }
-
 
         @Override
         public Block getResult()

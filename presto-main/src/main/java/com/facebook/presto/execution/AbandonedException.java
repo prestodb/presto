@@ -16,7 +16,7 @@ package com.facebook.presto.execution;
 import org.joda.time.DateTime;
 
 public class AbandonedException
-    extends RuntimeException
+        extends RuntimeException
 {
     public AbandonedException(String name, DateTime lastHeartbeat, DateTime now)
     {

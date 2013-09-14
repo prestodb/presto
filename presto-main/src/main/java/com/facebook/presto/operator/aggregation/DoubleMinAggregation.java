@@ -109,7 +109,8 @@ public class DoubleMinAggregation
         if (!SINGLE_DOUBLE.isNull(valueSlice, valueOffset, 0)) {
             double currentValue = SINGLE_DOUBLE.getDouble(valueSlice, valueOffset, 0);
             output.append(currentValue);
-        } else {
+        }
+        else {
             output.appendNull();
         }
     }

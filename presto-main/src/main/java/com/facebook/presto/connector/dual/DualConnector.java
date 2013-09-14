@@ -46,5 +46,4 @@ public class DualConnector
     {
         return services.getInstance(type);
     }
-
 }

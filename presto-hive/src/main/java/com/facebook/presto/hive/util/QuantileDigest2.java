@@ -24,6 +24,7 @@ import com.google.common.collect.PeekingIterator;
 import com.google.common.util.concurrent.AtomicDouble;
 
 import javax.annotation.concurrent.ThreadSafe;
+
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -82,7 +83,7 @@ public class QuantileDigest2
     }
 
     /**
-     *<p>Create a QuantileDigest with a maximum error guarantee of "maxError" and exponential decay
+     * <p>Create a QuantileDigest with a maximum error guarantee of "maxError" and exponential decay
      * with factor "alpha".</p>
      *
      * @param maxError the max error tolerance
@@ -234,7 +235,6 @@ public class QuantileDigest2
         {
             public boolean process(Node node)
             {
-
                 while (iterator.hasNext() && iterator.peek() <= node.getUpperBound()) {
                     double bucketCount = sum.get() - lastSum.get();
 

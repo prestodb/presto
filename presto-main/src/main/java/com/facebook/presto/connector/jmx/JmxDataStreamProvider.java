@@ -14,8 +14,8 @@
 package com.facebook.presto.connector.jmx;
 
 import com.facebook.presto.operator.Operator;
-import com.facebook.presto.operator.RecordProjectOperator;
 import com.facebook.presto.operator.OperatorContext;
+import com.facebook.presto.operator.RecordProjectOperator;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.InMemoryRecordSet;
@@ -156,9 +156,9 @@ public class JmxDataStreamProvider
         String[] columnNamesArray = uniqueColumnNames.toArray(new String[uniqueColumnNames.size()]);
 
         return IterableTransformer.on(mbeanServer.getAttributes(objectName, columnNamesArray).asList())
-              .uniqueIndex(attributeNameGetter())
-              .transformValues(attributeValueGetter())
-              .map();
+                .uniqueIndex(attributeNameGetter())
+                .transformValues(attributeValueGetter())
+                .map();
     }
 
     private Function<Attribute, String> attributeNameGetter()

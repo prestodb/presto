@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import org.apache.commons.math.stat.descriptive.moment.StandardDeviation;
@@ -28,7 +27,7 @@ public class TestDoubleStdDevPopAggregation
     {
         BlockBuilder blockBuilder = new BlockBuilder(SINGLE_DOUBLE);
         for (int i = start; i < start + length; i++) {
-            blockBuilder.append((double)i);
+            blockBuilder.append((double) i);
         }
         return blockBuilder.build();
     }
@@ -46,7 +45,7 @@ public class TestDoubleStdDevPopAggregation
             return null;
         }
 
-        double [] values = new double [length];
+        double[] values = new double[length];
         for (int i = 0; i < length; i++) {
             values[i] = start + i;
         }
@@ -54,5 +53,4 @@ public class TestDoubleStdDevPopAggregation
         StandardDeviation stdDev = new StandardDeviation(false);
         return stdDev.evaluate(values);
     }
-
 }

@@ -61,7 +61,6 @@ public class TestRunLengthEncodedBlockSerde
                 createTuple("charlie"),
                 createTuple("charlie"));
 
-
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
         BlockEncoding blockEncoding = new RunLengthEncoder(sliceOutput).append(tuples).finish();
         SliceInput sliceInput = sliceOutput.slice().getInput();

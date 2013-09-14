@@ -81,14 +81,14 @@ public class QueryStateMachine
 
     public QueryStateMachine(QueryId queryId, String query, Session session, URI self, Executor executor)
     {
-
         this.queryId = checkNotNull(queryId, "queryId is null");
         this.query = checkNotNull(query, "query is null");
         this.session = checkNotNull(session, "session is null");
         this.self = checkNotNull(self, "self is null");
 
         this.queryState = new StateMachine<>("query " + query, executor, QueryState.QUEUED);
-        queryState.addStateChangeListener(new StateChangeListener<QueryState>() {
+        queryState.addStateChangeListener(new StateChangeListener<QueryState>()
+        {
             @Override
             public void stateChanged(QueryState newValue)
             {
@@ -119,7 +119,8 @@ public class QueryStateMachine
         Duration elapsedTime;
         if (endTime != null) {
             elapsedTime = new Duration(endTime.getMillis() - createTime.getMillis(), MILLISECONDS);
-        } else {
+        }
+        else {
             elapsedTime = Duration.nanosSince(createNanos);
         }
 
@@ -183,7 +184,6 @@ public class QueryStateMachine
                     processedInputPositions += stageStats.getProcessedInputPositions();
                 }
             }
-
 
             StageStats outputStageStats = rootStage.getStageStats();
             outputDataSize += outputStageStats.getOutputDataSize().toBytes();

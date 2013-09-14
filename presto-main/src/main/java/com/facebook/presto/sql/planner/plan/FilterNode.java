@@ -25,7 +25,7 @@ import java.util.List;
 
 @Immutable
 public class FilterNode
-    extends PlanNode
+        extends PlanNode
 {
     private final PlanNode source;
     private final Expression predicate;
@@ -69,5 +69,4 @@ public class FilterNode
     {
         return visitor.visitFilter(this, context);
     }
-
 }

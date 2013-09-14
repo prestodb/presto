@@ -22,5 +22,4 @@ public interface Split
     List<HostAddress> getAddresses();
 
     Object getInfo();
-
 }

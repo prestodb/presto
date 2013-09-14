@@ -212,7 +212,6 @@ public class DistributedLogicalPlanner
             return current;
         }
 
-
         @Override
         public SubPlanBuilder visitOutput(OutputNode node, Void context)
         {
@@ -406,5 +405,4 @@ public class DistributedLogicalPlanner
             return new SubPlanBuilder(new PlanFragmentId(String.valueOf(nextFragmentId++)), allocator, root);
         }
     }
-
 }

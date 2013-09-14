@@ -143,5 +143,4 @@ public class FailureInfo
         }
         return new StackTraceElement("Unknown", stack, null, -1);
     }
-
 }

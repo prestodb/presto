@@ -14,8 +14,6 @@
 package com.facebook.presto.byteCode;
 
 import com.facebook.presto.byteCode.control.CaseStatement;
-import com.facebook.presto.byteCode.instruction.VariableInstruction.IncrementVariableInstruction;
-import com.google.common.base.Joiner;
 import com.facebook.presto.byteCode.control.DoWhileLoop;
 import com.facebook.presto.byteCode.control.ForLoop;
 import com.facebook.presto.byteCode.control.IfStatement;
@@ -38,8 +36,10 @@ import com.facebook.presto.byteCode.instruction.InvokeInstruction;
 import com.facebook.presto.byteCode.instruction.InvokeInstruction.InvokeDynamicInstruction;
 import com.facebook.presto.byteCode.instruction.JumpInstruction;
 import com.facebook.presto.byteCode.instruction.LabelNode;
+import com.facebook.presto.byteCode.instruction.VariableInstruction.IncrementVariableInstruction;
 import com.facebook.presto.byteCode.instruction.VariableInstruction.LoadVariableInstruction;
 import com.facebook.presto.byteCode.instruction.VariableInstruction.StoreVariableInstruction;
+import com.google.common.base.Joiner;
 
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -48,7 +48,8 @@ import java.util.List;
 
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 
-public class DumpByteCodeVisitor extends ByteCodeVisitor<Void>
+public class DumpByteCodeVisitor
+        extends ByteCodeVisitor<Void>
 {
     private final PrintStream out;
     private int indentLevel;
@@ -184,10 +185,12 @@ public class DumpByteCodeVisitor extends ByteCodeVisitor<Void>
                 Block childBlock = (Block) node;
                 if (childBlock.getDescription() != null) {
                     visitBlock(block, childBlock);
-                } else {
+                }
+                else {
                     visitBlockContents(childBlock);
                 }
-            } else {
+            }
+            else {
                 node.accept(node, this);
             }
         }

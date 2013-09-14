@@ -17,6 +17,7 @@ import com.google.common.base.Preconditions;
 import io.airlift.log.Logger;
 
 import javax.annotation.concurrent.ThreadSafe;
+
 import java.util.Queue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -25,7 +26,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * Guarantees that no more than maxThreads will be used to execute tasks submitted
  * through execute().
- *
+ * <p/>
  * There are a few interesting properties:
  * - Multiple BoundedExecutors over a single coreExecutor will have fair sharing
  * of the coreExecutor threads proportional to their relative maxThread counts, but
@@ -81,7 +82,8 @@ public class BoundedExecutor
                 catch (Throwable e) {
                     log.error(e, "Task failed");
                 }
-            } while (queueSize.getAndDecrement() > maxThreads);
+            }
+            while (queueSize.getAndDecrement() > maxThreads);
         }
     }
 }

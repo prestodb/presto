@@ -14,15 +14,15 @@
 package com.facebook.presto.tpch;
 
 import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.operator.RecordProjectOperator;
-import com.facebook.presto.util.DelimitedRecordSet;
 import com.facebook.presto.metadata.ColumnFileHandle;
 import com.facebook.presto.operator.OperatorContext;
-import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.operator.RecordProjectOperator;
+import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.util.DelimitedRecordSet;
 import com.facebook.presto.util.Threads;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;

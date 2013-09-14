@@ -24,5 +24,4 @@ public interface ByteCodeNode
     void accept(MethodVisitor visitor);
 
     public abstract <T> T accept(ByteCodeNode parent, ByteCodeVisitor<T> visitor);
-
 }

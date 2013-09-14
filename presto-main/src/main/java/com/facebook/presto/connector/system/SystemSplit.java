@@ -42,7 +42,6 @@ public class SystemSplit
         this.tableHandle = checkNotNull(tableHandle, "tableHandle is null");
         this.filters = checkNotNull(filters, "filters is null");
 
-
         checkNotNull(addresses, "hosts is null");
         checkArgument(!addresses.isEmpty(), "hosts is empty");
         this.addresses = ImmutableList.copyOf(addresses);
@@ -88,5 +87,4 @@ public class SystemSplit
                 .add("addresses", addresses)
                 .toString();
     }
-
 }

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spi;
 
-
 public interface PartitionKey
 {
     public String getName();

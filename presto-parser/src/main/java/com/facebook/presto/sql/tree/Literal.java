@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.tree;
 
 public abstract class Literal
-    extends Expression
+        extends Expression
 {
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)

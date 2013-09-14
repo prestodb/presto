@@ -14,12 +14,12 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.AlignmentOperator.AlignmentOperatorFactory;
+import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorAssertion;
-import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.util.MaterializedResult;

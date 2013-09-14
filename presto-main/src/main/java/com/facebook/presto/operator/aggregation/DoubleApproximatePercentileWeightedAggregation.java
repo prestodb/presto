@@ -23,7 +23,7 @@ import io.airlift.slice.SliceInput;
 import io.airlift.stats.QuantileDigest;
 
 public class DoubleApproximatePercentileWeightedAggregation
-    implements VariableWidthAggregationFunction<DoubleApproximatePercentileWeightedAggregation.DigestAndPercentile>
+        implements VariableWidthAggregationFunction<DoubleApproximatePercentileWeightedAggregation.DigestAndPercentile>
 {
     public static final DoubleApproximatePercentileWeightedAggregation INSTANCE = new DoubleApproximatePercentileWeightedAggregation();
 

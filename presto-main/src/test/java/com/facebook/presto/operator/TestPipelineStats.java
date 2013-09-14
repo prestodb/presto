@@ -50,7 +50,7 @@ public class TestPipelineStats
 
             new DataSize(12, BYTE),
             13,
-            
+
             new DataSize(14, BYTE),
             15,
 

@@ -16,20 +16,28 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.operator.AggregationFunctionDefinition;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
 import com.facebook.presto.operator.DriverFactory;
+import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.ExchangeOperator.ExchangeOperatorFactory;
 import com.facebook.presto.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory;
+import com.facebook.presto.operator.FilterFunction;
+import com.facebook.presto.operator.FilterFunctions;
+import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOperatorFactory;
+import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFactory;
 import com.facebook.presto.operator.HashBuilderOperator.HashSupplier;
 import com.facebook.presto.operator.HashJoinOperator;
 import com.facebook.presto.operator.HashJoinOperator.HashJoinOperatorFactory;
 import com.facebook.presto.operator.HashSemiJoinOperator.HashSemiJoinOperatorFactory;
 import com.facebook.presto.operator.InMemoryExchange;
 import com.facebook.presto.operator.InMemoryExchangeSourceOperator.InMemoryExchangeSourceOperatorFactory;
-import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOperatorFactory;
-import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFactory;
 import com.facebook.presto.operator.LimitOperator.LimitOperatorFactory;
+import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.OrderByOperator.InMemoryOrderByOperatorFactory;
+import com.facebook.presto.operator.OutputFactory;
+import com.facebook.presto.operator.ProjectionFunction;
+import com.facebook.presto.operator.ProjectionFunctions;
 import com.facebook.presto.operator.ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory;
 import com.facebook.presto.operator.SetBuilderOperator.SetBuilderOperatorFactory;
 import com.facebook.presto.operator.SetBuilderOperator.SetSupplier;
@@ -38,14 +46,6 @@ import com.facebook.presto.operator.TableScanOperator.TableScanOperatorFactory;
 import com.facebook.presto.operator.TableWriterOperator.TableWriterOperatorFactory;
 import com.facebook.presto.operator.TopNOperator.TopNOperatorFactory;
 import com.facebook.presto.operator.WindowOperator.InMemoryWindowOperatorFactory;
-import com.facebook.presto.operator.OperatorFactory;
-import com.facebook.presto.operator.OutputFactory;
-import com.facebook.presto.operator.AggregationFunctionDefinition;
-import com.facebook.presto.operator.ExchangeClient;
-import com.facebook.presto.operator.FilterFunction;
-import com.facebook.presto.operator.FilterFunctions;
-import com.facebook.presto.operator.ProjectionFunction;
-import com.facebook.presto.operator.ProjectionFunctions;
 import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.split.DataStreamProvider;
@@ -779,9 +779,9 @@ public class LocalExecutionPlanner
                     buildContext.isInputDriver(),
                     false,
                     ImmutableList.<OperatorFactory>builder()
-                    .addAll(buildSource.getOperatorFactories())
-                    .add(setBuilderOperatorFactory)
-                    .build());
+                            .addAll(buildSource.getOperatorFactories())
+                            .add(setBuilderOperatorFactory)
+                            .build());
             context.addDriverFactory(buildDriverFactory);
 
             // Source channels are always laid out first, followed by the boolean output symbol

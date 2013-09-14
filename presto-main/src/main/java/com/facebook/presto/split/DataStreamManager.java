@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
 import javax.inject.Inject;
+
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -69,5 +70,4 @@ public class DataStreamManager
         }
         throw new IllegalArgumentException("No data stream provider for " + split);
     }
-
 }

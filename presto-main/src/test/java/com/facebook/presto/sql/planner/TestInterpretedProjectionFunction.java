@@ -28,6 +28,7 @@ import com.google.common.collect.Iterables;
 import org.testng.annotations.Test;
 
 import javax.annotation.Nullable;
+
 import java.util.Map;
 
 import static com.facebook.presto.connector.dual.DualMetadata.DUAL_METADATA_MANAGER;
@@ -54,6 +55,7 @@ public class TestInterpretedProjectionFunction
         assertProjection(BOOLEAN, "1 = 0", false);
         assertProjection(BOOLEAN, "true and false", false);
     }
+
     @Test
     public void testArithmeticExpression()
     {

@@ -142,7 +142,6 @@ public class ChannelHash
             int rightLength = tupleInfo.size(rightSlice, rightOffset);
 
             return leftSlice.equals(leftOffset, leftLength, rightSlice, rightOffset, rightLength);
-
         }
 
         private Slice getSliceForSyntheticAddress(long sliceAddress)
@@ -160,7 +159,8 @@ public class ChannelHash
     }
 
     private static class AddressToPositionMap
-            extends Long2IntOpenCustomHashMap {
+            extends Long2IntOpenCustomHashMap
+    {
         private AddressToPositionMap(int expected, LongHash.Strategy strategy)
         {
             super(expected, strategy);

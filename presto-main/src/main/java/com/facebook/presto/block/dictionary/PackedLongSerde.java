@@ -74,7 +74,7 @@ public class PackedLongSerde
     {
         checkArgument(sliceInput.available() >= Footer.BYTE_SIZE, "sliceInput not large enough to read a footer");
         checkArgument((sliceInput.available() - Footer.BYTE_SIZE) % (SizeOf.SIZE_OF_LONG) == 0, "sliceInput byte alignment incorrect");
-        
+
         // Extract Footer and then reset slice cursor
         int totalBytes = sliceInput.available();
         sliceInput.skipBytes(totalBytes - Footer.BYTE_SIZE);

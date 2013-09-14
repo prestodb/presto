@@ -23,9 +23,13 @@ import java.lang.annotation.Target;
 
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
-public @interface ScalarFunction {
+public @interface ScalarFunction
+{
     String value() default "";
+
     String[] alias() default {};
+
     boolean deterministic() default true;
+
     Class<? extends FunctionBinder> functionBinder() default DefaultFunctionBinder.class;
 }

@@ -131,7 +131,7 @@ public class TableAliasSelector
 
             Map<String, ColumnHandle> lookupColumns = metadata.getColumnHandles(aliasTableHandle.get());
 
-            Map<Symbol, ColumnHandle> assignments =  node.getAssignments();
+            Map<Symbol, ColumnHandle> assignments = node.getAssignments();
 
             ImmutableMap.Builder<Symbol, ColumnHandle> newAssignmentsBuilder = ImmutableMap.builder();
             for (Map.Entry<Symbol, ColumnHandle> assignmentEntry : assignments.entrySet()) {

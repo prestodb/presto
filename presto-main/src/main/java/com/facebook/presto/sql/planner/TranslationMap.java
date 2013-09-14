@@ -109,7 +109,6 @@ class TranslationMap
         }
     }
 
-
     public void put(Expression expression, Symbol symbol)
     {
         Expression translated = translateNamesToSymbols(expression);
@@ -132,7 +131,6 @@ class TranslationMap
             put(fieldOrExpression.getExpression(), symbol);
         }
     }
-
 
     public Symbol get(Expression expression)
     {

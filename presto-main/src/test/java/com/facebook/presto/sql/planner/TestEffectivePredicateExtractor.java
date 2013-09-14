@@ -559,7 +559,7 @@ public class TestEffectivePredicateExtractor
 
     /**
      * Normalizes Expression nodes (and all sub-expressions) by identity.
-     *
+     * <p/>
      * Identity equality of Expression nodes is necessary for EqualityInference to generate stable rewrites
      * (as specified by Ordering.arbitrary())
      */

@@ -15,6 +15,7 @@ package com.facebook.presto.hive.util;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
+
 import java.util.Queue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -51,7 +52,6 @@ public class SuspendingExecutor
     {
         taskQueue.add(task);
         activateOneTask();
-
     }
 
     private void activateOneTask()

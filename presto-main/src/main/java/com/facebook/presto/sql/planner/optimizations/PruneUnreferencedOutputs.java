@@ -207,6 +207,7 @@ public class PruneUnreferencedOutputs
 
             return new TableScanNode(node.getId(), node.getTable(), ImmutableList.copyOf(requiredTableScanOutputs), newAssignments, node.getPartitionPredicate(), node.getUpstreamPredicateHint());
         }
+
         @Override
         public PlanNode rewriteFilter(FilterNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
         {

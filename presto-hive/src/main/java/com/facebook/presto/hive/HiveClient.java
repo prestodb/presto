@@ -269,7 +269,8 @@ public class HiveClient
         List<SchemaTableName> tableNames;
         if (prefix.getSchemaName() == null) {
             tableNames = listTables(prefix.getSchemaName());
-        } else {
+        }
+        else {
             tableNames = Collections.singletonList(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
         }
         return tableNames;
@@ -809,7 +810,8 @@ public class HiveClient
                     }
                     checkState(chunkOffset == blockLocation.getLength(), "Error splitting blocks");
                 }
-            } else {
+            }
+            else {
                 // not splittable, use the hosts from the first block
                 builder.add(new HiveSplit(clientId,
                         table.getDbName(),
@@ -935,7 +937,7 @@ public class HiveClient
         }
     }
 
-    private static boolean isSplittable(InputFormat<?,?> inputFormat, FileSystem fileSystem, Path path)
+    private static boolean isSplittable(InputFormat<?, ?> inputFormat, FileSystem fileSystem, Path path)
     {
         // use reflection to get isSplittable method on InputFormat
         Method method = null;

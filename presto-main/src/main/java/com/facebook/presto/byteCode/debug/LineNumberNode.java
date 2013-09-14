@@ -13,16 +13,17 @@
  */
 package com.facebook.presto.byteCode.debug;
 
-import com.google.common.base.Objects;
-import com.google.common.collect.ImmutableList;
-import org.objectweb.asm.MethodVisitor;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ByteCodeVisitor;
 import com.facebook.presto.byteCode.instruction.LabelNode;
+import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableList;
+import org.objectweb.asm.MethodVisitor;
 
 import java.util.List;
 
-public class LineNumberNode implements DebugNode
+public class LineNumberNode
+        implements DebugNode
 {
     private final int lineNumber;
     private final LabelNode label = new LabelNode();

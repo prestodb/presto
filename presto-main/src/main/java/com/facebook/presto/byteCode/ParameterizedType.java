@@ -21,6 +21,7 @@ import org.objectweb.asm.Type;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
+
 import java.util.List;
 
 @Immutable
@@ -137,7 +138,8 @@ public class ParameterizedType
         return type;
     }
 
-    public Type getAsmType() {
+    public Type getAsmType()
+    {
         return Type.getObjectType(className);
     }
 

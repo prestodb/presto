@@ -160,7 +160,6 @@ public class DatabaseShardManager
         return builder.build();
     }
 
-
     @Override
     public Multimap<Long, Entry<Long, String>> getCommittedPartitionShardNodes(TableHandle tableHandle)
     {

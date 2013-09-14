@@ -13,22 +13,21 @@
  */
 package com.facebook.presto.byteCode.instruction;
 
-import com.google.common.collect.ImmutableList;
-import org.objectweb.asm.Handle;
-import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ByteCodeVisitor;
 import com.facebook.presto.byteCode.MethodDefinition;
 import com.facebook.presto.byteCode.OpCodes;
 import com.facebook.presto.byteCode.ParameterizedType;
+import com.google.common.collect.ImmutableList;
+import org.objectweb.asm.Handle;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
 
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.List;
 
-import static com.google.common.collect.Iterables.transform;
 import static com.facebook.presto.byteCode.MethodDefinition.methodDescription;
 import static com.facebook.presto.byteCode.OpCodes.INVOKEDYNAMIC;
 import static com.facebook.presto.byteCode.OpCodes.INVOKEINTERFACE;
@@ -37,8 +36,10 @@ import static com.facebook.presto.byteCode.OpCodes.INVOKESTATIC;
 import static com.facebook.presto.byteCode.OpCodes.INVOKEVIRTUAL;
 import static com.facebook.presto.byteCode.ParameterizedType.toParameterizedType;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
+import static com.google.common.collect.Iterables.transform;
 
-public class InvokeInstruction implements InstructionNode
+public class InvokeInstruction
+        implements InstructionNode
 {
     //
     // Invoke Static
@@ -262,7 +263,6 @@ public class InvokeInstruction implements InstructionNode
                 ImmutableList.copyOf(bootstrapArguments));
     }
 
-
     public static InstructionNode invokeDynamic(String name,
             ParameterizedType returnType,
             Iterable<ParameterizedType> parameterTypes,
@@ -288,7 +288,6 @@ public class InvokeInstruction implements InstructionNode
                 ImmutableList.copyOf(bootstrapArguments));
     }
 
-
     public static InstructionNode invokeDynamic(String name,
             MethodType methodType,
             Method bootstrapMethod,
@@ -300,7 +299,6 @@ public class InvokeInstruction implements InstructionNode
                 bootstrapMethod,
                 ImmutableList.copyOf(bootstrapArguments));
     }
-
 
     private final OpCodes opCode;
     private final ParameterizedType target;
@@ -369,7 +367,8 @@ public class InvokeInstruction implements InstructionNode
         return visitor.visitInvoke(parent, this);
     }
 
-    public static class InvokeDynamicInstruction extends InvokeInstruction
+    public static class InvokeDynamicInstruction
+            extends InvokeInstruction
     {
         private final Method bootstrapMethod;
         private final List<Object> bootstrapArguments;

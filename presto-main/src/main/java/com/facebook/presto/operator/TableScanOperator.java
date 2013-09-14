@@ -200,5 +200,4 @@ public class TableScanOperator
         }
         return delegate.getOutput();
     }
-
 }

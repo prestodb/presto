@@ -19,11 +19,11 @@ import com.google.common.primitives.Longs;
 import io.airlift.log.Logger;
 
 import javax.annotation.concurrent.GuardedBy;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.SynchronousQueue;
@@ -34,17 +34,17 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * <p>Executes batches of tasks such that individual tasks within each batch are interleaved with tasks from other batches.</p>
- *
+ * <p/>
  * <p>E.g, if two batches containing elements ["a1, "a2", "a3", "a4"] and ["b1", "b2", "b3", "b4", "b5"] are submitted
  * in that order, a possible execution might be:</p>
- *
+ * <p/>
  * <p>"a1", "b1", "a2", "b2", "a3", "b3", "a4", "b4", "b5"</p>
- *
+ * <p/>
  * <p>If a third batch ["c1", "c2", "c3"] were submitted when the execution in the example above is at "a3", a possible
  * execution might be:</p>
- *
+ * <p/>
  * <p>"a1", "b1", "a2", "b2", "a3", "b3", "c1", "a4", "b4", "c2", "b5", "c3"</p>
- *
+ * <p/>
  * <p>The first task of a batch will not execute before the first task of a previously submitted task, therefore
  * guaranteeing that no batch will get starved.</p>
  */

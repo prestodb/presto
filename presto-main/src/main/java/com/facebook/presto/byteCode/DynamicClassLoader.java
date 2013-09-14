@@ -23,7 +23,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-public class DynamicClassLoader extends ClassLoader
+public class DynamicClassLoader
+        extends ClassLoader
 {
     private final ConcurrentMap<ParameterizedType, byte[]> pendingClasses = new ConcurrentHashMap<>();
 
@@ -79,7 +80,8 @@ public class DynamicClassLoader extends ClassLoader
         return defineClass(name, byteCode);
     }
 
-    private static ClassLoader resolveClassLoader(ClassLoader parentClassLoader) {
+    private static ClassLoader resolveClassLoader(ClassLoader parentClassLoader)
+    {
         if (parentClassLoader == null) {
             parentClassLoader = Thread.currentThread().getContextClassLoader();
         }

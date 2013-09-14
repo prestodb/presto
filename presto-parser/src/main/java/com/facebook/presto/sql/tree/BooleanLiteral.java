@@ -17,7 +17,7 @@ import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 
 public class BooleanLiteral
-    extends Literal
+        extends Literal
 {
     public static final BooleanLiteral TRUE_LITERAL = new BooleanLiteral("true");
     public static final BooleanLiteral FALSE_LITERAL = new BooleanLiteral("false");

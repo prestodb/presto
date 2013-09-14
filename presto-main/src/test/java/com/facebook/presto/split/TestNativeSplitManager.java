@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.split;
 
-import com.facebook.presto.metadata.NodeVersion;
-
 import com.facebook.presto.execution.DataSource;
 import com.facebook.presto.metadata.DatabaseShardManager;
 import com.facebook.presto.metadata.InMemoryNodeManager;
@@ -22,6 +20,7 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder;
 import com.facebook.presto.metadata.NativeMetadata;
 import com.facebook.presto.metadata.Node;
+import com.facebook.presto.metadata.NodeVersion;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnType;
@@ -179,5 +178,4 @@ public class TestNativeSplitManager
         // all splits found
         assertEquals(splits.size(), 4);
     }
-
 }

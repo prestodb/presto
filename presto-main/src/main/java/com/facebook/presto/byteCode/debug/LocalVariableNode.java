@@ -13,17 +13,18 @@
  */
 package com.facebook.presto.byteCode.debug;
 
-import com.google.common.base.Objects;
-import com.google.common.collect.ImmutableList;
-import org.objectweb.asm.MethodVisitor;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ByteCodeVisitor;
 import com.facebook.presto.byteCode.LocalVariableDefinition;
 import com.facebook.presto.byteCode.instruction.LabelNode;
+import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableList;
+import org.objectweb.asm.MethodVisitor;
 
 import java.util.List;
 
-public class LocalVariableNode implements DebugNode
+public class LocalVariableNode
+        implements DebugNode
 {
     private final LocalVariableDefinition variable;
     private final LabelNode start;

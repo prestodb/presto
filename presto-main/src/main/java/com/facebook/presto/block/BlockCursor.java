@@ -31,7 +31,7 @@ import io.airlift.slice.Slice;
  * }</pre>
  */
 public interface BlockCursor
-    extends TupleReadable
+        extends TupleReadable
 {
     /**
      * Gets the type of all tuples in this cursor
@@ -76,7 +76,7 @@ public interface BlockCursor
      * positions, the length wil be reduced.  This method advances the cursor
      * to the last position in the view port, so repeated calls to this method
      * will result in distinct chunks covering all positions of the cursor.
-     *
+     * <p/>
      * For example, to get a sequence of regions with 1024 positions, use the
      * following code:
      * <p/>

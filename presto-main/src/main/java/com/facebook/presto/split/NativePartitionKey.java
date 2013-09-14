@@ -131,8 +131,8 @@ public class NativePartitionKey
     {
         checkNotNull(partitionName, "partitionName is null");
 
-        return new Predicate<NativePartitionKey>() {
-
+        return new Predicate<NativePartitionKey>()
+        {
             @Override
             public boolean apply(NativePartitionKey input)
             {

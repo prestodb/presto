@@ -28,7 +28,8 @@ import static com.facebook.presto.byteCode.ByteCodeNodes.buildBlock;
 import static com.facebook.presto.byteCode.ExpectedType.BOOLEAN;
 import static com.facebook.presto.byteCode.ExpectedType.VOID;
 
-public class ForLoop implements FlowControl
+public class ForLoop
+        implements FlowControl
 {
     public static ForLoopBuilder forLoopBuilder(CompilerContext context)
     {

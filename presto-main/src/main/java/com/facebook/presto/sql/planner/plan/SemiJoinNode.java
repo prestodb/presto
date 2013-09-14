@@ -79,6 +79,7 @@ public class SemiJoinNode
     {
         return semiJoinOutput;
     }
+
     @Override
     public List<PlanNode> getSources()
     {

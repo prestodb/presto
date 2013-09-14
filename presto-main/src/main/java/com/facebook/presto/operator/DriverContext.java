@@ -155,7 +155,6 @@ public class DriverContext
 
         List<OperatorStats> operators = ImmutableList.copyOf(transform(operatorContexts, operatorStatsGetter()));
         for (OperatorStats operator : operators) {
-
             totalScheduledTime += operator.getGetOutputWall().roundTo(NANOSECONDS);
             totalCpuTime += operator.getGetOutputCpu().roundTo(NANOSECONDS);
             totalUserTime += operator.getGetOutputUser().roundTo(NANOSECONDS);
@@ -237,7 +236,8 @@ public class DriverContext
 
     public static Function<DriverContext, DriverStats> driverStatsGetter()
     {
-        return new Function<DriverContext, DriverStats>() {
+        return new Function<DriverContext, DriverStats>()
+        {
             public DriverStats apply(DriverContext driverContext)
             {
                 return driverContext.getDriverStats();

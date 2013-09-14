@@ -65,5 +65,4 @@ public class QualifiedNameReference
     {
         return name.hashCode();
     }
-
 }

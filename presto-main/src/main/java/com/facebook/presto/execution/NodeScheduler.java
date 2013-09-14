@@ -102,7 +102,8 @@ public class NodeScheduler
                 Set<Node> nodes;
                 if (dataSourceName != null) {
                     nodes = nodeManager.getActiveDatasourceNodes(dataSourceName);
-                } else {
+                }
+                else {
                     nodes = nodeManager.getAllNodes().getActiveNodes();
                 }
 

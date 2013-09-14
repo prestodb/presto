@@ -81,7 +81,7 @@ public class UncompressedBooleanBlockCursor
     @Override
     public boolean advanceNextPosition()
     {
-        if (position >= positionCount -1) {
+        if (position >= positionCount - 1) {
             position = positionCount;
             return false;
         }

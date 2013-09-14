@@ -20,7 +20,7 @@ import static com.facebook.presto.operator.aggregation.DoubleMinAggregation.DOUB
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
 
 public class TestDoubleMinAggregation
-    extends AbstractTestAggregationFunction
+        extends AbstractTestAggregationFunction
 {
     @Override
     public Block getSequenceBlock(int start, int length)
@@ -46,5 +46,4 @@ public class TestDoubleMinAggregation
         }
         return (double) start;
     }
-
 }

@@ -23,7 +23,7 @@ import com.google.common.base.Objects;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class HivePartitionKey
-    implements PartitionKey
+        implements PartitionKey
 {
     private final String name;
     private final HiveType hiveType;
@@ -101,7 +101,8 @@ public class HivePartitionKey
 
     public static Function<HivePartitionKey, String> nameGetter()
     {
-        return new Function<HivePartitionKey, String>() {
+        return new Function<HivePartitionKey, String>()
+        {
             @Override
             public String apply(HivePartitionKey input)
             {

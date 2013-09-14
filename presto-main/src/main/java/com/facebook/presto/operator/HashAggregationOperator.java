@@ -206,7 +206,6 @@ public class HashAggregationOperator
         aggregationBuilder.processPage(page);
     }
 
-
     @Override
     public Page getOutput()
     {
@@ -668,7 +667,6 @@ public class HashAggregationOperator
                 newSize = function.estimateSizeInBytes(newValue);
             }
             totalElementSizeInBytes += newSize - oldSize;
-
         }
 
         @Override
@@ -737,7 +735,6 @@ public class HashAggregationOperator
             int rightLength = tupleInfo.size(rightSlice, rightOffset);
 
             return leftSlice.equals(leftOffset, leftLength, rightSlice, rightOffset, rightLength);
-
         }
 
         private Slice getSliceForSyntheticAddress(long sliceAddress)

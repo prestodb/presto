@@ -93,7 +93,8 @@ public abstract class AbstractBenchmark
                 }
                 averageBenchmarkResults.addResults(results);
             }
-        } finally {
+        }
+        finally {
             tearDown();
         }
         if (benchmarkResultHook != null) {

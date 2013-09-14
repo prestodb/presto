@@ -31,7 +31,7 @@ import java.util.Map;
 
 @Immutable
 public class TableScanNode
-    extends PlanNode
+        extends PlanNode
 {
     private final TableHandle table;
     private final List<Symbol> outputSymbols;
@@ -79,7 +79,6 @@ public class TableScanNode
     {
         return assignments;
     }
-
 
     @JsonProperty("partitionPredicate")
     public Expression getPartitionPredicate()

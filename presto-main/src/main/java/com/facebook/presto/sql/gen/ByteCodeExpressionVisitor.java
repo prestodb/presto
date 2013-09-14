@@ -160,7 +160,6 @@ public class ByteCodeExpressionVisitor
                     .push(channel)
                     .invokeInterface(RecordCursor.class, "isNull", boolean.class, int.class);
 
-
             switch (type) {
                 case BOOLEAN: {
                     Block isNull = new Block(context)
@@ -536,13 +535,10 @@ public class ByteCodeExpressionVisitor
         Preconditions.checkState(right.getType() == boolean.class, "Expected logical binary expression right value to be a boolean but is a %s: %s", right.getType().getName(), node);
 
         switch (node.getType()) {
-            case AND: {
+            case AND:
                 return visitAnd(context, left, right, node.toString());
-
-            }
-            case OR: {
+            case OR:
                 return visitOr(context, left, right, node.toString());
-            }
         }
         throw new UnsupportedOperationException(format("not yet implemented: %s(%s, %s)", node.getType(), left.getType(), right.getType()));
     }
@@ -588,9 +584,9 @@ public class ByteCodeExpressionVisitor
                 .comment("if right wasNull...")
                 .condition(new Block(context).getVariable("wasNull"));
 
+        // this leaves a single boolean on the stack which is ignored since the value in NULL
         ifRightIsNull.ifTrue(new Block(context)
                 .comment("right was null, pop the right value off the stack; wasNull flag remains set to TRUE")
-                // this leaves a single boolean on the stack which is ignored since the value in NULL
                 .pop(right.getType()));
 
         LabelNode rightIsTrue = new LabelNode("rightIsTrue");
@@ -652,9 +648,9 @@ public class ByteCodeExpressionVisitor
                 .comment("if right wasNull...")
                 .condition(new Block(context).getVariable("wasNull"));
 
+        // this leaves a single boolean on the stack which is ignored since the value in NULL
         ifRightIsNull.ifTrue(new Block(context)
                 .comment("right was null, pop the right value off the stack; wasNull flag remains set to TRUE")
-                // this leaves a single boolean on the stack which is ignored since the value in NULL
                 .pop(right.getType()));
 
         LabelNode rightIsTrue = new LabelNode("rightIsTrue");
@@ -824,7 +820,6 @@ public class ByteCodeExpressionVisitor
         TypedByteCodeNode value = process(node.getValue(), context);
         if (value.getType() == void.class) {
             return typedByteCodeNode(loadBoolean(false), boolean.class);
-
         }
 
         // evaluate the expression, pop the produced value, load the null flag, and invert it
@@ -1348,7 +1343,6 @@ public class ByteCodeExpressionVisitor
         checkState(types.size() == 1, "Expected only one type but found %s", types);
         return Iterables.getOnlyElement(types);
     }
-
 
     private static boolean isNumber(Class<?> type)
     {

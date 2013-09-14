@@ -30,6 +30,7 @@ import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 
 import javax.inject.Inject;
+
 import java.net.URI;
 import java.util.Iterator;
 import java.util.List;
@@ -167,5 +168,4 @@ public class PeriodicImportRunnable
     {
         return format("Query failed (#%s): %s", results.getId(), results.getError().getMessage());
     }
-
 }

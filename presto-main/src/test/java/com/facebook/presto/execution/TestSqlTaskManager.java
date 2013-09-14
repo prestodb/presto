@@ -85,7 +85,8 @@ public class TestSqlTaskManager
     {
         DualMetadata dualMetadata = new DualMetadata();
         tableHandle = dualMetadata.getTableHandle(new SchemaTableName("default", DualMetadata.NAME));
-        assertNotNull(tableHandle, "tableHandle is null");;
+        assertNotNull(tableHandle, "tableHandle is null");
+        ;
         columnHandle = dualMetadata.getColumnHandle(tableHandle, DualMetadata.COLUMN_NAME);
         assertNotNull(columnHandle, "columnHandle is null");
         symbol = new Symbol(DualMetadata.COLUMN_NAME);
@@ -95,7 +96,6 @@ public class TestSqlTaskManager
 
         DualSplitManager dualSplitManager = new DualSplitManager(new InMemoryNodeManager());
         split = Iterables.getOnlyElement(dualSplitManager.getPartitionSplits(tableHandle, dualSplitManager.getPartitions(tableHandle, ImmutableMap.<ColumnHandle, Object>of())));
-
 
         planner = new LocalExecutionPlanner(
                 new NodeInfo("test"),

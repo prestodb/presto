@@ -60,7 +60,6 @@ public class TaskExecutorSimulator
     {
         try (TaskExecutorSimulator simulator = new TaskExecutorSimulator()) {
             simulator.run();
-
         }
     }
 
@@ -71,7 +70,8 @@ public class TaskExecutorSimulator
     {
         executor = MoreExecutors.listeningDecorator(Executors.newCachedThreadPool(threadsNamed(getClass().getSimpleName() + "-%d")));
 
-        taskExecutor = new TaskExecutor(24, new Ticker() {
+        taskExecutor = new TaskExecutor(24, new Ticker()
+        {
             private final long start = System.nanoTime();
 
             @Override
@@ -88,7 +88,6 @@ public class TaskExecutorSimulator
     @Override
     public void close()
     {
-
         taskExecutor.stop();
         executor.shutdownNow();
     }
@@ -96,7 +95,6 @@ public class TaskExecutorSimulator
     public void run()
             throws Exception
     {
-
         Multimap<Integer, SimulationTask> tasks = Multimaps.synchronizedListMultimap(ArrayListMultimap.<Integer, SimulationTask>create());
         Set<ListenableFuture<?>> finishFutures = Sets.newSetFromMap(new ConcurrentHashMap<ListenableFuture<?>, Boolean>());
         AtomicBoolean done = new AtomicBoolean();
@@ -314,7 +312,6 @@ public class TaskExecutorSimulator
                         future.setException(e);
                         throw Throwables.propagate(e);
                     }
-
                 }
             });
 

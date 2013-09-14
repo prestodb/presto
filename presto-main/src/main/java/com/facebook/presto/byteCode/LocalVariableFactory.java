@@ -14,7 +14,8 @@
 package com.facebook.presto.byteCode;
 
 public class LocalVariableFactory
-        implements VariableFactory {
+        implements VariableFactory
+{
     @Override
     public Variable createVariable(CompilerContext context, String name, LocalVariableDefinition variableDefinition)
     {

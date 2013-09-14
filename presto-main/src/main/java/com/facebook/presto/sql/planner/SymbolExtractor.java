@@ -158,7 +158,6 @@ public class SymbolExtractor
             return null;
         }
 
-
         @Override
         public Void visitJoin(JoinNode node, Void context)
         {

@@ -146,7 +146,7 @@ public class TestExchangeClient
         exchangeClient.noMoreLocations();
         assertEquals(exchangeClient.isClosed(), true);
 
-        ImmutableMap<URI,PageBufferClientStatus> statuses = uniqueIndex(exchangeClient.getStatus().getPageBufferClientStatuses(), uriGetter());
+        ImmutableMap<URI, PageBufferClientStatus> statuses = uniqueIndex(exchangeClient.getStatus().getPageBufferClientStatuses(), uriGetter());
         assertStatus(statuses.get(location1), location1, "closed", 3, 2, 2, "queued");
         assertStatus(statuses.get(location2), location2, "closed", 3, 2, 2, "queued");
     }
@@ -184,7 +184,8 @@ public class TestExchangeClient
             // there is no thread coordination here, so sleep is the best we can do
             assertLessThan(Duration.nanosSince(start), new Duration(5, TimeUnit.SECONDS));
             sleepUninterruptibly(100, TimeUnit.MILLISECONDS);
-        } while (exchangeClient.getStatus().getBufferedPages() == 0);
+        }
+        while (exchangeClient.getStatus().getBufferedPages() == 0);
 
         // client should have sent a single request for a single page
         assertEquals(exchangeClient.getStatus().getBufferedPages(), 1);
@@ -196,7 +197,8 @@ public class TestExchangeClient
         do {
             assertLessThan(Duration.nanosSince(start), new Duration(5, TimeUnit.SECONDS));
             sleepUninterruptibly(100, TimeUnit.MILLISECONDS);
-        } while (exchangeClient.getStatus().getBufferedPages() == 0);
+        }
+        while (exchangeClient.getStatus().getBufferedPages() == 0);
 
         // client should have sent a single request for a single page
         assertStatus(exchangeClient.getStatus().getPageBufferClientStatuses().get(0), location, "queued", 2, 2, 2, "queued");
@@ -208,7 +210,8 @@ public class TestExchangeClient
         do {
             assertLessThan(Duration.nanosSince(start), new Duration(5, TimeUnit.SECONDS));
             sleepUninterruptibly(100, TimeUnit.MILLISECONDS);
-        } while (exchangeClient.getStatus().getBufferedPages() == 0);
+        }
+        while (exchangeClient.getStatus().getBufferedPages() == 0);
 
         // client should have sent a single request for a single page
         assertStatus(exchangeClient.getStatus().getPageBufferClientStatuses().get(0), location, "queued", 3, 3, 3, "queued");

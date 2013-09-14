@@ -122,7 +122,7 @@ public interface ShardManagerDao
             @Bind("tableId") long tableId,
             @Bind("partitionId") long partitionId);
 
-    @SqlUpdate("UPDATE shards SET committed = true WHERE shard_id = :shardId")
+    @SqlUpdate("UPDATE shards SET committed = TRUE WHERE shard_id = :shardId")
     void commitShard(@Bind("shardId") long shardId);
 
     @SqlQuery("SELECT node_id FROM nodes WHERE node_identifier = :nodeIdentifier")
@@ -170,7 +170,7 @@ public interface ShardManagerDao
     @Mapper(ShardNode.Mapper.class)
     List<ShardNode> getAllShardNodes(@Bind("tableId") long tableId, @Bind("partitionName") String partitionName);
 
-    @SqlQuery("SELECT node_identifier from nodes")
+    @SqlQuery("SELECT node_identifier FROM nodes")
     List<String> getAllNodesInUse();
 
     @SqlQuery("SELECT ps.shard_id\n" +
@@ -179,7 +179,6 @@ public interface ShardManagerDao
             "WHERE tp.table_id = :tableId\n" +
             "  AND tp.partition_name = :partitionName\n")
     List<Long> getAllShards(@Bind("tableId") long tableId, @Bind("partitionName") String partitionName);
-
 
     @SqlUpdate("DELETE FROM shard_nodes\n" +
             "WHERE shard_id = :shardId\n")
@@ -218,7 +217,7 @@ public interface ShardManagerDao
 
     @SqlQuery("SELECT s.shard_id FROM shards s\n" +
             "  WHERE s.shard_id NOT IN (SELECT shard_id FROM partition_shards ps WHERE ps.table_id = s.table_id)\n" +
-            "  AND s.shard_id NOT IN (SELECT DISTINCT shard_id from shard_nodes sn)\n" +
+            "  AND s.shard_id NOT IN (SELECT DISTINCT shard_id FROM shard_nodes sn)\n" +
             "  AND s.committed IS TRUE\n")
     List<Long> getAllOrphanedShards();
 

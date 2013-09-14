@@ -35,7 +35,7 @@ public class TestLikeUtils
     @Test(timeOut = 1000)
     public void testLikeInvalidUtf8Value()
     {
-        Slice value = Slices.wrappedBuffer(new byte[] { 'a', 'b', 'c', (byte) 0xFF, 'x', 'y' });
+        Slice value = Slices.wrappedBuffer(new byte[] {'a', 'b', 'c', (byte) 0xFF, 'x', 'y'});
         Regex regex = LikeUtils.likeToPattern("%b%", '\\');
         assertTrue(LikeUtils.regexMatches(regex, value));
     }

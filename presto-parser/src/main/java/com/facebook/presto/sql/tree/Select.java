@@ -21,7 +21,7 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class Select
-    extends Node
+        extends Node
 {
     private final boolean distinct;
     private final List<SelectItem> selectItems;

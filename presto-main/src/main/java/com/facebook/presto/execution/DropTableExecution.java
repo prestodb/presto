@@ -155,7 +155,8 @@ public class DropTableExecution
 
         storageManager.dropTableSource((NativeTableHandle) tableHandle.get());
 
-        periodicImportManager.dropJobs(new Predicate<PersistentPeriodicImportJob>() {
+        periodicImportManager.dropJobs(new Predicate<PersistentPeriodicImportJob>()
+        {
             @Override
             public boolean apply(PersistentPeriodicImportJob job)
             {

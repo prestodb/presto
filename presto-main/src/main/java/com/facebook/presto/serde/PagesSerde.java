@@ -112,7 +112,8 @@ public final class PagesSerde
         return new PagesReader(sliceInput);
     }
 
-    private static class PagesReader extends AbstractIterator<Page>
+    private static class PagesReader
+            extends AbstractIterator<Page>
     {
         private final BlockEncoding[] blockEncodings;
         private final SliceInput sliceInput;

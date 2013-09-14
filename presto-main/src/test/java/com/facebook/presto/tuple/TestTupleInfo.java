@@ -56,6 +56,7 @@ public class TestTupleInfo
 
     /**
      * The following classes depend on this exact memory layout
+     *
      * @see com.facebook.presto.block.uncompressed.UncompressedBooleanBlockCursor
      * @see com.facebook.presto.block.uncompressed.UncompressedBlock
      */
@@ -100,6 +101,7 @@ public class TestTupleInfo
 
     /**
      * The following classes depend on this exact memory layout
+     *
      * @see com.facebook.presto.block.uncompressed.UncompressedBooleanBlockCursor
      * @see com.facebook.presto.block.uncompressed.UncompressedBlock
      */
@@ -115,7 +117,7 @@ public class TestTupleInfo
         // null bit set is in first byte
         assertEquals(tupleSlice.getByte(0), 0b0000_0001);
         // value of a null boolean is 0
-        assertEquals(tupleSlice.getByte(SIZE_OF_BYTE), 0,0);
+        assertEquals(tupleSlice.getByte(SIZE_OF_BYTE), 0, 0);
     }
 
     @Test
@@ -133,6 +135,7 @@ public class TestTupleInfo
 
     /**
      * The following classes depend on this exact memory layout
+     *
      * @see com.facebook.presto.block.uncompressed.UncompressedLongBlockCursor
      * @see com.facebook.presto.block.uncompressed.UncompressedBlock
      */
@@ -174,6 +177,7 @@ public class TestTupleInfo
 
     /**
      * The following classes depend on this exact memory layout
+     *
      * @see com.facebook.presto.block.uncompressed.UncompressedSliceBlockCursor
      * @see com.facebook.presto.block.uncompressed.UncompressedBlock
      */
@@ -207,6 +211,7 @@ public class TestTupleInfo
 
     /**
      * The following classes depend on this exact memory layout
+     *
      * @see com.facebook.presto.block.uncompressed.UncompressedDoubleBlockCursor
      * @see com.facebook.presto.block.uncompressed.UncompressedBlock
      */
@@ -241,6 +246,7 @@ public class TestTupleInfo
 
     /**
      * The following classes depend on this exact memory layout
+     *
      * @see com.facebook.presto.block.uncompressed.UncompressedDoubleBlockCursor
      * @see com.facebook.presto.block.uncompressed.UncompressedBlock
      */
@@ -256,13 +262,13 @@ public class TestTupleInfo
         // null bit set is in first byte
         assertEquals(tupleSlice.getByte(0), 0b0000_0001);
         // value of a null double is 0
-        assertEquals(tupleSlice.getDouble(SIZE_OF_BYTE), 0,0);
+        assertEquals(tupleSlice.getDouble(SIZE_OF_BYTE), 0, 0);
     }
 
     @Test
     public void testSingleVariableLength()
     {
-        Slice binary = Slices.wrappedBuffer(new byte[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 });
+        Slice binary = Slices.wrappedBuffer(new byte[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
 
         Tuple tuple = TupleInfo.SINGLE_VARBINARY.builder()
                 .append(binary)
@@ -274,6 +280,7 @@ public class TestTupleInfo
 
     /**
      * The following classes depend on this exact memory layout
+     *
      * @see com.facebook.presto.block.uncompressed.UncompressedSliceBlockCursor
      * @see com.facebook.presto.block.uncompressed.UncompressedBlock
      */
@@ -308,6 +315,7 @@ public class TestTupleInfo
 
     /**
      * The following classes depend on this exact memory layout
+     *
      * @see com.facebook.presto.block.uncompressed.UncompressedSliceBlockCursor
      * @see com.facebook.presto.block.uncompressed.UncompressedBlock
      */
@@ -335,8 +343,8 @@ public class TestTupleInfo
     {
         TupleInfo info = new TupleInfo(VARIABLE_BINARY, VARIABLE_BINARY);
 
-        Slice binary1 = Slices.wrappedBuffer(new byte[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 });
-        Slice binary2 = Slices.wrappedBuffer(new byte[] { 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24 });
+        Slice binary1 = Slices.wrappedBuffer(new byte[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
+        Slice binary2 = Slices.wrappedBuffer(new byte[] {10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24});
 
         Tuple tuple = info.builder()
                 .append(binary1)
@@ -368,9 +376,9 @@ public class TestTupleInfo
     {
         TupleInfo info = new TupleInfo(FIXED_INT_64, VARIABLE_BINARY, FIXED_INT_64, VARIABLE_BINARY, FIXED_INT_64, VARIABLE_BINARY);
 
-        Slice binary1 = Slices.wrappedBuffer(new byte[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 });
-        Slice binary2 = Slices.wrappedBuffer(new byte[] { 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24 });
-        Slice binary3 = Slices.wrappedBuffer(new byte[] { 30, 31, 32, 33, 34, 35 });
+        Slice binary1 = Slices.wrappedBuffer(new byte[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
+        Slice binary2 = Slices.wrappedBuffer(new byte[] {10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24});
+        Slice binary3 = Slices.wrappedBuffer(new byte[] {30, 31, 32, 33, 34, 35});
 
         Tuple tuple = info.builder()
                 .append(42)

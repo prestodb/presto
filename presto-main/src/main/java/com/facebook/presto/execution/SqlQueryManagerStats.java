@@ -15,11 +15,8 @@ package com.facebook.presto.execution;
 
 import io.airlift.stats.CounterStat;
 import io.airlift.stats.DistributionStat;
-import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import java.util.concurrent.TimeUnit;
 
 public class SqlQueryManagerStats
 {
@@ -37,7 +34,6 @@ public class SqlQueryManagerStats
         completedQueries.update(1);
         executionTime.add(info.getQueryStats().getEndTime().getMillis() - info.getQueryStats().getCreateTime().getMillis());
     }
-
 
     @Managed
     public long getRunningQueries()

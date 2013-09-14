@@ -45,7 +45,8 @@ public class TestAliasDao
     Handle handle;
 
     @BeforeMethod
-    public void setup() throws Exception
+    public void setup()
+            throws Exception
     {
         H2EmbeddedDataSourceConfig dataSourceConfig = new H2EmbeddedDataSourceConfig().setFilename("mem:");
         DataSource dataSource = new H2EmbeddedDataSource(dataSourceConfig);
@@ -163,5 +164,4 @@ public class TestAliasDao
                 TABLE_3_TABLE_NAME);
         dao.insertAlias(tableAlias);
     }
-
 }

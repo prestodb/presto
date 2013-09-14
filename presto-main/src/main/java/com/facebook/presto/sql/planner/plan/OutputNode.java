@@ -18,14 +18,10 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
-import java.util.Map;
-
-import static com.google.common.base.Functions.forMap;
 
 @Immutable
 public class OutputNode
@@ -81,5 +77,4 @@ public class OutputNode
     {
         return visitor.visitOutput(this, context);
     }
-
 }

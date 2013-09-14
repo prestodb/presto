@@ -25,7 +25,7 @@ import java.util.List;
 
 /**
  * Provides access to the periodic importer schema.
- *
+ * <p/>
  * The job table that described import jobs and their interval,
  * the run table keeps a log of the executed import runs and their outcome.
  */

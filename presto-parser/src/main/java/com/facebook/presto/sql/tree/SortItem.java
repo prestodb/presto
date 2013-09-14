@@ -16,10 +16,8 @@ package com.facebook.presto.sql.tree;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 
-import javax.annotation.Nullable;
-
 public class SortItem
-    extends Node
+        extends Node
 {
     public enum Ordering
     {

@@ -13,17 +13,18 @@
  */
 package com.facebook.presto.block.uncompressed;
 
-import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.block.AbstractTestBlockCursor;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.tuple.TupleInfo;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 
-public class TestUncompressedBlockCursor extends AbstractTestBlockCursor
+public class TestUncompressedBlockCursor
+        extends AbstractTestBlockCursor
 {
     @Override
     protected Block createExpectedValues()

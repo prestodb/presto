@@ -29,7 +29,7 @@ import static com.google.common.collect.Iterables.concat;
 
 @Immutable
 public class AggregationNode
-    extends PlanNode
+        extends PlanNode
 {
     private final PlanNode source;
     private final List<Symbol> groupByKeys;
@@ -37,7 +37,8 @@ public class AggregationNode
     private final Map<Symbol, FunctionHandle> functions;
     private final Step step;
 
-    public enum Step {
+    public enum Step
+    {
         PARTIAL,
         FINAL,
         SINGLE

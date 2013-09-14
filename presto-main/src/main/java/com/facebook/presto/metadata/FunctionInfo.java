@@ -34,7 +34,8 @@ import static com.facebook.presto.operator.AggregationFunctionDefinition.aggrega
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-public class FunctionInfo implements Comparable<FunctionInfo>
+public class FunctionInfo
+        implements Comparable<FunctionInfo>
 {
     private final int id;
 

@@ -18,7 +18,8 @@ import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;
 
-public class TestHiveTableHandle {
+public class TestHiveTableHandle
+{
     private final JsonCodec<HiveTableHandle> codec = JsonCodec.jsonCodec(HiveTableHandle.class);
 
     @Test

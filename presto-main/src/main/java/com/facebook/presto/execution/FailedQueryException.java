@@ -16,7 +16,8 @@ package com.facebook.presto.execution;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
-public class FailedQueryException extends RuntimeException
+public class FailedQueryException
+        extends RuntimeException
 {
     public FailedQueryException(Throwable... causes)
     {

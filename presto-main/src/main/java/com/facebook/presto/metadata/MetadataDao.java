@@ -161,7 +161,7 @@ public interface MetadataDao
         }
 
         public static void createMetadataTablesWithRetry(MetadataDao dao)
-            throws InterruptedException
+                throws InterruptedException
         {
             Duration delay = new Duration(10, TimeUnit.SECONDS);
             while (true) {

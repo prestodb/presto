@@ -56,5 +56,4 @@ public class TestVarBinaryMinAggregation
         }
         return min.toString(Charsets.UTF_8);
     }
-
 }

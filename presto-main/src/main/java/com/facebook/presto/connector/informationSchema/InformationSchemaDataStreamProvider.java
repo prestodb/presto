@@ -175,11 +175,14 @@ public class InformationSchemaDataStreamProvider
             String functionType;
             if (function.isAggregate()) {
                 functionType = "aggregate";
-            } else if (function.isWindow()) {
+            }
+            else if (function.isWindow()) {
                 functionType = "window";
-            } else if (function.isDeterministic()) {
+            }
+            else if (function.isDeterministic()) {
                 functionType = "scalar";
-            } else {
+            }
+            else {
                 functionType = "scalar (non-deterministic)";
             }
 

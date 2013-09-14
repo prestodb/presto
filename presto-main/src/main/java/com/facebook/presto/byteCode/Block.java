@@ -13,9 +13,6 @@
  */
 package com.facebook.presto.byteCode;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
-import org.objectweb.asm.MethodVisitor;
 import com.facebook.presto.byteCode.debug.LineNumberNode;
 import com.facebook.presto.byteCode.instruction.Constant;
 import com.facebook.presto.byteCode.instruction.InvokeInstruction;
@@ -23,8 +20,12 @@ import com.facebook.presto.byteCode.instruction.JumpInstruction;
 import com.facebook.presto.byteCode.instruction.LabelNode;
 import com.facebook.presto.byteCode.instruction.TypeInstruction;
 import com.facebook.presto.byteCode.instruction.VariableInstruction;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+import org.objectweb.asm.MethodVisitor;
 
 import javax.annotation.concurrent.NotThreadSafe;
+
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -33,8 +34,6 @@ import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.invoke.MethodType.methodType;
 import static com.facebook.presto.byteCode.Access.STATIC;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.instruction.Constant.loadBoolean;
@@ -50,9 +49,12 @@ import static com.facebook.presto.byteCode.instruction.FieldInstruction.putField
 import static com.facebook.presto.byteCode.instruction.FieldInstruction.putStaticInstruction;
 import static com.facebook.presto.byteCode.instruction.TypeInstruction.cast;
 import static com.facebook.presto.byteCode.instruction.TypeInstruction.instanceOf;
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.invoke.MethodType.methodType;
 
 @NotThreadSafe
-public class Block implements ByteCodeNode
+public class Block
+        implements ByteCodeNode
 {
     private final CompilerContext context;
     private final List<ByteCodeNode> nodes = new ArrayList<>();
@@ -98,7 +100,7 @@ public class Block implements ByteCodeNode
 
     public Block comment(String comment, Object... args)
     {
-        nodes.add(new Comment(String.format(comment,args)));
+        nodes.add(new Comment(String.format(comment, args)));
         return this;
     }
 
@@ -249,7 +251,6 @@ public class Block implements ByteCodeNode
         return this;
     }
 
-
     public Block intBitXor()
     {
         nodes.add(OpCodes.IXOR);
@@ -267,7 +268,6 @@ public class Block implements ByteCodeNode
         nodes.add(OpCodes.LOR);
         return this;
     }
-
 
     public Block longBitXor()
     {

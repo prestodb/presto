@@ -83,7 +83,8 @@ public class BlockUtils
                 blocks);
     }
 
-    private static class BlocksIterableAdapter implements BlockIterable
+    private static class BlocksIterableAdapter
+            implements BlockIterable
     {
         private final TupleInfo tupleInfo;
         private final Iterable<Block> blocks;
@@ -134,7 +135,8 @@ public class BlockUtils
         return new BlockIterableAdapter(block);
     }
 
-    private static class BlockIterableAdapter implements Iterable<Tuple>
+    private static class BlockIterableAdapter
+            implements Iterable<Tuple>
     {
         private final Block block;
 
@@ -155,7 +157,8 @@ public class BlockUtils
         return new BlockCursorIteratorAdapter(cursor);
     }
 
-    private static class BlockCursorIteratorAdapter extends AbstractIterator<Tuple>
+    private static class BlockCursorIteratorAdapter
+            extends AbstractIterator<Tuple>
     {
         private final BlockCursor cursor;
 

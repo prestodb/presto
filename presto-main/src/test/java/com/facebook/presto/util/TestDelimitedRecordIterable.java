@@ -16,7 +16,6 @@ package com.facebook.presto.util;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.util.DelimitedRecordSet;
 import com.google.common.base.Splitter;
 import org.testng.annotations.Test;
 
@@ -29,7 +28,8 @@ import static org.testng.Assert.assertTrue;
 public class TestDelimitedRecordIterable
 {
     @Test
-    public void testExtraction() throws Exception
+    public void testExtraction()
+            throws Exception
     {
         DelimitedRecordSet recordIterable = new DelimitedRecordSet(
                 newReaderSupplier("apple,fuu,123\nbanana,bar,456"),

@@ -13,16 +13,17 @@
  */
 package com.facebook.presto.byteCode.instruction;
 
+import com.facebook.presto.byteCode.ByteCodeNode;
+import com.facebook.presto.byteCode.ByteCodeVisitor;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
-import com.facebook.presto.byteCode.ByteCodeNode;
-import com.facebook.presto.byteCode.ByteCodeVisitor;
 
 import java.util.List;
 
-public class LabelNode implements InstructionNode
+public class LabelNode
+        implements InstructionNode
 {
     private final String name;
     private final Label label;

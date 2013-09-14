@@ -16,6 +16,7 @@ package com.facebook.presto.metadata;
 import io.airlift.configuration.Config;
 
 import javax.validation.constraints.NotNull;
+
 import java.io.File;
 
 public class CatalogManagerConfig

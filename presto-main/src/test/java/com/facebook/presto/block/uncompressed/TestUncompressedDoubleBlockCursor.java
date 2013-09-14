@@ -20,7 +20,8 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 
-public class TestUncompressedDoubleBlockCursor extends AbstractTestBlockCursor
+public class TestUncompressedDoubleBlockCursor
+        extends AbstractTestBlockCursor
 {
     @Override
     protected Block createExpectedValues()

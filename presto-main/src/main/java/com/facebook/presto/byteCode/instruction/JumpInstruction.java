@@ -13,17 +13,34 @@
  */
 package com.facebook.presto.byteCode.instruction;
 
-import com.google.common.collect.ImmutableList;
-import org.objectweb.asm.MethodVisitor;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ByteCodeVisitor;
 import com.facebook.presto.byteCode.OpCodes;
+import com.google.common.collect.ImmutableList;
+import org.objectweb.asm.MethodVisitor;
 
 import java.util.List;
 
-import static com.facebook.presto.byteCode.OpCodes.*;
+import static com.facebook.presto.byteCode.OpCodes.GOTO;
+import static com.facebook.presto.byteCode.OpCodes.IFEQ;
+import static com.facebook.presto.byteCode.OpCodes.IFGE;
+import static com.facebook.presto.byteCode.OpCodes.IFGT;
+import static com.facebook.presto.byteCode.OpCodes.IFLE;
+import static com.facebook.presto.byteCode.OpCodes.IFLT;
+import static com.facebook.presto.byteCode.OpCodes.IFNE;
+import static com.facebook.presto.byteCode.OpCodes.IFNONNULL;
+import static com.facebook.presto.byteCode.OpCodes.IFNULL;
+import static com.facebook.presto.byteCode.OpCodes.IF_ACMPEQ;
+import static com.facebook.presto.byteCode.OpCodes.IF_ACMPNE;
+import static com.facebook.presto.byteCode.OpCodes.IF_ICMPEQ;
+import static com.facebook.presto.byteCode.OpCodes.IF_ICMPGE;
+import static com.facebook.presto.byteCode.OpCodes.IF_ICMPGT;
+import static com.facebook.presto.byteCode.OpCodes.IF_ICMPLE;
+import static com.facebook.presto.byteCode.OpCodes.IF_ICMPLT;
+import static com.facebook.presto.byteCode.OpCodes.IF_ICMPNE;
 
-public class JumpInstruction implements InstructionNode
+public class JumpInstruction
+        implements InstructionNode
 {
     public static InstructionNode jump(LabelNode label)
     {

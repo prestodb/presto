@@ -86,7 +86,6 @@ public class HashJoinOperator
         }
     }
 
-
     private final ListenableFuture<SourceHash> sourceHashFuture;
 
     private final OperatorContext operatorContext;

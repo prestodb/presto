@@ -16,8 +16,8 @@ package com.facebook.presto.benchmark;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.operator.AlignmentOperator.AlignmentOperatorFactory;
 import com.facebook.presto.operator.LimitOperator.LimitOperatorFactory;
-import com.facebook.presto.operator.OrderByOperator.InMemoryOrderByOperatorFactory;
 import com.facebook.presto.operator.OperatorFactory;
+import com.facebook.presto.operator.OrderByOperator.InMemoryOrderByOperatorFactory;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.google.common.collect.ImmutableList;
@@ -54,7 +54,7 @@ public class OrderByBenchmark
                 2,
                 limitOperator.getTupleInfos(),
                 0,
-                new int[]{1},
+                new int[] {1},
                 ROWS);
 
         return ImmutableList.of(alignmentOperator, limitOperator, orderByOperator);

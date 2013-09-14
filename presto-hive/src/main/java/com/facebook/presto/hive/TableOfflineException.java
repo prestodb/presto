@@ -18,7 +18,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class TableOfflineException
-    extends RuntimeException
+        extends RuntimeException
 {
     private final SchemaTableName tableName;
 

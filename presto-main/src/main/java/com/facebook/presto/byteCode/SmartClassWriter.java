@@ -17,7 +17,8 @@ import org.objectweb.asm.ClassWriter;
 
 import static com.facebook.presto.byteCode.ParameterizedType.typeFromPathName;
 
-public class SmartClassWriter extends ClassWriter
+public class SmartClassWriter
+        extends ClassWriter
 {
     private final ClassInfoLoader classInfoLoader;
 
@@ -44,7 +45,8 @@ public class SmartClassWriter extends ClassWriter
         else {
             do {
                 aClassInfo = aClassInfo.getSuperclass();
-            } while (!aClassInfo.isAssignableFrom(bClassInfo));
+            }
+            while (!aClassInfo.isAssignableFrom(bClassInfo));
             return aClassInfo.getType().getClassName();
         }
     }

@@ -22,7 +22,7 @@ import java.util.Map;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class CachingTpchDataFileLoader
-    implements TpchDataFileLoader
+        implements TpchDataFileLoader
 {
     private final Map<TpchColumnRequest, File> localFileCache = new HashMap<>();
     private final TpchDataFileLoader delegate;
@@ -57,9 +57,9 @@ public class CachingTpchDataFileLoader
 
         private TpchColumnRequest(TpchTableHandle tableHandle, TpchColumnHandle columnHandle, String serdeName)
         {
-            this.tableHandle =  checkNotNull(tableHandle, "tableHandle is null");
-            this.columnHandle =  checkNotNull(columnHandle, "columnHandle is null");
-            this.serdeName =  checkNotNull(serdeName, "serdeName is null");
+            this.tableHandle = checkNotNull(tableHandle, "tableHandle is null");
+            this.columnHandle = checkNotNull(columnHandle, "columnHandle is null");
+            this.serdeName = checkNotNull(serdeName, "serdeName is null");
         }
 
         @Override

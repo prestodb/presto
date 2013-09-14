@@ -14,7 +14,6 @@
 package com.facebook.presto.importer;
 
 import com.facebook.presto.importer.PeriodicImportRunnable.PeriodicImportRunnableFactory;
-
 import io.airlift.log.Logger;
 
 import javax.annotation.PreDestroy;

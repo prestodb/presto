@@ -53,7 +53,7 @@ public class TableNameCompleter
     public TableNameCompleter(ClientSession clientSession, QueryRunner queryRunner)
     {
         this.clientSession = checkNotNull(clientSession, "clientSession was null!");
-        this.queryRunner =  checkNotNull(queryRunner, "queryRunner session was null!");
+        this.queryRunner = checkNotNull(queryRunner, "queryRunner session was null!");
 
         ListeningExecutorService listeningExecutor = MoreExecutors.listeningDecorator(executor);
         tableCache = CacheBuilder.newBuilder()
@@ -134,7 +134,7 @@ public class TableNameCompleter
 
     private int findLastBlank(String buffer)
     {
-        for (int i = buffer.length() - 1; i >= 0 ; i--) {
+        for (int i = buffer.length() - 1; i >= 0; i--) {
             if (Character.isWhitespace(buffer.charAt(i))) {
                 return i;
             }

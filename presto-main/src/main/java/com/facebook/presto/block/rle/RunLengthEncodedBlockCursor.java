@@ -21,7 +21,8 @@ import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
 import io.airlift.slice.Slice;
 
-public final class RunLengthEncodedBlockCursor implements BlockCursor
+public final class RunLengthEncodedBlockCursor
+        implements BlockCursor
 {
     private final Tuple value;
     private final int positionCount;

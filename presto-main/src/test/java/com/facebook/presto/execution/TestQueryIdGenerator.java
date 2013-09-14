@@ -55,7 +55,6 @@ public class TestQueryIdGenerator
         for (int i = 0; i < 100_000; i++) {
             assertEquals(idGenerator.createNextQueryId(), new QueryId(String.format("20010715_000000_%05d_%s", i, idGenerator.getCoordinatorId())));
         }
-
     }
 
     private static class TestIdGenerator

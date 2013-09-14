@@ -13,13 +13,14 @@
  */
 package com.facebook.presto.byteCode;
 
+import com.facebook.presto.byteCode.instruction.InstructionNode;
 import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.MethodVisitor;
-import com.facebook.presto.byteCode.instruction.InstructionNode;
 
 import java.util.List;
 
-public enum OpCodes implements InstructionNode
+public enum OpCodes
+        implements InstructionNode
 {
     NOP(0),
     ACONST_NULL(1),

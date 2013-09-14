@@ -301,7 +301,6 @@ public class TopNOperator
                         sizeDelta += tuple.size();
                     }
                     sizeDelta += keyAndPosition.getKey().size();
-
                 }
             }
 

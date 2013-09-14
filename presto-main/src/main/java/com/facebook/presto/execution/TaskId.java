@@ -36,7 +36,7 @@ public class TaskId
 
     public TaskId(String queryId, String stageId, String id)
     {
-        this.stageId =new StageId(queryId, stageId);
+        this.stageId = new StageId(queryId, stageId);
         this.id = validateId(id);
     }
 

@@ -36,7 +36,7 @@ public class ExchangeClientFactory
     private final Executor executor;
 
     @Inject
-    public ExchangeClientFactory(QueryManagerConfig queryManagerConfig, @ForExchange AsyncHttpClient httpClient,  @ForExchange Executor executor)
+    public ExchangeClientFactory(QueryManagerConfig queryManagerConfig, @ForExchange AsyncHttpClient httpClient, @ForExchange Executor executor)
     {
         this(queryManagerConfig.getExchangeMaxBufferSize(),
                 new DataSize(10, Unit.MEGABYTE),
@@ -60,7 +60,6 @@ public class ExchangeClientFactory
         checkArgument(maxBufferedBytes.toBytes() > 0, "maxBufferSize must be at least 1 byte: %s", maxBufferedBytes);
         checkArgument(maxResponseSize.toBytes() > 0, "maxResponseSize must be at least 1 byte: %s", maxResponseSize);
         checkArgument(concurrentRequestMultiplier > 0, "concurrentRequestMultiplier must be at least 1: %s", concurrentRequestMultiplier);
-
     }
 
     @Override

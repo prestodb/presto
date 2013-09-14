@@ -20,7 +20,7 @@ import io.airlift.discovery.client.ServiceDescriptor;
 import java.util.Set;
 
 public class NoOpFailureDetector
-    implements FailureDetector
+        implements FailureDetector
 {
     @Override
     public Set<ServiceDescriptor> getFailed()

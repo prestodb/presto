@@ -25,7 +25,6 @@ import java.util.Map;
 public class CollocatedSplit
         implements Split
 {
-
     private final Map<PlanNodeId, Split> splits;
     private final List<HostAddress> addresses;
     private final boolean remotelyAccessible;

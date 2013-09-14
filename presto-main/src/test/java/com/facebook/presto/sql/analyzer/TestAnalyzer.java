@@ -394,7 +394,7 @@ public class TestAnalyzer
         assertFails(TYPE_MISMATCH, "SELECT * FROM t1 WHERE 'a' IN (1, 'b')");
     }
 
-    @Test(enabled=false) // TODO: need to support widening conversion for numbers
+    @Test(enabled = false) // TODO: need to support widening conversion for numbers
     public void testInWithNumericTypes()
             throws Exception
     {
@@ -407,7 +407,6 @@ public class TestAnalyzer
     {
         assertFails(WILDCARD_WITHOUT_FROM, "SELECT *");
     }
-
 
     @Test
     public void testReferenceWithoutFrom()

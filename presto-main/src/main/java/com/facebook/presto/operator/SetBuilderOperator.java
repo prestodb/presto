@@ -51,7 +51,8 @@ public class SetBuilderOperator
 
         public ListenableFuture<ChannelSet> getChannelSet()
         {
-            return Futures.transform(channelSetFuture, new Function<ChannelSet, ChannelSet>() {
+            return Futures.transform(channelSetFuture, new Function<ChannelSet, ChannelSet>()
+            {
                 @Override
                 public ChannelSet apply(ChannelSet channelSet)
                 {

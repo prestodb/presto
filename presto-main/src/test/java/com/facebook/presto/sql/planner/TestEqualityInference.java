@@ -177,7 +177,6 @@ public class TestEqualityInference
         // There should be no equalities straddling the scope
         Assert.assertTrue(emptyScopePartition.getScopeStraddlingEqualities().isEmpty());
 
-
         EqualityInference.EqualityPartition equalityPartition = inference.generateEqualitiesPartitionedBy(matchesSymbols("c1"));
 
         // There should be equalities in the scope, that only use c1 and are all inferrable equalities
@@ -440,11 +439,13 @@ public class TestEqualityInference
         return ImmutableSet.of(comparisonExpression.getLeft(), comparisonExpression.getRight());
     }
 
-    private static <E> Set<E> set(E... elements) {
+    private static <E> Set<E> set(E... elements)
+    {
         return setCopy(Arrays.asList(elements));
     }
 
-    private static <E> Set<E> setCopy(Iterable<E> elements) {
+    private static <E> Set<E> setCopy(Iterable<E> elements)
+    {
         return ImmutableSet.copyOf(elements);
     }
 }

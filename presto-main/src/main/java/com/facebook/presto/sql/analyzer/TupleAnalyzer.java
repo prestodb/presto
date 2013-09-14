@@ -137,7 +137,7 @@ class TupleAnalyzer
             throw new SemanticException(MISSING_TABLE, table, "Table %s does not exist", name);
         }
         TableMetadata tableMetadata = metadata.getTableMetadata(tableHandle.get());
-        Map<String,ColumnHandle> columns = metadata.getColumnHandles(tableHandle.get());
+        Map<String, ColumnHandle> columns = metadata.getColumnHandles(tableHandle.get());
 
         // TODO: discover columns lazily based on where they are needed (to support datasources that can't enumerate all tables)
         ImmutableList.Builder<Field> fields = ImmutableList.builder();
@@ -510,8 +510,6 @@ class TupleAnalyzer
 
                 orderByExpressionsBuilder.add(orderByExpression);
             }
-
-
         }
 
         List<FieldOrExpression> orderByExpressions = orderByExpressionsBuilder.build();
@@ -735,7 +733,8 @@ class TupleAnalyzer
                     else {
                         throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, node, "Columns from '%s' not in GROUP BY clause", field.getRelationAlias().get());
                     }
-                } else {
+                }
+                else {
                     if (field.getName().isPresent()) {
                         throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, node, "Column '%s' not in GROUP BY clause", field.getName().get());
                     }
@@ -769,6 +768,5 @@ class TupleAnalyzer
                 return null;
             }
         }
-
     }
 }

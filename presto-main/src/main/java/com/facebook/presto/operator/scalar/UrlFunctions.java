@@ -58,7 +58,7 @@ public final class UrlFunctions
     public static Long urlExtractPort(Slice url)
     {
         URI uri = parseUrl(url);
-        if ((uri == null) || (uri.getPort() < 0))  {
+        if ((uri == null) || (uri.getPort() < 0)) {
             return null;
         }
         return (long) uri.getPort();

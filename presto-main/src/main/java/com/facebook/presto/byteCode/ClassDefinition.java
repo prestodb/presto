@@ -20,18 +20,19 @@ import com.google.common.collect.ImmutableSet;
 import org.objectweb.asm.ClassVisitor;
 
 import javax.annotation.concurrent.NotThreadSafe;
+
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 
+import static com.facebook.presto.byteCode.Access.STATIC;
+import static com.facebook.presto.byteCode.Access.a;
+import static com.facebook.presto.byteCode.Access.toAccessModifier;
 import static com.google.common.collect.Iterables.any;
 import static com.google.common.collect.Iterables.concat;
 import static org.objectweb.asm.Opcodes.ACC_SUPER;
 import static org.objectweb.asm.Opcodes.V1_7;
-import static com.facebook.presto.byteCode.Access.STATIC;
-import static com.facebook.presto.byteCode.Access.a;
-import static com.facebook.presto.byteCode.Access.toAccessModifier;
 
 @NotThreadSafe
 public class ClassDefinition
@@ -226,8 +227,8 @@ public class ClassDefinition
     public MethodDefinition declareConstructor(
             CompilerContext compilerContext,
             EnumSet<Access> access,
-            Iterable<NamedParameterDefinition> parameters
-    ) {
+            Iterable<NamedParameterDefinition> parameters)
+    {
         return declareMethod(compilerContext, access, "<init>", ParameterizedType.type(void.class), ImmutableList.copyOf(parameters));
     }
 
@@ -239,7 +240,7 @@ public class ClassDefinition
 
     public ClassDefinition visitSource(String source, String debug)
     {
-        this.source = source ;
+        this.source = source;
         this.debug = debug;
         return this;
     }
@@ -262,8 +263,8 @@ public class ClassDefinition
             EnumSet<Access> access,
             String name,
             ParameterizedType returnType,
-            Iterable<NamedParameterDefinition> parameters
-    ) {
+            Iterable<NamedParameterDefinition> parameters)
+    {
         MethodDefinition methodDefinition = new MethodDefinition(compilerContext, this, access, name, returnType, parameters);
         methods.add(methodDefinition);
         return methodDefinition;

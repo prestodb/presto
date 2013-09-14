@@ -24,6 +24,7 @@ import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
+
 import java.net.URI;
 import java.util.List;
 
@@ -279,7 +280,6 @@ public class QueryCompletionEvent
             return null;
         }
         return totalBytes * 1000 / (totalSplitCpuTimeMs + 1); // add 1 to avoid divide by zero
-
     }
 
     @EventField

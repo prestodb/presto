@@ -40,6 +40,7 @@ import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
+
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.HashMap;
@@ -251,6 +252,7 @@ public class HeartbeatFailureDetector
             }
         };
     }
+
     private static Function<MonitoringTask, UUID> serviceIdGetter()
     {
         return new Function<MonitoringTask, UUID>()
@@ -303,7 +305,6 @@ public class HeartbeatFailureDetector
 
         @GuardedBy("this")
         private Long successTransitionTimestamp;
-
 
         private MonitoringTask(ScheduledExecutorService executor, ServiceDescriptor service, URI uri)
         {
@@ -517,6 +518,5 @@ public class HeartbeatFailureDetector
             }
             return builder.build();
         }
-
     }
 }

@@ -30,8 +30,8 @@ import org.testng.annotations.Test;
 
 import java.util.Arrays;
 
-import static com.facebook.presto.operator.AggregationOperator.createAggregator;
 import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
+import static com.facebook.presto.operator.AggregationOperator.createAggregator;
 import static com.facebook.presto.tuple.Tuples.nullTuple;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -63,6 +63,7 @@ public abstract class AbstractTestAggregationFunction
     {
         testMultiplePositions(getSequenceBlock(0, 10), getExpectedValue(0, 5), 5);
     }
+
     @Test
     public void testAllPositionsNull()
             throws Exception
@@ -162,7 +163,6 @@ public abstract class AbstractTestAggregationFunction
         assertEquals(getActualValue(function), expectedValue);
     }
 
-
     @Test
     public void testPartialWithMultiplePositions()
     {
@@ -214,7 +214,7 @@ public abstract class AbstractTestAggregationFunction
     /**
      * Produce a block with "field" number of columns and place column 0 from the
      * provided block into the last column of the resulting block
-     *
+     * <p/>
      * Fields 0 to "field - 1" are set to null
      */
     private Block createCompositeTupleBlock(Block sequenceBlock, int field)
@@ -235,8 +235,6 @@ public abstract class AbstractTestAggregationFunction
 
         return blockBuilder.build();
     }
-
-
 
     protected void testVectorPartialWithMultiplePositions(Block block, Object expectedValue)
     {

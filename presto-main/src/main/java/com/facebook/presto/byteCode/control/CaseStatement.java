@@ -13,15 +13,15 @@
  */
 package com.facebook.presto.byteCode.control;
 
-import com.google.common.base.Objects;
 import com.facebook.presto.byteCode.instruction.LabelNode;
+import com.google.common.base.Objects;
 import com.google.common.primitives.Ints;
 
 import javax.annotation.concurrent.Immutable;
 
 @Immutable
 public class CaseStatement
-    implements Comparable<CaseStatement>
+        implements Comparable<CaseStatement>
 {
     public static CaseStatement caseStatement(int key, LabelNode label)
     {

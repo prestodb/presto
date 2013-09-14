@@ -67,7 +67,8 @@ public class DefaultFunctionBinder
                 // bind constant argument
                 methodHandle = MethodHandles.insertArguments(methodHandle, argIndex, value);
                 // we bound an argument so don't increment the argIndex
-            } else {
+            }
+            else {
                 unboundArguments.add(argument);
                 argIndex++;
             }

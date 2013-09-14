@@ -97,5 +97,4 @@ public class TestQueryManagerConfig
 
         ConfigAssertions.assertDeprecatedEquivalence(QueryManagerConfig.class, currentProperties, oldProperties);
     }
-
 }

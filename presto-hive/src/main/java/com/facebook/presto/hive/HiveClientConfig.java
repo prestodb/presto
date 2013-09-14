@@ -21,9 +21,9 @@ import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
-import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
+
 import java.util.concurrent.TimeUnit;
 
 public class HiveClientConfig
@@ -164,7 +164,6 @@ public class HiveClientConfig
         this.minPartitionBatchSize = minPartitionBatchSize;
         return this;
     }
-
 
     @Min(1)
     public int getMaxPartitionBatchSize()

@@ -29,7 +29,7 @@ public class TestPluginManagerConfig
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(PluginManagerConfig.class)
                 .setInstalledPluginsDir(new File("plugin"))
-                .setPlugins((String)null)
+                .setPlugins((String) null)
                 .setPluginConfigurationDir(new File("etc/"))
                 .setMavenLocalRepository(ArtifactResolver.USER_LOCAL_REPO)
                 .setMavenRemoteRepository(ArtifactResolver.MAVEN_CENTRAL_URI));
@@ -55,5 +55,4 @@ public class TestPluginManagerConfig
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
-
 }

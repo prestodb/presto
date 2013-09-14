@@ -86,6 +86,6 @@ public class PeriodicImportJobResource
     @GET
     public Response getAllJobs()
     {
-        return Response.ok(ImmutableMap.of("jobs",periodicImportManager.getJobs())).build();
+        return Response.ok(ImmutableMap.of("jobs", periodicImportManager.getJobs())).build();
     }
 }

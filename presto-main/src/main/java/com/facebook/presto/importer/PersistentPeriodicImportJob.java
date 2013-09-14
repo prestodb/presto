@@ -26,8 +26,8 @@ import java.sql.SQLException;
 
 public final class PersistentPeriodicImportJob
 {
-    private static final Function<PersistentPeriodicImportJob, Long> GET_JOB_ID = new Function<PersistentPeriodicImportJob, Long>() {
-
+    private static final Function<PersistentPeriodicImportJob, Long> GET_JOB_ID = new Function<PersistentPeriodicImportJob, Long>()
+    {
         @Override
         public Long apply(PersistentPeriodicImportJob input)
         {

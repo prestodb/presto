@@ -16,7 +16,7 @@ package com.facebook.presto.sql.tree;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class Cast
-    extends Expression
+        extends Expression
 {
     private final Expression expression;
     private final String type;

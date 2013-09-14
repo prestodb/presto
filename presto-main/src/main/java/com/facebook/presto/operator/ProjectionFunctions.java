@@ -45,7 +45,8 @@ public class ProjectionFunctions
         return tupleInfos.build();
     }
 
-    private static class SingleColumnProjection implements ProjectionFunction
+    private static class SingleColumnProjection
+            implements ProjectionFunction
     {
         private final Type columnType;
         private final int channelIndex;
@@ -95,7 +96,6 @@ public class ProjectionFunctions
             }
         }
 
-
         @Override
         public void project(RecordCursor cursor, BlockBuilder output)
         {
@@ -133,7 +133,8 @@ public class ProjectionFunctions
         return new ConcatProjection(projections);
     }
 
-    private static class ConcatProjection implements ProjectionFunction
+    private static class ConcatProjection
+            implements ProjectionFunction
     {
         private final List<ProjectionFunction> projections;
         private final TupleInfo tupleInfo;

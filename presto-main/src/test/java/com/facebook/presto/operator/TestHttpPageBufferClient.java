@@ -29,6 +29,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import javax.annotation.Nullable;
+
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -265,7 +266,8 @@ public class TestHttpPageBufferClient
     public void testExceptionFromResponseHandler()
             throws Exception
     {
-        Function<Request, Response> processor = new Function<Request, Response>() {
+        Function<Request, Response> processor = new Function<Request, Response>()
+        {
             @Override
             public Response apply(Request input)
             {

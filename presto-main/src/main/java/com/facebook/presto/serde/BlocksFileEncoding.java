@@ -60,7 +60,6 @@ public enum BlocksFileEncoding
                 }
             };
 
-
     private final String name;
 
     BlocksFileEncoding(String name)

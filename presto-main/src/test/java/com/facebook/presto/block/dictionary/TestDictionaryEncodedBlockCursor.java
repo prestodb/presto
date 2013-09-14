@@ -13,18 +13,19 @@
  */
 package com.facebook.presto.block.dictionary;
 
-import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.block.AbstractTestBlockCursor;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.tuple.TupleInfo;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.tuple.Tuples.createTuple;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
+import static com.facebook.presto.tuple.Tuples.createTuple;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 
-public class TestDictionaryEncodedBlockCursor extends AbstractTestBlockCursor
+public class TestDictionaryEncodedBlockCursor
+        extends AbstractTestBlockCursor
 {
     @Override
     protected Block createExpectedValues()

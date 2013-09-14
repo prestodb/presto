@@ -28,7 +28,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class HiveSplit
-    implements PartitionedSplit
+        implements PartitionedSplit
 {
     private final String clientId;
     private final String partitionId;

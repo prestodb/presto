@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.tree;
 
 public abstract class Relation
-    extends Node
+        extends Node
 {
     @Override
     public abstract int hashCode();

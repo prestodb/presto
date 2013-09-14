@@ -13,15 +13,16 @@
  */
 package com.facebook.presto.byteCode.instruction;
 
+import com.facebook.presto.byteCode.ByteCodeNode;
+import com.facebook.presto.byteCode.ByteCodeVisitor;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.MethodVisitor;
-import com.facebook.presto.byteCode.ByteCodeNode;
-import com.facebook.presto.byteCode.ByteCodeVisitor;
 
 import java.util.List;
 
-public class BasicInstruction implements InstructionNode
+public class BasicInstruction
+        implements InstructionNode
 {
     protected final int opCode;
 

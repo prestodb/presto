@@ -33,5 +33,4 @@ public class TestUncompressedSliceBlockCursorWithNulls
     {
         assertInstanceOf(createExpectedValues().cursor(), UncompressedSliceBlockCursor.class);
     }
-
 }

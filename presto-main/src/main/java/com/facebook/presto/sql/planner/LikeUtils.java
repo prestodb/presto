@@ -183,13 +183,11 @@ public final class LikeUtils
         protected Regex load(LikeCacheKey key)
         {
             return likeToPattern(key.pattern, key.escape);
-
         }
     }
 
     public static class LikeCacheKey
     {
-
         private final Slice pattern;
         private final Slice escape;
 
@@ -226,6 +224,5 @@ public final class LikeUtils
                     .add("escape", escape.toString(UTF_8))
                     .toString();
         }
-
     }
 }

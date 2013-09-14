@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.byteCode.instruction;
 
+import com.facebook.presto.byteCode.ByteCodeNode;
+import com.facebook.presto.byteCode.ByteCodeVisitor;
+import com.facebook.presto.byteCode.ParameterizedType;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Type;
-import com.facebook.presto.byteCode.ByteCodeNode;
-import com.facebook.presto.byteCode.ByteCodeVisitor;
-import com.facebook.presto.byteCode.ParameterizedType;
 
 import java.util.List;
 
@@ -45,9 +45,9 @@ import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.instruction.FieldInstruction.getStaticInstruction;
 import static com.facebook.presto.byteCode.instruction.InvokeInstruction.invokeStatic;
 
-public abstract class Constant implements InstructionNode
+public abstract class Constant
+        implements InstructionNode
 {
-
     public static InstructionNode loadNull()
     {
         return ACONST_NULL;
@@ -113,7 +113,7 @@ public abstract class Constant implements InstructionNode
             return loadInt((value).intValue());
         }
         if (value instanceof Integer) {
-            return loadInt((Integer)value);
+            return loadInt((Integer) value);
         }
         if (value instanceof Long) {
             return loadLong((Long) value);
@@ -167,7 +167,8 @@ public abstract class Constant implements InstructionNode
                 .toString();
     }
 
-    public static class BoxedBooleanConstant extends Constant
+    public static class BoxedBooleanConstant
+            extends Constant
     {
         private final boolean value;
 
@@ -200,7 +201,8 @@ public abstract class Constant implements InstructionNode
         }
     }
 
-    public static class IntConstant extends Constant
+    public static class IntConstant
+            extends Constant
     {
         private final int value;
 
@@ -261,7 +263,8 @@ public abstract class Constant implements InstructionNode
         }
     }
 
-    public static class BoxedIntegerConstant extends Constant
+    public static class BoxedIntegerConstant
+            extends Constant
     {
         private final int value;
 
@@ -290,7 +293,8 @@ public abstract class Constant implements InstructionNode
         }
     }
 
-    public static class FloatConstant extends Constant
+    public static class FloatConstant
+            extends Constant
     {
         private final float value;
 
@@ -333,7 +337,8 @@ public abstract class Constant implements InstructionNode
         }
     }
 
-    public static class BoxedFloatConstant extends Constant
+    public static class BoxedFloatConstant
+            extends Constant
     {
         private final float value;
 
@@ -362,7 +367,8 @@ public abstract class Constant implements InstructionNode
         }
     }
 
-    public static class LongConstant extends Constant
+    public static class LongConstant
+            extends Constant
     {
         private final long value;
 
@@ -398,7 +404,8 @@ public abstract class Constant implements InstructionNode
         }
     }
 
-    public static class BoxedLongConstant extends Constant
+    public static class BoxedLongConstant
+            extends Constant
     {
         private final long value;
 
@@ -427,7 +434,8 @@ public abstract class Constant implements InstructionNode
         }
     }
 
-    public static class DoubleConstant extends Constant
+    public static class DoubleConstant
+            extends Constant
     {
         private final double value;
 
@@ -460,7 +468,6 @@ public abstract class Constant implements InstructionNode
             }
         }
 
-
         @Override
         public <T> T accept(ByteCodeNode parent, ByteCodeVisitor<T> visitor)
         {
@@ -468,7 +475,8 @@ public abstract class Constant implements InstructionNode
         }
     }
 
-    public static class BoxedDoubleConstant extends Constant
+    public static class BoxedDoubleConstant
+            extends Constant
     {
         private final double value;
 
@@ -497,7 +505,8 @@ public abstract class Constant implements InstructionNode
         }
     }
 
-    public static class StringConstant extends Constant
+    public static class StringConstant
+            extends Constant
     {
         private final String value;
 
@@ -525,7 +534,8 @@ public abstract class Constant implements InstructionNode
         }
     }
 
-    public static class ClassConstant extends Constant
+    public static class ClassConstant
+            extends Constant
     {
         private final ParameterizedType value;
 

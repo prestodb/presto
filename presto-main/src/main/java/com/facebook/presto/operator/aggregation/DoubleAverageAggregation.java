@@ -130,7 +130,8 @@ public class DoubleAverageAggregation
             TUPLE_INFO.setLong(value, 0, TUPLE_INFO.getLong(valueSlice, valueOffset, 0));
             TUPLE_INFO.setDouble(value, 1, TUPLE_INFO.getDouble(valueSlice, valueOffset, 1));
             output.append(value);
-        } else {
+        }
+        else {
             output.appendNull();
         }
     }
@@ -142,7 +143,8 @@ public class DoubleAverageAggregation
             long count = TUPLE_INFO.getLong(valueSlice, valueOffset, 0);
             double sum = TUPLE_INFO.getDouble(valueSlice, valueOffset, 1);
             output.append(sum / count);
-        } else {
+        }
+        else {
             output.appendNull();
         }
     }

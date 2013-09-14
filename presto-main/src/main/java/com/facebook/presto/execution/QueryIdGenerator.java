@@ -21,6 +21,7 @@ import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 
 import javax.annotation.concurrent.GuardedBy;
+
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
@@ -29,7 +30,13 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class QueryIdGenerator
 {
-    private static final char[] BASE_32 = new char[] {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', /*'l',*/ 'm', 'n', /*'o',*/ 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', /*'0', '1',*/ '2', '3', '4', '5', '6', '7', '8', '9'};
+    // a-z, 0-9, except: l, o, 0, 1
+    private static final char[] BASE_32 = {
+            'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h',
+            'i', 'j', 'k', 'm', 'n', 'p', 'q', 'r',
+            's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
+            '2', '3', '4', '5', '6', '7', '8', '9'};
+
     static {
         checkState(BASE_32.length == 32);
         checkState(ImmutableSet.copyOf(Chars.asList(BASE_32)).size() == 32);
@@ -61,8 +68,8 @@ public class QueryIdGenerator
 
     /**
      * Generate next queryId using the following format:
-     *   YYYYMMdd_HHmmss_index_coordId
-     *
+     * <tt>YYYYMMdd_HHmmss_index_coordId</tt>
+     * <p/>
      * Index rolls at the start of every day or when it reaches 99,999, and the
      * coordId is a randomly generated when this instance is created.
      */

@@ -26,6 +26,7 @@ import io.airlift.slice.Slice;
 import org.testng.Assert;
 
 import javax.annotation.Nullable;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -187,7 +188,8 @@ public class BlockAssertions
         for (String value : values) {
             if (value == null) {
                 builder.appendNull();
-            } else {
+            }
+            else {
                 builder.append(value.getBytes(UTF_8));
             }
         }
@@ -261,7 +263,8 @@ public class BlockAssertions
         for (Long value : values) {
             if (value == null) {
                 builder.appendNull();
-            } else {
+            }
+            else {
                 builder.append(value);
             }
         }

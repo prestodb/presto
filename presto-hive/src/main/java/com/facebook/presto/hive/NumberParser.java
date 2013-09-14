@@ -34,7 +34,6 @@ public class NumberParser
         return value * sign;
     }
 
-
     public static double parseDouble(byte[] bytes, int start, int length)
     {
         char[] chars = new char[length];

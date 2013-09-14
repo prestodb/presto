@@ -77,7 +77,7 @@ public class TestOrderByOperator
                 0,
                 ImmutableList.of(SINGLE_LONG, SINGLE_DOUBLE),
                 0,
-                new int[]{1},
+                new int[] {1},
                 10);
 
         Operator operator = operatorFactory.createOperator(driverContext);
@@ -109,7 +109,7 @@ public class TestOrderByOperator
                 0,
                 ImmutableList.of(tupleInfo),
                 0,
-                new int[]{0},
+                new int[] {0},
                 10);
 
         Operator operator = operatorFactory.createOperator(driverContext);
@@ -140,10 +140,10 @@ public class TestOrderByOperator
                 0,
                 ImmutableList.of(SINGLE_LONG, SINGLE_DOUBLE),
                 0,
-                new int[]{0},
+                new int[] {0},
                 10,
-                new int[]{0},
-                new boolean[]{false});
+                new int[] {0},
+                new boolean[] {false});
 
         Operator operator = operatorFactory.createOperator(driverContext);
 
@@ -178,7 +178,7 @@ public class TestOrderByOperator
                 0,
                 ImmutableList.of(SINGLE_LONG, SINGLE_DOUBLE),
                 0,
-                new int[]{1},
+                new int[] {1},
                 10);
 
         Operator operator = operatorFactory.createOperator(driverContext);
