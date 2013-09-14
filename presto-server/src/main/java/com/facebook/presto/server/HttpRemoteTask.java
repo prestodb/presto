@@ -177,7 +177,7 @@ public class HttpRemoteTask
         checkNotNull(taskInfoCodec, "taskInfoCodec is null");
         checkNotNull(taskUpdateRequestCodec, "taskUpdateRequestCodec is null");
 
-        try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)){
+        try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             this.taskId = taskId;
             this.session = session;
             this.nodeId = node.getNodeIdentifier();
@@ -238,7 +238,7 @@ public class HttpRemoteTask
     @Override
     public void start()
     {
-        try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)){
+        try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             // to start we just need to trigger an update
             scheduleUpdate();
         }
@@ -247,7 +247,7 @@ public class HttpRemoteTask
     @Override
     public synchronized void addSplit(Split split)
     {
-        try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)){
+        try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             checkNotNull(split, "split is null");
             checkState(!noMoreSplits, "noMoreSplits has already been set");
             checkState(planFragment.isPartitioned(), "Plan is not partitioned");
@@ -265,7 +265,7 @@ public class HttpRemoteTask
     @Override
     public synchronized void noMoreSplits()
     {
-        try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)){
+        try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             Preconditions.checkState(!noMoreSplits, "noMoreSplits has already been set");
             noMoreSplits = true;
             needsUpdate.set(true);
@@ -277,7 +277,7 @@ public class HttpRemoteTask
     @Override
     public synchronized void addExchangeLocations(Multimap<PlanNodeId, URI> additionalLocations, boolean noMore)
     {
-        try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)){
+        try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             if (getTaskInfo().getState().isDone()) {
                 return;
             }
@@ -308,7 +308,7 @@ public class HttpRemoteTask
     @Override
     public synchronized void addOutputBuffers(Set<String> outputBuffers, boolean noMore)
     {
-        try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)){
+        try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             if (getTaskInfo().getState().isDone()) {
                 return;
             }
@@ -330,7 +330,7 @@ public class HttpRemoteTask
     @Override
     public synchronized int getQueuedSplits()
     {
-        try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)){
+        try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             int pendingSplitCount = 0;
             if (planFragment.isPartitioned()) {
                 pendingSplitCount = pendingSplits.get(planFragment.getPartitionedSource()).size();
@@ -342,7 +342,7 @@ public class HttpRemoteTask
     @Override
     public void addStateChangeListener(StateChangeListener<TaskInfo> stateChangeListener)
     {
-        try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)){
+        try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             taskInfo.addStateChangeListener(stateChangeListener);
         }
     }
@@ -465,7 +465,7 @@ public class HttpRemoteTask
     @Override
     public synchronized void cancel()
     {
-        try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)){
+        try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             // clear pending splits to free memory
             pendingSplits.clear();
 
@@ -524,7 +524,7 @@ public class HttpRemoteTask
 
     private synchronized void requestSucceeded(TaskInfo newValue, List<TaskSource> sources)
     {
-        try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)){
+        try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             updateTaskInfo(newValue);
             lastSuccessfulRequest.set(System.nanoTime());
             errorCount.set(0);
@@ -632,7 +632,7 @@ public class HttpRemoteTask
         @Override
         public void success(TaskInfo value)
         {
-            try (SetThreadName setThreadName = new SetThreadName("UpdateResponseHandler-%s", taskId)){
+            try (SetThreadName setThreadName = new SetThreadName("UpdateResponseHandler-%s", taskId)) {
                 try {
                     requestSucceeded(value, sources);
                 }
@@ -645,7 +645,7 @@ public class HttpRemoteTask
         @Override
         public void failed(Throwable cause)
         {
-            try (SetThreadName setThreadName = new SetThreadName("UpdateResponseHandler-%s", taskId)){
+            try (SetThreadName setThreadName = new SetThreadName("UpdateResponseHandler-%s", taskId)) {
                 try {
                     // on failure assume we need to update again
                     needsUpdate.set(true);
@@ -661,7 +661,7 @@ public class HttpRemoteTask
         @Override
         public void fatal(Throwable cause)
         {
-            try (SetThreadName setThreadName = new SetThreadName("UpdateResponseHandler-%s", taskId)){
+            try (SetThreadName setThreadName = new SetThreadName("UpdateResponseHandler-%s", taskId)) {
                 failTask(cause);
             }
         }
@@ -702,7 +702,7 @@ public class HttpRemoteTask
 
         private synchronized void scheduleNextRequest()
         {
-            try (SetThreadName setThreadName = new SetThreadName("ContinuousTaskInfoFetcher-%s", taskId)){
+            try (SetThreadName setThreadName = new SetThreadName("ContinuousTaskInfoFetcher-%s", taskId)) {
                 // stopped or done?
                 TaskInfo taskInfo = HttpRemoteTask.this.taskInfo.get();
                 if (!running || taskInfo.getState().isDone()) {
@@ -731,7 +731,7 @@ public class HttpRemoteTask
         @Override
         public void success(TaskInfo value)
         {
-            try (SetThreadName setThreadName = new SetThreadName("ContinuousTaskInfoFetcher-%s", taskId)){
+            try (SetThreadName setThreadName = new SetThreadName("ContinuousTaskInfoFetcher-%s", taskId)) {
                 synchronized (this) {
                     future = null;
                 }
@@ -748,7 +748,7 @@ public class HttpRemoteTask
         @Override
         public void failed(Throwable cause)
         {
-            try (SetThreadName setThreadName = new SetThreadName("ContinuousTaskInfoFetcher-%s", taskId)){
+            try (SetThreadName setThreadName = new SetThreadName("ContinuousTaskInfoFetcher-%s", taskId)) {
                 synchronized (this) {
                     future = null;
                 }
@@ -765,7 +765,7 @@ public class HttpRemoteTask
         @Override
         public void fatal(Throwable cause)
         {
-            try (SetThreadName setThreadName = new SetThreadName("ContinuousTaskInfoFetcher-%s", taskId)){
+            try (SetThreadName setThreadName = new SetThreadName("ContinuousTaskInfoFetcher-%s", taskId)) {
                 synchronized (this) {
                     future = null;
                 }

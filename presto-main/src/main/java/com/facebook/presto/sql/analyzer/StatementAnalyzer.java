@@ -306,7 +306,6 @@ class StatementAnalyzer
         return process(query, context);
     }
 
-
     @Override
     protected TupleDescriptor visitCreateMaterializedView(CreateMaterializedView node, AnalysisContext context)
     {
@@ -404,7 +403,7 @@ class StatementAnalyzer
             case TEXT:
                 return queryExplainer.get().getPlan(node.getQuery(), planType);
         }
-        throw new IllegalArgumentException("Invalid Explain Format: " +  planFormat.toString());
+        throw new IllegalArgumentException("Invalid Explain Format: " + planFormat.toString());
     }
 
     @Override

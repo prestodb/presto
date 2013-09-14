@@ -22,6 +22,7 @@ import org.skife.jdbi.v2.IDBI;
 
 import javax.inject.Inject;
 import javax.sql.DataSource;
+
 import java.lang.annotation.Annotation;
 
 import static com.google.common.base.Preconditions.checkNotNull;

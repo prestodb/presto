@@ -23,7 +23,8 @@ import static com.facebook.presto.tuple.Tuples.createTuple;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-public class DictionaryEncoder implements Encoder
+public class DictionaryEncoder
+        implements Encoder
 {
     private final Encoder idWriter;
     private TupleInfo tupleInfo;

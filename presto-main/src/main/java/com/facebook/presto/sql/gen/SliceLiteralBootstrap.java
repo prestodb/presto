@@ -42,5 +42,4 @@ public class SliceLiteralBootstrap
     {
         return new ConstantCallSite(constant(Slice.class, Slices.copiedBuffer(value, Charsets.UTF_8)));
     }
-
 }

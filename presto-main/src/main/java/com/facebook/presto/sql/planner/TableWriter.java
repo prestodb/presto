@@ -79,7 +79,8 @@ public class TableWriter
 
     public OutputReceiver getOutputReceiver()
     {
-        return new OutputReceiver() {
+        return new OutputReceiver()
+        {
             @Override
             public void updateOutput(Object result)
             {
@@ -179,8 +180,8 @@ public class TableWriter
 
         final Set<String> allPartitions = ImmutableSet.copyOf(remainingPartitions);
 
-        return new Predicate<Partition>() {
-
+        return new Predicate<Partition>()
+        {
             public boolean apply(Partition input)
             {
                 remainingPartitions.remove(input.getPartitionId());

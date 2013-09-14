@@ -129,7 +129,6 @@ public class PeriodicImportController
                 for (JobState importJob : runningJobs.values()) {
                     importJob.schedule();
                 }
-
             }
             catch (Throwable e) {
                 log.error(e, "Caught problem when scanning import jobs!");

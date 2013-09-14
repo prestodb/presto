@@ -13,10 +13,6 @@
  */
 package com.facebook.presto.importer;
 
-import com.facebook.presto.importer.PeriodicImportDao;
-import com.facebook.presto.importer.PeriodicImportJob;
-import com.facebook.presto.importer.PersistentPeriodicImportJob;
-
 import io.airlift.dbpool.H2EmbeddedDataSource;
 import io.airlift.dbpool.H2EmbeddedDataSourceConfig;
 import org.skife.jdbi.v2.DBI;
@@ -30,7 +26,6 @@ import javax.sql.DataSource;
 import java.util.UUID;
 
 import static com.facebook.presto.importer.PeriodicImportDao.Utils.createTables;
-
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
@@ -40,7 +35,8 @@ public class TestPeriodicImportDao
     Handle handle;
 
     @BeforeMethod
-    public void setup() throws Exception
+    public void setup()
+            throws Exception
     {
         H2EmbeddedDataSourceConfig dataSourceConfig = new H2EmbeddedDataSourceConfig().setFilename("mem:");
         DataSource dataSource = new H2EmbeddedDataSource(dataSourceConfig);
@@ -141,7 +137,6 @@ public class TestPeriodicImportDao
         assertEquals(dao.getJobsStarted().size(), 0);
         assertEquals(dao.getJobsFinished(true).size(), 1);
         assertEquals(dao.getJobsFinished(false).size(), 1);
-
     }
 
     @Test

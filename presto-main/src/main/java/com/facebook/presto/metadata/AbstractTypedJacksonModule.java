@@ -102,15 +102,14 @@ public abstract class AbstractTypedJacksonModule<T>
             }
             else {
                 try {
-                    JsonSerializer<Object> serializer = serializerCache.get(value.getClass(), new Callable<JsonSerializer<Object>>() {
-
+                    JsonSerializer<Object> serializer = serializerCache.get(value.getClass(), new Callable<JsonSerializer<Object>>()
+                    {
                         @Override
                         public JsonSerializer<Object> call()
                                 throws Exception
                         {
                             return BeanSerializerFactory.instance.createSerializer(serializerProvider, serializerProvider.constructType(value.getClass()));
                         }
-
                     });
 
                     serializer.serializeWithType(value, jsonGenerator, serializerProvider, typeSerializer);
@@ -128,12 +127,13 @@ public abstract class AbstractTypedJacksonModule<T>
             implements TypeIdResolver
     {
         private final JsonTypeIdResolver<Object> typeIdResolver;
-        private final LoadingCache<Class<?>,SimpleType> simpleTypes;
+        private final LoadingCache<Class<?>, SimpleType> simpleTypes;
 
         InternalTypeResolver(JsonTypeIdResolver<Object> typeIdResolver)
         {
             this.typeIdResolver = checkNotNull(typeIdResolver, "typeIdResolver is null");
-            simpleTypes = CacheBuilder.newBuilder().weakKeys().weakValues().build(new CacheLoader<Class<?>, SimpleType>() {
+            simpleTypes = CacheBuilder.newBuilder().weakKeys().weakValues().build(new CacheLoader<Class<?>, SimpleType>()
+            {
                 @Override
                 public SimpleType load(Class<?> typeClass)
                         throws Exception

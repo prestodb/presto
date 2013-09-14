@@ -183,7 +183,6 @@ public class LogicalPlanner
             checkState(relation instanceof Table, "FROM clause is not a simple table name");
             QualifiedTableName sourceTable = MetadataUtil.createQualifiedTableName(session, ((Table) relation).getName());
 
-
             // create source table and optional import information
             storageManager.insertTableSource(((NativeTableHandle) targetTable), sourceTable);
 

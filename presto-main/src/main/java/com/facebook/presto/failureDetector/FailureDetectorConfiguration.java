@@ -21,6 +21,7 @@ import io.airlift.units.MinDuration;
 import javax.validation.constraints.DecimalMax;
 import javax.validation.constraints.DecimalMin;
 import javax.validation.constraints.NotNull;
+
 import java.util.concurrent.TimeUnit;
 
 public class FailureDetectorConfiguration

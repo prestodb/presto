@@ -230,7 +230,6 @@ public class PredicatePushDown
                     throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
             }
 
-
             PlanNode leftSource = planRewriter.rewrite(node.getLeft(), leftPredicate);
             PlanNode rightSource = planRewriter.rewrite(node.getRight(), rightPredicate);
 
@@ -594,7 +593,6 @@ public class PredicatePushDown
                 public Object getValue(Symbol symbol)
                 {
                     return nullSymbols.contains(symbol) ? null : new QualifiedNameReference(symbol.toQualifiedName());
-
                 }
             }, metadata, session).process(expression, null);
         }

@@ -24,6 +24,7 @@ import com.google.common.base.Preconditions;
 import io.airlift.http.server.HttpServerInfo;
 
 import javax.inject.Inject;
+
 import java.net.URI;
 
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;

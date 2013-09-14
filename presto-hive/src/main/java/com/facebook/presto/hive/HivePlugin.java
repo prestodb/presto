@@ -15,7 +15,6 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.SystemTable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 

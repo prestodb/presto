@@ -22,6 +22,7 @@ import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
 
 import javax.annotation.concurrent.ThreadSafe;
+
 import java.io.Closeable;
 import java.net.URI;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -188,7 +189,8 @@ public class StatementClient
                         response.getStatusCode(),
                         response.getStatusMessage()));
             }
-        } while ((System.nanoTime() - start) < MINUTES.toNanos(2));
+        }
+        while ((System.nanoTime() - start) < MINUTES.toNanos(2));
 
         gone.set(true);
         throw new RuntimeException("Error fetching next", cause);

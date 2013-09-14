@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 
@@ -50,5 +49,4 @@ public class TestCountIfAggregation
         }
         return count;
     }
-
 }

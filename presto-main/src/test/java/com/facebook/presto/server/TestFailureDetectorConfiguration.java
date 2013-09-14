@@ -55,5 +55,4 @@ public class TestFailureDetectorConfiguration
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
-
 }

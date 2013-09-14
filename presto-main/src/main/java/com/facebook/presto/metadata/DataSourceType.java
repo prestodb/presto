@@ -32,6 +32,7 @@ public enum DataSourceType
     COLLOCATED("collocated");
 
     private static final Map<String, DataSourceType> NAME_MAP;
+
     static {
         ImmutableMap.Builder<String, DataSourceType> builder = ImmutableMap.builder();
         for (DataSourceType dataSourceType : DataSourceType.values()) {

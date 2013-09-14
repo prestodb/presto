@@ -105,7 +105,8 @@ public class PageBufferClientStatus
 
     public static Function<PageBufferClientStatus, URI> uriGetter()
     {
-        return new Function<PageBufferClientStatus, URI>() {
+        return new Function<PageBufferClientStatus, URI>()
+        {
             @Override
             public URI apply(PageBufferClientStatus input)
             {

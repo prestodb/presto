@@ -26,9 +26,9 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public final class TableAlias
 {
-    private final String sourceConnectorId ;
+    private final String sourceConnectorId;
     private final String sourceSchemaName;
-    private final String sourceTableName ;
+    private final String sourceTableName;
     private final String destinationConnectorId;
     private final String destinationSchemaName;
     private final String destinationTableName;
@@ -127,7 +127,8 @@ public final class TableAlias
                 Objects.equal(this.destinationTableName, other.destinationTableName);
     }
 
-    public static class TableAliasMapper implements ResultSetMapper<TableAlias>
+    public static class TableAliasMapper
+            implements ResultSetMapper<TableAlias>
     {
         @Override
         public TableAlias map(int index, ResultSet r, StatementContext ctx)

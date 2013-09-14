@@ -72,8 +72,8 @@ import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.collect.Iterables.all;
 import static com.google.common.collect.Iterables.any;
 import static com.google.common.collect.Iterables.transform;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @ThreadSafe
@@ -153,7 +153,7 @@ public class SqlStageExecution
         Preconditions.checkNotNull(executor, "executor is null");
 
         this.stageId = new StageId(queryId, String.valueOf(nextStageId.getAndIncrement()));
-        try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)){
+        try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)) {
             this.parent = parent;
             this.location = locationFactory.createStageLocation(stageId);
             this.fragment = plan.getFragment();
@@ -204,20 +204,20 @@ public class SqlStageExecution
             }));
             stageState = new StateMachine<>("stage " + stageId, this.executor, StageState.PLANNED);
             stageState.addStateChangeListener(new StateChangeListener<StageState>()
-        {
-            @Override
-            public void stateChanged(StageState newValue)
             {
-                log.debug("Stage %s is %s", stageId, newValue);
-            }
-        });
+                @Override
+                public void stateChanged(StageState newValue)
+                {
+                    log.debug("Stage %s is %s", stageId, newValue);
+                }
+            });
         }
     }
 
     @Override
     public void cancelStage(StageId stageId)
     {
-        try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)){
+        try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)) {
             if (stageId.equals(this.stageId)) {
                 cancel(true);
             }
@@ -233,14 +233,14 @@ public class SqlStageExecution
     @VisibleForTesting
     public StageState getState()
     {
-        try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)){
+        try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)) {
             return stageState.get();
         }
     }
 
     public StageInfo getStageInfo()
     {
-        try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)){
+        try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)) {
             List<TaskInfo> taskInfos = IterableTransformer.on(tasks.values()).transform(taskInfoGetter()).list();
             List<StageInfo> subStageInfos = IterableTransformer.on(subStages.values()).transform(stageInfoGetter()).list();
 
@@ -273,7 +273,8 @@ public class SqlStageExecution
             for (TaskInfo taskInfo : taskInfos) {
                 if (taskInfo.getState().isDone()) {
                     completedTasks++;
-                } else {
+                }
+                else {
                     runningTasks++;
                 }
 
@@ -351,7 +352,7 @@ public class SqlStageExecution
         Preconditions.checkNotNull(outputId, "outputId is null");
         Preconditions.checkArgument(!outputBuffers.contains(outputId), "Stage already has an output %s", outputId);
 
-        try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)){
+        try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)) {
             outputBuffers.add(outputId);
 
             // wake up worker thread waiting for new buffers
@@ -361,7 +362,7 @@ public class SqlStageExecution
 
     public synchronized void noMoreOutputBuffers()
     {
-        try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)){
+        try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)) {
             noMoreOutputIds = true;
 
             // wake up worker thread waiting for new buffers
@@ -372,15 +373,15 @@ public class SqlStageExecution
     @Override
     public void addStateChangeListener(final StateChangeListener<StageInfo> stateChangeListener)
     {
-        try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)){
+        try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)) {
             stageState.addStateChangeListener(new StateChangeListener<StageState>()
-        {
-            @Override
-            public void stateChanged(StageState newValue)
             {
-                stateChangeListener.stateChanged(getStageInfo());
-            }
-        });
+                @Override
+                public void stateChanged(StageState newValue)
+                {
+                    stateChangeListener.stateChanged(getStageInfo());
+                }
+            });
         }
     }
 
@@ -404,7 +405,7 @@ public class SqlStageExecution
     @VisibleForTesting
     public synchronized List<URI> getTaskLocations()
     {
-        try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)){
+        try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)) {
             ImmutableList.Builder<URI> locations = ImmutableList.builder();
             for (RemoteTask task : tasks.values()) {
                 locations.add(task.getTaskInfo().getSelf());
@@ -415,7 +416,7 @@ public class SqlStageExecution
 
     public Future<?> start()
     {
-        try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)){
+        try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)) {
             return scheduleStartTasks();
         }
     }
@@ -424,7 +425,7 @@ public class SqlStageExecution
     @VisibleForTesting
     public Future<?> scheduleStartTasks()
     {
-        try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)){
+        try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)) {
             // start sub-stages (starts bottom-up)
             for (StageExecutionNode subStage : subStages.values()) {
                 subStage.scheduleStartTasks();
@@ -442,7 +443,7 @@ public class SqlStageExecution
 
     private void startTasks()
     {
-        try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)){
+        try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)) {
             try {
                 Preconditions.checkState(!Thread.holdsLock(this), "Can not start while holding a lock on this");
 
@@ -649,7 +650,7 @@ public class SqlStageExecution
             Set<String> outputBuffers,
             boolean outputComplete)
     {
-        while (!getState().isDone() ) {
+        while (!getState().isDone()) {
             // if next loop will finish, don't wait
             if (exchangesAreComplete() && noMoreOutputIds) {
                 return;
@@ -697,7 +698,7 @@ public class SqlStageExecution
     {
         Preconditions.checkState(!Thread.holdsLock(this), "Can not doUpdateState while holding a lock on this");
 
-        try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)){
+        try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)) {
             synchronized (this) {
                 // wake up worker thread waiting for state changes
                 this.notifyAll();

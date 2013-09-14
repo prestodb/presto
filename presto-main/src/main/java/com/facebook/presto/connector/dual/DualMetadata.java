@@ -155,5 +155,4 @@ public class DualMetadata
 
         return ImmutableList.of(COLUMN_METADATA);
     }
-
 }

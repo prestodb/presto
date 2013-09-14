@@ -89,5 +89,4 @@ public class RunLengthEncodedBlock
     {
         return new RunLengthEncodedBlockCursor(value, positionCount);
     }
-
 }

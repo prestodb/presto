@@ -184,7 +184,7 @@ class RelationPlanner
             outputSymbols.add(subPlan.translate(fieldOrExpression));
         }
 
-        return new RelationPlan(subPlan.getRoot(), analysis.getOutputDescriptor(node),  outputSymbols.build());
+        return new RelationPlan(subPlan.getRoot(), analysis.getOutputDescriptor(node), outputSymbols.build());
     }
 
     @Override

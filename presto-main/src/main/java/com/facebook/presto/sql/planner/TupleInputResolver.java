@@ -70,7 +70,8 @@ public class TupleInputResolver
                 default:
                     throw new UnsupportedOperationException("not yet implemented");
             }
-        } else if (cursor != null) {
+        }
+        else if (cursor != null) {
             checkArgument(input.getField() == 0, "Field for cursor must be 0 but is %s", input.getField());
 
             if (cursor.isNull(channel)) {

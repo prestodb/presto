@@ -27,7 +27,8 @@ public class HandleJsonBinder
         MapBinder<String, Class<? extends TableHandle>> tableHandleTypes = MapBinder.newMapBinder(
                 binder,
                 new TypeLiteral<String>() {},
-                new TypeLiteral<Class<? extends TableHandle>>() {});
+                new TypeLiteral<Class<? extends TableHandle>>() {}
+        );
 
         return tableHandleTypes.addBinding(tableHandlerType);
     }
@@ -37,7 +38,8 @@ public class HandleJsonBinder
         MapBinder<String, Class<? extends ColumnHandle>> columnHandleTypes = MapBinder.newMapBinder(
                 binder,
                 new TypeLiteral<String>() {},
-                new TypeLiteral<Class<? extends ColumnHandle>>() {});
+                new TypeLiteral<Class<? extends ColumnHandle>>() {}
+        );
 
         return columnHandleTypes.addBinding(columnHandlerType);
     }

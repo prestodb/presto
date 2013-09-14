@@ -42,7 +42,7 @@ public class SymbolAllocator
 
         int id = 1;
         while (symbols.containsKey(new Symbol(unique))) {
-            unique = nameHint + "_"+ id;
+            unique = nameHint + "_" + id;
             id++;
         }
 

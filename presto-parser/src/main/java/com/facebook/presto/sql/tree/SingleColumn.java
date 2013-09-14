@@ -80,7 +80,6 @@ public class SingleColumn
         return expression.toString();
     }
 
-
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {

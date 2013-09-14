@@ -205,7 +205,8 @@ public class SqlTaskExecution
                 this.partitionedSourceId = fragment.getPartitionedSource();
                 this.partitionedDriverFactory = partitionedDriverFactory;
                 this.partitionedPipelineContext = taskContext.addPipelineContext(partitionedDriverFactory.isInputDriver(), partitionedDriverFactory.isOutputDriver());
-            } else {
+            }
+            else {
                 this.partitionedSourceId = null;
                 this.partitionedDriverFactory = null;
                 this.partitionedPipelineContext = null;

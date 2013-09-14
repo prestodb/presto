@@ -40,7 +40,8 @@ public class TaskStateMachine
     {
         this.taskId = checkNotNull(taskId, "taskId is null");
         taskState = new StateMachine<>("task " + taskId, executor, TaskState.RUNNING);
-        taskState.addStateChangeListener(new StateChangeListener<TaskState>() {
+        taskState.addStateChangeListener(new StateChangeListener<TaskState>()
+        {
             @Override
             public void stateChanged(TaskState newValue)
             {

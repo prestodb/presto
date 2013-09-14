@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 public class Union
-    extends SetOperation
+        extends SetOperation
 {
     private final List<Relation> relations;
     private final boolean distinct;

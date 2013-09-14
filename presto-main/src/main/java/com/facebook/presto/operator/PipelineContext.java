@@ -141,7 +141,8 @@ public class PipelineContext
             OperatorStats operatorSummary = operatorSummaries.get(operator.getOperatorId());
             if (operatorSummary != null) {
                 operatorSummary = operatorSummary.add(operator);
-            } else {
+            }
+            else {
                 operatorSummary = operator;
             }
             operatorSummaries.put(operator.getOperatorId(), operatorSummary);
@@ -310,5 +311,4 @@ public class PipelineContext
             }
         };
     }
-
 }

@@ -78,7 +78,8 @@ public class TablePartition
 
     public static Function<TablePartition, String> partitionNameGetter()
     {
-        return new Function<TablePartition, String>() {
+        return new Function<TablePartition, String>()
+        {
             @Override
             public String apply(TablePartition partition)
             {
@@ -89,7 +90,8 @@ public class TablePartition
 
     public static Function<TablePartition, Long> partitionIdGetter()
     {
-        return new Function<TablePartition, Long>() {
+        return new Function<TablePartition, Long>()
+        {
             @Override
             public Long apply(TablePartition partition)
             {

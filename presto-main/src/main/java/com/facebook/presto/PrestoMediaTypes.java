@@ -20,7 +20,6 @@ public final class PrestoMediaTypes
     public static final String PRESTO_PAGES = "application/X-presto-pages";
     public static final MediaType PRESTO_PAGES_TYPE = MediaType.create("application", "X-presto-pages");
 
-
     private PrestoMediaTypes()
     {
     }

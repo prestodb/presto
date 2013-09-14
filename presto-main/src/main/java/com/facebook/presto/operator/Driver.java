@@ -184,7 +184,8 @@ public class Driver
             if (!future.isDone()) {
                 return future;
             }
-        } while (System.nanoTime() - start < maxRuntime && !isFinished());
+        }
+        while (System.nanoTime() - start < maxRuntime && !isFinished());
 
         return NOT_BLOCKED;
     }

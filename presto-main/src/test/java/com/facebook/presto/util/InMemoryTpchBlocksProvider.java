@@ -36,6 +36,7 @@ import com.google.common.io.Resources;
 import io.airlift.units.DataSize;
 
 import javax.inject.Inject;
+
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URL;
@@ -75,7 +76,6 @@ public class InMemoryTpchBlocksProvider
             int totalParts,
             BlocksFileEncoding encoding)
     {
-
         return new TpchBlockIterable(Type.fromColumnType(columnHandle.getType()),
                 partNumber,
                 totalParts,

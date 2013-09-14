@@ -13,19 +13,23 @@
  */
 package com.facebook.presto.byteCode.instruction;
 
-import com.google.common.collect.ImmutableList;
-import org.objectweb.asm.MethodVisitor;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ByteCodeVisitor;
 import com.facebook.presto.byteCode.OpCodes;
 import com.facebook.presto.byteCode.ParameterizedType;
+import com.google.common.collect.ImmutableList;
+import org.objectweb.asm.MethodVisitor;
 
 import java.util.List;
 
-import static com.facebook.presto.byteCode.OpCodes.*;
+import static com.facebook.presto.byteCode.OpCodes.ANEWARRAY;
+import static com.facebook.presto.byteCode.OpCodes.CHECKCAST;
+import static com.facebook.presto.byteCode.OpCodes.INSTANCEOF;
+import static com.facebook.presto.byteCode.OpCodes.NEW;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 
-public class TypeInstruction implements InstructionNode
+public class TypeInstruction
+        implements InstructionNode
 {
     public static InstructionNode newObject(Class<?> type)
     {

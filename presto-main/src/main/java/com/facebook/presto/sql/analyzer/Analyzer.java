@@ -18,9 +18,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.Statement;
-import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -53,7 +51,6 @@ public class Analyzer
         analysis.setOutputDescriptor(outputDescriptor);
         return analysis;
     }
-
 
     static void verifyNoAggregatesOrWindowFunctions(Metadata metadata, Expression predicate, String clause)
     {
@@ -89,7 +86,6 @@ public class Analyzer
 
         return new ExpressionAnalysis(type, subqueryInPredicates);
     }
-
 
     public static class ExpressionAnalysis
     {

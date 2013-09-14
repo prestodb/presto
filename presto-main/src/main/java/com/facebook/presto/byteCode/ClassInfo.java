@@ -37,12 +37,12 @@ import org.objectweb.asm.tree.MethodNode;
 
 import java.util.List;
 
-import static com.google.common.collect.Iterables.transform;
-import static java.util.Arrays.asList;
 import static com.facebook.presto.byteCode.ParameterizedType.pathToParameterizedType;
 import static com.facebook.presto.byteCode.ParameterizedType.toParameterizedType;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.ParameterizedType.typeFromPathName;
+import static com.google.common.collect.Iterables.transform;
+import static java.util.Arrays.asList;
 
 /**
  * @author Eugene Kuleshov
@@ -56,7 +56,8 @@ public class ClassInfo
     private final List<ParameterizedType> interfaces;
     private final List<MethodNode> methods;
 
-    public ClassInfo(ClassInfoLoader loader, ClassNode classNode) {
+    public ClassInfo(ClassInfoLoader loader, ClassNode classNode)
+    {
         this(loader,
                 typeFromPathName(classNode.name),
                 classNode.access,
@@ -88,7 +89,8 @@ public class ClassInfo
         this.interfaces = ImmutableList.copyOf(interfaces);
         if (methods != null) {
             this.methods = ImmutableList.copyOf(methods);
-        } else {
+        }
+        else {
             this.methods = null;
         }
     }

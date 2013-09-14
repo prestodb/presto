@@ -20,7 +20,8 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 
-public class TestUncompressedSliceBlockCursor extends AbstractTestBlockCursor
+public class TestUncompressedSliceBlockCursor
+        extends AbstractTestBlockCursor
 {
     @Override
     protected Block createExpectedValues()

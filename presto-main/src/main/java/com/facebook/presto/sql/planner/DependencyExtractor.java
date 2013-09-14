@@ -47,5 +47,4 @@ public class DependencyExtractor
             return null;
         }
     }
-
 }

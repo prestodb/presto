@@ -27,7 +27,7 @@ import static com.google.common.base.Preconditions.checkState;
  * A cursor that enumerates integral doubles up to a max
  */
 public class DoubleSequenceCursor
-    implements BlockCursor
+        implements BlockCursor
 {
     private final int max;
 

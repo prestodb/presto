@@ -405,7 +405,6 @@ public final class ExpressionTreeRewriter<C>
                     else {
                         orderBy.add(sortItem);
                     }
-
                 }
 
                 // TODO: rewrite frame

@@ -24,7 +24,8 @@ import io.airlift.slice.Slice;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkPositionIndex;
 
-public class DictionaryEncodedBlockCursor implements BlockCursor
+public class DictionaryEncodedBlockCursor
+        implements BlockCursor
 {
     private final Dictionary dictionary;
     private final BlockCursor sourceCursor;

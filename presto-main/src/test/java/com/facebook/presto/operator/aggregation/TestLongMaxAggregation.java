@@ -20,7 +20,7 @@ import static com.facebook.presto.operator.aggregation.LongMaxAggregation.LONG_M
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 
 public class TestLongMaxAggregation
-    extends AbstractTestAggregationFunction
+        extends AbstractTestAggregationFunction
 {
     @Override
     public Block getSequenceBlock(int start, int length)
@@ -46,5 +46,4 @@ public class TestLongMaxAggregation
         }
         return (long) start + length - 1;
     }
-
 }

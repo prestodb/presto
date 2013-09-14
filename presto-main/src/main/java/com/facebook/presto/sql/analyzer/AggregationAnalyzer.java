@@ -53,6 +53,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nullable;
+
 import java.util.List;
 
 import static com.facebook.presto.sql.analyzer.FieldOrExpression.expressionGetter;
@@ -92,14 +93,12 @@ public class AggregationAnalyzer
                 .transform(expressionGetter())
                 .list();
 
-
         ImmutableList.Builder<Integer> fields = ImmutableList.builder();
 
         fields.addAll(IterableTransformer.on(groupByExpressions)
                 .select(isFieldReferencePredicate())
                 .transform(fieldIndexGetter())
                 .all());
-
 
         // For a query like "SELECT * FROM T GROUP BY a", groupByExpressions will contain "a",
         // and the '*' will be expanded to Field references. Therefore we translate all simple name expressions

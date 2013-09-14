@@ -111,17 +111,18 @@ public class PeriodicImportRun
                 .toString();
     }
 
-    public static class PeriodicImportRunMapper implements ResultSetMapper<PeriodicImportRun>
+    public static class PeriodicImportRunMapper
+            implements ResultSetMapper<PeriodicImportRun>
     {
         @Override
         public PeriodicImportRun map(int index, ResultSet r, StatementContext ctx)
                 throws SQLException
         {
             return new PeriodicImportRun(r.getLong("run_id"),
-                               r.getLong("job_id"),
-                               r.getTimestamp("job_start_time"),
-                               r.getTimestamp("job_end_time"),
-                               r.getBoolean("success"));
+                    r.getLong("job_id"),
+                    r.getTimestamp("job_start_time"),
+                    r.getTimestamp("job_end_time"),
+                    r.getBoolean("success"));
         }
     }
 }

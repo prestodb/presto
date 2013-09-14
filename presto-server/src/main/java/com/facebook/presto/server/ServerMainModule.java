@@ -246,7 +246,6 @@ public class ServerMainModule
         httpClientBinder(binder).bindHttpClient("shard-cleaner", ForShardCleaner.class);
         binder.bind(ShardResource.class).in(Scopes.SINGLETON);
 
-
         // Determine the NodeVersion
         String prestoVersion = configurationFactory.getProperties().get("presto.version");
         if (prestoVersion != null) {
@@ -307,7 +306,8 @@ public class ServerMainModule
 
         MapBinder<Class<? extends Statement>, QueryExecutionFactory<?>> executionBinder = MapBinder.newMapBinder(binder,
                 new TypeLiteral<Class<? extends Statement>>() {},
-                new TypeLiteral<QueryExecutionFactory<?>>() {});
+                new TypeLiteral<QueryExecutionFactory<?>>() {}
+        );
 
         binder.bind(DropTableExecutionFactory.class).in(Scopes.SINGLETON);
         executionBinder.addBinding(DropTable.class).to(DropTableExecutionFactory.class).in(Scopes.SINGLETON);

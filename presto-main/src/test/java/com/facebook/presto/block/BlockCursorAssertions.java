@@ -30,7 +30,8 @@ public class BlockCursorAssertions
         assertTrue(cursor.advanceNextPosition());
     }
 
-    public static void assertAdvanceToPosition(BlockCursor cursor, int position) {
+    public static void assertAdvanceToPosition(BlockCursor cursor, int position)
+    {
         assertTrue(cursor.advanceToPosition(position));
     }
 

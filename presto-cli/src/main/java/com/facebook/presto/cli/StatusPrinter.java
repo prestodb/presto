@@ -333,7 +333,6 @@ Parallelism: 2.5
         //   4....R     26M    627M   673T     627M    627M   627M   627M
         //     5..F     29T    627M   673M     627M    627M   627M   627M
 
-
         String id = String.valueOf(stageNumberCounter.getAndIncrement());
         String name = indent + id;
         name += Strings.repeat(".", max(0, 10 - name.length()));

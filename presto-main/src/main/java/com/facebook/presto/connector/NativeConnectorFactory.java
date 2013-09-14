@@ -29,6 +29,7 @@ import com.google.common.collect.ImmutableClassToInstanceMap;
 import org.skife.jdbi.v2.IDBI;
 
 import javax.inject.Inject;
+
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkNotNull;

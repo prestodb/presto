@@ -56,5 +56,4 @@ public class TestVarBinaryMaxAggregation
         }
         return max.toString(Charsets.UTF_8);
     }
-
 }

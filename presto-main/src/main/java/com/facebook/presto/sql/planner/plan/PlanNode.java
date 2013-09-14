@@ -58,6 +58,7 @@ public abstract class PlanNode
     }
 
     public abstract List<PlanNode> getSources();
+
     public abstract List<Symbol> getOutputSymbols();
 
     public <C, R> R accept(PlanVisitor<C, R> visitor, C context)

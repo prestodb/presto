@@ -429,7 +429,8 @@ public class TaskExecutor
 
             if (level < 4) {
                 result = Long.compare(threadUsageNanos.get(), threadUsageNanos.get());
-            } else {
+            }
+            else {
                 result = Long.compare(lastRun.get(), o.lastRun.get());
             }
             if (result != 0) {
@@ -456,13 +457,17 @@ public class TaskExecutor
         int priorityLevel;
         if (millis < 1000) {
             priorityLevel = 0;
-        } else if (millis < 10_000) {
+        }
+        else if (millis < 10_000) {
             priorityLevel = 1;
-        } else if (millis < 60_000) {
+        }
+        else if (millis < 60_000) {
             priorityLevel = 2;
-        } else if (millis < 300_000) {
+        }
+        else if (millis < 300_000) {
             priorityLevel = 3;
-        } else {
+        }
+        else {
             priorityLevel = 4;
         }
         return priorityLevel;
@@ -517,7 +522,8 @@ public class TaskExecutor
                             }
                             else {
                                 blockedSplits.add(split);
-                                blocked.addListener(new Runnable() {
+                                blocked.addListener(new Runnable()
+                                {
                                     @Override
                                     public void run()
                                     {

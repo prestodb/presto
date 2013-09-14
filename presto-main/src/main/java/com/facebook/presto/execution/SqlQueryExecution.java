@@ -97,7 +97,7 @@ public class SqlQueryExecution
             StorageManager storageManager,
             PeriodicImportManager periodicImportManager)
     {
-        try (SetThreadName setThreadName = new SetThreadName("Query-%s", queryId)){
+        try (SetThreadName setThreadName = new SetThreadName("Query-%s", queryId)) {
             this.statement = checkNotNull(statement, "statement is null");
             this.metadata = checkNotNull(metadata, "metadata is null");
             this.splitManager = checkNotNull(splitManager, "splitManager is null");
@@ -126,7 +126,7 @@ public class SqlQueryExecution
     @Override
     public void start()
     {
-        try (SetThreadName setThreadName = new SetThreadName("Query-%s", stateMachine.getQueryId())){
+        try (SetThreadName setThreadName = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             try {
                 // transition to planning
                 if (!stateMachine.beginPlanning()) {
@@ -168,7 +168,7 @@ public class SqlQueryExecution
     @Override
     public void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener)
     {
-        try (SetThreadName setThreadName = new SetThreadName("Query-%s", stateMachine.getQueryId())){
+        try (SetThreadName setThreadName = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             stateMachine.addStateChangeListener(stateChangeListener);
         }
     }
@@ -249,7 +249,7 @@ public class SqlQueryExecution
     @Override
     public void cancel()
     {
-        try (SetThreadName setThreadName = new SetThreadName("Query-%s", stateMachine.getQueryId())){
+        try (SetThreadName setThreadName = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             stateMachine.cancel();
             cancelOutputStage();
         }
@@ -257,7 +257,7 @@ public class SqlQueryExecution
 
     private void cancelOutputStage()
     {
-        try (SetThreadName setThreadName = new SetThreadName("Query-%s", stateMachine.getQueryId())){
+        try (SetThreadName setThreadName = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             SqlStageExecution stageExecution = outputStage.get();
             if (stageExecution != null) {
                 stageExecution.cancel(true);
@@ -270,7 +270,7 @@ public class SqlQueryExecution
     {
         Preconditions.checkNotNull(stageId, "stageId is null");
 
-        try (SetThreadName setThreadName = new SetThreadName("Query-%s", stateMachine.getQueryId())){
+        try (SetThreadName setThreadName = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             SqlStageExecution stageExecution = outputStage.get();
             if (stageExecution != null) {
                 stageExecution.cancelStage(stageId);
@@ -281,7 +281,7 @@ public class SqlQueryExecution
     @Override
     public void fail(Throwable cause)
     {
-        try (SetThreadName setThreadName = new SetThreadName("Query-%s", stateMachine.getQueryId())){
+        try (SetThreadName setThreadName = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             // transition to failed state, only if not already finished
             stateMachine.fail(cause);
             cancelOutputStage();
@@ -292,7 +292,7 @@ public class SqlQueryExecution
     public Duration waitForStateChange(QueryState currentState, Duration maxWait)
             throws InterruptedException
     {
-        try (SetThreadName setThreadName = new SetThreadName("Query-%s", stateMachine.getQueryId())){
+        try (SetThreadName setThreadName = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             return stateMachine.waitForStateChange(currentState, maxWait);
         }
     }
@@ -306,7 +306,7 @@ public class SqlQueryExecution
     @Override
     public QueryInfo getQueryInfo()
     {
-        try (SetThreadName setThreadName = new SetThreadName("Query-%s", stateMachine.getQueryId())){
+        try (SetThreadName setThreadName = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             SqlStageExecution outputStage = this.outputStage.get();
             StageInfo stageInfo = null;
             if (outputStage != null) {

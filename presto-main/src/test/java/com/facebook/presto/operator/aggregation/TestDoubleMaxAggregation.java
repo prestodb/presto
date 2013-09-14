@@ -20,7 +20,7 @@ import static com.facebook.presto.operator.aggregation.DoubleMaxAggregation.DOUB
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
 
 public class TestDoubleMaxAggregation
-    extends AbstractTestAggregationFunction
+        extends AbstractTestAggregationFunction
 {
     @Override
     public Block getSequenceBlock(int start, int length)
@@ -46,5 +46,4 @@ public class TestDoubleMaxAggregation
         }
         return (double) (start + length - 1);
     }
-
 }

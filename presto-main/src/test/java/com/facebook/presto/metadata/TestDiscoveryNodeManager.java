@@ -56,7 +56,6 @@ public class TestDiscoveryNodeManager
                 new Node(UUID.randomUUID().toString(), URI.create("https://192.0.4.9"), new NodeVersion("2"))
         );
 
-
         List<ServiceDescriptor> descriptors = new ArrayList<>();
         for (Node node : Iterables.concat(activeNodes, inactiveNodes)) {
             descriptors.add(serviceDescriptor("presto")

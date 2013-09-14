@@ -37,15 +37,17 @@ import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.facebook.presto.operator.AggregationOperator.createAggregator;
 import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
+import static com.facebook.presto.operator.AggregationOperator.createAggregator;
 import static io.airlift.testing.Assertions.assertLessThan;
 import static org.testng.Assert.assertEquals;
 
 public abstract class AbstractTestApproximateCountDistinct
 {
     public abstract ApproximateCountDistinctAggregation getAggregationFunction();
+
     public abstract TupleInfo.Type getValueType();
+
     public abstract Object randomValue();
 
     @Test
@@ -141,7 +143,6 @@ public abstract class AbstractTestApproximateCountDistinct
         return (long) BlockAssertions.toValues(aggregator.getResult()).get(0).get(0);
     }
 
-
     private long estimateCountVectorized(List<Object> values, int field)
     {
         Aggregator aggregator = createAggregator(aggregation(getAggregationFunction(), new Input(0, field)), AggregationNode.Step.SINGLE);
@@ -174,7 +175,6 @@ public abstract class AbstractTestApproximateCountDistinct
 
         return (long) BlockAssertions.toValues(aggregator.getResult()).get(0).get(0);
     }
-
 
     private Block aggregatePartial(List<Object> values, int field)
     {
@@ -254,5 +254,4 @@ public abstract class AbstractTestApproximateCountDistinct
 
         return result;
     }
-
 }

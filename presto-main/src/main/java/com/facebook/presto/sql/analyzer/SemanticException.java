@@ -18,7 +18,7 @@ import com.facebook.presto.sql.tree.Node;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class SemanticException
-    extends RuntimeException
+        extends RuntimeException
 {
     private final SemanticErrorCode code;
     private final Node node;

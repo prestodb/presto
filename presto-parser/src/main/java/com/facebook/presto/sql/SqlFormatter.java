@@ -28,11 +28,11 @@ import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.Select;
-import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SelectItem;
+import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SortItem;
-import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Table;
+import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.base.Function;
@@ -189,8 +189,8 @@ public final class SqlFormatter
                 boolean first = true;
                 for (SelectItem item : node.getSelectItems()) {
                     builder.append("\n")
-                        .append(indentString(indent))
-                        .append(first ? "  " : ", ");
+                            .append(indentString(indent))
+                            .append(first ? "  " : ", ");
 
                     process(item, indent);
                     first = false;

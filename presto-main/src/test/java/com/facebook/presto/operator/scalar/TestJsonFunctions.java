@@ -72,7 +72,6 @@ public class TestJsonFunctions
     @Test
     public void testJsonArrayContainsString()
     {
-
         assertFunction("JSON_ARRAY_CONTAINS('[]', 'x')", false);
         assertFunction("JSON_ARRAY_CONTAINS('[\"foo\"]', 'foo')", true);
         assertFunction("JSON_ARRAY_CONTAINS('[\"8\"]', '8')", true);

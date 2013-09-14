@@ -30,8 +30,8 @@ public interface LocalStorageManager
     boolean isShardActive(long shardId);
 
     ColumnFileHandle createStagingFileHandles(long shardId, List<? extends ColumnHandle> columnHandles)
-        throws IOException;
+            throws IOException;
 
     void commit(ColumnFileHandle columnFileHandle)
-        throws IOException;
+            throws IOException;
 }

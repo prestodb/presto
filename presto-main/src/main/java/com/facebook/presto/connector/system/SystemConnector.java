@@ -45,5 +45,4 @@ public class SystemConnector
     {
         return services.getInstance(type);
     }
-
 }

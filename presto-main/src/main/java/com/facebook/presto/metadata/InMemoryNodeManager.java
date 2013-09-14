@@ -26,8 +26,8 @@ import java.net.URI;
 import java.util.Set;
 
 public class InMemoryNodeManager
-        implements NodeManager {
-
+        implements NodeManager
+{
     private final Node localNode;
     private final SetMultimap<String, Node> remoteNodes = Multimaps.synchronizedSetMultimap(HashMultimap.<String, Node>create());
 

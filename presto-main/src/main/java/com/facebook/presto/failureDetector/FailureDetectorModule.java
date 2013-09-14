@@ -22,7 +22,7 @@ import static io.airlift.configuration.ConfigurationModule.bindConfig;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 
 public class FailureDetectorModule
-    implements Module
+        implements Module
 {
     @Override
     public void configure(Binder binder)

@@ -60,7 +60,7 @@ public class TestUnixTimeFunctions
     public void testToUnixTime()
     {
         long seconds = getSeconds(new DateTime(2001, 1, 22, 3, 4, 5, 321, DateTimeZone.UTC));
-        assertFunction("to_unixtime(" + seconds +  ")", (double) seconds);
+        assertFunction("to_unixtime(" + seconds + ")", (double) seconds);
     }
 
     @Test
@@ -233,7 +233,6 @@ public class TestUnixTimeFunctions
             DateTimeZone.setDefault(defaultTimeZone);
         }
     }
-
 
     private static long getSeconds(DateTime dateTime)
     {

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import org.apache.commons.math.stat.descriptive.moment.Variance;
@@ -28,7 +27,7 @@ public class TestDoubleVarianceAggregation
     {
         BlockBuilder blockBuilder = new BlockBuilder(SINGLE_DOUBLE);
         for (int i = start; i < start + length; i++) {
-            blockBuilder.append((double)i);
+            blockBuilder.append((double) i);
         }
         return blockBuilder.build();
     }
@@ -46,7 +45,7 @@ public class TestDoubleVarianceAggregation
             return null;
         }
 
-        double [] values = new double [length];
+        double[] values = new double[length];
         for (int i = 0; i < length; i++) {
             values[i] = start + i;
         }
@@ -54,5 +53,4 @@ public class TestDoubleVarianceAggregation
         Variance variance = new Variance();
         return variance.evaluate(values);
     }
-
 }

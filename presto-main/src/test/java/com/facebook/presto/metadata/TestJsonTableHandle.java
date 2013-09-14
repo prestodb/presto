@@ -75,7 +75,8 @@ public class TestJsonTableHandle
         Injector injector = Guice.createInjector(Stage.PRODUCTION,
                 new JsonModule(),
                 new HandleJsonModule(),
-                new Module() {
+                new Module()
+                {
                     @Override
                     public void configure(Binder binder)
                     {
@@ -221,7 +222,8 @@ public class TestJsonTableHandle
     private void testJsonEquals(String json, Map<String, Object> expectedMap)
             throws Exception
     {
-        final Map<String, Object> jsonMap = objectMapper.readValue(json, new TypeReference<Map<String, Object>>() {
+        final Map<String, Object> jsonMap = objectMapper.readValue(json, new TypeReference<Map<String, Object>>()
+        {
         });
         Assertions.assertEqualsIgnoreOrder(jsonMap.entrySet(), expectedMap.entrySet());
     }

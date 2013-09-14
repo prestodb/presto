@@ -618,7 +618,6 @@ public class ExpressionAnalyzer
         return type1 == type2 || type1 == Type.NULL || type2 == Type.NULL;
     }
 
-
     public static boolean isBooleanOrNull(Type type)
     {
         return type == Type.BOOLEAN || type == Type.NULL;

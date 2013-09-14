@@ -16,6 +16,7 @@ package com.facebook.presto.util;
 import com.google.common.base.Function;
 
 import javax.annotation.Nullable;
+
 import java.util.Map;
 
 public class MoreFunctions

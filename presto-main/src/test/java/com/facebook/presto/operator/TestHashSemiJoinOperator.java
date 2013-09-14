@@ -247,7 +247,6 @@ public class TestHashSemiJoinOperator
         OperatorAssertion.assertOperatorEquals(joinOperator, probeInput, expected);
     }
 
-
     @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "Task exceeded max memory size.*")
     public void testMemoryLimit()
             throws Exception

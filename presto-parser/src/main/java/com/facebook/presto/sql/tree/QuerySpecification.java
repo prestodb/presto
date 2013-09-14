@@ -17,6 +17,7 @@ import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 
 import javax.annotation.Nullable;
+
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -107,7 +108,7 @@ public class QuerySpecification
                 .add("where", where.orNull())
                 .add("groupBy", groupBy)
                 .add("having", having.orNull())
-                .add("orderBy",orderBy)
+                .add("orderBy", orderBy)
                 .add("limit", limit.orNull())
                 .toString();
     }

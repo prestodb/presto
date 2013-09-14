@@ -26,7 +26,8 @@ import io.airlift.units.DataSize.Unit;
 
 import java.util.Iterator;
 
-public class EncodedBlockIterable implements BlockIterable
+public class EncodedBlockIterable
+        implements BlockIterable
 {
     private final BlockEncoding blockEncoding;
     private final Slice blocksSlice;

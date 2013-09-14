@@ -302,7 +302,8 @@ public class SqlTaskManager
                 // todo this is not safe since task can be expired at any time
                 // task was finished early, so the new split should be ignored
                 return taskInfo;
-            } else {
+            }
+            else {
                 throw new NoSuchElementException("Unknown query task " + taskId);
             }
         }

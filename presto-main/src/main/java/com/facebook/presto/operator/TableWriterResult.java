@@ -35,12 +35,11 @@ public class TableWriterResult
 
     @JsonCreator
     public TableWriterResult(@JsonProperty("shardId") long shardId,
-                             @JsonProperty("nodeIdentifier") String nodeIdentifier)
+            @JsonProperty("nodeIdentifier") String nodeIdentifier)
     {
         this.shardId = shardId;
         this.nodeIdentifier = checkNotNull(nodeIdentifier, "nodeIdentifier is null");
     }
-
 
     @JsonProperty
     public long getShardId()
@@ -58,9 +57,9 @@ public class TableWriterResult
     public String toString()
     {
         return Objects.toStringHelper(this)
-            .add("shardId", shardId)
-            .add("nodeIdentifier", nodeIdentifier)
-            .toString();
+                .add("shardId", shardId)
+                .add("nodeIdentifier", nodeIdentifier)
+                .toString();
     }
 }
 

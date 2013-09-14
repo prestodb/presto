@@ -20,6 +20,7 @@ import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
 
 import javax.annotation.concurrent.Immutable;
+
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
@@ -87,7 +88,6 @@ public class FieldDefinition
         annotations.add(annotationDefinition);
         return annotationDefinition;
     }
-
 
     public void visit(ClassVisitor visitor)
     {

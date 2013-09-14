@@ -16,12 +16,13 @@ package com.facebook.presto.sql.tree;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class CurrentTime
-    extends Expression
+        extends Expression
 {
     private final Type type;
     private final Integer precision;
 
-    public enum Type {
+    public enum Type
+    {
         TIME("current_time"),
         DATE("current_date"),
         TIMESTAMP("current_timestamp");

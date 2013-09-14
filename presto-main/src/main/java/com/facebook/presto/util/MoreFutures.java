@@ -48,7 +48,6 @@ public final class MoreFutures
                 cause = e;
             }
             throw Throwables.propagate(cause);
-
         }
         catch (TimeoutException e) {
             // this mean that isDone() does not agree with get()

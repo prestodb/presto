@@ -113,7 +113,7 @@ public class ExpressionUtils
         Iterable<Expression> nonDeterministicConjuncts = Iterables.filter(expressions, not(deterministic()));
 
         // Capture and de-dupe all deterministic conjuncts
-        Iterable <Expression> deterministicConjuncts = ImmutableSet.copyOf(Iterables.filter(expressions, deterministic()));
+        Iterable<Expression> deterministicConjuncts = ImmutableSet.copyOf(Iterables.filter(expressions, deterministic()));
 
         expressions = Iterables.concat(nonDeterministicConjuncts, deterministicConjuncts);
         return Iterables.isEmpty(expressions) ? TRUE_LITERAL : and(expressions);
@@ -121,7 +121,8 @@ public class ExpressionUtils
 
     public static Function<Symbol, QualifiedNameReference> symbolToQualifiedNameReference()
     {
-        return new Function<Symbol, QualifiedNameReference>() {
+        return new Function<Symbol, QualifiedNameReference>()
+        {
             @Override
             public QualifiedNameReference apply(Symbol symbol)
             {

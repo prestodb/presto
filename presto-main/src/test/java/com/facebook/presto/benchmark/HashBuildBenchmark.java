@@ -14,9 +14,9 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.block.BlockIterable;
+import com.facebook.presto.operator.AlignmentOperator.AlignmentOperatorFactory;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverFactory;
-import com.facebook.presto.operator.AlignmentOperator.AlignmentOperatorFactory;
 import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFactory;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.serde.BlocksFileEncoding;

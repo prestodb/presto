@@ -17,12 +17,12 @@ import com.facebook.presto.benchmark.HandTpchQuery1.TpchQuery1Operator.TpchQuery
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.AlignmentOperator.AlignmentOperatorFactory;
+import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOperatorFactory;
 import com.facebook.presto.operator.Operator;
-import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.OperatorContext;
+import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.serde.BlocksFileEncoding;
@@ -349,7 +349,6 @@ public class HandTpchQuery1
             checkState(!shipDateCursor.advanceNextPosition());
         }
     }
-
 
     public static void main(String[] args)
     {

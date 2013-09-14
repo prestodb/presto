@@ -41,8 +41,8 @@ public final class PeriodicImportJob
             @JsonProperty("intervalSeconds") long intervalSeconds)
     {
         this(new QualifiedTableName(srcCatalogName, srcSchemaName, srcTableName),
-             new QualifiedTableName(dstCatalogName, dstSchemaName, dstTableName),
-            intervalSeconds);
+                new QualifiedTableName(dstCatalogName, dstSchemaName, dstTableName),
+                intervalSeconds);
     }
 
     PeriodicImportJob(QualifiedTableName srcTable,
@@ -111,10 +111,10 @@ public final class PeriodicImportJob
     public String toString()
     {
         return Objects.toStringHelper(this)
-            .add("srcTable", srcTable)
-            .add("dstTable", dstTable)
-            .add("intervalSeconds", intervalSeconds)
-            .toString();
+                .add("srcTable", srcTable)
+                .add("dstTable", dstTable)
+                .add("intervalSeconds", intervalSeconds)
+                .toString();
     }
 
     @Override
@@ -135,7 +135,7 @@ public final class PeriodicImportJob
 
         PeriodicImportJob other = (PeriodicImportJob) obj;
         return Objects.equal(srcTable, other.srcTable)
-            && Objects.equal(dstTable, other.dstTable)
-            && intervalSeconds == other.intervalSeconds;
+                && Objects.equal(dstTable, other.dstTable)
+                && intervalSeconds == other.intervalSeconds;
     }
 }

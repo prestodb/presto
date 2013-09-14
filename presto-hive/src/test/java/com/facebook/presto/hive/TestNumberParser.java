@@ -76,7 +76,6 @@ public class TestNumberParser
         assertParseDouble("+0.0");
         assertParseDouble("+0.456");
 
-
         assertParseDouble("NaN");
         assertParseDouble("-Infinity");
         assertParseDouble("Infinity");

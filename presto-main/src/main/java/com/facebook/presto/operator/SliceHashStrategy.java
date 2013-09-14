@@ -19,7 +19,6 @@ import io.airlift.units.DataSize;
 import it.unimi.dsi.fastutil.longs.LongHash;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
-import java.util.Arrays;
 import java.util.List;
 
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
@@ -99,7 +98,6 @@ public class SliceHashStrategy
         int rightLength = tupleInfo.size(rightSlice, rightOffset);
 
         return leftSlice.equals(leftOffset, leftLength, rightSlice, rightOffset, rightLength);
-
     }
 
     private Slice getSliceForSyntheticAddress(long sliceAddress)
