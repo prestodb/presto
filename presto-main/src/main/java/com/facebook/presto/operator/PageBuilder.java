@@ -26,7 +26,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public class PageBuilder
 {
-    public static final DataSize DEFAULT_MAX_PAGE_SIZE = new DataSize(4, Unit.MEGABYTE);
+    public static final DataSize DEFAULT_MAX_PAGE_SIZE = new DataSize(1, Unit.MEGABYTE);
 
     private final BlockBuilder[] blockBuilders;
     private final long maxSizeInBytes;
