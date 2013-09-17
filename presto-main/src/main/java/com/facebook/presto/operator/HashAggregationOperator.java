@@ -225,6 +225,10 @@ public class HashAggregationOperator
 
             outputIterator = aggregationBuilder.build();
             aggregationBuilder = null;
+
+            if (!outputIterator.hasNext()) {
+                return null;
+            }
         }
 
         return outputIterator.next();
