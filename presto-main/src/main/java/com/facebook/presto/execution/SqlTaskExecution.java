@@ -173,7 +173,8 @@ public class SqlTaskExecution
                     notificationExecutor,
                     session,
                     checkNotNull(maxTaskMemoryUsage, "maxTaskMemoryUsage is null"),
-                    checkNotNull(operatorPreAllocatedMemory, "operatorPreAllocatedMemory is null"));
+                    checkNotNull(operatorPreAllocatedMemory, "operatorPreAllocatedMemory is null"),
+                    true);
 
             this.sharedBuffer = new SharedBuffer(checkNotNull(maxBufferSize, "maxBufferSize is null"));
 

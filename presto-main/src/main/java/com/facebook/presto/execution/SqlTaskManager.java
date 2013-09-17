@@ -329,7 +329,8 @@ public class SqlTaskManager
                         taskManagementExecutor,
                         null,
                         maxTaskMemoryUsage,
-                        operatorPreAllocatedMemory);
+                        operatorPreAllocatedMemory,
+                        true);
 
                 taskInfo = new TaskInfo(taskId,
                         Long.MAX_VALUE,

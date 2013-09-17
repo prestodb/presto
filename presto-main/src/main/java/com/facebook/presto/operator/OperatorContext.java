@@ -104,15 +104,15 @@ public class OperatorContext
     public void startIntervalTimer()
     {
         intervalWallStart.set(System.nanoTime());
-        intervalCpuStart.set(THREAD_MX_BEAN.getCurrentThreadCpuTime());
-        intervalUserStart.set(THREAD_MX_BEAN.getCurrentThreadUserTime());
+        intervalCpuStart.set(currentThreadCpuTime());
+        intervalUserStart.set(currentThreadUserTime());
     }
 
     public void recordGetOutput(Page page)
     {
         getOutputWallNanos.getAndAdd((nanosBetween(intervalWallStart.get(), System.nanoTime())));
-        getOutputCpuNanos.getAndAdd((nanosBetween(intervalCpuStart.get(), THREAD_MX_BEAN.getCurrentThreadCpuTime())));
-        getOutputUserNanos.getAndAdd((nanosBetween(intervalUserStart.get(), THREAD_MX_BEAN.getCurrentThreadUserTime())));
+        getOutputCpuNanos.getAndAdd((nanosBetween(intervalCpuStart.get(), currentThreadCpuTime())));
+        getOutputUserNanos.getAndAdd((nanosBetween(intervalUserStart.get(), currentThreadUserTime())));
 
         if (page != null) {
             outputDataSize.getAndAdd((page.getDataSize().toBytes()));
@@ -129,8 +129,8 @@ public class OperatorContext
     public void recordAddInput(Page page)
     {
         addInputWallNanos.getAndAdd((nanosBetween(intervalWallStart.get(), System.nanoTime())));
-        addInputCpuNanos.getAndAdd((nanosBetween(intervalCpuStart.get(), THREAD_MX_BEAN.getCurrentThreadCpuTime())));
-        addInputUserNanos.getAndAdd((nanosBetween(intervalUserStart.get(), THREAD_MX_BEAN.getCurrentThreadUserTime())));
+        addInputCpuNanos.getAndAdd((nanosBetween(intervalCpuStart.get(), currentThreadCpuTime())));
+        addInputUserNanos.getAndAdd((nanosBetween(intervalUserStart.get(), currentThreadUserTime())));
 
         if (page != null) {
             inputDataSize.getAndAdd((page.getDataSize().toBytes()));
@@ -162,8 +162,8 @@ public class OperatorContext
     public void recordFinish()
     {
         finishWallNanos.getAndAdd((nanosBetween(intervalWallStart.get(), System.nanoTime())));
-        finishCpuNanos.getAndAdd((nanosBetween(intervalCpuStart.get(), THREAD_MX_BEAN.getCurrentThreadCpuTime())));
-        finishUserNanos.getAndAdd((nanosBetween(intervalUserStart.get(), THREAD_MX_BEAN.getCurrentThreadUserTime())));
+        finishCpuNanos.getAndAdd((nanosBetween(intervalCpuStart.get(), currentThreadCpuTime())));
+        finishUserNanos.getAndAdd((nanosBetween(intervalUserStart.get(), currentThreadUserTime())));
     }
 
     public DataSize getMaxMemorySize()
@@ -242,6 +242,22 @@ public class OperatorContext
 
                 new DataSize(memoryReservation.get(), BYTE).convertToMostSuccinctDataSize(),
                 info);
+    }
+
+    private long currentThreadUserTime()
+    {
+        if (!driverContext.isCpuTimerEnabled()) {
+            return 0;
+        }
+        return THREAD_MX_BEAN.getCurrentThreadUserTime();
+    }
+
+    private long currentThreadCpuTime()
+    {
+        if (!driverContext.isCpuTimerEnabled()) {
+            return 0;
+        }
+        return THREAD_MX_BEAN.getCurrentThreadCpuTime();
     }
 
     private static long nanosBetween(long start, long end)

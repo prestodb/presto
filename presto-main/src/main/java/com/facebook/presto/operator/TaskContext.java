@@ -72,6 +72,8 @@ public class TaskContext
 
     private final List<PipelineContext> pipelineContexts = new CopyOnWriteArrayList<>();
 
+    private final boolean cpuTimerEnabled;
+
     public TaskContext(TaskId taskId, Executor executor, Session session)
     {
         this(
@@ -88,10 +90,11 @@ public class TaskContext
                 executor,
                 session,
                 checkNotNull(maxMemory, "maxMemory is null"),
-                new DataSize(1, MEGABYTE));
+                new DataSize(1, MEGABYTE),
+                true);
     }
 
-    public TaskContext(TaskStateMachine taskStateMachine, Executor executor, Session session, DataSize maxMemory, DataSize operatorPreAllocatedMemory)
+    public TaskContext(TaskStateMachine taskStateMachine, Executor executor, Session session, DataSize maxMemory, DataSize operatorPreAllocatedMemory, boolean cpuTimerEnabled)
     {
         this.taskStateMachine = checkNotNull(taskStateMachine, "taskStateMachine is null");
         this.executor = checkNotNull(executor, "executor is null");
@@ -110,6 +113,8 @@ public class TaskContext
                 }
             }
         });
+
+        this.cpuTimerEnabled = cpuTimerEnabled;
     }
 
     public PipelineContext addPipelineContext(boolean inputPipeline, boolean outputPipeline)
@@ -167,6 +172,11 @@ public class TaskContext
         }
         memoryReservation.getAndAdd((bytes));
         return true;
+    }
+
+    public boolean isCpuTimerEnabled()
+    {
+        return cpuTimerEnabled;
     }
 
     @Deprecated
