@@ -140,6 +140,11 @@ public class DriverContext
         return result;
     }
 
+    public boolean isCpuTimerEnabled()
+    {
+        return pipelineContext.isCpuTimerEnabled();
+    }
+
     @Deprecated
     public void addOutputItems(PlanNodeId id, Set<?> output)
     {
