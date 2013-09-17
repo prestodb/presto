@@ -258,20 +258,20 @@ function parseDataSize(value) {
     if (match == null) {
         return null;
     }
-    var number = parseInt(match[1]);
+    var number = parseFloat(match[1]);
     switch (match[2]) {
         case "B":
             return number;
         case "kB":
-            return number << 10;
+            return number * Math.pow(2, 10);
         case "MB":
-            return number << 20;
+            return number * Math.pow(2, 20);
         case "GB":
-            return number << 30;
+            return number * Math.pow(2, 30);
         case "TB":
-            return number << 40;
+            return number * Math.pow(2, 40);
         case "PB":
-            return number << 50;
+            return number * Math.pow(2, 50);
         default:
             return null;
     }
@@ -309,12 +309,12 @@ function parseDuration(value) {
     if (match == null) {
         return null;
     }
-    var number = parseInt(match[1]);
+    var number = parseFloat(match[1]);
     switch (match[2]) {
         case "ns":
             return number / 1000000.0;
         case "us":
-            return number / 1000.0;;
+            return number / 1000.0;
         case "ms":
             return number;
         case "s":
