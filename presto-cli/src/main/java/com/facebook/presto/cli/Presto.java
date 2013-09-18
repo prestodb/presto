@@ -13,9 +13,7 @@
  */
 package com.facebook.presto.cli;
 
-import io.airlift.command.Cli;
-import io.airlift.command.Cli.CliBuilder;
-import io.airlift.command.Help;
+import static io.airlift.command.SingleCommand.singleCommand;
 
 public final class Presto
 {
@@ -24,12 +22,12 @@ public final class Presto
     public static void main(String[] args)
             throws Exception
     {
-        CliBuilder<Runnable> builder = Cli.<Runnable>builder("presto")
-                .withDefaultCommand(Console.class)
-                .withCommand(Console.class)
-                .withCommand(Help.class);
+        Console console = singleCommand(Console.class).parse(args);
 
-        Cli<Runnable> cli = builder.build();
-        cli.parse(args).run();
+        if (console.helpOption.showHelpIfRequested()) {
+            return;
+        }
+
+        console.run();
     }
 }
