@@ -62,7 +62,7 @@
         <module>presto-docs</module>
         <module>presto-spi</module>
         <module>presto-hive</module>
-        <module>presto-hive-plugin</module>
+        <module>presto-hive-cdh4</module>
         <module>presto-client</module>
         <module>presto-parser</module>
         <module>presto-main</module>
@@ -87,7 +87,7 @@
 
             <dependency>
                 <groupId>com.facebook.presto</groupId>
-                <artifactId>presto-hive-plugin</artifactId>
+                <artifactId>presto-hive-cdh4</artifactId>
                 <version>${project.version}</version>
                 <type>zip</type>
             </dependency>
