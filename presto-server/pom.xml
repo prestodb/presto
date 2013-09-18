@@ -256,7 +256,7 @@
                             <artifactItems>
                                 <artifactItem>
                                     <groupId>com.facebook.presto</groupId>
-                                    <artifactId>presto-hive-plugin</artifactId>
+                                    <artifactId>presto-hive-cdh4</artifactId>
                                     <version>${project.version}</version>
                                     <type>zip</type>
                                     <overWrite>false</overWrite>

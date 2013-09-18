@@ -8,9 +8,9 @@
         <version>0.45-SNAPSHOT</version>
     </parent>
 
-    <artifactId>presto-hive-plugin</artifactId>
-    <name>presto-hive-plugin</name>
-    <description>Presto - Hive Connector Plugin</description>
+    <artifactId>presto-hive-cdh4</artifactId>
+    <name>presto-hive-cdh4</name>
+    <description>Presto - Hive Connector - CDH4</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
