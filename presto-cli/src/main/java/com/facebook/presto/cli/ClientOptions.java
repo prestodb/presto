@@ -14,14 +14,16 @@
 package com.facebook.presto.cli;
 
 import com.facebook.presto.client.ClientSession;
+import com.google.common.net.HostAndPort;
 import io.airlift.command.Option;
 
 import java.net.URI;
+import java.net.URISyntaxException;
 
 public class ClientOptions
 {
     @Option(name = "--server", title = "server")
-    public URI server = URI.create("http://localhost:8080");
+    public String server = "localhost:8080";
 
     @Option(name = "--user", title = "user")
     public String user = System.getProperty("user.name");
@@ -56,6 +58,22 @@ public class ClientOptions
 
     public ClientSession toClientSession()
     {
-        return new ClientSession(server, user, "presto-cli", catalog, schema, debug);
+        return new ClientSession(parseServer(server), user, "presto-cli", catalog, schema, debug);
+    }
+
+    private static URI parseServer(String s)
+    {
+        s = s.toLowerCase();
+        if (s.startsWith("http://") || s.startsWith("https://")) {
+            return URI.create(s);
+        }
+
+        HostAndPort host = HostAndPort.fromString(s);
+        try {
+            return new URI("http", null, host.getHostText(), host.getPortOrDefault(80), null, null, null);
+        }
+        catch (URISyntaxException e) {
+            throw new IllegalArgumentException(e);
+        }
     }
 }
