@@ -17,8 +17,10 @@ import io.airlift.command.Cli;
 import io.airlift.command.Cli.CliBuilder;
 import io.airlift.command.Help;
 
-public final class Main
+public final class Presto
 {
+    private Presto() {}
+
     public static void main(String[] args)
             throws Exception
     {

@@ -42,14 +42,14 @@ import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryPoolMXBean;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public class Main
+public class PrestoServer
         implements Runnable
 {
-    private final static AtomicBoolean codeCacheTriggerInstalled = new AtomicBoolean();
+    private static final AtomicBoolean codeCacheTriggerInstalled = new AtomicBoolean();
 
     public static void main(String[] args)
     {
-        new Main().run();
+        new PrestoServer().run();
     }
 
     private static void installCodeCacheGcTrigger()
@@ -65,6 +65,7 @@ public class Main
 
         Thread gcThread = new Thread(new Runnable()
         {
+            @SuppressWarnings("CallToSystemGC")
             @Override
             public void run()
             {
@@ -111,7 +112,7 @@ public class Main
     @Override
     public void run()
     {
-        Logger log = Logger.get(Main.class);
+        Logger log = Logger.get(PrestoServer.class);
 
         ImmutableList.Builder<Module> modules = ImmutableList.builder();
         modules.add(
