@@ -15,6 +15,7 @@ package com.facebook.presto.benchmark;
 
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.execution.TaskStateMachine;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskStats;
@@ -108,7 +109,13 @@ public abstract class AbstractOperatorBenchmark
     protected Map<String, Long> runOnce()
     {
         Session session = new Session("user", "source", "catalog", "schema", "address", "agent");
-        TaskContext taskContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session);
+        TaskContext taskContext = new TaskContext(
+                new TaskStateMachine(new TaskId("query", "stage", "task"), executor),
+                executor,
+                session,
+                new DataSize(256, MEGABYTE),
+                new DataSize(1, MEGABYTE),
+                false);
 
         CpuTimer cpuTimer = new CpuTimer();
         execute(taskContext);

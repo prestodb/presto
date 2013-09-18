@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.facebook.presto.operator.scalar.FunctionAssertions;
 import com.facebook.presto.operator.scalar.JsonFunctions;
 import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.operator.scalar.RegexpFunctions;
@@ -28,9 +29,12 @@ import com.google.common.collect.ContiguousSet;
 import com.google.common.collect.DiscreteDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.airlift.slice.Slice;
@@ -40,6 +44,7 @@ import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joni.Regex;
 import org.testng.annotations.AfterMethod;
+import org.testng.annotations.AfterSuite;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.BeforeSuite;
 import org.testng.annotations.Test;
@@ -50,14 +55,18 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.Callable;
 
 import static com.facebook.presto.operator.scalar.FunctionAssertions.SESSION;
-import static com.facebook.presto.operator.scalar.FunctionAssertions.assertFilter;
-import static com.facebook.presto.operator.scalar.FunctionAssertions.selectSingleValue;
+import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static com.google.common.base.Charsets.UTF_8;
+import static com.google.common.collect.Iterables.transform;
 import static java.lang.Math.cos;
+import static java.lang.Runtime.getRuntime;
+import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestExpressionCompiler
 {
@@ -90,24 +99,38 @@ public class TestExpressionCompiler
 
     private static final Logger log = Logger.get(TestExpressionCompiler.class);
     private long start;
+    private ListeningExecutorService executor;
+    private List<ListenableFuture<Void>> futures;
 
     @BeforeSuite
     public void setupClass()
     {
         Logging.initialize();
+        executor = MoreExecutors.listeningDecorator(newFixedThreadPool(getRuntime().availableProcessors() * 2, daemonThreadsNamed("completer-%d")));
+    }
+
+    @AfterSuite
+    public void tearDownClass()
+    {
+        if (executor != null) {
+            executor.shutdownNow();
+            executor = null;
+        }
     }
 
     @BeforeMethod
     public void setUp()
     {
         start = System.nanoTime();
+        futures = new ArrayList<>();
     }
 
     @AfterMethod
     public void tearDown(Method method)
             throws Exception
     {
-        log.info("FINISHED %s in %s", method.getName(), Duration.nanosSince(start));
+        assertTrue(Futures.allAsList(futures).isDone(), "Expression test futures are not complete");
+        log.info("FINISHED %s in %s verified %s expressions", method.getName(), Duration.nanosSince(start), futures.size());
     }
 
     @Test
@@ -129,6 +152,8 @@ public class TestExpressionCompiler
         assertExecute("bound_null_string", null);
 
         assertExecute("null", null);
+
+        Futures.allAsList(futures).get();
     }
 
     @Test
@@ -147,10 +172,13 @@ public class TestExpressionCompiler
         assertFilter("nullif(true, true)", false);
 
         assertFilter("true AND cast(null as boolean) AND true", false);
+
+        Futures.allAsList(futures).get();
     }
 
     @Test
     public void testUnaryOperators()
+            throws Exception
     {
         assertExecute("cast(null as boolean) is null", true);
 
@@ -179,10 +207,13 @@ public class TestExpressionCompiler
             assertExecute(generateExpression("%s is null", value), (value == null ? true : false));
             assertExecute(generateExpression("%s is not null", value), (value != null ? true : false));
         }
+
+        Futures.allAsList(futures).get();
     }
 
     @Test
     public void testBinaryOperatorsBoolean()
+            throws Exception
     {
         for (Boolean left : booleanValues) {
             for (Boolean right : booleanValues) {
@@ -193,10 +224,13 @@ public class TestExpressionCompiler
                 assertExecute(generateExpression("%s is distinct from %s", left, right), !Objects.equals(left, right));
             }
         }
+
+        Futures.allAsList(futures).get();
     }
 
     @Test
     public void testBinaryOperatorsLongLong()
+            throws Exception
     {
         for (Long left : longLefts) {
             for (Long right : longRights) {
@@ -217,10 +251,13 @@ public class TestExpressionCompiler
                 assertExecute(generateExpression("%s %% %s", left, right), left == null || right == null ? null : left % right);
             }
         }
+
+        Futures.allAsList(futures).get();
     }
 
     @Test
     public void testBinaryOperatorsLongDouble()
+            throws Exception
     {
         for (Long left : longLefts) {
             for (Double right : doubleRights) {
@@ -234,7 +271,7 @@ public class TestExpressionCompiler
                 Object expectedNullIf = nullIf(left, right);
                 for (String expression : generateExpression("nullif(%s, %s)", left, right)) {
                     try {
-                        Object actual = selectSingleValue(expression);
+                        Object actual = FunctionAssertions.selectSingleValue(expression);
                         if (!Objects.equals(actual, expectedNullIf)) {
                             if (left != null && right == null) {
                                 expectedNullIf = ((Number) expectedNullIf).doubleValue();
@@ -257,10 +294,13 @@ public class TestExpressionCompiler
                 assertExecute(generateExpression("%s %% %s", left, right), left == null || right == null ? null : left % right);
             }
         }
+
+        Futures.allAsList(futures).get();
     }
 
     @Test
     public void testBinaryOperatorsDoubleLong()
+            throws Exception
     {
         for (Double left : doubleLefts) {
             for (Long right : longRights) {
@@ -281,10 +321,13 @@ public class TestExpressionCompiler
                 assertExecute(generateExpression("%s %% %s", left, right), left == null || right == null ? null : left % right);
             }
         }
+
+        Futures.allAsList(futures).get();
     }
 
     @Test
     public void testBinaryOperatorsDoubleDouble()
+            throws Exception
     {
         for (Double left : doubleLefts) {
             for (Double right : doubleRights) {
@@ -305,10 +348,13 @@ public class TestExpressionCompiler
                 assertExecute(generateExpression("%s %% %s", left, right), left == null || right == null ? null : left % right);
             }
         }
+
+        Futures.allAsList(futures).get();
     }
 
     @Test
     public void testBinaryOperatorsString()
+            throws Exception
     {
         for (String left : stringLefts) {
             for (String right : stringRights) {
@@ -325,6 +371,8 @@ public class TestExpressionCompiler
                 assertExecute(generateExpression("nullif(%s, %s)", left, right), nullIf(left, right));
             }
         }
+
+        Futures.allAsList(futures).get();
     }
 
     private static Object nullIf(Object left, Object right)
@@ -350,6 +398,7 @@ public class TestExpressionCompiler
 
     @Test
     public void testTernaryOperatorsLongLong()
+            throws Exception
     {
         for (Long first : longLefts) {
             for (Long second : longLefts) {
@@ -359,10 +408,13 @@ public class TestExpressionCompiler
                 }
             }
         }
+
+        Futures.allAsList(futures).get();
     }
 
     @Test
     public void testTernaryOperatorsLongDouble()
+            throws Exception
     {
         for (Long first : longLefts) {
             for (Double second : doubleLefts) {
@@ -372,10 +424,13 @@ public class TestExpressionCompiler
                 }
             }
         }
+
+        Futures.allAsList(futures).get();
     }
 
     @Test
     public void testTernaryOperatorsDoubleDouble()
+            throws Exception
     {
         for (Double first : doubleLefts) {
             for (Double second : doubleLefts) {
@@ -385,10 +440,13 @@ public class TestExpressionCompiler
                 }
             }
         }
+
+        Futures.allAsList(futures).get();
     }
 
     @Test
     public void testTernaryOperatorsString()
+            throws Exception
     {
         for (String first : stringLefts) {
             for (String second : stringLefts) {
@@ -398,10 +456,13 @@ public class TestExpressionCompiler
                 }
             }
         }
+
+        Futures.allAsList(futures).get();
     }
 
     @Test
     public void testCast()
+            throws Exception
     {
         for (Boolean value : booleanValues) {
             assertExecute(generateExpression("cast(%s as boolean)", value), value == null ? null : (value ? true : false));
@@ -449,6 +510,8 @@ public class TestExpressionCompiler
         for (String value : stringLefts) {
             assertExecute(generateExpression("cast(%s as varchar)", value), value == null ? null : value);
         }
+
+        Futures.allAsList(futures).get();
     }
 
     @Test
@@ -471,6 +534,8 @@ public class TestExpressionCompiler
         assertExecute("null and true", null);
         assertExecute("null and false", false);
         assertExecute("null and null", null);
+
+        Futures.allAsList(futures).get();
     }
 
     @Test
@@ -493,6 +558,8 @@ public class TestExpressionCompiler
         assertExecute("null or true", true);
         assertExecute("null or false", null);
         assertExecute("null or null", null);
+
+        Futures.allAsList(futures).get();
     }
 
     @Test
@@ -505,6 +572,8 @@ public class TestExpressionCompiler
         assertExecute("not cast(null as boolean)", null);
 
         assertExecute("not null", null);
+
+        Futures.allAsList(futures).get();
     }
 
     @Test
@@ -519,6 +588,8 @@ public class TestExpressionCompiler
                 }
             }
         }
+
+        Futures.allAsList(futures).get();
     }
 
     @Test
@@ -565,10 +636,13 @@ public class TestExpressionCompiler
                 }
             }
         }
+
+        Futures.allAsList(futures).get();
     }
 
     @Test
     public void testSearchCaseSingle()
+            throws Exception
     {
         assertExecute("case when null and true then 1 else 0 end", 0L);
         for (Double value : doubleLefts) {
@@ -594,10 +668,13 @@ public class TestExpressionCompiler
                 }
             }
         }
+
+        Futures.allAsList(futures).get();
     }
 
     @Test
     public void testSearchCaseMultiple()
+            throws Exception
     {
         for (Double value : doubleLefts) {
             for (Long firstTest : longLefts) {
@@ -622,6 +699,8 @@ public class TestExpressionCompiler
                 }
             }
         }
+
+        Futures.allAsList(futures).get();
     }
 
     @Test
@@ -693,6 +772,8 @@ public class TestExpressionCompiler
             assertExecute(generateExpression("%s in ('what?', null, 'foo', 'mellow', 'end')", value),
                     value == null ? null : testValues.contains(value) ? true : null);
         }
+
+        Futures.allAsList(futures).get();
     }
 
     @Test
@@ -703,7 +784,7 @@ public class TestExpressionCompiler
         assertExecute("bound_long in (1234, " + Joiner.on(", ").join(longValues) + ")", true);
         assertExecute("bound_long in (" + Joiner.on(", ").join(longValues) + ")", false);
 
-        Iterable<Object> doubleValues = Iterables.transform(Range.openClosed(2000, 7000).asSet(DiscreteDomain.integers()), new Function<Integer, Object>()
+        Iterable<Object> doubleValues = transform(Range.openClosed(2000, 7000).asSet(DiscreteDomain.integers()), new Function<Integer, Object>()
         {
             @Override
             public Object apply(Integer i)
@@ -719,7 +800,7 @@ public class TestExpressionCompiler
         assertExecute("bound_double in (12.34, " + Joiner.on(", ").join(doubleValues) + ")", true);
         assertExecute("bound_double in (" + Joiner.on(", ").join(doubleValues) + ")", false);
 
-        Iterable<Object> stringValues = Iterables.transform(Range.openClosed(2000, 7000).asSet(DiscreteDomain.integers()), new Function<Integer, Object>()
+        Iterable<Object> stringValues = transform(Range.openClosed(2000, 7000).asSet(DiscreteDomain.integers()), new Function<Integer, Object>()
         {
             @Override
             public Object apply(Integer i)
@@ -729,10 +810,13 @@ public class TestExpressionCompiler
         });
         assertExecute("bound_string in ('hello', " + Joiner.on(", ").join(stringValues) + ")", true);
         assertExecute("bound_string in (" + Joiner.on(", ").join(stringValues) + ")", false);
+
+        Futures.allAsList(futures).get();
     }
 
     @Test
     public void testFunctionCall()
+            throws Exception
     {
         for (Long left : longLefts) {
             for (Long right : longRights) {
@@ -772,10 +856,13 @@ public class TestExpressionCompiler
                 }
             }
         }
+
+        Futures.allAsList(futures).get();
     }
 
     @Test
     public void testFunctionCallRegexp()
+            throws Exception
     {
         for (String value : stringLefts) {
             for (String pattern : stringRights) {
@@ -787,10 +874,13 @@ public class TestExpressionCompiler
                         value == null || pattern == null ? null : RegexpFunctions.regexpExtract(Slices.copiedBuffer(value, UTF_8), Slices.copiedBuffer(pattern, UTF_8)));
             }
         }
+
+        Futures.allAsList(futures).get();
     }
 
     @Test
     public void testFunctionCallJson()
+            throws Exception
     {
         for (String value : jsonValues) {
             for (String pattern : jsonPatterns) {
@@ -812,6 +902,8 @@ public class TestExpressionCompiler
         assertExecute("json_array_contains('[5]', 3)", false);
         assertExecute("json_array_contains('[', 9)", null);
         assertExecute("json_array_length('[')", null);
+
+        Futures.allAsList(futures).get();
     }
 
     @Test
@@ -820,6 +912,8 @@ public class TestExpressionCompiler
     {
         assertExecute("now()", MILLISECONDS.toSeconds(SESSION.getStartTime()));
         assertExecute("current_timestamp", MILLISECONDS.toSeconds(SESSION.getStartTime()));
+
+        Futures.allAsList(futures).get();
     }
 
     @Test
@@ -835,6 +929,8 @@ public class TestExpressionCompiler
                 assertExecute(generateExpression("extract(" + field.toString() + " from %s)", left), expected);
             }
         }
+
+        Futures.allAsList(futures).get();
     }
 
     @SuppressWarnings("fallthrough")
@@ -888,6 +984,8 @@ public class TestExpressionCompiler
                 assertExecute(generateExpression("%s like %s", value, pattern), expected);
             }
         }
+
+        Futures.allAsList(futures).get();
     }
 
     @Test
@@ -925,6 +1023,8 @@ public class TestExpressionCompiler
         assertExecute("coalesce(cast(null as varchar), 'foo', cast(null as varchar))", "foo");
 
         assertExecute("coalesce(cast(null as bigint), null, cast(null as bigint))", null);
+
+        Futures.allAsList(futures).get();
     }
 
     private List<String> generateExpression(String expressionPattern, Boolean value)
@@ -1068,23 +1168,75 @@ public class TestExpressionCompiler
         return expressions.build();
     }
 
-    private static void assertExecute(String expression, Object expected)
+    private void assertExecute(String expression, Object expected)
     {
-        try {
-            assertEquals(selectSingleValue(expression), expected);
-        }
-        catch (Throwable e) {
-            throw new RuntimeException("Error processing " + expression, e);
-        }
+        futures.add(executor.submit(new AssertExecuteTask(expression, expected)));
     }
 
-    private static void assertExecute(List<String> expressions, Object expected)
+    private void assertExecute(List<String> expressions, Object expected)
     {
         if (expected instanceof Slice) {
             expected = ((Slice) expected).toString(Charsets.UTF_8);
         }
         for (String expression : expressions) {
-            assertExecute(expression, expected);
+            futures.add(executor.submit(new AssertExecuteTask(expression, expected)));
+        }
+    }
+
+    private static class AssertExecuteTask
+            implements Callable<Void>
+    {
+        private final String expression;
+        private final Object expected;
+
+        public AssertExecuteTask(String expression, Object expected)
+        {
+            this.expression = expression;
+            this.expected = expected;
+        }
+
+        @Override
+        public Void call()
+                throws Exception
+        {
+            try {
+                assertEquals(FunctionAssertions.selectSingleValue(expression), expected);
+            }
+            catch (Throwable e) {
+                throw new RuntimeException("Error processing " + expression, e);
+            }
+            return null;
+        }
+    }
+
+    private void assertFilter(String filter, boolean expected)
+    {
+        futures.add(executor.submit(new AssertFilterTask(filter, expected)));
+    }
+
+    private static class AssertFilterTask
+            implements Callable<Void>
+    {
+        private final String filter;
+        private final boolean expected;
+
+        public AssertFilterTask(String filter, boolean expected)
+        {
+            this.filter = filter;
+            this.expected = expected;
+        }
+
+        @Override
+        public Void call()
+                throws Exception
+        {
+            try {
+                FunctionAssertions.assertFilter(filter, expected);
+            }
+            catch (Throwable e) {
+                throw new RuntimeException("Error processing " + filter, e);
+            }
+            return null;
         }
     }
 }

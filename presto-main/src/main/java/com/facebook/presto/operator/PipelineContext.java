@@ -192,6 +192,11 @@ public class PipelineContext
         return result;
     }
 
+    public boolean isCpuTimerEnabled()
+    {
+        return taskContext.isCpuTimerEnabled();
+    }
+
     @Deprecated
     public void addOutputItems(PlanNodeId id, Iterable<?> outputItems)
     {
