@@ -22,6 +22,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 import io.airlift.command.Command;
+import io.airlift.command.HelpOption;
 import io.airlift.log.Logging;
 import io.airlift.log.LoggingConfiguration;
 import jline.console.history.FileHistory;
@@ -42,11 +43,14 @@ import static io.airlift.log.Logging.Level;
 import static java.lang.String.format;
 import static jline.internal.Configuration.getUserHome;
 
-@Command(name = "console", description = "Interactive console")
+@Command(name = "presto", description = "Presto interactive console")
 public class Console
         implements Runnable
 {
     private static final String PROMPT_NAME = "presto";
+
+    @Inject
+    public HelpOption helpOption;
 
     @Inject
     public ClientOptions clientOptions = new ClientOptions();

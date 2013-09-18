@@ -14,34 +14,36 @@
 package com.facebook.presto.cli;
 
 import com.facebook.presto.client.ClientSession;
+import com.google.common.net.HostAndPort;
 import io.airlift.command.Option;
 
 import java.net.URI;
+import java.net.URISyntaxException;
 
 public class ClientOptions
 {
-    @Option(name = "--server", title = "server")
-    public URI server = URI.create("http://localhost:8080");
+    @Option(name = "--server", title = "server", description = "Presto server location (default: localhost:8080)")
+    public String server = "localhost:8080";
 
-    @Option(name = "--user", title = "user")
+    @Option(name = "--user", title = "user", description = "Username")
     public String user = System.getProperty("user.name");
 
-    @Option(name = "--catalog", title = "catalog")
+    @Option(name = "--catalog", title = "catalog", description = "Default catalog")
     public String catalog = "default";
 
-    @Option(name = "--schema", title = "schema")
+    @Option(name = "--schema", title = "schema", description = "Default schema")
     public String schema = "default";
 
-    @Option(name = {"-f", "--file"}, title = "file")
+    @Option(name = {"-f", "--file"}, title = "file", description = "Execute statements from file and exit")
     public String file;
 
-    @Option(name = "--debug", title = "debug")
+    @Option(name = "--debug", title = "debug", description = "Enable debug information")
     public boolean debug;
 
-    @Option(name = "--execute", title = "execute")
+    @Option(name = "--execute", title = "execute", description = "Execute specified statements and exit")
     public String execute;
 
-    @Option(name = "--output-format", title = "output-format")
+    @Option(name = "--output-format", title = "output-format", description = "Output format for batch mode (default: CSV)")
     public OutputFormat outputFormat = OutputFormat.CSV;
 
     public enum OutputFormat
@@ -56,6 +58,22 @@ public class ClientOptions
 
     public ClientSession toClientSession()
     {
-        return new ClientSession(server, user, "presto-cli", catalog, schema, debug);
+        return new ClientSession(parseServer(server), user, "presto-cli", catalog, schema, debug);
+    }
+
+    private static URI parseServer(String s)
+    {
+        s = s.toLowerCase();
+        if (s.startsWith("http://") || s.startsWith("https://")) {
+            return URI.create(s);
+        }
+
+        HostAndPort host = HostAndPort.fromString(s);
+        try {
+            return new URI("http", null, host.getHostText(), host.getPortOrDefault(80), null, null, null);
+        }
+        catch (URISyntaxException e) {
+            throw new IllegalArgumentException(e);
+        }
     }
 }
