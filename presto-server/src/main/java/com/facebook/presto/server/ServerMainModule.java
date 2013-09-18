@@ -252,8 +252,8 @@ public class ServerMainModule
             configurationFactory.consumeProperty("presto.version");
         }
         else {
-            String implementationTitle = Main.class.getPackage().getImplementationTitle();
-            String implementationVersion = Main.class.getPackage().getImplementationVersion();
+            String implementationTitle = PrestoServer.class.getPackage().getImplementationTitle();
+            String implementationVersion = PrestoServer.class.getPackage().getImplementationVersion();
             prestoVersion = (implementationTitle == null || implementationVersion == null) ? null : implementationTitle + ":" + implementationVersion;
         }
         checkState(prestoVersion != null, "presto.version must be provided when it cannot be automatically determined");
