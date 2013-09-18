@@ -21,12 +21,12 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ClientSession
 {
-    private URI server;
-    private String user;
-    private String source;
-    private String catalog;
-    private String schema;
-    private boolean debug;
+    private final URI server;
+    private final String user;
+    private final String source;
+    private final String catalog;
+    private final String schema;
+    private final boolean debug;
 
     public ClientSession(URI server, String user, String source, String catalog, String schema, boolean debug)
     {
@@ -43,19 +43,9 @@ public class ClientSession
         return server;
     }
 
-    public void setServer(URI server)
-    {
-        this.server = checkNotNull(server, "server is null");
-    }
-
     public String getUser()
     {
         return user;
-    }
-
-    public void setUser(String user)
-    {
-        this.user = user;
     }
 
     public String getSource()
@@ -63,19 +53,9 @@ public class ClientSession
         return source;
     }
 
-    public void setSource(String source)
-    {
-        this.source = source;
-    }
-
     public String getCatalog()
     {
         return catalog;
-    }
-
-    public void setCatalog(String catalog)
-    {
-        this.catalog = catalog;
     }
 
     public String getSchema()
@@ -83,19 +63,9 @@ public class ClientSession
         return schema;
     }
 
-    public void setSchema(String schema)
-    {
-        this.schema = schema;
-    }
-
     public boolean isDebug()
     {
         return debug;
-    }
-
-    public void setDebug(boolean debug)
-    {
-        this.debug = debug;
     }
 
     @Override
