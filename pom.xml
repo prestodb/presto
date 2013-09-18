@@ -432,6 +432,14 @@
         <pluginManagement>
             <plugins>
                 <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <configuration combine.children="append">
+                        <argLine>-Xmx2g -Xms2g</argLine>
+                    </configuration>
+                </plugin>
+
+                <plugin>
                     <groupId>org.antlr</groupId>
                     <artifactId>antlr3-maven-plugin</artifactId>
                     <version>${dep.antlr.version}</version>
@@ -443,26 +451,31 @@
                         </execution>
                     </executions>
                 </plugin>
+
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-shade-plugin</artifactId>
                     <version>1.5</version>
                 </plugin>
+
                 <plugin>
                     <groupId>org.skife.maven</groupId>
                     <artifactId>really-executable-jar-maven-plugin</artifactId>
                     <version>1.0.5</version>
                 </plugin>
+
                 <plugin>
                     <groupId>org.codehaus.mojo</groupId>
                     <artifactId>exec-maven-plugin</artifactId>
                     <version>1.2.1</version>
                 </plugin>
+
                 <plugin>
                     <groupId>org.tomdz.maven</groupId>
                     <artifactId>sphinx-maven-plugin</artifactId>
                     <version>1.0.2</version>
                 </plugin>
+
                 <!--This plugin's configuration is used to store Eclipse m2e settings only. It has no influence on the Maven build itself.-->
                 <plugin>
                     <!--suppress MavenModelInspection -->
