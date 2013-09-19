@@ -121,12 +121,9 @@ class RelationPlanner
         RelationPlan subPlan = process(node.getRelation(), context);
 
         TupleDescriptor outputDescriptor = analysis.getOutputDescriptor(node);
+        double ratio = analysis.getSampleRatio(node);
 
-        // Using the optimizer here so that we don't evaluate non-deterministic functions
-        ExpressionInterpreter samplePercentageEval = ExpressionInterpreter.expressionOptimizer(NoOpSymbolResolver.INSTANCE, metadata, session);
-        double samplePercentage = ((Number) samplePercentageEval.process(node.getSamplePercentage(), null)).doubleValue();
-
-        return new RelationPlan(new SampleNode(idAllocator.getNextId(), subPlan.getRoot(), samplePercentage/100.0), outputDescriptor, subPlan.getOutputSymbols());
+        return new RelationPlan(new SampleNode(idAllocator.getNextId(), subPlan.getRoot(), ratio), outputDescriptor, subPlan.getOutputSymbols());
     }
 
     @Override
