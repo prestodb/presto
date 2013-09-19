@@ -543,7 +543,6 @@
                             <executable>${java.home}/bin/java</executable>
                             <mainClass>${cli.main-class}</mainClass>
                             <arguments>
-                                <argument>console</argument>
                                 <argument>--debug</argument>
                             </arguments>
                         </configuration>
