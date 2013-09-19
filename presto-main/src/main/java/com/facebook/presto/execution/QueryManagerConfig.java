@@ -34,6 +34,7 @@ public class QueryManagerConfig
     private int maxShardProcessorThreads = Runtime.getRuntime().availableProcessors() * 4;
     private DataSize sinkMaxBufferSize = new DataSize(32, Unit.MEGABYTE);
     private Duration maxQueryAge = new Duration(15, TimeUnit.MINUTES);
+    private int maxQueryHistory = 100;
     private Duration clientTimeout = new Duration(5, TimeUnit.MINUTES);
     private Duration infoMaxAge = new Duration(15, TimeUnit.MINUTES);
 
@@ -133,6 +134,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setMaxQueryAge(Duration maxQueryAge)
     {
         this.maxQueryAge = maxQueryAge;
+        return this;
+    }
+
+    @Min(0)
+    public int getMaxQueryHistory()
+    {
+        return maxQueryHistory;
+    }
+
+    @Config("query.max-history")
+    public QueryManagerConfig setMaxQueryHistory(int maxQueryHistory)
+    {
+        this.maxQueryHistory = maxQueryHistory;
         return this;
     }
 

@@ -20,11 +20,13 @@ import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.util.IterableTransformer;
 import com.facebook.presto.util.SetThreadName;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Ordering;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -33,10 +35,10 @@ import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
+import javax.annotation.Nullable;
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
-
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
@@ -51,6 +53,9 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.util.Threads.threadsNamed;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Predicates.compose;
+import static com.google.common.base.Predicates.isNull;
+import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
 
@@ -63,6 +68,7 @@ public class SqlQueryManager
     private final ExecutorService queryExecutor;
     private final ThreadPoolExecutorMBean queryExecutorMBean;
 
+    private final int maxQueryHistory;
     private final Duration maxQueryAge;
 
     private final ConcurrentMap<QueryId, QueryExecution> queries = new ConcurrentHashMap<>();
@@ -99,6 +105,7 @@ public class SqlQueryManager
         this.queryIdGenerator = checkNotNull(queryIdGenerator, "queryIdGenerator is null");
 
         this.maxQueryAge = config.getMaxQueryAge();
+        this.maxQueryHistory = config.getMaxQueryHistory();
         this.clientTimeout = config.getClientTimeout();
 
         queryManagementExecutor = Executors.newScheduledThreadPool(config.getQueryManagerExecutorPoolSize(), threadsNamed("query-management-%d"));
@@ -286,13 +293,20 @@ public class SqlQueryManager
      */
     public void removeExpiredQueries()
     {
+        List<QueryExecution> sortedQueries = IterableTransformer.on(queries.values())
+                .select(compose(not(isNull()), endTimeGetter()))
+                .orderBy(Ordering.natural().onResultOf(endTimeGetter()))
+                .list();
+
+        int toRemove = Math.max(sortedQueries.size() - maxQueryHistory, 0);
         DateTime oldestAllowedQuery = DateTime.now().minus(maxQueryAge.toMillis());
-        for (QueryExecution queryExecution : queries.values()) {
+
+        for (QueryExecution queryExecution : sortedQueries) {
             try {
-                QueryInfo queryInfo = queryExecution.getQueryInfo();
-                DateTime endTime = queryInfo.getQueryStats().getEndTime();
-                if (endTime != null && endTime.isBefore(oldestAllowedQuery)) {
+                DateTime endTime = queryExecution.getQueryInfo().getQueryStats().getEndTime();
+                if ((endTime.isBefore(oldestAllowedQuery) || toRemove > 0) && isAbandoned(queryExecution)) {
                     removeQuery(queryExecution.getQueryInfo().getQueryId());
+                    --toRemove;
                 }
             }
             catch (Exception e) {
@@ -303,24 +317,30 @@ public class SqlQueryManager
 
     public void failAbandonedQueries()
     {
-        DateTime now = DateTime.now();
-        DateTime oldestAllowedHeartbeat = now.minus(clientTimeout.toMillis());
         for (QueryExecution queryExecution : queries.values()) {
             try {
                 QueryInfo queryInfo = queryExecution.getQueryInfo();
                 if (queryInfo.getState().isDone()) {
                     continue;
                 }
-                DateTime lastHeartbeat = queryInfo.getQueryStats().getLastHeartbeat();
-                if (lastHeartbeat != null && lastHeartbeat.isBefore(oldestAllowedHeartbeat)) {
-                    log.info("Failing abandoned query %s", queryInfo.getQueryId());
-                    queryExecution.fail(new AbandonedException("Query " + queryInfo.getQueryId(), lastHeartbeat, now));
+
+                if (isAbandoned(queryExecution)) {
+                    log.info("Failing abandoned query %s", queryExecution.getQueryInfo().getQueryId());
+                    queryExecution.fail(new AbandonedException("Query " + queryInfo.getQueryId(), queryInfo.getQueryStats().getLastHeartbeat(), DateTime.now()));
                 }
             }
             catch (Exception e) {
                 log.warn(e, "Error while inspecting age of query %s", queryExecution.getQueryInfo().getQueryId());
             }
         }
+    }
+
+    private boolean isAbandoned(QueryExecution query)
+    {
+        DateTime oldestAllowedHeartbeat = DateTime.now().minus(clientTimeout.toMillis());
+        DateTime lastHeartbeat = query.getQueryInfo().getQueryStats().getLastHeartbeat();
+
+        return lastHeartbeat != null && lastHeartbeat.isBefore(oldestAllowedHeartbeat);
     }
 
     private QueryInfo createFailedQuery(Session session, String query, QueryId queryId, Throwable cause)
@@ -333,6 +353,19 @@ public class SqlQueryManager
         queryMonitor.completionEvent(execution.getQueryInfo());
 
         return execution.getQueryInfo();
+    }
+
+    private static Function<QueryExecution, DateTime> endTimeGetter()
+    {
+        return new Function<QueryExecution, DateTime>()
+        {
+            @Nullable
+            @Override
+            public DateTime apply(QueryExecution input)
+            {
+                return input.getQueryInfo().getQueryStats().getEndTime();
+            }
+        };
     }
 
     private static class QueryStarter
