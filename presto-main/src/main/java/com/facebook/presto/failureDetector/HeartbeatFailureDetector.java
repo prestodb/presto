@@ -155,6 +155,12 @@ public class HeartbeatFailureDetector
         return tasks.size();
     }
 
+    @Managed
+    public int getActiveCount()
+    {
+        return tasks.size() - getFailed().size();
+    }
+
     public Map<ServiceDescriptor, Stats> getStats()
     {
         ImmutableMap.Builder<ServiceDescriptor, Stats> builder = ImmutableMap.builder();
