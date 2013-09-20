@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.45-SNAPSHOT</version>
+        <version>0.45</version>
     </parent>
 
     <artifactId>presto-hive</artifactId>
@@ -157,7 +157,7 @@
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
-                            <excludedGroups combine.self="override"/>
+                            <excludedGroups combine.self="override" />
                             <systemProperties>
                                 <hiveMetastoreHost>localhost</hiveMetastoreHost>
                                 <hiveMetastorePort>9083</hiveMetastorePort>

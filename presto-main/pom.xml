@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.45-SNAPSHOT</version>
+        <version>0.45</version>
     </parent>
 
     <artifactId>presto-main</artifactId>
@@ -323,7 +323,7 @@
                                 <argument>-DtpchDataJar=${project.build.directory}/dependency/testdata-tpch-1g.jar</argument>
                                 <argument>-Dmyproperty=myvalue</argument>
                                 <argument>-classpath</argument>
-                                <classpath/>
+                                <classpath />
                                 <argument>com.facebook.presto.benchmark.BenchmarkSuite</argument>
                             </arguments>
                             <classpathScope>test</classpathScope>
