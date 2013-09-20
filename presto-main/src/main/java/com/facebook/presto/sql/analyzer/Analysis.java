@@ -25,6 +25,7 @@ import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
+import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.Table;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
@@ -68,6 +69,8 @@ public class Analysis
     private final IdentityHashMap<FunctionCall, FunctionInfo> functionInfo = new IdentityHashMap<>();
 
     private final IdentityHashMap<Field, ColumnHandle> columns = new IdentityHashMap<>();
+
+    private final IdentityHashMap<SampledRelation, Double> sampleRatios = new IdentityHashMap<>();
 
     // for materialized views
     private QualifiedTableName destination;
@@ -312,6 +315,17 @@ public class Analysis
         checkNotNull(query, "query is null");
 
         namedQueries.put(tableReference, query);
+    }
+
+    public void setSampleRatio(SampledRelation relation, double ratio)
+    {
+        sampleRatios.put(relation, ratio);
+    }
+
+    public double getSampleRatio(SampledRelation relation)
+    {
+        Preconditions.checkState(sampleRatios.containsKey(relation), "Sample ratio missing for %s. Broken analysis?", relation);
+        return sampleRatios.get(relation);
     }
 
     public static class JoinInPredicates
