@@ -219,11 +219,12 @@ function taskData(d) {
     ];
 }
 
+/** Computes rate per second **/
 function computeRate(count, ms) {
     if (ms == 0) {
         return 0;
     }
-    return Math.round(count / ms) / 1000;
+    return Math.round(count / ms) * 1000;
 }
 
 function formatCount(count) {
