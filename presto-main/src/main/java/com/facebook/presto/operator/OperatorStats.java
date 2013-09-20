@@ -272,25 +272,25 @@ public class OperatorStats
         return new OperatorStats(
                 operatorId,
                 operatorType,
-                new Duration(getOutputWall, NANOSECONDS),
-                new Duration(getOutputCpu, NANOSECONDS),
-                new Duration(getOutputUser, NANOSECONDS),
-                new DataSize(outputDataSize, BYTE),
+                new Duration(getOutputWall, NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                new Duration(getOutputCpu, NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                new Duration(getOutputUser, NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                new DataSize(outputDataSize, BYTE).convertToMostSuccinctDataSize(),
                 outputPositions,
 
-                new Duration(addInputWall, NANOSECONDS),
-                new Duration(addInputCpu, NANOSECONDS),
-                new Duration(addInputUser, NANOSECONDS),
-                new DataSize(inputDataSize, BYTE),
+                new Duration(addInputWall, NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                new Duration(addInputCpu, NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                new Duration(addInputUser, NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                new DataSize(inputDataSize, BYTE).convertToMostSuccinctDataSize(),
                 inputPositions,
 
-                new Duration(blockedWall, NANOSECONDS),
+                new Duration(blockedWall, NANOSECONDS).convertToMostSuccinctTimeUnit(),
 
-                new Duration(finishWall, NANOSECONDS),
-                new Duration(finishCpu, NANOSECONDS),
-                new Duration(finishUser, NANOSECONDS),
+                new Duration(finishWall, NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                new Duration(finishCpu, NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                new Duration(finishUser, NANOSECONDS).convertToMostSuccinctTimeUnit(),
 
-                new DataSize(memoryReservation, BYTE),
+                new DataSize(memoryReservation, BYTE).convertToMostSuccinctDataSize(),
 
                 // todo merge operator info?
                 null);
