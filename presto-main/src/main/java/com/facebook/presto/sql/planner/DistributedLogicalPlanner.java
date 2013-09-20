@@ -27,6 +27,7 @@ import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
@@ -161,6 +162,14 @@ public class DistributedLogicalPlanner
         {
             SubPlanBuilder current = node.getSource().accept(this, context);
             current.setRoot(new FilterNode(node.getId(), current.getRoot(), node.getPredicate()));
+            return current;
+        }
+
+        @Override
+        public SubPlanBuilder visitSample(SampleNode node, Void context)
+        {
+            SubPlanBuilder current = node.getSource().accept(this, context);
+            current.setRoot(new SampleNode(node.getId(), current.getRoot(), node.getSampleRatio()));
             return current;
         }
 

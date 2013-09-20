@@ -35,6 +35,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
         @JsonSubTypes.Type(value = WindowNode.class, name = "window"),
         @JsonSubTypes.Type(value = LimitNode.class, name = "limit"),
         @JsonSubTypes.Type(value = TopNNode.class, name = "topn"),
+        @JsonSubTypes.Type(value = SampleNode.class, name = "sample"),
         @JsonSubTypes.Type(value = SortNode.class, name = "sort"),
         @JsonSubTypes.Type(value = ExchangeNode.class, name = "exchange"),
         @JsonSubTypes.Type(value = SinkNode.class, name = "sink"),

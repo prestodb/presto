@@ -50,6 +50,11 @@ public class PlanNodeRewriter<C>
         return rewriteNode(node, context, planRewriter);
     }
 
+    public PlanNode rewriteSample(SampleNode node, C context, PlanRewriter<C> planRewriter)
+    {
+        return rewriteNode(node, context, planRewriter);
+    }
+
     public PlanNode rewriteJoin(JoinNode node, C context, PlanRewriter<C> planRewriter)
     {
         return rewriteNode(node, context, planRewriter);
