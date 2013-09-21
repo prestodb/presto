@@ -14,14 +14,18 @@
 package com.facebook.presto.hive;
 
 /**
- * Represents a specific Hive installation
- * Note: implementations will be used as keys in a Map and will be expected to provide appropriate equals and hashCode
- * methods.
+ * A Hive cluster is a single logical installation of Hive. It might
+ * have multiple instances of the metastore service (for scalability
+ * purposes), but they would all return the same data.
+ * <p/>
+ * This Hive plugin only supports having a single Hive cluster per
+ * instantiation of the plugin, but a plugin that extends this code
+ * could support multiple, dynamically located Hive clusters.
  */
 public interface HiveCluster
 {
     /**
-     * Create a connected HiveMetastoreClient to this HiveCluster
+     * Create a connected {@link HiveMetastoreClient} to this HiveCluster
      */
     HiveMetastoreClient createMetastoreClient();
 }
