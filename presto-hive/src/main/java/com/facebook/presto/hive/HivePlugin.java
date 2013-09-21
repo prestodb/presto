@@ -21,12 +21,21 @@ import com.google.common.collect.ImmutableMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Strings.isNullOrEmpty;
 
 public class HivePlugin
         implements Plugin
 {
+    private final String name;
     private Map<String, String> optionalConfig = ImmutableMap.of();
+
+    public HivePlugin(String name)
+    {
+        checkArgument(!isNullOrEmpty(name), "name is null or empty");
+        this.name = name;
+    }
 
     @Override
     public void setOptionalConfig(Map<String, String> optionalConfig)
@@ -38,7 +47,7 @@ public class HivePlugin
     public <T> List<T> getServices(Class<T> type)
     {
         if (type == ConnectorFactory.class) {
-            return ImmutableList.of(type.cast(new HiveConnectorFactory(optionalConfig, getClassLoader())));
+            return ImmutableList.of(type.cast(new HiveConnectorFactory(name, optionalConfig, getClassLoader())));
         }
         return ImmutableList.of();
     }

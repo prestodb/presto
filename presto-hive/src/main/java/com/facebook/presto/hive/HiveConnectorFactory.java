@@ -40,22 +40,21 @@ import javax.management.MBeanServer;
 import java.lang.management.ManagementFactory;
 import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Strings.isNullOrEmpty;
 
-public class
-        HiveConnectorFactory
+public class HiveConnectorFactory
         implements ConnectorFactory
 {
+    private final String name;
     private final Map<String, String> optionalConfig;
     private final ClassLoader classLoader;
 
-    public HiveConnectorFactory(Map<String, String> optionalConfig)
+    public HiveConnectorFactory(String name, Map<String, String> optionalConfig, ClassLoader classLoader)
     {
-        this(optionalConfig, HiveConnectorFactory.class.getClassLoader());
-    }
-
-    public HiveConnectorFactory(Map<String, String> optionalConfig, ClassLoader classLoader)
-    {
+        checkArgument(!isNullOrEmpty(name), "name is null or empty");
+        this.name = name;
         this.optionalConfig = checkNotNull(optionalConfig, "optionalConfig is null");
         this.classLoader = checkNotNull(classLoader, "classLoader is null");
     }
@@ -63,11 +62,11 @@ public class
     @Override
     public String getName()
     {
-        return "hive";
+        return name;
     }
 
     @Override
-    public Connector create(final String connectorId, Map<String, String> config)
+    public Connector create(String connectorId, Map<String, String> config)
     {
         checkNotNull(config, "config is null");
 

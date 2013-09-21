@@ -266,7 +266,7 @@
                                     <version>${project.version}</version>
                                     <type>zip</type>
                                     <overWrite>false</overWrite>
-                                    <outputDirectory>${project.build.directory}/plugin/hive</outputDirectory>
+                                    <outputDirectory>${project.build.directory}/plugin/hive-cdh4</outputDirectory>
                                 </artifactItem>
                             </artifactItems>
                         </configuration>
