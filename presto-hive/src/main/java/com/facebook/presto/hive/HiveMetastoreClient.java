@@ -19,13 +19,13 @@ import org.apache.hadoop.hive.metastore.api.ThriftHiveMetastore;
 
 import java.io.Closeable;
 
-class HiveMetastoreClient
+public class HiveMetastoreClient
         extends ThriftHiveMetastore.Client
         implements Closeable
 {
     private final TTransport transport;
 
-    HiveMetastoreClient(TTransport transport)
+    public HiveMetastoreClient(TTransport transport)
     {
         super(new TBinaryProtocol(transport));
         this.transport = transport;
