@@ -27,14 +27,18 @@ import org.testng.annotations.Test;
 
 import static io.airlift.testing.Assertions.assertInstanceOf;
 
-public class HiveImportClientFactoryTest
+public class TestHiveConnectorFactory
 {
     @Test
     public void testGetClient()
             throws Exception
     {
-        HiveConnectorFactory connectorFactory = new HiveConnectorFactory(ImmutableMap.<String, String>of("node.environment", "test"));
-        Connector connector = connectorFactory.create("hive", ImmutableMap.<String, String>of());
+        HiveConnectorFactory connectorFactory = new HiveConnectorFactory(
+                "hive-test",
+                ImmutableMap.of("node.environment", "test"),
+                HiveConnector.class.getClassLoader());
+
+        Connector connector = connectorFactory.create("hive-test", ImmutableMap.<String, String>of());
         assertInstanceOf(connector.getService(ConnectorMetadata.class), ClassLoaderSafeConnectorMetadata.class);
         assertInstanceOf(connector.getService(ConnectorSplitManager.class), ClassLoaderSafeConnectorSplitManager.class);
         assertInstanceOf(connector.getService(ConnectorRecordSetProvider.class), ClassLoaderSafeConnectorRecordSetProvider.class);
