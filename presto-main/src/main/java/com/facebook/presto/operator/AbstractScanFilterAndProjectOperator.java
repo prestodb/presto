@@ -27,6 +27,7 @@ import io.airlift.units.DataSize;
 
 import javax.annotation.concurrent.GuardedBy;
 
+import java.io.Closeable;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -34,7 +35,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.BYTE;
 
 public abstract class AbstractScanFilterAndProjectOperator
-        implements SourceOperator
+        implements SourceOperator, Closeable
 {
     private final OperatorContext operatorContext;
     private final PlanNodeId planNodeId;
@@ -122,10 +123,15 @@ public abstract class AbstractScanFilterAndProjectOperator
     @Override
     public final void finish()
     {
+        close();
+    }
+
+    public void close()
+    {
         if (operator != null) {
             operator.finish();
         }
-        else {
+        else if (cursor != null) {
             cursor.close();
         }
         finishing = true;

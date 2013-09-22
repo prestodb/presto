@@ -23,13 +23,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 
+import java.io.Closeable;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.units.DataSize.Unit.BYTE;
 
 public class RecordProjectOperator
-        implements Operator
+        implements Operator, Closeable
 {
     private static final int ROWS_PER_REQUEST = 16384;
     private final OperatorContext operatorContext;
@@ -78,6 +79,11 @@ public class RecordProjectOperator
 
     @Override
     public void finish()
+    {
+        close();
+    }
+
+    public void close()
     {
         finishing = true;
         cursor.close();

@@ -174,5 +174,9 @@ public class TaskExecutorTest
             }
             return isFinished;
         }
+
+        public void close()
+        {
+        }
     }
 }

@@ -117,6 +117,11 @@ public class TaskContext
         this.cpuTimerEnabled = cpuTimerEnabled;
     }
 
+    public TaskId getTaskId()
+    {
+        return taskStateMachine.getTaskId();
+    }
+
     public PipelineContext addPipelineContext(boolean inputPipeline, boolean outputPipeline)
     {
         PipelineContext pipelineContext = new PipelineContext(this, executor, inputPipeline, outputPipeline);

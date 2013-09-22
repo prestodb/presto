@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Function;
@@ -82,6 +83,11 @@ public class PipelineContext
         this.outputPipeline = outputPipeline;
         this.taskContext = checkNotNull(taskContext, "taskContext is null");
         this.executor = checkNotNull(executor, "executor is null");
+    }
+
+    public TaskId getTaskId()
+    {
+        return taskContext.getTaskId();
     }
 
     public boolean isInputPipeline()
