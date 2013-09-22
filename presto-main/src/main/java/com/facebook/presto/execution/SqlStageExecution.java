@@ -250,7 +250,6 @@ public class SqlStageExecution
 
             int totalDrivers = 0;
             int queuedDrivers = 0;
-            int startedDrivers = 0;
             int runningDrivers = 0;
             int completedDrivers = 0;
 
@@ -282,7 +281,6 @@ public class SqlStageExecution
 
                 totalDrivers += taskStats.getTotalDrivers();
                 queuedDrivers += taskStats.getQueuedDrivers();
-                startedDrivers += taskStats.getStartedDrivers();
                 runningDrivers += taskStats.getRunningDrivers();
                 completedDrivers += taskStats.getCompletedDrivers();
 
@@ -314,7 +312,6 @@ public class SqlStageExecution
 
                     totalDrivers,
                     queuedDrivers,
-                    startedDrivers,
                     runningDrivers,
                     completedDrivers,
 

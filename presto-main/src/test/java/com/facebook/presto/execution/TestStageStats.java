@@ -37,7 +37,6 @@ public class TestStageStats
 
             7,
             8,
-            9,
             10,
             11,
 
@@ -80,8 +79,7 @@ public class TestStageStats
 
         assertEquals(actual.getTotalDrivers(), 7);
         assertEquals(actual.getQueuedDrivers(), 8);
-        assertEquals(actual.getRunningDrivers(), 9);
-        assertEquals(actual.getStartedDrivers(), 10);
+        assertEquals(actual.getRunningDrivers(), 10);
         assertEquals(actual.getCompletedDrivers(), 11);
 
         assertEquals(actual.getTotalMemoryReservation(), new DataSize(12, BYTE));

@@ -136,7 +136,6 @@ public class QueryStateMachine
 
         int totalDrivers = 0;
         int queuedDrivers = 0;
-        int startedDrivers = 0;
         int runningDrivers = 0;
         int completedDrivers = 0;
 
@@ -165,7 +164,6 @@ public class QueryStateMachine
 
                 totalDrivers = stageStats.getTotalDrivers();
                 queuedDrivers = stageStats.getQueuedDrivers();
-                startedDrivers = stageStats.getStartedDrivers();
                 runningDrivers = stageStats.getRunningDrivers();
                 completedDrivers = stageStats.getCompletedDrivers();
 
@@ -207,7 +205,6 @@ public class QueryStateMachine
 
                 totalDrivers,
                 queuedDrivers,
-                startedDrivers,
                 runningDrivers,
                 completedDrivers,
 
