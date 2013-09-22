@@ -26,7 +26,6 @@ import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.PipelineContext;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskOutputOperator.TaskOutputFactory;
-import com.facebook.presto.spi.Split;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
@@ -37,9 +36,8 @@ import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.SetMultimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -52,10 +50,13 @@ import javax.annotation.concurrent.GuardedBy;
 import java.lang.ref.WeakReference;
 import java.net.URI;
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Map.Entry;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -66,6 +67,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.facebook.presto.util.Failures.toFailures;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 
 public class SqlTaskExecution
@@ -82,19 +84,16 @@ public class SqlTaskExecution
 
     private final TaskHandle taskHandle;
 
+    private final List<WeakReference<Driver>> drivers = new CopyOnWriteArrayList<>();
+
     /**
      * Number of drivers that have been sent to the TaskExecutor that have not finished.
      */
     private final AtomicInteger remainingDriverCount = new AtomicInteger();
 
+    // guarded for update only
     @GuardedBy("this")
-    private final Set<PlanNodeId> noMoreSplits = new HashSet<>();
-    @GuardedBy("this")
-    private final Set<PlanNodeId> completedUnpartitionedSources = new HashSet<>();
-    @GuardedBy("this")
-    private final SetMultimap<PlanNodeId, Split> unpartitionedSources = HashMultimap.create();
-    @GuardedBy("this")
-    private final List<WeakReference<Driver>> drivers = new ArrayList<>();
+    private final ConcurrentMap<PlanNodeId, TaskSource> unpartitionedSources = new ConcurrentHashMap<>();
     @GuardedBy("this")
     private long maxAcknowledgedSplit = Long.MIN_VALUE;
 
@@ -216,8 +215,9 @@ public class SqlTaskExecution
     }
 
     //
-    // This code starts threads so it can not be in the constructor
-    private synchronized void start()
+    // This code starts registers a callback with access to this class, and this
+    // call back is access from another thread, so this code can not be placed in the constructor
+    private void start()
     {
         // start unpartitioned drivers
         for (Driver driver : unpartitionedDrivers) {
@@ -268,27 +268,98 @@ public class SqlTaskExecution
     }
 
     @Override
-    public synchronized void addSources(List<TaskSource> sources)
+    public void addSources(List<TaskSource> sources)
     {
         checkNotNull(sources, "sources is null");
+        checkState(!Thread.holdsLock(this), "Can not add sources while holding a lock on the %s", getClass().getSimpleName());
 
         try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)) {
-            long newMaxAcknowledgedSplit = maxAcknowledgedSplit;
-            for (TaskSource source : sources) {
-                PlanNodeId sourceId = source.getPlanNodeId();
-                for (ScheduledSplit scheduledSplit : source.getSplits()) {
+
+            // update our record of sources and schedule drivers for new partitioned splits
+            Map<PlanNodeId, TaskSource> updatedUnpartitionedSources = updateSources(sources);
+
+            // tell existing drivers about the new splits; it is safe to update drivers
+            // multiple times and out of order because sources contain full record of
+            // the unpartitioned splits
+            for (TaskSource source : updatedUnpartitionedSources.values()) {
+                // tell all the existing drivers this source is finished
+                for (WeakReference<Driver> driverReference : drivers) {
+                    Driver driver = driverReference.get();
+                    // the driver can be GCed due to a failure or a limit
+                    if (driver != null) {
+                        driver.updateSource(source);
+                    } else {
+                        // remove the weak reference from the list to avoid a memory leak
+                        // NOTE: this is a concurrent safe operation on a CopyOnWriteArrayList
+                        drivers.remove(driverReference);
+                    }
+                }
+            }
+        }
+    }
+
+    private synchronized Map<PlanNodeId, TaskSource> updateSources(List<TaskSource> sources)
+    {
+        Map<PlanNodeId, TaskSource> updatedUnpartitionedSources = new HashMap<>();
+
+        // don't update maxAcknowledgedSplit until the end because task sources may not
+        // be in sorted order and if we updated early we could skip splits
+        long newMaxAcknowledgedSplit = maxAcknowledgedSplit;
+
+        for (TaskSource source : sources) {
+            PlanNodeId sourceId = source.getPlanNodeId();
+            if (sourceId.equals(partitionedSourceId)) {
+                // partitioned split
+                for (final ScheduledSplit scheduledSplit : source.getSplits()) {
                     // only add a split if we have not already scheduled it
                     if (scheduledSplit.getSequenceId() > maxAcknowledgedSplit) {
-                        addSplit(sourceId, scheduledSplit.getSplit());
+                        // create a new driver for the split
+                        enqueueDriver(new DriverSplitRunner(partitionedPipelineContext.addDriverContext(), new Function<DriverContext, Driver>()
+                        {
+                            @Override
+                            public Driver apply(DriverContext driverContext)
+                            {
+                                return createDriver(partitionedDriverFactory, driverContext, scheduledSplit);
+                            }
+                        }));
+
                         newMaxAcknowledgedSplit = max(scheduledSplit.getSequenceId(), newMaxAcknowledgedSplit);
                     }
                 }
+
                 if (source.isNoMoreSplits()) {
-                    noMoreSplits(sourceId);
+                    noMorePartitionedSplits.set(true);
+                    checkNoMorePartitionedSplits();
                 }
             }
-            maxAcknowledgedSplit = newMaxAcknowledgedSplit;
+            else {
+                // unpartitioned split
+
+                // update newMaxAcknowledgedSplit
+                for (ScheduledSplit scheduledSplit : source.getSplits()) {
+                    newMaxAcknowledgedSplit = max(scheduledSplit.getSequenceId(), newMaxAcknowledgedSplit);
+                }
+
+                // create new source
+                TaskSource newSource;
+                TaskSource currentSource = unpartitionedSources.get(sourceId);
+                if (currentSource == null) {
+                    newSource = source;
+                }
+                else {
+                    newSource = currentSource.update(source);
+                }
+
+                // only record new source if something changed
+                if (newSource != currentSource) {
+                    unpartitionedSources.put(sourceId, newSource);
+                    updatedUnpartitionedSources.put(sourceId, newSource);
+                }
+            }
         }
+
+        maxAcknowledgedSplit = newMaxAcknowledgedSplit;
+        return updatedUnpartitionedSources;
     }
 
     @Override
@@ -302,36 +373,6 @@ public class SqlTaskExecution
             }
             if (outputIds.isNoMoreBufferIds()) {
                 sharedBuffer.noMoreQueues();
-            }
-        }
-    }
-
-    private synchronized void addSplit(PlanNodeId sourceId, final Split split)
-    {
-        // is this a partitioned source
-        if (sourceId.equals(partitionedSourceId)) {
-            // create a new driver for the split
-            enqueueDriver(new DriverSplitRunner(partitionedPipelineContext.addDriverContext(), new Function<DriverContext, Driver>()
-            {
-                @Override
-                public Driver apply(DriverContext driverContext)
-                {
-                    return createDriver(partitionedDriverFactory, driverContext, split);
-                }
-            }));
-        }
-        else {
-            // record the new split so drivers created in the future will see this split
-            if (!unpartitionedSources.put(sourceId, split)) {
-                return;
-            }
-            // add split to all of the existing drivers
-            for (WeakReference<Driver> driverReference : drivers) {
-                Driver driver = driverReference.get();
-                // the driver can be GCed due to a failure or a limit
-                if (driver != null) {
-                    driver.addSplit(sourceId, split);
-                }
             }
         }
     }
@@ -391,64 +432,47 @@ public class SqlTaskExecution
         }
     }
 
-    private synchronized void noMoreSplits(PlanNodeId sourceId)
+    private Driver createDriver(DriverFactory driverFactory, DriverContext driverContext, ScheduledSplit partitionedSplit)
     {
-        // don't bother updating is this source has already been closed
-        if (!noMoreSplits.add(sourceId)) {
-            return;
-        }
+        checkState(!Thread.holdsLock(this), "Can not crete a driver while holding a lock on the %s", getClass().getSimpleName());
 
-        if (sourceId.equals(partitionedSourceId)) {
-            noMorePartitionedSplits.set(true);
-            checkNoMorePartitionedSplits();
-        }
-        else {
-            completedUnpartitionedSources.add(sourceId);
-
-            // tell all this existing drivers this source is finished
-            for (WeakReference<Driver> driverReference : drivers) {
-                Driver driver = driverReference.get();
-                // the driver can be GCed due to a failure or a limit
-                if (driver != null) {
-                    driver.noMoreSplits(sourceId);
-                }
-            }
-        }
-    }
-
-    private synchronized Driver createDriver(DriverFactory driverFactory, DriverContext driverContext, Split partitionedSplit)
-    {
         Driver driver = driverFactory.createDriver(driverContext);
 
         if (partitionedSplit != null) {
             // TableScanOperator requires partitioned split to be added before task is started
-            driver.addSplit(partitionedSourceId, partitionedSplit);
+            driver.updateSource(new TaskSource(partitionedSourceId, ImmutableSet.of(partitionedSplit), true));
         }
+
+        // record driver so other threads add unpartitioned sources can see the driver
+        // NOTE: this MUST be done before reading unpartitionedSources, so we see a consistent view of the unpartitioned sources
+        drivers.add(new WeakReference<>(driver));
 
         // add unpartitioned sources
-        for (Entry<PlanNodeId, Split> entry : unpartitionedSources.entries()) {
-            driver.addSplit(entry.getKey(), entry.getValue());
+        for (TaskSource source : unpartitionedSources.values()) {
+            driver.updateSource(source);
         }
 
-        // mark completed sources
-        for (PlanNodeId completedUnpartitionedSource : completedUnpartitionedSources) {
-            driver.noMoreSplits(completedUnpartitionedSource);
-        }
-
-        // record driver so if additional unpartitioned splits are added we can add them to the driver
-        drivers.add(new WeakReference<>(driver));
         return driver;
     }
 
-    private synchronized Set<PlanNodeId> getNoMoreSplits()
+    private Set<PlanNodeId> getNoMoreSplits()
     {
-        return noMoreSplits;
+        ImmutableSet.Builder<PlanNodeId> noMoreSplits = ImmutableSet.builder();
+        if (partitionedSourceId != null && noMorePartitionedSplits.get()) {
+            noMoreSplits.add(partitionedSourceId);
+        }
+        for (TaskSource taskSource : unpartitionedSources.values()) {
+            if (taskSource.isNoMoreSplits()) {
+                noMoreSplits.add(taskSource.getPlanNodeId());
+            }
+        }
+        return noMoreSplits.build();
     }
 
     private synchronized void checkTaskCompletion()
     {
         // are there more partition splits expected?
-        if (partitionedSourceId != null && !noMoreSplits.contains(partitionedSourceId)) {
+        if (partitionedSourceId != null && !noMorePartitionedSplits.get()) {
             return;
         }
         // do we still have running tasks?
@@ -491,6 +515,7 @@ public class SqlTaskExecution
         checkNotNull(outputId, "outputId is null");
         Preconditions.checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
         checkNotNull(maxWait, "maxWait is null");
+        checkState(!Thread.holdsLock(this), "Can not get result data while holding a lock on the %s", getClass().getSimpleName());
 
         try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)) {
             return sharedBuffer.get(outputId, startingSequenceId, maxSize, maxWait);
