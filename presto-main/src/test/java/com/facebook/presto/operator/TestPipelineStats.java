@@ -78,7 +78,7 @@ public class TestPipelineStats
 
         assertEquals(actual.getTotalDrivers(), 1);
         assertEquals(actual.getQueuedDrivers(), 2);
-        assertEquals(actual.getStartedDrivers(), 3);
+        assertEquals(actual.getRunningDrivers(), 3);
         assertEquals(actual.getCompletedDrivers(), 4);
 
         assertEquals(actual.getMemoryReservation(), new DataSize(5, BYTE));
@@ -103,8 +103,8 @@ public class TestPipelineStats
         assertEquals(actual.getOperatorSummaries().size(), 1);
         assertExpectedOperatorStats(actual.getOperatorSummaries().get(0));
 
-        assertEquals(actual.getRunningDrivers().size(), 1);
-        assertExpectedDriverStats(actual.getRunningDrivers().get(0));
+        assertEquals(actual.getDrivers().size(), 1);
+        assertExpectedDriverStats(actual.getDrivers().get(0));
     }
 
     private static DistributionSnapshot getTestDistribution(int count)

@@ -51,7 +51,7 @@ public class PipelineContext
     private final boolean inputPipeline;
     private final boolean outputPipeline;
 
-    private final List<DriverContext> runningDrivers = new CopyOnWriteArrayList<>();
+    private final List<DriverContext> drivers = new CopyOnWriteArrayList<>();
 
     private final AtomicInteger completedDrivers = new AtomicInteger();
 
@@ -97,13 +97,13 @@ public class PipelineContext
     public DriverContext addDriverContext()
     {
         DriverContext driverContext = new DriverContext(this, executor);
-        runningDrivers.add(driverContext);
+        drivers.add(driverContext);
         return driverContext;
     }
 
-    public List<DriverContext> getRunningDrivers()
+    public List<DriverContext> getDrivers()
     {
-        return ImmutableList.copyOf(runningDrivers);
+        return ImmutableList.copyOf(drivers);
     }
 
     public Session getSession()
@@ -115,7 +115,7 @@ public class PipelineContext
     {
         checkNotNull(driverContext, "driverContext is null");
 
-        if (!runningDrivers.remove(driverContext)) {
+        if (!drivers.remove(driverContext)) {
             throw new IllegalArgumentException("Unknown driver " + driverContext);
         }
 
@@ -205,11 +205,11 @@ public class PipelineContext
 
     public PipelineStats getPipelineStats()
     {
-        List<DriverContext> runningDrivers = ImmutableList.copyOf(this.runningDrivers);
+        List<DriverContext> driverContexts = ImmutableList.copyOf(this.drivers);
 
-        int totalDriers = completedDrivers.get() + runningDrivers.size();
+        int totalDriers = completedDrivers.get() + driverContexts.size();
         int queuedDrivers = 0;
-        int startedDrivers = 0;
+        int runningDrivers = 0;
         int completedDrivers = this.completedDrivers.get();
 
         Distribution queuedTime = new Distribution(this.queuedTime);
@@ -232,7 +232,7 @@ public class PipelineContext
         List<DriverStats> drivers = new ArrayList<>();
 
         Multimap<Integer, OperatorStats> runningOperators = ArrayListMultimap.create();
-        for (DriverContext driverContext : runningDrivers) {
+        for (DriverContext driverContext : driverContexts) {
             DriverStats driverStats = driverContext.getDriverStats();
             drivers.add(driverStats);
 
@@ -240,7 +240,7 @@ public class PipelineContext
                 queuedDrivers++;
             }
             else {
-                startedDrivers++;
+                runningDrivers++;
             }
 
             queuedTime.add(driverStats.getQueuedTime().roundTo(NANOSECONDS));
@@ -280,7 +280,7 @@ public class PipelineContext
 
                 totalDriers,
                 queuedDrivers,
-                startedDrivers,
+                runningDrivers,
                 completedDrivers,
 
                 new DataSize(memoryReservation.get(), BYTE).convertToMostSuccinctDataSize(),

@@ -35,7 +35,7 @@ public class PipelineStats
 
     private final int totalDrivers;
     private final int queuedDrivers;
-    private final int startedDrivers;
+    private final int runningDrivers;
     private final int completedDrivers;
 
     private final DataSize memoryReservation;
@@ -58,7 +58,7 @@ public class PipelineStats
     private final long outputPositions;
 
     private final List<OperatorStats> operatorSummaries;
-    private final List<DriverStats> runningDrivers;
+    private final List<DriverStats> drivers;
 
     @JsonCreator
     public PipelineStats(
@@ -67,7 +67,7 @@ public class PipelineStats
 
             @JsonProperty("totalDrivers") int totalDrivers,
             @JsonProperty("queuedDrivers") int queuedDrivers,
-            @JsonProperty("startedDrivers") int startedDrivers,
+            @JsonProperty("runningDrivers") int runningDrivers,
             @JsonProperty("completedDrivers") int completedDrivers,
 
             @JsonProperty("memoryReservation") DataSize memoryReservation,
@@ -90,7 +90,7 @@ public class PipelineStats
             @JsonProperty("outputPositions") long outputPositions,
 
             @JsonProperty("operatorSummaries") List<OperatorStats> operatorSummaries,
-            @JsonProperty("runningDrivers") List<DriverStats> runningDrivers)
+            @JsonProperty("drivers") List<DriverStats> drivers)
     {
         this.inputPipeline = inputPipeline;
         this.outputPipeline = outputPipeline;
@@ -99,8 +99,8 @@ public class PipelineStats
         this.totalDrivers = totalDrivers;
         checkArgument(queuedDrivers >= 0, "queuedDrivers is negative");
         this.queuedDrivers = queuedDrivers;
-        checkArgument(startedDrivers >= 0, "startedDrivers is negative");
-        this.startedDrivers = startedDrivers;
+        checkArgument(runningDrivers >= 0, "runningDrivers is negative");
+        this.runningDrivers = runningDrivers;
         checkArgument(completedDrivers >= 0, "completedDrivers is negative");
         this.completedDrivers = completedDrivers;
 
@@ -127,7 +127,7 @@ public class PipelineStats
         this.outputPositions = outputPositions;
 
         this.operatorSummaries = ImmutableList.copyOf(checkNotNull(operatorSummaries, "operatorSummaries is null"));
-        this.runningDrivers = ImmutableList.copyOf(checkNotNull(runningDrivers, "runningDrivers is null"));
+        this.drivers = ImmutableList.copyOf(checkNotNull(drivers, "drivers is null"));
     }
 
     @JsonProperty
@@ -155,9 +155,9 @@ public class PipelineStats
     }
 
     @JsonProperty
-    public int getStartedDrivers()
+    public int getRunningDrivers()
     {
-        return startedDrivers;
+        return runningDrivers;
     }
 
     @JsonProperty
@@ -251,8 +251,8 @@ public class PipelineStats
     }
 
     @JsonProperty
-    public List<DriverStats> getRunningDrivers()
+    public List<DriverStats> getDrivers()
     {
-        return runningDrivers;
+        return drivers;
     }
 }

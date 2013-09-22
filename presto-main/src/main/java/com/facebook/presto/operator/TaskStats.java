@@ -38,7 +38,6 @@ public class TaskStats
 
     private final int totalDrivers;
     private final int queuedDrivers;
-    private final int startedDrivers;
     private final int runningDrivers;
     private final int completedDrivers;
 
@@ -70,7 +69,6 @@ public class TaskStats
 
             @JsonProperty("totalDrivers") int totalDrivers,
             @JsonProperty("queuedDrivers") int queuedDrivers,
-            @JsonProperty("startedDrivers") int startedDrivers,
             @JsonProperty("runningDrivers") int runningDrivers,
             @JsonProperty("completedDrivers") int completedDrivers,
 
@@ -102,8 +100,6 @@ public class TaskStats
         this.totalDrivers = totalDrivers;
         checkArgument(queuedDrivers >= 0, "queuedDrivers is negative");
         this.queuedDrivers = queuedDrivers;
-        checkArgument(startedDrivers >= 0, "startedDrivers is negative");
-        this.startedDrivers = startedDrivers;
         checkArgument(runningDrivers >= 0, "runningDrivers is negative");
         this.runningDrivers = runningDrivers;
         checkArgument(completedDrivers >= 0, "completedDrivers is negative");
@@ -173,12 +169,6 @@ public class TaskStats
     public int getQueuedDrivers()
     {
         return queuedDrivers;
-    }
-
-    @JsonProperty
-    public int getStartedDrivers()
-    {
-        return startedDrivers;
     }
 
     @JsonProperty
