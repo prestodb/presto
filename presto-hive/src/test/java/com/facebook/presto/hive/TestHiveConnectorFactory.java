@@ -31,11 +31,19 @@ public class TestHiveConnectorFactory
 {
     @Test
     public void testGetClient()
-            throws Exception
+    {
+        assertCreateConnector("thrift://localhost:1234");
+        assertCreateConnector("discovery::");
+    }
+
+    private static void assertCreateConnector(String metastoreUri)
     {
         HiveConnectorFactory connectorFactory = new HiveConnectorFactory(
                 "hive-test",
-                ImmutableMap.of("node.environment", "test"),
+                ImmutableMap.<String, String>builder()
+                        .put("node.environment", "test")
+                        .put("hive.metastore.uri", metastoreUri)
+                        .build(),
                 HiveConnector.class.getClassLoader());
 
         Connector connector = connectorFactory.create("hive-test", ImmutableMap.<String, String>of());
