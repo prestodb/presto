@@ -393,6 +393,11 @@ public class TaskExecutorSimulator
         }
 
         @Override
+        public void close()
+        {
+        }
+
+        @Override
         public ListenableFuture<?> processFor(Duration duration)
                 throws Exception
         {

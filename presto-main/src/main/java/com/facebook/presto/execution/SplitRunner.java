@@ -16,7 +16,10 @@ package com.facebook.presto.execution;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
 
+import java.io.Closeable;
+
 public interface SplitRunner
+        extends Closeable
 {
     void initialize();
 
@@ -24,4 +27,6 @@ public interface SplitRunner
 
     ListenableFuture<?> processFor(Duration duration)
             throws Exception;
+
+    void close();
 }

@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
 import java.util.List;
@@ -39,6 +40,8 @@ import static com.google.common.base.Preconditions.checkState;
 
 public class Driver
 {
+    private static final Logger log = Logger.get(Driver.class);
+
     private final DriverContext driverContext;
     private final List<Operator> operators;
     private final Map<PlanNodeId, SourceOperator> sourceOperators;
@@ -66,6 +69,28 @@ public class Driver
             }
         }
         this.sourceOperators = sourceOperators.build();
+    }
+
+    public void close()
+    {
+        try {
+            for (Operator operator : operators) {
+                operator.finish();
+            }
+        }
+        finally {
+            for (Operator operator : operators) {
+                if (operator instanceof AutoCloseable) {
+                    try {
+                        ((AutoCloseable) operator).close();
+                    }
+                    catch (Exception e) {
+                        log.error(e, "Error closing operator %s for task %s", operator.getOperatorContext().getOperatorId(), driverContext.getTaskId());
+                    }
+                }
+            }
+            driverContext.finished();
+        }
     }
 
     public DriverContext getDriverContext()
@@ -140,18 +165,11 @@ public class Driver
         }
     }
 
-    public synchronized void finish()
-    {
-        for (Operator operator : operators) {
-            operator.finish();
-        }
-    }
-
     public synchronized boolean isFinished()
     {
         boolean finished = driverContext.isDone() || operators.get(operators.size() - 1).isFinished();
         if (finished) {
-            driverContext.finished();
+            close();
         }
         return finished;
     }

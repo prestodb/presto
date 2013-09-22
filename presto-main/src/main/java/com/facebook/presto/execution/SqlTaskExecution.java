@@ -591,5 +591,11 @@ public class SqlTaskExecution
         {
             return driver.processFor(duration);
         }
+
+        @Override
+        public void close()
+        {
+            driver.close();
+        }
     }
 }

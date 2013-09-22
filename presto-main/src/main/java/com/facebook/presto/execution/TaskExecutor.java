@@ -326,6 +326,7 @@ public class TaskExecutor
         private void splitComplete(PrioritizedSplitRunner split)
         {
             runningSplits.remove(split);
+            split.destroy();
         }
 
         @Override
@@ -382,6 +383,12 @@ public class TaskExecutor
 
         public void destroy()
         {
+            try {
+                split.close();
+            }
+            catch (Exception e) {
+                log.error(e, "Error closing split for task %s", taskHandle.getTaskId());
+            }
             destroyed.set(true);
         }
 
