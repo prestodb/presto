@@ -222,7 +222,7 @@ public class SqlTaskExecution
         // start unpartitioned drivers
         for (Driver driver : unpartitionedDrivers) {
             drivers.add(new WeakReference<>(driver));
-            enqueueDriver(new DriverSplitRunner(driver));
+            enqueueDriver(true, new DriverSplitRunner(driver));
         }
     }
 
@@ -314,7 +314,7 @@ public class SqlTaskExecution
                     // only add a split if we have not already scheduled it
                     if (scheduledSplit.getSequenceId() > maxAcknowledgedSplit) {
                         // create a new driver for the split
-                        enqueueDriver(new DriverSplitRunner(partitionedPipelineContext.addDriverContext(), new Function<DriverContext, Driver>()
+                        enqueueDriver(false, new DriverSplitRunner(partitionedPipelineContext.addDriverContext(), new Function<DriverContext, Driver>()
                         {
                             @Override
                             public Driver apply(DriverContext driverContext)
@@ -377,10 +377,16 @@ public class SqlTaskExecution
         }
     }
 
-    private synchronized void enqueueDriver(final DriverSplitRunner splitRunner)
+    private synchronized void enqueueDriver(boolean forceRunSplit, final DriverSplitRunner splitRunner)
     {
         // schedule driver to be executed
-        ListenableFuture<?> finishedFuture = taskExecutor.addSplit(taskHandle, splitRunner);
+        ListenableFuture<?> finishedFuture;
+        if (forceRunSplit) {
+            finishedFuture = taskExecutor.forceRunSplit(taskHandle, splitRunner);
+        }
+        else {
+            finishedFuture = taskExecutor.enqueueSplit(taskHandle, splitRunner);
+        }
 
         // record new driver
         remainingDriverCount.incrementAndGet();

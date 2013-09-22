@@ -44,9 +44,9 @@ public class TaskExecutorTest
 
             // add two jobs
             TestingJob driver1 = new TestingJob(beginPhase, verificationComplete, 10);
-            ListenableFuture<?> future1 = taskExecutor.addSplit(taskHandle, driver1);
+            ListenableFuture<?> future1 = taskExecutor.forceRunSplit(taskHandle, driver1);
             TestingJob driver2 = new TestingJob(beginPhase, verificationComplete, 10);
-            ListenableFuture<?> future2 = taskExecutor.addSplit(taskHandle, driver2);
+            ListenableFuture<?> future2 = taskExecutor.forceRunSplit(taskHandle, driver2);
             assertEquals(driver1.getCompletedPhases(), 0);
             assertEquals(driver2.getCompletedPhases(), 0);
 
@@ -65,7 +65,7 @@ public class TaskExecutorTest
 
             // add one more job
             TestingJob driver3 = new TestingJob(beginPhase, verificationComplete, 10);
-            ListenableFuture<?> future3 = taskExecutor.addSplit(taskHandle, driver3);
+            ListenableFuture<?> future3 = taskExecutor.enqueueSplit(taskHandle, driver3);
 
             // advance one phase and verify
             beginPhase.arriveAndAwaitAdvance();

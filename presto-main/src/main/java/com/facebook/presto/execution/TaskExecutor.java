@@ -66,7 +66,7 @@ public class TaskExecutor
     private static final Logger log = Logger.get(TaskExecutor.class);
 
     // each task is guaranteed a minimum number of tasks
-    private static final int GUARANTEED_SPLITS_PER_TASK = 5;
+    private static final int GUARANTEED_SPLITS_PER_TASK = 3;
 
     // each time we run a split, run it for this length before returning to the pool
     private static final Duration SPLIT_RUN_QUANTA = new Duration(1, TimeUnit.SECONDS);
@@ -178,12 +178,21 @@ public class TaskExecutor
         completedTasksPerLevel.incrementAndGet(priorityLevel);
     }
 
-    public synchronized ListenableFuture<?> addSplit(TaskHandle taskHandle, SplitRunner taskSplit)
+    public synchronized ListenableFuture<?> enqueueSplit(TaskHandle taskHandle, SplitRunner taskSplit)
     {
         PrioritizedSplitRunner prioritizedSplitRunner = new PrioritizedSplitRunner(taskHandle, taskSplit, ticker);
         taskHandle.addSplit(prioritizedSplitRunner);
 
         scheduleTaskIfNecessary(taskHandle);
+
+        return prioritizedSplitRunner.getFinishedFuture();
+    }
+
+    public synchronized ListenableFuture<?> forceRunSplit(TaskHandle taskHandle, SplitRunner taskSplit)
+    {
+        PrioritizedSplitRunner prioritizedSplitRunner = new PrioritizedSplitRunner(taskHandle, taskSplit, ticker);
+
+        startSplit(prioritizedSplitRunner);
 
         return prioritizedSplitRunner.getFinishedFuture();
     }
@@ -201,7 +210,7 @@ public class TaskExecutor
         addNewEntrants();
     }
 
-    private void scheduleTaskIfNecessary(TaskHandle taskHandle)
+    private synchronized void scheduleTaskIfNecessary(TaskHandle taskHandle)
     {
         // if task has less than the minimum guaranteed splits running,
         // immediately schedule a new split for this task.  This assures
@@ -210,8 +219,7 @@ public class TaskExecutor
         if (taskHandle.getRunningSplits() < GUARANTEED_SPLITS_PER_TASK) {
             PrioritizedSplitRunner split = taskHandle.pollNextSplit();
             if (split != null) {
-                allSplits.add(split);
-                pendingSplits.add(split);
+                startSplit(split);
             }
         }
     }
@@ -224,13 +232,19 @@ public class TaskExecutor
             if (split == null) {
                 break;
             }
-            allSplits.add(split);
-            pendingSplits.put(split);
+            startSplit(split);
         }
+    }
+
+    private synchronized void startSplit(PrioritizedSplitRunner split)
+    {
+        allSplits.add(split);
+        pendingSplits.put(split);
     }
 
     private synchronized PrioritizedSplitRunner pollNextSplitWorker()
     {
+        // todo find a better algorithm for this
         // find the first task that produces a split, then move that task to the
         // end of the task list, so we get round robin
         for (Iterator<TaskHandle> iterator = tasks.iterator(); iterator.hasNext(); ) {
