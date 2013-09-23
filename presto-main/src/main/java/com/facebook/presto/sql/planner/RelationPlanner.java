@@ -127,16 +127,14 @@ class RelationPlanner
     @Override
     protected RelationPlan visitSampledRelation(SampledRelation node, Void context)
     {
-        if (node.getType() == SampledRelation.Type.SYSTEM) {
-            throw new UnsupportedOperationException("TABLESAMPLE SYSTEM not yet implemented");
-        }
-
         RelationPlan subPlan = process(node.getRelation(), context);
 
         TupleDescriptor outputDescriptor = analysis.getOutputDescriptor(node);
         double ratio = analysis.getSampleRatio(node);
-
-        return new RelationPlan(new SampleNode(idAllocator.getNextId(), subPlan.getRoot(), ratio), outputDescriptor, subPlan.getOutputSymbols());
+        return new RelationPlan(
+                new SampleNode(idAllocator.getNextId(), subPlan.getRoot(), ratio, SampleNode.Type.fromType(node.getType())),
+                outputDescriptor,
+                subPlan.getOutputSymbols());
     }
 
     @Override

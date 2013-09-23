@@ -161,7 +161,7 @@ public final class PlanRewriter<C>
             PlanNode source = rewrite(node.getSource(), context.get());
 
             if (source != node.getSource()) {
-                return new SampleNode(node.getId(), source, node.getSampleRatio());
+                return new SampleNode(node.getId(), source, node.getSampleRatio(), node.getSampleType());
             }
 
             return node;

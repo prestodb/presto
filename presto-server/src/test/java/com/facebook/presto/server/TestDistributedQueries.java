@@ -55,6 +55,8 @@ import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestDistributedQueries
         extends AbstractTestQueries
@@ -80,6 +82,33 @@ public class TestDistributedQueries
             throws Exception
     {
         assertQuery("SELECT " + Joiner.on(" AND ").join(nCopies(500, "1 = 1")), "SELECT true");
+    }
+
+    public void testTableSampleSystem()
+            throws Exception
+    {
+        int total = computeActual("SELECT orderkey FROM orders").getMaterializedTuples().size();
+
+        boolean sampleSizeFound = false;
+        for (int i = 0; i < 100; i++) {
+            int sampleSize = computeActual("SELECT orderkey FROM ORDERS TABLESAMPLE SYSTEM (50)").getMaterializedTuples().size();
+            if (sampleSize > 0 && sampleSize < total) {
+                sampleSizeFound = true;
+                break;
+            }
+        }
+        assertTrue(sampleSizeFound, "Table sample returned unexpected number of rows");
+    }
+
+    public void testTableSampleSystemBoundaryValues()
+            throws Exception
+    {
+        MaterializedResult fullSample = computeActual("SELECT * FROM orders TABLESAMPLE SYSTEM (100)");
+        MaterializedResult emptySample = computeActual("SELECT * FROM orders TABLESAMPLE SYSTEM (0)");
+        MaterializedResult all = computeActual("SELECT * FROM orders");
+
+        assertTrue(all.getMaterializedTuples().containsAll(fullSample.getMaterializedTuples()));
+        assertEquals(emptySample.getMaterializedTuples().size(), 0);
     }
 
     @Override

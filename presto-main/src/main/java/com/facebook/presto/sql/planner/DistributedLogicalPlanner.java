@@ -169,7 +169,7 @@ public class DistributedLogicalPlanner
         public SubPlanBuilder visitSample(SampleNode node, Void context)
         {
             SubPlanBuilder current = node.getSource().accept(this, context);
-            current.setRoot(new SampleNode(node.getId(), current.getRoot(), node.getSampleRatio()));
+            current.setRoot(new SampleNode(node.getId(), current.getRoot(), node.getSampleRatio(), node.getSampleType()));
             return current;
         }
 

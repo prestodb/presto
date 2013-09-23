@@ -18,9 +18,16 @@ import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.plan.*;
-import com.facebook.presto.sql.tree.*;
-import com.google.common.base.Preconditions;
+import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
+import com.facebook.presto.sql.planner.plan.PlanRewriter;
+import com.facebook.presto.sql.planner.plan.SampleNode;
+import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.DoubleLiteral;
+import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Map;
@@ -48,10 +55,19 @@ public class ImplementSampleAsFilter
         @Override
         public PlanNode rewriteSample(SampleNode node, Void context, PlanRewriter<Void> planRewriter)
         {
-            PlanNode rewrittenSource = planRewriter.rewrite(node.getSource(), context);
+            if (node.getSampleType() == SampleNode.Type.BERNOULLI) {
+                PlanNode rewrittenSource = planRewriter.rewrite(node.getSource(), context);
 
-            ComparisonExpression expression = new ComparisonExpression(ComparisonExpression.Type.LESS_THAN, new FunctionCall(QualifiedName.of("rand"), ImmutableList.<Expression>of()), new DoubleLiteral(Double.toString (node.getSampleRatio())));
-            return new FilterNode(node.getId(), rewrittenSource, expression);
+                ComparisonExpression expression = new ComparisonExpression(
+                        ComparisonExpression.Type.LESS_THAN,
+                        new FunctionCall(QualifiedName.of("rand"), ImmutableList.<Expression>of()),
+                        new DoubleLiteral(Double.toString(node.getSampleRatio())));
+                return new FilterNode(node.getId(), rewrittenSource, expression);
+            }
+            else if (node.getSampleType() == SampleNode.Type.SYSTEM) {
+                return rewriteNode(node, context, planRewriter);
+            }
+            throw new UnsupportedOperationException("not yet implemented");
         }
     }
 }
