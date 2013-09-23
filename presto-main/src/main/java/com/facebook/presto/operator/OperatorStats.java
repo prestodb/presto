@@ -32,17 +32,18 @@ public class OperatorStats
 {
     private final int operatorId;
     private final String operatorType;
-    private final Duration getOutputWall;
-    private final Duration getOutputCpu;
-    private final Duration getOutputUser;
-    private final DataSize outputDataSize;
-    private final long outputPositions;
 
     private final Duration addInputWall;
     private final Duration addInputCpu;
     private final Duration addInputUser;
     private final DataSize inputDataSize;
     private final long inputPositions;
+
+    private final Duration getOutputWall;
+    private final Duration getOutputCpu;
+    private final Duration getOutputUser;
+    private final DataSize outputDataSize;
+    private final long outputPositions;
 
     private final Duration blockedWall;
 
@@ -59,17 +60,17 @@ public class OperatorStats
             @JsonProperty("operatorId") int operatorId,
             @JsonProperty("operatorType") String operatorType,
 
-            @JsonProperty("getOutputWall") Duration getOutputWall,
-            @JsonProperty("getOutputCpu") Duration getOutputCpu,
-            @JsonProperty("getOutputUser") Duration getOutputUser,
-            @JsonProperty("outputDataSize") DataSize outputDataSize,
-            @JsonProperty("outputPositions") long outputPositions,
-
             @JsonProperty("addInputWall") Duration addInputWall,
             @JsonProperty("addInputCpu") Duration addInputCpu,
             @JsonProperty("addInputUser") Duration addInputUser,
             @JsonProperty("inputDataSize") DataSize inputDataSize,
             @JsonProperty("inputPositions") long inputPositions,
+
+            @JsonProperty("getOutputWall") Duration getOutputWall,
+            @JsonProperty("getOutputCpu") Duration getOutputCpu,
+            @JsonProperty("getOutputUser") Duration getOutputUser,
+            @JsonProperty("outputDataSize") DataSize outputDataSize,
+            @JsonProperty("outputPositions") long outputPositions,
 
             @JsonProperty("blockedWall") Duration blockedWall,
 
@@ -84,12 +85,6 @@ public class OperatorStats
         checkArgument(operatorId >= 0, "operatorId is negative");
         this.operatorId = operatorId;
         this.operatorType = checkNotNull(operatorType, "operatorType is null");
-        this.getOutputWall = checkNotNull(getOutputWall, "getOutputWall is null");
-        this.getOutputCpu = checkNotNull(getOutputCpu, "getOutputCpu is null");
-        this.getOutputUser = checkNotNull(getOutputUser, "getOutputUser is null");
-        this.outputDataSize = checkNotNull(outputDataSize, "outputDataSize is null");
-        checkArgument(outputPositions >= 0, "outputPositions is negative");
-        this.outputPositions = outputPositions;
 
         this.addInputWall = checkNotNull(addInputWall, "addInputWall is null");
         this.addInputCpu = checkNotNull(addInputCpu, "addInputCpu is null");
@@ -97,6 +92,13 @@ public class OperatorStats
         this.inputDataSize = checkNotNull(inputDataSize, "inputDataSize is null");
         checkArgument(inputPositions >= 0, "inputPositions is negative");
         this.inputPositions = inputPositions;
+
+        this.getOutputWall = checkNotNull(getOutputWall, "getOutputWall is null");
+        this.getOutputCpu = checkNotNull(getOutputCpu, "getOutputCpu is null");
+        this.getOutputUser = checkNotNull(getOutputUser, "getOutputUser is null");
+        this.outputDataSize = checkNotNull(outputDataSize, "outputDataSize is null");
+        checkArgument(outputPositions >= 0, "outputPositions is negative");
+        this.outputPositions = outputPositions;
 
         this.blockedWall = checkNotNull(blockedWall, "blockedWall is null");
 
@@ -119,36 +121,6 @@ public class OperatorStats
     public String getOperatorType()
     {
         return operatorType;
-    }
-
-    @JsonProperty
-    public Duration getGetOutputWall()
-    {
-        return getOutputWall;
-    }
-
-    @JsonProperty
-    public Duration getGetOutputCpu()
-    {
-        return getOutputCpu;
-    }
-
-    @JsonProperty
-    public Duration getGetOutputUser()
-    {
-        return getOutputUser;
-    }
-
-    @JsonProperty
-    public DataSize getOutputDataSize()
-    {
-        return outputDataSize;
-    }
-
-    @JsonProperty
-    public long getOutputPositions()
-    {
-        return outputPositions;
     }
 
     @JsonProperty
@@ -179,6 +151,36 @@ public class OperatorStats
     public long getInputPositions()
     {
         return inputPositions;
+    }
+
+    @JsonProperty
+    public Duration getGetOutputWall()
+    {
+        return getOutputWall;
+    }
+
+    @JsonProperty
+    public Duration getGetOutputCpu()
+    {
+        return getOutputCpu;
+    }
+
+    @JsonProperty
+    public Duration getGetOutputUser()
+    {
+        return getOutputUser;
+    }
+
+    @JsonProperty
+    public DataSize getOutputDataSize()
+    {
+        return outputDataSize;
+    }
+
+    @JsonProperty
+    public long getOutputPositions()
+    {
+        return outputPositions;
     }
 
     @JsonProperty
@@ -225,17 +227,17 @@ public class OperatorStats
 
     public OperatorStats add(Iterable<OperatorStats> operators)
     {
-        long getOutputWall = this.getOutputWall.roundTo(NANOSECONDS);
-        long getOutputCpu = this.getOutputCpu.roundTo(NANOSECONDS);
-        long getOutputUser = this.getOutputUser.roundTo(NANOSECONDS);
-        long outputDataSize = this.outputDataSize.toBytes();
-        long outputPositions = this.outputPositions;
-
         long addInputWall = this.addInputWall.roundTo(NANOSECONDS);
         long addInputCpu = this.addInputCpu.roundTo(NANOSECONDS);
         long addInputUser = this.addInputUser.roundTo(NANOSECONDS);
         long inputDataSize = this.inputDataSize.toBytes();
         long inputPositions = this.inputPositions;
+
+        long getOutputWall = this.getOutputWall.roundTo(NANOSECONDS);
+        long getOutputCpu = this.getOutputCpu.roundTo(NANOSECONDS);
+        long getOutputUser = this.getOutputUser.roundTo(NANOSECONDS);
+        long outputDataSize = this.outputDataSize.toBytes();
+        long outputPositions = this.outputPositions;
 
         long blockedWall = this.blockedWall.roundTo(NANOSECONDS);
 
@@ -272,17 +274,18 @@ public class OperatorStats
         return new OperatorStats(
                 operatorId,
                 operatorType,
-                new Duration(getOutputWall, NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                new Duration(getOutputCpu, NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                new Duration(getOutputUser, NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                new DataSize(outputDataSize, BYTE).convertToMostSuccinctDataSize(),
-                outputPositions,
 
                 new Duration(addInputWall, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(addInputCpu, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(addInputUser, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new DataSize(inputDataSize, BYTE).convertToMostSuccinctDataSize(),
                 inputPositions,
+
+                new Duration(getOutputWall, NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                new Duration(getOutputCpu, NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                new Duration(getOutputUser, NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                new DataSize(outputDataSize, BYTE).convertToMostSuccinctDataSize(),
+                outputPositions,
 
                 new Duration(blockedWall, NANOSECONDS).convertToMostSuccinctTimeUnit(),
 
