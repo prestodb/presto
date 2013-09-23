@@ -19,6 +19,8 @@ import com.facebook.presto.hive.util.FileStatusCallback;
 import com.facebook.presto.hive.util.SuspendingExecutor;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Split;
+import com.google.common.base.Optional;
+import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
@@ -102,6 +104,7 @@ class HiveSplitIterable
     private final Table table;
     private final Iterable<String> partitionNames;
     private final Iterable<Partition> partitions;
+    private final Optional<Integer> bucket;
     private final int maxOutstandingSplits;
     private final int maxThreads;
     private final HdfsEnvironment hdfsEnvironment;
@@ -114,6 +117,7 @@ class HiveSplitIterable
             Table table,
             Iterable<String> partitionNames,
             Iterable<Partition> partitions,
+            Optional<Integer> bucket,
             DataSize maxSplitSize,
             int maxOutstandingSplits,
             int maxThreads,
@@ -125,6 +129,7 @@ class HiveSplitIterable
         this.table = table;
         this.partitionNames = partitionNames;
         this.partitions = partitions;
+        this.bucket = bucket;
         this.maxSplitSize = maxSplitSize;
         this.maxPartitionBatchSize = maxPartitionBatchSize;
         this.maxOutstandingSplits = maxOutstandingSplits;
@@ -205,6 +210,10 @@ class HiveSplitIterable
                     @Override
                     public void process(FileStatus file, BlockLocation[] blockLocations)
                     {
+                        if (bucket.isPresent() && !fileMatchesBucket(file.getPath().getName(), bucket.get())) {
+                            return;
+                        }
+
                         try {
                             boolean splittable = isSplittable(inputFormat, file.getPath().getFileSystem(configuration), file.getPath());
 
@@ -255,6 +264,17 @@ class HiveSplitIterable
         catch (Throwable e) {
             hiveSplitQueue.fail(e);
             Throwables.propagateIfInstanceOf(e, Error.class);
+        }
+    }
+
+    private static boolean fileMatchesBucket(String fileName, int bucketNumber)
+    {
+        String currentBucket = Splitter.on('_').split(fileName).iterator().next();
+        try {
+            return Integer.parseInt(currentBucket) == bucketNumber;
+        }
+        catch (NumberFormatException ignored) {
+            return false;
         }
     }
 

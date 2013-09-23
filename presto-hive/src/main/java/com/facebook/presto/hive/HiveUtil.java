@@ -19,8 +19,14 @@ import com.google.common.base.Throwables;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.metastore.api.MetaException;
+import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
+import org.apache.hadoop.hive.serde2.SerDeException;
+import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
+import org.apache.hadoop.hive.serde2.objectinspector.StructField;
+import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorUtils;
 import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.JobConf;
@@ -32,11 +38,15 @@ import org.joda.time.format.DateTimeFormatterBuilder;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.List;
 import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.apache.hadoop.hive.metastore.MetaStoreUtils.getDeserializer;
+import static org.apache.hadoop.hive.metastore.MetaStoreUtils.getTableMetadata;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
+import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
 
 final class HiveUtil
 {
@@ -129,5 +139,19 @@ final class HiveUtil
         catch (InvocationTargetException | IllegalAccessException e) {
             throw Throwables.propagate(e);
         }
+    }
+
+    public static StructObjectInspector getTableObjectInspector(Properties schema)
+            throws MetaException, SerDeException
+    {
+        ObjectInspector inspector = getDeserializer(null, schema).getObjectInspector();
+        checkArgument(inspector.getCategory() == Category.STRUCT, "expected STRUCT: %s", inspector.getCategory());
+        return (StructObjectInspector) inspector;
+    }
+
+    public static List<? extends StructField> getTableStructFields(Table table)
+            throws MetaException, SerDeException
+    {
+        return getTableObjectInspector(getTableMetadata(table)).getAllStructFieldRefs();
     }
 }

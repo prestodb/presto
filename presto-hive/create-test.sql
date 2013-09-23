@@ -42,6 +42,57 @@ PARTITIONED BY (ds STRING)
 TBLPROPERTIES ('RETENTION'='-1')
 ;
 
+CREATE TABLE presto_test_bucketed_by_string_int (
+  t_string STRING,
+  t_tinyint TINYINT,
+  t_smallint SMALLINT,
+  t_int INT,
+  t_bigint BIGINT,
+  t_float FLOAT,
+  t_double DOUBLE,
+  t_boolean BOOLEAN
+)
+COMMENT 'Presto test bucketed table'
+PARTITIONED BY (ds STRING)
+CLUSTERED BY (t_string, t_int) INTO 32 BUCKETS
+STORED AS RCFILE
+TBLPROPERTIES ('RETENTION'='-1')
+;
+
+CREATE TABLE presto_test_bucketed_by_bigint_boolean (
+  t_string STRING,
+  t_tinyint TINYINT,
+  t_smallint SMALLINT,
+  t_int INT,
+  t_bigint BIGINT,
+  t_float FLOAT,
+  t_double DOUBLE,
+  t_boolean BOOLEAN
+)
+COMMENT 'Presto test bucketed table'
+PARTITIONED BY (ds STRING)
+CLUSTERED BY (t_bigint, t_boolean) INTO 32 BUCKETS
+STORED AS RCFILE
+TBLPROPERTIES ('RETENTION'='-1')
+;
+
+CREATE TABLE presto_test_bucketed_by_double_float (
+  t_string STRING,
+  t_tinyint TINYINT,
+  t_smallint SMALLINT,
+  t_int INT,
+  t_bigint BIGINT,
+  t_float FLOAT,
+  t_double DOUBLE,
+  t_boolean BOOLEAN
+)
+COMMENT 'Presto test bucketed table'
+PARTITIONED BY (ds STRING)
+CLUSTERED BY (t_double, t_float) INTO 32 BUCKETS
+STORED AS RCFILE
+TBLPROPERTIES ('RETENTION'='-1')
+;
+
 CREATE VIEW presto_test_view
 COMMENT 'Presto test view'
 TBLPROPERTIES ('RETENTION'='-1')
@@ -140,3 +191,26 @@ SELECT 'test' FROM tmp_presto_test LIMIT 100;
 ALTER TABLE presto_test_offline_partition PARTITION (ds='2012-12-30') ENABLE OFFLINE;
 
 DROP TABLE tmp_presto_test;
+
+SET hive.enforce.bucketing = true;
+
+INSERT OVERWRITE TABLE presto_test_bucketed_by_string_int
+PARTITION (ds='2012-12-29')
+SELECT t_string, t_tinyint, t_smallint, t_int, t_bigint, t_float, t_double, t_boolean
+FROM presto_test
+WHERE ds = '2012-12-29'
+;
+
+INSERT OVERWRITE TABLE presto_test_bucketed_by_bigint_boolean
+PARTITION (ds='2012-12-29')
+SELECT t_string, t_tinyint, t_smallint, t_int, t_bigint, t_float, t_double, t_boolean
+FROM presto_test
+WHERE ds = '2012-12-29'
+;
+
+INSERT OVERWRITE TABLE presto_test_bucketed_by_double_float
+PARTITION (ds='2012-12-29')
+SELECT t_string, t_tinyint, t_smallint, t_int, t_bigint, t_float, t_double, t_boolean
+FROM presto_test
+WHERE ds = '2012-12-29'
+;

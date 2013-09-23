@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.SchemaTableName;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
@@ -31,19 +32,22 @@ public class HivePartition
     private final SchemaTableName tableName;
     private final String partitionId;
     private final Map<ColumnHandle, Object> keys;
+    private final Optional<Integer> bucket;
 
     public HivePartition(SchemaTableName tableName)
     {
         this.tableName = checkNotNull(tableName, "tableName is null");
         this.partitionId = UNPARTITIONED_ID;
         this.keys = ImmutableMap.of();
+        this.bucket = Optional.absent();
     }
 
-    public HivePartition(SchemaTableName tableName, String partitionId, Map<ColumnHandle, Object> keys)
+    public HivePartition(SchemaTableName tableName, String partitionId, Map<ColumnHandle, Object> keys, Optional<Integer> bucket)
     {
         this.tableName = checkNotNull(tableName, "tableName is null");
         this.partitionId = checkNotNull(partitionId, "partitionId is null");
         this.keys = ImmutableMap.copyOf(checkNotNull(keys, "keys is null"));
+        this.bucket = checkNotNull(bucket, "bucket number is null");
     }
 
     public SchemaTableName getTableName()
@@ -61,6 +65,11 @@ public class HivePartition
     public Map<ColumnHandle, Object> getKeys()
     {
         return keys;
+    }
+
+    public Optional<Integer> getBucket()
+    {
+        return bucket;
     }
 
     @Override

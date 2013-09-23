@@ -36,6 +36,7 @@ import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveBooleanParser.isFalse;
 import static com.facebook.presto.hive.HiveBooleanParser.isTrue;
+import static com.facebook.presto.hive.HiveUtil.getTableObjectInspector;
 import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
 import static com.facebook.presto.hive.NumberParser.parseDouble;
 import static com.facebook.presto.hive.NumberParser.parseLong;
@@ -45,7 +46,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
-import static org.apache.hadoop.hive.metastore.MetaStoreUtils.getDeserializer;
 
 class BytesHiveRecordCursor<K>
         implements RecordCursor
@@ -115,8 +115,7 @@ class BytesHiveRecordCursor<K>
 
         // initialize data columns
         try {
-            ObjectInspector inspector = getDeserializer(null, splitSchema).getObjectInspector();
-            StructObjectInspector rowInspector = (StructObjectInspector) inspector;
+            StructObjectInspector rowInspector = getTableObjectInspector(splitSchema);
 
             for (int i = 0; i < columns.size(); i++) {
                 HiveColumnHandle column = columns.get(i);
