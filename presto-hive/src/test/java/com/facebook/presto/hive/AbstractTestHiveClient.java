@@ -31,6 +31,7 @@ import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.base.Charsets;
 import com.google.common.base.Function;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -67,6 +68,9 @@ public abstract class AbstractTestHiveClient
     protected SchemaTableName tableOfflinePartition;
     protected SchemaTableName view;
     protected SchemaTableName invalidTable;
+    protected SchemaTableName tableBucketedStringInt;
+    protected SchemaTableName tableBucketedBigintBoolean;
+    protected SchemaTableName tableBucketedDoubleFloat;
 
     protected TableHandle invalidTableHandle;
 
@@ -94,6 +98,9 @@ public abstract class AbstractTestHiveClient
         tableOfflinePartition = new SchemaTableName(database, "presto_test_offline_partition");
         view = new SchemaTableName(database, "presto_test_view");
         invalidTable = new SchemaTableName(database, "totally_invalid_table_name");
+        tableBucketedStringInt = new SchemaTableName(database, "presto_test_bucketed_by_string_int");
+        tableBucketedBigintBoolean = new SchemaTableName(database, "presto_test_bucketed_by_bigint_boolean");
+        tableBucketedDoubleFloat = new SchemaTableName(database, "presto_test_bucketed_by_double_float");
 
         invalidTableHandle = new HiveTableHandle("hive", database, "totally_invalid_table_name");
 
@@ -105,15 +112,15 @@ public abstract class AbstractTestHiveClient
         partitions = ImmutableSet.<Partition>of(
                 new HivePartition(table,
                         "ds=2012-12-29/file_format=rcfile/dummy=1",
-                        ImmutableMap.<ColumnHandle, Object>of(dsColumn, "2012-12-29", fileFormatColumn, "rcfile", dummyColumn, 1L)),
+                        ImmutableMap.<ColumnHandle, Object>of(dsColumn, "2012-12-29", fileFormatColumn, "rcfile", dummyColumn, 1L), Optional.<Integer> absent()),
                 new HivePartition(table,
                         "ds=2012-12-29/file_format=sequencefile/dummy=2",
-                        ImmutableMap.<ColumnHandle, Object>of(dsColumn, "2012-12-29", fileFormatColumn, "sequencefile", dummyColumn, 2L)),
+                        ImmutableMap.<ColumnHandle, Object>of(dsColumn, "2012-12-29", fileFormatColumn, "sequencefile", dummyColumn, 2L), Optional.<Integer> absent()),
                 new HivePartition(table,
                         "ds=2012-12-29/file_format=textfile/dummy=3",
-                        ImmutableMap.<ColumnHandle, Object>of(dsColumn, "2012-12-29", fileFormatColumn, "textfile", dummyColumn, 3L)));
+                        ImmutableMap.<ColumnHandle, Object>of(dsColumn, "2012-12-29", fileFormatColumn, "textfile", dummyColumn, 3L), Optional.<Integer> absent()));
         unpartitionedPartitions = ImmutableSet.<Partition>of(new HivePartition(tableUnpartitioned));
-        invalidPartition = new HivePartition(invalidTable, "unknown", ImmutableMap.<ColumnHandle, Object>of());
+        invalidPartition = new HivePartition(invalidTable, "unknown", ImmutableMap.<ColumnHandle, Object>of(), Optional.<Integer> absent());
     }
 
     @Test
@@ -350,6 +357,106 @@ public abstract class AbstractTestHiveClient
                 Iterables.size(splitManager.getPartitionSplits(tableHandle, ImmutableList.of(partition)));
             }
         }
+    }
+
+    @Test
+    public void testBucketedTableStringInt()
+            throws Exception
+    {
+        TableHandle tableHandle = getTableHandle(tableBucketedStringInt);
+        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
+        Map<String, Integer> columnIndex = indexColumns(columnHandles);
+
+        String testString = "sequencefile test";
+        Long testInt = 213L;
+        Long testSmallint = 212L;
+
+        // Reverse the order of bindings as compared to bucketing order
+        ImmutableMap<ColumnHandle, Object> bindings = ImmutableMap.<ColumnHandle, Object>builder()
+                .put(columnHandles.get(columnIndex.get("t_int")), testInt)
+                .put(columnHandles.get(columnIndex.get("t_string")), testString)
+                .put(columnHandles.get(columnIndex.get("t_smallint")), testSmallint)
+                .build();
+
+        List<Partition> partitions = splitManager.getPartitions(tableHandle, bindings);
+        List<Split> splits = ImmutableList.copyOf(splitManager.getPartitionSplits(tableHandle, partitions));
+        assertEquals(splits.size(), 1);
+
+        boolean rowFound = false;
+        try (RecordCursor cursor = recordSetProvider.getRecordSet(splits.get(0), columnHandles).cursor()) {
+            while (cursor.advanceNextPosition()) {
+                if (testString.equals(new String(cursor.getString(columnIndex.get("t_string")))) &&
+                        testInt == cursor.getLong(columnIndex.get("t_int")) &&
+                        testSmallint == cursor.getLong(columnIndex.get("t_smallint"))) {
+                    rowFound = true;
+                }
+            }
+            assertTrue(rowFound);
+        }
+    }
+
+    @Test
+    public void testBucketedTableBigintBoolean()
+            throws Exception
+    {
+        TableHandle tableHandle = getTableHandle(tableBucketedBigintBoolean);
+        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
+        Map<String, Integer> columnIndex = indexColumns(columnHandles);
+
+        String testString = "textfile test";
+        Long testBigint = 405L;
+        Boolean testBoolean = true;
+
+        ImmutableMap<ColumnHandle, Object> bindings = ImmutableMap.<ColumnHandle, Object>builder()
+                .put(columnHandles.get(columnIndex.get("t_string")), testString)
+                .put(columnHandles.get(columnIndex.get("t_bigint")), testBigint)
+                .put(columnHandles.get(columnIndex.get("t_boolean")), testBoolean)
+                .build();
+
+        List<Partition> partitions = splitManager.getPartitions(tableHandle, bindings);
+        List<Split> splits = ImmutableList.copyOf(splitManager.getPartitionSplits(tableHandle, partitions));
+        assertEquals(splits.size(), 1);
+
+        boolean rowFound = false;
+        try (RecordCursor cursor = recordSetProvider.getRecordSet(splits.get(0), columnHandles).cursor()) {
+            while (cursor.advanceNextPosition()) {
+                if (testString.equals(new String(cursor.getString(columnIndex.get("t_string")))) &&
+                        testBigint == cursor.getLong(columnIndex.get("t_bigint")) &&
+                        testBoolean == cursor.getBoolean(columnIndex.get("t_boolean"))) {
+                    rowFound = true;
+                    break;
+                }
+            }
+            assertTrue(rowFound);
+        }
+    }
+
+    @Test
+    public void testBucketedTableDoubleFloat()
+            throws Exception
+    {
+        TableHandle tableHandle = getTableHandle(tableBucketedDoubleFloat);
+        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
+        Map<String, Integer> columnIndex = indexColumns(columnHandles);
+
+        ImmutableMap<ColumnHandle, Object> bindings = ImmutableMap.<ColumnHandle, Object>builder()
+                .put(columnHandles.get(columnIndex.get("t_float")), 406.1000061035156)
+                .put(columnHandles.get(columnIndex.get("t_double")), 407.2)
+                .build();
+
+        List<Partition> partitions = splitManager.getPartitions(tableHandle, bindings);
+        List<Split> splits = ImmutableList.copyOf(splitManager.getPartitionSplits(tableHandle, partitions));
+        assertEquals(splits.size(), 32);
+
+        int count = 0;
+        for (Split split : splits) {
+            try (RecordCursor cursor = recordSetProvider.getRecordSet(split, columnHandles).cursor()) {
+                while (cursor.advanceNextPosition()) {
+                    count++;
+                }
+            }
+        }
+        assertEquals(count, 300);
     }
 
     @Test
