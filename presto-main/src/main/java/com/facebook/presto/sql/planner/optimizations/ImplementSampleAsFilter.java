@@ -50,7 +50,7 @@ public class ImplementSampleAsFilter
         {
             PlanNode rewrittenSource = planRewriter.rewrite(node.getSource(), context);
 
-            ComparisonExpression expression = new ComparisonExpression(ComparisonExpression.Type.LESS_THAN_OR_EQUAL, new FunctionCall(QualifiedName.of("rand"), ImmutableList.<Expression>of()), new DoubleLiteral(Double.toString (node.getSampleRatio())));
+            ComparisonExpression expression = new ComparisonExpression(ComparisonExpression.Type.LESS_THAN, new FunctionCall(QualifiedName.of("rand"), ImmutableList.<Expression>of()), new DoubleLiteral(Double.toString (node.getSampleRatio())));
             return new FilterNode(node.getId(), rewrittenSource, expression);
         }
     }
