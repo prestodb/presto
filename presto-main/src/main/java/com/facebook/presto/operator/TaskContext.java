@@ -24,6 +24,7 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
+import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
@@ -182,6 +183,50 @@ public class TaskContext
     public boolean isCpuTimerEnabled()
     {
         return cpuTimerEnabled;
+    }
+
+    public CounterStat getInputDataSize()
+    {
+        CounterStat stat = new CounterStat();
+        for (PipelineContext pipelineContext : pipelineContexts) {
+            if (pipelineContext.isInputPipeline()) {
+                stat.merge(pipelineContext.getInputDataSize());
+            }
+        }
+        return stat;
+    }
+
+    public CounterStat getInputPositions()
+    {
+        CounterStat stat = new CounterStat();
+        for (PipelineContext pipelineContext : pipelineContexts) {
+            if (pipelineContext.isInputPipeline()) {
+                stat.merge(pipelineContext.getInputPositions());
+            }
+        }
+        return stat;
+    }
+
+    public CounterStat getOutputDataSize()
+    {
+        CounterStat stat = new CounterStat();
+        for (PipelineContext pipelineContext : pipelineContexts) {
+            if (pipelineContext.isOutputPipeline()) {
+                stat.merge(pipelineContext.getOutputDataSize());
+            }
+        }
+        return stat;
+    }
+
+    public CounterStat getOutputPositions()
+    {
+        CounterStat stat = new CounterStat();
+        for (PipelineContext pipelineContext : pipelineContexts) {
+            if (pipelineContext.isOutputPipeline()) {
+                stat.merge(pipelineContext.getOutputPositions());
+            }
+        }
+        return stat;
     }
 
     @Deprecated

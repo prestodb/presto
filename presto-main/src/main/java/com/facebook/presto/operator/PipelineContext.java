@@ -20,6 +20,7 @@ import com.google.common.base.Function;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
+import io.airlift.stats.CounterStat;
 import io.airlift.stats.Distribution;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -66,14 +67,14 @@ public class PipelineContext
     private final AtomicLong totalUserTime = new AtomicLong();
     private final AtomicLong totalBlockedTime = new AtomicLong();
 
-    private final AtomicLong rawInputDataSize = new AtomicLong();
-    private final AtomicLong rawInputPositions = new AtomicLong();
+    private final CounterStat rawInputDataSize = new CounterStat();
+    private final CounterStat rawInputPositions = new CounterStat();
 
-    private final AtomicLong processedInputDataSize = new AtomicLong();
-    private final AtomicLong processedInputPositions = new AtomicLong();
+    private final CounterStat processedInputDataSize = new CounterStat();
+    private final CounterStat processedInputPositions = new CounterStat();
 
-    private final AtomicLong outputDataSize = new AtomicLong();
-    private final AtomicLong outputPositions = new AtomicLong();
+    private final CounterStat outputDataSize = new CounterStat();
+    private final CounterStat outputPositions = new CounterStat();
 
     private final ConcurrentMap<Integer, OperatorStats> operatorSummaries = new ConcurrentHashMap<>();
 
@@ -154,14 +155,14 @@ public class PipelineContext
             operatorSummaries.put(operator.getOperatorId(), operatorSummary);
         }
 
-        rawInputDataSize.getAndAdd(driverStats.getRawInputDataSize().toBytes());
-        rawInputPositions.getAndAdd(driverStats.getRawInputPositions());
+        rawInputDataSize.update(driverStats.getRawInputDataSize().toBytes());
+        rawInputPositions.update(driverStats.getRawInputPositions());
 
-        processedInputDataSize.getAndAdd(driverStats.getProcessedInputDataSize().toBytes());
-        processedInputPositions.getAndAdd(driverStats.getProcessedInputPositions());
+        processedInputDataSize.update(driverStats.getProcessedInputDataSize().toBytes());
+        processedInputPositions.update(driverStats.getProcessedInputPositions());
 
-        outputDataSize.getAndAdd(driverStats.getOutputDataSize().toBytes());
-        outputPositions.getAndAdd(driverStats.getOutputPositions());
+        outputDataSize.update(driverStats.getOutputDataSize().toBytes());
+        outputPositions.update(driverStats.getOutputPositions());
     }
 
     public void start()
@@ -203,6 +204,46 @@ public class PipelineContext
         return taskContext.isCpuTimerEnabled();
     }
 
+    public CounterStat getInputDataSize()
+    {
+        CounterStat stat = new CounterStat();
+        stat.merge(rawInputDataSize);
+        for (DriverContext driver : drivers) {
+            stat.merge(driver.getInputDataSize());
+        }
+        return stat;
+    }
+
+    public CounterStat getInputPositions()
+    {
+        CounterStat stat = new CounterStat();
+        stat.merge(rawInputPositions);
+        for (DriverContext driver : drivers) {
+            stat.merge(driver.getInputPositions());
+        }
+        return stat;
+    }
+
+    public CounterStat getOutputDataSize()
+    {
+        CounterStat stat = new CounterStat();
+        stat.merge(outputDataSize);
+        for (DriverContext driver : drivers) {
+            stat.merge(driver.getOutputDataSize());
+        }
+        return stat;
+    }
+
+    public CounterStat getOutputPositions()
+    {
+        CounterStat stat = new CounterStat();
+        stat.merge(outputPositions);
+        for (DriverContext driver : drivers) {
+            stat.merge(driver.getOutputPositions());
+        }
+        return stat;
+    }
+
     @Deprecated
     public void addOutputItems(PlanNodeId id, Iterable<?> outputItems)
     {
@@ -226,14 +267,14 @@ public class PipelineContext
         long totalUserTime = this.totalUserTime.get();
         long totalBlockedTime = this.totalBlockedTime.get();
 
-        long rawInputDataSize = this.rawInputDataSize.get();
-        long rawInputPositions = this.rawInputPositions.get();
+        long rawInputDataSize = this.rawInputDataSize.getTotalCount();
+        long rawInputPositions = this.rawInputPositions.getTotalCount();
 
-        long processedInputDataSize = this.processedInputDataSize.get();
-        long processedInputPositions = this.processedInputPositions.get();
+        long processedInputDataSize = this.processedInputDataSize.getTotalCount();
+        long processedInputPositions = this.processedInputPositions.getTotalCount();
 
-        long outputDataSize = this.outputDataSize.get();
-        long outputPositions = this.outputPositions.get();
+        long outputDataSize = this.outputDataSize.getTotalCount();
+        long outputPositions = this.outputPositions.getTotalCount();
 
         List<DriverStats> drivers = new ArrayList<>();
 
