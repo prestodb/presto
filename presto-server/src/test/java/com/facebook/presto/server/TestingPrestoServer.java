@@ -170,7 +170,7 @@ public class TestingPrestoServer
     public final void refreshServiceSelectors()
     {
         serviceSelectorManager.forceRefresh();
-        nodeManager.refreshNodes(true);
+        nodeManager.refreshNodes();
         assertTrue(nodeManager.getCurrentNode().isPresent(), "Current node is not in active set");
     }
 

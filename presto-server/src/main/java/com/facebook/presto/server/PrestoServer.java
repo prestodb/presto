@@ -149,7 +149,7 @@ public class PrestoServer
             injector.getInstance(Announcer.class).start();
 
             injector.getInstance(ServiceSelectorManager.class).attemptRefresh();
-            injector.getInstance(NodeManager.class).refreshNodes(true);
+            injector.getInstance(NodeManager.class).refreshNodes();
 
             log.info("======== SERVER STARTED ========");
 
