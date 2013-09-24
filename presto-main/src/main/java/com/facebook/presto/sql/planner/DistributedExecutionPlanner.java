@@ -42,11 +42,14 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 
+import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -154,7 +157,26 @@ public class DistributedExecutionPlanner
         @Override
         public NodeSplits visitSample(SampleNode node, Predicate<Partition> tableWriterPartitionPredicate)
         {
-            return node.getSource().accept(this, tableWriterPartitionPredicate);
+            if (node.getSampleType() == SampleNode.Type.BERNOULLI) {
+                return node.getSource().accept(this, tableWriterPartitionPredicate);
+            }
+            else if (node.getSampleType() == SampleNode.Type.SYSTEM) {
+                final double ratio = node.getSampleRatio();
+                NodeSplits nodeSplits = node.getSource().accept(this, tableWriterPartitionPredicate);
+                DataSource dataSource = nodeSplits.dataSource.get();
+                DataSource sampledDataSource = new DataSource(dataSource.getDataSourceName(), Iterables.filter(dataSource.getSplits(), new Predicate<Split>()
+                {
+                    public boolean apply(@Nullable Split input)
+                    {
+                        return ThreadLocalRandom.current().nextDouble() < ratio;
+                    }
+                }));
+
+                return new NodeSplits(node.getId(), sampledDataSource);
+            }
+            else {
+                throw new UnsupportedOperationException("Sampling is not supported for type " + node.getSampleType());
+            }
         }
 
         @Override

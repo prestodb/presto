@@ -2591,6 +2591,28 @@ public abstract class AbstractTestQueries
         assertTrue(mean > 0.45 && mean < 0.55, String.format("Expected mean sampling rate to be ~0.5, but was %s", mean));
     }
 
+    @Test
+    public void testTableSampleSystem()
+            throws Exception
+    {
+        MaterializedResult randomSample = computeActual("SELECT * FROM orders TABLESAMPLE SYSTEM (50)");
+        MaterializedResult all = computeExpected("SELECT * FROM orders", randomSample.getTupleInfo());
+
+        assertTrue(randomSample.getMaterializedTuples().size() <= all.getMaterializedTuples().size());
+    }
+
+    @Test
+    public void testTableSampleSystemBoundaryValues()
+            throws Exception
+    {
+        MaterializedResult fullSample = computeActual("SELECT * FROM orders TABLESAMPLE SYSTEM (100)");
+        MaterializedResult emptySample = computeActual("SELECT * FROM orders TABLESAMPLE SYSTEM (0)");
+        MaterializedResult all = computeExpected("SELECT * FROM orders", fullSample.getTupleInfo());
+
+        assertTrue(all.getMaterializedTuples().containsAll(fullSample.getMaterializedTuples()));
+        assertEquals(emptySample.getMaterializedTuples().size(), 0);
+    }
+
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\QUnexpected parameters (bigint) for function length. Expected: length(varchar)\\E")
     public void testFunctionNotRegistered()
     {
