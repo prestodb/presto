@@ -53,7 +53,6 @@ import java.net.URI;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static org.testng.Assert.assertTrue;
 
 public class TestingPrestoServer
         implements Closeable
@@ -171,7 +170,6 @@ public class TestingPrestoServer
     {
         serviceSelectorManager.forceRefresh();
         nodeManager.refreshNodes();
-        assertTrue(nodeManager.getCurrentNode().isPresent(), "Current node is not in active set");
     }
 
     private static class InMemoryTpchModule

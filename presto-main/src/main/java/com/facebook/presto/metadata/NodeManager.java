@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.metadata;
 
-import com.google.common.base.Optional;
-
 import java.util.Set;
 
 public interface NodeManager
@@ -23,7 +21,7 @@ public interface NodeManager
 
     AllNodes getAllNodes();
 
-    Optional<Node> getCurrentNode();
+    Node getCurrentNode();
 
     void refreshNodes();
 }

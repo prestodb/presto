@@ -15,7 +15,6 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.util.IterableTransformer;
-import com.google.common.base.Optional;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
@@ -126,6 +125,8 @@ public final class DiscoveryNodeManager
 
         allNodes = new AllNodes(activeNodesBuilder.build(), inactiveNodesBuilder.build());
         activeNodesByDataSource = byDataSourceBuilder.build();
+
+        checkState(currentNode != null, "INVARIANT: current node not returned from service selector");
     }
 
     private synchronized void refreshIfNecessary()
@@ -155,10 +156,10 @@ public final class DiscoveryNodeManager
     }
 
     @Override
-    public synchronized Optional<Node> getCurrentNode()
+    public synchronized Node getCurrentNode()
     {
         refreshIfNecessary();
-        return Optional.fromNullable(currentNode);
+        return currentNode;
     }
 
     private static URI getHttpUri(ServiceDescriptor descriptor)

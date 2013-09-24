@@ -19,7 +19,6 @@ import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.metadata.Node;
 import com.facebook.presto.metadata.NodeManager;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import io.airlift.http.server.HttpServerInfo;
 
@@ -70,9 +69,7 @@ public class HttpLocationFactory
     @Override
     public URI createLocalTaskLocation(TaskId taskId)
     {
-        Optional<Node> currentNode = nodeManager.getCurrentNode();
-        Preconditions.checkState(currentNode.isPresent(), "current node is not in the active set");
-        return createTaskLocation(currentNode.get(), taskId);
+        return createTaskLocation(nodeManager.getCurrentNode(), taskId);
     }
 
     @Override
