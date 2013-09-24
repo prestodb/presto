@@ -24,7 +24,7 @@ import javax.validation.constraints.NotNull;
 
 import java.util.concurrent.TimeUnit;
 
-public class FailureDetectorConfiguration
+public class FailureDetectorConfig
 {
     private boolean enabled = true;
     private double failureRatioThreshold = 0.01; // 1% failure rate
@@ -40,7 +40,7 @@ public class FailureDetectorConfiguration
 
     @Config("failure-detector.expiration-grace-interval")
     @ConfigDescription("How long to wait before 'forgetting' a service after it disappears from discovery")
-    public FailureDetectorConfiguration setExpirationGraceInterval(Duration expirationGraceInterval)
+    public FailureDetectorConfig setExpirationGraceInterval(Duration expirationGraceInterval)
     {
         this.expirationGraceInterval = expirationGraceInterval;
         return this;
@@ -52,7 +52,7 @@ public class FailureDetectorConfiguration
     }
 
     @Config("failure-detector.enabled")
-    public FailureDetectorConfiguration setEnabled(boolean enabled)
+    public FailureDetectorConfig setEnabled(boolean enabled)
     {
         this.enabled = enabled;
         return this;
@@ -66,7 +66,7 @@ public class FailureDetectorConfiguration
 
     @Config("failure-detector.warmup-interval")
     @ConfigDescription("How long to wait after transitioning to success before considering a service alive")
-    public FailureDetectorConfiguration setWarmupInterval(Duration warmupInterval)
+    public FailureDetectorConfig setWarmupInterval(Duration warmupInterval)
     {
         this.warmupInterval = warmupInterval;
         return this;
@@ -80,7 +80,7 @@ public class FailureDetectorConfiguration
     }
 
     @Config("failure-detector.heartbeat-interval")
-    public FailureDetectorConfiguration setHeartbeatInterval(Duration interval)
+    public FailureDetectorConfig setHeartbeatInterval(Duration interval)
     {
         this.heartbeatInterval = interval;
         return this;
@@ -94,7 +94,7 @@ public class FailureDetectorConfiguration
     }
 
     @Config("failure-detector.threshold")
-    public FailureDetectorConfiguration setFailureRatioThreshold(double threshold)
+    public FailureDetectorConfig setFailureRatioThreshold(double threshold)
     {
         this.failureRatioThreshold = threshold;
         return this;

@@ -31,7 +31,7 @@ public class FailureDetectorModule
                 .bindAsyncHttpClient("failure-detector", ForFailureDetector.class)
                 .withTracing();
 
-        bindConfig(binder).to(FailureDetectorConfiguration.class);
+        bindConfig(binder).to(FailureDetectorConfig.class);
 
         binder.bind(HeartbeatFailureDetector.class).in(Scopes.SINGLETON);
 

@@ -88,7 +88,7 @@ public class HeartbeatFailureDetector
     @Inject
     public HeartbeatFailureDetector(@ServiceType("presto") ServiceSelector selector,
             @ForFailureDetector AsyncHttpClient httpClient,
-            FailureDetectorConfiguration config,
+            FailureDetectorConfig config,
             QueryManagerConfig queryManagerConfig)
     {
         checkNotNull(selector, "selector is null");
