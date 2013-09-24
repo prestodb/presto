@@ -30,13 +30,14 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Uninterruptibles;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
+import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
-import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
+import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
@@ -79,10 +80,21 @@ public class SqlTaskManager
     private final DataSize operatorPreAllocatedMemory;
     private final Duration infoCacheTime;
     private final Duration clientTimeout;
-    private final SqlTaskManagerStats stats = new SqlTaskManagerStats();
 
     private final ConcurrentMap<TaskId, TaskInfo> taskInfos = new ConcurrentHashMap<>();
     private final ConcurrentMap<TaskId, TaskExecution> tasks = new ConcurrentHashMap<>();
+
+    private final CounterStat inputDataSize = new CounterStat();
+    private final CounterStat finishedInputDataSize = new CounterStat();
+
+    private final CounterStat inputPositions = new CounterStat();
+    private final CounterStat finishedInputPositions = new CounterStat();
+
+    private final CounterStat outputDataSize = new CounterStat();
+    private final CounterStat finishedOutputDataSize = new CounterStat();
+
+    private final CounterStat outputPositions = new CounterStat();
+    private final CounterStat finishedOutputPositions = new CounterStat();
 
     @Inject
     public SqlTaskManager(
@@ -109,6 +121,11 @@ public class SqlTaskManager
 
         taskManagementExecutor = Executors.newScheduledThreadPool(5, threadsNamed("task-management-%d"));
         taskManagementExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) taskManagementExecutor);
+    }
+
+    @PostConstruct
+    public void start()
+    {
         taskManagementExecutor.scheduleAtFixedRate(new Runnable()
         {
             @Override
@@ -128,6 +145,20 @@ public class SqlTaskManager
                 }
             }
         }, 200, 200, TimeUnit.MILLISECONDS);
+
+        taskManagementExecutor.scheduleAtFixedRate(new Runnable()
+        {
+            @Override
+            public void run()
+            {
+                try {
+                    updateStats();
+                }
+                catch (Throwable e) {
+                    log.warn(e, "Error updating stats");
+                }
+            }
+        }, 0, 1, TimeUnit.SECONDS);
     }
 
     @PreDestroy
@@ -138,10 +169,31 @@ public class SqlTaskManager
     }
 
     @Managed
-    @Flatten
-    public SqlTaskManagerStats getStats()
+    @Nested
+    public CounterStat getInputDataSize()
     {
-        return stats;
+        return inputDataSize;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getInputPositions()
+    {
+        return inputPositions;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getOutputDataSize()
+    {
+        return outputDataSize;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getOutputPositions()
+    {
+        return outputPositions;
     }
 
     @Managed(description = "Task notification executor")
@@ -213,6 +265,13 @@ public class SqlTaskManager
 
             // cache task info
             taskInfos.putIfAbsent(taskInfo.getTaskId(), taskInfo);
+
+            // record input and output stats
+            TaskContext taskContext = taskExecution.getTaskContext();
+            finishedInputDataSize.merge(taskContext.getInputDataSize());
+            finishedInputPositions.merge(taskContext.getInputPositions());
+            finishedOutputDataSize.merge(taskContext.getOutputDataSize());
+            finishedOutputPositions.merge(taskContext.getOutputPositions());
 
             // remove task (after caching the task info)
             tasks.remove(taskInfo.getTaskId());
@@ -395,5 +454,47 @@ public class SqlTaskManager
                 log.warn(e, "Error while inspecting age of task %s", taskExecution.getTaskId());
             }
         }
+    }
+
+    //
+    // Jmxutils only calls nested getters once, so we are forced to maintain a single
+    // instance and periodically recalculate the stats.
+    //
+    @SuppressWarnings("deprecation")
+    private void updateStats()
+    {
+        CounterStat temp;
+
+        temp = new CounterStat();
+        temp.merge(finishedInputDataSize);
+        for (TaskExecution taskExecution : tasks.values()) {
+            TaskContext taskContext = taskExecution.getTaskContext();
+            temp.merge(taskContext.getInputDataSize());
+        }
+        inputDataSize.resetTo(temp);
+
+        temp = new CounterStat();
+        temp.merge(finishedInputPositions);
+        for (TaskExecution taskExecution : tasks.values()) {
+            TaskContext taskContext = taskExecution.getTaskContext();
+            temp.merge(taskContext.getInputPositions());
+        }
+        inputPositions.resetTo(temp);
+
+        temp = new CounterStat();
+        temp.merge(finishedOutputDataSize);
+        for (TaskExecution taskExecution : tasks.values()) {
+            TaskContext taskContext = taskExecution.getTaskContext();
+            temp.merge(taskContext.getOutputDataSize());
+        }
+        outputDataSize.resetTo(temp);
+
+        temp = new CounterStat();
+        temp.merge(finishedOutputPositions);
+        for (TaskExecution taskExecution : tasks.values()) {
+            TaskContext taskContext = taskExecution.getTaskContext();
+            temp.merge(taskContext.getOutputPositions());
+        }
+        outputPositions.resetTo(temp);
     }
 }

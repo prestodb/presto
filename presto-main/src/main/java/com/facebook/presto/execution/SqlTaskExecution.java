@@ -233,6 +233,12 @@ public class SqlTaskExecution
     }
 
     @Override
+    public TaskContext getTaskContext()
+    {
+        return taskContext;
+    }
+
+    @Override
     public void waitForStateChange(TaskState currentState, Duration maxWait)
             throws InterruptedException
     {

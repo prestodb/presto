@@ -24,6 +24,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
+import io.airlift.stats.DistributionStat;
 import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -91,6 +92,9 @@ public class TaskExecutor
     private final Set<PrioritizedSplitRunner> blockedSplits = Sets.newSetFromMap(new ConcurrentHashMap<PrioritizedSplitRunner, Boolean>());
 
     private final AtomicLongArray completedTasksPerLevel = new AtomicLongArray(5);
+
+    private final DistributionStat queuedTime = new DistributionStat();
+    private final DistributionStat wallTime = new DistributionStat();
 
     private boolean closed;
 
@@ -192,6 +196,8 @@ public class TaskExecutor
     {
         PrioritizedSplitRunner prioritizedSplitRunner = new PrioritizedSplitRunner(taskHandle, taskSplit, ticker);
 
+        // Note: we do not record queued time for forced splits
+
         startSplit(prioritizedSplitRunner);
 
         return prioritizedSplitRunner.getFinishedFuture();
@@ -204,6 +210,8 @@ public class TaskExecutor
 
         TaskHandle taskHandle = split.getTaskHandle();
         taskHandle.splitComplete(split);
+
+        wallTime.add(System.nanoTime() - split.createdNanos);
 
         scheduleTaskIfNecessary(taskHandle);
 
@@ -220,6 +228,7 @@ public class TaskExecutor
             PrioritizedSplitRunner split = taskHandle.pollNextSplit();
             if (split != null) {
                 startSplit(split);
+                queuedTime.add(System.nanoTime() - split.createdNanos);
             }
         }
     }
@@ -232,6 +241,8 @@ public class TaskExecutor
             if (split == null) {
                 break;
             }
+
+            queuedTime.add(System.nanoTime() - split.createdNanos);
             startSplit(split);
         }
     }
@@ -341,6 +352,8 @@ public class TaskExecutor
     private static class PrioritizedSplitRunner
             implements Comparable<PrioritizedSplitRunner>
     {
+        private final long createdNanos = System.nanoTime();
+
         private final TaskHandle taskHandle;
         private final long workerId;
         private final SplitRunner split;
@@ -675,6 +688,20 @@ public class TaskExecutor
     public long getRunningTasksLevel4()
     {
         return calculateRunningTasksForLevel(4);
+    }
+
+    @Managed
+    @Nested
+    public DistributionStat getQueuedTime()
+    {
+        return queuedTime;
+    }
+
+    @Managed
+    @Nested
+    public DistributionStat getWallTime()
+    {
+        return wallTime;
     }
 
     private synchronized int calculateRunningTasksForLevel(int level)

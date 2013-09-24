@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.TaskSource;
+import com.facebook.presto.operator.TaskContext;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
@@ -25,6 +26,8 @@ public interface TaskExecution
     TaskId getTaskId();
 
     TaskInfo getTaskInfo(boolean full);
+
+    TaskContext getTaskContext();
 
     void waitForStateChange(TaskState currentState, Duration maxWait)
             throws InterruptedException;
