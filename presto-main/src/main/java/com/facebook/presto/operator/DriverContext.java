@@ -19,6 +19,7 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
@@ -149,6 +150,46 @@ public class DriverContext
     public boolean isCpuTimerEnabled()
     {
         return pipelineContext.isCpuTimerEnabled();
+    }
+
+    public CounterStat getInputDataSize()
+    {
+        OperatorContext inputOperator = getFirst(operatorContexts, null);
+        if (inputOperator != null) {
+            return inputOperator.getInputDataSize();
+        } else {
+            return new CounterStat();
+        }
+    }
+
+    public CounterStat getInputPositions()
+    {
+        OperatorContext inputOperator = getFirst(operatorContexts, null);
+        if (inputOperator != null) {
+            return inputOperator.getInputPositions();
+        } else {
+            return new CounterStat();
+        }
+    }
+
+    public CounterStat getOutputDataSize()
+    {
+        OperatorContext inputOperator = getLast(operatorContexts, null);
+        if (inputOperator != null) {
+            return inputOperator.getOutputDataSize();
+        } else {
+            return new CounterStat();
+        }
+    }
+
+    public CounterStat getOutputPositions()
+    {
+        OperatorContext inputOperator = getLast(operatorContexts, null);
+        if (inputOperator != null) {
+            return inputOperator.getOutputPositions();
+        } else {
+            return new CounterStat();
+        }
     }
 
     @Deprecated

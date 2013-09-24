@@ -18,6 +18,7 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Function;
 import com.google.common.base.Supplier;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
@@ -53,14 +54,14 @@ public class OperatorContext
     private final AtomicLong addInputWallNanos = new AtomicLong();
     private final AtomicLong addInputCpuNanos = new AtomicLong();
     private final AtomicLong addInputUserNanos = new AtomicLong();
-    private final AtomicLong inputDataSize = new AtomicLong();
-    private final AtomicLong inputPositions = new AtomicLong();
+    private final CounterStat inputDataSize = new CounterStat();
+    private final CounterStat inputPositions = new CounterStat();
 
     private final AtomicLong getOutputWallNanos = new AtomicLong();
     private final AtomicLong getOutputCpuNanos = new AtomicLong();
     private final AtomicLong getOutputUserNanos = new AtomicLong();
-    private final AtomicLong outputDataSize = new AtomicLong();
-    private final AtomicLong outputPositions = new AtomicLong();
+    private final CounterStat outputDataSize = new CounterStat();
+    private final CounterStat outputPositions = new CounterStat();
 
     private final AtomicLong blockedWallNanos = new AtomicLong();
 
@@ -115,15 +116,15 @@ public class OperatorContext
         addInputUserNanos.getAndAdd((nanosBetween(intervalUserStart.get(), currentThreadUserTime())));
 
         if (page != null) {
-            inputDataSize.getAndAdd((page.getDataSize().toBytes()));
-            inputPositions.getAndAdd((page.getPositionCount()));
+            inputDataSize.update((page.getDataSize().toBytes()));
+            inputPositions.update((page.getPositionCount()));
         }
     }
 
     public void recordGeneratedInput(DataSize dataSize, long positions)
     {
-        inputDataSize.getAndAdd(dataSize.toBytes());
-        inputPositions.getAndAdd(positions);
+        inputDataSize.update(dataSize.toBytes());
+        inputPositions.update(positions);
     }
 
     public void recordGetOutput(Page page)
@@ -133,15 +134,15 @@ public class OperatorContext
         getOutputUserNanos.getAndAdd((nanosBetween(intervalUserStart.get(), currentThreadUserTime())));
 
         if (page != null) {
-            outputDataSize.getAndAdd((page.getDataSize().toBytes()));
-            outputPositions.getAndAdd((page.getPositionCount()));
+            outputDataSize.update((page.getDataSize().toBytes()));
+            outputPositions.update((page.getPositionCount()));
         }
     }
 
     public void recordGeneratedOutput(DataSize dataSize, long positions)
     {
-        outputDataSize.getAndAdd(dataSize.toBytes());
-        outputPositions.getAndAdd(positions);
+        outputDataSize.update(dataSize.toBytes());
+        outputPositions.update(positions);
     }
 
     public void recordBlocked(ListenableFuture<?> blocked)
@@ -205,6 +206,26 @@ public class OperatorContext
         this.infoSupplier.set(infoSupplier);
     }
 
+    public CounterStat getInputDataSize()
+    {
+        return inputDataSize;
+    }
+
+    public CounterStat getInputPositions()
+    {
+        return inputPositions;
+    }
+
+    public CounterStat getOutputDataSize()
+    {
+        return outputDataSize;
+    }
+
+    public CounterStat getOutputPositions()
+    {
+        return outputPositions;
+    }
+
     @Deprecated
     public void addOutputItems(PlanNodeId id, Set<?> output)
     {
@@ -226,14 +247,14 @@ public class OperatorContext
                 new Duration(addInputWallNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(addInputCpuNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(addInputUserNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                new DataSize(inputDataSize.get(), BYTE).convertToMostSuccinctDataSize(),
-                inputPositions.get(),
+                new DataSize(inputDataSize.getTotalCount(), BYTE).convertToMostSuccinctDataSize(),
+                inputPositions.getTotalCount(),
 
                 new Duration(getOutputWallNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(getOutputCpuNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(getOutputUserNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                new DataSize(outputDataSize.get(), BYTE).convertToMostSuccinctDataSize(),
-                outputPositions.get(),
+                new DataSize(outputDataSize.getTotalCount(), BYTE).convertToMostSuccinctDataSize(),
+                outputPositions.getTotalCount(),
 
                 new Duration(blockedWallNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
 
