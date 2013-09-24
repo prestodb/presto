@@ -59,6 +59,9 @@ public class QueryCompletionEvent
 
     private final Integer splits;
 
+    private final String failureType;
+    private final String failureMessage;
+
     private final String outputStageJson;
     private final String failuresJson;
 
@@ -86,6 +89,8 @@ public class QueryCompletionEvent
             DataSize totalDataSize,
             Long totalRows,
             Integer splits,
+            String failureType,
+            String failureMessage,
             String outputStageJson,
             String failuresJson)
     {
@@ -112,6 +117,8 @@ public class QueryCompletionEvent
         this.totalBytes = sizeToBytes(totalDataSize);
         this.totalRows = totalRows;
         this.splits = splits;
+        this.failureType = failureType;
+        this.failureMessage = failureMessage;
         this.outputStageJson = outputStageJson;
         this.failuresJson = failuresJson;
     }
@@ -317,6 +324,18 @@ public class QueryCompletionEvent
     public Integer getSplits()
     {
         return splits;
+    }
+
+    @EventField
+    public String getFailureType()
+    {
+        return failureType;
+    }
+
+    @EventField
+    public String getFailureMessage()
+    {
+        return failureMessage;
     }
 
     @EventField
