@@ -30,6 +30,11 @@ public class DualSplit
 {
     private final List<HostAddress> addresses;
 
+    public DualSplit(HostAddress address)
+    {
+        this(ImmutableList.of(checkNotNull(address, "address is null")));
+    }
+
     @JsonCreator
     public DualSplit(@JsonProperty("addresses") List<HostAddress> addresses)
     {

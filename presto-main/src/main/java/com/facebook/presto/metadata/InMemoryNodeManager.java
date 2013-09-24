@@ -34,7 +34,7 @@ public class InMemoryNodeManager
     @Inject
     public InMemoryNodeManager()
     {
-        localNode = new Node("local", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN);
+        this(URI.create("local://127.0.0.1"));
     }
 
     public InMemoryNodeManager(URI localUri)
@@ -65,9 +65,9 @@ public class InMemoryNodeManager
     }
 
     @Override
-    public Optional<Node> getCurrentNode()
+    public Node getCurrentNode()
     {
-        return Optional.of(localNode);
+        return localNode;
     }
 
     @Override

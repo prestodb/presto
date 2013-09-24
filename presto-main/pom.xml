@@ -195,7 +195,7 @@
             <artifactId>asm-all</artifactId>
         </dependency>
 
-        <!-- for packaging -->
+        <!-- for testing -->
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>log-manager</artifactId>
@@ -205,6 +205,24 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>trace-token</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>jaxrs</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>jmx</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>http-server</artifactId>
             <scope>test</scope>
         </dependency>
 

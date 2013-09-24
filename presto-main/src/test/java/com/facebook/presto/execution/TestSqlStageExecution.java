@@ -184,7 +184,7 @@ public class TestSqlStageExecution
         Symbol symbol = new Symbol(DualMetadata.COLUMN_NAME);
 
         // table scan with 3 splits
-        Split split = new DualSplit(ImmutableList.of(HostAddress.fromString("127.0.0.1")));
+        Split split = new DualSplit(HostAddress.fromString("127.0.0.1"));
         PlanNodeId tableScanNodeId = new PlanNodeId(planId);
         PlanFragment testFragment = new PlanFragment(new PlanFragmentId(planId),
                 tableScanNodeId,

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.connector.informationSchema;
 
-import com.facebook.presto.metadata.Node;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplitManager;
@@ -22,8 +21,6 @@ import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.TableHandle;
 import com.google.common.base.Objects;
-import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -85,9 +82,7 @@ public class InformationSchemaSplitManager
         checkArgument(partition instanceof InformationSchemaPartition, "Partition must be an informationSchema partition");
         InformationSchemaPartition informationSchemaPartition = (InformationSchemaPartition) partition;
 
-        Optional<Node> currentNode = nodeManager.getCurrentNode();
-        Preconditions.checkState(currentNode.isPresent(), "current node is not in the active set");
-        ImmutableList<HostAddress> localAddress = ImmutableList.of(currentNode.get().getHostAndPort());
+        List<HostAddress> localAddress = ImmutableList.of(nodeManager.getCurrentNode().getHostAndPort());
 
         ImmutableMap.Builder<String, Object> filters = ImmutableMap.builder();
         for (Entry<ColumnHandle, Object> entry : informationSchemaPartition.getFilters().entrySet()) {

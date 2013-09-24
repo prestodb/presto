@@ -33,6 +33,11 @@ public class SystemSplit
     private final Map<String, Object> filters;
     private final List<HostAddress> addresses;
 
+    public SystemSplit(SystemTableHandle tableHandle, Map<String, Object> filters, HostAddress address)
+    {
+        this(tableHandle, filters, ImmutableList.of(checkNotNull(address, "address is null")));
+    }
+
     @JsonCreator
     public SystemSplit(
             @JsonProperty("tableHandle") SystemTableHandle tableHandle,
