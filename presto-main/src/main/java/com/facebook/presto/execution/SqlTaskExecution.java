@@ -429,7 +429,7 @@ public class SqlTaskExecution
                     checkNoMorePartitionedSplits();
 
                     // todo add failure info to split completion event
-                    queryMonitor.splitCompletionEvent(taskId, splitRunner.getDriverContext().getDriverStats());
+                    queryMonitor.splitFailedEvent(taskId, splitRunner.getDriverContext().getDriverStats(), cause);
                 }
             }
         });
