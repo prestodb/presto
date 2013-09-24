@@ -71,7 +71,8 @@ public class InMemoryNodeManager
     }
 
     @Override
-    public void refreshNodes(boolean force)
+    public void refreshNodes()
     {
+        // no-op
     }
 }

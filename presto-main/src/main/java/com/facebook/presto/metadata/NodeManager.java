@@ -25,5 +25,5 @@ public interface NodeManager
 
     Optional<Node> getCurrentNode();
 
-    void refreshNodes(boolean force);
+    void refreshNodes();
 }

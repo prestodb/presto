@@ -42,7 +42,7 @@ import static com.google.common.base.Predicates.not;
 import static java.util.Arrays.asList;
 
 @ThreadSafe
-public class DiscoveryNodeManager
+public final class DiscoveryNodeManager
         implements NodeManager
 {
     private static final Duration MAX_AGE = new Duration(5, TimeUnit.SECONDS);
@@ -73,60 +73,65 @@ public class DiscoveryNodeManager
         this.failureDetector = checkNotNull(failureDetector, "failureDetector is null");
         this.expectedNodeVersion = checkNotNull(expectedNodeVersion, "expectedNodeVersion is null");
 
-        refreshNodes(true);
+        refreshNodes();
     }
 
     @Override
-    public synchronized void refreshNodes(boolean force)
+    public synchronized void refreshNodes()
     {
-        if (force || Duration.nanosSince(lastUpdateTimestamp).compareTo(MAX_AGE) > 0) {
-            lastUpdateTimestamp = System.nanoTime();
+        lastUpdateTimestamp = System.nanoTime();
 
-            // This is currently a blacklist.
-            // TODO: make it a whitelist (a failure-detecting service selector) and maybe build in support for injecting this in airlift
-            Set<ServiceDescriptor> services = IterableTransformer.on(serviceSelector.selectAllServices())
-                    .select(not(in(failureDetector.getFailed())))
-                    .set();
+        // This is currently a blacklist.
+        // TODO: make it a whitelist (a failure-detecting service selector) and maybe build in support for injecting this in airlift
+        Set<ServiceDescriptor> services = IterableTransformer.on(serviceSelector.selectAllServices())
+                .select(not(in(failureDetector.getFailed())))
+                .set();
 
-            // reset current node
-            currentNode = null;
+        // reset current node
+        currentNode = null;
 
-            ImmutableSet.Builder<Node> activeNodesBuilder = ImmutableSet.builder();
-            ImmutableSet.Builder<Node> inactiveNodesBuilder = ImmutableSet.builder();
-            ImmutableSetMultimap.Builder<String, Node> byDataSourceBuilder = ImmutableSetMultimap.builder();
+        ImmutableSet.Builder<Node> activeNodesBuilder = ImmutableSet.builder();
+        ImmutableSet.Builder<Node> inactiveNodesBuilder = ImmutableSet.builder();
+        ImmutableSetMultimap.Builder<String, Node> byDataSourceBuilder = ImmutableSetMultimap.builder();
 
-            for (ServiceDescriptor service : services) {
-                URI uri = getHttpUri(service);
-                NodeVersion nodeVersion = getNodeVersion(service);
-                if (uri != null && nodeVersion != null) {
-                    Node node = new Node(service.getNodeId(), uri, nodeVersion);
+        for (ServiceDescriptor service : services) {
+            URI uri = getHttpUri(service);
+            NodeVersion nodeVersion = getNodeVersion(service);
+            if (uri != null && nodeVersion != null) {
+                Node node = new Node(service.getNodeId(), uri, nodeVersion);
 
-                    // record current node
-                    if (node.getNodeIdentifier().equals(nodeInfo.getNodeId())) {
-                        currentNode = node;
-                        checkState(currentNode.getNodeVersion().equals(expectedNodeVersion), "INVARIANT: current node version should be equal to expected node version");
-                    }
+                // record current node
+                if (node.getNodeIdentifier().equals(nodeInfo.getNodeId())) {
+                    currentNode = node;
+                    checkState(currentNode.getNodeVersion().equals(expectedNodeVersion), "INVARIANT: current node version should be equal to expected node version");
+                }
 
-                    if (isActive(node)) {
-                        activeNodesBuilder.add(node);
+                if (isActive(node)) {
+                    activeNodesBuilder.add(node);
 
-                        // record available active nodes organized by data source
-                        String dataSources = service.getProperties().get("datasources");
-                        if (dataSources != null) {
-                            dataSources = dataSources.toLowerCase();
-                            for (String dataSource : DATASOURCES_SPLITTER.split(dataSources)) {
-                                byDataSourceBuilder.put(dataSource, node);
-                            }
+                    // record available active nodes organized by data source
+                    String dataSources = service.getProperties().get("datasources");
+                    if (dataSources != null) {
+                        dataSources = dataSources.toLowerCase();
+                        for (String dataSource : DATASOURCES_SPLITTER.split(dataSources)) {
+                            byDataSourceBuilder.put(dataSource, node);
                         }
                     }
-                    else {
-                        inactiveNodesBuilder.add(node);
-                    }
+                }
+                else {
+                    inactiveNodesBuilder.add(node);
                 }
             }
+        }
 
-            allNodes = new AllNodes(activeNodesBuilder.build(), inactiveNodesBuilder.build());
-            activeNodesByDataSource = byDataSourceBuilder.build();
+        allNodes = new AllNodes(activeNodesBuilder.build(), inactiveNodesBuilder.build());
+        activeNodesByDataSource = byDataSourceBuilder.build();
+    }
+
+    private synchronized void refreshIfNecessary()
+    {
+        if (Duration.nanosSince(lastUpdateTimestamp).compareTo(MAX_AGE) > 0) {
+            refreshNodes();
         }
     }
 
@@ -138,23 +143,21 @@ public class DiscoveryNodeManager
     @Override
     public synchronized AllNodes getAllNodes()
     {
-        refreshNodes(false);
-
+        refreshIfNecessary();
         return allNodes;
     }
 
     @Override
     public synchronized Set<Node> getActiveDatasourceNodes(String datasourceName)
     {
-        refreshNodes(false);
-
+        refreshIfNecessary();
         return activeNodesByDataSource.get(datasourceName);
     }
 
     @Override
     public synchronized Optional<Node> getCurrentNode()
     {
-        refreshNodes(false);
+        refreshIfNecessary();
         return Optional.fromNullable(currentNode);
     }
 
