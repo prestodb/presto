@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.util;
 
+import com.facebook.presto.ScheduledSplit;
+import com.facebook.presto.TaskSource;
 import com.facebook.presto.connector.dual.DualDataStreamProvider;
 import com.facebook.presto.connector.dual.DualMetadata;
 import com.facebook.presto.connector.dual.DualSplitManager;
@@ -23,6 +25,7 @@ import com.facebook.presto.connector.system.SystemDataStreamProvider;
 import com.facebook.presto.connector.system.SystemSplitManager;
 import com.facebook.presto.connector.system.SystemTablesManager;
 import com.facebook.presto.connector.system.SystemTablesMetadata;
+import com.facebook.presto.execution.DataSource;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.importer.MockPeriodicImportManager;
 import com.facebook.presto.metadata.InMemoryNodeManager;
@@ -73,10 +76,8 @@ import com.facebook.presto.tpch.TpchSplitManager;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicates;
-import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Multimap;
 import io.airlift.node.NodeConfig;
 import io.airlift.node.NodeInfo;
 import org.intellij.lang.annotations.Language;
@@ -85,7 +86,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
@@ -236,17 +236,25 @@ public class LocalQueryRunner
                 plan.getTypes(),
                 outputFactory);
 
-        // generate splits
-        Multimap<PlanNodeId, Split> splits = ArrayListMultimap.create();
-        for (PlanNode source : subplan.getFragment().getSources()) {
-            TableScanNode tableScan = (TableScanNode) source;
+        // generate sources
+        List<TaskSource> sources = new ArrayList<>();
+        long sequenceId = 0;
+        for (PlanNode sourceNode : subplan.getFragment().getSources()) {
+            TableScanNode tableScan = (TableScanNode) sourceNode;
 
-            splits.putAll(source.getId(), splitManager.getSplits(session,
+            DataSource dataSource = splitManager.getSplits(session,
                     tableScan.getTable(),
                     tableScan.getPartitionPredicate(),
                     tableScan.getUpstreamPredicateHint(),
                     Predicates.<Partition>alwaysTrue(),
-                    tableScan.getAssignments()).getSplits());
+                    tableScan.getAssignments());
+
+            ImmutableSet.Builder<ScheduledSplit> scheduledSplits = ImmutableSet.builder();
+            for (Split split : dataSource.getSplits()) {
+                scheduledSplits.add(new ScheduledSplit(sequenceId++, split));
+            }
+
+            sources.add(new TaskSource(tableScan.getId(), scheduledSplits.build(), true));
         }
 
         // create drivers
@@ -262,16 +270,10 @@ public class LocalQueryRunner
             driverFactory.close();
         }
 
-        // add the splits to the drivers
-        for (Entry<PlanNodeId, Split> entry : splits.entries()) {
-            Driver driver = driversBySource.get(entry.getKey());
-            checkState(driver != null, "Unknown source %s", entry.getKey());
-            driver.addSplit(entry.getKey(), entry.getValue());
-        }
-
-        for (Driver driver : drivers) {
-            for (PlanNodeId sourceId : driver.getSourceIds()) {
-                driver.noMoreSplits(sourceId);
+        // add sources to the drivers
+        for (TaskSource source : sources) {
+            for (Driver driver : driversBySource.values()) {
+                driver.updateSource(source);
             }
         }
 

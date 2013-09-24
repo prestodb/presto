@@ -23,31 +23,36 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 
+import java.io.Closeable;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.units.DataSize.Unit.BYTE;
 
 public class RecordProjectOperator
-        implements Operator
+        implements Operator, Closeable
 {
     private static final int ROWS_PER_REQUEST = 16384;
     private final OperatorContext operatorContext;
-    private final RecordSet recordSet;
+    private final RecordCursor cursor;
     private final List<TupleInfo> tupleInfos;
     private final PageBuilder pageBuilder;
-    private RecordCursor cursor;
     private boolean finishing;
     private long completedBytes;
 
     public RecordProjectOperator(OperatorContext operatorContext, RecordSet recordSet)
     {
+        this(operatorContext, recordSet.getColumnTypes(), recordSet.cursor());
+    }
+
+    public RecordProjectOperator(OperatorContext operatorContext, List<ColumnType> columnTypes, RecordCursor cursor)
+    {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.recordSet = checkNotNull(recordSet, "recordSet is null");
+        this.cursor = checkNotNull(cursor, "cursor is null");
 
         // project each field into a separate channel
         ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
-        for (ColumnType columnType : recordSet.getColumnTypes()) {
+        for (ColumnType columnType : columnTypes) {
             tupleInfos.add(new TupleInfo(Type.fromColumnType(columnType)));
         }
         this.tupleInfos = tupleInfos.build();
@@ -63,9 +68,6 @@ public class RecordProjectOperator
 
     public RecordCursor getCursor()
     {
-        if (cursor == null) {
-            cursor = recordSet.cursor();
-        }
         return cursor;
     }
 
@@ -78,10 +80,13 @@ public class RecordProjectOperator
     @Override
     public void finish()
     {
+        close();
+    }
+
+    public void close()
+    {
         finishing = true;
-        if (cursor != null) {
-            cursor.close();
-        }
+        cursor.close();
     }
 
     @Override
@@ -112,8 +117,6 @@ public class RecordProjectOperator
     public Page getOutput()
     {
         if (!finishing) {
-            RecordCursor cursor = getCursor();
-
             int i = 0;
             for (; i < ROWS_PER_REQUEST; i++) {
                 if (pageBuilder.isFull()) {

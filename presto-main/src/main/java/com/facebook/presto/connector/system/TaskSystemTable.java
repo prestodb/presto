@@ -55,7 +55,6 @@ public class TaskSystemTable
 
             .column("splits", LONG)
             .column("queued_splits", LONG)
-            .column("started_splits", LONG)
             .column("running_splits", LONG)
             .column("completed_splits", LONG)
 
@@ -123,7 +122,6 @@ public class TaskSystemTable
 
                     (long) stats.getTotalDrivers(),
                     (long) stats.getQueuedDrivers(),
-                    (long) stats.getStartedDrivers(),
                     (long) stats.getRunningDrivers(),
                     (long) stats.getCompletedDrivers(),
 

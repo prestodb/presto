@@ -42,7 +42,6 @@ public class QueryStats
 
     private final int totalDrivers;
     private final int queuedDrivers;
-    private final int startedDrivers;
     private final int runningDrivers;
     private final int completedDrivers;
 
@@ -78,7 +77,6 @@ public class QueryStats
         this.completedTasks = 0;
         this.totalDrivers = 0;
         this.queuedDrivers = 0;
-        this.startedDrivers = 0;
         this.runningDrivers = 0;
         this.completedDrivers = 0;
         this.totalMemoryReservation = null;
@@ -113,7 +111,6 @@ public class QueryStats
             @JsonProperty("totalDrivers") int totalDrivers,
             @JsonProperty("queuedDrivers") int queuedDrivers,
             @JsonProperty("runningDrivers") int runningDrivers,
-            @JsonProperty("startedDrivers") int startedDrivers,
             @JsonProperty("completedDrivers") int completedDrivers,
 
             @JsonProperty("totalMemoryReservation") DataSize totalMemoryReservation,
@@ -153,8 +150,6 @@ public class QueryStats
         this.totalDrivers = totalDrivers;
         checkArgument(queuedDrivers >= 0, "queuedDrivers is negative");
         this.queuedDrivers = queuedDrivers;
-        checkArgument(startedDrivers >= 0, "startedDrivers is negative");
-        this.startedDrivers = startedDrivers;
         checkArgument(runningDrivers >= 0, "runningDrivers is negative");
         this.runningDrivers = runningDrivers;
         checkArgument(completedDrivers >= 0, "completedDrivers is negative");
@@ -255,12 +250,6 @@ public class QueryStats
     public int getQueuedDrivers()
     {
         return queuedDrivers;
-    }
-
-    @JsonProperty
-    public int getStartedDrivers()
-    {
-        return startedDrivers;
     }
 
     @JsonProperty

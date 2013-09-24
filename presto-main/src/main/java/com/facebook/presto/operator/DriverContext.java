@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Function;
@@ -63,6 +64,11 @@ public class DriverContext
     {
         this.pipelineContext = checkNotNull(pipelineContext, "pipelineContext is null");
         this.executor = checkNotNull(executor, "executor is null");
+    }
+
+    public TaskId getTaskId()
+    {
+        return pipelineContext.getTaskId();
     }
 
     public OperatorContext addOperatorContext(int operatorId, String operatorType)

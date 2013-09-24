@@ -117,6 +117,11 @@ public class TaskContext
         this.cpuTimerEnabled = cpuTimerEnabled;
     }
 
+    public TaskId getTaskId()
+    {
+        return taskStateMachine.getTaskId();
+    }
+
     public PipelineContext addPipelineContext(boolean inputPipeline, boolean outputPipeline)
     {
         PipelineContext pipelineContext = new PipelineContext(this, executor, inputPipeline, outputPipeline);
@@ -208,7 +213,6 @@ public class TaskContext
 
         int totalDrivers = 0;
         int queuedDrivers = 0;
-        int startedDrivers = 0;
         int runningDrivers = 0;
         int completedDrivers = 0;
 
@@ -229,8 +233,7 @@ public class TaskContext
         for (PipelineStats pipeline : pipelineStats) {
             totalDrivers += pipeline.getTotalDrivers();
             queuedDrivers += pipeline.getQueuedDrivers();
-            startedDrivers += pipeline.getStartedDrivers();
-            runningDrivers += pipeline.getRunningDrivers().size();
+            runningDrivers += pipeline.getRunningDrivers();
             completedDrivers += pipeline.getCompletedDrivers();
 
             totalScheduledTime += pipeline.getTotalScheduledTime().roundTo(NANOSECONDS);
@@ -275,7 +278,6 @@ public class TaskContext
                 queuedTime.convertToMostSuccinctTimeUnit(),
                 totalDrivers,
                 queuedDrivers,
-                startedDrivers,
                 runningDrivers,
                 completedDrivers,
                 new DataSize(memoryReservation.get(), BYTE).convertToMostSuccinctDataSize(),

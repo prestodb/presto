@@ -13,26 +13,35 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.ScheduledSplit;
+import com.facebook.presto.TaskSource;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.split.CollocatedSplit;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 public class Driver
 {
+    private static final Logger log = Logger.get(Driver.class);
+
     private final DriverContext driverContext;
     private final List<Operator> operators;
     private final Map<PlanNodeId, SourceOperator> sourceOperators;
@@ -62,6 +71,28 @@ public class Driver
         this.sourceOperators = sourceOperators.build();
     }
 
+    public void close()
+    {
+        try {
+            for (Operator operator : operators) {
+                operator.finish();
+            }
+        }
+        finally {
+            for (Operator operator : operators) {
+                if (operator instanceof AutoCloseable) {
+                    try {
+                        ((AutoCloseable) operator).close();
+                    }
+                    catch (Exception e) {
+                        log.error(e, "Error closing operator %s for task %s", operator.getOperatorContext().getOperatorId(), driverContext.getTaskId());
+                    }
+                }
+            }
+            driverContext.finished();
+        }
+    }
+
     public DriverContext getDriverContext()
     {
         return driverContext;
@@ -72,7 +103,49 @@ public class Driver
         return sourceOperators.keySet();
     }
 
-    public synchronized void addSplit(PlanNodeId sourceId, Split split)
+
+    private final ConcurrentMap<PlanNodeId, TaskSource> sources = new ConcurrentHashMap<>();
+
+    public synchronized void updateSource(TaskSource source)
+    {
+        // does this driver have an operator for the specified source?
+        PlanNodeId sourceId = source.getPlanNodeId();
+        if (!sourceOperators.containsKey(sourceId)) {
+            return;
+        }
+
+        // create new source
+        Set<ScheduledSplit> newSplits;
+        TaskSource currentSource = sources.get(sourceId);
+        if (currentSource == null) {
+            newSplits = source.getSplits();
+        }
+        else {
+            // merge the current source and the specified source
+            TaskSource newSource = currentSource.update(source);
+
+            // if this is not a new source, just return
+            if (newSource == currentSource) {
+                return;
+            }
+
+            // find the new splits to add
+            newSplits = Sets.difference(newSource.getSplits(), currentSource.getSplits());
+            sources.put(sourceId, newSource);
+        }
+
+        // add new splits
+        for (ScheduledSplit newSplit : newSplits) {
+            addSplit(sourceId, newSplit.getSplit());
+        }
+
+        // set no more splits
+        if (source.isNoMoreSplits()) {
+            sourceOperators.get(sourceId).noMoreSplits();
+        }
+    }
+
+    private synchronized void addSplit(PlanNodeId sourceId, Split split)
     {
         checkNotNull(sourceId, "sourceId is null");
         checkNotNull(split, "split is null");
@@ -92,28 +165,11 @@ public class Driver
         }
     }
 
-    public synchronized void noMoreSplits(PlanNodeId sourceId)
-    {
-        checkNotNull(sourceId, "sourceId is null");
-
-        SourceOperator sourceOperator = sourceOperators.get(sourceId);
-        if (sourceOperator != null) {
-            sourceOperator.noMoreSplits();
-        }
-    }
-
-    public synchronized void finish()
-    {
-        for (Operator operator : operators) {
-            operator.finish();
-        }
-    }
-
     public synchronized boolean isFinished()
     {
         boolean finished = driverContext.isDone() || operators.get(operators.size() - 1).isFinished();
         if (finished) {
-            driverContext.finished();
+            close();
         }
         return finished;
     }
@@ -172,9 +228,10 @@ public class Driver
         }
     }
 
-    public synchronized ListenableFuture<?> processFor(Duration duration)
+    public ListenableFuture<?> processFor(Duration duration)
     {
         checkNotNull(duration, "duration is null");
+        checkState(!Thread.holdsLock(this), "Can not process for a duration while holding a lock on the %s", getClass().getSimpleName());
 
         long maxRuntime = duration.roundTo(TimeUnit.NANOSECONDS);
 

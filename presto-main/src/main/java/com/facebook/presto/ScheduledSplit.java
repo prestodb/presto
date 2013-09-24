@@ -17,6 +17,7 @@ import com.facebook.presto.spi.Split;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
+import com.google.common.primitives.Longs;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -42,6 +43,25 @@ public class ScheduledSplit
     public Split getSplit()
     {
         return split;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Longs.hashCode(sequenceId);
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        final ScheduledSplit other = (ScheduledSplit) obj;
+        return this.sequenceId == other.sequenceId;
     }
 
     @Override

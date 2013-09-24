@@ -301,7 +301,7 @@ public class TaskExecutorSimulator
                         for (int splitId = 0; splitId < splits; splitId++) {
                             SimulationSplit split = new SimulationSplit(new Duration(80, TimeUnit.MILLISECONDS), new Duration(1, TimeUnit.MILLISECONDS));
                             SimulationTask.this.splits.add(split);
-                            splitFutures.add(taskExecutor.addSplit(taskHandle, split));
+                            splitFutures.add(taskExecutor.enqueueSplit(taskHandle, split));
                             Thread.sleep(entryDelay.toMillis());
                         }
 
@@ -390,6 +390,11 @@ public class TaskExecutorSimulator
         public boolean isFinished()
         {
             return doneNanos.get() >= 0;
+        }
+
+        @Override
+        public void close()
+        {
         }
 
         @Override
