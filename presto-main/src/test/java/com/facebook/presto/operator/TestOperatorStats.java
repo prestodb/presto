@@ -28,26 +28,29 @@ public class TestOperatorStats
             41,
             "test",
 
-            new Duration(1, NANOSECONDS),
+            1,
             new Duration(2, NANOSECONDS),
             new Duration(3, NANOSECONDS),
-            new DataSize(4, BYTE),
-            5,
+            new Duration(4, NANOSECONDS),
+            new DataSize(5, BYTE),
+            6,
 
-            new Duration(6, NANOSECONDS),
-            new Duration(7, NANOSECONDS),
+            7,
             new Duration(8, NANOSECONDS),
-            new DataSize(9, BYTE),
-            10,
+            new Duration(9, NANOSECONDS),
+            new Duration(10, NANOSECONDS),
+            new DataSize(11, BYTE),
+            12,
 
-            new Duration(11, NANOSECONDS),
-
-            new Duration(12, NANOSECONDS),
             new Duration(13, NANOSECONDS),
-            new Duration(14, NANOSECONDS),
 
-            new DataSize(15, BYTE),
-            "16");
+            14,
+            new Duration(15, NANOSECONDS),
+            new Duration(16, NANOSECONDS),
+            new Duration(17, NANOSECONDS),
+
+            new DataSize(18, BYTE),
+            "19");
 
     @Test
     public void testJson()
@@ -65,24 +68,29 @@ public class TestOperatorStats
         Assert.assertEquals(actual.getOperatorId(), 41);
         Assert.assertEquals(actual.getOperatorType(), "test");
 
-        Assert.assertEquals(actual.getAddInputWall(), new Duration(1, NANOSECONDS));
-        Assert.assertEquals(actual.getAddInputCpu(), new Duration(2, NANOSECONDS));
-        Assert.assertEquals(actual.getAddInputUser(), new Duration(3, NANOSECONDS));
-        Assert.assertEquals(actual.getInputDataSize(), new DataSize(4, BYTE));
-        Assert.assertEquals(actual.getInputPositions(), 5);
+        Assert.assertEquals(actual.getAddInputCalls(), 1);
+        Assert.assertEquals(actual.getAddInputWall(), new Duration(2, NANOSECONDS));
+        Assert.assertEquals(actual.getAddInputCpu(), new Duration(3, NANOSECONDS));
+        Assert.assertEquals(actual.getAddInputUser(), new Duration(4, NANOSECONDS));
+        Assert.assertEquals(actual.getInputDataSize(), new DataSize(5, BYTE));
+        Assert.assertEquals(actual.getInputPositions(), 6);
 
-        Assert.assertEquals(actual.getGetOutputWall(), new Duration(6, NANOSECONDS));
-        Assert.assertEquals(actual.getGetOutputCpu(), new Duration(7, NANOSECONDS));
-        Assert.assertEquals(actual.getGetOutputUser(), new Duration(8, NANOSECONDS));
-        Assert.assertEquals(actual.getOutputDataSize(), new DataSize(9, BYTE));
-        Assert.assertEquals(actual.getOutputPositions(), 10);
+        Assert.assertEquals(actual.getGetOutputCalls(), 7);
+        Assert.assertEquals(actual.getGetOutputWall(), new Duration(8, NANOSECONDS));
+        Assert.assertEquals(actual.getGetOutputCpu(), new Duration(9, NANOSECONDS));
+        Assert.assertEquals(actual.getGetOutputUser(), new Duration(10, NANOSECONDS));
+        Assert.assertEquals(actual.getOutputDataSize(), new DataSize(11, BYTE));
+        Assert.assertEquals(actual.getOutputPositions(), 12);
 
-        Assert.assertEquals(actual.getBlockedWall(), new Duration(11, NANOSECONDS));
-        Assert.assertEquals(actual.getFinishWall(), new Duration(12, NANOSECONDS));
-        Assert.assertEquals(actual.getFinishCpu(), new Duration(13, NANOSECONDS));
-        Assert.assertEquals(actual.getFinishUser(), new Duration(14, NANOSECONDS));
-        Assert.assertEquals(actual.getMemoryReservation(), new DataSize(15, BYTE));
-        Assert.assertEquals(actual.getInfo(), "16");
+        Assert.assertEquals(actual.getBlockedWall(), new Duration(13, NANOSECONDS));
+
+        Assert.assertEquals(actual.getFinishCalls(), 14);
+        Assert.assertEquals(actual.getFinishWall(), new Duration(15, NANOSECONDS));
+        Assert.assertEquals(actual.getFinishCpu(), new Duration(16, NANOSECONDS));
+        Assert.assertEquals(actual.getFinishUser(), new Duration(17, NANOSECONDS));
+
+        Assert.assertEquals(actual.getMemoryReservation(), new DataSize(18, BYTE));
+        Assert.assertEquals(actual.getInfo(), "19");
     }
 
     @Test
@@ -93,23 +101,27 @@ public class TestOperatorStats
         Assert.assertEquals(actual.getOperatorId(), 41);
         Assert.assertEquals(actual.getOperatorType(), "test");
 
-        Assert.assertEquals(actual.getAddInputWall(), new Duration(3 * 1, NANOSECONDS));
-        Assert.assertEquals(actual.getAddInputCpu(), new Duration(3 * 2, NANOSECONDS));
-        Assert.assertEquals(actual.getAddInputUser(), new Duration(3 * 3, NANOSECONDS));
-        Assert.assertEquals(actual.getInputDataSize(), new DataSize(3 * 4, BYTE));
-        Assert.assertEquals(actual.getInputPositions(), 3 * 5);
+        Assert.assertEquals(actual.getAddInputCalls(), 3 * 1);
+        Assert.assertEquals(actual.getAddInputWall(), new Duration(3 * 2, NANOSECONDS));
+        Assert.assertEquals(actual.getAddInputCpu(), new Duration(3 * 3, NANOSECONDS));
+        Assert.assertEquals(actual.getAddInputUser(), new Duration(3 * 4, NANOSECONDS));
+        Assert.assertEquals(actual.getInputDataSize(), new DataSize(3 * 5, BYTE));
+        Assert.assertEquals(actual.getInputPositions(), 3 * 6);
 
-        Assert.assertEquals(actual.getGetOutputWall(), new Duration(3 * 6, NANOSECONDS));
-        Assert.assertEquals(actual.getGetOutputCpu(), new Duration(3 * 7, NANOSECONDS));
-        Assert.assertEquals(actual.getGetOutputUser(), new Duration(3 * 8, NANOSECONDS));
-        Assert.assertEquals(actual.getOutputDataSize(), new DataSize(3 * 9, BYTE));
-        Assert.assertEquals(actual.getOutputPositions(), 3 * 10);
+        Assert.assertEquals(actual.getGetOutputCalls(), 3 * 7);
+        Assert.assertEquals(actual.getGetOutputWall(), new Duration(3 * 8, NANOSECONDS));
+        Assert.assertEquals(actual.getGetOutputCpu(), new Duration(3 * 9, NANOSECONDS));
+        Assert.assertEquals(actual.getGetOutputUser(), new Duration(3 * 10, NANOSECONDS));
+        Assert.assertEquals(actual.getOutputDataSize(), new DataSize(3 * 11, BYTE));
+        Assert.assertEquals(actual.getOutputPositions(), 3 * 12);
 
-        Assert.assertEquals(actual.getBlockedWall(), new Duration(3 * 11, NANOSECONDS));
-        Assert.assertEquals(actual.getFinishWall(), new Duration(3 * 12, NANOSECONDS));
-        Assert.assertEquals(actual.getFinishCpu(), new Duration(3 * 13, NANOSECONDS));
-        Assert.assertEquals(actual.getFinishUser(), new Duration(3 * 14, NANOSECONDS));
-        Assert.assertEquals(actual.getMemoryReservation(), new DataSize(3 * 15, BYTE));
+        Assert.assertEquals(actual.getBlockedWall(), new Duration(3 * 13, NANOSECONDS));
+
+        Assert.assertEquals(actual.getFinishCalls(), 3 * 14);
+        Assert.assertEquals(actual.getFinishWall(), new Duration(3 * 15, NANOSECONDS));
+        Assert.assertEquals(actual.getFinishCpu(), new Duration(3 * 16, NANOSECONDS));
+        Assert.assertEquals(actual.getFinishUser(), new Duration(3 * 17, NANOSECONDS));
+        Assert.assertEquals(actual.getMemoryReservation(), new DataSize(3 * 18, BYTE));
         Assert.assertEquals(actual.getInfo(), null);
     }
 }
