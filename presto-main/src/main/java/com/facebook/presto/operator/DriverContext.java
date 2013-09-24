@@ -142,7 +142,7 @@ public class DriverContext
     {
         boolean result = pipelineContext.reserveMemory(bytes);
         if (result) {
-            memoryReservation.getAndAdd((bytes));
+            memoryReservation.getAndAdd(bytes);
         }
         return result;
     }
