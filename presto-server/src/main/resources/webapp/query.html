@@ -224,7 +224,7 @@ function computeRate(count, ms) {
     if (ms == 0) {
         return 0;
     }
-    return Math.round(count / ms) * 1000;
+    return (count / ms) * 1000.0;
 }
 
 function formatCount(count) {
