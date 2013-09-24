@@ -136,11 +136,11 @@ public class PipelineContext
         queuedTime.add(driverStats.getQueuedTime().roundTo(NANOSECONDS));
         elapsedTime.add(driverStats.getElapsedTime().roundTo(NANOSECONDS));
 
-        totalScheduledTime.getAndAdd((driverStats.getTotalScheduledTime().roundTo(NANOSECONDS)));
-        totalCpuTime.getAndAdd((driverStats.getTotalCpuTime().roundTo(NANOSECONDS)));
-        totalUserTime.getAndAdd((driverStats.getTotalUserTime().roundTo(NANOSECONDS)));
+        totalScheduledTime.getAndAdd(driverStats.getTotalScheduledTime().roundTo(NANOSECONDS));
+        totalCpuTime.getAndAdd(driverStats.getTotalCpuTime().roundTo(NANOSECONDS));
+        totalUserTime.getAndAdd(driverStats.getTotalUserTime().roundTo(NANOSECONDS));
 
-        totalBlockedTime.getAndAdd((driverStats.getTotalBlockedTime().roundTo(NANOSECONDS)));
+        totalBlockedTime.getAndAdd(driverStats.getTotalBlockedTime().roundTo(NANOSECONDS));
 
         // merge the operator stats into the operator summary
         List<OperatorStats> operators = driverStats.getOperatorStats();
@@ -194,7 +194,7 @@ public class PipelineContext
     {
         boolean result = taskContext.reserveMemory(bytes);
         if (result) {
-            memoryReservation.getAndAdd((bytes));
+            memoryReservation.getAndAdd(bytes);
         }
         return result;
     }

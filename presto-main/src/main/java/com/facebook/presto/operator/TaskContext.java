@@ -176,7 +176,7 @@ public class TaskContext
         if (memoryReservation.get() + bytes > maxMemory) {
             return false;
         }
-        memoryReservation.getAndAdd((bytes));
+        memoryReservation.getAndAdd(bytes);
         return true;
     }
 

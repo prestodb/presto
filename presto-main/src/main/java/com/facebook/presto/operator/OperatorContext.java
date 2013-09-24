@@ -111,13 +111,13 @@ public class OperatorContext
 
     public void recordAddInput(Page page)
     {
-        addInputWallNanos.getAndAdd((nanosBetween(intervalWallStart.get(), System.nanoTime())));
-        addInputCpuNanos.getAndAdd((nanosBetween(intervalCpuStart.get(), currentThreadCpuTime())));
-        addInputUserNanos.getAndAdd((nanosBetween(intervalUserStart.get(), currentThreadUserTime())));
+        addInputWallNanos.getAndAdd(nanosBetween(intervalWallStart.get(), System.nanoTime()));
+        addInputCpuNanos.getAndAdd(nanosBetween(intervalCpuStart.get(), currentThreadCpuTime()));
+        addInputUserNanos.getAndAdd(nanosBetween(intervalUserStart.get(), currentThreadUserTime()));
 
         if (page != null) {
-            inputDataSize.update((page.getDataSize().toBytes()));
-            inputPositions.update((page.getPositionCount()));
+            inputDataSize.update(page.getDataSize().toBytes());
+            inputPositions.update(page.getPositionCount());
         }
     }
 
@@ -129,13 +129,13 @@ public class OperatorContext
 
     public void recordGetOutput(Page page)
     {
-        getOutputWallNanos.getAndAdd((nanosBetween(intervalWallStart.get(), System.nanoTime())));
-        getOutputCpuNanos.getAndAdd((nanosBetween(intervalCpuStart.get(), currentThreadCpuTime())));
-        getOutputUserNanos.getAndAdd((nanosBetween(intervalUserStart.get(), currentThreadUserTime())));
+        getOutputWallNanos.getAndAdd(nanosBetween(intervalWallStart.get(), System.nanoTime()));
+        getOutputCpuNanos.getAndAdd(nanosBetween(intervalCpuStart.get(), currentThreadCpuTime()));
+        getOutputUserNanos.getAndAdd(nanosBetween(intervalUserStart.get(), currentThreadUserTime()));
 
         if (page != null) {
-            outputDataSize.update((page.getDataSize().toBytes()));
-            outputPositions.update((page.getPositionCount()));
+            outputDataSize.update(page.getDataSize().toBytes());
+            outputPositions.update(page.getPositionCount());
         }
     }
 
@@ -155,16 +155,16 @@ public class OperatorContext
             @Override
             public void run()
             {
-                blockedWallNanos.getAndAdd((nanosBetween(start, System.nanoTime())));
+                blockedWallNanos.getAndAdd(nanosBetween(start, System.nanoTime()));
             }
         }, executor);
     }
 
     public void recordFinish()
     {
-        finishWallNanos.getAndAdd((nanosBetween(intervalWallStart.get(), System.nanoTime())));
-        finishCpuNanos.getAndAdd((nanosBetween(intervalCpuStart.get(), currentThreadCpuTime())));
-        finishUserNanos.getAndAdd((nanosBetween(intervalUserStart.get(), currentThreadUserTime())));
+        finishWallNanos.getAndAdd(nanosBetween(intervalWallStart.get(), System.nanoTime()));
+        finishCpuNanos.getAndAdd(nanosBetween(intervalCpuStart.get(), currentThreadCpuTime()));
+        finishUserNanos.getAndAdd(nanosBetween(intervalUserStart.get(), currentThreadUserTime()));
     }
 
     public DataSize getMaxMemorySize()
@@ -181,7 +181,7 @@ public class OperatorContext
     {
         boolean result = driverContext.reserveMemory(bytes);
         if (result) {
-            memoryReservation.getAndAdd((bytes));
+            memoryReservation.getAndAdd(bytes);
         }
         return result;
     }
