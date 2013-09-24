@@ -49,6 +49,9 @@ public class SplitCompletionEvent
     private final Long cpuTimeMs;
     private final Long userTimeMs;
 
+    private final String failureType;
+    private final String failureMessage;
+
     private final String splitInfoJson;
 
     public SplitCompletionEvent(
@@ -65,6 +68,8 @@ public class SplitCompletionEvent
             @Nullable Duration wallTime,
             @Nullable Duration cpuTime,
             @Nullable Duration userTime,
+            @Nullable String failureType,
+            @Nullable String failureMessage,
             String splitInfoJson)
     {
         Preconditions.checkNotNull(queryId, "queryId is null");
@@ -87,6 +92,8 @@ public class SplitCompletionEvent
         this.wallTimeMs = durationToMillis(wallTime);
         this.cpuTimeMs = durationToMillis(cpuTime);
         this.userTimeMs = durationToMillis(userTime);
+        this.failureType = failureType;
+        this.failureMessage = failureMessage;
         this.splitInfoJson = splitInfoJson;
     }
 
@@ -175,6 +182,18 @@ public class SplitCompletionEvent
     public Long getUserTimeMs()
     {
         return userTimeMs;
+    }
+
+    @EventField
+    public String getFailureType()
+    {
+        return failureType;
+    }
+
+    @EventField
+    public String getFailureMessage()
+    {
+        return failureMessage;
     }
 
     @EventField

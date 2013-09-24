@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.event.query;
 
+import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.execution.TaskId;
@@ -25,6 +26,8 @@ import io.airlift.event.client.EventClient;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.Duration;
+
+import javax.annotation.Nullable;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -68,6 +71,11 @@ public class QueryMonitor
     {
         try {
             QueryStats queryStats = queryInfo.getQueryStats();
+            FailureInfo failureInfo = queryInfo.getFailureInfo();
+
+            String failureType = failureInfo == null ? null : failureInfo.getType();
+            String failureMessage = failureInfo == null ? null : failureInfo.getMessage();
+
             eventClient.post(
                     new QueryCompletionEvent(
                             queryInfo.getQueryId(),
@@ -93,6 +101,8 @@ public class QueryMonitor
                             queryStats.getRawInputDataSize(),
                             queryStats.getRawInputPositions(),
                             queryStats.getTotalDrivers(),
+                            failureType,
+                            failureMessage,
                             objectMapper.writeValueAsString(queryInfo.getOutputStage()),
                             objectMapper.writeValueAsString(queryInfo.getFailureInfo())
                     )
@@ -104,6 +114,16 @@ public class QueryMonitor
     }
 
     public void splitCompletionEvent(TaskId taskId, DriverStats driverStats)
+    {
+        splitCompletionEvent(taskId, driverStats, null, null);
+    }
+
+    public void splitFailedEvent(TaskId taskId, DriverStats driverStats, Throwable cause)
+    {
+        splitCompletionEvent(taskId, driverStats, cause.getClass().getName(), cause.getMessage());
+    }
+
+    private void splitCompletionEvent(TaskId taskId, DriverStats driverStats, @Nullable String failureType, @Nullable String failureMessage)
     {
         Duration timeToStart = null;
         if (driverStats.getStartTime() != null) {
@@ -130,6 +150,8 @@ public class QueryMonitor
                             driverStats.getElapsedTime(),
                             driverStats.getTotalCpuTime(),
                             driverStats.getTotalUserTime(),
+                            failureType,
+                            failureMessage,
                             objectMapper.writeValueAsString(driverStats)
                     )
             );
