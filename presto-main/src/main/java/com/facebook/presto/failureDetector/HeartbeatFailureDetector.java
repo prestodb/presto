@@ -17,10 +17,10 @@ import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.util.IterableTransformer;
 import com.facebook.presto.util.Threads;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.discovery.client.ServiceSelector;
 import io.airlift.discovery.client.ServiceType;
@@ -29,6 +29,7 @@ import io.airlift.http.client.Request;
 import io.airlift.http.client.Response;
 import io.airlift.http.client.ResponseHandler;
 import io.airlift.log.Logger;
+import io.airlift.node.NodeInfo;
 import io.airlift.stats.DecayCounter;
 import io.airlift.stats.ExponentialDecay;
 import io.airlift.units.Duration;
@@ -71,6 +72,7 @@ public class HeartbeatFailureDetector
 
     private final ServiceSelector selector;
     private final AsyncHttpClient httpClient;
+    private final NodeInfo nodeInfo;
 
     private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(Threads.daemonThreadsNamed("failure-detector"));
 
@@ -86,18 +88,22 @@ public class HeartbeatFailureDetector
     private final AtomicBoolean started = new AtomicBoolean();
 
     @Inject
-    public HeartbeatFailureDetector(@ServiceType("presto") ServiceSelector selector,
+    public HeartbeatFailureDetector(
+            @ServiceType("presto") ServiceSelector selector,
             @ForFailureDetector AsyncHttpClient httpClient,
             FailureDetectorConfig config,
-            QueryManagerConfig queryManagerConfig)
+            QueryManagerConfig queryManagerConfig,
+            NodeInfo nodeInfo)
     {
         checkNotNull(selector, "selector is null");
         checkNotNull(httpClient, "httpClient is null");
+        checkNotNull(nodeInfo, "nodeInfo is null");
         checkNotNull(config, "config is null");
         checkArgument(config.getHeartbeatInterval().toMillis() >= 1, "heartbeat interval must be >= 1ms");
 
         this.selector = selector;
         this.httpClient = httpClient;
+        this.nodeInfo = nodeInfo;
 
         this.failureRatioThreshold = config.getFailureRatioThreshold();
         this.heartbeat = config.getHeartbeatInterval();
@@ -170,15 +176,19 @@ public class HeartbeatFailureDetector
         return builder.build();
     }
 
-    private void updateMonitoredServices()
+    @VisibleForTesting
+    void updateMonitoredServices()
     {
-        Set<ServiceDescriptor> online = ImmutableSet.copyOf(selector.selectAllServices());
+        Set<ServiceDescriptor> online = IterableTransformer.on(selector.selectAllServices())
+                .select(not(serviceDescriptorHasNodeId(nodeInfo.getNodeId())))
+                .set();
 
         Set<UUID> onlineIds = IterableTransformer.on(online)
                 .transform(idGetter())
                 .set();
 
-        synchronized (tasks) { // make sure only one thread is updating the registrations
+        // make sure only one thread is updating the registrations
+        synchronized (tasks) {
             // 1. remove expired tasks
             List<UUID> expiredIds = IterableTransformer.on(tasks.values())
                     .select(isExpiredPredicate())
@@ -201,11 +211,11 @@ public class HeartbeatFailureDetector
                     .select(compose(not(in(tasks.keySet())), idGetter()))
                     .set();
 
-            for (final ServiceDescriptor service : newServices) {
-                final URI uri = getHttpUri(service);
+            for (ServiceDescriptor service : newServices) {
+                URI uri = getHttpUri(service);
 
                 if (uri != null) {
-                    tasks.put(service.getId(), new MonitoringTask(executor, service, uri));
+                    tasks.put(service.getId(), new MonitoringTask(service, uri));
                 }
             }
 
@@ -220,7 +230,7 @@ public class HeartbeatFailureDetector
         }
     }
 
-    private URI getHttpUri(ServiceDescriptor service)
+    private static URI getHttpUri(ServiceDescriptor service)
     {
         try {
             String uri = service.getProperties().get("http");
@@ -233,6 +243,19 @@ public class HeartbeatFailureDetector
         }
 
         return null;
+    }
+
+    private static Predicate<ServiceDescriptor> serviceDescriptorHasNodeId(final String nodeId)
+    {
+        checkNotNull(nodeId, "nodeId is null");
+        return new Predicate<ServiceDescriptor>()
+        {
+            @Override
+            public boolean apply(ServiceDescriptor descriptor)
+            {
+                return nodeId.equals(descriptor.getNodeId());
+            }
+        };
     }
 
     private static Function<ServiceDescriptor, UUID> idGetter()
@@ -301,7 +324,6 @@ public class HeartbeatFailureDetector
         private final ServiceDescriptor service;
         private final URI uri;
         private final Stats stats;
-        private final ScheduledExecutorService executor;
 
         @GuardedBy("this")
         private ScheduledFuture<?> future;
@@ -312,10 +334,9 @@ public class HeartbeatFailureDetector
         @GuardedBy("this")
         private Long successTransitionTimestamp;
 
-        private MonitoringTask(ScheduledExecutorService executor, ServiceDescriptor service, URI uri)
+        private MonitoringTask(ServiceDescriptor service, URI uri)
         {
             this.uri = uri;
-            this.executor = executor;
             this.service = service;
             this.stats = new Stats(uri);
         }
