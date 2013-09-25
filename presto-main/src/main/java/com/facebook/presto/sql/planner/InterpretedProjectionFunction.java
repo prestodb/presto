@@ -82,13 +82,13 @@ public class InterpretedProjectionFunction
                 case BOOLEAN:
                     output.append((Boolean) value);
                     break;
-                case LONG:
+                case BIGINT:
                     output.append((Long) value);
                     break;
                 case DOUBLE:
                     output.append((Double) value);
                     break;
-                case STRING:
+                case VARCHAR:
                     output.append((Slice) value);
                     break;
                 default:

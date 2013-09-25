@@ -23,9 +23,9 @@ import static com.google.common.base.Preconditions.checkState;
 
 public enum Type
 {
-    LONG(TupleInfo.Type.FIXED_INT_64),
+    BIGINT(TupleInfo.Type.FIXED_INT_64),
     DOUBLE(TupleInfo.Type.DOUBLE),
-    STRING(TupleInfo.Type.VARIABLE_BINARY),
+    VARCHAR(TupleInfo.Type.VARIABLE_BINARY),
     BOOLEAN(TupleInfo.Type.BOOLEAN),
     NULL(null);
 
@@ -89,7 +89,7 @@ public enum Type
 
     public static boolean isNumeric(Type type)
     {
-        return type == LONG || type == DOUBLE;
+        return type == BIGINT || type == DOUBLE;
     }
 
     public static Function<Type, String> nameGetter()

@@ -173,7 +173,7 @@ public class ByteCodeExpressionVisitor
 
                     return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, isNotNull), boolean.class);
                 }
-                case LONG: {
+                case BIGINT: {
                     Block isNull = new Block(context)
                             .putVariable("wasNull", true)
                             .pushJavaDefault(long.class);
@@ -197,7 +197,7 @@ public class ByteCodeExpressionVisitor
 
                     return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, isNotNull), double.class);
                 }
-                case STRING: {
+                case VARCHAR: {
                     Block isNull = new Block(context)
                             .putVariable("wasNull", true)
                             .pushJavaDefault(Slice.class);
@@ -235,7 +235,7 @@ public class ByteCodeExpressionVisitor
 
                     return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, isNotNull), boolean.class);
                 }
-                case LONG: {
+                case BIGINT: {
                     Block isNull = new Block(context)
                             .putVariable("wasNull", true)
                             .pushJavaDefault(long.class);
@@ -259,7 +259,7 @@ public class ByteCodeExpressionVisitor
 
                     return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, isNotNull), double.class);
                 }
-                case STRING: {
+                case VARCHAR: {
                     Block isNull = new Block(context)
                             .putVariable("wasNull", true)
                             .pushJavaDefault(Slice.class);
