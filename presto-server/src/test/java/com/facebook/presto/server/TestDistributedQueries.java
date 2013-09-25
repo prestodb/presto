@@ -113,7 +113,7 @@ public class TestDistributedQueries
 
         long start = System.nanoTime();
         while (!allNodesGloballyVisible()) {
-            assertLessThan(nanosSince(start).compareTo(new Duration(10, SECONDS)), 0);
+            assertLessThan(nanosSince(start), new Duration(10, SECONDS));
             MILLISECONDS.sleep(10);
         }
 
