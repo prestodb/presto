@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.operator.SortOrder;
 import com.facebook.presto.spi.ColumnHandle;
@@ -258,14 +258,14 @@ class QueryPlanner
                     subPlan.getRoot(),
                     subPlan.getRoot().getOutputSymbols(),
                     ImmutableMap.<Symbol, FunctionCall>of(),
-                    ImmutableMap.<Symbol, FunctionHandle>of());
+                    ImmutableMap.<Symbol, Signature>of());
 
             subPlan =  new PlanBuilder(subPlan.getTranslations(), aggregation);
         }
 
         // 2. Aggregate
         ImmutableMap.Builder<Symbol, FunctionCall> aggregationAssignments = ImmutableMap.builder();
-        ImmutableMap.Builder<Symbol, FunctionHandle> functions = ImmutableMap.builder();
+        ImmutableMap.Builder<Symbol, Signature> functions = ImmutableMap.builder();
 
         // 2.a. Rewrite aggregates in terms of pre-projected inputs
         TranslationMap translations = new TranslationMap(subPlan.getRelationPlan(), analysis);
@@ -326,7 +326,7 @@ class QueryPlanner
             outputTranslations.copyMappingsFrom(subPlan.getTranslations());
 
             ImmutableMap.Builder<Symbol, FunctionCall> assignments = ImmutableMap.builder();
-            Map<Symbol, FunctionHandle> functionHandles = new HashMap<>();
+            Map<Symbol, Signature> functionHandles = new HashMap<>();
 
             // Rewrite function call in terms of pre-projected inputs
             FunctionCall rewritten = (FunctionCall) subPlan.rewrite(windowFunction);
@@ -429,7 +429,7 @@ class QueryPlanner
                     subPlan.getRoot(),
                     subPlan.getRoot().getOutputSymbols(),
                     ImmutableMap.<Symbol, FunctionCall>of(),
-                    ImmutableMap.<Symbol, FunctionHandle>of());
+                    ImmutableMap.<Symbol, Signature>of());
 
             return new PlanBuilder(subPlan.getTranslations(), aggregation);
         }
