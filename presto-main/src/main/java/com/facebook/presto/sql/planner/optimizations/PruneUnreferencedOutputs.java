@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
-import com.facebook.presto.metadata.FunctionHandle;
+import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
@@ -143,7 +143,7 @@ public class PruneUnreferencedOutputs
             ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
                     .addAll(node.getGroupBy());
 
-            ImmutableMap.Builder<Symbol, FunctionHandle> functions = ImmutableMap.builder();
+            ImmutableMap.Builder<Symbol, Signature> functions = ImmutableMap.builder();
             ImmutableMap.Builder<Symbol, FunctionCall> functionCalls = ImmutableMap.builder();
             ImmutableMap.Builder<Symbol, Symbol> masks = ImmutableMap.builder();
             for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
@@ -175,7 +175,7 @@ public class PruneUnreferencedOutputs
                     .addAll(node.getPartitionBy())
                     .addAll(node.getOrderBy());
 
-            ImmutableMap.Builder<Symbol, FunctionHandle> functions = ImmutableMap.builder();
+            ImmutableMap.Builder<Symbol, Signature> functions = ImmutableMap.builder();
             ImmutableMap.Builder<Symbol, FunctionCall> functionCalls = ImmutableMap.builder();
             for (Map.Entry<Symbol, FunctionCall> entry : node.getWindowFunctions().entrySet()) {
                 Symbol symbol = entry.getKey();
@@ -185,7 +185,7 @@ public class PruneUnreferencedOutputs
                     expectedInputs.addAll(DependencyExtractor.extractUnique(call));
 
                     functionCalls.put(symbol, call);
-                    functions.put(symbol, node.getFunctionHandles().get(symbol));
+                    functions.put(symbol, node.getSignatures().get(symbol));
                 }
             }
 
