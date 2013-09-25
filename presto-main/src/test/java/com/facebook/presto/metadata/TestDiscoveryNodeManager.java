@@ -33,11 +33,11 @@ import java.util.UUID;
 import static io.airlift.discovery.client.ServiceDescriptor.serviceDescriptor;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotSame;
 
 public class TestDiscoveryNodeManager
 {
+    private final NodeInfo nodeInfo = new NodeInfo("test");
     private NodeVersion expectedVersion;
     private List<Node> activeNodes;
     private List<Node> inactiveNodes;
@@ -48,6 +48,7 @@ public class TestDiscoveryNodeManager
     {
         expectedVersion = new NodeVersion("1");
         activeNodes = ImmutableList.of(
+                new Node(nodeInfo.getNodeId(), URI.create("http://192.0.1.1"), expectedVersion),
                 new Node(UUID.randomUUID().toString(), URI.create("http://192.0.2.1:8080"), expectedVersion),
                 new Node(UUID.randomUUID().toString(), URI.create("http://192.0.2.3"), expectedVersion),
                 new Node(UUID.randomUUID().toString(), URI.create("https://192.0.2.8"), expectedVersion));
@@ -72,7 +73,7 @@ public class TestDiscoveryNodeManager
     public void testGetAllNodes()
             throws Exception
     {
-        DiscoveryNodeManager manager = new DiscoveryNodeManager(selector, new NodeInfo("test"), new NoOpFailureDetector(), expectedVersion);
+        DiscoveryNodeManager manager = new DiscoveryNodeManager(selector, nodeInfo, new NoOpFailureDetector(), expectedVersion);
         AllNodes allNodes = manager.getAllNodes();
 
         Set<Node> activeNodes = allNodes.getActiveNodes();
@@ -105,13 +106,13 @@ public class TestDiscoveryNodeManager
 
         DiscoveryNodeManager manager = new DiscoveryNodeManager(selector, nodeInfo, new NoOpFailureDetector(), expectedVersion);
 
-        assertEquals(manager.getCurrentNode().get(), expected);
+        assertEquals(manager.getCurrentNode(), expected);
     }
 
-    @Test
-    public void testGetCurrentNodeNotActive()
+    @SuppressWarnings("ResultOfObjectAllocationIgnored")
+    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = ".* current node not returned .*")
+    public void testGetCurrentNodeRequired()
     {
-        DiscoveryNodeManager manager = new DiscoveryNodeManager(selector, new NodeInfo("test"), new NoOpFailureDetector(), expectedVersion);
-        assertFalse(manager.getCurrentNode().isPresent());
+        new DiscoveryNodeManager(selector, new NodeInfo("test"), new NoOpFailureDetector(), expectedVersion);
     }
 }

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.failureDetector.FailureDetectorConfiguration;
+import com.facebook.presto.failureDetector.FailureDetectorConfig;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.Duration;
@@ -22,12 +22,12 @@ import org.testng.annotations.Test;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-public class TestFailureDetectorConfiguration
+public class TestFailureDetectorConfig
 {
     @Test
     public void testDefaults()
     {
-        ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(FailureDetectorConfiguration.class)
+        ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(FailureDetectorConfig.class)
                 .setExpirationGraceInterval(new Duration(10, TimeUnit.MINUTES))
                 .setFailureRatioThreshold(0.01)
                 .setHeartbeatInterval(new Duration(500, TimeUnit.MILLISECONDS))
@@ -46,7 +46,7 @@ public class TestFailureDetectorConfiguration
                 .put("failure-detector.enabled", "false")
                 .build();
 
-        FailureDetectorConfiguration expected = new FailureDetectorConfiguration()
+        FailureDetectorConfig expected = new FailureDetectorConfig()
                 .setExpirationGraceInterval(new Duration(5, TimeUnit.MINUTES))
                 .setWarmupInterval(new Duration(60, TimeUnit.SECONDS))
                 .setHeartbeatInterval(new Duration(10, TimeUnit.SECONDS))

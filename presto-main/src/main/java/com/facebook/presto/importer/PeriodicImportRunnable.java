@@ -17,12 +17,9 @@ import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
 import com.facebook.presto.importer.JobStateFactory.JobState;
-import com.facebook.presto.metadata.Node;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.google.common.base.Function;
-import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import io.airlift.http.client.AsyncHttpClient;
@@ -36,7 +33,6 @@ import java.util.Iterator;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterators.concat;
 import static com.google.common.collect.Iterators.transform;
 import static java.lang.String.format;
@@ -115,12 +111,7 @@ public class PeriodicImportRunnable
 
     private URI serverUri()
     {
-        Optional<Node> currentNode = nodeManager.getCurrentNode();
-        Preconditions.checkState(currentNode.isPresent(), "current node is not in the active set");
-
-        URI serverUri = currentNode.get().getHttpUri();
-        checkState(serverUri != null, "no uri for the server present!");
-        return serverUri;
+        return nodeManager.getCurrentNode().getHttpUri();
     }
 
     private static <T> Iterator<T> flatten(Iterator<Iterable<T>> iterator)

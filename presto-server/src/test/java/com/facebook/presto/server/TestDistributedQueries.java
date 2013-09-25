@@ -19,6 +19,7 @@ import com.facebook.presto.client.Column;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
+import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.tuple.Tuple;
@@ -48,8 +49,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.json.JsonCodec.jsonCodec;
+import static io.airlift.testing.Assertions.assertLessThan;
+import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestDistributedQueries
         extends AbstractTestQueries
@@ -106,14 +111,28 @@ public class TestDistributedQueries
                         .setConnectTimeout(new Duration(1, TimeUnit.DAYS))
                         .setReadTimeout(new Duration(10, TimeUnit.DAYS)));
 
-        for (TestingPrestoServer server : servers) {
-            server.refreshServiceSelectors();
+        long start = System.nanoTime();
+        while (!allNodesGloballyVisible()) {
+            assertLessThan(nanosSince(start).compareTo(new Duration(10, SECONDS)), 0);
+            MILLISECONDS.sleep(10);
         }
 
         log.info("Loading data...");
         long startTime = System.nanoTime();
         distributeData(catalog, schema);
-        log.info("Loading complete in %.2fs", Duration.nanosSince(startTime).getValue(TimeUnit.SECONDS));
+        log.info("Loading complete in %.2fs", nanosSince(startTime).getValue(SECONDS));
+    }
+
+    private boolean allNodesGloballyVisible()
+    {
+        for (TestingPrestoServer server : servers) {
+            AllNodes allNodes = server.refreshNodes();
+            if (!allNodes.getInactiveNodes().isEmpty() ||
+                    (allNodes.getActiveNodes().size() != servers.size())) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @SuppressWarnings("deprecation")

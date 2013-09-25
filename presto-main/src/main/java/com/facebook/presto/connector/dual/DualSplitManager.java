@@ -13,17 +13,13 @@
  */
 package com.facebook.presto.connector.dual;
 
-import com.facebook.presto.metadata.Node;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplitManager;
-import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.TableHandle;
 import com.google.common.base.Objects;
-import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -82,11 +78,7 @@ public class DualSplitManager
         Partition partition = Iterables.getOnlyElement(partitions);
         checkArgument(partition instanceof DualPartition, "Partition must be a dual partition");
 
-        Optional<Node> currentNode = nodeManager.getCurrentNode();
-        Preconditions.checkState(currentNode.isPresent(), "current node is not in the active set");
-        ImmutableList<HostAddress> localAddress = ImmutableList.of(currentNode.get().getHostAndPort());
-
-        Split split = new DualSplit(localAddress);
+        Split split = new DualSplit(nodeManager.getCurrentNode().getHostAndPort());
 
         return ImmutableList.of(split);
     }
