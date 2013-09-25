@@ -15,6 +15,7 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.failureDetector.FailureDetectorModule;
+import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.tpch.TpchBlocksProvider;
@@ -127,7 +128,7 @@ public class TestingPrestoServer
         nodeManager = injector.getInstance(NodeManager.class);
         serviceSelectorManager = injector.getInstance(ServiceSelectorManager.class);
 
-        refreshServiceSelectors();
+        refreshNodes();
     }
 
     @Override
@@ -166,10 +167,11 @@ public class TestingPrestoServer
         return metadata;
     }
 
-    public final void refreshServiceSelectors()
+    public final AllNodes refreshNodes()
     {
         serviceSelectorManager.forceRefresh();
         nodeManager.refreshNodes();
+        return nodeManager.getAllNodes();
     }
 
     private static class InMemoryTpchModule
