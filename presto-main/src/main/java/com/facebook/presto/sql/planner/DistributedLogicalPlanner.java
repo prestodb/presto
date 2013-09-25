@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning;
@@ -110,7 +110,7 @@ public class DistributedLogicalPlanner
             }
 
             Map<Symbol, FunctionCall> aggregations = node.getAggregations();
-            Map<Symbol, FunctionHandle> functions = node.getFunctions();
+            Map<Symbol, Signature> functions = node.getFunctions();
             Map<Symbol, Symbol> masks = node.getMasks();
             List<Symbol> groupBy = node.getGroupBy();
 
@@ -150,19 +150,19 @@ public class DistributedLogicalPlanner
             }
         }
 
-        private SubPlanBuilder addDistributedAggregation(SubPlanBuilder plan, Map<Symbol, FunctionCall> aggregations, Map<Symbol, FunctionHandle> functions, Map<Symbol, Symbol> masks, List<Symbol> groupBy)
+        private SubPlanBuilder addDistributedAggregation(SubPlanBuilder plan, Map<Symbol, FunctionCall> aggregations, Map<Symbol, Signature> functions, Map<Symbol, Symbol> masks, List<Symbol> groupBy)
         {
             Map<Symbol, FunctionCall> finalCalls = new HashMap<>();
             Map<Symbol, FunctionCall> intermediateCalls = new HashMap<>();
-            Map<Symbol, FunctionHandle> intermediateFunctions = new HashMap<>();
+            Map<Symbol, Signature> intermediateFunctions = new HashMap<>();
             Map<Symbol, Symbol> intermediateMask = new HashMap<>();
             for (Map.Entry<Symbol, FunctionCall> entry : aggregations.entrySet()) {
-                FunctionHandle functionHandle = functions.get(entry.getKey());
-                FunctionInfo function = metadata.getFunction(functionHandle);
+                Signature signature = functions.get(entry.getKey());
+                FunctionInfo function = metadata.getFunction(signature);
 
                 Symbol intermediateSymbol = allocator.newSymbol(function.getName().getSuffix(), function.getIntermediateType());
                 intermediateCalls.put(intermediateSymbol, entry.getValue());
-                intermediateFunctions.put(intermediateSymbol, functionHandle);
+                intermediateFunctions.put(intermediateSymbol, signature);
                 if (masks.containsKey(entry.getKey())) {
                     intermediateMask.put(intermediateSymbol, masks.get(entry.getKey()));
                 }
@@ -204,7 +204,7 @@ public class DistributedLogicalPlanner
                         .addChild(current.build());
             }
 
-            current.setRoot(new WindowNode(node.getId(), current.getRoot(), node.getPartitionBy(), node.getOrderBy(), node.getOrderings(), node.getWindowFunctions(), node.getFunctionHandles()));
+            current.setRoot(new WindowNode(node.getId(), current.getRoot(), node.getPartitionBy(), node.getOrderBy(), node.getOrderings(), node.getWindowFunctions(), node.getSignatures()));
 
             return current;
         }

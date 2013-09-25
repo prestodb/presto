@@ -84,7 +84,7 @@ public class MetadataManager
     }
 
     @Override
-    public FunctionInfo getFunction(FunctionHandle handle)
+    public FunctionInfo getFunction(Signature handle)
     {
         return functions.get(handle);
     }

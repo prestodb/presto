@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.AggregationFunctionDefinition;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
 import com.facebook.presto.operator.DriverFactory;
@@ -334,8 +334,8 @@ public class LocalExecutionPlanner
             List<Symbol> windowFunctionOutputSymbols = new ArrayList<>();
             for (Map.Entry<Symbol, FunctionCall> entry : node.getWindowFunctions().entrySet()) {
                 Symbol symbol = entry.getKey();
-                FunctionHandle handle = node.getFunctionHandles().get(symbol);
-                windowFunctions.add(metadata.getFunction(handle).getWindowFunction().get());
+                Signature signature = node.getSignatures().get(symbol);
+                windowFunctions.add(metadata.getFunction(signature).getWindowFunction().get());
                 windowFunctionOutputSymbols.add(symbol);
             }
 
@@ -982,7 +982,7 @@ public class LocalExecutionPlanner
                     .list());
         }
 
-        private AggregationFunctionDefinition buildFunctionDefinition(PhysicalOperation source, FunctionHandle function, FunctionCall call, @Nullable Symbol mask)
+        private AggregationFunctionDefinition buildFunctionDefinition(PhysicalOperation source, Signature function, FunctionCall call, @Nullable Symbol mask)
         {
             List<Input> arguments = new ArrayList<>();
             for (Expression argument : call.getArguments()) {

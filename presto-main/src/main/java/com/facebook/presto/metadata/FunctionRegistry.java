@@ -55,7 +55,6 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -109,7 +108,7 @@ import static java.lang.invoke.MethodHandles.lookup;
 public class FunctionRegistry
 {
     private final Multimap<QualifiedName, FunctionInfo> functionsByName;
-    private final Map<FunctionHandle, FunctionInfo> functionsByHandle;
+    private final Map<Signature, FunctionInfo> functionsByHandle;
 
     public FunctionRegistry()
     {
@@ -234,7 +233,7 @@ public class FunctionRegistry
         return true;
     }
 
-    public FunctionInfo get(FunctionHandle handle)
+    public FunctionInfo get(Signature handle)
     {
         return functionsByHandle.get(handle);
     }
@@ -284,8 +283,7 @@ public class FunctionRegistry
             name = name.toLowerCase();
 
             String description = getDescription(function.getClass());
-            int id = functions.size() + 1;
-            functions.add(new FunctionInfo(id, QualifiedName.of(name), description, returnType, argumentTypes, function));
+            functions.add(new FunctionInfo(new Signature(name, returnType, argumentTypes), description, function));
             return this;
         }
 
@@ -294,8 +292,7 @@ public class FunctionRegistry
             name = name.toLowerCase();
 
             String description = getDescription(function.getClass());
-            int id = functions.size() + 1;
-            functions.add(new FunctionInfo(id, QualifiedName.of(name), description, returnType, argumentTypes, intermediateType, function));
+            functions.add(new FunctionInfo(new Signature(name,  returnType, argumentTypes), description, intermediateType, function));
             return this;
         }
 
@@ -303,10 +300,9 @@ public class FunctionRegistry
         {
             name = name.toLowerCase();
 
-            int id = functions.size() + 1;
             Type returnType = type(function.type().returnType());
             List<Type> argumentTypes = types(function);
-            functions.add(new FunctionInfo(id, QualifiedName.of(name), description, returnType, argumentTypes, function, deterministic, functionBinder));
+            functions.add(new FunctionInfo(new Signature(name, returnType, argumentTypes), description, function, deterministic, functionBinder));
             return this;
         }
 
@@ -396,7 +392,6 @@ public class FunctionRegistry
 
         public ImmutableList<FunctionInfo> build()
         {
-            Collections.sort(functions);
             return ImmutableList.copyOf(functions);
         }
     }

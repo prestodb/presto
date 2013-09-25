@@ -33,7 +33,7 @@ public interface Metadata
     FunctionInfo getFunction(QualifiedName name, List<Type> parameterTypes);
 
     @NotNull
-    FunctionInfo getFunction(FunctionHandle handle);
+    FunctionInfo getFunction(Signature handle);
 
     boolean isAggregationFunction(QualifiedName name);
 
