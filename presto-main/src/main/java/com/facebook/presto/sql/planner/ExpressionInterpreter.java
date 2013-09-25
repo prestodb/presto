@@ -725,10 +725,10 @@ public class ExpressionInterpreter
                 type = Type.DOUBLE;
             }
             else if (value instanceof Long) {
-                type = Type.LONG;
+                type = Type.BIGINT;
             }
             else if (value instanceof Slice) {
-                type = Type.STRING;
+                type = Type.VARCHAR;
             }
             else if (value instanceof Boolean) {
                 type = Type.BOOLEAN;

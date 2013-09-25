@@ -188,7 +188,7 @@ public class TestSqlStageExecution
         PlanNodeId tableScanNodeId = new PlanNodeId(planId);
         PlanFragment testFragment = new PlanFragment(new PlanFragmentId(planId),
                 tableScanNodeId,
-                ImmutableMap.<Symbol, Type>of(symbol, Type.STRING),
+                ImmutableMap.<Symbol, Type>of(symbol, Type.VARCHAR),
                 new TableScanNode(tableScanNodeId,
                         tableHandle, ImmutableList.of(symbol),
                         ImmutableMap.of(symbol, columnHandle),
