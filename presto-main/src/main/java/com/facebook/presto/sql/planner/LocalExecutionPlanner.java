@@ -61,6 +61,7 @@ import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
@@ -459,6 +460,16 @@ public class LocalExecutionPlanner
             }
 
             return planGroupByAggregation(node, source, context);
+        }
+
+        @Override
+        public PhysicalOperation visitSample(SampleNode node, LocalExecutionPlanContext context)
+        {
+            // For system sample, the splits are already filtered out, so no specific action needs to be taken here
+            if (node.getSampleType() == SampleNode.Type.SYSTEM) {
+                return node.getSource().accept(this, context);
+            }
+            throw new UnsupportedOperationException("not yet implemented: " + node);
         }
 
         @Override
