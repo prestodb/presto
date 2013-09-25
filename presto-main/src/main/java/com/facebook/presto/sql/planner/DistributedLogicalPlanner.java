@@ -285,7 +285,7 @@ public class DistributedLogicalPlanner
             }
             else {
                 // Put a simple SUM(<output symbol>) on top of the table writer node
-                FunctionInfo sum = metadata.getFunction(QualifiedName.of("sum"), ImmutableList.of(Type.LONG));
+                FunctionInfo sum = metadata.getFunction(QualifiedName.of("sum"), ImmutableList.of(Type.BIGINT));
 
                 Symbol intermediateOutput = allocator.newSymbol(node.getOutput().toString(), sum.getReturnType());
 

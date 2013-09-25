@@ -203,7 +203,7 @@ public class LogicalPlanner
         }
 
         // create writer node
-        Symbol output = symbolAllocator.newSymbol("imported_rows", Type.LONG);
+        Symbol output = symbolAllocator.newSymbol("imported_rows", Type.BIGINT);
 
         TableWriterNode writerNode = new TableWriterNode(idAllocator.getNextId(),
                 plan.getRoot(),

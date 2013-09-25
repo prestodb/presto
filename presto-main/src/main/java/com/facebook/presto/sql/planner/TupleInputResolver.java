@@ -81,11 +81,11 @@ public class TupleInputResolver
             switch (inputTypes.get(input)) {
                 case BOOLEAN:
                     return cursor.getBoolean(channel);
-                case LONG:
+                case BIGINT:
                     return cursor.getLong(channel);
                 case DOUBLE:
                     return cursor.getDouble(channel);
-                case STRING:
+                case VARCHAR:
                     return Slices.wrappedBuffer(cursor.getString(channel));
                 default:
                     throw new UnsupportedOperationException("not yet implemented");

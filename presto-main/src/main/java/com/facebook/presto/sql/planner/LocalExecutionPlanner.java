@@ -649,10 +649,10 @@ public class LocalExecutionPlanner
                         inputTypes.put(input, Type.BOOLEAN);
                         break;
                     case FIXED_INT_64:
-                        inputTypes.put(input, Type.LONG);
+                        inputTypes.put(input, Type.BIGINT);
                         break;
                     case VARIABLE_BINARY:
-                        inputTypes.put(input, Type.STRING);
+                        inputTypes.put(input, Type.VARCHAR);
                         break;
                     case DOUBLE:
                         inputTypes.put(input, Type.DOUBLE);

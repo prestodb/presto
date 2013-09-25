@@ -109,13 +109,13 @@ public final class FunctionAssertions
             createStringsBlock((String) null));
 
     private static final Map<Input, Type> INPUT_TYPES = ImmutableMap.<Input, Type>builder()
-            .put(new Input(0, 0), Type.LONG)
-            .put(new Input(1, 0), Type.STRING)
+            .put(new Input(0, 0), Type.BIGINT)
+            .put(new Input(1, 0), Type.VARCHAR)
             .put(new Input(2, 0), Type.DOUBLE)
             .put(new Input(3, 0), Type.BOOLEAN)
-            .put(new Input(4, 0), Type.LONG)
-            .put(new Input(5, 0), Type.STRING)
-            .put(new Input(6, 0), Type.STRING)
+            .put(new Input(4, 0), Type.BIGINT)
+            .put(new Input(5, 0), Type.VARCHAR)
+            .put(new Input(6, 0), Type.VARCHAR)
             .build();
 
     private static final Map<Symbol, Input> INPUT_MAPPING = ImmutableMap.<Symbol, Input>builder()

@@ -333,7 +333,7 @@ class StatementAnalyzer
         // Analyze the query that creates the table...
         process(node.getTableDefinition(), context);
 
-        return new TupleDescriptor(Field.newUnqualified("imported_rows", Type.LONG));
+        return new TupleDescriptor(Field.newUnqualified("imported_rows", Type.BIGINT));
     }
 
     @Override
@@ -349,7 +349,7 @@ class StatementAnalyzer
         analysis.setDestination(targetTable);
         analysis.setDoRefresh(true);
 
-        return new TupleDescriptor(Field.newUnqualified("imported_rows", Type.LONG));
+        return new TupleDescriptor(Field.newUnqualified("imported_rows", Type.BIGINT));
     }
 
     @Override

@@ -89,8 +89,8 @@ import static com.facebook.presto.operator.aggregation.VarBinaryMaxAggregation.V
 import static com.facebook.presto.operator.aggregation.VarBinaryMinAggregation.VAR_BINARY_MIN;
 import static com.facebook.presto.sql.analyzer.Type.BOOLEAN;
 import static com.facebook.presto.sql.analyzer.Type.DOUBLE;
-import static com.facebook.presto.sql.analyzer.Type.LONG;
-import static com.facebook.presto.sql.analyzer.Type.STRING;
+import static com.facebook.presto.sql.analyzer.Type.BIGINT;
+import static com.facebook.presto.sql.analyzer.Type.VARCHAR;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.LOWER_UNDERSCORE;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -105,51 +105,51 @@ public class FunctionRegistry
     public FunctionRegistry()
     {
         List<FunctionInfo> functions = new FunctionListBuilder()
-                .window("row_number", LONG, ImmutableList.<Type>of(), supplier(RowNumberFunction.class))
-                .window("rank", LONG, ImmutableList.<Type>of(), supplier(RankFunction.class))
-                .window("dense_rank", LONG, ImmutableList.<Type>of(), supplier(DenseRankFunction.class))
+                .window("row_number", BIGINT, ImmutableList.<Type>of(), supplier(RowNumberFunction.class))
+                .window("rank", BIGINT, ImmutableList.<Type>of(), supplier(RankFunction.class))
+                .window("dense_rank", BIGINT, ImmutableList.<Type>of(), supplier(DenseRankFunction.class))
                 .window("percent_rank", DOUBLE, ImmutableList.<Type>of(), supplier(PercentRankFunction.class))
                 .window("cume_dist", DOUBLE, ImmutableList.<Type>of(), supplier(CumulativeDistributionFunction.class))
-                .aggregate("count", LONG, ImmutableList.<Type>of(), LONG, COUNT)
-                .aggregate("count", LONG, ImmutableList.<Type>of(BOOLEAN), LONG, COUNT_COLUMN)
-                .aggregate("count", LONG, ImmutableList.<Type>of(LONG), LONG, COUNT_COLUMN)
-                .aggregate("count", LONG, ImmutableList.<Type>of(DOUBLE), LONG, COUNT_COLUMN)
-                .aggregate("count", LONG, ImmutableList.<Type>of(STRING), LONG, COUNT_COLUMN)
-                .aggregate("count_if", LONG, ImmutableList.<Type>of(BOOLEAN), LONG, COUNT_IF)
-                .aggregate("sum", LONG, ImmutableList.of(LONG), LONG, LONG_SUM)
+                .aggregate("count", BIGINT, ImmutableList.<Type>of(), BIGINT, COUNT)
+                .aggregate("count", BIGINT, ImmutableList.<Type>of(BOOLEAN), BIGINT, COUNT_COLUMN)
+                .aggregate("count", BIGINT, ImmutableList.<Type>of(BIGINT), BIGINT, COUNT_COLUMN)
+                .aggregate("count", BIGINT, ImmutableList.<Type>of(DOUBLE), BIGINT, COUNT_COLUMN)
+                .aggregate("count", BIGINT, ImmutableList.<Type>of(VARCHAR), BIGINT, COUNT_COLUMN)
+                .aggregate("count_if", BIGINT, ImmutableList.<Type>of(BOOLEAN), BIGINT, COUNT_IF)
+                .aggregate("sum", BIGINT, ImmutableList.of(BIGINT), BIGINT, LONG_SUM)
                 .aggregate("sum", DOUBLE, ImmutableList.of(DOUBLE), DOUBLE, DOUBLE_SUM)
-                .aggregate("avg", DOUBLE, ImmutableList.of(DOUBLE), STRING, DOUBLE_AVERAGE)
-                .aggregate("avg", DOUBLE, ImmutableList.of(LONG), STRING, LONG_AVERAGE)
+                .aggregate("avg", DOUBLE, ImmutableList.of(DOUBLE), VARCHAR, DOUBLE_AVERAGE)
+                .aggregate("avg", DOUBLE, ImmutableList.of(BIGINT), VARCHAR, LONG_AVERAGE)
                 .aggregate("max", BOOLEAN, ImmutableList.of(BOOLEAN), BOOLEAN, BOOLEAN_MAX)
-                .aggregate("max", LONG, ImmutableList.of(LONG), LONG, LONG_MAX)
+                .aggregate("max", BIGINT, ImmutableList.of(BIGINT), BIGINT, LONG_MAX)
                 .aggregate("max", DOUBLE, ImmutableList.of(DOUBLE), DOUBLE, DOUBLE_MAX)
-                .aggregate("max", STRING, ImmutableList.of(STRING), STRING, VAR_BINARY_MAX)
+                .aggregate("max", VARCHAR, ImmutableList.of(VARCHAR), VARCHAR, VAR_BINARY_MAX)
                 .aggregate("min", BOOLEAN, ImmutableList.of(BOOLEAN), BOOLEAN, BOOLEAN_MIN)
-                .aggregate("min", LONG, ImmutableList.of(LONG), LONG, LONG_MIN)
+                .aggregate("min", BIGINT, ImmutableList.of(BIGINT), BIGINT, LONG_MIN)
                 .aggregate("min", DOUBLE, ImmutableList.of(DOUBLE), DOUBLE, DOUBLE_MIN)
-                .aggregate("min", STRING, ImmutableList.of(STRING), STRING, VAR_BINARY_MIN)
-                .aggregate("var_pop", DOUBLE, ImmutableList.of(DOUBLE), STRING, DoubleVarianceAggregation.VARIANCE_POP_INSTANCE)
-                .aggregate("var_pop", DOUBLE, ImmutableList.of(LONG), STRING, LongVarianceAggregation.VARIANCE_POP_INSTANCE)
-                .aggregate("var_samp", DOUBLE, ImmutableList.of(DOUBLE), STRING, DoubleVarianceAggregation.VARIANCE_INSTANCE)
-                .aggregate("var_samp", DOUBLE, ImmutableList.of(LONG), STRING, LongVarianceAggregation.VARIANCE_INSTANCE)
-                .aggregate("variance", DOUBLE, ImmutableList.of(DOUBLE), STRING, DoubleVarianceAggregation.VARIANCE_INSTANCE)
-                .aggregate("variance", DOUBLE, ImmutableList.of(LONG), STRING, LongVarianceAggregation.VARIANCE_INSTANCE)
-                .aggregate("stddev_pop", DOUBLE, ImmutableList.of(DOUBLE), STRING, DoubleStdDevAggregation.STDDEV_POP_INSTANCE)
-                .aggregate("stddev_pop", DOUBLE, ImmutableList.of(LONG), STRING, LongStdDevAggregation.STDDEV_POP_INSTANCE)
-                .aggregate("stddev_samp", DOUBLE, ImmutableList.of(DOUBLE), STRING, DoubleStdDevAggregation.STDDEV_INSTANCE)
-                .aggregate("stddev_samp", DOUBLE, ImmutableList.of(LONG), STRING, LongStdDevAggregation.STDDEV_INSTANCE)
-                .aggregate("stddev", DOUBLE, ImmutableList.of(DOUBLE), STRING, DoubleStdDevAggregation.STDDEV_INSTANCE)
-                .aggregate("stddev", DOUBLE, ImmutableList.of(LONG), STRING, LongStdDevAggregation.STDDEV_INSTANCE)
-                .aggregate("approx_distinct", LONG, ImmutableList.of(BOOLEAN), STRING, ApproximateCountDistinctAggregation.LONG_INSTANCE)
-                .aggregate("approx_distinct", LONG, ImmutableList.of(LONG), STRING, ApproximateCountDistinctAggregation.LONG_INSTANCE)
-                .aggregate("approx_distinct", LONG, ImmutableList.of(DOUBLE), STRING, ApproximateCountDistinctAggregation.DOUBLE_INSTANCE)
-                .aggregate("approx_distinct", LONG, ImmutableList.of(STRING), STRING, ApproximateCountDistinctAggregation.VARBINARY_INSTANCE)
-                .aggregate("approx_percentile", LONG, ImmutableList.of(LONG, DOUBLE), STRING, LongApproximatePercentileAggregation.INSTANCE)
-                .aggregate("approx_percentile", LONG, ImmutableList.of(LONG, LONG, DOUBLE), STRING, LongApproximatePercentileWeightedAggregation.INSTANCE)
-                .aggregate("approx_percentile", DOUBLE, ImmutableList.of(DOUBLE, DOUBLE), STRING, DoubleApproximatePercentileAggregation.INSTANCE)
-                .aggregate("approx_percentile", DOUBLE, ImmutableList.of(DOUBLE, LONG, DOUBLE), STRING, DoubleApproximatePercentileWeightedAggregation.INSTANCE)
-                .aggregate("approx_avg", STRING, ImmutableList.of(LONG), STRING, LONG_APPROX_AVERAGE)
-                .aggregate("approx_avg", STRING, ImmutableList.of(DOUBLE), STRING, DOUBLE_APPROX_AVERAGE)
+                .aggregate("min", VARCHAR, ImmutableList.of(VARCHAR), VARCHAR, VAR_BINARY_MIN)
+                .aggregate("var_pop", DOUBLE, ImmutableList.of(DOUBLE), VARCHAR, DoubleVarianceAggregation.VARIANCE_POP_INSTANCE)
+                .aggregate("var_pop", DOUBLE, ImmutableList.of(BIGINT), VARCHAR, LongVarianceAggregation.VARIANCE_POP_INSTANCE)
+                .aggregate("var_samp", DOUBLE, ImmutableList.of(DOUBLE), VARCHAR, DoubleVarianceAggregation.VARIANCE_INSTANCE)
+                .aggregate("var_samp", DOUBLE, ImmutableList.of(BIGINT), VARCHAR, LongVarianceAggregation.VARIANCE_INSTANCE)
+                .aggregate("variance", DOUBLE, ImmutableList.of(DOUBLE), VARCHAR, DoubleVarianceAggregation.VARIANCE_INSTANCE)
+                .aggregate("variance", DOUBLE, ImmutableList.of(BIGINT), VARCHAR, LongVarianceAggregation.VARIANCE_INSTANCE)
+                .aggregate("stddev_pop", DOUBLE, ImmutableList.of(DOUBLE), VARCHAR, DoubleStdDevAggregation.STDDEV_POP_INSTANCE)
+                .aggregate("stddev_pop", DOUBLE, ImmutableList.of(BIGINT), VARCHAR, LongStdDevAggregation.STDDEV_POP_INSTANCE)
+                .aggregate("stddev_samp", DOUBLE, ImmutableList.of(DOUBLE), VARCHAR, DoubleStdDevAggregation.STDDEV_INSTANCE)
+                .aggregate("stddev_samp", DOUBLE, ImmutableList.of(BIGINT), VARCHAR, LongStdDevAggregation.STDDEV_INSTANCE)
+                .aggregate("stddev", DOUBLE, ImmutableList.of(DOUBLE), VARCHAR, DoubleStdDevAggregation.STDDEV_INSTANCE)
+                .aggregate("stddev", DOUBLE, ImmutableList.of(BIGINT), VARCHAR, LongStdDevAggregation.STDDEV_INSTANCE)
+                .aggregate("approx_distinct", BIGINT, ImmutableList.of(BOOLEAN), VARCHAR, ApproximateCountDistinctAggregation.LONG_INSTANCE)
+                .aggregate("approx_distinct", BIGINT, ImmutableList.of(BIGINT), VARCHAR, ApproximateCountDistinctAggregation.LONG_INSTANCE)
+                .aggregate("approx_distinct", BIGINT, ImmutableList.of(DOUBLE), VARCHAR, ApproximateCountDistinctAggregation.DOUBLE_INSTANCE)
+                .aggregate("approx_distinct", BIGINT, ImmutableList.of(VARCHAR), VARCHAR, ApproximateCountDistinctAggregation.VARBINARY_INSTANCE)
+                .aggregate("approx_percentile", BIGINT, ImmutableList.of(BIGINT, DOUBLE), VARCHAR, LongApproximatePercentileAggregation.INSTANCE)
+                .aggregate("approx_percentile", BIGINT, ImmutableList.of(BIGINT, BIGINT, DOUBLE), VARCHAR, LongApproximatePercentileWeightedAggregation.INSTANCE)
+                .aggregate("approx_percentile", DOUBLE, ImmutableList.of(DOUBLE, DOUBLE), VARCHAR, DoubleApproximatePercentileAggregation.INSTANCE)
+                .aggregate("approx_percentile", DOUBLE, ImmutableList.of(DOUBLE, BIGINT, DOUBLE), VARCHAR, DoubleApproximatePercentileWeightedAggregation.INSTANCE)
+                .aggregate("approx_avg", VARCHAR, ImmutableList.of(BIGINT), VARCHAR, LONG_APPROX_AVERAGE)
+                .aggregate("approx_avg", VARCHAR, ImmutableList.of(DOUBLE), VARCHAR, DOUBLE_APPROX_AVERAGE)
                 .scalar(StringFunctions.class)
                 .scalar(RegexpFunctions.class)
                 .scalar(UrlFunctions.class)
@@ -218,7 +218,7 @@ public class FunctionRegistry
         for (int i = 0; i < functionArguments.size(); i++) {
             Type functionArgument = functionArguments.get(i);
             Type parameterType = parameterTypes.get(i);
-            if (functionArgument != parameterType && !(functionArgument == DOUBLE && parameterType == LONG)) {
+            if (functionArgument != parameterType && !(functionArgument == DOUBLE && parameterType == BIGINT)) {
                 return false;
             }
         }
@@ -252,13 +252,13 @@ public class FunctionRegistry
     {
         clazz = Primitives.unwrap(clazz);
         if (clazz == long.class) {
-            return LONG;
+            return BIGINT;
         }
         if (clazz == double.class) {
             return DOUBLE;
         }
         if (clazz == Slice.class) {
-            return STRING;
+            return VARCHAR;
         }
         if (clazz == boolean.class) {
             return BOOLEAN;

@@ -118,7 +118,7 @@ public class TestSqlTaskManager
         tableScanNodeId = new PlanNodeId("tableScan");
         testFragment = new PlanFragment(new PlanFragmentId("fragment"),
                 tableScanNodeId,
-                ImmutableMap.<Symbol, Type>of(symbol, Type.STRING),
+                ImmutableMap.<Symbol, Type>of(symbol, Type.VARCHAR),
                 new TableScanNode(tableScanNodeId, tableHandle, ImmutableList.of(symbol), ImmutableMap.of(symbol, columnHandle), TRUE_LITERAL, TRUE_LITERAL));
 
         taskId = new TaskId("query", "stage", "task");

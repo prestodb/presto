@@ -144,8 +144,8 @@ public class ExpressionAnalyzer
                 throw new SemanticException(NOT_SUPPORTED, node, "non-default precision not yet supported");
             }
 
-            subExpressionTypes.put(node, Type.LONG);
-            return Type.LONG;
+            subExpressionTypes.put(node, Type.BIGINT);
+            return Type.BIGINT;
         }
 
         @Override
@@ -363,9 +363,9 @@ public class ExpressionAnalyzer
                 throw new SemanticException(TYPE_MISMATCH, node.getRight(), "Right side of '%s' must be numeric (actual: %s)", node.getType().getValue(), right);
             }
 
-            if (left == Type.LONG && right == Type.LONG) {
-                subExpressionTypes.put(node, Type.LONG);
-                return Type.LONG;
+            if (left == Type.BIGINT && right == Type.BIGINT) {
+                subExpressionTypes.put(node, Type.BIGINT);
+                return Type.BIGINT;
             }
 
             subExpressionTypes.put(node, Type.DOUBLE);
@@ -376,18 +376,18 @@ public class ExpressionAnalyzer
         protected Type visitLikePredicate(LikePredicate node, AnalysisContext context)
         {
             Type value = process(node.getValue(), context);
-            if (value != Type.STRING && value != Type.NULL) {
+            if (value != Type.VARCHAR && value != Type.NULL) {
                 throw new SemanticException(TYPE_MISMATCH, node.getValue(), "Left side of LIKE expression must be a STRING (actual: %s)", value);
             }
 
             Type pattern = process(node.getPattern(), context);
-            if (pattern != Type.STRING && pattern != Type.NULL) {
+            if (pattern != Type.VARCHAR && pattern != Type.NULL) {
                 throw new SemanticException(TYPE_MISMATCH, node.getValue(), "Pattern for LIKE expression must be a STRING (actual: %s)", pattern);
             }
 
             if (node.getEscape() != null) {
                 Type escape = process(node.getEscape(), context);
-                if (escape != Type.STRING && escape != Type.NULL) {
+                if (escape != Type.VARCHAR && escape != Type.NULL) {
                     throw new SemanticException(TYPE_MISMATCH, node.getValue(), "Escape for LIKE expression must be a STRING (actual: %s)", escape);
                 }
             }
@@ -399,15 +399,15 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitStringLiteral(StringLiteral node, AnalysisContext context)
         {
-            subExpressionTypes.put(node, Type.STRING);
-            return Type.STRING;
+            subExpressionTypes.put(node, Type.VARCHAR);
+            return Type.VARCHAR;
         }
 
         @Override
         protected Type visitLongLiteral(LongLiteral node, AnalysisContext context)
         {
-            subExpressionTypes.put(node, Type.LONG);
-            return Type.LONG;
+            subExpressionTypes.put(node, Type.BIGINT);
+            return Type.BIGINT;
         }
 
         @Override
@@ -427,29 +427,29 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitDateLiteral(DateLiteral node, AnalysisContext context)
         {
-            subExpressionTypes.put(node, Type.LONG);
-            return Type.LONG;
+            subExpressionTypes.put(node, Type.BIGINT);
+            return Type.BIGINT;
         }
 
         @Override
         protected Type visitTimeLiteral(TimeLiteral node, AnalysisContext context)
         {
-            subExpressionTypes.put(node, Type.LONG);
-            return Type.LONG;
+            subExpressionTypes.put(node, Type.BIGINT);
+            return Type.BIGINT;
         }
 
         @Override
         protected Type visitTimestampLiteral(TimestampLiteral node, AnalysisContext context)
         {
-            subExpressionTypes.put(node, Type.LONG);
-            return Type.LONG;
+            subExpressionTypes.put(node, Type.BIGINT);
+            return Type.BIGINT;
         }
 
         @Override
         protected Type visitIntervalLiteral(IntervalLiteral node, AnalysisContext context)
         {
-            subExpressionTypes.put(node, Type.LONG);
-            return Type.LONG;
+            subExpressionTypes.put(node, Type.BIGINT);
+            return Type.BIGINT;
         }
 
         @Override
@@ -490,12 +490,12 @@ public class ExpressionAnalyzer
         protected Type visitExtract(Extract node, AnalysisContext context)
         {
             Type type = process(node.getExpression(), context);
-            if (type != Type.LONG) {
+            if (type != Type.BIGINT) {
                 throw new SemanticException(TYPE_MISMATCH, node.getExpression(), "Type of argument to extract must be LONG (actual %s)", type);
             }
 
-            subExpressionTypes.put(node, Type.LONG);
-            return Type.LONG;
+            subExpressionTypes.put(node, Type.BIGINT);
+            return Type.BIGINT;
         }
 
         @Override
@@ -530,10 +530,10 @@ public class ExpressionAnalyzer
                     type = Type.DOUBLE;
                     break;
                 case "BIGINT":
-                    type = Type.LONG;
+                    type = Type.BIGINT;
                     break;
                 case "VARCHAR":
-                    type = Type.STRING;
+                    type = Type.VARCHAR;
                     break;
                 default:
                     throw new SemanticException(TYPE_MISMATCH, node, "Cannot cast to type: " + node.getType());
@@ -630,6 +630,6 @@ public class ExpressionAnalyzer
 
     public static boolean isStringTypeOrNull(Type type)
     {
-        return type == Type.STRING || type == Type.NULL;
+        return type == Type.VARCHAR || type == Type.NULL;
     }
 }

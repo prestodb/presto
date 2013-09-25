@@ -87,16 +87,16 @@ public class BootstrapFunctionBinder
                     return Type.BOOLEAN;
                 }
                 if (type == long.class) {
-                    return Type.LONG;
+                    return Type.BIGINT;
                 }
                 if (type == double.class) {
                     return Type.DOUBLE;
                 }
                 if (type == String.class) {
-                    return Type.STRING;
+                    return Type.VARCHAR;
                 }
                 if (type == Slice.class) {
-                    return Type.STRING;
+                    return Type.VARCHAR;
                 }
                 throw new UnsupportedOperationException("Unsupported function type " + type);
             }
