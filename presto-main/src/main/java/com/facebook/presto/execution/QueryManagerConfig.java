@@ -46,6 +46,20 @@ public class QueryManagerConfig
     private int remoteTaskMaxConsecutiveErrorCount = 10;
     private Duration remoteTaskMinErrorDuration = new Duration(2, TimeUnit.MINUTES);
 
+    private boolean taskCpuTimerEnabled = true;
+
+    public boolean isTaskCpuTimerEnabled()
+    {
+        return taskCpuTimerEnabled;
+    }
+
+    @Config("task.cpu-timer-enabled")
+    public QueryManagerConfig setTaskCpuTimerEnabled(boolean taskCpuTimerEnabled)
+    {
+        this.taskCpuTimerEnabled = taskCpuTimerEnabled;
+        return this;
+    }
+
     public boolean isCoordinator()
     {
         return coordinator;
