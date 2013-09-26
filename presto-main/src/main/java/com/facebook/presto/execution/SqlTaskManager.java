@@ -80,6 +80,7 @@ public class SqlTaskManager
     private final DataSize operatorPreAllocatedMemory;
     private final Duration infoCacheTime;
     private final Duration clientTimeout;
+    private final boolean cpuTimerEnabled;
 
     private final ConcurrentMap<TaskId, TaskInfo> taskInfos = new ConcurrentHashMap<>();
     private final ConcurrentMap<TaskId, TaskExecution> tasks = new ConcurrentHashMap<>();
@@ -115,6 +116,7 @@ public class SqlTaskManager
         this.operatorPreAllocatedMemory = config.getOperatorPreAllocatedMemory();
         this.infoCacheTime = config.getInfoMaxAge();
         this.clientTimeout = config.getClientTimeout();
+        this.cpuTimerEnabled = config.isTaskCpuTimerEnabled();
 
         taskNotificationExecutor = Executors.newCachedThreadPool(threadsNamed("task-notification-%d"));
         taskNotificationExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) taskNotificationExecutor);
@@ -304,7 +306,8 @@ public class SqlTaskManager
                         taskNotificationExecutor,
                         maxTaskMemoryUsage,
                         operatorPreAllocatedMemory,
-                        queryMonitor
+                        queryMonitor,
+                        cpuTimerEnabled
                 );
                 tasks.put(taskId, taskExecution);
             }
@@ -389,7 +392,7 @@ public class SqlTaskManager
                         null,
                         maxTaskMemoryUsage,
                         operatorPreAllocatedMemory,
-                        true);
+                        cpuTimerEnabled);
 
                 taskInfo = new TaskInfo(taskId,
                         Long.MAX_VALUE,
