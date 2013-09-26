@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.metadata.MetadataDao.Utils;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorMetadata;
@@ -35,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 
+import static com.facebook.presto.metadata.MetadataDaoUtils.createMetadataTablesWithRetry;
 import static com.facebook.presto.tuple.TupleInfo.Type.fromColumnType;
 import static com.facebook.presto.util.SqlUtils.runIgnoringConstraintViolation;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -49,13 +49,12 @@ public class NativeMetadata
     private final String catalogName;
 
     public NativeMetadata(String catalogName, IDBI dbi)
-            throws InterruptedException
     {
         this.catalogName = catalogName;
         this.dbi = checkNotNull(dbi, "dbi is null");
         this.dao = dbi.onDemand(MetadataDao.class);
 
-        Utils.createMetadataTablesWithRetry(dao);
+        createMetadataTablesWithRetry(dao);
     }
 
     @Override
@@ -218,7 +217,7 @@ public class NativeMetadata
             protected void execute(final Handle handle, TransactionStatus status)
                     throws Exception
             {
-                Utils.dropTable(dao, tableId);
+                MetadataDaoUtils.dropTable(dao, tableId);
             }
         });
     }

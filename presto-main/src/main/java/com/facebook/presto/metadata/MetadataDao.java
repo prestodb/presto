@@ -16,9 +16,6 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.metadata.Table.TableMapper;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.SchemaTableName;
-import io.airlift.log.Logger;
-import io.airlift.units.Duration;
-import org.skife.jdbi.v2.exceptions.UnableToObtainConnectionException;
 import org.skife.jdbi.v2.sqlobject.Bind;
 import org.skife.jdbi.v2.sqlobject.BindBean;
 import org.skife.jdbi.v2.sqlobject.GetGeneratedKeys;
@@ -27,7 +24,6 @@ import org.skife.jdbi.v2.sqlobject.SqlUpdate;
 import org.skife.jdbi.v2.sqlobject.customizers.Mapper;
 
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 public interface MetadataDao
 {
@@ -149,37 +145,4 @@ public interface MetadataDao
 
     @SqlUpdate("DELETE FROM columns WHERE table_id = :tableId")
     int dropColumns(@Bind("tableId") long tableId);
-
-    public static class Utils
-    {
-        public static final Logger log = Logger.get(MetadataDao.class);
-
-        public static void dropTable(MetadataDao dao, long tableId)
-        {
-            dao.dropColumns(tableId);
-            dao.dropTable(tableId);
-        }
-
-        public static void createMetadataTablesWithRetry(MetadataDao dao)
-                throws InterruptedException
-        {
-            Duration delay = new Duration(10, TimeUnit.SECONDS);
-            while (true) {
-                try {
-                    createMetadataTables(dao);
-                    return;
-                }
-                catch (UnableToObtainConnectionException e) {
-                    log.warn("Failed to connect to database. Will retry again in %s. Exception: %s", delay, e.getMessage());
-                    Thread.sleep(delay.toMillis());
-                }
-            }
-        }
-
-        public static void createMetadataTables(MetadataDao dao)
-        {
-            dao.createTablesTable();
-            dao.createColumnsTable();
-        }
-    }
 }
