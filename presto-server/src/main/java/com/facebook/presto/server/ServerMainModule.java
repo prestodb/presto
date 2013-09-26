@@ -109,6 +109,7 @@ import com.facebook.presto.storage.ForStorage;
 import com.facebook.presto.storage.StorageManager;
 import com.facebook.presto.util.Threads;
 import com.google.common.base.Supplier;
+import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
@@ -149,7 +150,7 @@ public class ServerMainModule
         extends AbstractConfigurationAwareModule
 {
     @Override
-    protected void configure()
+    protected void setup(Binder binder)
     {
         httpServerBinder(binder).bindResource("/", "webapp").withWelcomeFile("index.html");
 
@@ -247,11 +248,8 @@ public class ServerMainModule
         binder.bind(ShardResource.class).in(Scopes.SINGLETON);
 
         // Determine the NodeVersion
-        String prestoVersion = configurationFactory.getProperties().get("presto.version");
-        if (prestoVersion != null) {
-            configurationFactory.consumeProperty("presto.version");
-        }
-        else {
+        String prestoVersion = getConfigProperty("presto.version");
+        if (prestoVersion == null) {
             String implementationTitle = PrestoServer.class.getPackage().getImplementationTitle();
             String implementationVersion = PrestoServer.class.getPackage().getImplementationVersion();
             prestoVersion = (implementationTitle == null || implementationVersion == null) ? null : implementationTitle + ":" + implementationVersion;
@@ -264,22 +262,18 @@ public class ServerMainModule
         ServiceAnnouncementBuilder announcementBuilder = discoveryBinder(binder).bindHttpAnnouncement("presto")
                 .addProperty("node_version", nodeVersion.toString());
 
-        String datasources = configurationFactory.getProperties().get("datasources");
+        String datasources = getConfigProperty("datasources");
         if (datasources != null) {
-            configurationFactory.consumeProperty("datasources");
             announcementBuilder.addProperty("datasources", datasources);
         }
 
-        String coordinatorProperty = configurationFactory.getProperties().get("coordinator");
-        if (coordinatorProperty != null) {
-            configurationFactory.consumeProperty("coordinator");
-        }
+        String coordinatorProperty = getConfigProperty("coordinator");
         // default coordinator value is true
         if (coordinatorProperty == null || Boolean.parseBoolean(coordinatorProperty)) {
             discoveryBinder(binder).bindHttpAnnouncement("presto-coordinator");
         }
 
-        bindDataSource("presto-metastore", ForMetadata.class, ForShardManager.class, ForPeriodicImport.class, ForAlias.class, ForStorage.class);
+        bindDataSource(binder, "presto-metastore", ForMetadata.class, ForShardManager.class, ForPeriodicImport.class, ForAlias.class, ForStorage.class);
 
         jsonCodecBinder(binder).bindJsonCodec(QueryInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
@@ -373,7 +367,7 @@ public class ServerMainModule
     }
 
     @SafeVarargs
-    private final void bindDataSource(String type, Class<? extends Annotation> annotation, Class<? extends Annotation>... aliases)
+    private final void bindDataSource(Binder binder, String type, Class<? extends Annotation> annotation, Class<? extends Annotation>... aliases)
     {
         String property = type + ".db.type";
         install(installIfPropertyEquals(new MySqlDataSourceModule(type, annotation, aliases), property, "mysql"));
