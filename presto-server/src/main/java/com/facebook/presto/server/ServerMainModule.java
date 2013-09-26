@@ -57,7 +57,6 @@ import com.facebook.presto.metadata.DatabaseLocalStorageManager;
 import com.facebook.presto.metadata.DatabaseLocalStorageManagerConfig;
 import com.facebook.presto.metadata.DatabaseShardManager;
 import com.facebook.presto.metadata.DiscoveryNodeManager;
-import com.facebook.presto.metadata.ForAlias;
 import com.facebook.presto.metadata.ForMetadata;
 import com.facebook.presto.metadata.ForShardCleaner;
 import com.facebook.presto.metadata.ForShardManager;
@@ -105,7 +104,6 @@ import com.facebook.presto.sql.tree.ShowSchemas;
 import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.storage.DatabaseStorageManager;
-import com.facebook.presto.storage.ForStorage;
 import com.facebook.presto.storage.StorageManager;
 import com.facebook.presto.util.Threads;
 import com.google.common.base.Supplier;
@@ -272,7 +270,7 @@ public class ServerMainModule
             discoveryBinder(binder).bindHttpAnnouncement("presto-coordinator");
         }
 
-        bindDataSource(binder, "presto-metastore", ForMetadata.class, ForShardManager.class, ForPeriodicImport.class, ForAlias.class, ForStorage.class);
+        bindDataSource(binder, "presto-metastore", ForMetadata.class, ForShardManager.class);
 
         jsonCodecBinder(binder).bindJsonCodec(QueryInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
@@ -353,7 +351,7 @@ public class ServerMainModule
 
     @Provides
     @Singleton
-    public AliasDao createAliasDao(@ForAlias IDBI dbi)
+    public AliasDao createAliasDao(@ForMetadata IDBI dbi)
             throws InterruptedException
     {
         checkNotNull(dbi, "dbi is null");

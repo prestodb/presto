@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.importer;
 
+import com.facebook.presto.metadata.ForMetadata;
 import com.google.common.base.Predicate;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
@@ -30,7 +31,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class DatabasePeriodicImportManager
         implements PeriodicImportManager
 {
-    private static final Logger log = Logger.get(PeriodicImportManager.class);
+    private static final Logger log = Logger.get(DatabasePeriodicImportManager.class);
 
     private static final Duration TABLE_RETRY_INTERVAL = new Duration(10, TimeUnit.SECONDS);
 
@@ -38,7 +39,7 @@ public class DatabasePeriodicImportManager
     private final NodeInfo nodeInfo;
 
     @Inject
-    public DatabasePeriodicImportManager(@ForPeriodicImport IDBI importDbi, NodeInfo nodeInfo)
+    public DatabasePeriodicImportManager(@ForMetadata IDBI importDbi, NodeInfo nodeInfo)
             throws InterruptedException
     {
         checkNotNull(importDbi, "Dbi was null!");
