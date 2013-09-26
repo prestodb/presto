@@ -118,7 +118,8 @@ public class SqlTaskExecution
             ExecutorService notificationExecutor,
             DataSize maxTaskMemoryUsage,
             DataSize operatorPreAllocatedMemory,
-            QueryMonitor queryMonitor)
+            QueryMonitor queryMonitor,
+            boolean cpuTimerEnabled)
     {
         SqlTaskExecution task = new SqlTaskExecution(session,
                 taskId,
@@ -130,7 +131,8 @@ public class SqlTaskExecution
                 maxTaskMemoryUsage,
                 operatorPreAllocatedMemory,
                 queryMonitor,
-                notificationExecutor
+                notificationExecutor,
+                cpuTimerEnabled
         );
 
         try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)) {
@@ -149,7 +151,8 @@ public class SqlTaskExecution
             DataSize maxTaskMemoryUsage,
             DataSize operatorPreAllocatedMemory,
             QueryMonitor queryMonitor,
-            Executor notificationExecutor)
+            Executor notificationExecutor,
+            boolean cpuTimerEnabled)
     {
         try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)) {
             this.taskId = checkNotNull(taskId, "taskId is null");
@@ -173,7 +176,7 @@ public class SqlTaskExecution
                     session,
                     checkNotNull(maxTaskMemoryUsage, "maxTaskMemoryUsage is null"),
                     checkNotNull(operatorPreAllocatedMemory, "operatorPreAllocatedMemory is null"),
-                    true);
+                    cpuTimerEnabled);
 
             this.sharedBuffer = new SharedBuffer(checkNotNull(maxBufferSize, "maxBufferSize is null"));
 
