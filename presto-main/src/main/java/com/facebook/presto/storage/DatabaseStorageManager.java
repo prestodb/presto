@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.storage;
 
+import com.facebook.presto.metadata.ForMetadata;
 import com.facebook.presto.metadata.NativeTableHandle;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.storage.StorageDao.Utils;
@@ -28,7 +29,7 @@ public class DatabaseStorageManager
     private final StorageDao dao;
 
     @Inject
-    DatabaseStorageManager(@ForStorage IDBI dbi)
+    DatabaseStorageManager(@ForMetadata IDBI dbi)
             throws InterruptedException
     {
         this.dbi = checkNotNull(dbi, "dbi is null");
