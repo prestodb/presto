@@ -352,8 +352,10 @@ public class ServerMainModule
     public IDBI createStorageManagerDBI(DatabaseLocalStorageManagerConfig config)
             throws Exception
     {
-        String path = new File(config.getDataDirectory(), "db/StorageManager").getAbsolutePath();
-        return new DBI(new H2EmbeddedDataSource(new H2EmbeddedDataSourceConfig().setFilename(path).setMaxConnections(500).setMaxConnectionWait(new Duration(1, SECONDS))));
+        return new DBI(new H2EmbeddedDataSource(new H2EmbeddedDataSourceConfig()
+                .setFilename(new File(config.getDataDirectory(), "db/StorageManager").getAbsolutePath())
+                .setMaxConnections(500)
+                .setMaxConnectionWait(new Duration(1, SECONDS))));
     }
 
     @Provides
