@@ -192,7 +192,6 @@ public class ServerMainModule
         // metadata
         binder.bind(CatalogManager.class).in(Scopes.SINGLETON);
         bindConfig(binder).to(CatalogManagerConfig.class);
-        binder.bind(MetadataResource.class).in(Scopes.SINGLETON);
         binder.bind(MetadataManager.class).in(Scopes.SINGLETON);
         binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
 
