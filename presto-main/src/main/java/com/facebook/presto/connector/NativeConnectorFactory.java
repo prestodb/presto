@@ -61,14 +61,7 @@ public class NativeConnectorFactory
     @Override
     public Connector create(String connectorId, Map<String, String> properties)
     {
-        NativeMetadata nativeMetadata;
-        try {
-            nativeMetadata = new NativeMetadata(connectorId, dbi);
-        }
-        catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw Throwables.propagate(e);
-        }
+        NativeMetadata nativeMetadata = new NativeMetadata(connectorId, dbi);
 
         ImmutableClassToInstanceMap.Builder<Object> builder = ImmutableClassToInstanceMap.builder();
         builder.put(ConnectorMetadata.class, nativeMetadata);
