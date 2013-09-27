@@ -604,7 +604,9 @@ public class SqlTaskExecution
         @Override
         public void close()
         {
-            driver.close();
+            if (driver != null) {
+                driver.close();
+            }
         }
     }
 }
