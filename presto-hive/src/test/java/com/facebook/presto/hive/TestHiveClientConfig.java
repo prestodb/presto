@@ -30,7 +30,7 @@ public class TestHiveClientConfig
     public void testDefaults()
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(HiveClientConfig.class)
-                .setMaxSplitSize(new DataSize(1, Unit.GIGABYTE))
+                .setMaxSplitSize(new DataSize(64, Unit.MEGABYTE))
                 .setMaxOutstandingSplits(10_000)
                 .setMaxSplitIteratorThreads(50)
                 .setMetastoreCacheTtl(new Duration(1, TimeUnit.HOURS))
