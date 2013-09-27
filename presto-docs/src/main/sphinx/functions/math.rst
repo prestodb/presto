@@ -126,3 +126,26 @@ All trigonometric function arguments are expressed in radians.
 .. function:: tanh(x) -> double
 
     Returns the hyperbolic tangent of ``x``.
+
+Floating Point Functions
+------------------------
+
+.. function:: infinity() -> double
+
+    Returns the constant representing positive infinity.
+
+.. function:: is_finite(x) -> boolean
+
+    Determine if ``x`` is finite.
+
+.. function:: is_infinite(x) -> boolean
+
+    Determine if ``x`` is infinite.
+
+.. function:: is_nan(x) -> boolean
+
+    Determine if ``x`` is not-a-number.
+
+.. function:: nan() -> double
+
+    Returns the constant representing not-a-number.
