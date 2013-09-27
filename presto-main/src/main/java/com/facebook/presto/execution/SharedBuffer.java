@@ -343,7 +343,7 @@ public class SharedBuffer
             }
 
             // refill buffer from queued pages
-            while (!queuedPages.isEmpty() && bufferedBytes >= maxBufferedBytes) {
+            while (!queuedPages.isEmpty() && bufferedBytes < maxBufferedBytes) {
                 QueuedPage queuedPage = queuedPages.removeFirst();
                 addInternal(queuedPage.getPage());
                 queuedPage.getFuture().set(null);
