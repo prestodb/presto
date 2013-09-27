@@ -162,10 +162,10 @@ public class QueryStateMachine
                 runningTasks += stageStats.getRunningTasks();
                 completedTasks += stageStats.getCompletedTasks();
 
-                totalDrivers = stageStats.getTotalDrivers();
-                queuedDrivers = stageStats.getQueuedDrivers();
-                runningDrivers = stageStats.getRunningDrivers();
-                completedDrivers = stageStats.getCompletedDrivers();
+                totalDrivers += stageStats.getTotalDrivers();
+                queuedDrivers += stageStats.getQueuedDrivers();
+                runningDrivers += stageStats.getRunningDrivers();
+                completedDrivers += stageStats.getCompletedDrivers();
 
                 totalMemoryReservation += stageStats.getTotalMemoryReservation().toBytes();
 
