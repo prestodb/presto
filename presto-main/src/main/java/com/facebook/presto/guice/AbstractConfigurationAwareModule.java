@@ -19,6 +19,7 @@ import io.airlift.configuration.ConfigurationFactory;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.configuration.ConfigurationModule.bindConfig;
 
 public abstract class AbstractConfigurationAwareModule
         implements ConfigurationAwareModule
@@ -45,13 +46,10 @@ public abstract class AbstractConfigurationAwareModule
         }
     }
 
-    protected synchronized String getConfigProperty(String name)
+    protected synchronized <T> T buildConfigObject(Class<T> configClass)
     {
-        String value = configurationFactory.getProperties().get(name);
-        if (value != null) {
-            configurationFactory.consumeProperty(name);
-        }
-        return value;
+        bindConfig(binder).to(configClass);
+        return configurationFactory.build(configClass);
     }
 
     protected synchronized void install(ConfigurationAwareModule module)

@@ -29,7 +29,6 @@ public class TestQueryManagerConfig
     public void testDefaults()
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(QueryManagerConfig.class)
-                .setCoordinator(true)
                 .setTaskCpuTimerEnabled(true)
                 .setMaxShardProcessorThreads(Runtime.getRuntime().availableProcessors() * 4)
                 .setMaxQueryAge(new Duration(15, TimeUnit.MINUTES))
@@ -51,7 +50,6 @@ public class TestQueryManagerConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("coordinator", "false")
                 .put("task.cpu-timer-enabled", "false")
                 .put("task.max-memory", "2GB")
                 .put("task.operator-pre-allocated-memory", "2MB")
@@ -70,7 +68,6 @@ public class TestQueryManagerConfig
                 .build();
 
         QueryManagerConfig expected = new QueryManagerConfig()
-                .setCoordinator(false)
                 .setTaskCpuTimerEnabled(false)
                 .setMaxTaskMemoryUsage(new DataSize(2, Unit.GIGABYTE))
                 .setOperatorPreAllocatedMemory(new DataSize(2, Unit.MEGABYTE))

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.failureDetector.FailureDetectorModule;
 import com.facebook.presto.metadata.CatalogManager;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -126,7 +125,6 @@ public class PrestoServer
                 new TraceTokenModule(),
                 new JsonEventModule(),
                 new HttpEventModule(),
-                new FailureDetectorModule(),
                 new ServerMainModule());
 
         modules.addAll(getAdditionalModules());

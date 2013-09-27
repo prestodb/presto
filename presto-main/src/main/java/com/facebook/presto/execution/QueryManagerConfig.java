@@ -27,7 +27,6 @@ import java.util.concurrent.TimeUnit;
 
 public class QueryManagerConfig
 {
-    private boolean coordinator = true;
     private DataSize maxTaskMemoryUsage = new DataSize(256, Unit.MEGABYTE);
     private DataSize operatorPreAllocatedMemory = new DataSize(16, Unit.MEGABYTE);
     private int maxPendingSplitsPerNode = 100;
@@ -57,18 +56,6 @@ public class QueryManagerConfig
     public QueryManagerConfig setTaskCpuTimerEnabled(boolean taskCpuTimerEnabled)
     {
         this.taskCpuTimerEnabled = taskCpuTimerEnabled;
-        return this;
-    }
-
-    public boolean isCoordinator()
-    {
-        return coordinator;
-    }
-
-    @Config("coordinator")
-    public QueryManagerConfig setCoordinator(boolean coordinator)
-    {
-        this.coordinator = coordinator;
         return this;
     }
 
