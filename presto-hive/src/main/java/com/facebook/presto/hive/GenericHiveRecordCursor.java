@@ -200,6 +200,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
     {
         try {
             if (!recordReader.next(key, value)) {
+                close();
                 return false;
             }
 
@@ -213,6 +214,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
             return true;
         }
         catch (Exception e) {
+            close();
             throw Throwables.propagate(e);
         }
     }
