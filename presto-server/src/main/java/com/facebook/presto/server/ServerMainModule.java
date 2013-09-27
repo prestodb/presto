@@ -57,10 +57,10 @@ import com.facebook.presto.metadata.DatabaseLocalStorageManager;
 import com.facebook.presto.metadata.DatabaseLocalStorageManagerConfig;
 import com.facebook.presto.metadata.DatabaseShardManager;
 import com.facebook.presto.metadata.DiscoveryNodeManager;
+import com.facebook.presto.metadata.ForLocalStorageManager;
 import com.facebook.presto.metadata.ForMetadata;
 import com.facebook.presto.metadata.ForShardCleaner;
 import com.facebook.presto.metadata.ForShardManager;
-import com.facebook.presto.metadata.ForStorageManager;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.metadata.Metadata;
@@ -339,8 +339,8 @@ public class ServerMainModule
 
     @Provides
     @Singleton
-    @ForStorageManager
-    public IDBI createStorageManagerDBI(DatabaseLocalStorageManagerConfig config)
+    @ForLocalStorageManager
+    public IDBI createLocalStorageManagerDBI(DatabaseLocalStorageManagerConfig config)
             throws Exception
     {
         return new DBI(new H2EmbeddedDataSource(new H2EmbeddedDataSourceConfig()
