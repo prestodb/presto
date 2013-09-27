@@ -14,7 +14,6 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.connector.ConnectorManager;
-import com.facebook.presto.failureDetector.FailureDetectorModule;
 import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NodeManager;
@@ -68,21 +67,26 @@ public class TestingPrestoServer
     public TestingPrestoServer()
             throws Exception
     {
-        this(ImmutableMap.<String, String>of(), null, null);
+        this(true, ImmutableMap.<String, String>of(), null, null);
     }
 
-    public TestingPrestoServer(Map<String, String> properties, String environment, URI discoveryUri)
+    public TestingPrestoServer(boolean coordinator, Map<String, String> properties, String environment, URI discoveryUri)
             throws Exception
     {
         baseDataDir = Files.createTempDir();
 
         ImmutableMap.Builder<String, String> serverProperties = ImmutableMap.<String, String>builder()
                 .putAll(properties)
+                .put("coordinator", String.valueOf(coordinator))
                 .put("storage-manager.data-directory", baseDataDir.getPath())
                 .put("presto-metastore.db.type", "h2")
                 .put("presto-metastore.db.filename", new File(baseDataDir, "db/MetaStore").getPath())
-                .put("failure-detector.enabled", "false") // todo enable failure detector
                 .put("presto.version", "testversion");
+
+        if (coordinator) {
+            // TODO: enable failure detector
+            serverProperties.put("failure-detector.enabled", "false");
+        }
 
         ImmutableList.Builder<Module> modules = ImmutableList.<Module>builder()
                 .add(new TestingNodeModule(Optional.fromNullable(environment)))
@@ -93,7 +97,6 @@ public class TestingPrestoServer
                 .add(new TestingJmxModule())
                 .add(new InMemoryEventModule())
                 .add(new TraceTokenModule())
-                .add(new FailureDetectorModule())
                 .add(new ServerMainModule())
                 .add(new TpchModule())
                 .add(new InMemoryTpchModule());

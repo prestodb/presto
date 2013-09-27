@@ -24,13 +24,13 @@ import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.split.ConnectorDataStreamProvider;
 import com.facebook.presto.split.NativeDataStreamProvider;
 import com.facebook.presto.split.NativeSplitManager;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import org.skife.jdbi.v2.IDBI;
 
 import javax.inject.Inject;
 
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -39,17 +39,26 @@ public class NativeConnectorFactory
 {
     private static final NativeHandleResolver HANDLE_RESOLVER = new NativeHandleResolver();
 
-    private final IDBI dbi;
-    private final NativeSplitManager splitManager;
+    private final AtomicReference<IDBI> dbi = new AtomicReference<>();
+    private final AtomicReference<NativeSplitManager> splitManager = new AtomicReference<>();
     private final NativeDataStreamProvider dataStreamProvider;
 
     @Inject
-    public NativeConnectorFactory(@ForMetadata IDBI dbi, NativeSplitManager splitManager, NativeDataStreamProvider dataStreamProvider)
-            throws InterruptedException
+    public NativeConnectorFactory(NativeDataStreamProvider dataStreamProvider)
     {
-        this.dbi = checkNotNull(dbi, "dbi is null");
-        this.splitManager = checkNotNull(splitManager, "splitManager is null");
         this.dataStreamProvider = checkNotNull(dataStreamProvider, "dataStreamProvider is null");
+    }
+
+    @Inject
+    public void setDbi(@ForMetadata IDBI dbi)
+    {
+        this.dbi.set(checkNotNull(dbi, "dbi is null"));
+    }
+
+    @Inject
+    public void setSplitManager(NativeSplitManager splitManager)
+    {
+        this.splitManager.set(checkNotNull(splitManager, "splitManager is null"));
     }
 
     @Override
@@ -61,11 +70,18 @@ public class NativeConnectorFactory
     @Override
     public Connector create(String connectorId, Map<String, String> properties)
     {
-        NativeMetadata nativeMetadata = new NativeMetadata(connectorId, dbi);
-
         ImmutableClassToInstanceMap.Builder<Object> builder = ImmutableClassToInstanceMap.builder();
-        builder.put(ConnectorMetadata.class, nativeMetadata);
-        builder.put(ConnectorSplitManager.class, splitManager);
+
+        IDBI dbi = this.dbi.get();
+        if (dbi != null) {
+            builder.put(ConnectorMetadata.class, new NativeMetadata(connectorId, dbi));
+        }
+
+        NativeSplitManager splitManager = this.splitManager.get();
+        if (splitManager != null) {
+            builder.put(ConnectorSplitManager.class, splitManager);
+        }
+
         builder.put(ConnectorDataStreamProvider.class, dataStreamProvider);
         builder.put(ConnectorHandleResolver.class, HANDLE_RESOLVER);
 

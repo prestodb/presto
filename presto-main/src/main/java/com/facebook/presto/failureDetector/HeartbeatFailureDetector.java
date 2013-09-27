@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.failureDetector;
 
-import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.util.IterableTransformer;
 import com.facebook.presto.util.Threads;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -92,7 +91,6 @@ public class HeartbeatFailureDetector
             @ServiceType("presto") ServiceSelector selector,
             @ForFailureDetector AsyncHttpClient httpClient,
             FailureDetectorConfig config,
-            QueryManagerConfig queryManagerConfig,
             NodeInfo nodeInfo)
     {
         checkNotNull(selector, "selector is null");
@@ -110,7 +108,7 @@ public class HeartbeatFailureDetector
         this.warmupInterval = config.getWarmupInterval();
         this.gcGraceInterval = config.getExpirationGraceInterval();
 
-        this.isEnabled = config.isEnabled() && queryManagerConfig.isCoordinator();
+        this.isEnabled = config.isEnabled();
     }
 
     @PostConstruct
