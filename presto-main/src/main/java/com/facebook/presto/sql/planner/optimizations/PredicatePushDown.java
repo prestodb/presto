@@ -41,6 +41,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
 import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
@@ -716,6 +717,12 @@ public class PredicatePushDown
                 output = new FilterNode(idAllocator.getNextId(), output, combineConjuncts(postAggregationConjuncts));
             }
             return output;
+        }
+
+        @Override
+        public PlanNode rewriteSample(SampleNode node, Expression inheritedPredicate, PlanRewriter<Expression> planRewriter)
+        {
+            return planRewriter.defaultRewrite(node, inheritedPredicate);
         }
 
         @Override
