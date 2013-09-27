@@ -104,7 +104,7 @@ public class DatabaseLocalStorageManager
     });
 
     @Inject
-    public DatabaseLocalStorageManager(@ForStorageManager IDBI dbi, DatabaseLocalStorageManagerConfig config)
+    public DatabaseLocalStorageManager(@ForLocalStorageManager IDBI dbi, DatabaseLocalStorageManagerConfig config)
             throws IOException
     {
         checkNotNull(config, "config is null");
