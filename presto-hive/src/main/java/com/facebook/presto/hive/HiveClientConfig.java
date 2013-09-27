@@ -28,7 +28,7 @@ import java.util.concurrent.TimeUnit;
 
 public class HiveClientConfig
 {
-    private DataSize maxSplitSize = new DataSize(1, Unit.GIGABYTE);
+    private DataSize maxSplitSize = new DataSize(64, Unit.MEGABYTE);
     private int maxOutstandingSplits = 10_000;
     private int maxSplitIteratorThreads = 50;
     private int minPartitionBatchSize = 10;
