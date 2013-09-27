@@ -205,6 +205,44 @@ public class TestMathFunctions
     }
 
     @Test
+    public void testNaN()
+    {
+        assertFunction("nan()", Double.NaN);
+        assertFunction("0.0 / 0.0", Double.NaN);
+    }
+
+    @Test
+    public void testInfinity()
+    {
+        assertFunction("infinity()", Double.POSITIVE_INFINITY);
+        assertFunction("-rand() / 0.0", Double.NEGATIVE_INFINITY);
+    }
+
+    @Test
+    public void testIsInfinite()
+    {
+        assertFunction("is_infinite(1.0 / 0.0)", true);
+        assertFunction("is_infinite(0.0 / 0.0)", false);
+        assertFunction("is_infinite(1.0 / 1.0)", false);
+    }
+
+    @Test
+    public void testIsFinite()
+    {
+        assertFunction("is_finite(100000)", true);
+        assertFunction("is_finite(rand() / 0.0)", false);
+    }
+
+    @Test
+    public void testIsNaN()
+    {
+        assertFunction("is_nan(0.0 / 0.0)", true);
+        assertFunction("is_nan(0.0 / 1.0)", false);
+        assertFunction("is_nan(infinity() / infinity())", true);
+        assertFunction("is_nan(nan())", true);
+    }
+
+    @Test
     public void testPow()
     {
         for (long left : longLefts) {

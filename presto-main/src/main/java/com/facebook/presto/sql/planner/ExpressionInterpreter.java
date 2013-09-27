@@ -48,6 +48,7 @@ import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
@@ -952,7 +953,19 @@ public class ExpressionInterpreter
         }
 
         if (object instanceof Double) {
-            return new DoubleLiteral(object.toString());
+            Double value = (Double) object;
+            if (value.isNaN()) {
+                return new FunctionCall(new QualifiedName("nan"), ImmutableList.<Expression>of());
+            }
+            else if (value == Double.NEGATIVE_INFINITY) {
+                return new NegativeExpression(new FunctionCall(new QualifiedName("infinity"), ImmutableList.<Expression>of()));
+            }
+            else if (value == Double.POSITIVE_INFINITY) {
+                return new FunctionCall(new QualifiedName("infinity"), ImmutableList.<Expression>of());
+            }
+            else {
+                return new DoubleLiteral(object.toString());
+            }
         }
 
         if (object instanceof Slice) {
