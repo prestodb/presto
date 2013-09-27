@@ -203,6 +203,7 @@ class BytesHiveRecordCursor<K>
     {
         try {
             if (!recordReader.next(key, value)) {
+                close();
                 return false;
             }
 
@@ -217,6 +218,7 @@ class BytesHiveRecordCursor<K>
             return true;
         }
         catch (Exception e) {
+            close();
             throw Throwables.propagate(e);
         }
     }
