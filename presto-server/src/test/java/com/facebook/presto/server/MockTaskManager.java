@@ -30,7 +30,6 @@ import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.util.Threads;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -55,6 +54,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.util.Failures.toFailures;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
@@ -207,13 +207,7 @@ public class MockTaskManager
 
             // load initial pages
             for (int i = 0; i < initialPages; i++) {
-                try {
-                    sharedBuffer.add(new Page(createStringsBlock(Iterables.concat(Collections.nCopies(i + 1, data)))));
-                }
-                catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    throw Throwables.propagate(e);
-                }
+                checkState(sharedBuffer.enqueue(new Page(createStringsBlock(Iterables.concat(Collections.nCopies(i + 1, data))))).isDone(), "Unable to add page to buffer");
             }
             sharedBuffer.finish();
         }
