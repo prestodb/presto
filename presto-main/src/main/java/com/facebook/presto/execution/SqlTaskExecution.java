@@ -167,6 +167,8 @@ public class SqlTaskExecution
                 {
                     if (taskState.isDone()) {
                         SqlTaskExecution.this.taskExecutor.removeTask(taskHandle);
+                        // make sure buffers are cleaned up
+                        sharedBuffer.destroy();
                     }
                 }
             });
