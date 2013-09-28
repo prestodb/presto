@@ -43,6 +43,7 @@ import static com.facebook.presto.hive.NumberParser.parseDouble;
 import static com.facebook.presto.hive.NumberParser.parseLong;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -73,6 +74,7 @@ class BytesHiveRecordCursor<K>
 
     private final long totalBytes;
     private long completedBytes;
+    private boolean closed;
 
     public BytesHiveRecordCursor(RecordReader<K, BytesRefArrayWritable> recordReader,
             long totalBytes,
@@ -202,7 +204,7 @@ class BytesHiveRecordCursor<K>
     public boolean advanceNextPosition()
     {
         try {
-            if (!recordReader.next(key, value)) {
+            if (closed || !recordReader.next(key, value)) {
                 close();
                 return false;
             }
@@ -226,6 +228,8 @@ class BytesHiveRecordCursor<K>
     @Override
     public boolean getBoolean(int fieldId)
     {
+        checkState(!closed, "Cursor is closed");
+
         validateType(fieldId, ColumnType.BOOLEAN);
         if (!loaded[fieldId]) {
             parseBooleanColumn(fieldId);
@@ -283,6 +287,8 @@ class BytesHiveRecordCursor<K>
     @Override
     public long getLong(int fieldId)
     {
+        checkState(!closed, "Cursor is closed");
+
         validateType(fieldId, ColumnType.LONG);
         if (!loaded[fieldId]) {
             parseLongColumn(fieldId);
@@ -341,6 +347,8 @@ class BytesHiveRecordCursor<K>
     @Override
     public double getDouble(int fieldId)
     {
+        checkState(!closed, "Cursor is closed");
+
         validateType(fieldId, ColumnType.DOUBLE);
         if (!loaded[fieldId]) {
             parseDoubleColumn(fieldId);
@@ -394,6 +402,8 @@ class BytesHiveRecordCursor<K>
     @Override
     public byte[] getString(int fieldId)
     {
+        checkState(!closed, "Cursor is closed");
+
         validateType(fieldId, ColumnType.STRING);
         if (!loaded[fieldId]) {
             parseStringColumn(fieldId);
@@ -463,6 +473,8 @@ class BytesHiveRecordCursor<K>
     @Override
     public boolean isNull(int fieldId)
     {
+        checkState(!closed, "Cursor is closed");
+
         if (!loaded[fieldId]) {
             parseColumn(fieldId);
         }
@@ -500,6 +512,12 @@ class BytesHiveRecordCursor<K>
     @Override
     public void close()
     {
+        // some hive input formats are broken and bad things can happen if you close them multiple times
+        if (closed) {
+            return;
+        }
+        closed = true;
+
         try {
             recordReader.close();
         }

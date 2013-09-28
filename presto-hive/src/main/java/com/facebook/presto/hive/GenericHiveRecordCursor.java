@@ -74,6 +74,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
     private final long totalBytes;
     private long completedBytes;
     private Object rowData;
+    private boolean closed;
 
     public GenericHiveRecordCursor(RecordReader<K, V> recordReader, long totalBytes, Properties splitSchema, List<HivePartitionKey> partitionKeys, List<HiveColumnHandle> columns)
     {
@@ -199,7 +200,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
     public boolean advanceNextPosition()
     {
         try {
-            if (!recordReader.next(key, value)) {
+            if (closed || !recordReader.next(key, value)) {
                 close();
                 return false;
             }
@@ -222,6 +223,8 @@ class GenericHiveRecordCursor<K, V extends Writable>
     @Override
     public boolean getBoolean(int fieldId)
     {
+        checkState(!closed, "Cursor is closed");
+
         validateType(fieldId, ColumnType.BOOLEAN);
         if (!loaded[fieldId]) {
             parseBooleanColumn(fieldId);
@@ -252,6 +255,8 @@ class GenericHiveRecordCursor<K, V extends Writable>
     @Override
     public long getLong(int fieldId)
     {
+        checkState(!closed, "Cursor is closed");
+
         validateType(fieldId, ColumnType.LONG);
         if (!loaded[fieldId]) {
             parseLongColumn(fieldId);
@@ -290,6 +295,8 @@ class GenericHiveRecordCursor<K, V extends Writable>
     @Override
     public double getDouble(int fieldId)
     {
+        checkState(!closed, "Cursor is closed");
+
         validateType(fieldId, ColumnType.DOUBLE);
         if (!loaded[fieldId]) {
             parseDoubleColumn(fieldId);
@@ -320,6 +327,8 @@ class GenericHiveRecordCursor<K, V extends Writable>
     @Override
     public byte[] getString(int fieldId)
     {
+        checkState(!closed, "Cursor is closed");
+
         validateType(fieldId, ColumnType.STRING);
         if (!loaded[fieldId]) {
             parseStringColumn(fieldId);
@@ -363,6 +372,8 @@ class GenericHiveRecordCursor<K, V extends Writable>
     @Override
     public boolean isNull(int fieldId)
     {
+        checkState(!closed, "Cursor is closed");
+
         if (!loaded[fieldId]) {
             parseColumn(fieldId);
         }
@@ -400,6 +411,12 @@ class GenericHiveRecordCursor<K, V extends Writable>
     @Override
     public void close()
     {
+        // some hive input formats are broken and bad things can happen if you close them multiple times
+        if (closed) {
+            return;
+        }
+        closed = true;
+
         try {
             recordReader.close();
         }
