@@ -19,13 +19,13 @@ import io.airlift.configuration.ConfigurationFactory;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.configuration.ConfigurationModule.bindConfig;
 
-@SuppressWarnings("NonPrivateFieldAccessedInSynchronizedContext")
 public abstract class AbstractConfigurationAwareModule
         implements ConfigurationAwareModule
 {
-    protected ConfigurationFactory configurationFactory;
-    protected Binder binder;
+    private ConfigurationFactory configurationFactory;
+    private Binder binder;
 
     @Override
     public synchronized void setConfigurationFactory(ConfigurationFactory configurationFactory)
@@ -33,18 +33,23 @@ public abstract class AbstractConfigurationAwareModule
         this.configurationFactory = checkNotNull(configurationFactory, "configurationFactory is null");
     }
 
-    @SuppressWarnings("ParameterHidesMemberVariable")
     @Override
     public final synchronized void configure(Binder binder)
     {
         checkState(this.binder == null, "re-entry not allowed");
         this.binder = checkNotNull(binder, "binder is null");
         try {
-            configure();
+            setup(binder);
         }
         finally {
             this.binder = null;
         }
+    }
+
+    protected synchronized <T> T buildConfigObject(Class<T> configClass)
+    {
+        bindConfig(binder).to(configClass);
+        return configurationFactory.build(configClass);
     }
 
     protected synchronized void install(ConfigurationAwareModule module)
@@ -53,5 +58,5 @@ public abstract class AbstractConfigurationAwareModule
         binder.install(module);
     }
 
-    protected abstract void configure();
+    protected abstract void setup(Binder binder);
 }

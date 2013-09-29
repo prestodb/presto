@@ -123,11 +123,11 @@ public class TestDistributedQueries
     {
         try {
             discoveryServer = new TestingDiscoveryServer(ENVIRONMENT);
-            coordinator = createTestingPrestoServer(discoveryServer.getBaseUrl());
+            coordinator = createTestingPrestoServer(discoveryServer.getBaseUrl(), true);
             servers = ImmutableList.<TestingPrestoServer>builder()
                     .add(coordinator)
-                    .add(createTestingPrestoServer(discoveryServer.getBaseUrl()))
-                    .add(createTestingPrestoServer(discoveryServer.getBaseUrl()))
+                    .add(createTestingPrestoServer(discoveryServer.getBaseUrl(), false))
+                    .add(createTestingPrestoServer(discoveryServer.getBaseUrl(), false))
                     .build();
         }
         catch (Exception e) {
@@ -301,16 +301,15 @@ public class TestDistributedQueries
         };
     }
 
-    private static TestingPrestoServer createTestingPrestoServer(URI discoveryUri)
+    private static TestingPrestoServer createTestingPrestoServer(URI discoveryUri, boolean coordinator)
             throws Exception
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("query.client.timeout", "10m")
                 .put("exchange.http-client.read-timeout", "1h")
-                .put("failure-detector.warmup-interval", "0ms")
                 .put("datasources", "native,tpch")
                 .build();
 
-        return new TestingPrestoServer(properties, ENVIRONMENT, discoveryUri);
+        return new TestingPrestoServer(coordinator, properties, ENVIRONMENT, discoveryUri);
     }
 }
