@@ -87,22 +87,4 @@ public class TestHiveClientConfig
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
-
-    @Test
-    public void testDeprecatedProperties()
-    {
-        Map<String, String> currentProperties = new ImmutableMap.Builder<String, String>()
-                .put("hive.max-split-size", "256MB")
-                .put("hive.max-outstanding-splits", "10")
-                .put("hive.max-split-iterator-threads", "2")
-                .build();
-
-        Map<String, String> oldProperties = new ImmutableMap.Builder<String, String>()
-                .put("hive.max-chunk-size", "256MB")
-                .put("hive.max-outstanding-chunks", "10")
-                .put("hive.max-chunk-iterator-threads", "2")
-                .build();
-
-        ConfigAssertions.assertDeprecatedEquivalence(HiveClientConfig.class, currentProperties, oldProperties);
-    }
 }

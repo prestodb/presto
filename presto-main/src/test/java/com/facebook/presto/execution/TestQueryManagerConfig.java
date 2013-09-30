@@ -86,18 +86,4 @@ public class TestQueryManagerConfig
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
-
-    @Test
-    public void testDeprecatedProperties()
-    {
-        Map<String, String> currentProperties = new ImmutableMap.Builder<String, String>()
-                .put("task.max-memory", "2GB")
-                .build();
-
-        Map<String, String> oldProperties = new ImmutableMap.Builder<String, String>()
-                .put("query.operator.max-memory", "2GB")
-                .build();
-
-        ConfigAssertions.assertDeprecatedEquivalence(QueryManagerConfig.class, currentProperties, oldProperties);
-    }
 }
