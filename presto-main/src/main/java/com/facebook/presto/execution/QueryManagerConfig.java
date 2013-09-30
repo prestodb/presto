@@ -14,7 +14,6 @@
 package com.facebook.presto.execution;
 
 import io.airlift.configuration.Config;
-import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
@@ -79,7 +78,6 @@ public class QueryManagerConfig
     }
 
     @Config("task.max-memory")
-    @LegacyConfig("query.operator.max-memory")
     public QueryManagerConfig setMaxTaskMemoryUsage(DataSize maxTaskMemoryUsage)
     {
         this.maxTaskMemoryUsage = maxTaskMemoryUsage;
