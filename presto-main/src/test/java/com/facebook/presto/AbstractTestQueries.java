@@ -2564,9 +2564,9 @@ public abstract class AbstractTestQueries
             throws Exception
     {
 
-        MaterializedResult fullSample = computeActual("SELECT * FROM orders TABLESAMPLE BERNOULLI (100)");
-        MaterializedResult emptySample = computeActual("SELECT * FROM orders TABLESAMPLE BERNOULLI (0)");
-        MaterializedResult all = computeExpected("SELECT * FROM orders", fullSample.getTupleInfo());
+        MaterializedResult fullSample = computeActual("SELECT orderkey FROM orders TABLESAMPLE BERNOULLI (100)");
+        MaterializedResult emptySample = computeActual("SELECT orderkey FROM orders TABLESAMPLE BERNOULLI (0)");
+        MaterializedResult all = computeExpected("SELECT orderkey FROM orders", fullSample.getTupleInfo());
 
         assertTrue(all.getMaterializedTuples().containsAll(fullSample.getMaterializedTuples()));
         assertEquals(emptySample.getMaterializedTuples().size(), 0);
