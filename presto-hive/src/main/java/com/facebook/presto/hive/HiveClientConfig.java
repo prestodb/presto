@@ -15,7 +15,6 @@ package com.facebook.presto.hive;
 
 import com.google.common.net.HostAndPort;
 import io.airlift.configuration.Config;
-import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
@@ -53,7 +52,6 @@ public class HiveClientConfig
     }
 
     @Config("hive.max-split-size")
-    @LegacyConfig("hive.max-chunk-size")
     public HiveClientConfig setMaxSplitSize(DataSize maxSplitSize)
     {
         this.maxSplitSize = maxSplitSize;
@@ -67,7 +65,6 @@ public class HiveClientConfig
     }
 
     @Config("hive.max-outstanding-splits")
-    @LegacyConfig("hive.max-outstanding-chunks")
     public HiveClientConfig setMaxOutstandingSplits(int maxOutstandingSplits)
     {
         this.maxOutstandingSplits = maxOutstandingSplits;
@@ -81,7 +78,6 @@ public class HiveClientConfig
     }
 
     @Config("hive.max-split-iterator-threads")
-    @LegacyConfig("hive.max-chunk-iterator-threads")
     public HiveClientConfig setMaxSplitIteratorThreads(int maxSplitIteratorThreads)
     {
         this.maxSplitIteratorThreads = maxSplitIteratorThreads;
