@@ -84,6 +84,7 @@ public class TestDistributedQueries
         assertQuery("SELECT " + Joiner.on(" AND ").join(nCopies(500, "1 = 1")), "SELECT true");
     }
 
+    @Test
     public void testTableSampleSystem()
             throws Exception
     {
@@ -100,12 +101,13 @@ public class TestDistributedQueries
         assertTrue(sampleSizeFound, "Table sample returned unexpected number of rows");
     }
 
+    @Test
     public void testTableSampleSystemBoundaryValues()
             throws Exception
     {
-        MaterializedResult fullSample = computeActual("SELECT * FROM orders TABLESAMPLE SYSTEM (100)");
-        MaterializedResult emptySample = computeActual("SELECT * FROM orders TABLESAMPLE SYSTEM (0)");
-        MaterializedResult all = computeActual("SELECT * FROM orders");
+        MaterializedResult fullSample = computeActual("SELECT orderkey FROM orders TABLESAMPLE SYSTEM (100)");
+        MaterializedResult emptySample = computeActual("SELECT orderkey FROM orders TABLESAMPLE SYSTEM (0)");
+        MaterializedResult all = computeActual("SELECT orderkey FROM orders");
 
         assertTrue(all.getMaterializedTuples().containsAll(fullSample.getMaterializedTuples()));
         assertEquals(emptySample.getMaterializedTuples().size(), 0);
