@@ -12,3 +12,6 @@ ALTER TABLE presto_test_offline_partition PARTITION (ds='2012-12-30') DISABLE OF
 DROP TABLE IF EXISTS presto_test_offline_partition;
 
 DROP VIEW IF EXISTS presto_test_view;
+DROP TABLE IF EXISTS presto_test_bucketed_by_string_int;
+DROP TABLE IF EXISTS presto_test_bucketed_by_string_smallint;
+DROP TABLE IF EXISTS presto_test_bucketed_by_double_float;

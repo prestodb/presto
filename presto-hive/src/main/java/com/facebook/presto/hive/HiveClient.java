@@ -35,8 +35,10 @@ import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
+import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
@@ -62,14 +64,20 @@ import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
 import org.apache.hadoop.hive.metastore.api.Table;
+import org.apache.hadoop.hive.ql.io.DefaultHivePartitioner;
+import org.apache.hadoop.hive.ql.io.HiveKey;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat.SymlinkTextInputSplit;
+import org.apache.hadoop.hive.ql.metadata.HiveException;
+import org.apache.hadoop.hive.ql.udf.generic.GenericUDF;
+import org.apache.hadoop.hive.ql.udf.generic.GenericUDFHash;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector.PrimitiveCategory;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
+import org.apache.hadoop.hive.serde2.objectinspector.primitive.IntObjectInspector;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.InputFormat;
@@ -83,6 +91,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -383,6 +392,8 @@ public class HiveClient
         SchemaTableName tableName = getTableName(tableHandle);
 
         List<FieldSchema> partitionKeys;
+        Optional<Integer> bucket = Optional.absent();
+
         try {
             Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
 
@@ -392,6 +403,10 @@ public class HiveClient
             }
 
             partitionKeys = table.getPartitionKeys();
+
+            if (table.getSd().isSetBucketCols() && !bindings.isEmpty()) {
+                bucket = getBucketNumber(table, bindings);
+            }
         }
         catch (NoSuchObjectException e) {
             throw new TableNotFoundException(tableName);
@@ -434,8 +449,83 @@ public class HiveClient
         }
 
         // do a final pass to filter based on fields that could not be used to build the prefix
-        Iterable<Partition> partitions = transform(partitionNames, toPartition(tableName, partitionKeysByName));
+        Iterable<Partition> partitions = transform(partitionNames, toPartition(tableName, partitionKeysByName, bucket));
         return ImmutableList.copyOf(Iterables.filter(partitions, partitionMatches(bindings)));
+    }
+
+    private Optional<Integer> getBucketNumber(Table table, Map<ColumnHandle, Object> bindings) {
+
+        List<String> bucketCols = table.getSd().getBucketCols();
+        Map<String, ObjectInspector> objectInspectorByColumnName = new HashMap<>();
+
+        // Get column name to object inspector mapping
+        try {
+            Deserializer deserializer = MetaStoreUtils.getDeserializer(null, MetaStoreUtils.getTableMetadata(table));
+            ObjectInspector inspector = deserializer.getObjectInspector();
+            checkArgument(inspector.getCategory() == ObjectInspector.Category.STRUCT, "expected STRUCT: %s", inspector.getCategory());
+            StructObjectInspector structObjectInspector = (StructObjectInspector) inspector;
+
+            for (StructField field : structObjectInspector.getAllStructFieldRefs()) {
+                objectInspectorByColumnName.put(field.getFieldName(), field.getFieldObjectInspector());
+            }
+        }
+        catch (MetaException | SerDeException e) {
+            throw Throwables.propagate(e);
+        }
+
+        // Get bindings for bucket columns
+        Map<String, Object> bucketBindings = new HashMap<>();
+        for (Map.Entry<ColumnHandle, Object> entry : bindings.entrySet()) {
+            HiveColumnHandle colHandle = (HiveColumnHandle) entry.getKey();
+            if (bucketCols.contains(colHandle.getName())) {
+                bucketBindings.put(colHandle.getName(), entry.getValue());
+            }
+        }
+
+        // Check that we have bindings for all bucket columns
+        if (bucketBindings.size() != bucketCols.size()) {
+            return Optional.absent();
+        }
+
+        // Get ordered bindings of bucket cols
+        LinkedHashMap<ObjectInspector, Object> bucketColBindings = new LinkedHashMap<>();
+        for (String bucketCol : bucketCols) {
+            bucketColBindings.put(objectInspectorByColumnName.get(bucketCol), bucketBindings.get(bucketCol));
+        }
+
+        return getHiveBucketNumber(bucketColBindings, table.getSd().getNumBuckets());
+    }
+
+    private Optional<Integer> getHiveBucketNumber(LinkedHashMap<ObjectInspector, Object> bucketColBindings, int numBuckets)
+    {
+        try {
+            GenericUDFHash udf = new GenericUDFHash();
+            ObjectInspector[] objectInspectors = new ObjectInspector[bucketColBindings.size()];
+            GenericUDF.DeferredObject[] deferredObjects = new GenericUDF.DeferredObject[bucketColBindings.size()];
+
+            int i = 0;
+            for (Map.Entry<ObjectInspector, Object> e : bucketColBindings.entrySet()) {
+                objectInspectors[i] = HiveUtil.getJavaObjectInspector(e.getKey());
+                deferredObjects[i] = HiveUtil.getJavaDeferredObject(e.getValue(), e.getKey());
+                i++;
+            }
+
+            ObjectInspector udfInspector = udf.initialize(objectInspectors);
+            checkArgument(udfInspector instanceof IntObjectInspector, "expected IntObjectInspector: %s", udfInspector);
+            IntObjectInspector inspector = (IntObjectInspector) udfInspector;
+
+            Object result = udf.evaluate(deferredObjects);
+            int hash = inspector.get(result);
+            HiveKey hiveKey = new HiveKey();
+            hiveKey.setHashCode(hash);
+
+            int bucket = new DefaultHivePartitioner<>().getBucket(hiveKey, null, numBuckets);
+            return Optional.of(Integer.valueOf(bucket));
+        }
+        catch (HiveException e) {
+            log.debug(e, "Error evaluating bucket number");
+            return Optional.absent();
+        }
     }
 
     @Override
@@ -449,6 +539,7 @@ public class HiveClient
         }
         checkArgument(partition instanceof HivePartition, "Partition must be a hive partition");
         SchemaTableName tableName = ((HivePartition) partition).getTableName();
+        Optional<Integer> bucketNumber = ((HivePartition) partition).getBucket();
 
         List<String> partitionNames = new ArrayList<>(Lists.transform(partitions, HiveUtil.partitionIdGetter()));
         Collections.sort(partitionNames, Ordering.natural().reverse());
@@ -467,6 +558,7 @@ public class HiveClient
                 table,
                 partitionNames,
                 hivePartitions,
+                bucketNumber,
                 maxSplitSize,
                 maxOutstandingSplits,
                 maxSplitIteratorThreads,
@@ -616,11 +708,13 @@ public class HiveClient
         private final ClassLoader classLoader;
         private final DataSize maxSplitSize;
         private final int maxPartitionBatchSize;
+        private final Optional<Integer> bucketNumber;
 
         private HiveSplitIterable(String clientId,
                 Table table,
                 Iterable<String> partitionNames,
                 Iterable<org.apache.hadoop.hive.metastore.api.Partition> partitions,
+                Optional<Integer> bucket,
                 DataSize maxSplitSize,
                 int maxOutstandingSplits,
                 int maxThreads,
@@ -632,6 +726,7 @@ public class HiveClient
             this.table = table;
             this.partitionNames = partitionNames;
             this.partitions = partitions;
+            this.bucketNumber = bucket;
             this.maxSplitSize = maxSplitSize;
             this.maxPartitionBatchSize = maxPartitionBatchSize;
             this.maxOutstandingSplits = maxOutstandingSplits;
@@ -712,6 +807,9 @@ public class HiveClient
                         @Override
                         public void process(FileStatus file, BlockLocation[] blockLocations)
                         {
+                            if (bucketNumber.isPresent() && !isValidBucket(file.getPath().getName(), bucketNumber.get())) {
+                                return;
+                            }
                             try {
                                 boolean splittable = isSplittable(inputFormat,
                                         file.getPath().getFileSystem(configuration),
@@ -764,6 +862,17 @@ public class HiveClient
             catch (Throwable e) {
                 hiveSplitQueue.fail(e);
                 Throwables.propagateIfInstanceOf(e, Error.class);
+            }
+        }
+
+        private static boolean isValidBucket(String fileName, Integer bucketNumber)
+        {
+            String currentBucket = Splitter.on('_').split(fileName).iterator().next();
+            try {
+                 return Integer.parseInt(currentBucket) == bucketNumber;
+            }
+            catch (NumberFormatException ignored) {
+                return false;
             }
         }
 
@@ -962,7 +1071,7 @@ public class HiveClient
         }
     }
 
-    private static Function<String, Partition> toPartition(final SchemaTableName tableName, final Map<String, ColumnHandle> columnsByName)
+    private static Function<String, Partition> toPartition(final SchemaTableName tableName, final Map<String, ColumnHandle> columnsByName, final Optional<Integer> bucket)
     {
         return new Function<String, Partition>()
         {
@@ -1017,7 +1126,7 @@ public class HiveClient
                         }
                     }
 
-                    return new HivePartition(tableName, partitionId, builder.build());
+                    return new HivePartition(tableName, partitionId, builder.build(), bucket);
                 }
                 catch (MetaException e) {
                     // invalid partition id

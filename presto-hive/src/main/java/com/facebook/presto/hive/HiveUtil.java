@@ -18,7 +18,11 @@ import com.facebook.presto.spi.Partition;
 import com.google.common.base.Function;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
+import org.apache.hadoop.hive.ql.udf.generic.GenericUDF.DeferredJavaObject;
+import org.apache.hadoop.hive.ql.udf.generic.GenericUDF.DeferredObject;
+import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
+import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorUtils;
 import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.JobConf;
@@ -102,4 +106,60 @@ final class HiveUtil
     {
         return MILLISECONDS.toSeconds(HIVE_TIMESTAMP_PARSER.parseMillis(value));
     }
+
+    public static ObjectInspector getJavaObjectInspector(ObjectInspector objectInspector)
+    {
+        checkArgument(objectInspector.getCategory() == ObjectInspector.Category.PRIMITIVE, "Unsupported object inspector category %s", objectInspector.getCategory());
+        PrimitiveObjectInspector poi = ((PrimitiveObjectInspector) objectInspector);
+        switch (poi.getPrimitiveCategory()) {
+            case VOID:
+                return PrimitiveObjectInspectorFactory.javaVoidObjectInspector;
+            case BOOLEAN:
+                return PrimitiveObjectInspectorFactory.javaBooleanObjectInspector;
+            case BYTE:
+                return PrimitiveObjectInspectorFactory.javaByteObjectInspector;
+            case SHORT:
+                return PrimitiveObjectInspectorFactory.javaShortObjectInspector;
+            case INT:
+                return PrimitiveObjectInspectorFactory.javaIntObjectInspector;
+            case LONG:
+                return PrimitiveObjectInspectorFactory.javaLongObjectInspector;
+            case FLOAT:
+                return PrimitiveObjectInspectorFactory.javaFloatObjectInspector;
+            case DOUBLE:
+                return PrimitiveObjectInspectorFactory.javaDoubleObjectInspector;
+            case STRING:
+                return PrimitiveObjectInspectorFactory.javaStringObjectInspector;
+            default:
+                throw new RuntimeException("Unknown type: " + poi.getPrimitiveCategory());
+        }
+    }
+
+    public static DeferredObject getJavaDeferredObject(Object object, ObjectInspector objectInspector)
+    {
+        checkArgument(objectInspector.getCategory() == ObjectInspector.Category.PRIMITIVE, "Unsupported object inspector category %s", objectInspector.getCategory());
+        PrimitiveObjectInspector poi = ((PrimitiveObjectInspector) objectInspector);
+        switch (poi.getPrimitiveCategory()) {
+            case BOOLEAN: {
+                return new DeferredJavaObject((((Long) object).longValue() != 0));
+            }
+            case BYTE:
+                return new DeferredJavaObject(((Long) object).byteValue());
+            case SHORT:
+                return new DeferredJavaObject(((Long) object).shortValue());
+            case INT:
+                return new DeferredJavaObject(((Long) object).intValue());
+            case LONG:
+                return new DeferredJavaObject(object);
+            case FLOAT:
+                return new DeferredJavaObject(((Double) object).floatValue());
+            case DOUBLE:
+                return new DeferredJavaObject(object);
+            case STRING:
+                return new DeferredJavaObject(object);
+            default:
+                throw new RuntimeException("Unknown type: " + poi.getPrimitiveCategory());
+        }
+    }
+
 }
