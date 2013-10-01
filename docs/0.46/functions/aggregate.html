@@ -1,0 +1,209 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>1.7. Aggregate Functions &mdash; Presto 0.46 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.46',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.46 Documentation" href="../index.html" />
+    <link rel="up" title="1. Functions and Operators" href="../functions.html" />
+    <link rel="next" title="1.8. Window Functions" href="window.html" />
+    <link rel="prev" title="1.6. URL Functions" href="url.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="window.html" title="1.8. Window Functions"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="url.html" title="1.6. URL Functions"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../index.html">Presto 0.46 Documentation</a> &raquo;</li>
+          <li><a href="../functions.html" accesskey="U">1. Functions and Operators</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+          <div class="body">
+            
+  <div class="section" id="aggregate-functions">
+<h1>1.7. Aggregate Functions</h1>
+<p>Aggregate functions operate on a set of values to compute a single result.</p>
+<p>Except for <a class="reference internal" href="#count" title="count"><tt class="xref py py-func docutils literal"><span class="pre">count()</span></tt></a>, <a class="reference internal" href="#count_if" title="count_if"><tt class="xref py py-func docutils literal"><span class="pre">count_if()</span></tt></a> and <a class="reference internal" href="#approx_distinct" title="approx_distinct"><tt class="xref py py-func docutils literal"><span class="pre">approx_distinct()</span></tt></a>, all
+of these aggregate functions ignore null values and return null for no input
+rows or when all values are null. For example, <a class="reference internal" href="#sum" title="sum"><tt class="xref py py-func docutils literal"><span class="pre">sum()</span></tt></a> returns null
+rather than zero and <a class="reference internal" href="#avg" title="avg"><tt class="xref py py-func docutils literal"><span class="pre">avg()</span></tt></a> does include null values in the count.
+The <tt class="docutils literal"><span class="pre">coalesce</span></tt> function can be used to convert null into zero.</p>
+<div class="section" id="general-aggregate-functions">
+<h2>General Aggregate Functions</h2>
+<dl class="function">
+<dt id="avg">
+<tt class="descname">avg</tt><big>(</big><em>x</em><big>)</big> &rarr; double</dt>
+<dd><p>Returns the average (arithmetic mean) of all input values.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="count">
+<tt class="descname">count</tt><big>(</big><em>*</em><big>)</big> &rarr; bigint</dt>
+<dd><p>Returns the number of input rows.</p>
+</dd></dl>
+
+<dl class="function">
+<dt>
+<tt class="descname">count</tt><big>(</big><em>x</em><big>)</big> &rarr; bigint</dt>
+<dd><p>Returns the number of non-null input values.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="count_if">
+<tt class="descname">count_if</tt><big>(</big><em>x</em><big>)</big> &rarr; bigint</dt>
+<dd><p>Returns the number of <tt class="docutils literal"><span class="pre">TRUE</span></tt> input values.
+This function is equivalent to <tt class="docutils literal"><span class="pre">count(CASE</span> <span class="pre">WHEN</span> <span class="pre">x</span> <span class="pre">THEN</span> <span class="pre">1</span> <span class="pre">END)</span></tt>.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="max">
+<tt class="descname">max</tt><big>(</big><em>x</em><big>)</big> &rarr; bigint</dt>
+<dd><p>Returns the maximum value of all input values.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="min">
+<tt class="descname">min</tt><big>(</big><em>x</em><big>)</big> &rarr; bigint</dt>
+<dd><p>Returns the minimum value of all input values.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="sum">
+<tt class="descname">sum</tt><big>(</big><em>x) -&gt; (same as input</em><big>)</big></dt>
+<dd><p>Returns the sum of all input values.</p>
+</dd></dl>
+
+</div>
+<div class="section" id="approximate-aggregate-functions">
+<h2>Approximate Aggregate Functions</h2>
+<dl class="function">
+<dt id="approx_distinct">
+<tt class="descname">approx_distinct</tt><big>(</big><em>x</em><big>)</big> &rarr; bigint</dt>
+<dd><p>Returns the approximate number of distinct input values.
+This function provides an approximation of <tt class="docutils literal"><span class="pre">count(DISTINCT</span> <span class="pre">x)</span></tt>.
+Zero is returned if all input values are null.</p>
+<p>This function uses HyperLogLog configured with 2048 buckets. It should
+produce a standard error of 2.3%, which is the standard deviation of the
+(approximately normal) error distribution over all possible sets. It does
+not guarantee an upper bound on the error for any specific input set.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="approx_percentile">
+<tt class="descname">approx_percentile</tt><big>(</big><em>x</em>, <em>p) -&gt; (same as input</em><big>)</big></dt>
+<dd><p>Returns the approximate percentile for all input values of <tt class="docutils literal"><span class="pre">x</span></tt> at the
+percentage <tt class="docutils literal"><span class="pre">p</span></tt>. The value of <tt class="docutils literal"><span class="pre">p</span></tt> must be between zero and one and
+must be constant for all input rows.</p>
+</dd></dl>
+
+<dl class="function">
+<dt>
+<tt class="descname">approx_percentile</tt><big>(</big><em>x</em>, <em>w</em>, <em>p) -&gt; (same as input</em><big>)</big></dt>
+<dd><p>Returns the approximate weighed percentile for all input values of <tt class="docutils literal"><span class="pre">x</span></tt>
+using the per-item weight <tt class="docutils literal"><span class="pre">w</span></tt> at the percentage <tt class="docutils literal"><span class="pre">p</span></tt>. The weight must be
+an integer value of at least one. It is effectively a replication count for
+the value <tt class="docutils literal"><span class="pre">x</span></tt> in the percentile set. The value of <tt class="docutils literal"><span class="pre">p</span></tt> must be between
+zero and one and must be constant for all input rows.</p>
+</dd></dl>
+
+</div>
+<div class="section" id="statistical-aggregate-functions">
+<h2>Statistical Aggregate Functions</h2>
+<dl class="function">
+<dt id="stddev">
+<tt class="descname">stddev</tt><big>(</big><em>x</em><big>)</big> &rarr; double</dt>
+<dd><p>This is an alias for <a class="reference internal" href="#stddev_samp" title="stddev_samp"><tt class="xref py py-func docutils literal"><span class="pre">stddev_samp()</span></tt></a>.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="stddev_pop">
+<tt class="descname">stddev_pop</tt><big>(</big><em>x</em><big>)</big> &rarr; double</dt>
+<dd><p>Returns the population standard deviation of all input values.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="stddev_samp">
+<tt class="descname">stddev_samp</tt><big>(</big><em>x</em><big>)</big> &rarr; double</dt>
+<dd><p>Returns the sample standard deviation of all input values.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="variance">
+<tt class="descname">variance</tt><big>(</big><em>x</em><big>)</big> &rarr; double</dt>
+<dd><p>This is an alias for <a class="reference internal" href="#var_samp" title="var_samp"><tt class="xref py py-func docutils literal"><span class="pre">var_samp()</span></tt></a>.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="var_pop">
+<tt class="descname">var_pop</tt><big>(</big><em>x</em><big>)</big> &rarr; double</dt>
+<dd><p>Returns the population variance of all input values.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="var_samp">
+<tt class="descname">var_samp</tt><big>(</big><em>x</em><big>)</big> &rarr; double</dt>
+<dd><p>Returns the sample variance of all input values.</p>
+</dd></dl>
+
+</div>
+</div>
+
+
+          </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="window.html" title="1.8. Window Functions"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="url.html" title="1.6. URL Functions"
+             >previous</a> |</li>
+        <li><a href="../index.html">Presto 0.46 Documentation</a> &raquo;</li>
+          <li><a href="../functions.html" >1. Functions and Operators</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, Facebook.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.2.
+    </div>
+  </body>
+</html>
