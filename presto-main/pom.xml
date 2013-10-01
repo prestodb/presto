@@ -278,6 +278,7 @@
                 <configuration>
                     <excludes combine.children="append">
                         <exclude>src/main/java/com/facebook/presto/byteCode/ClassInfo.java</exclude>
+                        <exclude>src/main/java/com/facebook/presto/byteCode/ClassInfoLoader.java</exclude>
                     </excludes>
                 </configuration>
             </plugin>
