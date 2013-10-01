@@ -94,6 +94,16 @@ public abstract class AbstractTestQueries
 {
     private Handle handle;
 
+    @Test void testSpecialFloatingPointValues()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("SELECT nan(), infinity(), -infinity()");
+        MaterializedTuple tuple = Iterables.getOnlyElement(actual.getMaterializedTuples());
+        assertEquals(tuple.getField(0), Double.NaN);
+        assertEquals(tuple.getField(1), Double.POSITIVE_INFINITY);
+        assertEquals(tuple.getField(2), Double.NEGATIVE_INFINITY);
+    }
+
     @Test
     public void testMaxMinStringWithNulls()
             throws Exception

@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.operator.Description;
+import com.google.common.primitives.Doubles;
 
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -251,5 +252,40 @@ public final class MathFunctions
     public static double tanh(double num)
     {
         return Math.tanh(num);
+    }
+
+    @Description("test if value is not-a-number")
+    @ScalarFunction("is_nan")
+    public static boolean isNaN(double num)
+    {
+        return Double.isNaN(num);
+    }
+
+    @Description("test if value is finite")
+    @ScalarFunction
+    public static boolean isFinite(double num)
+    {
+        return Doubles.isFinite(num);
+    }
+
+    @Description("test if value is infinite")
+    @ScalarFunction
+    public static boolean isInfinite(double num)
+    {
+        return Double.isInfinite(num);
+    }
+
+    @Description("constant representing not-a-number")
+    @ScalarFunction("nan")
+    public static double NaN()
+    {
+        return Double.NaN;
+    }
+
+    @Description("Infinity")
+    @ScalarFunction
+    public static double infinity()
+    {
+        return Double.POSITIVE_INFINITY;
     }
 }
