@@ -1,0 +1,150 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>1.8. Window Functions &mdash; Presto 0.49 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.49',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.49 Documentation" href="../index.html" />
+    <link rel="up" title="1. Functions and Operators" href="../functions.html" />
+    <link rel="next" title="2. SQL Statement Syntax" href="../sql.html" />
+    <link rel="prev" title="1.7. Aggregate Functions" href="aggregate.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../sql.html" title="2. SQL Statement Syntax"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="aggregate.html" title="1.7. Aggregate Functions"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../index.html">Presto 0.49 Documentation</a> &raquo;</li>
+          <li><a href="../functions.html" accesskey="U">1. Functions and Operators</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+          <div class="body">
+            
+  <div class="section" id="window-functions">
+<h1>1.8. Window Functions</h1>
+<p>Window functions perform calculations across rows of the query result.
+They run after the <tt class="docutils literal"><span class="pre">HAVING</span></tt> clause but before the <tt class="docutils literal"><span class="pre">ORDER</span> <span class="pre">BY</span></tt> clause.
+Invoking a window function requires special syntax using the <tt class="docutils literal"><span class="pre">OVER</span></tt>
+clause to specify the window. A window has three components:</p>
+<ul class="simple">
+<li>The partition specification, which separates the input rows into different
+partitions. This is analgous to how the <tt class="docutils literal"><span class="pre">GROUP</span> <span class="pre">BY</span></tt> clause separates rows
+into different groups for aggregate functions.</li>
+<li>The ordering specification, which determines the order in which input rows
+will be processed by the window function.</li>
+<li>The window frame, which specifies a sliding window of rows to be processed
+by the function for a given row.</li>
+</ul>
+<p>For example, the following query ranks orders for each clerk by price:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="n">orderid</span><span class="p">,</span> <span class="n">clerk</span><span class="p">,</span> <span class="n">totalprice</span><span class="p">,</span>
+       <span class="n">RANK</span><span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="n">PARTITION</span> <span class="k">BY</span> <span class="n">clerk</span>
+                    <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">totalprice</span> <span class="k">DESC</span><span class="p">)</span> <span class="k">AS</span> <span class="n">rnk</span>
+<span class="k">FROM</span> <span class="n">orders</span>
+<span class="k">ORDER</span> <span class="k">BY</span> <span class="n">clerk</span><span class="p">,</span> <span class="n">rnk</span>
+</pre></div>
+</div>
+<div class="section" id="ranking-functions">
+<h2>Ranking Functions</h2>
+<dl class="function">
+<dt id="cume_dist">
+<tt class="descname">cume_dist</tt><big>(</big><big>)</big> &rarr; bigint</dt>
+<dd><p>Returns the cumulative distribution of a value in a group of values.
+The result is the number of rows preceding or peer with the row in the
+window ordering of the window partition divided by the total number of
+rows in the window partition. Thus, any tie values in the ordering will
+evaluate to the same distribution value.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="dense_rank">
+<tt class="descname">dense_rank</tt><big>(</big><big>)</big> &rarr; bigint</dt>
+<dd><p>Returns the rank of a value in in a group of values. This is similar to
+<a class="reference internal" href="#rank" title="rank"><tt class="xref py py-func docutils literal"><span class="pre">rank()</span></tt></a>, except that tie values do not produce gaps in the sequence.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="percent_rank">
+<tt class="descname">percent_rank</tt><big>(</big><big>)</big> &rarr; bigint</dt>
+<dd><p>Returns the percentage ranking of a value in group of values. The result
+is <tt class="docutils literal"><span class="pre">(r</span> <span class="pre">-</span> <span class="pre">1)</span> <span class="pre">/</span> <span class="pre">(n</span> <span class="pre">-</span> <span class="pre">1)</span></tt> where <tt class="docutils literal"><span class="pre">r</span></tt> is the <a class="reference internal" href="#rank" title="rank"><tt class="xref py py-func docutils literal"><span class="pre">rank()</span></tt></a> of the row and
+<tt class="docutils literal"><span class="pre">n</span></tt> is the total number of rows in the window partition.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="rank">
+<tt class="descname">rank</tt><big>(</big><big>)</big> &rarr; bigint</dt>
+<dd><p>Returns the rank of a value in a group of values. The rank is one plus
+the number of rows preceding the row that are not peer with the row.
+Thus, tie values in the ordering will produce gaps in the sequence.
+The ranking is performed for each window partition.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="row_number">
+<tt class="descname">row_number</tt><big>(</big><big>)</big> &rarr; bigint</dt>
+<dd><p>Returns a unique, sequential number for each row, starting with one,
+according to the ordering of rows within the window partition.</p>
+</dd></dl>
+
+</div>
+</div>
+
+
+          </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../sql.html" title="2. SQL Statement Syntax"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="aggregate.html" title="1.7. Aggregate Functions"
+             >previous</a> |</li>
+        <li><a href="../index.html">Presto 0.49 Documentation</a> &raquo;</li>
+          <li><a href="../functions.html" >1. Functions and Operators</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, Facebook.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.2.
+    </div>
+  </body>
+</html>
