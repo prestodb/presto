@@ -423,7 +423,7 @@
             <dependency>
                 <groupId>io.airlift.discovery</groupId>
                 <artifactId>discovery-server</artifactId>
-                <version>1.10</version>
+                <version>1.13</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
