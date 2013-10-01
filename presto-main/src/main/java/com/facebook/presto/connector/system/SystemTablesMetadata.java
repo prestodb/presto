@@ -33,7 +33,6 @@ import java.util.concurrent.ConcurrentMap;
 import static com.facebook.presto.connector.system.SystemColumnHandle.toSystemColumnHandles;
 import static com.facebook.presto.metadata.MetadataUtil.findColumnMetadata;
 import static com.facebook.presto.metadata.MetadataUtil.schemaNameGetter;
-import static com.facebook.presto.metadata.MetadataUtil.tableNameGetter;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.compose;
@@ -70,7 +69,7 @@ public class SystemTablesMetadata
     public List<String> listSchemaNames()
     {
         // remove duplicates
-        ImmutableSet<String> schemaNames = ImmutableSet.copyOf(transform(tables.keySet(), tableNameGetter()));
+        ImmutableSet<String> schemaNames = ImmutableSet.copyOf(transform(tables.keySet(), schemaNameGetter()));
         return ImmutableList.copyOf(schemaNames);
     }
 

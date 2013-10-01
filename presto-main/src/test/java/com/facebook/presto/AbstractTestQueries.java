@@ -14,7 +14,6 @@
 package com.facebook.presto;
 
 import com.facebook.presto.connector.dual.DualMetadata;
-import com.facebook.presto.connector.informationSchema.InformationSchemaMetadata;
 import com.facebook.presto.importer.MockPeriodicImportManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -65,6 +64,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
 
+import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.INFORMATION_SCHEMA;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
 import static com.facebook.presto.sql.tree.ExplainType.Type.DISTRIBUTED;
@@ -1948,7 +1948,7 @@ public abstract class AbstractTestQueries
     {
         MaterializedResult result = computeActual("SHOW SCHEMAS");
         ImmutableSet<String> schemaNames = ImmutableSet.copyOf(transform(result.getMaterializedTuples(), onlyColumnGetter()));
-        assertTrue(schemaNames.containsAll(ImmutableSet.of(TPCH_SCHEMA_NAME, InformationSchemaMetadata.INFORMATION_SCHEMA, "node")));
+        assertEquals(schemaNames, ImmutableSet.of(TPCH_SCHEMA_NAME, INFORMATION_SCHEMA, "sys"));
     }
 
     @Test
