@@ -13,10 +13,12 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.Partition;
 import com.google.common.base.Function;
+import com.google.common.base.Throwables;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorUtils;
@@ -28,6 +30,8 @@ import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.DateTimeFormatterBuilder;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -46,22 +50,18 @@ final class HiveUtil
     {
     }
 
-    static InputFormat getInputFormat(Configuration configuration, Properties schema, boolean symlinkTarget)
+    static InputFormat<?, ?> getInputFormat(Configuration configuration, Properties schema, boolean symlinkTarget)
     {
         String inputFormatName = getInputFormatName(schema);
         try {
             JobConf jobConf = new JobConf(configuration);
 
-            // This code should be equivalent to jobConf.getInputFormat()
-            Class<? extends InputFormat> inputFormatClass = jobConf.getClassByName(inputFormatName).asSubclass(InputFormat.class);
-            if (inputFormatClass == null) {
-                // default file format in Hadoop is TextInputFormat
-                inputFormatClass = TextInputFormat.class;
-            }
-            else if (symlinkTarget && (inputFormatClass == SymlinkTextInputFormat.class)) {
+            Class<? extends InputFormat<?, ?>> inputFormatClass = getInputFormatClass(jobConf, inputFormatName);
+            if (symlinkTarget && (inputFormatClass == SymlinkTextInputFormat.class)) {
                 // symlink targets are always TextInputFormat
                 inputFormatClass = TextInputFormat.class;
             }
+
             return ReflectionUtils.newInstance(inputFormatClass, jobConf);
         }
         catch (Exception e) {
@@ -69,16 +69,19 @@ final class HiveUtil
         }
     }
 
+    @SuppressWarnings("unchecked")
+    private static Class<? extends InputFormat<?, ?>> getInputFormatClass(JobConf conf, String inputFormatName)
+            throws ClassNotFoundException
+    {
+        Class<?> clazz = conf.getClassByName(inputFormatName);
+        return (Class<? extends InputFormat<?, ?>>) clazz.asSubclass(InputFormat.class);
+    }
+
     static String getInputFormatName(Properties schema)
     {
         String name = schema.getProperty(FILE_INPUT_FORMAT);
         checkArgument(name != null, "missing property: %s", FILE_INPUT_FORMAT);
         return name;
-    }
-
-    static ColumnType convertHiveType(String type)
-    {
-        return HiveType.getSupportedHiveType(convertNativeHiveType(type)).getNativeType();
     }
 
     static PrimitiveObjectInspector.PrimitiveCategory convertNativeHiveType(String type)
@@ -101,5 +104,30 @@ final class HiveUtil
     public static long parseHiveTimestamp(String value)
     {
         return MILLISECONDS.toSeconds(HIVE_TIMESTAMP_PARSER.parseMillis(value));
+    }
+
+    static boolean isSplittable(InputFormat<?, ?> inputFormat, FileSystem fileSystem, Path path)
+    {
+        // use reflection to get isSplittable method on InputFormat
+        Method method = null;
+        for (Class<?> clazz = inputFormat.getClass(); clazz != null; clazz = clazz.getSuperclass()) {
+            try {
+                method = clazz.getDeclaredMethod("isSplitable", FileSystem.class, Path.class);
+                break;
+            }
+            catch (NoSuchMethodException ignored) {
+            }
+        }
+
+        if (method == null) {
+            return false;
+        }
+        try {
+            method.setAccessible(true);
+            return (boolean) method.invoke(inputFormat, fileSystem, path);
+        }
+        catch (InvocationTargetException | IllegalAccessException e) {
+            throw Throwables.propagate(e);
+        }
     }
 }

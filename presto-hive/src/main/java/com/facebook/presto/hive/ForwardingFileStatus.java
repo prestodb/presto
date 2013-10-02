@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.google.common.base.Preconditions;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
@@ -22,14 +21,17 @@ import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
+@SuppressWarnings("deprecation")
 public abstract class ForwardingFileStatus
         extends FileStatus
 {
     private final FileStatus fileStatus;
 
-    public ForwardingFileStatus(FileStatus fileStatus)
+    protected ForwardingFileStatus(FileStatus fileStatus)
     {
-        this.fileStatus = Preconditions.checkNotNull(fileStatus, "fileStatus is null");
+        this.fileStatus = checkNotNull(fileStatus, "fileStatus is null");
     }
 
     @Override
@@ -112,10 +114,11 @@ public abstract class ForwardingFileStatus
         return fileStatus.compareTo(o);
     }
 
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     @Override
     public boolean equals(Object o)
     {
-        return fileStatus.equals(o);
+        return (o == this) || fileStatus.equals(o);
     }
 
     @Override
@@ -124,6 +127,7 @@ public abstract class ForwardingFileStatus
         return fileStatus.hashCode();
     }
 
+    @SuppressWarnings("ObjectToString")
     @Override
     public String toString()
     {

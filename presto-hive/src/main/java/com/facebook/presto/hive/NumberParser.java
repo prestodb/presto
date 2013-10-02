@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.hive;
 
-public class NumberParser
+public final class NumberParser
 {
+    private NumberParser() {}
+
     public static long parseLong(byte[] bytes, int start, int length)
     {
         int limit = start + length;
@@ -25,9 +27,10 @@ public class NumberParser
             start++;
         }
 
-        long value = bytes[start++] - '0';
+        long value = bytes[start] - ((int) '0');
+        start++;
         while (start < limit) {
-            value = value * 10 + (bytes[start] - '0');
+            value = value * 10 + (bytes[start] - ((int) '0'));
             start++;
         }
 

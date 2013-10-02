@@ -61,7 +61,7 @@ public class FileSystemWrapperProvider
 
     Function<FileStatus, FileStatus> createFileStatusWrapper()
     {
-        return Functions.<FileStatus>identity();
+        return Functions.identity();
     }
 
     private Function<FileSystem, FileSystem> createThreadContextClassLoaderWrapper()

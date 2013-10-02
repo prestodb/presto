@@ -15,12 +15,25 @@ package com.facebook.presto.hive;
 
 import org.apache.hadoop.hive.metastore.api.Partition;
 
-class UnpartitionedPartition
+final class UnpartitionedPartition
         extends Partition
 {
     static final Partition UNPARTITIONED_PARTITION = new UnpartitionedPartition();
 
     private UnpartitionedPartition()
     {
+    }
+
+    @Override
+    public UnpartitionedPartition clone()
+            throws CloneNotSupportedException
+    {
+        throw new CloneNotSupportedException();
+    }
+
+    @SuppressWarnings("ObjectEquality")
+    static boolean isUnpartitioned(Partition partition)
+    {
+        return partition == UNPARTITIONED_PARTITION;
     }
 }
