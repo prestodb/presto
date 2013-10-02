@@ -59,7 +59,7 @@ public class MockHiveMetastoreClient
 
     @Override
     public List<String> get_all_databases()
-            throws MetaException, TException
+            throws TException
     {
         accessCount.incrementAndGet();
         if (throwException) {
@@ -70,7 +70,7 @@ public class MockHiveMetastoreClient
 
     @Override
     public List<String> get_all_tables(String db_name)
-            throws MetaException, TException
+            throws TException
     {
         accessCount.incrementAndGet();
         if (throwException) {
@@ -84,7 +84,7 @@ public class MockHiveMetastoreClient
 
     @Override
     public Database get_database(String name)
-            throws NoSuchObjectException, MetaException, TException
+            throws TException
     {
         accessCount.incrementAndGet();
         if (throwException) {
@@ -98,7 +98,7 @@ public class MockHiveMetastoreClient
 
     @Override
     public Table get_table(String dbname, String tbl_name)
-            throws MetaException, NoSuchObjectException, TException
+            throws TException
     {
         accessCount.incrementAndGet();
         if (throwException) {
@@ -112,7 +112,7 @@ public class MockHiveMetastoreClient
 
     @Override
     public List<String> get_partition_names(String db_name, String tbl_name, short max_parts)
-            throws MetaException, TException
+            throws TException
     {
         accessCount.incrementAndGet();
         if (throwException) {
@@ -126,7 +126,7 @@ public class MockHiveMetastoreClient
 
     @Override
     public List<String> get_partition_names_ps(String db_name, String tbl_name, List<String> part_vals, short max_parts)
-            throws MetaException, NoSuchObjectException, TException
+            throws TException
     {
         accessCount.incrementAndGet();
         if (throwException) {
@@ -140,7 +140,7 @@ public class MockHiveMetastoreClient
 
     @Override
     public Partition get_partition_by_name(String db_name, String tbl_name, String part_name)
-            throws MetaException, NoSuchObjectException, TException
+            throws TException
     {
         accessCount.incrementAndGet();
         if (throwException) {
@@ -154,7 +154,7 @@ public class MockHiveMetastoreClient
 
     @Override
     public List<Partition> get_partitions_by_names(String db_name, String tbl_name, List<String> names)
-            throws MetaException, NoSuchObjectException, TException
+            throws TException
     {
         accessCount.incrementAndGet();
         if (throwException) {

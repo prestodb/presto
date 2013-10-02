@@ -87,7 +87,7 @@ public class TestNumberParser
         assertParseDouble(Double.toString(-Double.MIN_VALUE));
     }
 
-    private void assertParseLong(String string)
+    private static void assertParseLong(String string)
     {
         assertEquals(parseLong(string.getBytes(Charsets.US_ASCII), 0, string.length()), Long.parseLong(string));
 
@@ -97,7 +97,7 @@ public class TestNumberParser
         assertEquals(parseLong(padded.getBytes(Charsets.US_ASCII), padding.length(), string.length()), Long.parseLong(string));
     }
 
-    private void assertParseDouble(String string)
+    private static void assertParseDouble(String string)
     {
         assertEquals(parseDouble(string.getBytes(Charsets.US_ASCII), 0, string.length()), Double.parseDouble(string));
 

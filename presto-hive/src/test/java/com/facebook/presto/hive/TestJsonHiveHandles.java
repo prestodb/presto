@@ -18,11 +18,11 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.ObjectMapperProvider;
-import io.airlift.testing.Assertions;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
+import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -43,7 +43,7 @@ public class TestJsonHiveHandles
             .put("partitionKey", true)
             .build();
 
-    private ObjectMapper objectMapper = new ObjectMapperProvider().get();
+    private final ObjectMapper objectMapper = new ObjectMapperProvider().get();
 
     @Test
     public void testTableHandleSerialize()
@@ -99,7 +99,7 @@ public class TestJsonHiveHandles
     private void testJsonEquals(String json, Map<String, Object> expectedMap)
             throws Exception
     {
-        final Map<String, Object> jsonMap = objectMapper.readValue(json, new TypeReference<Map<String, Object>>() {});
-        Assertions.assertEqualsIgnoreOrder(jsonMap.entrySet(), expectedMap.entrySet());
+        Map<String, Object> jsonMap = objectMapper.readValue(json, new TypeReference<Map<String, Object>>() {});
+        assertEqualsIgnoreOrder(jsonMap.entrySet(), expectedMap.entrySet());
     }
 }

@@ -44,7 +44,7 @@ public class TestHiveBooleanParser
         assertNull(parseBoolean("blah"));
     }
 
-    private Boolean parseBoolean(String s)
+    private static Boolean parseBoolean(String s)
     {
         return parseHiveBoolean(s.getBytes(Charsets.US_ASCII), 0, s.length());
     }
