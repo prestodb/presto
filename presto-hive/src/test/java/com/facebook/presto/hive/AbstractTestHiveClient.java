@@ -35,7 +35,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
@@ -61,24 +60,24 @@ public abstract class AbstractTestHiveClient
     public static final String INVALID_DATABASE = "totally_invalid_database";
     public static final String INVALID_COLUMN = "totally_invalid_column_name";
 
-    public String database;
-    public SchemaTableName table;
-    public SchemaTableName tableUnpartitioned;
-    public SchemaTableName tableOffline;
-    public SchemaTableName tableOfflinePartition;
-    public SchemaTableName view;
-    public SchemaTableName invalidTable;
+    protected String database;
+    protected SchemaTableName table;
+    protected SchemaTableName tableUnpartitioned;
+    protected SchemaTableName tableOffline;
+    protected SchemaTableName tableOfflinePartition;
+    protected SchemaTableName view;
+    protected SchemaTableName invalidTable;
 
-    public TableHandle invalidTableHandle;
+    protected TableHandle invalidTableHandle;
 
-    public ColumnHandle dsColumn;
-    public ColumnHandle fileFormatColumn;
-    public ColumnHandle dummyColumn;
-    public ColumnHandle invalidColumnHandle;
+    protected ColumnHandle dsColumn;
+    protected ColumnHandle fileFormatColumn;
+    protected ColumnHandle dummyColumn;
+    protected ColumnHandle invalidColumnHandle;
 
-    public Set<Partition> partitions;
-    public Set<Partition> unpartitionedPartitions;
-    public Partition invalidPartition;
+    protected Set<Partition> partitions;
+    protected Set<Partition> unpartitionedPartitions;
+    protected Partition invalidPartition;
 
     protected ConnectorMetadata metadata;
     protected ConnectorSplitManager splitManager;
@@ -177,7 +176,7 @@ public abstract class AbstractTestHiveClient
     private void assertExpectedPartitions(List<Partition> partitions)
     {
         assertEquals(partitions, this.partitions);
-        ImmutableMap<String, Partition> actualPartitions = Maps.uniqueIndex(partitions, partitionIdGetter());
+        ImmutableMap<String, Partition> actualPartitions = uniqueIndex(partitions, partitionIdGetter());
         for (Partition expectedPartition : this.partitions) {
             Partition actualPartition = actualPartitions.get(expectedPartition.getPartitionId());
             assertNotNull(actualPartition, "partition " + expectedPartition.getPartitionId());
@@ -570,7 +569,7 @@ public abstract class AbstractTestHiveClient
         }
     }
 
-    private long getBaseValueForFileType(String fileType)
+    private static long getBaseValueForFileType(String fileType)
     {
         switch (fileType) {
             case "rcfile":
@@ -584,7 +583,7 @@ public abstract class AbstractTestHiveClient
         }
     }
 
-    private void assertReadFields(RecordCursor cursor, List<ColumnMetadata> schema)
+    private static void assertReadFields(RecordCursor cursor, List<ColumnMetadata> schema)
     {
         for (int columnIndex = 0; columnIndex < schema.size(); columnIndex++) {
             ColumnMetadata column = schema.get(columnIndex);
@@ -630,7 +629,8 @@ public abstract class AbstractTestHiveClient
         for (ColumnHandle columnHandle : columnHandles) {
             checkArgument(columnHandle instanceof HiveColumnHandle, "columnHandle is not an instance of HiveColumnHandle");
             HiveColumnHandle hiveColumnHandle = (HiveColumnHandle) columnHandle;
-            index.put(hiveColumnHandle.getName(), i++);
+            index.put(hiveColumnHandle.getName(), i);
+            i++;
         }
         return index.build();
     }

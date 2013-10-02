@@ -39,7 +39,6 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public class TestAsyncRecursiveWalker
 {
@@ -47,7 +46,7 @@ public class TestAsyncRecursiveWalker
     public void testSanity()
             throws Exception
     {
-        final ImmutableMap<String, List<FileStatus>> paths = ImmutableMap.<String, List<FileStatus>>builder()
+        ImmutableMap<String, List<FileStatus>> paths = ImmutableMap.<String, List<FileStatus>>builder()
                 .put("/", ImmutableList.of(fileStatus("/a", true), fileStatus("/file1", false)))
                 .put("/a", ImmutableList.of(fileStatus("/a/file2", false), fileStatus("/a/file3", false)))
                 .build();
@@ -68,7 +67,7 @@ public class TestAsyncRecursiveWalker
     public void testEmptyPath()
             throws Exception
     {
-        final ImmutableMap<String, List<FileStatus>> paths = ImmutableMap.<String, List<FileStatus>>builder()
+        ImmutableMap<String, List<FileStatus>> paths = ImmutableMap.<String, List<FileStatus>>builder()
                 .put("/", ImmutableList.<FileStatus>of())
                 .build();
 
@@ -155,9 +154,7 @@ public class TestAsyncRecursiveWalker
     private static class MockFileStatusCallback
             implements FileStatusCallback
     {
-        private final AtomicBoolean finished = new AtomicBoolean();
         private final List<String> processedFiles = new ArrayList<>();
-        private final List<Exception> exceptions = new ArrayList<>();
 
         @Override
         public void process(FileStatus fileStatus, BlockLocation[] blockLocations)
@@ -171,6 +168,7 @@ public class TestAsyncRecursiveWalker
         }
     }
 
+    @SuppressWarnings("deprecation")
     private static class StubFileSystem
             extends FileSystem
     {
