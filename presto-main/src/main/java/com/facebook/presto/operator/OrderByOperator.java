@@ -203,12 +203,7 @@ public class OrderByOperator
 
         // iterate through the positions sequentially until we have one full page
         pageBuilder.reset();
-        while (!pageBuilder.isFull() && currentPosition < pageIndex.getPositionCount()) {
-            for (int i = 0; i < outputChannels.length; i++) {
-                pageIndex.appendTupleTo(outputChannels[i], currentPosition, pageBuilder.getBlockBuilder(i));
-            }
-            currentPosition++;
-        }
+        currentPosition = pageIndex.buildPage(currentPosition, outputChannels, pageBuilder);
 
         // output the page if we have any data
         if (pageBuilder.isEmpty()) {

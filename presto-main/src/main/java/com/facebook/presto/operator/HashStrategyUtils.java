@@ -14,10 +14,12 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.tuple.TupleInfo.Type;
+import com.google.common.primitives.Booleans;
 import com.google.common.primitives.Longs;
 import io.airlift.slice.Slice;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
+import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 
 public final class HashStrategyUtils
 {
@@ -29,46 +31,6 @@ public final class HashStrategyUtils
     {
         result = 31 * result + hashCode;
         return result;
-    }
-
-    private static int getVariableBinaryLength(Slice slice, int offset)
-    {
-        return slice.getInt(offset + SIZE_OF_BYTE);
-    }
-
-    public static boolean valueEquals(Type type, Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)
-    {
-        // check if null flags are the same
-        boolean leftIsNull = leftSlice.getByte(leftOffset) != 0;
-        boolean rightIsNull = rightSlice.getByte(rightOffset) != 0;
-        if (leftIsNull != rightIsNull) {
-            return false;
-        }
-
-        // if values are both null, they are equal
-        if (leftIsNull) {
-            return true;
-        }
-
-        if (type == Type.FIXED_INT_64 || type == Type.DOUBLE) {
-            long leftValue = leftSlice.getLong(leftOffset + SIZE_OF_BYTE);
-            long rightValue = rightSlice.getLong(rightOffset + SIZE_OF_BYTE);
-            return leftValue == rightValue;
-        }
-        else if (type == Type.BOOLEAN) {
-            boolean leftValue = leftSlice.getByte(leftOffset + SIZE_OF_BYTE) != 0;
-            boolean rightValue = rightSlice.getByte(rightOffset + SIZE_OF_BYTE) != 0;
-            return leftValue == rightValue;
-        }
-        else if (type == Type.VARIABLE_BINARY) {
-            int leftLength = getVariableBinaryLength(leftSlice, leftOffset);
-            int rightLength = getVariableBinaryLength(rightSlice, rightOffset);
-            return leftSlice.equals(leftOffset, leftLength,
-                    rightSlice, rightOffset, rightLength);
-        }
-        else {
-            throw new IllegalArgumentException("Unsupported type " + type);
-        }
     }
 
     public static int valueHashCode(Type type, Slice slice, int offset)
@@ -86,11 +48,12 @@ public final class HashStrategyUtils
             return Longs.hashCode(longValue);
         }
         else if (type == Type.BOOLEAN) {
-            return slice.getByte(offset + SIZE_OF_BYTE) != 0 ? 1 : 0;
+            return Booleans.hashCode(slice.getByte(offset + SIZE_OF_BYTE) != 0);
         }
         else if (type == Type.VARIABLE_BINARY) {
-            int sliceLength = getVariableBinaryLength(slice, offset);
-            return slice.hashCode(offset, sliceLength);
+            // Note: this must match UncompressedSliceBlock.hashCode(position)
+            int sliceLength = slice.getInt(offset + SIZE_OF_BYTE) - SIZE_OF_BYTE - SIZE_OF_INT;
+            return slice.hashCode(offset + SIZE_OF_INT + SIZE_OF_BYTE, sliceLength);
         }
         else {
             throw new IllegalArgumentException("Unsupported type " + type);

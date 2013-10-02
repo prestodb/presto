@@ -14,13 +14,15 @@
 package com.facebook.presto.block.uncompressed;
 
 import com.facebook.presto.block.Block;
+import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.RandomAccessBlock;
+import com.facebook.presto.operator.SortOrder;
 import com.facebook.presto.serde.BlockEncoding;
 import com.facebook.presto.serde.UncompressedBlockEncoding;
 import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.tuple.TupleReadable;
 import com.google.common.base.Objects;
-import com.google.common.base.Preconditions;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
@@ -28,6 +30,7 @@ import io.airlift.units.DataSize.Unit;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkPositionIndexes;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
@@ -96,7 +99,7 @@ public class UncompressedSliceBlock
     @Override
     public Block getRegion(int positionOffset, int length)
     {
-        Preconditions.checkPositionIndexes(positionOffset, positionOffset + length, offsets.length);
+        checkPositionIndexes(positionOffset, positionOffset + length, offsets.length);
         return cursor().getRegionAndAdvance(length);
     }
 
@@ -130,8 +133,28 @@ public class UncompressedSliceBlock
         checkReadablePosition(position);
 
         int offset = offsets[position];
-        int size = slice.getInt(offset + SIZE_OF_BYTE);
-        return slice.slice(offset + SIZE_OF_INT + SIZE_OF_BYTE, size - SIZE_OF_INT - SIZE_OF_BYTE);
+        int length = getLength(slice, offset);
+        return slice.slice(offset + SIZE_OF_INT + SIZE_OF_BYTE, length);
+    }
+
+    @Override
+    public boolean sliceEquals(int leftPosition, Slice rightSlice, int rightOffset, int rightLength)
+    {
+        checkReadablePosition(leftPosition);
+
+        int leftOffset = offsets[leftPosition];
+        int leftLength = getLength(slice, leftOffset);
+        return slice.equals(leftOffset + SIZE_OF_INT + SIZE_OF_BYTE, leftLength, rightSlice, rightOffset, rightLength);
+    }
+
+    @Override
+    public int sliceCompareTo(int leftPosition, Slice rightSlice, int rightOffset, int rightLength)
+    {
+        checkReadablePosition(leftPosition);
+
+        int leftOffset = offsets[leftPosition];
+        int leftLength = getLength(slice, leftOffset);
+        return slice.compareTo(leftOffset + SIZE_OF_INT + SIZE_OF_BYTE, leftLength, rightSlice, rightOffset, rightLength);
     }
 
     @Override
@@ -143,6 +166,109 @@ public class UncompressedSliceBlock
     }
 
     @Override
+    public boolean equals(int position, RandomAccessBlock right, int rightPosition)
+    {
+        checkReadablePosition(position);
+        int offset = offsets[position];
+        boolean leftIsNull = slice.getByte(offset) != 0;
+        boolean rightIsNull = right.isNull(rightPosition);
+
+        if (leftIsNull != rightIsNull) {
+            return false;
+        }
+
+        // if values are both null, they are equal
+        if (leftIsNull) {
+            return true;
+        }
+
+        int length = getLength(slice, offset);
+        return right.sliceEquals(rightPosition, slice, offset + SIZE_OF_INT + SIZE_OF_BYTE, length);
+    }
+
+    @Override
+    public boolean equals(int position, TupleReadable value)
+    {
+        checkReadablePosition(position);
+        int offset = offsets[position];
+        boolean thisIsNull = slice.getByte(offset) != 0;
+        boolean valueIsNull = value.isNull();
+
+        if (thisIsNull != valueIsNull) {
+            return false;
+        }
+
+        // if values are both null, they are equal
+        if (thisIsNull) {
+            return true;
+        }
+
+        // todo add equals method to TupleReader
+        Slice valueSlice = ((BlockCursor) value).getRawSlice();
+        int valueOffset = ((BlockCursor) value).getRawOffset();
+        int valueLength = getLength(valueSlice, valueOffset);
+
+        int length = getLength(slice, offset);
+        return slice.equals(
+                offset + SIZE_OF_INT + SIZE_OF_BYTE,
+                length,
+                valueSlice,
+                valueOffset + SIZE_OF_INT + SIZE_OF_BYTE,
+                valueLength);
+    }
+
+    @Override
+    public int hashCode(int position)
+    {
+        checkReadablePosition(position);
+        int offset = offsets[position];
+        if (slice.getByte(offset) != 0) {
+            return 0;
+        }
+        else {
+            int length = getLength(slice, offset);
+            return slice.hashCode(offset + SIZE_OF_INT + SIZE_OF_BYTE, length);
+        }
+    }
+
+    @Override
+    public int compareTo(SortOrder sortOrder, int position, RandomAccessBlock right, int rightPosition)
+    {
+        checkReadablePosition(position);
+        int offset = offsets[position];
+        boolean leftIsNull = slice.getByte(offset) != 0;
+        boolean rightIsNull = right.isNull(rightPosition);
+
+        if (leftIsNull && rightIsNull) {
+            return 0;
+        }
+        if (leftIsNull) {
+            return sortOrder.isNullsFirst() ? -1 : 1;
+        }
+        if (rightIsNull) {
+            return sortOrder.isNullsFirst() ? 1 : -1;
+        }
+
+        int length = getLength(slice, offset);
+        int result = -right.sliceCompareTo(rightPosition, slice, offset + SIZE_OF_INT + SIZE_OF_BYTE, length);
+        return sortOrder.isAscending() ? result : -result;
+    }
+
+    @Override
+    public void appendTupleTo(int position, BlockBuilder blockBuilder)
+    {
+        checkReadablePosition(position);
+        int offset = offsets[position];
+        if (slice.getByte(offset) != 0) {
+            blockBuilder.appendNull();
+        }
+        else {
+            int length = getLength(slice, offset);
+            blockBuilder.append(slice, offset + SIZE_OF_INT + SIZE_OF_BYTE, length);
+        }
+    }
+
+    @Override
     public String toString()
     {
         return Objects.toStringHelper(this)
@@ -151,8 +277,13 @@ public class UncompressedSliceBlock
                 .toString();
     }
 
+    public static int getLength(Slice slice, int offset)
+    {
+        return slice.getInt(offset + SIZE_OF_BYTE) - SIZE_OF_INT - SIZE_OF_BYTE;
+    }
+
     private void checkReadablePosition(int position)
     {
-        Preconditions.checkState(position > 0 && position < offsets.length, "position is not valid");
+        checkState(position >= 0 && position < offsets.length, "position is not valid");
     }
 }

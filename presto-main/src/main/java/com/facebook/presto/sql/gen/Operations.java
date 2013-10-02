@@ -17,13 +17,13 @@ import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.google.common.primitives.Booleans;
-import com.google.common.primitives.Doubles;
 import com.google.common.primitives.Longs;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import static com.google.common.base.Charsets.US_ASCII;
 import static com.google.common.base.Charsets.UTF_8;
+import static java.lang.Double.doubleToLongBits;
 
 public final class Operations
 {
@@ -210,7 +210,8 @@ public final class Operations
 
     public static int hashCode(double value)
     {
-        return Doubles.hashCode(value);
+        long bits = doubleToLongBits(value);
+        return (int) (bits ^ (bits >>> 32));
     }
 
     public static boolean notEqual(double left, double right)
