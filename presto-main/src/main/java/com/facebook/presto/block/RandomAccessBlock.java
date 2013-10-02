@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.block;
 
+import com.facebook.presto.operator.SortOrder;
+import com.facebook.presto.tuple.TupleReadable;
 import io.airlift.slice.Slice;
 
 public interface RandomAccessBlock
@@ -46,10 +48,19 @@ public interface RandomAccessBlock
      */
     Slice getSlice(int position);
 
+    int sliceCompareTo(int leftPosition, Slice rightSlice, int rightOffset, int rightLength);
+
+    boolean sliceEquals(int leftPosition, Slice rightSlice, int rightOffset, int rightLength);
+
     /**
      * Is the specified position null.
      *
      * @throws IllegalArgumentException if this position is not valid
      */
     boolean isNull(int position);
+    boolean equals(int position, RandomAccessBlock right, int rightPosition);
+    boolean equals(int position, TupleReadable value);
+    int hashCode(int position);
+    int compareTo(SortOrder sortOrder, int position, RandomAccessBlock right, int rightPosition);
+    void appendTupleTo(int position, BlockBuilder blockBuilder);
 }

@@ -141,7 +141,7 @@ public class SnappyBlock
             return new UncompressedBooleanBlock(positionCount, getUncompressedSlice());
         }
         if (type == Type.FIXED_INT_64) {
-            return new UncompressedLongBlock(getUncompressedSlice());
+            return new UncompressedLongBlock(positionCount, getUncompressedSlice());
         }
         if (type == Type.DOUBLE) {
             return new UncompressedDoubleBlock(positionCount, getUncompressedSlice());

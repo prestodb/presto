@@ -106,27 +106,29 @@ public class JoinHash
     private static class PagesHashStrategy
             implements Strategy
     {
+        private final PagesIndex pagesIndex;
         private final List<Type> types;
-        private final List<ChannelIndex> channels;
+        private final int[] hashChannels;
         private final BlockCursor[] joinCursors;
 
         private PagesHashStrategy(PagesIndex pagesIndex, List<Integer> hashChannels)
         {
+            this.pagesIndex = pagesIndex;
+            this.hashChannels = Ints.toArray(hashChannels);
+
             ImmutableList.Builder<Type> types = ImmutableList.builder();
-            ImmutableList.Builder<ChannelIndex> channels = ImmutableList.builder();
             for (int channel : hashChannels) {
                 types.add(pagesIndex.getTupleInfo(channel).getType());
-                channels.add(pagesIndex.getIndex(channel));
             }
             this.types = types.build();
-            this.channels = channels.build();
             this.joinCursors = new BlockCursor[hashChannels.size()];
         }
 
         private PagesHashStrategy(PagesHashStrategy pagesHashStrategy)
         {
+            this.pagesIndex = pagesHashStrategy.pagesIndex;
             this.types = pagesHashStrategy.types;
-            this.channels = pagesHashStrategy.channels;
+            this.hashChannels = pagesHashStrategy.hashChannels;
             this.joinCursors = new BlockCursor[types.size()];
         }
 
@@ -152,12 +154,7 @@ public class JoinHash
         private int hashPosition(long address)
         {
             int position = Ints.checkedCast(address);
-
-            int result = 0;
-            for (ChannelIndex hashChannel : channels) {
-                result = addToHashCode(result, hashChannel.hashCode(position));
-            }
-            return result;
+            return pagesIndex.hashCode(hashChannels, position);
         }
 
         private int hashCurrentRow()
@@ -193,29 +190,14 @@ public class JoinHash
             return positionEqualsPosition(Ints.saturatedCast(leftAddress), Ints.saturatedCast(rightAddress));
         }
 
-        public boolean positionEqualsPosition(int thisPosition, int thatPosition)
+        public boolean positionEqualsPosition(int leftPosition, int rightPosition)
         {
-            if (thisPosition == thatPosition) {
-                return true;
-            }
-
-            for (ChannelIndex hashChannel : channels) {
-                if (!hashChannel.equals(thisPosition, thatPosition)) {
-                    return false;
-                }
-            }
-            return true;
+            return pagesIndex.equals(hashChannels, leftPosition, rightPosition);
         }
 
         private boolean positionEqualsCurrentRow(int position)
         {
-            for (int i = 0; i < channels.size(); i++) {
-                ChannelIndex channelIndex = channels.get(i);
-                if (!channelIndex.equals(position, joinCursors[i])) {
-                    return false;
-                }
-            }
-            return true;
+            return pagesIndex.equals(hashChannels, position, joinCursors);
         }
     }
 

@@ -16,12 +16,14 @@ package com.facebook.presto.operator;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
+import com.facebook.presto.block.uncompressed.UncompressedLongBlock;
 import com.facebook.presto.operator.HashAggregationOperator.HashMemoryManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Booleans;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
 import io.airlift.slice.Slice;
@@ -124,7 +126,7 @@ public class GroupByHash
             }
             blockBuilder.append(groupId);
         }
-        UncompressedBlock block = blockBuilder.build();
+        UncompressedLongBlock block = (UncompressedLongBlock) blockBuilder.build().toRandomAccessBlock();
         return new GroupByIdBlock(nextGroupId, block);
     }
 
@@ -539,7 +541,7 @@ public class GroupByHash
             return Longs.hashCode(longValue);
         }
         else if (type == Type.BOOLEAN) {
-            return slice.getByte(offset + SIZE_OF_BYTE) != 0 ? 1 : 0;
+            return Booleans.hashCode(slice.getByte(offset + SIZE_OF_BYTE) != 0);
         }
         else if (type == Type.VARIABLE_BINARY) {
             int sliceLength = getVariableBinaryLength(slice, offset);

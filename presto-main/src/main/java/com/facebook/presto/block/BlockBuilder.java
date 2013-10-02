@@ -156,7 +156,12 @@ public class BlockBuilder
 
     public BlockBuilder append(Slice value)
     {
-        tupleBuilder.append(value);
+        return append(value, 0, value.length());
+    }
+
+    public BlockBuilder append(Slice value, int offset, int length)
+    {
+        tupleBuilder.append(value, offset, length);
         positionCount++;
         return this;
     }
