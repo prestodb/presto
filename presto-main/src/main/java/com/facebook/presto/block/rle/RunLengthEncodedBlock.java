@@ -14,15 +14,20 @@
 package com.facebook.presto.block.rle;
 
 import com.facebook.presto.block.Block;
+import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.RandomAccessBlock;
+import com.facebook.presto.operator.SortOrder;
 import com.facebook.presto.serde.RunLengthBlockEncoding;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.tuple.TupleReadable;
 import com.google.common.base.Objects;
-import com.google.common.base.Preconditions;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
+
+import static com.google.common.base.Preconditions.checkPositionIndexes;
+import static com.google.common.base.Preconditions.checkState;
 
 public class RunLengthEncodedBlock
         implements RandomAccessBlock
@@ -67,7 +72,7 @@ public class RunLengthEncodedBlock
     @Override
     public Block getRegion(int positionOffset, int length)
     {
-        Preconditions.checkPositionIndexes(positionOffset, positionOffset + length, positionCount);
+        checkPositionIndexes(positionOffset, positionOffset + length, positionCount);
         return new RunLengthEncodedBlock(value, length);
     }
 
@@ -109,10 +114,52 @@ public class RunLengthEncodedBlock
     }
 
     @Override
+    public boolean sliceEquals(int rightPosition, Slice slice, int offset, int length)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public int sliceCompareTo(int leftPosition, Slice rightSlice, int rightOffset, int rightLength)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public boolean isNull(int position)
     {
         checkReadablePosition(position);
         return value.isNull();
+    }
+
+    @Override
+    public boolean equals(int position, RandomAccessBlock right, int rightPosition)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean equals(int position, TupleReadable value)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public int hashCode(int position)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public int compareTo(SortOrder sortOrder, int position, RandomAccessBlock right, int rightPosition)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void appendTupleTo(int position, BlockBuilder blockBuilder)
+    {
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -132,6 +179,6 @@ public class RunLengthEncodedBlock
 
     private void checkReadablePosition(int position)
     {
-        Preconditions.checkState(position > 0 && position < positionCount, "position is not valid");
+        checkState(position >= 0 && position < positionCount, "position is not valid");
     }
 }

@@ -433,11 +433,16 @@ public class TupleInfo
 
         public Builder append(Slice value)
         {
+            return append(value, 0, value.length());
+        }
+
+        public Builder append(Slice value, int offset, int length)
+        {
             checkState(TupleInfo.this.type == VARIABLE_BINARY, "Cannot append binary to type %s", TupleInfo.this.type);
 
             sliceOutput.writeByte(0);
-            sliceOutput.writeInt(value.length() + SIZE_OF_BYTE + SIZE_OF_INT);
-            sliceOutput.writeBytes(value);
+            sliceOutput.writeInt(length + SIZE_OF_BYTE + SIZE_OF_INT);
+            sliceOutput.writeBytes(value, offset, length);
 
             return this;
         }
