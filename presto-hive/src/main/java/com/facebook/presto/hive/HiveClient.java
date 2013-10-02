@@ -394,7 +394,7 @@ public class HiveClient
             throw new TableNotFoundException(tableName);
         }
 
-        LinkedHashMap<String, ColumnHandle> partitionKeysByName = new LinkedHashMap<>();
+        ImmutableMap.Builder<String, ColumnHandle> partitionKeysByName = ImmutableMap.builder();
         List<String> filterPrefix = new ArrayList<>();
         for (int i = 0; i < partitionKeys.size(); i++) {
             FieldSchema field = partitionKeys.get(i);
@@ -431,7 +431,7 @@ public class HiveClient
         }
 
         // do a final pass to filter based on fields that could not be used to build the prefix
-        Iterable<Partition> partitions = transform(partitionNames, toPartition(tableName, partitionKeysByName));
+        Iterable<Partition> partitions = transform(partitionNames, toPartition(tableName, partitionKeysByName.build()));
         return ImmutableList.copyOf(Iterables.filter(partitions, partitionMatches(bindings)));
     }
 
