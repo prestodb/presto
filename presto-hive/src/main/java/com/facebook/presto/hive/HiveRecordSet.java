@@ -17,14 +17,12 @@ import com.facebook.presto.hadoop.HadoopNative;
 import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.MetaStoreUtils;
-import org.apache.hadoop.hive.serde.Constants;
 import org.apache.hadoop.hive.serde2.ColumnProjectionUtils;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.columnar.BytesRefArrayWritable;
@@ -56,6 +54,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Lists.transform;
+import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_NULL_FORMAT;
 
 public class HiveRecordSet
         implements RecordSet
@@ -90,6 +89,9 @@ public class HiveRecordSet
         Path path = new Path(split.getPath());
         this.configuration = hdfsEnvironment.getConfiguration(path);
         this.wrappedPath = hdfsEnvironment.getFileSystemWrapper().wrap(path);
+
+        String nullSequence = split.getSchema().getProperty(SERIALIZATION_NULL_FORMAT);
+        checkState(nullSequence == null || nullSequence.equals("\\N"), "Only '\\N' supported as null specifier, was '%s'", nullSequence);
     }
 
     @Override
@@ -102,17 +104,6 @@ public class HiveRecordSet
     public RecordCursor cursor()
     {
         try {
-            // Clone schema since we modify it below
-            Properties schema = (Properties) split.getSchema().clone();
-
-            // We are handling parsing directly since the hive code is slow
-            // In order to do this, remove column types entry so that hive treats all columns as type "string"
-            String typeSpecification = (String) schema.remove(Constants.LIST_COLUMN_TYPES);
-            Preconditions.checkNotNull(typeSpecification, "Partition column type specification is null");
-
-            String nullSequence = (String) schema.get(Constants.SERIALIZATION_NULL_FORMAT);
-            checkState(nullSequence == null || nullSequence.equals("\\N"), "Only '\\N' supported as null specifier, was '%s'", nullSequence);
-
             // Tell hive the columns we would like to read, this lets hive optimize reading column oriented files
             ColumnProjectionUtils.setReadColumnIDs(configuration, readHiveColumnIndexes);
 
