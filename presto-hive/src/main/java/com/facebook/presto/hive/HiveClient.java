@@ -35,7 +35,6 @@ import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;
@@ -109,6 +108,7 @@ import static com.facebook.presto.hive.HiveUtil.convertNativeHiveType;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
 import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
 import static com.facebook.presto.hive.UnpartitionedPartition.UNPARTITIONED_PARTITION;
+import static com.facebook.presto.hive.UnpartitionedPartition.isUnpartitioned;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -406,7 +406,7 @@ public class HiveClient
             if (filterPrefix.size() == i) {
                 Object value = bindings.get(columnHandle);
                 if (value != null) {
-                    Preconditions.checkArgument(value instanceof Boolean || value instanceof String || value instanceof Double || value instanceof Long,
+                    checkArgument(value instanceof Boolean || value instanceof String || value instanceof Double || value instanceof Long,
                             "Only Boolean, String, Double and Long partition keys are supported");
                     filterPrefix.add(value.toString());
                 }
@@ -472,7 +472,7 @@ public class HiveClient
                 maxPartitionBatchSize);
     }
 
-    private Iterable<org.apache.hadoop.hive.metastore.api.Partition> getPartitions(final Table table, final SchemaTableName tableName, final List<String> partitionNames)
+    private Iterable<org.apache.hadoop.hive.metastore.api.Partition> getPartitions(final Table table, final SchemaTableName tableName, List<String> partitionNames)
             throws NoSuchObjectException
     {
         if (partitionNames.equals(ImmutableList.of(UNPARTITIONED_ID))) {
@@ -488,7 +488,7 @@ public class HiveClient
                 Exception exception = null;
                 for (int attempt = 0; attempt < 10; attempt++) {
                     try {
-                        List<org.apache.hadoop.hive.metastore.api.Partition> partitions = metastore.getPartitionsByNames(table, tableName.getSchemaName(), tableName.getTableName(), partitionNameBatch);
+                        List<org.apache.hadoop.hive.metastore.api.Partition> partitions = metastore.getPartitionsByNames(tableName.getSchemaName(), tableName.getTableName(), partitionNameBatch);
                         checkState(partitionNameBatch.size() == partitions.size(), "expected %s partitions but found %s", partitionNameBatch.size(), partitions.size());
 
                         // verify all partitions are online
@@ -602,6 +602,12 @@ public class HiveClient
             }
         };
 
+        @SuppressWarnings("ObjectEquality")
+        private static boolean isFinished(Split split)
+        {
+            return split == FINISHED_MARKER;
+        }
+
         private final String clientId;
         private final Table table;
         private final Iterable<String> partitionNames;
@@ -657,11 +663,11 @@ public class HiveClient
             return hiveSplitQueue;
         }
 
-        private void loadPartitionSplits(final HiveSplitQueue hiveSplitQueue, final SuspendingExecutor suspendingExecutor)
+        private void loadPartitionSplits(final HiveSplitQueue hiveSplitQueue, SuspendingExecutor suspendingExecutor)
                 throws InterruptedException
         {
             final Semaphore semaphore = new Semaphore(maxPartitionBatchSize);
-            try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
+            try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
                 ImmutableList.Builder<ListenableFuture<Void>> futureBuilder = ImmutableList.builder();
 
                 Iterator<String> nameIterator = partitionNames.iterator();
@@ -677,7 +683,7 @@ public class HiveClient
                     final InputFormat<?, ?> inputFormat = getInputFormat(configuration, schema, false);
                     Path partitionPath = hdfsEnvironment.getFileSystemWrapper().wrap(path);
 
-                    final FileSystem fs = partitionPath.getFileSystem(configuration);
+                    FileSystem fs = partitionPath.getFileSystem(configuration);
                     final LastSplitMarkingQueue markerQueue = new LastSplitMarkingQueue(hiveSplitQueue);
 
                     if (inputFormat instanceof SymlinkTextInputFormat) {
@@ -825,7 +831,7 @@ public class HiveClient
             return builder.build();
         }
 
-        private List<HostAddress> toHostAddress(String[] hosts)
+        private static List<HostAddress> toHostAddress(String[] hosts)
         {
             ImmutableList.Builder<HostAddress> builder = ImmutableList.builder();
             for (String host : hosts) {
@@ -914,7 +920,7 @@ public class HiveClient
             {
                 try {
                     Split split = queue.take();
-                    if (split == FINISHED_MARKER) {
+                    if (isFinished(split)) {
                         if (throwable.get() != null) {
                             throw Throwables.propagate(throwable.get());
                         }
@@ -943,7 +949,7 @@ public class HiveClient
                 method = clazz.getDeclaredMethod("isSplitable", FileSystem.class, Path.class);
                 break;
             }
-            catch (NoSuchMethodException e) {
+            catch (NoSuchMethodException ignored) {
             }
         }
 
@@ -982,7 +988,7 @@ public class HiveClient
                         String value = entry.getValue();
                         switch (hiveColumnHandle.getType()) {
                             case BOOLEAN:
-                                if (value.length() == 0) {
+                                if (value.isEmpty()) {
                                     builder.put(columnHandle, false);
                                 }
                                 else {
@@ -990,7 +996,7 @@ public class HiveClient
                                 }
                                 break;
                             case LONG:
-                                if (value.length() == 0) {
+                                if (value.isEmpty()) {
                                     builder.put(columnHandle, 0L);
                                 }
                                 else if (hiveColumnHandle.getHiveType() == HiveType.TIMESTAMP) {
@@ -1001,7 +1007,7 @@ public class HiveClient
                                 }
                                 break;
                             case DOUBLE:
-                                if (value.length() == 0) {
+                                if (value.isEmpty()) {
                                     builder.put(columnHandle, 0L);
                                 }
                                 else {
@@ -1044,7 +1050,7 @@ public class HiveClient
 
     private static List<HivePartitionKey> getPartitionKeys(Table table, org.apache.hadoop.hive.metastore.api.Partition partition)
     {
-        if (partition == UNPARTITIONED_PARTITION) {
+        if (isUnpartitioned(partition)) {
             return ImmutableList.of();
         }
         ImmutableList.Builder<HivePartitionKey> partitionKeys = ImmutableList.builder();
@@ -1064,7 +1070,7 @@ public class HiveClient
 
     private static Properties getPartitionSchema(Table table, org.apache.hadoop.hive.metastore.api.Partition partition)
     {
-        if (partition == UNPARTITIONED_PARTITION) {
+        if (isUnpartitioned(partition)) {
             return MetaStoreUtils.getTableMetadata(table);
         }
         return MetaStoreUtils.getSchema(partition, table);
@@ -1072,7 +1078,7 @@ public class HiveClient
 
     private static String getPartitionLocation(Table table, org.apache.hadoop.hive.metastore.api.Partition partition)
     {
-        if (partition == UNPARTITIONED_PARTITION) {
+        if (isUnpartitioned(partition)) {
             return table.getSd().getLocation();
         }
         return partition.getSd().getLocation();

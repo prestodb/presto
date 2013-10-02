@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.google.common.base.Preconditions;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.ContentSummary;
@@ -30,14 +29,18 @@ import org.apache.hadoop.util.Progressable;
 import java.io.IOException;
 import java.net.URI;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+
+@SuppressWarnings("deprecation")
 public abstract class ForwardingFileSystem
         extends FileSystem
 {
     private final FileSystem fileSystem;
 
-    public ForwardingFileSystem(FileSystem fileSystem)
+    protected ForwardingFileSystem(FileSystem fileSystem)
     {
-        this.fileSystem = Preconditions.checkNotNull(fileSystem, "fileSystem is null");
+        this.fileSystem = checkNotNull(fileSystem, "fileSystem is null");
     }
 
     @Override
@@ -521,7 +524,7 @@ public abstract class ForwardingFileSystem
             fileSystem.setConf(conf);
         }
         else {
-            Preconditions.checkArgument(conf == null, "Expected null conf");
+            checkArgument(conf == null, "Expected null conf");
         }
     }
 

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.Partition;
 import com.google.common.base.Function;
 import org.apache.hadoop.conf.Configuration;
@@ -78,11 +77,6 @@ final class HiveUtil
         String name = schema.getProperty(FILE_INPUT_FORMAT);
         checkArgument(name != null, "missing property: %s", FILE_INPUT_FORMAT);
         return name;
-    }
-
-    static ColumnType convertHiveType(String type)
-    {
-        return HiveType.getSupportedHiveType(convertNativeHiveType(type)).getNativeType();
     }
 
     static PrimitiveObjectInspector.PrimitiveCategory convertNativeHiveType(String type)

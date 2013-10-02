@@ -44,7 +44,7 @@ public class HiveConnectorId
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final HiveConnectorId other = (HiveConnectorId) obj;
+        HiveConnectorId other = (HiveConnectorId) obj;
         return Objects.equal(this.connectorId, other.connectorId);
     }
 

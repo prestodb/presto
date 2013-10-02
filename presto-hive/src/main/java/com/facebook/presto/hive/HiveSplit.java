@@ -137,6 +137,7 @@ public class HiveSplit
     }
 
     @JsonProperty
+    @Override
     public List<HivePartitionKey> getPartitionKeys()
     {
         return partitionKeys;
@@ -159,7 +160,7 @@ public class HiveSplit
     public Object getInfo()
     {
         return ImmutableMap.builder()
-                .put("path", path.toString())
+                .put("path", path)
                 .put("start", start)
                 .put("length", length)
                 .put("hosts", addresses)

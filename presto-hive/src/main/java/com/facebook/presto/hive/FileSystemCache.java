@@ -41,11 +41,6 @@ public class FileSystemCache
 {
     private final Cache<FileSystemKey, FileSystem> cache;
 
-    public FileSystemCache()
-    {
-        this(new HiveClientConfig());
-    }
-
     @Inject
     public FileSystemCache(HiveClientConfig hiveClientConfig)
     {
@@ -79,7 +74,7 @@ public class FileSystemCache
         };
     }
 
-    private Callable<FileSystem> createFileSystemFromPath(final Path path, final Configuration conf)
+    private static Callable<FileSystem> createFileSystemFromPath(final Path path, final Configuration conf)
     {
         return new Callable<FileSystem>()
         {
@@ -99,7 +94,7 @@ public class FileSystemCache
         private final String scheme;
         private final String authority;
 
-        private FileSystemKey(String fsType, String scheme, String authority)
+        private FileSystemKey(@Nullable String fsType, String scheme, String authority)
         {
             this.fsType = fsType;
             this.scheme = checkNotNull(scheme, "scheme is null");

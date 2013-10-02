@@ -22,7 +22,6 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class RetryDriver
@@ -53,22 +52,6 @@ public class RetryDriver
     public static RetryDriver retry()
     {
         return new RetryDriver();
-    }
-
-    public RetryDriver withMaxRetries(int maxRetryAttempts)
-    {
-        checkArgument(maxRetryAttempts > 0, "maxRetryAttempts must be greater than zero");
-        return new RetryDriver(maxRetryAttempts, sleepTime, maxRetryTime, exceptionWhiteList);
-    }
-
-    public RetryDriver withSleep(Duration sleepTime)
-    {
-        return new RetryDriver(maxRetryAttempts, checkNotNull(sleepTime, "sleepTime is null"), maxRetryTime, exceptionWhiteList);
-    }
-
-    public RetryDriver withMaxRetryTime(Duration maxRetryTime)
-    {
-        return new RetryDriver(maxRetryAttempts, sleepTime, checkNotNull(maxRetryTime, "maxRetryTime is null"), exceptionWhiteList);
     }
 
     @SafeVarargs
@@ -110,9 +93,7 @@ public class RetryDriver
                 if (attempt >= maxRetryAttempts || Duration.nanosSince(startTime).compareTo(maxRetryTime) >= 0) {
                     throw e;
                 }
-                else {
-                    log.debug("Failed on executing %s with attempt %d, will retry. Exception: %s", callableName, attempt, e.getMessage());
-                }
+                log.debug("Failed on executing %s with attempt %d, will retry. Exception: %s", callableName, attempt, e.getMessage());
                 TimeUnit.MILLISECONDS.sleep(sleepTime.toMillis());
             }
         }

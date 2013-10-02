@@ -45,6 +45,7 @@ public class HivePartitionKey
     }
 
     @JsonProperty
+    @Override
     public String getName()
     {
         return name;
@@ -63,6 +64,7 @@ public class HivePartitionKey
     }
 
     @JsonProperty
+    @Override
     public String getValue()
     {
         return value;
@@ -93,7 +95,7 @@ public class HivePartitionKey
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final HivePartitionKey other = (HivePartitionKey) obj;
+        HivePartitionKey other = (HivePartitionKey) obj;
         return Objects.equal(this.name, other.name) &&
                 Objects.equal(this.hiveType, other.hiveType) &&
                 Objects.equal(this.value, other.value);

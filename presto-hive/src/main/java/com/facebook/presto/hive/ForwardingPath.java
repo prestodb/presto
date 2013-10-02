@@ -22,12 +22,13 @@ import java.net.URI;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+@SuppressWarnings("deprecation")
 public abstract class ForwardingPath
         extends Path
 {
     private final Path path;
 
-    public ForwardingPath(Path path)
+    protected ForwardingPath(Path path)
     {
         super(checkNotNull(path, "path is null").toString());
         this.path = path;
@@ -76,10 +77,11 @@ public abstract class ForwardingPath
         return path.toString();
     }
 
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     @Override
     public boolean equals(Object o)
     {
-        return path.equals(o);
+        return (o == this) || path.equals(o);
     }
 
     @Override

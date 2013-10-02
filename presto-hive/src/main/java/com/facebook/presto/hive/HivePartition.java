@@ -78,7 +78,7 @@ public class HivePartition
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final HivePartition other = (HivePartition) obj;
+        HivePartition other = (HivePartition) obj;
         return Objects.equals(this.partitionId, other.partitionId);
     }
 

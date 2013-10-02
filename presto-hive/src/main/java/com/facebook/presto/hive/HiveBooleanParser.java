@@ -13,9 +13,10 @@
  */
 package com.facebook.presto.hive;
 
-public class HiveBooleanParser
+public final class HiveBooleanParser
 {
-    @SuppressWarnings("PointlessArithmeticExpression")
+    private HiveBooleanParser() {}
+
     public static Boolean parseHiveBoolean(byte[] bytes, int start, int length)
     {
         if (isTrue(bytes, start, length)) {
@@ -27,6 +28,7 @@ public class HiveBooleanParser
         return null;
     }
 
+    @SuppressWarnings("PointlessArithmeticExpression")
     public static boolean isFalse(byte[] bytes, int start, int length)
     {
         return (length == 5) &&
@@ -37,6 +39,7 @@ public class HiveBooleanParser
                 (toUpperCase(bytes[start + 4]) == 'E');
     }
 
+    @SuppressWarnings("PointlessArithmeticExpression")
     public static boolean isTrue(byte[] bytes, int start, int length)
     {
         return (length == 4) &&

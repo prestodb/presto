@@ -115,7 +115,7 @@ public class HiveColumnHandle
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final HiveColumnHandle other = (HiveColumnHandle) obj;
+        HiveColumnHandle other = (HiveColumnHandle) obj;
         return Objects.equal(this.clientId, other.clientId) &&
                 Objects.equal(this.name, other.name) &&
                 Objects.equal(this.hiveColumnIndex, other.hiveColumnIndex) &&

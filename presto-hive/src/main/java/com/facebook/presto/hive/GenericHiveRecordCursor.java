@@ -52,9 +52,10 @@ class GenericHiveRecordCursor<K, V extends Writable>
     private final RecordReader<K, V> recordReader;
     private final K key;
     private final V value;
+
+    @SuppressWarnings("deprecation")
     private final Deserializer deserializer;
 
-    private final String[] names;
     private final ColumnType[] types;
     private final HiveType[] hiveTypes;
 
@@ -100,7 +101,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
 
         int size = columns.size();
 
-        this.names = new String[size];
+        String[] names = new String[size];
         this.types = new ColumnType[size];
         this.hiveTypes = new HiveType[size];
 
