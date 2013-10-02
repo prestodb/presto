@@ -335,7 +335,8 @@ public class HiveClient
             try {
                 columns.put(tableName, getTableMetadata(tableName).getColumns());
             }
-            catch (RuntimeException e) {
+            catch (TableNotFoundException e) {
+                // table disappeared during listing operation
             }
         }
         return columns.build();
