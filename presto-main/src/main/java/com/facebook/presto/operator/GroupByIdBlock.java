@@ -13,28 +13,18 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.uncompressed.UncompressedBlock;
+import com.facebook.presto.block.uncompressed.UncompressedLongBlock;
 import com.google.common.base.Objects;
-import com.google.common.base.Preconditions;
-import io.airlift.slice.Slice;
-
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
-import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 
 public class GroupByIdBlock
-        extends UncompressedBlock
+        extends UncompressedLongBlock
 {
-    private static final int ENTRY_SIZE = SINGLE_LONG.getFixedSize();
     private final long groupCount;
-    private final Slice slice;
 
-    public GroupByIdBlock(long groupCount, UncompressedBlock block)
+    public GroupByIdBlock(long groupCount, UncompressedLongBlock block)
     {
         super(block);
-        checkArgument(block.getTupleInfo().equals(SINGLE_LONG), "Block must be a single long block");
         this.groupCount = groupCount;
-        this.slice = block.getSlice();
     }
 
     public long getGroupCount()
@@ -44,9 +34,7 @@ public class GroupByIdBlock
 
     public long getGroupId(int position)
     {
-        int entryOffset = position * ENTRY_SIZE;
-        Preconditions.checkState(position >= 0 && entryOffset + ENTRY_SIZE <= slice.length(), "position is not valid");
-        return slice.getLong(entryOffset + SIZE_OF_BYTE);
+        return super.getLong(position);
     }
 
     @Override

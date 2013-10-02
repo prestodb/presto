@@ -18,6 +18,7 @@ import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
+import com.facebook.presto.block.uncompressed.UncompressedLongBlock;
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.tuple.TupleInfo;
@@ -322,14 +323,14 @@ public final class AggregationTestUtils
     public static GroupByIdBlock createGroupByIdBlock(int groupId, int positions)
     {
         if (positions == 0) {
-            return new GroupByIdBlock(groupId, new UncompressedBlock(0, TupleInfo.SINGLE_LONG, Slices.EMPTY_SLICE));
+            return new GroupByIdBlock(groupId, new UncompressedLongBlock(0, Slices.EMPTY_SLICE));
         }
 
         BlockBuilder blockBuilder = new BlockBuilder(TupleInfo.SINGLE_LONG);
         for (int i = 0; i < positions; i++) {
             blockBuilder.append(groupId);
         }
-        return new GroupByIdBlock(groupId, blockBuilder.build());
+        return new GroupByIdBlock(groupId, (UncompressedLongBlock) blockBuilder.build().toRandomAccessBlock());
     }
 
     private static int[] createArgs(AggregationFunction function)
