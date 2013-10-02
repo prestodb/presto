@@ -30,8 +30,8 @@ public class TestHiveSplit
     public void testJsonRoundTrip()
     {
         Properties schema = new Properties();
-        schema.put("foo", "bar");
-        schema.put("bar", "baz");
+        schema.setProperty("foo", "bar");
+        schema.setProperty("bar", "baz");
 
         ImmutableList<HivePartitionKey> partitionKeys = ImmutableList.of(new HivePartitionKey("a", HiveType.STRING, "apple"), new HivePartitionKey("b", HiveType.LONG, "42"));
         ImmutableList<HostAddress> addresses = ImmutableList.of(HostAddress.fromParts("127.0.0.1", 44), HostAddress.fromParts("127.0.0.1", 45));

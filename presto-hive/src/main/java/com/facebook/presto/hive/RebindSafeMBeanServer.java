@@ -63,6 +63,7 @@ public class RebindSafeMBeanServer
      * Delegates to the wrapped mbean server, but if a mbean is already registered
      * with the specified name, the existing instance is returned.
      */
+    @Override
     public ObjectInstance registerMBean(Object object, ObjectName name)
             throws MBeanRegistrationException, NotCompliantMBeanException
     {

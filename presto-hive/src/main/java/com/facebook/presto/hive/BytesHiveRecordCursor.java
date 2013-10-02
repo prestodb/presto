@@ -18,8 +18,6 @@ import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.RecordCursor;
 import com.google.common.base.Charsets;
 import com.google.common.base.Throwables;
-import org.apache.hadoop.hive.metastore.MetaStoreUtils;
-import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.SerDeUtils;
 import org.apache.hadoop.hive.serde2.columnar.BytesRefArrayWritable;
 import org.apache.hadoop.hive.serde2.columnar.BytesRefWritable;
@@ -47,6 +45,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static org.apache.hadoop.hive.metastore.MetaStoreUtils.getDeserializer;
 
 class BytesHiveRecordCursor<K>
         implements RecordCursor
@@ -55,6 +54,7 @@ class BytesHiveRecordCursor<K>
     private final K key;
     private final BytesRefArrayWritable value;
 
+    @SuppressWarnings("FieldCanBeLocal") // include names for debugging
     private final String[] names;
     private final ColumnType[] types;
     private final HiveType[] hiveTypes;
@@ -115,8 +115,8 @@ class BytesHiveRecordCursor<K>
 
         // initialize data columns
         try {
-            Deserializer deserializer = MetaStoreUtils.getDeserializer(null, splitSchema);
-            StructObjectInspector rowInspector = (StructObjectInspector) deserializer.getObjectInspector();
+            ObjectInspector inspector = getDeserializer(null, splitSchema).getObjectInspector();
+            StructObjectInspector rowInspector = (StructObjectInspector) inspector;
 
             for (int i = 0; i < columns.size(); i++) {
                 HiveColumnHandle column = columns.get(i);

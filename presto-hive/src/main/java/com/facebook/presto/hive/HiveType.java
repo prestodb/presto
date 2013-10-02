@@ -18,6 +18,7 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static org.apache.hadoop.hive.serde.Constants.BIGINT_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.Constants.BINARY_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.Constants.BOOLEAN_TYPE_NAME;
@@ -51,9 +52,9 @@ public enum HiveType
 
     private final ColumnType nativeType;
 
-    private HiveType(ColumnType nativeType)
+    HiveType(ColumnType nativeType)
     {
-        this.nativeType = nativeType;
+        this.nativeType = checkNotNull(nativeType, "nativeType is null");
     }
 
     public ColumnType getNativeType()

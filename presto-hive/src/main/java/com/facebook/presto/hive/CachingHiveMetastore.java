@@ -226,7 +226,7 @@ public class CachingHiveMetastore
         });
     }
 
-    public List<String> getAllTables(final String databaseName)
+    public List<String> getAllTables(String databaseName)
             throws NoSuchObjectException
     {
         return get(tableNamesCache, databaseName, NoSuchObjectException.class);
@@ -253,7 +253,7 @@ public class CachingHiveMetastore
         });
     }
 
-    public Table getTable(final String databaseName, final String tableName)
+    public Table getTable(String databaseName, String tableName)
             throws NoSuchObjectException
     {
         return get(tableCache, HiveTableName.table(databaseName, tableName), NoSuchObjectException.class);
@@ -279,7 +279,7 @@ public class CachingHiveMetastore
         });
     }
 
-    public List<String> getPartitionNames(final String databaseName, final String tableName)
+    public List<String> getPartitionNames(String databaseName, String tableName)
             throws NoSuchObjectException
     {
         return get(partitionNamesCache, HiveTableName.table(databaseName, tableName), NoSuchObjectException.class);
@@ -295,14 +295,13 @@ public class CachingHiveMetastore
                     throws Exception
             {
                 try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                    List<String> partitionNames = client.get_partition_names(hiveTableName.getDatabaseName(), hiveTableName.getTableName(), (short) 0);
-                    return partitionNames;
+                    return client.get_partition_names(hiveTableName.getDatabaseName(), hiveTableName.getTableName(), (short) 0);
                 }
             }
         });
     }
 
-    public List<String> getPartitionNamesByParts(final String databaseName, final String tableName, final List<String> parts)
+    public List<String> getPartitionNamesByParts(String databaseName, String tableName, List<String> parts)
             throws NoSuchObjectException
     {
         return get(partitionFilterCache, PartitionFilter.partitionFilter(databaseName, tableName, parts), NoSuchObjectException.class);
@@ -330,10 +329,11 @@ public class CachingHiveMetastore
     /**
      * Note: the returned partitions may not be in the same order as the specified partition names.
      */
-    public List<Partition> getPartitionsByNames(Table table, final String databaseName, final String tableName, List<String> partitionNames)
+    public List<Partition> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames)
             throws NoSuchObjectException
     {
-        return ImmutableList.copyOf(getAll(partitionCache, transform(partitionNames, partitionNameCreator(databaseName, tableName)), NoSuchObjectException.class).values());
+        Iterable<HivePartitionName> names = transform(partitionNames, partitionNameCreator(databaseName, tableName));
+        return ImmutableList.copyOf(getAll(partitionCache, names, NoSuchObjectException.class).values());
     }
 
     private Partition loadPartitionByName(final HivePartitionName partitionName)
@@ -397,6 +397,7 @@ public class CachingHiveMetastore
     {
         return new Function<String, HivePartitionName>()
         {
+            @SuppressWarnings("ClassEscapesDefinedScope")
             @Override
             public HivePartitionName apply(String partitionName)
             {

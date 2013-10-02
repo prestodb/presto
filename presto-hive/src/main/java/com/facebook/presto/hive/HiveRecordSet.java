@@ -51,6 +51,7 @@ import static com.facebook.presto.hive.HiveColumnHandle.nativeTypeGetter;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
 import static com.facebook.presto.hive.HiveUtil.getInputFormatName;
 import static com.facebook.presto.hive.RetryDriver.retry;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
@@ -66,14 +67,14 @@ public class HiveRecordSet
     private final HiveSplit split;
     private final List<HiveColumnHandle> columns;
     private final List<ColumnType> columnTypes;
-    private final ArrayList<Integer> readHiveColumnIndexes;
+    private final List<Integer> readHiveColumnIndexes;
     private final Configuration configuration;
     private final Path wrappedPath;
 
     public HiveRecordSet(HdfsEnvironment hdfsEnvironment, HiveSplit split, List<HiveColumnHandle> columns)
     {
-        this.split = split;
-        this.columns = columns;
+        this.split = checkNotNull(split, "split is null");
+        this.columns = ImmutableList.copyOf(checkNotNull(columns, "columns is null"));
         this.columnTypes = ImmutableList.copyOf(Iterables.transform(columns, nativeTypeGetter()));
 
         // determine which hive columns we will read
@@ -116,24 +117,38 @@ public class HiveRecordSet
             ColumnProjectionUtils.setReadColumnIDs(configuration, readHiveColumnIndexes);
 
             RecordReader<?, ?> recordReader = createRecordReader(split, configuration, wrappedPath);
+
             if (recordReader.createValue() instanceof BytesRefArrayWritable) {
-                return new BytesHiveRecordCursor<>((RecordReader<?, BytesRefArrayWritable>) recordReader,
+                return new BytesHiveRecordCursor<>(
+                        bytesRecordReader(recordReader),
                         split.getLength(),
                         split.getSchema(),
                         split.getPartitionKeys(),
                         columns);
             }
-            else {
-                return new GenericHiveRecordCursor<>((RecordReader<?, ? extends Writable>) recordReader,
-                        split.getLength(),
-                        split.getSchema(),
-                        split.getPartitionKeys(),
-                        columns);
-            }
+
+            return new GenericHiveRecordCursor<>(
+                    genericRecordReader(recordReader),
+                    split.getLength(),
+                    split.getSchema(),
+                    split.getPartitionKeys(),
+                    columns);
         }
         catch (Exception e) {
             throw Throwables.propagate(e);
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static RecordReader<?, BytesRefArrayWritable> bytesRecordReader(RecordReader<?, ?> recordReader)
+    {
+        return (RecordReader<?, BytesRefArrayWritable>) recordReader;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static RecordReader<?, ? extends Writable> genericRecordReader(RecordReader<?, ?> recordReader)
+    {
+        return (RecordReader<?, ? extends Writable>) recordReader;
     }
 
     private static HiveColumnHandle getFirstPrimitiveColumn(String clientId, Properties schema)
@@ -159,7 +174,7 @@ public class HiveRecordSet
         throw new IllegalStateException("Table doesn't have any PRIMITIVE columns");
     }
 
-    private static RecordReader<?, ?> createRecordReader(final HiveSplit split, Configuration configuration, Path wrappedPath)
+    private static RecordReader<?, ?> createRecordReader(HiveSplit split, Configuration configuration, Path wrappedPath)
     {
         final InputFormat<?, ?> inputFormat = getInputFormat(configuration, split.getSchema(), true);
         final JobConf jobConf = new JobConf(configuration);

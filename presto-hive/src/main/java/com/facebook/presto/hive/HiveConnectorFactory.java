@@ -70,7 +70,7 @@ public class HiveConnectorFactory
     {
         checkNotNull(config, "config is null");
 
-        try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             Bootstrap app = new Bootstrap(
                     new NodeModule(),
                     new DiscoveryModule(),

@@ -29,7 +29,10 @@ public class HiveTableHandle
     private final String tableName;
 
     @JsonCreator
-    public HiveTableHandle(@JsonProperty("clientId") String clientId, @JsonProperty("schemaName") String schemaName, @JsonProperty("tableName") String tableName)
+    public HiveTableHandle(
+            @JsonProperty("clientId") String clientId,
+            @JsonProperty("schemaName") String schemaName,
+            @JsonProperty("tableName") String tableName)
     {
         this.clientId = checkNotNull(clientId, "clientId is null");
         this.schemaName = checkNotNull(schemaName, "schemaName is null");
@@ -74,7 +77,7 @@ public class HiveTableHandle
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final HiveTableHandle other = (HiveTableHandle) obj;
+        HiveTableHandle other = (HiveTableHandle) obj;
         return Objects.equal(this.clientId, other.clientId) &&
                 Objects.equal(this.schemaName, other.schemaName) &&
                 Objects.equal(this.tableName, other.tableName);
