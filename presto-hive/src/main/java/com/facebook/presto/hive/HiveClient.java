@@ -213,7 +213,7 @@ public class HiveClient
         }
     }
 
-    private SchemaTableName getTableName(TableHandle tableHandle)
+    private static SchemaTableName getTableName(TableHandle tableHandle)
     {
         checkArgument(tableHandle instanceof HiveTableHandle, "tableHandle is not an instance of HiveTableHandle");
         return ((HiveTableHandle) tableHandle).getSchemaTableName();
@@ -232,7 +232,6 @@ public class HiveClient
         try {
             Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
             List<ColumnMetadata> columns = ImmutableList.copyOf(transform(getColumnHandles(table), columnMetadataGetter()));
-
             return new TableMetadata(tableName, columns);
         }
         catch (NoSuchObjectException e) {
@@ -243,37 +242,26 @@ public class HiveClient
     @Override
     public List<SchemaTableName> listTables(String schemaNameOrNull)
     {
-        List<String> schemaNames;
-        if (schemaNameOrNull == null) {
-            schemaNames = listSchemaNames();
-        }
-        else {
-            schemaNames = Collections.singletonList(schemaNameOrNull);
-        }
-
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
-        for (String schemaName : schemaNames) {
+        for (String schemaName : listSchemas(schemaNameOrNull)) {
             try {
                 for (String tableName : metastore.getAllTables(schemaName)) {
                     tableNames.add(new SchemaTableName(schemaName, tableName));
                 }
             }
             catch (NoSuchObjectException e) {
+                // schema disappeared during listing operation
             }
         }
         return tableNames.build();
     }
 
-    private List<SchemaTableName> listTables(SchemaTablePrefix prefix)
+    private List<String> listSchemas(String schemaNameOrNull)
     {
-        List<SchemaTableName> tableNames;
-        if (prefix.getSchemaName() == null) {
-            tableNames = listTables(prefix.getSchemaName());
+        if (schemaNameOrNull == null) {
+            return listSchemaNames();
         }
-        else {
-            tableNames = Collections.singletonList(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
-        }
-        return tableNames;
+        return ImmutableList.of(schemaNameOrNull);
     }
 
     @Override
@@ -351,6 +339,14 @@ public class HiveClient
             }
         }
         return columns.build();
+    }
+
+    private List<SchemaTableName> listTables(SchemaTablePrefix prefix)
+    {
+        if (prefix.getSchemaName() == null) {
+            return listTables(prefix.getSchemaName());
+        }
+        return ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
     }
 
     @Override
