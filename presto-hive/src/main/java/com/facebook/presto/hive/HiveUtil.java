@@ -46,27 +46,31 @@ final class HiveUtil
     {
     }
 
-    static InputFormat getInputFormat(Configuration configuration, Properties schema, boolean symlinkTarget)
+    static InputFormat<?, ?> getInputFormat(Configuration configuration, Properties schema, boolean symlinkTarget)
     {
         String inputFormatName = getInputFormatName(schema);
         try {
             JobConf jobConf = new JobConf(configuration);
 
-            // This code should be equivalent to jobConf.getInputFormat()
-            Class<? extends InputFormat> inputFormatClass = jobConf.getClassByName(inputFormatName).asSubclass(InputFormat.class);
-            if (inputFormatClass == null) {
-                // default file format in Hadoop is TextInputFormat
-                inputFormatClass = TextInputFormat.class;
-            }
-            else if (symlinkTarget && (inputFormatClass == SymlinkTextInputFormat.class)) {
+            Class<? extends InputFormat<?, ?>> inputFormatClass = getInputFormatClass(jobConf, inputFormatName);
+            if (symlinkTarget && (inputFormatClass == SymlinkTextInputFormat.class)) {
                 // symlink targets are always TextInputFormat
                 inputFormatClass = TextInputFormat.class;
             }
+
             return ReflectionUtils.newInstance(inputFormatClass, jobConf);
         }
         catch (Exception e) {
             throw new RuntimeException("Unable to create input format " + inputFormatName, e);
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Class<? extends InputFormat<?, ?>> getInputFormatClass(JobConf conf, String inputFormatName)
+            throws ClassNotFoundException
+    {
+        Class<?> clazz = conf.getClassByName(inputFormatName);
+        return (Class<? extends InputFormat<?, ?>>) clazz.asSubclass(InputFormat.class);
     }
 
     static String getInputFormatName(Properties schema)
