@@ -217,7 +217,7 @@ public abstract class AbstractTestAggregationFunction
      * <p/>
      * Fields 0 to "field - 1" are set to null
      */
-    private Block createCompositeTupleBlock(Block sequenceBlock, int field)
+    protected Block createCompositeTupleBlock(Block sequenceBlock, int field)
     {
         TupleInfo.Type[] types = new TupleInfo.Type[field + 1];
         Arrays.fill(types, TupleInfo.Type.VARIABLE_BINARY);
