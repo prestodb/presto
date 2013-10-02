@@ -46,14 +46,6 @@ public class UncompressedBlock
         this.positionCount = positionCount;
     }
 
-    public UncompressedBlock(UncompressedBlock block)
-    {
-        checkNotNull(block, "block is null");
-        this.positionCount = block.positionCount;
-        this.tupleInfo = block.tupleInfo;
-        this.slice = block.slice;
-    }
-
     public TupleInfo getTupleInfo()
     {
         return tupleInfo;
@@ -120,7 +112,7 @@ public class UncompressedBlock
             return new UncompressedBooleanBlock(positionCount, slice);
         }
         if (type == Type.FIXED_INT_64) {
-            return new UncompressedLongBlock(slice);
+            return new UncompressedLongBlock(positionCount, slice);
         }
         if (type == Type.DOUBLE) {
             return new UncompressedDoubleBlock(positionCount, slice);
