@@ -15,7 +15,7 @@ CREATE TABLE presto_test (
 )
 COMMENT 'Presto test data'
 PARTITIONED BY (ds STRING, file_format STRING, dummy INT)
-TBLPROPERTIES ('RETENTION'='-1', 'RETENTION_PLATINUM'='-1')
+TBLPROPERTIES ('RETENTION'='-1')
 ;
 
 CREATE TABLE presto_test_unpartitioned (
@@ -23,7 +23,7 @@ CREATE TABLE presto_test_unpartitioned (
   t_tinyint TINYINT
 )
 COMMENT 'Presto test data'
-TBLPROPERTIES ('RETENTION'='-1', 'RETENTION_PLATINUM'='-1')
+TBLPROPERTIES ('RETENTION'='-1')
 ;
 
 CREATE TABLE presto_test_offline (
@@ -31,7 +31,7 @@ CREATE TABLE presto_test_offline (
 )
 COMMENT 'Presto test data'
 PARTITIONED BY (ds STRING)
-TBLPROPERTIES ('RETENTION'='-1', 'RETENTION_PLATINUM'='-1', 'PROTECT_MODE'='OFFLINE')
+TBLPROPERTIES ('RETENTION'='-1', 'PROTECT_MODE'='OFFLINE')
 ;
 
 CREATE TABLE presto_test_offline_partition (
@@ -39,12 +39,12 @@ CREATE TABLE presto_test_offline_partition (
 )
 COMMENT 'Presto test data'
 PARTITIONED BY (ds STRING)
-TBLPROPERTIES ('RETENTION'='-1', 'RETENTION_PLATINUM'='-1')
+TBLPROPERTIES ('RETENTION'='-1')
 ;
 
 CREATE VIEW presto_test_view
 COMMENT 'Presto test view'
-TBLPROPERTIES ('RETENTION'='-1', 'RETENTION_PLATINUM'='-1')
+TBLPROPERTIES ('RETENTION'='-1')
 AS SELECT * FROM presto_test_unpartitioned
 ;
 
