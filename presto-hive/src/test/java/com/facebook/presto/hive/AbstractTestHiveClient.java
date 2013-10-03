@@ -152,7 +152,7 @@ public abstract class AbstractTestHiveClient
     public void testGetPartitions()
             throws Exception
     {
-        TableHandle tableHandle = metadata.getTableHandle(table);
+        TableHandle tableHandle = getTableHandle(table);
         List<Partition> partitions = splitManager.getPartitions(tableHandle, ImmutableMap.<ColumnHandle, Object>of());
         assertExpectedPartitions(partitions);
     }
@@ -168,7 +168,7 @@ public abstract class AbstractTestHiveClient
     public void testGetPartitionNames()
             throws Exception
     {
-        TableHandle tableHandle = metadata.getTableHandle(table);
+        TableHandle tableHandle = getTableHandle(table);
         List<Partition> partitions = splitManager.getPartitions(tableHandle, ImmutableMap.<ColumnHandle, Object>of());
         assertExpectedPartitions(partitions);
     }
@@ -189,7 +189,7 @@ public abstract class AbstractTestHiveClient
     public void testGetPartitionNamesUnpartitioned()
             throws Exception
     {
-        TableHandle tableHandle = metadata.getTableHandle(tableUnpartitioned);
+        TableHandle tableHandle = getTableHandle(tableUnpartitioned);
         List<Partition> partitions = splitManager.getPartitions(tableHandle, ImmutableMap.<ColumnHandle, Object>of());
         assertEquals(partitions.size(), 1);
         assertEquals(partitions, unpartitionedPartitions);
@@ -207,7 +207,7 @@ public abstract class AbstractTestHiveClient
     public void testGetTableSchema()
             throws Exception
     {
-        TableMetadata tableMetadata = metadata.getTableMetadata(metadata.getTableHandle(table));
+        TableMetadata tableMetadata = metadata.getTableMetadata(getTableHandle(table));
         Map<String, ColumnMetadata> map = uniqueIndex(tableMetadata.getColumns(), columnNameGetter());
 
         int i = 0;
@@ -233,7 +233,7 @@ public abstract class AbstractTestHiveClient
     public void testGetTableSchemaUnpartitioned()
             throws Exception
     {
-        TableHandle tableHandle = metadata.getTableHandle(tableUnpartitioned);
+        TableHandle tableHandle = getTableHandle(tableUnpartitioned);
         TableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
         Map<String, ColumnMetadata> map = uniqueIndex(tableMetadata.getColumns(), columnNameGetter());
 
@@ -245,7 +245,7 @@ public abstract class AbstractTestHiveClient
     public void testGetTableSchemaOffline()
             throws Exception
     {
-        TableHandle tableHandle = metadata.getTableHandle(tableOffline);
+        TableHandle tableHandle = getTableHandle(tableOffline);
         TableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
         Map<String, ColumnMetadata> map = uniqueIndex(tableMetadata.getColumns(), columnNameGetter());
 
@@ -256,7 +256,7 @@ public abstract class AbstractTestHiveClient
     public void testGetTableSchemaOfflinePartition()
             throws Exception
     {
-        TableHandle tableHandle = metadata.getTableHandle(tableOfflinePartition);
+        TableHandle tableHandle = getTableHandle(tableOfflinePartition);
         TableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
         Map<String, ColumnMetadata> map = uniqueIndex(tableMetadata.getColumns(), columnNameGetter());
 
@@ -274,7 +274,7 @@ public abstract class AbstractTestHiveClient
     public void testGetPartitionSplitsBatch()
             throws Exception
     {
-        TableHandle tableHandle = metadata.getTableHandle(table);
+        TableHandle tableHandle = getTableHandle(table);
         List<Partition> partitions = splitManager.getPartitions(tableHandle, ImmutableMap.<ColumnHandle, Object>of());
         Iterable<Split> iterator = splitManager.getPartitionSplits(tableHandle, partitions);
 
@@ -286,7 +286,7 @@ public abstract class AbstractTestHiveClient
     public void testGetPartitionSplitsBatchUnpartitioned()
             throws Exception
     {
-        TableHandle tableHandle = metadata.getTableHandle(tableUnpartitioned);
+        TableHandle tableHandle = getTableHandle(tableUnpartitioned);
         List<Partition> partitions = splitManager.getPartitions(tableHandle, ImmutableMap.<ColumnHandle, Object>of());
         Iterable<Split> iterator = splitManager.getPartitionSplits(tableHandle, partitions);
 
@@ -314,7 +314,7 @@ public abstract class AbstractTestHiveClient
     public void testGetPartitionTableOffline()
             throws Exception
     {
-        TableHandle tableHandle = metadata.getTableHandle(tableOffline);
+        TableHandle tableHandle = getTableHandle(tableOffline);
         try {
             splitManager.getPartitions(tableHandle, ImmutableMap.<ColumnHandle, Object>of());
             fail("expected TableOfflineException");
@@ -328,7 +328,7 @@ public abstract class AbstractTestHiveClient
     public void testGetPartitionSplitsTableOfflinePartition()
             throws Exception
     {
-        TableHandle tableHandle = metadata.getTableHandle(tableOfflinePartition);
+        TableHandle tableHandle = getTableHandle(tableOfflinePartition);
         assertNotNull(tableHandle);
 
         ColumnHandle dsColumn = metadata.getColumnHandle(tableHandle, "ds");
@@ -356,7 +356,7 @@ public abstract class AbstractTestHiveClient
     public void testGetRecords()
             throws Exception
     {
-        TableHandle tableHandle = metadata.getTableHandle(table);
+        TableHandle tableHandle = getTableHandle(table);
         TableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
         List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
@@ -475,7 +475,7 @@ public abstract class AbstractTestHiveClient
     public void testGetPartialRecords()
             throws Exception
     {
-        TableHandle tableHandle = metadata.getTableHandle(table);
+        TableHandle tableHandle = getTableHandle(table);
         List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
@@ -511,7 +511,7 @@ public abstract class AbstractTestHiveClient
     public void testGetRecordsUnpartitioned()
             throws Exception
     {
-        TableHandle tableHandle = metadata.getTableHandle(tableUnpartitioned);
+        TableHandle tableHandle = getTableHandle(tableUnpartitioned);
         List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
@@ -549,7 +549,7 @@ public abstract class AbstractTestHiveClient
     public void testGetRecordsInvalidColumn()
             throws Exception
     {
-        TableHandle table = metadata.getTableHandle(tableUnpartitioned);
+        TableHandle table = getTableHandle(tableUnpartitioned);
         List<Partition> partitions = splitManager.getPartitions(table, ImmutableMap.<ColumnHandle, Object>of());
         Split split = Iterables.getFirst(splitManager.getPartitionSplits(table, partitions), null);
         RecordSet recordSet = recordSetProvider.getRecordSet(split, ImmutableList.of(invalidColumnHandle));
@@ -561,12 +561,19 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         try {
-            metadata.getTableHandle(view);
+            getTableHandle(view);
             fail("Expected HiveViewNotSupportedException");
         }
         catch (HiveViewNotSupportedException e) {
             assertEquals(e.getTableName(), view);
         }
+    }
+
+    private TableHandle getTableHandle(SchemaTableName tableName)
+    {
+        TableHandle handle = metadata.getTableHandle(tableName);
+        checkArgument(handle != null, "table not found: %s", tableName);
+        return handle;
     }
 
     private static long getBaseValueForFileType(String fileType)
