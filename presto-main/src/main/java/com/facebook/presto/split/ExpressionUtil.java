@@ -15,6 +15,7 @@ package com.facebook.presto.split;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
@@ -57,7 +58,9 @@ public final class ExpressionUtil
                         matchesPattern(ComparisonExpression.Type.EQUAL, QualifiedNameReference.class, LongLiteral.class),
                         matchesPattern(ComparisonExpression.Type.EQUAL, LongLiteral.class, QualifiedNameReference.class),
                         matchesPattern(ComparisonExpression.Type.EQUAL, QualifiedNameReference.class, DoubleLiteral.class),
-                        matchesPattern(ComparisonExpression.Type.EQUAL, DoubleLiteral.class, QualifiedNameReference.class)))
+                        matchesPattern(ComparisonExpression.Type.EQUAL, DoubleLiteral.class, QualifiedNameReference.class),
+                        matchesPattern(ComparisonExpression.Type.EQUAL, QualifiedNameReference.class, BooleanLiteral.class),
+                        matchesPattern(ComparisonExpression.Type.EQUAL, BooleanLiteral.class, QualifiedNameReference.class)))
                 .set();
 
         final Map<ColumnHandle, Object> bindings = new HashMap<>();
@@ -79,6 +82,9 @@ public final class ExpressionUtil
                 }
                 else if (literal instanceof StringLiteral) {
                     value = ((StringLiteral) literal).getValue();
+                }
+                else if (literal instanceof BooleanLiteral) {
+                    value = ((BooleanLiteral) literal).getValue();
                 }
                 else {
                     throw new AssertionError(String.format("Literal type (%s) not currently handled", literal.getClass().getName()));
