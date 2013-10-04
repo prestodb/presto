@@ -169,12 +169,12 @@ public class WindowOperator
         if (state == State.NEEDS_INPUT) {
             state = State.HAS_OUTPUT;
 
-            // sort by partition channels, then sort channels
-            int[] orderChannels = Ints.concat(partitionChannels, sortChannels);
-
+            // we partition by ordering the tuples so partitions are sequential tuples
             SortOrder[] partitionOrder = new SortOrder[partitionChannels.length];
             Arrays.fill(partitionOrder, ASC_NULLS_LAST);
 
+            // sort everything by partition channels, then sort channels
+            int[] orderChannels = Ints.concat(partitionChannels, sortChannels);
             SortOrder[] ordering = ObjectArrays.concat(partitionOrder, sortOrder, SortOrder.class);
 
             // sort the index
