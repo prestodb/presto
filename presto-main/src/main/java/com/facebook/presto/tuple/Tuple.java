@@ -52,36 +52,36 @@ public class Tuple
     @Override
     public boolean getBoolean()
     {
-        return tupleInfo.getBoolean(slice);
+        return tupleInfo.getBoolean(slice, 0);
     }
 
     @Override
     public long getLong()
     {
-        return tupleInfo.getLong(slice);
+        return tupleInfo.getLong(slice, 0);
     }
 
     @Override
     public double getDouble()
     {
-        return tupleInfo.getDouble(slice);
+        return tupleInfo.getDouble(slice, 0);
     }
 
     @Override
     public Slice getSlice()
     {
-        return tupleInfo.getSlice(slice);
+        return tupleInfo.getSlice(slice, 0);
     }
 
     @Override
     public boolean isNull()
     {
-        return tupleInfo.isNull(slice);
+        return tupleInfo.isNull(slice, 0);
     }
 
     public int size()
     {
-        return tupleInfo.size(slice);
+        return tupleInfo.size(slice, 0);
     }
 
     public void writeTo(SliceOutput out)
