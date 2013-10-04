@@ -56,18 +56,18 @@ options {
 
 
 statement returns [Statement value]
-    : query           { $value = $query.value; }
-    | explain         { $value = $explain.value; }
-    | showTables      { $value = $showTables.value; }
-    | showSchemas     { $value = $showSchemas.value; }
-    | showColumns     { $value = $showColumns.value; }
-    | showPartitions  { $value = $showPartitions.value; }
-    | showFunctions   { $value = $showFunctions.value; }
-    | createMaterializedView { $value = $createMaterializedView.value; }
-    | refreshMaterializedView { $value = $refreshMaterializedView.value; }
-    | createAlias     { $value = $createAlias.value; }
-    | dropAlias     { $value = $dropAlias.value; }
-    | dropTable       { $value = $dropTable.value; }
+    : query                     { $value = $query.value; }
+    | explain                   { $value = $explain.value; }
+    | showTables                { $value = $showTables.value; }
+    | showSchemas               { $value = $showSchemas.value; }
+    | showColumns               { $value = $showColumns.value; }
+    | showPartitions            { $value = $showPartitions.value; }
+    | showFunctions             { $value = $showFunctions.value; }
+    | createMaterializedView    { $value = $createMaterializedView.value; }
+    | refreshMaterializedView   { $value = $refreshMaterializedView.value; }
+    | createAlias               { $value = $createAlias.value; }
+    | dropAlias                 { $value = $dropAlias.value; }
+    | dropTable                 { $value = $dropTable.value; }
     ;
 
 query returns [Query value]
