@@ -22,8 +22,8 @@ import java.util.List;
 
 import static com.google.common.collect.Maps.immutableEntry;
 import static java.util.Map.Entry;
-import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaDoubleObjectInspector;
-import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaFloatObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaBooleanObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaLongObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -31,17 +31,17 @@ import static org.testng.Assert.assertTrue;
 public class TestHiveBucketing
 {
     @Test
-    public void testHashingDouble()
+    public void testHashingBooleanLong()
             throws Exception
     {
         List<Entry<ObjectInspector, Object>> bindings = ImmutableList.<Entry<ObjectInspector, Object>>builder()
-                .add(entry(javaDoubleObjectInspector, 492.2d))
-                .add(entry(javaFloatObjectInspector, 491.1000061035156d))
+                .add(entry(javaBooleanObjectInspector, true))
+                .add(entry(javaLongObjectInspector, 123L))
                 .build();
 
         Optional<Integer> bucket = HiveBucketing.getBucketNumber(bindings, 32);
         assertTrue(bucket.isPresent());
-        assertEquals((int) bucket.get(), 13);
+        assertEquals((int) bucket.get(), 26);
     }
 
     @Test
