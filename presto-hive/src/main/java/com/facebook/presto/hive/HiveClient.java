@@ -30,6 +30,7 @@ import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
+import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;
@@ -41,18 +42,14 @@ import com.google.common.collect.Ordering;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
-import org.apache.hadoop.hive.metastore.MetaStoreUtils;
 import org.apache.hadoop.hive.metastore.ProtectMode;
 import org.apache.hadoop.hive.metastore.Warehouse;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
 import org.apache.hadoop.hive.metastore.api.Table;
-import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.SerDeException;
-import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
-import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -64,11 +61,13 @@ import java.util.Map.Entry;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.hive.HiveBucketing.getBucketNumber;
 import static com.facebook.presto.hive.HiveColumnHandle.columnMetadataGetter;
 import static com.facebook.presto.hive.HiveColumnHandle.hiveColumnHandle;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.HiveType.getHiveType;
 import static com.facebook.presto.hive.HiveType.getSupportedHiveType;
+import static com.facebook.presto.hive.HiveUtil.getTableStructFields;
 import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
 import static com.facebook.presto.hive.UnpartitionedPartition.UNPARTITIONED_PARTITION;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -254,16 +253,11 @@ public class HiveClient
     private List<HiveColumnHandle> getColumnHandles(Table table)
     {
         try {
-            Deserializer deserializer = MetaStoreUtils.getDeserializer(null, MetaStoreUtils.getTableMetadata(table));
-            ObjectInspector inspector = deserializer.getObjectInspector();
-            checkArgument(inspector.getCategory() == ObjectInspector.Category.STRUCT, "expected STRUCT: %s", inspector.getCategory());
-            StructObjectInspector structObjectInspector = (StructObjectInspector) inspector;
-
             ImmutableList.Builder<HiveColumnHandle> columns = ImmutableList.builder();
 
             // add the data fields first
             int hiveColumnIndex = 0;
-            for (StructField field : structObjectInspector.getAllStructFieldRefs()) {
+            for (StructField field : getTableStructFields(table)) {
                 // ignore unsupported types rather than failing
                 HiveType hiveType = getHiveType(field.getFieldObjectInspector());
                 if (hiveType != null) {
@@ -342,6 +336,8 @@ public class HiveClient
         SchemaTableName tableName = getTableName(tableHandle);
 
         List<FieldSchema> partitionKeys;
+        Optional<Integer> bucket;
+
         try {
             Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
 
@@ -351,6 +347,7 @@ public class HiveClient
             }
 
             partitionKeys = table.getPartitionKeys();
+            bucket = getBucketNumber(table, bindings);
         }
         catch (NoSuchObjectException e) {
             throw new TableNotFoundException(tableName);
@@ -393,7 +390,7 @@ public class HiveClient
         }
 
         // do a final pass to filter based on fields that could not be used to build the prefix
-        Iterable<Partition> partitions = transform(partitionNames, toPartition(tableName, partitionKeysByName.build()));
+        Iterable<Partition> partitions = transform(partitionNames, toPartition(tableName, partitionKeysByName.build(), bucket));
         return ImmutableList.copyOf(Iterables.filter(partitions, partitionMatches(bindings)));
     }
 
@@ -408,6 +405,7 @@ public class HiveClient
         }
         checkArgument(partition instanceof HivePartition, "Partition must be a hive partition");
         SchemaTableName tableName = ((HivePartition) partition).getTableName();
+        Optional<Integer> bucketNumber = ((HivePartition) partition).getBucket();
 
         List<String> partitionNames = new ArrayList<>(Lists.transform(partitions, HiveUtil.partitionIdGetter()));
         Collections.sort(partitionNames, Ordering.natural().reverse());
@@ -426,6 +424,7 @@ public class HiveClient
                 table,
                 partitionNames,
                 hivePartitions,
+                bucketNumber,
                 maxSplitSize,
                 maxOutstandingSplits,
                 maxSplitIteratorThreads,
@@ -540,7 +539,10 @@ public class HiveClient
                 .toString();
     }
 
-    private static Function<String, Partition> toPartition(final SchemaTableName tableName, final Map<String, ColumnHandle> columnsByName)
+    private static Function<String, Partition> toPartition(
+            final SchemaTableName tableName,
+            final Map<String, ColumnHandle> columnsByName,
+            final Optional<Integer> bucket)
     {
         return new Function<String, Partition>()
         {
@@ -595,7 +597,7 @@ public class HiveClient
                         }
                     }
 
-                    return new HivePartition(tableName, partitionId, builder.build());
+                    return new HivePartition(tableName, partitionId, builder.build(), bucket);
                 }
                 catch (MetaException e) {
                     // invalid partition id

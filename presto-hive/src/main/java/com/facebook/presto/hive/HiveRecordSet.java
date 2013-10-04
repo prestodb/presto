@@ -22,14 +22,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.metastore.MetaStoreUtils;
 import org.apache.hadoop.hive.serde2.ColumnProjectionUtils;
-import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.columnar.BytesRefArrayWritable;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
-import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.InputFormat;
@@ -48,6 +45,7 @@ import static com.facebook.presto.hive.HiveColumnHandle.isPartitionKeyPredicate;
 import static com.facebook.presto.hive.HiveColumnHandle.nativeTypeGetter;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
 import static com.facebook.presto.hive.HiveUtil.getInputFormatName;
+import static com.facebook.presto.hive.HiveUtil.getTableObjectInspector;
 import static com.facebook.presto.hive.RetryDriver.retry;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -145,11 +143,8 @@ public class HiveRecordSet
     private static HiveColumnHandle getFirstPrimitiveColumn(String clientId, Properties schema)
     {
         try {
-            Deserializer deserializer = MetaStoreUtils.getDeserializer(null, schema);
-            StructObjectInspector rowInspector = (StructObjectInspector) deserializer.getObjectInspector();
-
             int index = 0;
-            for (StructField field : rowInspector.getAllStructFieldRefs()) {
+            for (StructField field : getTableObjectInspector(schema).getAllStructFieldRefs()) {
                 if (field.getFieldObjectInspector().getCategory() == ObjectInspector.Category.PRIMITIVE) {
                     PrimitiveObjectInspector inspector = (PrimitiveObjectInspector) field.getFieldObjectInspector();
                     HiveType hiveType = HiveType.getSupportedHiveType(inspector.getPrimitiveCategory());
