@@ -193,7 +193,7 @@ public class BlockBuilder
 
     public UncompressedBlock build()
     {
-        return new UncompressedBlock(positionCount, tupleInfo, sliceOutput.slice());
+        return new UncompressedBlock(positionCount, tupleInfo, sliceOutput.getUnderlyingSlice());
     }
 
     @Override
