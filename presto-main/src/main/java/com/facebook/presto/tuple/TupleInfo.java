@@ -173,11 +173,6 @@ public class TupleInfo
         return type.getSize() + 1;
     }
 
-    public int size(Slice slice)
-    {
-        return size(slice, 0);
-    }
-
     public int size(Slice slice, int offset)
     {
         if (type.isFixedSize()) {
@@ -206,21 +201,11 @@ public class TupleInfo
         return tupleSize;
     }
 
-    public boolean getBoolean(Slice slice)
-    {
-        return getBoolean(slice, 0);
-    }
-
     public boolean getBoolean(Slice slice, int offset)
     {
         checkState(type == BOOLEAN, "Expected BOOLEAN, but is %s", type);
 
         return slice.getByte(offset + SIZE_OF_BYTE) != 0;
-    }
-
-    public void setBoolean(Slice slice, boolean value)
-    {
-        setBoolean(slice, 0, value);
     }
 
     /**
@@ -235,21 +220,11 @@ public class TupleInfo
         slice.setByte(offset + SIZE_OF_BYTE, value ? 1 : 0);
     }
 
-    public long getLong(Slice slice)
-    {
-        return getLong(slice, 0);
-    }
-
     public long getLong(Slice slice, int offset)
     {
         checkState(type == FIXED_INT_64, "Expected FIXED_INT_64, but is %s", type);
 
         return slice.getLong(offset + SIZE_OF_BYTE);
-    }
-
-    public void setLong(Slice slice, long value)
-    {
-        setLong(slice, 0, value);
     }
 
     /**
@@ -264,21 +239,11 @@ public class TupleInfo
         slice.setLong(offset + SIZE_OF_BYTE, value);
     }
 
-    public double getDouble(Slice slice)
-    {
-        return getDouble(slice, 0);
-    }
-
     public double getDouble(Slice slice, int offset)
     {
         checkState(type == DOUBLE, "Expected DOUBLE, but is %s", type);
 
         return slice.getDouble(offset + SIZE_OF_BYTE);
-    }
-
-    public void setDouble(Slice slice, double value)
-    {
-        setDouble(slice, 0, value);
     }
 
     /**
@@ -293,22 +258,12 @@ public class TupleInfo
         slice.setDouble(offset + SIZE_OF_BYTE, value);
     }
 
-    public Slice getSlice(Slice slice)
-    {
-        return getSlice(slice, 0);
-    }
-
     public Slice getSlice(Slice slice, int offset)
     {
         checkState(type == VARIABLE_BINARY, "Expected VARIABLE_BINARY, but is %s", type);
 
         int size = slice.getInt(offset + SIZE_OF_BYTE);
         return slice.slice(offset + SIZE_OF_INT + SIZE_OF_BYTE, size - SIZE_OF_INT - SIZE_OF_BYTE);
-    }
-
-    public boolean isNull(Slice slice)
-    {
-        return isNull(slice, 0);
     }
 
     public boolean isNull(Slice slice, int offset)
@@ -324,11 +279,6 @@ public class TupleInfo
     public void setNull(Slice slice, int offset)
     {
         slice.setByte(offset, 1);
-    }
-
-    public void setNotNull(Slice slice)
-    {
-        setNotNull(slice, 0);
     }
 
     /**
