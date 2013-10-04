@@ -62,27 +62,27 @@ public class Dictionary
 
     public boolean getBoolean(int dictionaryKey)
     {
-        return tupleInfo.getBoolean(getTupleSlice(dictionaryKey));
+        return tupleInfo.getBoolean(getTupleSlice(dictionaryKey), 0);
     }
 
     public long getLong(int dictionaryKey)
     {
-        return tupleInfo.getLong(getTupleSlice(dictionaryKey));
+        return tupleInfo.getLong(getTupleSlice(dictionaryKey), 0);
     }
 
     public double getDouble(int dictionaryKey)
     {
-        return tupleInfo.getDouble(getTupleSlice(dictionaryKey));
+        return tupleInfo.getDouble(getTupleSlice(dictionaryKey), 0);
     }
 
     public Slice getSlice(int dictionaryKey)
     {
-        return tupleInfo.getSlice(getTupleSlice(dictionaryKey));
+        return tupleInfo.getSlice(getTupleSlice(dictionaryKey), 0);
     }
 
     public boolean isNull(int dictionaryKey)
     {
-        return tupleInfo.isNull(getTupleSlice(dictionaryKey));
+        return tupleInfo.isNull(getTupleSlice(dictionaryKey), 0);
     }
 
     public boolean tupleEquals(int dictionaryKey, Tuple value)
