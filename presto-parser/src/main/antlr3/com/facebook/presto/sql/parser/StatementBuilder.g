@@ -63,6 +63,7 @@ statement returns [Statement value]
     | showColumns               { $value = $showColumns.value; }
     | showPartitions            { $value = $showPartitions.value; }
     | showFunctions             { $value = $showFunctions.value; }
+    | createTable               { $value = $createTable.value; }
     | createMaterializedView    { $value = $createMaterializedView.value; }
     | refreshMaterializedView   { $value = $refreshMaterializedView.value; }
     | createAlias               { $value = $createAlias.value; }
@@ -501,6 +502,10 @@ showPartitions returns [Statement value]
 
 showFunctions returns [Statement value]
     : SHOW_FUNCTIONS { $value = new ShowFunctions(); }
+    ;
+
+createTable returns [Statement value]
+    : ^(CREATE_TABLE qname query) { $value = new CreateTable($qname.value, $query.value); }
     ;
 
 createMaterializedView returns [Statement value]

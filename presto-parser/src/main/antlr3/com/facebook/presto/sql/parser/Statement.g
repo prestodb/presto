@@ -593,7 +593,11 @@ forRemote
     ;
 
 createTableStmt
-    : CREATE TABLE qname tableElementList -> ^(CREATE_TABLE qname tableElementList)
+    : CREATE TABLE qname s=tableContentsSource -> ^(CREATE_TABLE qname $s)
+    ;
+
+tableContentsSource
+    : AS query -> query
     ;
 
 tableElementList
