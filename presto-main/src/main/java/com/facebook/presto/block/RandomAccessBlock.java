@@ -48,10 +48,6 @@ public interface RandomAccessBlock
      */
     Slice getSlice(int position);
 
-    int sliceCompareTo(int leftPosition, Slice rightSlice, int rightOffset, int rightLength);
-
-    boolean sliceEquals(int leftPosition, Slice rightSlice, int rightOffset, int rightLength);
-
     /**
      * Is the specified position null.
      *

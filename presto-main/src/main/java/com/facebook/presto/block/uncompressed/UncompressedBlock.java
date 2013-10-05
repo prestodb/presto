@@ -17,6 +17,7 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.serde.UncompressedBlockEncoding;
+import com.facebook.presto.tuple.FixedWidthTypeInfo;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.base.Objects;
@@ -51,7 +52,7 @@ public class UncompressedBlock
         return tupleInfo;
     }
 
-    public Slice getSlice()
+    public Slice getRawSlice()
     {
         return slice;
     }
@@ -76,14 +77,8 @@ public class UncompressedBlock
     public BlockCursor cursor()
     {
         Type type = tupleInfo.getType();
-        if (type == Type.BOOLEAN) {
-            return new UncompressedBooleanBlockCursor(positionCount, slice);
-        }
-        else if (type == Type.FIXED_INT_64) {
-            return new UncompressedLongBlockCursor(positionCount, slice);
-        }
-        else if (type == Type.DOUBLE) {
-            return new UncompressedDoubleBlockCursor(positionCount, slice);
+        if (type == Type.BOOLEAN || type == Type.FIXED_INT_64 || type == Type.DOUBLE) {
+            return new FixedWidthBlockCursor(new FixedWidthTypeInfo(type), positionCount, slice);
         }
         else if (type == Type.VARIABLE_BINARY) {
             return new UncompressedSliceBlockCursor(positionCount, slice);
@@ -108,14 +103,8 @@ public class UncompressedBlock
     public RandomAccessBlock toRandomAccessBlock()
     {
         Type type = tupleInfo.getType();
-        if (type == Type.BOOLEAN) {
-            return new UncompressedBooleanBlock(positionCount, slice);
-        }
-        if (type == Type.FIXED_INT_64) {
-            return new UncompressedLongBlock(positionCount, slice);
-        }
-        if (type == Type.DOUBLE) {
-            return new UncompressedDoubleBlock(positionCount, slice);
+        if (type == Type.BOOLEAN || type == Type.FIXED_INT_64 || type == Type.DOUBLE) {
+            return new FixedWidthBlock(new FixedWidthTypeInfo(type), positionCount, slice);
         }
         if (type == Type.VARIABLE_BINARY) {
             return new UncompressedSliceBlock(this);

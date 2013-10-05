@@ -56,8 +56,8 @@ public class TestTupleInfo
     /**
      * The following classes depend on this exact memory layout
      *
-     * @see com.facebook.presto.block.uncompressed.UncompressedBooleanBlockCursor
-     * @see com.facebook.presto.block.uncompressed.UncompressedBlock
+     * @see com.facebook.presto.block.uncompressed.FixedWidthBlockCursor
+     * @see com.facebook.presto.block.uncompressed.FixedWidthBlock
      */
     @Test
     public void testOnlySingleBooleanMemoryLayout()
@@ -101,8 +101,8 @@ public class TestTupleInfo
     /**
      * The following classes depend on this exact memory layout
      *
-     * @see com.facebook.presto.block.uncompressed.UncompressedBooleanBlockCursor
-     * @see com.facebook.presto.block.uncompressed.UncompressedBlock
+     * @see com.facebook.presto.block.uncompressed.FixedWidthBlockCursor
+     * @see com.facebook.presto.block.uncompressed.FixedWidthBlock
      */
     @Test
     public void testSingleBooleanLengthNullMemoryLayout()
@@ -135,8 +135,8 @@ public class TestTupleInfo
     /**
      * The following classes depend on this exact memory layout
      *
-     * @see com.facebook.presto.block.uncompressed.UncompressedLongBlockCursor
-     * @see com.facebook.presto.block.uncompressed.UncompressedBlock
+     * @see com.facebook.presto.block.uncompressed.FixedWidthBlockCursor
+     * @see com.facebook.presto.block.uncompressed.FixedWidthBlock
      */
     @Test
     public void testOnlySingleLongMemoryLayout()
@@ -211,8 +211,8 @@ public class TestTupleInfo
     /**
      * The following classes depend on this exact memory layout
      *
-     * @see com.facebook.presto.block.uncompressed.UncompressedDoubleBlockCursor
-     * @see com.facebook.presto.block.uncompressed.UncompressedBlock
+     * @see com.facebook.presto.block.uncompressed.FixedWidthBlockCursor
+     * @see com.facebook.presto.block.uncompressed.FixedWidthBlock
      */
     @Test
     public void testOnlySingleDoubleMemoryLayout()
@@ -246,8 +246,8 @@ public class TestTupleInfo
     /**
      * The following classes depend on this exact memory layout
      *
-     * @see com.facebook.presto.block.uncompressed.UncompressedDoubleBlockCursor
-     * @see com.facebook.presto.block.uncompressed.UncompressedBlock
+     * @see com.facebook.presto.block.uncompressed.FixedWidthBlockCursor
+     * @see com.facebook.presto.block.uncompressed.FixedWidthBlock
      */
     @Test
     public void testSingleDoubleLengthNullMemoryLayout()

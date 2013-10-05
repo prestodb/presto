@@ -47,11 +47,10 @@ public class UncompressedBlockEncoding
     @Override
     public void writeBlock(SliceOutput sliceOutput, Block block)
     {
-        UncompressedBlock uncompressedBlock = (UncompressedBlock) block;
         Preconditions.checkArgument(block.getTupleInfo().equals(tupleInfo), "Invalid tuple info");
         writeUncompressedBlock(sliceOutput,
-                uncompressedBlock.getPositionCount(),
-                uncompressedBlock.getSlice());
+                block.getPositionCount(),
+                block.getRawSlice());
     }
 
     @Override

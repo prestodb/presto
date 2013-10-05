@@ -20,6 +20,7 @@ import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.operator.SortOrder;
 import com.facebook.presto.serde.BlockEncoding;
 import com.facebook.presto.serde.UncompressedBlockEncoding;
+import com.facebook.presto.tuple.FixedWidthTypeInfo;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleReadable;
 import com.google.common.base.Objects;
@@ -32,30 +33,39 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkPositionIndexes;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
-import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
-import static java.lang.Double.doubleToLongBits;
 
-public class UncompressedDoubleBlock
+public class FixedWidthBlock
         implements RandomAccessBlock
 {
-    private static final int ENTRY_SIZE = SIZE_OF_DOUBLE + SIZE_OF_BYTE;
+    private final FixedWidthTypeInfo typeInfo;
+    private final int entrySize;
     private final Slice slice;
     private final int positionCount;
 
-    public UncompressedDoubleBlock(int positionCount, Slice slice)
+    public FixedWidthBlock(FixedWidthTypeInfo typeInfo, int positionCount, Slice slice)
     {
-        checkArgument(positionCount >= 0, "positionCount is negative");
-        checkNotNull(positionCount, "positionCount is null");
+        this.typeInfo = checkNotNull(typeInfo, "typeInfo is null");
+        this.entrySize = typeInfo.getSize() + SIZE_OF_BYTE;
 
+        checkArgument(positionCount >= 0, "positionCount is negative");
         this.positionCount = positionCount;
 
-        this.slice = slice;
+        this.slice = checkNotNull(slice, "slice is null");
+    }
+
+    public FixedWidthBlock(FixedWidthBlock block)
+    {
+        checkNotNull(block, "block is null");
+        typeInfo = block.typeInfo;
+        entrySize = block.entrySize;
+        slice = block.slice;
+        positionCount = block.positionCount;
     }
 
     @Override
     public TupleInfo getTupleInfo()
     {
-        return TupleInfo.SINGLE_DOUBLE;
+        return new TupleInfo(typeInfo.getType());
     }
 
     @Override
@@ -73,13 +83,13 @@ public class UncompressedDoubleBlock
     @Override
     public BlockCursor cursor()
     {
-        return new UncompressedDoubleBlockCursor(positionCount, slice);
+        return new FixedWidthBlockCursor(typeInfo, positionCount, slice);
     }
 
     @Override
     public BlockEncoding getEncoding()
     {
-        return new UncompressedBlockEncoding(TupleInfo.SINGLE_DOUBLE);
+        return new UncompressedBlockEncoding(new TupleInfo(typeInfo.getType()));
     }
 
     @Override
@@ -98,54 +108,50 @@ public class UncompressedDoubleBlock
     @Override
     public boolean getBoolean(int position)
     {
-        throw new UnsupportedOperationException();
+        checkReadablePosition(position);
+        return typeInfo.getBoolean(slice, (position * entrySize) + SIZE_OF_BYTE);
     }
 
     @Override
     public long getLong(int position)
     {
-        throw new UnsupportedOperationException();
+        checkReadablePosition(position);
+        return typeInfo.getLong(slice, (position * entrySize) + SIZE_OF_BYTE);
     }
 
     @Override
     public double getDouble(int position)
     {
         checkReadablePosition(position);
-        return slice.getDouble((position * ENTRY_SIZE) + SIZE_OF_BYTE);
+        return typeInfo.getDouble(slice, (position * entrySize) + SIZE_OF_BYTE);
     }
 
     @Override
     public Slice getSlice(int position)
     {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean sliceEquals(int rightPosition, Slice slice, int offset, int length)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public int sliceCompareTo(int leftPosition, Slice rightSlice, int rightOffset, int rightLength)
-    {
-        throw new UnsupportedOperationException();
+        checkReadablePosition(position);
+        return typeInfo.getSlice(slice, (position * entrySize) + SIZE_OF_BYTE);
     }
 
     @Override
     public boolean isNull(int position)
     {
         checkReadablePosition(position);
-        return slice.getByte((position * ENTRY_SIZE)) != 0;
+        return slice.getByte((position * entrySize)) != 0;
     }
 
     @Override
-    public boolean equals(int position, RandomAccessBlock right, int rightPosition)
+    public boolean equals(int position, RandomAccessBlock rightBlock, int rightPosition)
     {
+        FixedWidthBlock right = (FixedWidthBlock) rightBlock;
+
         checkReadablePosition(position);
-        int entryOffset = position * ENTRY_SIZE;
-        boolean leftIsNull = slice.getByte(entryOffset) != 0;
-        boolean rightIsNull = right.isNull(rightPosition);
+        int leftEntryOffset = position * entrySize;
+        boolean leftIsNull = slice.getByte(leftEntryOffset) != 0;
+
+        right.checkReadablePosition(rightPosition);
+        int rightEntryOffset = rightPosition * entrySize;
+        boolean rightIsNull = right.slice.getByte(rightEntryOffset) != 0;
 
         if (leftIsNull != rightIsNull) {
             return false;
@@ -155,14 +161,15 @@ public class UncompressedDoubleBlock
         if (leftIsNull) {
             return true;
         }
-        return slice.getDouble(entryOffset + SIZE_OF_BYTE) == right.getDouble(rightPosition);
+
+        return typeInfo.equals(slice, leftEntryOffset + SIZE_OF_BYTE, right.slice, rightEntryOffset + SIZE_OF_BYTE);
     }
 
     @Override
     public boolean equals(int position, TupleReadable value)
     {
         checkReadablePosition(position);
-        int entryOffset = position * ENTRY_SIZE;
+        int entryOffset = position * entrySize;
         boolean thisIsNull = slice.getByte(entryOffset) != 0;
         boolean valueIsNull = value.isNull();
 
@@ -174,31 +181,34 @@ public class UncompressedDoubleBlock
         if (thisIsNull) {
             return true;
         }
-        return slice.getDouble(entryOffset + SIZE_OF_BYTE) == value.getDouble();
+        return typeInfo.equals(slice, entryOffset + SIZE_OF_BYTE, value);
     }
 
     @Override
     public int hashCode(int position)
     {
         checkReadablePosition(position);
-        int entryOffset = position * ENTRY_SIZE;
+        int entryOffset = position * entrySize;
         if (slice.getByte(entryOffset) != 0) {
             return 0;
         }
         else {
-            double value = slice.getDouble(entryOffset + SIZE_OF_BYTE);
-            long bits = doubleToLongBits(value);
-            return (int) (bits ^ (bits >>> 32));
+            return typeInfo.hashCode(slice, entryOffset + SIZE_OF_BYTE);
         }
     }
 
     @Override
-    public int compareTo(SortOrder sortOrder, int position, RandomAccessBlock right, int rightPosition)
+    public int compareTo(SortOrder sortOrder, int position, RandomAccessBlock rightBlock, int rightPosition)
     {
+        FixedWidthBlock right = (FixedWidthBlock) rightBlock;
+
         checkReadablePosition(position);
-        int entryOffset = position * ENTRY_SIZE;
-        boolean leftIsNull = slice.getByte(entryOffset) != 0;
-        boolean rightIsNull = right.isNull(rightPosition);
+        int leftEntryOffset = position * entrySize;
+        boolean leftIsNull = slice.getByte(leftEntryOffset) != 0;
+
+        right.checkReadablePosition(rightPosition);
+        int rightEntryOffset = rightPosition * entrySize;
+        boolean rightIsNull = right.slice.getByte(rightEntryOffset) != 0;
 
         if (leftIsNull && rightIsNull) {
             return 0;
@@ -210,7 +220,7 @@ public class UncompressedDoubleBlock
             return sortOrder.isNullsFirst() ? 1 : -1;
         }
 
-        int result = Double.compare(slice.getDouble(entryOffset + SIZE_OF_BYTE), right.getDouble(rightPosition));
+        int result = typeInfo.compareTo(slice, leftEntryOffset + SIZE_OF_BYTE, right.slice, rightEntryOffset + SIZE_OF_BYTE);
         return sortOrder.isAscending() ? result : -result;
     }
 
@@ -218,12 +228,12 @@ public class UncompressedDoubleBlock
     public void appendTupleTo(int position, BlockBuilder blockBuilder)
     {
         checkReadablePosition(position);
-        int entryOffset = position * ENTRY_SIZE;
+        int entryOffset = position * entrySize;
         if (slice.getByte(entryOffset) != 0) {
             blockBuilder.appendNull();
         }
         else {
-            blockBuilder.append(slice.getDouble(entryOffset + SIZE_OF_BYTE));
+            typeInfo.appendTo(slice, entryOffset + SIZE_OF_BYTE, blockBuilder);
         }
     }
 
@@ -239,5 +249,11 @@ public class UncompressedDoubleBlock
     private void checkReadablePosition(int position)
     {
         checkState(position >= 0 && position < positionCount, "position is not valid");
+    }
+
+    @Override
+    public Slice getRawSlice()
+    {
+        return slice;
     }
 }

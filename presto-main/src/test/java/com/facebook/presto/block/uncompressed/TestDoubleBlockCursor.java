@@ -15,12 +15,14 @@ package com.facebook.presto.block.uncompressed;
 
 import com.facebook.presto.block.AbstractTestBlockCursor;
 import com.facebook.presto.block.Block;
+import com.facebook.presto.tuple.TupleInfo;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static io.airlift.testing.Assertions.assertInstanceOf;
+import static org.testng.Assert.assertEquals;
 
-public class TestUncompressedDoubleBlockCursor
+public class TestDoubleBlockCursor
         extends AbstractTestBlockCursor
 {
     @Override
@@ -32,6 +34,7 @@ public class TestUncompressedDoubleBlockCursor
     @Test
     public void testCursorType()
     {
-        assertInstanceOf(createExpectedValues().cursor(), UncompressedDoubleBlockCursor.class);
+        assertInstanceOf(createExpectedValues().cursor(), FixedWidthBlockCursor.class);
+        assertEquals(createExpectedValues().cursor().getTupleInfo(), TupleInfo.SINGLE_DOUBLE);
     }
 }

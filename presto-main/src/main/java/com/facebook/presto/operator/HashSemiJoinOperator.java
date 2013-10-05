@@ -16,7 +16,6 @@ package com.facebook.presto.operator;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.operator.SetBuilderOperator.SetSupplier;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
@@ -158,8 +157,8 @@ public class HashSemiJoinOperator
         checkState(outputPage == null, "Operator still has pending output");
 
         // update hashing strategy to use probe block
-        UncompressedBlock probeJoinBlock = (UncompressedBlock) page.getBlock(probeJoinChannel);
-        channelSet.setLookupSlice(probeJoinBlock.getSlice());
+        Block probeJoinBlock = page.getBlock(probeJoinChannel);
+        channelSet.setLookupSlice(probeJoinBlock.getRawSlice());
 
         // create the block builder for the new boolean column
         // we know the exact size required for the block
