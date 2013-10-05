@@ -13,9 +13,13 @@
  */
 package com.facebook.presto.block;
 
-import com.facebook.presto.block.uncompressed.UncompressedBlock;
+import com.facebook.presto.block.uncompressed.FixedWidthBlock;
+import com.facebook.presto.block.uncompressed.VariableWidthBlock;
+import com.facebook.presto.tuple.FixedWidthTypeInfo;
 import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.tuple.TupleReadable;
+import com.facebook.presto.tuple.VariableWidthTypeInfo;
 import com.google.common.base.Charsets;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -196,9 +200,15 @@ public class BlockBuilder
         return this;
     }
 
-    public UncompressedBlock build()
+    public Block build()
     {
-        return new UncompressedBlock(positionCount, tupleInfo, sliceOutput.getUnderlyingSlice());
+        Type type = tupleInfo.getType();
+        if (type.isFixedSize()) {
+            return new FixedWidthBlock(new FixedWidthTypeInfo(type), positionCount, sliceOutput.getUnderlyingSlice());
+        }
+        else {
+            return new VariableWidthBlock(new VariableWidthTypeInfo(type), positionCount, sliceOutput.getUnderlyingSlice());
+        }
     }
 
     @Override

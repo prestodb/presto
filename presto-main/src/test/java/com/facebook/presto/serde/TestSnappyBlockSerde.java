@@ -15,9 +15,9 @@ package com.facebook.presto.serde;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockAssertions;
-import com.facebook.presto.block.uncompressed.UncompressedBlock;
+import com.facebook.presto.block.uncompressed.VariableWidthBlock;
 import com.facebook.presto.tuple.Tuple;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.tuple.VariableWidthTypeInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.DynamicSliceOutput;
@@ -25,6 +25,7 @@ import org.testng.annotations.Test;
 
 import java.util.Random;
 
+import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 import static com.facebook.presto.tuple.Tuples.createTuple;
 import static org.testng.Assert.assertTrue;
 
@@ -47,7 +48,7 @@ public class TestSnappyBlockSerde
         for (Tuple tuple : tuples) {
             tuple.writeTo(blockSlice);
         }
-        Block expectedBlock = new UncompressedBlock(tuples.size(), TupleInfo.SINGLE_VARBINARY, blockSlice.slice());
+        Block expectedBlock = new VariableWidthBlock(new VariableWidthTypeInfo(VARIABLE_BINARY), tuples.size(), blockSlice.slice());
 
         encoder.append(tuples);
         BlockEncoding snappyEncoding = encoder.finish();
@@ -77,7 +78,7 @@ public class TestSnappyBlockSerde
             encoder.append(ImmutableSet.of(tuples.get(x)));
         }
 
-        Block expectedBlock = new UncompressedBlock(count, TupleInfo.SINGLE_VARBINARY, blockSlice.slice());
+        Block expectedBlock = new VariableWidthBlock(new VariableWidthTypeInfo(VARIABLE_BINARY), count, blockSlice.slice());
 
         BlockEncoding snappyEncoding = encoder.finish();
         assertTrue(compressedOutput.size() < blockSlice.size());

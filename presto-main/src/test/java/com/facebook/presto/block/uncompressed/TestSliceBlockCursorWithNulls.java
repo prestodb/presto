@@ -13,25 +13,24 @@
  */
 package com.facebook.presto.block.uncompressed;
 
-import com.facebook.presto.block.AbstractTestBlockCursor;
 import com.facebook.presto.block.Block;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 
-public class TestUncompressedSliceBlockCursor
-        extends AbstractTestBlockCursor
+public class TestSliceBlockCursorWithNulls
+        extends AbstractTestSingleColumnBlockCursorWithNulls
 {
     @Override
     protected Block createExpectedValues()
     {
-        return createStringsBlock("apple", "apple", "apple", "banana", "banana", "banana", "banana", "banana", "cherry", "cherry", "date");
+        return createStringsBlock(null, "apple", null, "banana", null, "banana", null, "banana", null, "cherry", null);
     }
 
     @Test
     public void testCursorType()
     {
-        assertInstanceOf(createExpectedValues().cursor(), UncompressedSliceBlockCursor.class);
+        assertInstanceOf(createExpectedValues().cursor(), VariableWidthBlockCursor.class);
     }
 }

@@ -59,7 +59,10 @@ public final class BenchmarkQueryRunner
 
         // add native
         MetadataManager metadata = localQueryRunner.getMetadata();
-        NativeConnectorFactory nativeConnectorFactory = createNativeConnectorFactory(nodeManager, metadata, System.getProperty("tpchSampledCacheDir", "/tmp/tpch_sampled_data_cache"));
+        NativeConnectorFactory nativeConnectorFactory = createNativeConnectorFactory(
+                nodeManager,
+                metadata,
+                System.getProperty("tpchSampledCacheDir", "/tmp/presto_tpch/sampled_data_cache"));
         localQueryRunner.createCatalog("default", nativeConnectorFactory, ImmutableMap.<String, String>of());
 
         if (!metadata.getTableHandle(new QualifiedTableName("default", "default", "orders")).isPresent()) {
@@ -82,7 +85,10 @@ public final class BenchmarkQueryRunner
 
         // add native
         MetadataManager metadata = localQueryRunner.getMetadata();
-        NativeConnectorFactory nativeConnectorFactory = createNativeConnectorFactory(nodeManager, metadata, System.getProperty("tpchCacheDir", "/tmp/tpch_data_cache"));
+        NativeConnectorFactory nativeConnectorFactory = createNativeConnectorFactory(
+                nodeManager,
+                metadata,
+                System.getProperty("tpchSampledCacheDir", "/tmp/presto_tpch/data_cache"));
         localQueryRunner.createCatalog("default", nativeConnectorFactory, ImmutableMap.<String, String>of());
 
         if (!metadata.getTableHandle(new QualifiedTableName("default", "default", "orders")).isPresent()) {

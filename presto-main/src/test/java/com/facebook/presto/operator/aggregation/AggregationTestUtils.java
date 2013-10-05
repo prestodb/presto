@@ -18,7 +18,6 @@ import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 import com.facebook.presto.block.uncompressed.FixedWidthBlock;
-import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.tuple.FixedWidthTypeInfo;
@@ -307,14 +306,14 @@ public final class AggregationTestUtils
 
         BlockBuilder partialOut = new BlockBuilder(partialAggregation.getIntermediateTupleInfo());
         partialAggregation.evaluateIntermediate(0, partialOut);
-        UncompressedBlock partialBlock = partialOut.build();
+        Block partialBlock = partialOut.build();
 
         GroupedAccumulator finalAggregation = function.createGroupedIntermediateAggregation(confidence);
         // Add an empty block to test the handling of empty intermediates
         GroupedAccumulator emptyAggregation = function.createGroupedAggregation(Optional.<Integer>absent(), Optional.<Integer>absent(), confidence, args);
         BlockBuilder emptyOut = new BlockBuilder(emptyAggregation.getIntermediateTupleInfo());
         emptyAggregation.evaluateIntermediate(0, emptyOut);
-        UncompressedBlock emptyBlock = emptyOut.build();
+        Block emptyBlock = emptyOut.build();
         finalAggregation.addIntermediate(createGroupByIdBlock(0, emptyBlock.getPositionCount()), emptyBlock);
 
         finalAggregation.addIntermediate(createGroupByIdBlock(0, partialBlock.getPositionCount()), partialBlock);
