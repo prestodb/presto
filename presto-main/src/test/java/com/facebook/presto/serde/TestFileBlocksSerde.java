@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.serde;
 
+import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.OutputSupplier;
 import io.airlift.slice.DynamicSliceOutput;
@@ -45,7 +45,7 @@ public class TestFileBlocksSerde
             "charlie",
             "dave");
 
-    private final UncompressedBlock expectedBlock = new BlockBuilder(SINGLE_VARBINARY)
+    private final Block expectedBlock = new BlockBuilder(SINGLE_VARBINARY)
             .append("alice")
             .append("bob")
             .append("charlie")
