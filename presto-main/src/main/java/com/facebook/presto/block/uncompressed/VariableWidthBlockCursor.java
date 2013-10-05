@@ -18,34 +18,38 @@ import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.tuple.Tuples;
+import com.facebook.presto.tuple.VariableWidthTypeInfo;
 import com.google.common.base.Preconditions;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
-import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 
-public class UncompressedSliceBlockCursor
+public class VariableWidthBlockCursor
         implements BlockCursor
 {
-    private final Slice slice;
+    private final VariableWidthTypeInfo typeInfo;
     private final int positionCount;
+    private final Slice slice;
 
     private int position;
-    private int offset;
-    private int size;
+    private int entryOffset;
+    private int entrySize;
+    private boolean isNull;
 
-    public UncompressedSliceBlockCursor(int positionCount, Slice slice)
+    public VariableWidthBlockCursor(VariableWidthTypeInfo typeInfo, int positionCount, Slice slice)
     {
-        Preconditions.checkArgument(positionCount >= 0, "positionCount is negative");
-        Preconditions.checkNotNull(positionCount, "positionCount is null");
-
+        this.typeInfo = checkNotNull(typeInfo, "typeInfo is null");
+        this.slice = checkNotNull(slice, "slice is null");
+        checkArgument(positionCount >= 0, "positionCount is negative");
         this.positionCount = positionCount;
 
-        this.slice = slice;
-        offset = 0;
-        size = 0;
+        entryOffset = 0;
+        entrySize = 0;
 
         // start one position before the start
         position = -1;
@@ -54,7 +58,7 @@ public class UncompressedSliceBlockCursor
     @Override
     public TupleInfo getTupleInfo()
     {
-        return SINGLE_VARBINARY;
+        return new TupleInfo(typeInfo.getType());
     }
 
     @Override
@@ -88,9 +92,7 @@ public class UncompressedSliceBlockCursor
             return false;
         }
 
-        position++;
-        offset += size;
-        size = slice.getInt(offset + SIZE_OF_BYTE);
+        nextPosition();
         return true;
     }
 
@@ -102,13 +104,11 @@ public class UncompressedSliceBlockCursor
             return false;
         }
 
-        Preconditions.checkArgument(newPosition >= this.position, "Can't advance backwards");
+        checkArgument(newPosition >= this.position, "Can't advance backwards");
 
         // advance to specified position
         while (position < newPosition) {
-            position++;
-            offset += size;
-            size = slice.getInt(offset + SIZE_OF_BYTE);
+            nextPosition();
         }
         return true;
     }
@@ -117,18 +117,29 @@ public class UncompressedSliceBlockCursor
     public Block getRegionAndAdvance(int length)
     {
         // view port starts at next position
-        int startOffset = offset + size;
+        int startOffset = entryOffset + entrySize;
         length = Math.min(length, getRemainingPositions());
 
         // advance to end of view port
         for (int i = 0; i < length; i++) {
-            position++;
-            offset += size;
-            size = slice.getInt(offset + SIZE_OF_BYTE);
+            nextPosition();
         }
 
-        Slice newSlice = slice.slice(startOffset, offset + size - startOffset);
-        return new UncompressedBlock(length, SINGLE_VARBINARY, newSlice);
+        Slice newSlice = slice.slice(startOffset, entryOffset + entrySize - startOffset);
+        return new VariableWidthBlock(typeInfo, length, newSlice);
+    }
+
+    private void nextPosition()
+    {
+        position++;
+        entryOffset += entrySize;
+        isNull = slice.getByte(entryOffset) != 0;
+        if (isNull) {
+            entrySize = 1;
+        }
+        else {
+            entrySize = typeInfo.getLength(slice, entryOffset + SIZE_OF_BYTE) + SIZE_OF_BYTE;
+        }
     }
 
     @Override
@@ -143,11 +154,15 @@ public class UncompressedSliceBlockCursor
     {
         checkReadablePosition();
 
-        // TODO: add Slices.copyOf() to airlift
-        Slice copy = Slices.allocate(size);
-        copy.setBytes(0, slice, offset, size);
+        if (isNull) {
+            return Tuples.NULL_STRING_TUPLE;
+        }
+        else {
+            Slice copy = Slices.allocate(entrySize);
+            copy.setBytes(0, slice, entryOffset, entrySize);
 
-        return new Tuple(copy, SINGLE_VARBINARY);
+            return new Tuple(copy, SINGLE_VARBINARY);
+        }
     }
 
     @Override
@@ -172,28 +187,39 @@ public class UncompressedSliceBlockCursor
     public Slice getSlice()
     {
         checkReadablePosition();
-        return slice.slice(offset + SIZE_OF_INT + SIZE_OF_BYTE, size - SIZE_OF_INT - SIZE_OF_BYTE);
+        return typeInfo.getSlice(slice, entryOffset + SIZE_OF_BYTE);
     }
 
     @Override
     public boolean isNull()
     {
         checkReadablePosition();
-        return slice.getByte(offset) != 0;
+        return isNull;
     }
 
     @Override
     public boolean currentTupleEquals(Tuple value)
     {
         checkReadablePosition();
-        Slice tupleSlice = value.getTupleSlice();
-        return slice.equals(offset, size, tupleSlice, 0, tupleSlice.length());
+
+        boolean thisIsNull = isNull;
+        boolean valueIsNull = value.isNull();
+
+        if (thisIsNull != valueIsNull) {
+            return false;
+        }
+
+        // if values are both null, they are equal
+        if (thisIsNull) {
+            return true;
+        }
+        return typeInfo.equals(slice, entryOffset + SIZE_OF_BYTE, value);
     }
 
     @Override
     public int getRawOffset()
     {
-        return offset;
+        return entryOffset;
     }
 
     @Override
@@ -205,6 +231,12 @@ public class UncompressedSliceBlockCursor
     @Override
     public void appendTupleTo(BlockBuilder blockBuilder)
     {
-        blockBuilder.appendTuple(slice, offset, size);
+        checkReadablePosition();
+        if (isNull) {
+            blockBuilder.appendNull();
+        }
+        else {
+            typeInfo.appendTo(slice, entryOffset + SIZE_OF_BYTE, blockBuilder);
+        }
     }
 }

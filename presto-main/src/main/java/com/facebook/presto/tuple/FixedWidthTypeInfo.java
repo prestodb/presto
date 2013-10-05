@@ -20,6 +20,7 @@ import com.fasterxml.jackson.annotation.JsonValue;
 import com.google.common.primitives.Booleans;
 import com.google.common.primitives.Longs;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 
 import static com.facebook.presto.tuple.TupleInfo.Type.BOOLEAN;
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
@@ -30,6 +31,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 public class FixedWidthTypeInfo
+        implements TypeInfo
 {
     private final Type type;
 
@@ -191,6 +193,12 @@ public class FixedWidthTypeInfo
         else {
             throw new IllegalArgumentException("Unsupported type " + type);
         }
+    }
+
+    @Override
+    public void appendTo(Slice slice, int offset, SliceOutput sliceOutput)
+    {
+        sliceOutput.writeBytes(slice, offset, type.getSize());
     }
 
     @Override

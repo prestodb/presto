@@ -16,12 +16,12 @@ package com.facebook.presto.operator;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.uncompressed.FixedWidthBlock;
-import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.operator.HashAggregationOperator.HashMemoryManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.tuple.FixedWidthTypeInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
+import com.facebook.presto.tuple.VariableWidthTypeInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Booleans;
 import com.google.common.primitives.Ints;
@@ -48,9 +48,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
-import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.sizeOf;
 
 public class GroupByHash
@@ -434,21 +432,8 @@ public class GroupByHash
             if (slice.getByte(offset) != 0) {
                 builder.appendNull();
             }
-            else if (type == Type.FIXED_INT_64) {
-                builder.append(slice.getLong(offset + SIZE_OF_BYTE));
-            }
-            else if (type == Type.DOUBLE) {
-                builder.append(slice.getDouble(offset + SIZE_OF_BYTE));
-            }
-            else if (type == Type.BOOLEAN) {
-                builder.append(slice.getByte(offset + SIZE_OF_BYTE) != 0);
-            }
-            else if (type == Type.VARIABLE_BINARY) {
-                int sliceLength = getVariableBinaryLength(slice, offset);
-                builder.append(slice.slice(offset + SIZE_OF_BYTE + SIZE_OF_INT, sliceLength));
-            }
             else {
-                throw new IllegalArgumentException("Unsupported type " + type);
+                type.getTypeInfo().appendTo(slice, offset + SIZE_OF_BYTE, builder);
             }
         }
 
@@ -462,61 +447,45 @@ public class GroupByHash
         {
             // the extra BYTE here is for the null flag
             int writableBytes = sliceOutput.writableBytes() - SIZE_OF_BYTE;
+            if (writableBytes == 0) {
+                return false;
+            }
 
             boolean isNull = cursor.isNull();
 
-            if (type == Type.FIXED_INT_64) {
-                if (writableBytes < SIZE_OF_LONG) {
+            Slice slice = cursor.getRawSlice();
+            int offset = cursor.getRawOffset();
+
+            if (type.isFixedSize()) {
+                FixedWidthTypeInfo typeInfo = (FixedWidthTypeInfo) type.getTypeInfo();
+                if (writableBytes < typeInfo.getSize() + SIZE_OF_BYTE) {
                     return false;
                 }
-
                 positionOffsets.add(sliceOutput.size());
-                sliceOutput.writeByte(isNull ? 1 : 0);
-                sliceOutput.appendLong(isNull ? 0 : cursor.getLong());
-            }
-            else if (type == Type.DOUBLE) {
-                if (writableBytes < SIZE_OF_DOUBLE) {
-                    return false;
+                if (isNull) {
+                    sliceOutput.writeByte(1);
+                    sliceOutput.writeZero(typeInfo.getSize());
                 }
-
+                else {
+                    sliceOutput.writeByte(0);
+                    type.getTypeInfo().appendTo(slice, offset + SIZE_OF_BYTE, sliceOutput);
+                }
+            }
+            else if (isNull) {
                 positionOffsets.add(sliceOutput.size());
-                sliceOutput.writeByte(isNull ? 1 : 0);
-                sliceOutput.appendDouble(isNull ? 0 : cursor.getDouble());
-            }
-            else if (type == Type.BOOLEAN) {
-                if (writableBytes < SIZE_OF_BYTE) {
-                    return false;
-                }
-
-                positionOffsets.add(sliceOutput.size());
-                sliceOutput.writeByte(isNull ? 1 : 0);
-                sliceOutput.writeByte(!isNull && cursor.getBoolean() ? 1 : 0);
-            }
-            else if (type == Type.VARIABLE_BINARY) {
-                int sliceLength = isNull ? 0 : getVariableBinaryLength(cursor.getRawSlice(), cursor.getRawOffset());
-                if (writableBytes < SIZE_OF_INT + sliceLength) {
-                    return false;
-                }
-
-                int startingOffset = sliceOutput.size();
-                positionOffsets.add(startingOffset);
-                sliceOutput.writeByte(isNull ? 1 : 0);
-                sliceOutput.appendInt(sliceLength + SIZE_OF_BYTE + SIZE_OF_INT);
-                if (!isNull) {
-                    sliceOutput.writeBytes(cursor.getRawSlice(), cursor.getRawOffset() + SIZE_OF_BYTE + SIZE_OF_INT, sliceLength);
-                }
+                sliceOutput.writeByte(1);
             }
             else {
-                throw new IllegalArgumentException("Unsupported type " + type);
+                VariableWidthTypeInfo typeInfo = (VariableWidthTypeInfo) type.getTypeInfo();
+                if (writableBytes < typeInfo.getLength(slice, offset + SIZE_OF_BYTE) + SIZE_OF_BYTE) {
+                    return false;
+                }
+                positionOffsets.add(sliceOutput.size());
+                sliceOutput.writeByte(0);
+                type.getTypeInfo().appendTo(slice, offset + SIZE_OF_BYTE, sliceOutput);
             }
+
             return true;
-        }
-
-        public UncompressedBlock build()
-        {
-            checkState(!positionOffsets.isEmpty(), "Cannot build an empty block");
-
-            return new UncompressedBlock(positionOffsets.size(), new TupleInfo(type), sliceOutput.slice());
         }
     }
 
@@ -555,7 +524,7 @@ public class GroupByHash
     private static int getVariableBinaryLength(Slice slice, int offset)
     {
         // INT here is the length and the BYTE is the null flag
-        return slice.getInt(offset + SIZE_OF_BYTE) - SIZE_OF_INT - SIZE_OF_BYTE;
+        return slice.getInt(offset + SIZE_OF_BYTE);
     }
 
     private static boolean valueEquals(Type type, Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)

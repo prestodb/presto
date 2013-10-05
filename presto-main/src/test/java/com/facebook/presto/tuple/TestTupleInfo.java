@@ -177,8 +177,8 @@ public class TestTupleInfo
     /**
      * The following classes depend on this exact memory layout
      *
-     * @see com.facebook.presto.block.uncompressed.UncompressedSliceBlockCursor
-     * @see com.facebook.presto.block.uncompressed.UncompressedBlock
+     * @see com.facebook.presto.block.uncompressed.VariableWidthBlockCursor
+     * @see com.facebook.presto.block.uncompressed.VariableWidthBlock
      */
     @Test
     public void testSingleLongLengthNullMemoryLayout()
@@ -280,8 +280,8 @@ public class TestTupleInfo
     /**
      * The following classes depend on this exact memory layout
      *
-     * @see com.facebook.presto.block.uncompressed.UncompressedSliceBlockCursor
-     * @see com.facebook.presto.block.uncompressed.UncompressedBlock
+     * @see com.facebook.presto.block.uncompressed.VariableWidthBlockCursor
+     * @see com.facebook.presto.block.uncompressed.VariableWidthBlock
      */
     @Test
     public void testSingleVariableLengthMemoryLayout()
@@ -296,7 +296,7 @@ public class TestTupleInfo
         assertEquals(tupleSlice.length(), binary.length() + SIZE_OF_INT + SIZE_OF_BYTE);
         // null bit set is in first byte
         assertEquals(tupleSlice.getByte(0), 0);
-        assertEquals(tupleSlice.getInt(SIZE_OF_BYTE), binary.length() + SIZE_OF_INT + SIZE_OF_BYTE);
+        assertEquals(tupleSlice.getInt(SIZE_OF_BYTE), binary.length());
         assertEquals(tupleSlice.slice(SIZE_OF_INT + SIZE_OF_BYTE, binary.length()), binary);
     }
 
@@ -308,15 +308,21 @@ public class TestTupleInfo
                 .build();
 
         assertTrue(tuple.isNull());
-        assertEquals(tuple.getSlice(), Slices.EMPTY_SLICE);
-        assertEquals(tuple.size(), SIZE_OF_INT + SIZE_OF_BYTE);
+        assertEquals(tuple.size(), SIZE_OF_BYTE);
+
+        // can not get slice of a null
+        try {
+            assertEquals(tuple.getSlice(), Slices.EMPTY_SLICE);
+        }
+        catch (IllegalStateException e) {
+        }
     }
 
     /**
      * The following classes depend on this exact memory layout
      *
-     * @see com.facebook.presto.block.uncompressed.UncompressedSliceBlockCursor
-     * @see com.facebook.presto.block.uncompressed.UncompressedBlock
+     * @see com.facebook.presto.block.uncompressed.VariableWidthBlockCursor
+     * @see com.facebook.presto.block.uncompressed.VariableWidthBlock
      */
     @Test
     public void testSingleVariableLengthNullMemoryLayout()
@@ -326,11 +332,9 @@ public class TestTupleInfo
                 .build();
 
         Slice tupleSlice = tuple.getTupleSlice();
-        assertEquals(tupleSlice.length(), SIZE_OF_INT + SIZE_OF_BYTE);
+        assertEquals(tupleSlice.length(), SIZE_OF_BYTE);
         // null bit set is in first byte
         assertEquals(tupleSlice.getByte(0), 0b0000_0001);
-        // the size of the tuple is stored as an int starting at the second byte
-        assertEquals(tupleSlice.getInt(SIZE_OF_BYTE), SIZE_OF_INT + SIZE_OF_BYTE);
     }
 
     @Test

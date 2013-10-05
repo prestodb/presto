@@ -16,7 +16,6 @@ package com.facebook.presto.serde;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.tuple.Tuple;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
@@ -30,7 +29,7 @@ public class TestUncompressedBlockSerde
     @Test
     public void testRoundTrip()
     {
-        UncompressedBlock expectedBlock = new BlockBuilder(SINGLE_VARBINARY)
+        Block expectedBlock = new BlockBuilder(SINGLE_VARBINARY)
                 .append("alice")
                 .append("bob")
                 .append("charlie")

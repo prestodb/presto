@@ -36,7 +36,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
-import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static java.util.Arrays.asList;
 
@@ -76,11 +75,18 @@ public class TupleInfo
 
         private final int size;
         private final String name;
+        private final TypeInfo typeInfo;
 
         Type(int size, String name)
         {
             this.size = size;
             this.name = name;
+            if (size != -1) {
+                typeInfo = new FixedWidthTypeInfo(this);
+            }
+            else {
+                typeInfo = new VariableWidthTypeInfo(this);
+            }
         }
 
         public int getSize()
@@ -98,6 +104,12 @@ public class TupleInfo
         public String getName()
         {
             return name;
+        }
+
+        // TODO: temp hack while removing old fixed type system
+        public TypeInfo getTypeInfo()
+        {
+            return typeInfo;
         }
 
         public ColumnType toColumnType()
@@ -155,11 +167,21 @@ public class TupleInfo
     }
 
     private final Type type;
+    private final FixedWidthTypeInfo fixedWidthTypeInfo;
+    private final VariableWidthTypeInfo variableWidthTypeInfo;
 
     @JsonCreator
     public TupleInfo(Type tupleType)
     {
         this.type = checkNotNull(tupleType, "tupleType is null");
+        if (type.isFixedSize()) {
+            fixedWidthTypeInfo = new FixedWidthTypeInfo(type);
+            variableWidthTypeInfo = null;
+        }
+        else {
+            variableWidthTypeInfo = new VariableWidthTypeInfo(type);
+            fixedWidthTypeInfo = null;
+        }
     }
 
     @JsonValue
@@ -175,11 +197,15 @@ public class TupleInfo
 
     public int size(Slice slice, int offset)
     {
-        if (type.isFixedSize()) {
-            return type.getSize() + SIZE_OF_BYTE;
+        if (fixedWidthTypeInfo != null) {
+            return fixedWidthTypeInfo.getSize() + SIZE_OF_BYTE;
         }
-        // todo check uncompressed block for proper algorithm
-        return slice.getInt(offset + SIZE_OF_BYTE);
+        else if (isNull(slice, offset)) {
+            return SIZE_OF_BYTE;
+        }
+        else {
+            return variableWidthTypeInfo.getLength(slice, offset + SIZE_OF_BYTE) + SIZE_OF_BYTE;
+        }
     }
 
     /**
@@ -188,9 +214,9 @@ public class TupleInfo
      */
     public int size(SliceInput sliceInput)
     {
-        if (type.isFixedSize()) {
-            return type.getSize();
-        }
+//        if (type.isFixedSize()) {
+//            return type.getSize();
+//        }
 
         // length of the tuple is located in the "last" fixed-width slot
         // this makes variable length column size easy to calculate
@@ -205,65 +231,29 @@ public class TupleInfo
     {
         checkState(type == BOOLEAN, "Expected BOOLEAN, but is %s", type);
 
-        return slice.getByte(offset + SIZE_OF_BYTE) != 0;
-    }
-
-    /**
-     * Sets the tuple at the specified offset to the specified boolean value.
-     * <p/>
-     * Note: this DOES NOT modify the null flag of this tuple.
-     */
-    public void setBoolean(Slice slice, int offset, boolean value)
-    {
-        checkState(type == BOOLEAN, "Expected BOOLEAN, but is %s", type);
-
-        slice.setByte(offset + SIZE_OF_BYTE, value ? 1 : 0);
+        return fixedWidthTypeInfo.getBoolean(slice, offset + SIZE_OF_BYTE);
     }
 
     public long getLong(Slice slice, int offset)
     {
         checkState(type == FIXED_INT_64, "Expected FIXED_INT_64, but is %s", type);
 
-        return slice.getLong(offset + SIZE_OF_BYTE);
-    }
-
-    /**
-     * Sets the tuple at the specified offset to the specified long value.
-     * <p/>
-     * Note: this DOES NOT modify the null flag fo this tuple.
-     */
-    public void setLong(Slice slice, int offset, long value)
-    {
-        checkState(type == FIXED_INT_64, "Expected FIXED_INT_64, but is %s", type);
-
-        slice.setLong(offset + SIZE_OF_BYTE, value);
+        return fixedWidthTypeInfo.getLong(slice, offset + SIZE_OF_BYTE);
     }
 
     public double getDouble(Slice slice, int offset)
     {
         checkState(type == DOUBLE, "Expected DOUBLE, but is %s", type);
 
-        return slice.getDouble(offset + SIZE_OF_BYTE);
-    }
-
-    /**
-     * Sets the tuple at the specified offset to the specified double value.
-     * <p/>
-     * Note: this DOES NOT modify the null flag fo this tuple.
-     */
-    public void setDouble(Slice slice, int offset, double value)
-    {
-        checkState(type == DOUBLE, "Expected DOUBLE, but is %s", type);
-
-        slice.setDouble(offset + SIZE_OF_BYTE, value);
+        return fixedWidthTypeInfo.getDouble(slice, offset + SIZE_OF_BYTE);
     }
 
     public Slice getSlice(Slice slice, int offset)
     {
         checkState(type == VARIABLE_BINARY, "Expected VARIABLE_BINARY, but is %s", type);
+        checkState(!isNull(slice, offset), "Value is null");
 
-        int size = slice.getInt(offset + SIZE_OF_BYTE);
-        return slice.slice(offset + SIZE_OF_INT + SIZE_OF_BYTE, size - SIZE_OF_INT - SIZE_OF_BYTE);
+        return variableWidthTypeInfo.getSlice(slice, offset + SIZE_OF_BYTE);
     }
 
     public boolean isNull(Slice slice, int offset)
@@ -296,8 +286,36 @@ public class TupleInfo
      */
     public Slice extractTupleSlice(SliceInput sliceInput)
     {
-        int tupleSliceSize = size(sliceInput);
-        return sliceInput.readSlice(tupleSliceSize);
+        if (type.isFixedSize()) {
+            return sliceInput.readSlice(type.getSize() + SIZE_OF_BYTE);
+        }
+        else {
+            int originalPosition = sliceInput.position();
+
+            boolean isNull = sliceInput.readByte() != 0;
+            if (isNull) {
+                return Slices.wrappedBuffer(new byte[] {1});
+            }
+
+            int size = variableWidthTypeInfo.getLength(sliceInput);
+            sliceInput.setPosition(originalPosition);
+
+            return sliceInput.readSlice(size + SIZE_OF_BYTE);
+        }
+    }
+
+    public boolean equals(Slice slice, int offset, Slice value)
+    {
+        if (slice.getByte(offset) != slice.getByte(0)) {
+            return false;
+        }
+
+        if (fixedWidthTypeInfo != null) {
+            return fixedWidthTypeInfo.equals(slice, offset + SIZE_OF_BYTE, value, 1);
+        }
+        else {
+            return variableWidthTypeInfo.equals(slice, offset + SIZE_OF_BYTE, value, 1);
+        }
     }
 
     public Builder builder(SliceOutput sliceOutput)
@@ -391,7 +409,7 @@ public class TupleInfo
             checkState(TupleInfo.this.type == VARIABLE_BINARY, "Cannot append binary to type %s", TupleInfo.this.type);
 
             sliceOutput.writeByte(0);
-            sliceOutput.writeInt(length + SIZE_OF_BYTE + SIZE_OF_INT);
+            sliceOutput.writeInt(length);
             sliceOutput.writeBytes(value, offset, length);
 
             return this;
@@ -405,7 +423,6 @@ public class TupleInfo
                     sliceOutput.writeLong(0);
                     break;
                 case VARIABLE_BINARY:
-                    sliceOutput.writeInt(SIZE_OF_BYTE + SIZE_OF_INT);
                     break;
                 case DOUBLE:
                     sliceOutput.writeDouble(0);

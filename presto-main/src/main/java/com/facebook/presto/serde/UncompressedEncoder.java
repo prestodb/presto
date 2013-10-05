@@ -13,8 +13,13 @@
  */
 package com.facebook.presto.serde;
 
-import com.facebook.presto.block.uncompressed.UncompressedBlock;
+import com.facebook.presto.block.Block;
+import com.facebook.presto.block.uncompressed.FixedWidthBlock;
+import com.facebook.presto.block.uncompressed.VariableWidthBlock;
+import com.facebook.presto.tuple.FixedWidthTypeInfo;
 import com.facebook.presto.tuple.Tuple;
+import com.facebook.presto.tuple.TupleInfo.Type;
+import com.facebook.presto.tuple.VariableWidthTypeInfo;
 import com.google.common.base.Preconditions;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -35,7 +40,7 @@ public class UncompressedEncoder
 
     private UncompressedBlockEncoding encoding;
     private boolean finished;
-    private int tupleCount;
+    private int positionCount;
 
     public UncompressedEncoder(SliceOutput sliceOutput)
     {
@@ -53,7 +58,7 @@ public class UncompressedEncoder
                 encoding = new UncompressedBlockEncoding(tuple.getTupleInfo());
             }
             tuple.writeTo(buffer);
-            tupleCount++;
+            positionCount++;
 
             if (buffer.size() >= MAX_BLOCK_SIZE) {
                 writeBlock();
@@ -79,9 +84,18 @@ public class UncompressedEncoder
     private void writeBlock()
     {
         Slice slice = buffer.slice();
-        UncompressedBlock block = new UncompressedBlock(tupleCount, encoding.getTupleInfo(), slice);
+        Type type = encoding.getTupleInfo().getType();
+
+        Block block;
+        if (type.isFixedSize()) {
+            block = new FixedWidthBlock(new FixedWidthTypeInfo(type), positionCount, slice);
+        }
+        else {
+            block = new VariableWidthBlock(new VariableWidthTypeInfo(type), positionCount, slice);
+        }
+
         encoding.writeBlock(sliceOutput, block);
         buffer.reset();
-        tupleCount = 0;
+        positionCount = 0;
     }
 }

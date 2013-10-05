@@ -14,8 +14,12 @@
 package com.facebook.presto.serde;
 
 import com.facebook.presto.block.Block;
-import com.facebook.presto.block.uncompressed.UncompressedBlock;
+import com.facebook.presto.block.uncompressed.FixedWidthBlock;
+import com.facebook.presto.block.uncompressed.VariableWidthBlock;
+import com.facebook.presto.tuple.FixedWidthTypeInfo;
 import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.tuple.TupleInfo.Type;
+import com.facebook.presto.tuple.VariableWidthTypeInfo;
 import com.google.common.base.Preconditions;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
@@ -57,10 +61,16 @@ public class UncompressedBlockEncoding
     public Block readBlock(SliceInput sliceInput)
     {
         int blockSize = sliceInput.readInt();
-        int tupleCount = sliceInput.readInt();
+        int positionCount = sliceInput.readInt();
 
-        Slice block = sliceInput.readSlice(blockSize);
-        return new UncompressedBlock(tupleCount, tupleInfo, block);
+        Slice slice = sliceInput.readSlice(blockSize);
+        Type type = tupleInfo.getType();
+        if (type.isFixedSize()) {
+            return new FixedWidthBlock(new FixedWidthTypeInfo(type), positionCount, slice);
+        }
+        else {
+            return new VariableWidthBlock(new VariableWidthTypeInfo(type), positionCount, slice);
+        }
     }
 
     private static void writeUncompressedBlock(SliceOutput destination, int tupleCount, Slice slice)

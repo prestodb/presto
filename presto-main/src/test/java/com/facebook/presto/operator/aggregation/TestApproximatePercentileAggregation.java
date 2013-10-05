@@ -15,8 +15,9 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
-import com.facebook.presto.block.uncompressed.UncompressedBlock;
+import com.facebook.presto.block.uncompressed.FixedWidthBlock;
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.tuple.FixedWidthTypeInfo;
 import com.google.common.base.Preconditions;
 import org.testng.annotations.Test;
 
@@ -27,8 +28,8 @@ import static com.facebook.presto.operator.aggregation.ApproximatePercentileAggr
 import static com.facebook.presto.operator.aggregation.ApproximatePercentileAggregations.LONG_APPROXIMATE_PERCENTILE_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.ApproximatePercentileWeightedAggregations.DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.ApproximatePercentileWeightedAggregations.LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
+import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
+import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.Tuples.createTuple;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 
@@ -292,8 +293,8 @@ public class TestApproximatePercentileAggregation
         Block percentilesBlock;
 
         if (values.length == 0) {
-            valuesBlock = new UncompressedBlock(0, SINGLE_DOUBLE, EMPTY_SLICE);
-            percentilesBlock = new UncompressedBlock(0, SINGLE_DOUBLE, EMPTY_SLICE);
+            valuesBlock = new FixedWidthBlock(new FixedWidthTypeInfo(DOUBLE), 0, EMPTY_SLICE);
+            percentilesBlock = new FixedWidthBlock(new FixedWidthTypeInfo(DOUBLE), 0, EMPTY_SLICE);
         }
         else {
             valuesBlock = createDoublesBlock(values);
@@ -309,8 +310,8 @@ public class TestApproximatePercentileAggregation
         Block percentilesBlock;
 
         if (values.length == 0) {
-            valuesBlock = new UncompressedBlock(0, SINGLE_LONG, EMPTY_SLICE);
-            percentilesBlock = new UncompressedBlock(0, SINGLE_DOUBLE, EMPTY_SLICE);
+            valuesBlock = new FixedWidthBlock(new FixedWidthTypeInfo(FIXED_INT_64), 0, EMPTY_SLICE);
+            percentilesBlock = new FixedWidthBlock(new FixedWidthTypeInfo(DOUBLE), 0, EMPTY_SLICE);
         }
         else {
             valuesBlock = createLongsBlock(values);
@@ -329,9 +330,9 @@ public class TestApproximatePercentileAggregation
         Block percentilesBlock;
 
         if (values.length == 0) {
-            valuesBlock = new UncompressedBlock(0, SINGLE_LONG, EMPTY_SLICE);
-            weightsBlock = new UncompressedBlock(0, SINGLE_LONG, EMPTY_SLICE);
-            percentilesBlock = new UncompressedBlock(0, SINGLE_DOUBLE, EMPTY_SLICE);
+            valuesBlock = new FixedWidthBlock(new FixedWidthTypeInfo(FIXED_INT_64), 0, EMPTY_SLICE);
+            weightsBlock = new FixedWidthBlock(new FixedWidthTypeInfo(FIXED_INT_64), 0, EMPTY_SLICE);
+            percentilesBlock = new FixedWidthBlock(new FixedWidthTypeInfo(DOUBLE), 0, EMPTY_SLICE);
         }
         else {
             valuesBlock = createLongsBlock(values);
@@ -351,9 +352,9 @@ public class TestApproximatePercentileAggregation
         Block percentilesBlock;
 
         if (values.length == 0) {
-            valuesBlock = new UncompressedBlock(0, SINGLE_DOUBLE, EMPTY_SLICE);
-            weightsBlock = new UncompressedBlock(0, SINGLE_LONG, EMPTY_SLICE);
-            percentilesBlock = new UncompressedBlock(0, SINGLE_DOUBLE, EMPTY_SLICE);
+            valuesBlock = new FixedWidthBlock(new FixedWidthTypeInfo(DOUBLE), 0, EMPTY_SLICE);
+            weightsBlock = new FixedWidthBlock(new FixedWidthTypeInfo(FIXED_INT_64), 0, EMPTY_SLICE);
+            percentilesBlock = new FixedWidthBlock(new FixedWidthTypeInfo(DOUBLE), 0, EMPTY_SLICE);
         }
         else {
             valuesBlock = createDoublesBlock(values);

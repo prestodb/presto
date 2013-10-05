@@ -17,49 +17,40 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.serde.UncompressedBlockEncoding;
-import com.facebook.presto.tuple.FixedWidthTypeInfo;
 import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleInfo.Type;
+import com.facebook.presto.tuple.VariableWidthTypeInfo;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-
-public class UncompressedBlock
+public class VariableWidthBlock
         implements Block
 {
     private final int positionCount;
-    private final TupleInfo tupleInfo;
+    private final VariableWidthTypeInfo typeInfo;
     private final Slice slice;
 
-    public UncompressedBlock(int positionCount, TupleInfo tupleInfo, Slice slice)
+    public VariableWidthBlock(VariableWidthTypeInfo typeInfo, int positionCount, Slice slice)
     {
-        checkArgument(positionCount >= 0, "positionCount is negative");
-        checkNotNull(tupleInfo, "tupleInfo is null");
-        checkNotNull(slice, "data is null");
+        Preconditions.checkArgument(positionCount >= 0, "positionCount is negative");
+        Preconditions.checkNotNull(typeInfo, "typeInfo is null");
+        Preconditions.checkNotNull(slice, "data is null");
 
-        this.tupleInfo = tupleInfo;
+        this.typeInfo = typeInfo;
         this.slice = slice;
         this.positionCount = positionCount;
     }
 
     public TupleInfo getTupleInfo()
     {
-        return tupleInfo;
+        return new TupleInfo(typeInfo.getType());
     }
 
     public Slice getRawSlice()
     {
         return slice;
-    }
-
-    public int getSliceOffset()
-    {
-        return 0;
     }
 
     public int getPositionCount()
@@ -76,20 +67,13 @@ public class UncompressedBlock
     @Override
     public BlockCursor cursor()
     {
-        Type type = tupleInfo.getType();
-        if (type == Type.BOOLEAN || type == Type.FIXED_INT_64 || type == Type.DOUBLE) {
-            return new FixedWidthBlockCursor(new FixedWidthTypeInfo(type), positionCount, slice);
-        }
-        else if (type == Type.VARIABLE_BINARY) {
-            return new UncompressedSliceBlockCursor(positionCount, slice);
-        }
-        throw new IllegalStateException("Unsupported type " + type);
+        return new VariableWidthBlockCursor(typeInfo, positionCount, slice);
     }
 
     @Override
     public UncompressedBlockEncoding getEncoding()
     {
-        return new UncompressedBlockEncoding(tupleInfo);
+        return new UncompressedBlockEncoding(getTupleInfo());
     }
 
     @Override
@@ -102,14 +86,7 @@ public class UncompressedBlock
     @Override
     public RandomAccessBlock toRandomAccessBlock()
     {
-        Type type = tupleInfo.getType();
-        if (type == Type.BOOLEAN || type == Type.FIXED_INT_64 || type == Type.DOUBLE) {
-            return new FixedWidthBlock(new FixedWidthTypeInfo(type), positionCount, slice);
-        }
-        if (type == Type.VARIABLE_BINARY) {
-            return new UncompressedSliceBlock(this);
-        }
-        throw new IllegalStateException("Unsupported type " + tupleInfo.getType());
+        return new VariableWidthRandomAccessBlock(typeInfo, positionCount, slice);
     }
 
     @Override
@@ -117,7 +94,7 @@ public class UncompressedBlock
     {
         return Objects.toStringHelper(this)
                 .add("positionCount", positionCount)
-                .add("tupleInfo", tupleInfo)
+                .add("tupleInfo", typeInfo)
                 .add("slice", slice)
                 .toString();
     }

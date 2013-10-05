@@ -18,13 +18,13 @@ import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.block.uncompressed.FixedWidthBlock;
 import com.facebook.presto.block.uncompressed.FixedWidthBlockCursor;
-import com.facebook.presto.block.uncompressed.UncompressedBlock;
-import com.facebook.presto.block.uncompressed.UncompressedSliceBlock;
-import com.facebook.presto.block.uncompressed.UncompressedSliceBlockCursor;
+import com.facebook.presto.block.uncompressed.VariableWidthRandomAccessBlock;
+import com.facebook.presto.block.uncompressed.VariableWidthBlockCursor;
 import com.facebook.presto.serde.SnappyBlockEncoding;
 import com.facebook.presto.tuple.FixedWidthTypeInfo;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
+import com.facebook.presto.tuple.VariableWidthTypeInfo;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import io.airlift.slice.Slice;
@@ -102,13 +102,12 @@ public class SnappyBlock
     public BlockCursor cursor()
     {
         Type type = tupleInfo.getType();
-        if (type == Type.BOOLEAN || type == Type.FIXED_INT_64 || type == Type.DOUBLE) {
+        if (type.isFixedSize()) {
             return new FixedWidthBlockCursor(new FixedWidthTypeInfo(type), positionCount, getUncompressedSlice());
         }
-        else if (type == Type.VARIABLE_BINARY) {
-            return new UncompressedSliceBlockCursor(positionCount, getUncompressedSlice());
+        else {
+            return new VariableWidthBlockCursor(new VariableWidthTypeInfo(type), positionCount, getUncompressedSlice());
         }
-        throw new IllegalStateException("Unsupported type " + type);
     }
 
     @Override
@@ -128,13 +127,12 @@ public class SnappyBlock
     public RandomAccessBlock toRandomAccessBlock()
     {
         Type type = tupleInfo.getType();
-        if (type == Type.BOOLEAN || type == Type.FIXED_INT_64 || type == Type.DOUBLE) {
+        if (type.isFixedSize()) {
             return new FixedWidthBlock(new FixedWidthTypeInfo(type), positionCount, getUncompressedSlice());
         }
-        if (type == Type.VARIABLE_BINARY) {
-            return new UncompressedSliceBlock(new UncompressedBlock(positionCount, tupleInfo, getUncompressedSlice()));
+        else {
+            return new VariableWidthRandomAccessBlock(new VariableWidthTypeInfo(type), positionCount, getCompressedSlice());
         }
-        throw new IllegalStateException("Unsupported type " + tupleInfo.getType());
     }
 
     @Override

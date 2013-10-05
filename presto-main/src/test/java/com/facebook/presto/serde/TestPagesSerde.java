@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.serde;
 
+import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.operator.Page;
 import io.airlift.slice.DynamicSliceOutput;
 import org.testng.annotations.Test;
@@ -32,7 +32,7 @@ public class TestPagesSerde
     @Test
     public void testRoundTrip()
     {
-        UncompressedBlock expectedBlock = new BlockBuilder(SINGLE_VARBINARY)
+        Block expectedBlock = new BlockBuilder(SINGLE_VARBINARY)
                 .append("alice")
                 .append("bob")
                 .append("charlie")
