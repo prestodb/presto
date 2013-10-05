@@ -47,7 +47,7 @@ public class UncompressedSliceBlock
         checkArgument(block.getTupleInfo().equals(SINGLE_VARBINARY));
 
         offsets = new int[block.getPositionCount()];
-        slice = block.getSlice();
+        slice = block.getRawSlice();
 
         BlockCursor cursor = block.cursor();
         for (int position = 0; position < block.getPositionCount(); position++) {
@@ -137,7 +137,6 @@ public class UncompressedSliceBlock
         return slice.slice(offset + SIZE_OF_INT + SIZE_OF_BYTE, length);
     }
 
-    @Override
     public boolean sliceEquals(int leftPosition, Slice rightSlice, int rightOffset, int rightLength)
     {
         checkReadablePosition(leftPosition);
@@ -147,7 +146,6 @@ public class UncompressedSliceBlock
         return slice.equals(leftOffset + SIZE_OF_INT + SIZE_OF_BYTE, leftLength, rightSlice, rightOffset, rightLength);
     }
 
-    @Override
     public int sliceCompareTo(int leftPosition, Slice rightSlice, int rightOffset, int rightLength)
     {
         checkReadablePosition(leftPosition);
@@ -183,7 +181,7 @@ public class UncompressedSliceBlock
         }
 
         int length = getLength(slice, offset);
-        return right.sliceEquals(rightPosition, slice, offset + SIZE_OF_INT + SIZE_OF_BYTE, length);
+        return ((UncompressedSliceBlock) right).sliceEquals(rightPosition, slice, offset + SIZE_OF_INT + SIZE_OF_BYTE, length);
     }
 
     @Override
@@ -250,7 +248,7 @@ public class UncompressedSliceBlock
         }
 
         int length = getLength(slice, offset);
-        int result = -right.sliceCompareTo(rightPosition, slice, offset + SIZE_OF_INT + SIZE_OF_BYTE, length);
+        int result = -((UncompressedSliceBlock) right).sliceCompareTo(rightPosition, slice, offset + SIZE_OF_INT + SIZE_OF_BYTE, length);
         return sortOrder.isAscending() ? result : -result;
     }
 
@@ -285,5 +283,11 @@ public class UncompressedSliceBlock
     private void checkReadablePosition(int position)
     {
         checkState(position >= 0 && position < offsets.length, "position is not valid");
+    }
+
+    @Override
+    public Slice getRawSlice()
+    {
+        return slice;
     }
 }

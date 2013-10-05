@@ -15,8 +15,8 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.block.uncompressed.FixedWidthBlock;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
-import com.facebook.presto.block.uncompressed.UncompressedLongBlock;
 import com.facebook.presto.operator.HashAggregationOperator.HashMemoryManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
@@ -126,7 +126,7 @@ public class GroupByHash
             }
             blockBuilder.append(groupId);
         }
-        UncompressedLongBlock block = (UncompressedLongBlock) blockBuilder.build().toRandomAccessBlock();
+        FixedWidthBlock block = (FixedWidthBlock) blockBuilder.build().toRandomAccessBlock();
         return new GroupByIdBlock(nextGroupId, block);
     }
 

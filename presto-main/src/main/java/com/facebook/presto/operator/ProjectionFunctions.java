@@ -65,21 +65,7 @@ public final class ProjectionFunctions
                 output.appendNull();
             }
             else {
-                switch (columnType) {
-                    case BOOLEAN:
-                        output.append(cursors[channelIndex].getBoolean());
-                        return;
-                    case FIXED_INT_64:
-                        output.append(cursors[channelIndex].getLong());
-                        return;
-                    case VARIABLE_BINARY:
-                        output.append(cursors[channelIndex].getSlice());
-                        return;
-                    case DOUBLE:
-                        output.append(cursors[channelIndex].getDouble());
-                        return;
-                }
-                throw new IllegalStateException("Unsupported type info " + info);
+                output.append(cursors[channelIndex]);
             }
         }
 
