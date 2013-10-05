@@ -53,6 +53,9 @@ public final class BlockCursorAssertions
         assertTrue(cursor.currentTupleEquals(tuple));
 
         assertEquals(cursor.isNull(), tuple.isNull());
+        if (cursor.isNull()) {
+            return;
+        }
         switch (tupleInfo.getType()) {
             case BOOLEAN:
                 assertEquals(cursor.getBoolean(), tuple.getBoolean());
