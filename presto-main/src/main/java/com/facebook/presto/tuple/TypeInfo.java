@@ -11,32 +11,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator;
+package com.facebook.presto.tuple;
 
+import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 
-import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
-
-public final class HashStrategyUtils
+public interface TypeInfo
 {
-    private HashStrategyUtils()
-    {
-    }
+    Type getType();
 
-    public static int addToHashCode(int result, int hashCode)
-    {
-        result = 31 * result + hashCode;
-        return result;
-    }
+    boolean equals(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset);
 
-    public static int valueHashCode(Type type, Slice slice, int offset)
-    {
-        boolean isNull = slice.getByte(offset) != 0;
-        if (isNull) {
-            return 0;
-        }
+    boolean equals(Slice leftSlice, int leftOffset, TupleReadable rightTuple);
 
-        return type.getTypeInfo().hashCode(slice, offset + SIZE_OF_BYTE);
-    }
+    int hashCode(Slice slice, int offset);
+
+    int compareTo(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset);
+
+    void appendTo(Slice slice, int offset, BlockBuilder blockBuilder);
+
+    void appendTo(Slice slice, int offset, SliceOutput sliceOutput);
 }
