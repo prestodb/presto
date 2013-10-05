@@ -17,11 +17,13 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
+import com.facebook.presto.block.uncompressed.FixedWidthBlock;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
-import com.facebook.presto.block.uncompressed.UncompressedLongBlock;
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.tuple.FixedWidthTypeInfo;
 import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.base.Optional;
 import com.google.common.base.Splitter;
 import com.google.common.primitives.Ints;
@@ -323,14 +325,14 @@ public final class AggregationTestUtils
     public static GroupByIdBlock createGroupByIdBlock(int groupId, int positions)
     {
         if (positions == 0) {
-            return new GroupByIdBlock(groupId, new UncompressedLongBlock(0, Slices.EMPTY_SLICE));
+            return new GroupByIdBlock(groupId, new FixedWidthBlock(new FixedWidthTypeInfo(Type.FIXED_INT_64), 0, Slices.EMPTY_SLICE));
         }
 
         BlockBuilder blockBuilder = new BlockBuilder(TupleInfo.SINGLE_LONG);
         for (int i = 0; i < positions; i++) {
             blockBuilder.append(groupId);
         }
-        return new GroupByIdBlock(groupId, (UncompressedLongBlock) blockBuilder.build().toRandomAccessBlock());
+        return new GroupByIdBlock(groupId, (FixedWidthBlock) blockBuilder.build().toRandomAccessBlock());
     }
 
     private static int[] createArgs(AggregationFunction function)

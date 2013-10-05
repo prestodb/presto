@@ -18,6 +18,7 @@ import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.serde.BlockEncoding;
 import com.facebook.presto.serde.DictionaryBlockEncoding;
 import com.facebook.presto.tuple.TupleInfo;
+import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -37,6 +38,12 @@ public class DictionaryEncodedBlock
 
         this.dictionary = dictionary;
         this.idBlock = idBlock;
+    }
+
+    @Override
+    public Slice getRawSlice()
+    {
+        throw new UnsupportedOperationException();
     }
 
     @Override

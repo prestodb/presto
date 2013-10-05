@@ -114,18 +114,6 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public boolean sliceEquals(int rightPosition, Slice slice, int offset, int length)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public int sliceCompareTo(int leftPosition, Slice rightSlice, int rightOffset, int rightLength)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public boolean isNull(int position)
     {
         checkReadablePosition(position);
@@ -180,5 +168,11 @@ public class RunLengthEncodedBlock
     private void checkReadablePosition(int position)
     {
         checkState(position >= 0 && position < positionCount, "position is not valid");
+    }
+
+    @Override
+    public Slice getRawSlice()
+    {
+        return value.getSlice();
     }
 }
