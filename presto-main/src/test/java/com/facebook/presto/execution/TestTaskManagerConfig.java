@@ -1,0 +1,68 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.facebook.presto.execution;
+
+import com.google.common.collect.ImmutableMap;
+import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
+import org.testng.annotations.Test;
+
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+
+import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.airlift.units.DataSize.Unit;
+
+public class TestTaskManagerConfig
+{
+    @Test
+    public void testDefaults()
+    {
+        assertRecordedDefaults(recordDefaults(TaskManagerConfig.class)
+                .setTaskCpuTimerEnabled(true)
+                .setMaxShardProcessorThreads(Runtime.getRuntime().availableProcessors() * 4)
+                .setInfoMaxAge(new Duration(15, TimeUnit.MINUTES))
+                .setClientTimeout(new Duration(5, TimeUnit.MINUTES))
+                .setMaxTaskMemoryUsage(new DataSize(256, Unit.MEGABYTE))
+                .setOperatorPreAllocatedMemory(new DataSize(16, Unit.MEGABYTE))
+                .setSinkMaxBufferSize(new DataSize(32, Unit.MEGABYTE)));
+    }
+
+    @Test
+    public void testExplicitPropertyMappings()
+    {
+        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+                .put("task.cpu-timer-enabled", "false")
+                .put("task.max-memory", "2GB")
+                .put("task.operator-pre-allocated-memory", "2MB")
+                .put("task.shard.max-threads", "3")
+                .put("task.info.max-age", "22m")
+                .put("task.client.timeout", "10s")
+                .put("sink.max-buffer-size", "42MB")
+                .build();
+
+        TaskManagerConfig expected = new TaskManagerConfig()
+                .setTaskCpuTimerEnabled(false)
+                .setMaxTaskMemoryUsage(new DataSize(2, Unit.GIGABYTE))
+                .setOperatorPreAllocatedMemory(new DataSize(2, Unit.MEGABYTE))
+                .setMaxShardProcessorThreads(3)
+                .setInfoMaxAge(new Duration(22, TimeUnit.MINUTES))
+                .setClientTimeout(new Duration(10, TimeUnit.SECONDS))
+                .setSinkMaxBufferSize(new DataSize(42, Unit.MEGABYTE));
+
+        assertFullMapping(properties, expected);
+    }
+}

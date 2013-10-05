@@ -113,7 +113,7 @@ public class TestSqlTaskManager
                 new MockLocationFactory(),
                 taskExecutor,
                 new QueryMonitor(new ObjectMapperProvider().get(), new NullEventClient(), new NodeInfo("test")),
-                new QueryManagerConfig());
+                new TaskManagerConfig());
 
         tableScanNodeId = new PlanNodeId("tableScan");
         testFragment = new PlanFragment(new PlanFragmentId("fragment"),
@@ -247,7 +247,7 @@ public class TestSqlTaskManager
                 new MockLocationFactory(),
                 taskExecutor,
                 new QueryMonitor(new ObjectMapperProvider().get(), new NullEventClient(), new NodeInfo("test")),
-                new QueryManagerConfig().setInfoMaxAge(new Duration(5, TimeUnit.MILLISECONDS)));
+                new TaskManagerConfig().setInfoMaxAge(new Duration(5, TimeUnit.MILLISECONDS)));
 
         TaskInfo taskInfo = sqlTaskManager.updateTask(session,
                 taskId,

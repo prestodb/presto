@@ -103,7 +103,7 @@ public class SqlTaskManager
             LocationFactory locationFactory,
             TaskExecutor taskExecutor,
             QueryMonitor queryMonitor,
-            QueryManagerConfig config)
+            TaskManagerConfig config)
     {
         this.planner = checkNotNull(planner, "planner is null");
         this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");

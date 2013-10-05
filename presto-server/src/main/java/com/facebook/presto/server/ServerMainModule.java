@@ -26,12 +26,12 @@ import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.event.query.SplitCompletionEvent;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryInfo;
-import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.RemoteTaskFactory;
 import com.facebook.presto.execution.SqlTaskManager;
 import com.facebook.presto.execution.TaskExecutor;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
+import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.failureDetector.FailureDetectorModule;
 import com.facebook.presto.guice.AbstractConfigurationAwareModule;
@@ -48,6 +48,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.NodeVersion;
 import com.facebook.presto.operator.ExchangeClient;
+import com.facebook.presto.operator.ExchangeClientConfig;
 import com.facebook.presto.operator.ExchangeClientFactory;
 import com.facebook.presto.operator.ForExchange;
 import com.facebook.presto.operator.ForScheduler;
@@ -117,9 +118,6 @@ public class ServerMainModule
 
         bindFailureDetector(binder, serverConfig.isCoordinator());
 
-        // query manager
-        bindConfig(binder).to(QueryManagerConfig.class);
-
         // task execution
         binder.bind(TaskResource.class).in(Scopes.SINGLETON);
         binder.bind(TaskManager.class).to(SqlTaskManager.class).in(Scopes.SINGLETON);
@@ -128,6 +126,7 @@ public class ServerMainModule
         newExporter(binder).export(TaskExecutor.class).withGeneratedName();
         binder.bind(LocalExecutionPlanner.class).in(Scopes.SINGLETON);
         binder.bind(ExpressionCompiler.class).in(Scopes.SINGLETON);
+        bindConfig(binder).to(TaskManagerConfig.class);
 
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
         binder.bind(PagesMapper.class).in(Scopes.SINGLETON);
@@ -135,6 +134,7 @@ public class ServerMainModule
         // exchange client
         binder.bind(new TypeLiteral<Supplier<ExchangeClient>>() {}).to(ExchangeClientFactory.class).in(Scopes.SINGLETON);
         httpClientBinder(binder).bindAsyncHttpClient("exchange", ForExchange.class).withTracing();
+        bindConfig(binder).to(ExchangeClientConfig.class);
 
         // execution
         binder.bind(LocationFactory.class).to(HttpLocationFactory.class).in(Scopes.SINGLETON);

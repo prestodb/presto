@@ -14,8 +14,6 @@
 package com.facebook.presto.execution;
 
 import io.airlift.configuration.Config;
-import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
@@ -26,37 +24,15 @@ import java.util.concurrent.TimeUnit;
 
 public class QueryManagerConfig
 {
-    private DataSize maxTaskMemoryUsage = new DataSize(256, Unit.MEGABYTE);
-    private DataSize operatorPreAllocatedMemory = new DataSize(16, Unit.MEGABYTE);
     private int maxPendingSplitsPerNode = 100;
-    private int maxShardProcessorThreads = Runtime.getRuntime().availableProcessors() * 4;
-    private DataSize sinkMaxBufferSize = new DataSize(32, Unit.MEGABYTE);
     private Duration maxQueryAge = new Duration(15, TimeUnit.MINUTES);
     private int maxQueryHistory = 100;
     private Duration clientTimeout = new Duration(5, TimeUnit.MINUTES);
-    private Duration infoMaxAge = new Duration(15, TimeUnit.MINUTES);
-
-    private DataSize exchangeMaxBufferSize = new DataSize(32, Unit.MEGABYTE);
-    private int exchangeConcurrentRequestMultiplier = 3;
 
     private int queryManagerExecutorPoolSize = 5;
 
     private int remoteTaskMaxConsecutiveErrorCount = 10;
     private Duration remoteTaskMinErrorDuration = new Duration(2, TimeUnit.MINUTES);
-
-    private boolean taskCpuTimerEnabled = true;
-
-    public boolean isTaskCpuTimerEnabled()
-    {
-        return taskCpuTimerEnabled;
-    }
-
-    @Config("task.cpu-timer-enabled")
-    public QueryManagerConfig setTaskCpuTimerEnabled(boolean taskCpuTimerEnabled)
-    {
-        this.taskCpuTimerEnabled = taskCpuTimerEnabled;
-        return this;
-    }
 
     @Min(1)
     public int getMaxPendingSplitsPerNode()
@@ -68,58 +44,6 @@ public class QueryManagerConfig
     public QueryManagerConfig setMaxPendingSplitsPerNode(int maxPendingSplitsPerNode)
     {
         this.maxPendingSplitsPerNode = maxPendingSplitsPerNode;
-        return this;
-    }
-
-    @NotNull
-    public DataSize getMaxTaskMemoryUsage()
-    {
-        return maxTaskMemoryUsage;
-    }
-
-    @Config("task.max-memory")
-    public QueryManagerConfig setMaxTaskMemoryUsage(DataSize maxTaskMemoryUsage)
-    {
-        this.maxTaskMemoryUsage = maxTaskMemoryUsage;
-        return this;
-    }
-
-    @NotNull
-    public DataSize getOperatorPreAllocatedMemory()
-    {
-        return operatorPreAllocatedMemory;
-    }
-
-    @Config("task.operator-pre-allocated-memory")
-    public QueryManagerConfig setOperatorPreAllocatedMemory(DataSize operatorPreAllocatedMemory)
-    {
-        this.operatorPreAllocatedMemory = operatorPreAllocatedMemory;
-        return this;
-    }
-
-    @Min(1)
-    public int getMaxShardProcessorThreads()
-    {
-        return maxShardProcessorThreads;
-    }
-
-    @Config("query.shard.max-threads")
-    public QueryManagerConfig setMaxShardProcessorThreads(int maxShardProcessorThreads)
-    {
-        this.maxShardProcessorThreads = maxShardProcessorThreads;
-        return this;
-    }
-
-    @NotNull
-    public DataSize getSinkMaxBufferSize()
-    {
-        return sinkMaxBufferSize;
-    }
-
-    @Config("sink.max-buffer-size")
-    public QueryManagerConfig setSinkMaxBufferSize(DataSize sinkMaxBufferSize)
-    {
-        this.sinkMaxBufferSize = sinkMaxBufferSize;
         return this;
     }
 
@@ -160,45 +84,6 @@ public class QueryManagerConfig
     public QueryManagerConfig setClientTimeout(Duration clientTimeout)
     {
         this.clientTimeout = clientTimeout;
-        return this;
-    }
-
-    @NotNull
-    public Duration getInfoMaxAge()
-    {
-        return infoMaxAge;
-    }
-
-    @Config("query.info.max-age")
-    public QueryManagerConfig setInfoMaxAge(Duration infoMaxAge)
-    {
-        this.infoMaxAge = infoMaxAge;
-        return this;
-    }
-
-    @NotNull
-    public DataSize getExchangeMaxBufferSize()
-    {
-        return exchangeMaxBufferSize;
-    }
-
-    @Config("exchange.max-buffer-size")
-    public QueryManagerConfig setExchangeMaxBufferSize(DataSize exchangeMaxBufferSize)
-    {
-        this.exchangeMaxBufferSize = exchangeMaxBufferSize;
-        return this;
-    }
-
-    @Min(1)
-    public int getExchangeConcurrentRequestMultiplier()
-    {
-        return exchangeConcurrentRequestMultiplier;
-    }
-
-    @Config("exchange.concurrent-request-multiplier")
-    public QueryManagerConfig setExchangeConcurrentRequestMultiplier(int exchangeConcurrentRequestMultiplier)
-    {
-        this.exchangeConcurrentRequestMultiplier = exchangeConcurrentRequestMultiplier;
         return this;
     }
 

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.execution.QueryManagerConfig;
 import com.google.common.base.Supplier;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.units.DataSize;
@@ -36,11 +35,11 @@ public class ExchangeClientFactory
     private final Executor executor;
 
     @Inject
-    public ExchangeClientFactory(QueryManagerConfig queryManagerConfig, @ForExchange AsyncHttpClient httpClient, @ForExchange Executor executor)
+    public ExchangeClientFactory(ExchangeClientConfig config, @ForExchange AsyncHttpClient httpClient, @ForExchange Executor executor)
     {
-        this(queryManagerConfig.getExchangeMaxBufferSize(),
+        this(config.getExchangeMaxBufferSize(),
                 new DataSize(10, Unit.MEGABYTE),
-                queryManagerConfig.getExchangeConcurrentRequestMultiplier(),
+                config.getExchangeConcurrentRequestMultiplier(),
                 httpClient,
                 executor);
     }

@@ -99,7 +99,7 @@ public class TaskExecutor
     private boolean closed;
 
     @Inject
-    public TaskExecutor(QueryManagerConfig config)
+    public TaskExecutor(TaskManagerConfig config)
     {
         this(checkNotNull(config, "config is null").getMaxShardProcessorThreads());
     }
