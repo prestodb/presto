@@ -16,7 +16,6 @@ package com.facebook.presto.operator;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.tuple.TupleInfo;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -130,7 +129,7 @@ public class ChannelSet
             operatorContext.setMemoryReservation(getEstimatedSize());
 
             BlockCursor sourceCursor = sourceBlock.cursor();
-            Slice sourceSlice = ((UncompressedBlock) sourceBlock).getSlice();
+            Slice sourceSlice = sourceBlock.getRawSlice();
             strategy.setLookupSlice(sourceSlice);
 
             for (int position = 0; position < sourceBlock.getPositionCount(); position++) {

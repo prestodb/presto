@@ -14,23 +14,26 @@
 package com.facebook.presto.block.uncompressed;
 
 import com.facebook.presto.block.Block;
+import com.facebook.presto.tuple.TupleInfo;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
+import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
 import static io.airlift.testing.Assertions.assertInstanceOf;
+import static org.testng.Assert.assertEquals;
 
-public class TestUncompressedDoubleBlockCursorWithNulls
+public class TestBooleanBlockCursorWithNulls
         extends AbstractTestSingleColumnBlockCursorWithNulls
 {
     @Override
     protected Block createExpectedValues()
     {
-        return createDoublesBlock(null, 11.11, null, 22.22, null, 22.22, null, 22.22, null, 33.33, null);
+        return createBooleansBlock(null, true, null, false, null, false, null, false, null, true, null);
     }
 
     @Test
     public void testCursorType()
     {
-        assertInstanceOf(createExpectedValues().cursor(), UncompressedDoubleBlockCursor.class);
+        assertInstanceOf(createExpectedValues().cursor(), FixedWidthBlockCursor.class);
+        assertEquals(createExpectedValues().cursor().getTupleInfo(), TupleInfo.SINGLE_BOOLEAN);
     }
 }

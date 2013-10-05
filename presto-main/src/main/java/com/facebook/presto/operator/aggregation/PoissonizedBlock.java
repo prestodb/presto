@@ -41,6 +41,12 @@ class PoissonizedBlock
     }
 
     @Override
+    public Slice getRawSlice()
+    {
+        return delegate.getRawSlice();
+    }
+
+    @Override
     public TupleInfo getTupleInfo()
     {
         return SINGLE_LONG;
