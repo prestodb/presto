@@ -13,15 +13,15 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.uncompressed.UncompressedLongBlock;
+import com.facebook.presto.block.uncompressed.FixedWidthBlock;
 import com.google.common.base.Objects;
 
 public class GroupByIdBlock
-        extends UncompressedLongBlock
+        extends FixedWidthBlock
 {
     private final long groupCount;
 
-    public GroupByIdBlock(long groupCount, UncompressedLongBlock block)
+    public GroupByIdBlock(long groupCount, FixedWidthBlock block)
     {
         super(block);
         this.groupCount = groupCount;

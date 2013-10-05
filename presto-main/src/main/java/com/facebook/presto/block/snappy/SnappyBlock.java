@@ -16,16 +16,13 @@ package com.facebook.presto.block.snappy;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.RandomAccessBlock;
+import com.facebook.presto.block.uncompressed.FixedWidthBlock;
+import com.facebook.presto.block.uncompressed.FixedWidthBlockCursor;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
-import com.facebook.presto.block.uncompressed.UncompressedBooleanBlock;
-import com.facebook.presto.block.uncompressed.UncompressedBooleanBlockCursor;
-import com.facebook.presto.block.uncompressed.UncompressedDoubleBlock;
-import com.facebook.presto.block.uncompressed.UncompressedDoubleBlockCursor;
-import com.facebook.presto.block.uncompressed.UncompressedLongBlock;
-import com.facebook.presto.block.uncompressed.UncompressedLongBlockCursor;
 import com.facebook.presto.block.uncompressed.UncompressedSliceBlock;
 import com.facebook.presto.block.uncompressed.UncompressedSliceBlockCursor;
 import com.facebook.presto.serde.SnappyBlockEncoding;
+import com.facebook.presto.tuple.FixedWidthTypeInfo;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.base.Objects;
@@ -105,14 +102,8 @@ public class SnappyBlock
     public BlockCursor cursor()
     {
         Type type = tupleInfo.getType();
-        if (type == Type.BOOLEAN) {
-            return new UncompressedBooleanBlockCursor(positionCount, getUncompressedSlice());
-        }
-        else if (type == Type.FIXED_INT_64) {
-            return new UncompressedLongBlockCursor(positionCount, getUncompressedSlice());
-        }
-        else if (type == Type.DOUBLE) {
-            return new UncompressedDoubleBlockCursor(positionCount, getUncompressedSlice());
+        if (type == Type.BOOLEAN || type == Type.FIXED_INT_64 || type == Type.DOUBLE) {
+            return new FixedWidthBlockCursor(new FixedWidthTypeInfo(type), positionCount, getUncompressedSlice());
         }
         else if (type == Type.VARIABLE_BINARY) {
             return new UncompressedSliceBlockCursor(positionCount, getUncompressedSlice());
@@ -137,14 +128,8 @@ public class SnappyBlock
     public RandomAccessBlock toRandomAccessBlock()
     {
         Type type = tupleInfo.getType();
-        if (type == Type.BOOLEAN) {
-            return new UncompressedBooleanBlock(positionCount, getUncompressedSlice());
-        }
-        if (type == Type.FIXED_INT_64) {
-            return new UncompressedLongBlock(positionCount, getUncompressedSlice());
-        }
-        if (type == Type.DOUBLE) {
-            return new UncompressedDoubleBlock(positionCount, getUncompressedSlice());
+        if (type == Type.BOOLEAN || type == Type.FIXED_INT_64 || type == Type.DOUBLE) {
+            return new FixedWidthBlock(new FixedWidthTypeInfo(type), positionCount, getUncompressedSlice());
         }
         if (type == Type.VARIABLE_BINARY) {
             return new UncompressedSliceBlock(new UncompressedBlock(positionCount, tupleInfo, getUncompressedSlice()));
@@ -160,5 +145,11 @@ public class SnappyBlock
                 .add("tupleInfo", tupleInfo)
                 .add("compressedSlice", compressedSlice)
                 .toString();
+    }
+
+    @Override
+    public Slice getRawSlice()
+    {
+        return getUncompressedSlice();
     }
 }
