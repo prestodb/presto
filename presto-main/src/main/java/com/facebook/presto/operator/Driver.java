@@ -71,7 +71,7 @@ public class Driver
         this.sourceOperators = sourceOperators.build();
     }
 
-    public void close()
+    public synchronized void close()
     {
         try {
             for (Operator operator : operators) {
