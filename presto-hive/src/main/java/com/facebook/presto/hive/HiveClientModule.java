@@ -20,7 +20,6 @@ import com.google.inject.Injector;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
-import org.weakref.jmx.guice.ExportBinder;
 
 import javax.inject.Singleton;
 
@@ -33,6 +32,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.airlift.configuration.ConfigurationModule.bindConfig;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
+import static org.weakref.jmx.ObjectNames.generatedNameOf;
+import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class HiveClientModule
         implements Module
@@ -58,9 +59,8 @@ public class HiveClientModule
         bindConfig(binder).to(HivePluginConfig.class);
 
         binder.bind(CachingHiveMetastore.class).in(Scopes.SINGLETON);
-        ExportBinder.newExporter(binder)
-                .export(CachingHiveMetastore.class)
-                .as("com.facebook.presto.hive:type=CachingHiveMetastore,name=" + connectorId);
+        newExporter(binder).export(CachingHiveMetastore.class)
+                .as(generatedNameOf(CachingHiveMetastore.class, connectorId));
 
         binder.bind(DiscoveryLocatedHiveCluster.class).in(Scopes.SINGLETON);
         binder.bind(HiveMetastoreClientFactory.class).in(Scopes.SINGLETON);
