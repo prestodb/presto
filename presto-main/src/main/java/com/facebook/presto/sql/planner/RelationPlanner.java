@@ -127,6 +127,10 @@ class RelationPlanner
     @Override
     protected RelationPlan visitSampledRelation(SampledRelation node, Void context)
     {
+        if (node.getColumnsToStratifyOn().isPresent()) {
+            throw new UnsupportedOperationException("STRATIFY ON is not yet implemented");
+        }
+
         RelationPlan subPlan = process(node.getRelation(), context);
 
         TupleDescriptor outputDescriptor = analysis.getOutputDescriptor(node);

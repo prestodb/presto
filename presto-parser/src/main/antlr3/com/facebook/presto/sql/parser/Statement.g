@@ -79,6 +79,7 @@ tokens {
     ALIASED_RELATION;
     SAMPLED_RELATION;
     QUERY_SPEC;
+    STRATIFY_ON;
 }
 
 @header {
@@ -281,9 +282,13 @@ sampleType
     | SYSTEM
     ;
 
+stratifyOn
+    : STRATIFY ON '(' expr (',' expr)* ')' -> ^(STRATIFY_ON expr+)
+    ;
+
 tableFactor
     : ( tablePrimary -> tablePrimary )
-      ( TABLESAMPLE sampleType '(' expr ')' -> ^(SAMPLED_RELATION $tableFactor sampleType expr) )?
+      ( TABLESAMPLE sampleType '(' expr ')' stratifyOn? -> ^(SAMPLED_RELATION $tableFactor sampleType expr stratifyOn?) )?
     ;
 
 tablePrimary
@@ -798,6 +803,7 @@ INTERSECT: 'INTERSECT';
 SYSTEM: 'SYSTEM';
 BERNOULLI: 'BERNOULLI';
 TABLESAMPLE: 'TABLESAMPLE';
+STRATIFY: 'STRATIFY';
 
 EQ  : '=';
 NEQ : '<>' | '!=';
