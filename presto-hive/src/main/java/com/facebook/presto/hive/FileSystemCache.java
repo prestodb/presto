@@ -18,6 +18,7 @@ import com.google.common.base.Objects;
 import com.google.common.base.Strings;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ExecutionError;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import org.apache.hadoop.conf.Configuration;
@@ -28,6 +29,7 @@ import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -72,6 +74,11 @@ public class FileSystemCache
                 };
             }
         };
+    }
+
+    public List<FileSystem> getFileSystems()
+    {
+        return ImmutableList.copyOf(cache.asMap().values());
     }
 
     private static Callable<FileSystem> createFileSystemFromPath(final Path path, final Configuration conf)
