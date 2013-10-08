@@ -287,8 +287,7 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitSampledRelation(SampledRelation node, Integer indent)
-        {
+        protected Void visitSampledRelation(SampledRelation node, Integer indent) {
             process(node.getRelation(), indent);
 
             builder.append(" TABLESAMPLE ")
@@ -296,6 +295,13 @@ public final class SqlFormatter
                     .append(" (")
                     .append(node.getSamplePercentage())
                     .append(')');
+
+            if (node.getColumnsToStratifyOn().isPresent()) {
+                builder.append(" STRATIFY ON ")
+                        .append(" (")
+                        .append(Joiner.on(",").join(node.getColumnsToStratifyOn().get()));
+                builder.append(')');
+            }
 
             return null;
         }

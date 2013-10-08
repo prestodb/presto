@@ -220,6 +220,10 @@ sampleType returns [SampledRelation.Type value]
     | SYSTEM    { $value = SampledRelation.Type.SYSTEM; }
     ;
 
+stratifyOn returns [List<Expression> value]
+    : ^(STRATIFY_ON exprList) { $value = $exprList.value; }
+    ;
+
 relationList returns [List<Relation> value = new ArrayList<>()]
     : ( relation { $value.add($relation.value); } )+
     ;
@@ -255,7 +259,7 @@ aliasedRelation returns [AliasedRelation value]
     ;
 
 sampledRelation returns [SampledRelation value]
-    : ^(SAMPLED_RELATION r=relation t=sampleType p=expr) { $value = new SampledRelation($r.value, $t.value, $p.value); }
+    : ^(SAMPLED_RELATION r=relation t=sampleType p=expr st=stratifyOn?) { $value = new SampledRelation($r.value, $t.value, $p.value, Optional.fromNullable($st.value)); }
     ;
 
 aliasedColumns returns [List<String> value]

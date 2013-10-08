@@ -367,6 +367,11 @@ public abstract class DefaultTraversalVisitor<R, C>
     {
         process(node.getRelation(), context);
         process(node.getSamplePercentage(), context);
+        if (node.getColumnsToStratifyOn().isPresent()) {
+            for (Expression expression : node.getColumnsToStratifyOn().get()) {
+                process(expression, context);
+            }
+        }
         return null;
     }
 
