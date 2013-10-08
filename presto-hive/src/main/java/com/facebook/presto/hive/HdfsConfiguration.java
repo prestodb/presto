@@ -13,20 +13,17 @@
  */
 package com.facebook.presto.hive;
 
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
 import com.google.common.primitives.Ints;
 import io.airlift.units.Duration;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.metrics.ContextFactory;
 import org.apache.hadoop.net.DNSToSwitchMapping;
 import org.apache.hadoop.net.SocksSocketFactory;
 
 import javax.inject.Inject;
 import javax.net.SocketFactory;
 
-import java.io.IOException;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -87,24 +84,20 @@ public class HdfsConfiguration
             config.setStrings("dfs.domain.socket.path", domainSocketPath);
         }
 
-        config.setBoolean("dfs.read.shortcircuit", true);
-        config.setBoolean("dfs.read.shortcircuit.fallbackwhenfail", true);
         config.setInt("dfs.socket.timeout", Ints.checkedCast(dfsTimeout.toMillis()));
         config.setInt("ipc.ping.interval", Ints.checkedCast(dfsTimeout.toMillis()));
         config.setInt("ipc.client.connect.timeout", Ints.checkedCast(dfsConnectTimeout.toMillis()));
         config.setInt("ipc.client.connect.max.retries", dfsConnectMaxRetries);
 
-        // Enable JMX export of stats for DFSClient
-        try {
-            ContextFactory factory = ContextFactory.getFactory();
-            factory.setAttribute("hdfsclient.class", "org.apache.hadoop.metrics.jmx.JMXContext");
-            factory.setAttribute("hdfsclient.period", "5"); // Counter value publish interval (seconds)
-        }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
-        }
+        updateConfiguration(config);
 
         return config;
+    }
+
+    @SuppressWarnings("UnusedParameters")
+    protected void updateConfiguration(Configuration config)
+    {
+        // allow subclasses to modify configuration objects
     }
 
     public static class NoOpDNSToSwitchMapping
