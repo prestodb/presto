@@ -14,6 +14,7 @@
 package com.facebook.presto.tuple;
 
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -22,9 +23,11 @@ public interface TypeInfo
 {
     Type getType();
 
+    Object getObjectValue(Slice slice, int offset);
+
     boolean equals(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset);
 
-    boolean equals(Slice leftSlice, int leftOffset, TupleReadable rightTuple);
+    boolean equals(Slice leftSlice, int leftOffset, BlockCursor rightCursor);
 
     int hashCode(Slice slice, int offset);
 

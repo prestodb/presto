@@ -14,40 +14,36 @@
 package com.facebook.presto.block.rle;
 
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.operator.SortOrder;
 import com.facebook.presto.serde.RunLengthBlockEncoding;
-import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleReadable;
 import com.google.common.base.Objects;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkPositionIndexes;
 import static com.google.common.base.Preconditions.checkState;
 
 public class RunLengthEncodedBlock
         implements RandomAccessBlock
 {
-    private final Tuple value;
+    private final RandomAccessBlock value;
     private final int positionCount;
 
-    public RunLengthEncodedBlock(Tuple value, int positionCount)
+    public RunLengthEncodedBlock(RandomAccessBlock value, int positionCount)
     {
-        this.value = value;
-        this.positionCount = positionCount;
-    }
+        this.value = checkNotNull(value, "value is null");
+        checkArgument(value.getPositionCount() == 1, "Expected value to contain a single position but has %s positions", value.getPositionCount());
 
-    public Tuple getValue()
-    {
-        return value;
-    }
+        // value can not be a RunLengthEncodedBlock because this could cause stack overflow in some of the methods
+        checkArgument(!(value instanceof RunLengthEncodedBlock), "Value can not be an instance of a %s", getClass().getName());
 
-    public Tuple getSingleValue()
-    {
-        return value;
+        checkArgument(positionCount >= 0, "positionCount is negative");
+        this.positionCount = checkNotNull(positionCount, "positionCount is null");
     }
 
     @Override
@@ -59,13 +55,13 @@ public class RunLengthEncodedBlock
     @Override
     public DataSize getDataSize()
     {
-        return new DataSize(value.getTupleSlice().length(), Unit.BYTE);
+        return value.getDataSize();
     }
 
     @Override
     public RunLengthBlockEncoding getEncoding()
     {
-        return new RunLengthBlockEncoding(value.getTupleInfo());
+        return new RunLengthBlockEncoding(getTupleInfo());
     }
 
     @Override
@@ -91,29 +87,39 @@ public class RunLengthEncodedBlock
     public boolean getBoolean(int position)
     {
         checkReadablePosition(position);
-        return value.getBoolean();
+        return value.getBoolean(0);
     }
 
     @Override
     public long getLong(int position)
     {
-        return value.getLong();
+        checkReadablePosition(position);
+        return value.getLong(0);
     }
 
     @Override
     public double getDouble(int position)
     {
-        return value.getDouble();
+        checkReadablePosition(position);
+        return value.getDouble(0);
+    }
+
+    @Override
+    public Object getObjectValue(int position)
+    {
+        checkReadablePosition(position);
+        return value.getObjectValue(0);
     }
 
     @Override
     public Slice getSlice(int position)
     {
-        return value.getSlice();
+        checkReadablePosition(position);
+        return value.getSlice(0);
     }
 
     @Override
-    public Tuple getTuple(int position)
+    public RandomAccessBlock getSingleValueBlock(int position)
     {
         checkReadablePosition(position);
         return value;
@@ -123,37 +129,62 @@ public class RunLengthEncodedBlock
     public boolean isNull(int position)
     {
         checkReadablePosition(position);
-        return value.isNull();
+        return value.isNull(0);
     }
 
     @Override
     public boolean equals(int position, RandomAccessBlock right, int rightPosition)
     {
-        throw new UnsupportedOperationException();
+        checkReadablePosition(position);
+        return value.equals(0, right, rightPosition);
     }
 
     @Override
-    public boolean equals(int position, TupleReadable value)
+    public boolean equals(int position, BlockCursor cursor)
     {
-        throw new UnsupportedOperationException();
+        checkReadablePosition(position);
+        return this.value.equals(0, cursor);
+    }
+
+    @Override
+    public boolean equals(int position, Slice slice, int offset)
+    {
+        checkReadablePosition(position);
+        return value.equals(0, slice, offset);
     }
 
     @Override
     public int hashCode(int position)
     {
-        throw new UnsupportedOperationException();
+        checkReadablePosition(position);
+        return value.hashCode(0);
     }
 
     @Override
     public int compareTo(SortOrder sortOrder, int position, RandomAccessBlock right, int rightPosition)
     {
-        throw new UnsupportedOperationException();
+        checkReadablePosition(position);
+        return value.compareTo(sortOrder, 0, right, rightPosition);
+    }
+
+    @Override
+    public int compareTo(SortOrder sortOrder, int position, BlockCursor cursor)
+    {
+        checkReadablePosition(position);
+        return value.compareTo(sortOrder, 0, cursor);
+    }
+
+    @Override
+    public int compareTo(int position, Slice slice, int offset)
+    {
+        checkReadablePosition(position);
+        return value.compareTo(0, slice, offset);
     }
 
     @Override
     public void appendTupleTo(int position, BlockBuilder blockBuilder)
     {
-        throw new UnsupportedOperationException();
+        value.appendTupleTo(0, blockBuilder);
     }
 
     @Override
@@ -179,6 +210,6 @@ public class RunLengthEncodedBlock
     @Override
     public Slice getRawSlice()
     {
-        return value.getSlice();
+        return value.getRawSlice();
     }
 }

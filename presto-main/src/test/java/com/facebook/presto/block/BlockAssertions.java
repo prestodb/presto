@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.block;
 
-import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.base.Function;
@@ -43,7 +42,9 @@ import static org.testng.Assert.assertTrue;
 
 public final class BlockAssertions
 {
-    private BlockAssertions() {}
+    private BlockAssertions()
+    {
+    }
 
     public static Object getOnlyValue(Block block)
     {
@@ -51,7 +52,7 @@ public final class BlockAssertions
 
         BlockCursor cursor = block.cursor();
         Assert.assertTrue(cursor.advanceNextPosition());
-        Object value = cursor.getTuple().getObjectValue();
+        Object value = cursor.getObjectValue();
         Assert.assertFalse(cursor.advanceNextPosition());
 
         return value;
@@ -74,7 +75,7 @@ public final class BlockAssertions
         for (Block block : blocks) {
             BlockCursor cursor = block.cursor();
             while (cursor.advanceNextPosition()) {
-                values.add(cursor.getTuple().getObjectValue());
+                values.add(cursor.getObjectValue());
             }
         }
         return Collections.unmodifiableList(values);
@@ -90,7 +91,7 @@ public final class BlockAssertions
     {
         List<Object> values = new ArrayList<>();
         while (cursor.advanceNextPosition()) {
-            values.add(cursor.getTuple().getObjectValue());
+            values.add(cursor.getObjectValue());
         }
         return Collections.unmodifiableList(values);
     }
@@ -105,7 +106,7 @@ public final class BlockAssertions
     {
         Assert.assertEquals(actualCursor.getTupleInfo(), expectedCursor.getTupleInfo());
         while (advanceAllCursorsToNextPosition(actualCursor, expectedCursor)) {
-            assertEquals(actualCursor.getTuple(), expectedCursor.getTuple());
+            assertEquals(actualCursor.getObjectValue(), expectedCursor.getObjectValue());
         }
         assertTrue(actualCursor.isFinished());
         assertTrue(expectedCursor.isFinished());
@@ -115,17 +116,17 @@ public final class BlockAssertions
     {
         Assert.assertEquals(actual.getTupleInfo(), expected.getTupleInfo());
 
-        List<Tuple> actualTuples = toTuplesList(actual);
-        List<Tuple> expectedTuples = toTuplesList(expected);
-        assertEqualsIgnoreOrder(actualTuples, expectedTuples);
+        List<RandomAccessBlock> actualValues = toTuplesList(actual);
+        List<RandomAccessBlock> expectedValues = toTuplesList(expected);
+        assertEqualsIgnoreOrder(actualValues, expectedValues);
     }
 
-    public static List<Tuple> toTuplesList(Block block)
+    public static List<RandomAccessBlock> toTuplesList(Block block)
     {
-        ImmutableList.Builder<Tuple> tuples = ImmutableList.builder();
+        ImmutableList.Builder<RandomAccessBlock> tuples = ImmutableList.builder();
         BlockCursor actualCursor = block.cursor();
         while (actualCursor.advanceNextPosition()) {
-            tuples.add(actualCursor.getTuple());
+            tuples.add(actualCursor.getSingleValueBlock());
         }
         return tuples.build();
     }
@@ -375,12 +376,6 @@ public final class BlockAssertions
         private BlockIterableBuilder(TupleInfo tupleInfo)
         {
             blockBuilder = new BlockBuilder(tupleInfo);
-        }
-
-        public BlockIterableBuilder append(Tuple tuple)
-        {
-            blockBuilder.append(tuple);
-            return this;
         }
 
         public BlockIterableBuilder append(Slice value)

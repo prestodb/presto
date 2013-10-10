@@ -15,7 +15,7 @@ package com.facebook.presto.serde;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.tuple.Tuple;
+import com.facebook.presto.block.RandomAccessBlock;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.OutputSupplier;
@@ -25,9 +25,7 @@ import io.airlift.slice.SliceOutput;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.HashSet;
 import java.util.Iterator;
-import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -154,29 +152,34 @@ public class BlocksFileWriter
 
         private long rowCount;
         private long runsCount;
-        private Tuple lastTuple;
-        private final Set<Tuple> set = new HashSet<>(MAX_UNIQUE_COUNT);
+        private RandomAccessBlock lastValue;
+        private DictionaryBuilder dictionaryBuilder;
 
         public void process(Block block)
         {
             checkNotNull(block, "block is null");
 
+            if (dictionaryBuilder == null) {
+                dictionaryBuilder = new DictionaryBuilder(block.getTupleInfo().getType());
+            }
+
             BlockCursor cursor = block.cursor();
             while (cursor.advanceNextPosition()) {
-                Tuple tuple = cursor.getTuple();
-                if (lastTuple == null) {
-                    lastTuple = tuple;
-                    if (set.size() < MAX_UNIQUE_COUNT) {
-                        set.add(lastTuple);
-                    }
+                // update run length stats
+                RandomAccessBlock randomAccessBlock = cursor.getSingleValueBlock();
+                if (lastValue == null) {
+                    lastValue = randomAccessBlock;
                 }
-                else if (!tuple.equals(lastTuple)) {
+                else if (!randomAccessBlock.equals(0, lastValue, 0)) {
                     runsCount++;
-                    lastTuple = tuple;
-                    if (set.size() < MAX_UNIQUE_COUNT) {
-                        set.add(lastTuple);
-                    }
+                    lastValue = randomAccessBlock;
                 }
+
+                // update dictionary stats
+                if (dictionaryBuilder.size() < MAX_UNIQUE_COUNT) {
+                    dictionaryBuilder.putIfAbsent(cursor);
+                }
+
                 rowCount++;
             }
         }
@@ -184,7 +187,11 @@ public class BlocksFileWriter
         public BlocksFileStats build()
         {
             // TODO: expose a way to indicate whether the unique count is EXACT or APPROXIMATE
-            return new BlocksFileStats(rowCount, runsCount + 1, rowCount / (runsCount + 1), (set.size() == MAX_UNIQUE_COUNT) ? Integer.MAX_VALUE : set.size());
+            return new BlocksFileStats(
+                    rowCount,
+                    runsCount + 1,
+                    rowCount / (runsCount + 1),
+                    (dictionaryBuilder.size() >= MAX_UNIQUE_COUNT) ? Integer.MAX_VALUE : dictionaryBuilder.size());
         }
     }
 }

@@ -17,7 +17,6 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.RandomAccessBlock;
-import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
@@ -82,9 +81,9 @@ public class DictionaryEncodedBlockCursor
     }
 
     @Override
-    public Tuple getTuple()
+    public RandomAccessBlock getSingleValueBlock()
     {
-        return dictionary.getTuple(getDictionaryKey());
+        return dictionary.getSingleValueBlock(getDictionaryKey());
     }
 
     @Override
@@ -112,6 +111,12 @@ public class DictionaryEncodedBlockCursor
     }
 
     @Override
+    public Object getObjectValue()
+    {
+        return dictionary.getObjectValue(getDictionaryKey());
+    }
+
+    @Override
     public boolean isNull()
     {
         return dictionary.isNull(getDictionaryKey());
@@ -121,6 +126,12 @@ public class DictionaryEncodedBlockCursor
     public int getPosition()
     {
         return idCursor.getPosition();
+    }
+
+    @Override
+    public int compareTo(Slice slice, int offset)
+    {
+        return dictionary.compareTo(getDictionaryKey(), slice, offset);
     }
 
     @Override

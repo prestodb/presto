@@ -16,11 +16,12 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
+import com.facebook.presto.tuple.TupleInfo;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
-import static com.facebook.presto.tuple.Tuples.nullTuple;
 
 public abstract class AbstractTestAggregationFunction
 {
@@ -62,7 +63,13 @@ public abstract class AbstractTestAggregationFunction
     public void testAllPositionsNull()
             throws Exception
     {
-        Block block = new RunLengthEncodedBlock(nullTuple(getSequenceBlock(0, 10).getTupleInfo()), 10);
+        TupleInfo tupleInfo = getSequenceBlock(0, 10).getTupleInfo();
+        RandomAccessBlock nullValueBlock = new BlockBuilder(tupleInfo)
+                .appendNull()
+                .build()
+                .toRandomAccessBlock();
+
+        Block block = new RunLengthEncodedBlock(nullValueBlock, 10);
         testAggregation(getExpectedValueIncludingNulls(0, 0, 10), block);
     }
 
@@ -90,7 +97,10 @@ public abstract class AbstractTestAggregationFunction
         BlockBuilder blockBuilder = new BlockBuilder(sequenceBlock.getTupleInfo());
         BlockCursor cursor = sequenceBlock.cursor();
         while (cursor.advanceNextPosition()) {
-            blockBuilder.appendNull().append(cursor.getTuple());
+            // append null
+            blockBuilder.appendNull();
+            // append value
+            cursor.appendTupleTo(blockBuilder);
         }
         return blockBuilder.build();
     }

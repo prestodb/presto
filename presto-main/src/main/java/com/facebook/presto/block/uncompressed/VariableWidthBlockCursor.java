@@ -16,15 +16,13 @@ package com.facebook.presto.block.uncompressed;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.tuple.Tuple;
+import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.Tuples;
 import com.facebook.presto.tuple.VariableWidthTypeInfo;
 import com.google.common.base.Preconditions;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
@@ -135,7 +133,7 @@ public class VariableWidthBlockCursor
         entryOffset += entrySize;
         isNull = slice.getByte(entryOffset) != 0;
         if (isNull) {
-            entrySize = 1;
+            entrySize = SIZE_OF_BYTE;
         }
         else {
             entrySize = typeInfo.getLength(slice, entryOffset + SIZE_OF_BYTE) + SIZE_OF_BYTE;
@@ -150,19 +148,14 @@ public class VariableWidthBlockCursor
     }
 
     @Override
-    public Tuple getTuple()
+    public RandomAccessBlock getSingleValueBlock()
     {
         checkReadablePosition();
 
-        if (isNull) {
-            return Tuples.NULL_STRING_TUPLE;
-        }
-        else {
-            Slice copy = Slices.allocate(entrySize);
-            copy.setBytes(0, slice, entryOffset, entrySize);
+        Slice copy = Slices.allocate(entrySize);
+        copy.setBytes(0, slice, entryOffset, entrySize);
 
-            return new Tuple(copy, SINGLE_VARBINARY);
-        }
+        return new VariableWidthRandomAccessBlock(typeInfo, 1, copy);
     }
 
     @Override
@@ -191,10 +184,27 @@ public class VariableWidthBlockCursor
     }
 
     @Override
+    public Object getObjectValue()
+    {
+        checkReadablePosition();
+        if (isNull) {
+            return null;
+        }
+        return typeInfo.getObjectValue(slice, entryOffset + SIZE_OF_BYTE);
+    }
+
+    @Override
     public boolean isNull()
     {
         checkReadablePosition();
         return isNull;
+    }
+
+    @Override
+    public int compareTo(Slice rightSlice, int rightOffset)
+    {
+        checkReadablePosition();
+        return typeInfo.compareTo(slice, entryOffset + SIZE_OF_BYTE, rightSlice, rightOffset);
     }
 
     @Override

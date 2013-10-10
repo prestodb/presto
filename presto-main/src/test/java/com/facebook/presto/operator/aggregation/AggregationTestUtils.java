@@ -16,6 +16,7 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 import com.facebook.presto.block.uncompressed.FixedWidthBlock;
 import com.facebook.presto.operator.GroupByIdBlock;
@@ -33,7 +34,6 @@ import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_BOOLEAN;
-import static com.facebook.presto.tuple.Tuples.NULL_BOOLEAN_TUPLE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -387,7 +387,7 @@ public final class AggregationTestUtils
             else {
                 Block[] newBlocks = new Block[page.getChannelCount() + offset];
                 for (int channel = 0; channel < offset; channel++) {
-                    newBlocks[channel] = new RunLengthEncodedBlock(NULL_BOOLEAN_TUPLE, page.getPositionCount());
+                    newBlocks[channel] = createNullRLEBlock(page.getPositionCount());
                 }
                 for (int channel = 0; channel < page.getBlocks().length; channel++) {
                     newBlocks[channel + offset] = page.getBlocks()[channel];
@@ -396,6 +396,16 @@ public final class AggregationTestUtils
             }
         }
         return newPages;
+    }
+
+    private static RunLengthEncodedBlock createNullRLEBlock(int positionCount)
+    {
+        RandomAccessBlock value = new BlockBuilder(SINGLE_BOOLEAN)
+                .appendNull()
+                .build()
+                .toRandomAccessBlock();
+
+        return new RunLengthEncodedBlock(value, positionCount);
     }
 
     private static Object getGroupValue(GroupedAccumulator groupedAggregation, int groupId)

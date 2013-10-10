@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.CompilerContext;
@@ -55,7 +56,6 @@ import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.WhenClause;
-import com.facebook.presto.tuple.TupleReadable;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
@@ -218,7 +218,7 @@ public class ByteCodeExpressionVisitor
             Block isNullCheck = new Block(context)
                     .setDescription(format("channel_%d.get%s()", channel, type))
                     .getVariable("channel_" + channel)
-                    .invokeInterface(TupleReadable.class, "isNull", boolean.class);
+                    .invokeInterface(BlockCursor.class, "isNull", boolean.class);
 
             switch (type) {
                 case BOOLEAN: {
@@ -228,7 +228,7 @@ public class ByteCodeExpressionVisitor
 
                     Block isNotNull = new Block(context)
                             .getVariable("channel_" + channel)
-                            .invokeInterface(TupleReadable.class, "getBoolean", boolean.class);
+                            .invokeInterface(BlockCursor.class, "getBoolean", boolean.class);
 
                     return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, isNotNull), boolean.class);
                 }
@@ -239,7 +239,7 @@ public class ByteCodeExpressionVisitor
 
                     Block isNotNull = new Block(context)
                             .getVariable("channel_" + channel)
-                            .invokeInterface(TupleReadable.class, "getLong", long.class);
+                            .invokeInterface(BlockCursor.class, "getLong", long.class);
 
                     return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, isNotNull), long.class);
                 }
@@ -250,7 +250,7 @@ public class ByteCodeExpressionVisitor
 
                     Block isNotNull = new Block(context)
                             .getVariable("channel_" + channel)
-                            .invokeInterface(TupleReadable.class, "getDouble", double.class);
+                            .invokeInterface(BlockCursor.class, "getDouble", double.class);
 
                     return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, isNotNull), double.class);
                 }
@@ -261,7 +261,7 @@ public class ByteCodeExpressionVisitor
 
                     Block isNotNull = new Block(context)
                             .getVariable("channel_" + channel)
-                            .invokeInterface(TupleReadable.class, "getSlice", Slice.class);
+                            .invokeInterface(BlockCursor.class, "getSlice", Slice.class);
 
                     return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, isNotNull), Slice.class);
                 }

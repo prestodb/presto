@@ -638,7 +638,7 @@ public class StatementResource
                         return endOfData();
                     }
 
-                    row.add(cursor.getTuple().getObjectValue());
+                    row.add(cursor.getObjectValue());
                 }
                 return row;
             }

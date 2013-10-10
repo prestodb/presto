@@ -15,13 +15,13 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleReadable;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMap.Builder;
 import org.testng.annotations.Test;
@@ -36,12 +36,8 @@ import static com.facebook.presto.sql.analyzer.Type.BOOLEAN;
 import static com.facebook.presto.sql.analyzer.Type.DOUBLE;
 import static com.facebook.presto.sql.analyzer.Type.VARCHAR;
 import static com.facebook.presto.sql.parser.SqlParser.createExpression;
-import static com.facebook.presto.tuple.Tuples.NULL_BOOLEAN_TUPLE;
-import static com.facebook.presto.tuple.Tuples.NULL_DOUBLE_TUPLE;
-import static com.facebook.presto.tuple.Tuples.NULL_LONG_TUPLE;
-import static com.facebook.presto.tuple.Tuples.NULL_STRING_TUPLE;
-import static com.facebook.presto.tuple.Tuples.createTuple;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestInterpretedProjectionFunction
 {
@@ -139,17 +135,17 @@ public class TestInterpretedProjectionFunction
     @Test
     public void testSymbolReference()
     {
-        assertProjection(BOOLEAN, createExpression("symbol"), true, ImmutableMap.of(new Symbol("symbol"), new Input(0)), createTuple(true));
-        assertProjection(BOOLEAN, createExpression("symbol"), null, ImmutableMap.of(new Symbol("symbol"), new Input(0)), NULL_BOOLEAN_TUPLE);
+        assertProjection(BOOLEAN, createExpression("symbol"), true, ImmutableMap.of(new Symbol("symbol"), new Input(0)), createCursor(BOOLEAN, true));
+        assertProjection(BOOLEAN, createExpression("symbol"), null, ImmutableMap.of(new Symbol("symbol"), new Input(0)), createCursor(BOOLEAN, null));
 
-        assertProjection(BIGINT, createExpression("symbol"), 42L, ImmutableMap.of(new Symbol("symbol"), new Input(0)), createTuple(42L));
-        assertProjection(BIGINT, createExpression("symbol"), null, ImmutableMap.of(new Symbol("symbol"), new Input(0)), NULL_LONG_TUPLE);
+        assertProjection(BIGINT, createExpression("symbol"), 42L, ImmutableMap.of(new Symbol("symbol"), new Input(0)), createCursor(BIGINT, 42));
+        assertProjection(BIGINT, createExpression("symbol"), null, ImmutableMap.of(new Symbol("symbol"), new Input(0)), createCursor(BIGINT, null));
 
-        assertProjection(DOUBLE, createExpression("symbol"), 11.1, ImmutableMap.of(new Symbol("symbol"), new Input(0)), createTuple(11.1));
-        assertProjection(DOUBLE, createExpression("symbol"), null, ImmutableMap.of(new Symbol("symbol"), new Input(0)), NULL_DOUBLE_TUPLE);
+        assertProjection(DOUBLE, createExpression("symbol"), 11.1, ImmutableMap.of(new Symbol("symbol"), new Input(0)), createCursor(DOUBLE, 11.1));
+        assertProjection(DOUBLE, createExpression("symbol"), null, ImmutableMap.of(new Symbol("symbol"), new Input(0)), createCursor(DOUBLE, null));
 
-        assertProjection(VARCHAR, createExpression("symbol"), "foo", ImmutableMap.of(new Symbol("symbol"), new Input(0)), createTuple("foo"));
-        assertProjection(VARCHAR, createExpression("symbol"), null, ImmutableMap.of(new Symbol("symbol"), new Input(0)), NULL_STRING_TUPLE);
+        assertProjection(VARCHAR, createExpression("symbol"), "foo", ImmutableMap.of(new Symbol("symbol"), new Input(0)), createCursor(VARCHAR, "foo"));
+        assertProjection(VARCHAR, createExpression("symbol"), null, ImmutableMap.of(new Symbol("symbol"), new Input(0)), createCursor(VARCHAR, null));
     }
 
     public static void assertProjection(Type outputType, String expression, @Nullable Object expectedValue)
@@ -157,11 +153,11 @@ public class TestInterpretedProjectionFunction
         assertProjection(outputType, createExpression(expression), expectedValue, ImmutableMap.<Symbol, Input>of());
     }
 
-    public static void assertProjection(Type outputType,
+    private static void assertProjection(Type outputType,
             Expression expression,
             @Nullable Object expectedValue,
             Map<Symbol, Input> symbolToInputMappings,
-            TupleReadable... channels)
+            BlockCursor... channels)
     {
         Builder<Input, Type> inputTypes = ImmutableMap.builder();
         for (Input input : symbolToInputMappings.values()) {
@@ -199,5 +195,12 @@ public class TestInterpretedProjectionFunction
         // extract single value
         Object actualValue = BlockAssertions.getOnlyValue(builder.build());
         assertEquals(actualValue, expectedValue);
+    }
+
+    private static BlockCursor createCursor(Type type, Object value)
+    {
+        BlockCursor cursor = new BlockBuilder(new TupleInfo(type.getRawType())).appendObject(value).build().cursor();
+        assertTrue(cursor.advanceNextPosition());
+        return cursor;
     }
 }
