@@ -14,6 +14,7 @@
 package com.facebook.presto.tuple;
 
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
@@ -46,6 +47,23 @@ public class FixedWidthTypeInfo
     public Type getType()
     {
         return type;
+    }
+
+    @Override
+    public Object getObjectValue(Slice slice, int offset)
+    {
+        if (type == Type.FIXED_INT_64) {
+            return slice.getLong(offset);
+        }
+        else if (type == Type.DOUBLE) {
+            return slice.getDouble(offset);
+        }
+        else if (type == Type.BOOLEAN) {
+            return slice.getByte(offset) != 0;
+        }
+        else {
+            throw new IllegalArgumentException("Unsupported type " + type);
+        }
     }
 
     public int getSize()
@@ -119,21 +137,21 @@ public class FixedWidthTypeInfo
         }
     }
 
-    public boolean equals(Slice leftSlice, int leftOffset, TupleReadable rightTuple)
+    public boolean equals(Slice leftSlice, int leftOffset, BlockCursor rightCursor)
     {
         if (type == Type.FIXED_INT_64) {
             long leftValue = leftSlice.getLong(leftOffset);
-            long rightValue = rightTuple.getLong();
+            long rightValue = rightCursor.getLong();
             return leftValue == rightValue;
         }
         else if (type == Type.DOUBLE) {
             long leftValue = leftSlice.getLong(leftOffset);
-            long rightValue = Double.doubleToLongBits(rightTuple.getDouble());
+            long rightValue = Double.doubleToLongBits(rightCursor.getDouble());
             return leftValue == rightValue;
         }
         else if (type == Type.BOOLEAN) {
             boolean leftValue = leftSlice.getByte(leftOffset) != 0;
-            boolean rightValue = rightTuple.getBoolean();
+            boolean rightValue = rightCursor.getBoolean();
             return leftValue == rightValue;
         }
         else {

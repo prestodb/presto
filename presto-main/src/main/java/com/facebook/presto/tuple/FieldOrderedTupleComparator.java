@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.tuple;
 
+import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.operator.SortOrder;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Comparator;
 import java.util.List;
 
-import static com.facebook.presto.tuple.TupleInfo.Type;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -27,7 +27,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
  * Compares two rows element by element.
  */
 public class FieldOrderedTupleComparator
-        implements Comparator<TupleReadable[]>
+        implements Comparator<RandomAccessBlock[]>
 {
     private final List<Integer> sortChannels;
     private final List<SortOrder> sortOrders;
@@ -43,51 +43,18 @@ public class FieldOrderedTupleComparator
     }
 
     @Override
-    public int compare(TupleReadable[] leftRow, TupleReadable[] rightRow)
+    public int compare(RandomAccessBlock[] leftRow, RandomAccessBlock[] rightRow)
     {
         for (int index = 0; index < sortChannels.size(); index++) {
             int channel = sortChannels.get(index);
             SortOrder sortOrder = sortOrders.get(index);
 
-            TupleReadable left = leftRow[channel];
-            TupleReadable right = rightRow[channel];
+            RandomAccessBlock left = leftRow[channel];
+            RandomAccessBlock right = rightRow[channel];
 
-            boolean leftIsNull = left.isNull();
-            boolean rightIsNull = right.isNull();
-
-            if (leftIsNull && rightIsNull) {
-                return 0;
-            }
-
-            if (leftIsNull) {
-                return sortOrder.isNullsFirst() ? -1 : 1;
-            }
-
-            if (rightIsNull) {
-                return sortOrder.isNullsFirst() ? 1 : -1;
-            }
-
-            Type type = left.getTupleInfo().getType();
-            int comparison;
-            switch (type) {
-                case BOOLEAN:
-                    comparison = Boolean.compare(left.getBoolean(), right.getBoolean());
-                    break;
-                case FIXED_INT_64:
-                    comparison = Long.compare(left.getLong(), right.getLong());
-                    break;
-                case DOUBLE:
-                    comparison = Double.compare(left.getDouble(), right.getDouble());
-                    break;
-                case VARIABLE_BINARY:
-                    comparison = left.getSlice().compareTo(right.getSlice());
-                    break;
-                default:
-                    throw new AssertionError("unimplemented type: " + type);
-            }
-
+            int comparison = left.compareTo(sortOrder, 0, right, 0);
             if (comparison != 0) {
-                return sortOrder.isAscending() ? comparison : -comparison;
+                return comparison;
             }
         }
         return 0;

@@ -14,11 +14,10 @@
 package com.facebook.presto.serde;
 
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.RandomAccessBlock;
-import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
-import com.facebook.presto.tuple.TupleReadable;
 import it.unimi.dsi.fastutil.ints.Int2IntOpenCustomHashMap;
 import it.unimi.dsi.fastutil.ints.IntHash.Strategy;
 
@@ -50,7 +49,12 @@ public class DictionaryBuilder
         this.offsetToPosition.defaultReturnValue(-1);
     }
 
-    public int putIfAbsent(Tuple value)
+    public int size()
+    {
+        return offsetToPosition.size();
+    }
+
+    public int putIfAbsent(BlockCursor value)
     {
         hashStrategy.setCurrentValue(value);
         int position = offsetToPosition.get(CURRENT_VALUE_OFFSET);
@@ -65,7 +69,7 @@ public class DictionaryBuilder
         return blockBuilder.build().toRandomAccessBlock();
     }
 
-    private int addNewValue(TupleReadable value)
+    private int addNewValue(BlockCursor value)
     {
         int position = nextPosition++;
 
@@ -79,9 +83,9 @@ public class DictionaryBuilder
     private class BlockBuilderHashStrategy
             implements Strategy
     {
-        private Tuple currentValue;
+        private BlockCursor currentValue;
 
-        public void setCurrentValue(Tuple currentValue)
+        public void setCurrentValue(BlockCursor currentValue)
         {
             this.currentValue = currentValue;
         }
@@ -99,7 +103,7 @@ public class DictionaryBuilder
 
         private int hashCurrentRow()
         {
-            return valueHashCode(type, currentValue.getTupleSlice(), 0);
+            return valueHashCode(type, currentValue.getRawSlice(), currentValue.getRawOffset());
         }
 
         public int hashOffset(int offset)
@@ -136,7 +140,7 @@ public class DictionaryBuilder
 
         public boolean offsetEqualsCurrentValue(int offset)
         {
-            return valueEquals(type, blockBuilder.getSlice(), offset, currentValue.getTupleSlice(), 0);
+            return valueEquals(type, blockBuilder.getSlice(), offset, currentValue.getRawSlice(), currentValue.getRawOffset());
         }
     }
 }

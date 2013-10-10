@@ -14,8 +14,6 @@
 package com.facebook.presto.block;
 
 import com.facebook.presto.operator.SortOrder;
-import com.facebook.presto.tuple.Tuple;
-import com.facebook.presto.tuple.TupleReadable;
 import io.airlift.slice.Slice;
 
 public interface RandomAccessBlock
@@ -49,6 +47,8 @@ public interface RandomAccessBlock
      */
     double getDouble(int position);
 
+    Object getObjectValue(int position);
+
     /**
      * Gets a position from the current tuple.
      *
@@ -56,8 +56,7 @@ public interface RandomAccessBlock
      */
     Slice getSlice(int position);
 
-    @Deprecated
-    Tuple getTuple(int position);
+    RandomAccessBlock getSingleValueBlock(int position);
 
     /**
      * Is the specified position null.
@@ -65,9 +64,16 @@ public interface RandomAccessBlock
      * @throws IllegalArgumentException if this position is not valid
      */
     boolean isNull(int position);
+
     boolean equals(int position, RandomAccessBlock right, int rightPosition);
-    boolean equals(int position, TupleReadable value);
+    boolean equals(int position, BlockCursor cursor);
+    boolean equals(int rightPosition, Slice slice, int offset);
+
     int hashCode(int position);
+
     int compareTo(SortOrder sortOrder, int position, RandomAccessBlock right, int rightPosition);
+    int compareTo(SortOrder sortOrder, int position, BlockCursor cursor);
+    int compareTo(int position, Slice slice, int offset);
+
     void appendTupleTo(int position, BlockBuilder blockBuilder);
 }

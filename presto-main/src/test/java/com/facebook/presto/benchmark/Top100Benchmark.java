@@ -14,20 +14,16 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.operator.OperatorFactory;
-import com.facebook.presto.operator.SortOrder;
 import com.facebook.presto.operator.TopNOperator.TopNOperatorFactory;
-import com.facebook.presto.tuple.FieldOrderedTupleComparator;
-import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.util.LocalQueryRunner;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Ordering;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
-import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
+import static com.facebook.presto.operator.SortOrder.ASC_NULLS_LAST;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
@@ -45,9 +41,10 @@ public class Top100Benchmark
         OperatorFactory tableScanOperator = createTableScanOperator(0, "orders", "totalprice");
         TopNOperatorFactory topNOperator = new TopNOperatorFactory(
                 1,
+                tableScanOperator.getTupleInfos(),
                 100,
-                ImmutableList.of(singleColumn(Type.DOUBLE, 0)),
-                Ordering.from(new FieldOrderedTupleComparator(ImmutableList.of(0), ImmutableList.of(SortOrder.DESC_NULLS_LAST))),
+                ImmutableList.of(0),
+                ImmutableList.of(ASC_NULLS_LAST),
                 Optional.<Integer>absent(),
                 false);
         return ImmutableList.of(tableScanOperator, topNOperator);

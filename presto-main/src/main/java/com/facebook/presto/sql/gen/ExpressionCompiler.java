@@ -51,7 +51,6 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleReadable;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
@@ -555,7 +554,7 @@ public class ExpressionCompiler
         for (int channel = 0; channel < channels; channel++) {
             condition.getVariable("cursor_" + channel);
         }
-        condition.invokeVirtual(classDefinition.getType(), "filter", type(boolean.class), nCopies(channels, type(TupleReadable.class)));
+        condition.invokeVirtual(classDefinition.getType(), "filter", type(boolean.class), nCopies(channels, type(BlockCursor.class)));
         ifStatement.condition(condition);
 
         Block trueBlock = new Block(compilerContext);
@@ -583,7 +582,7 @@ public class ExpressionCompiler
                 trueBlock.invokeVirtual(classDefinition.getType(),
                         "project_" + projectionIndex,
                         type(void.class),
-                        ImmutableList.<ParameterizedType>builder().addAll(nCopies(channels, type(TupleReadable.class))).add(type(BlockBuilder.class)).build());
+                        ImmutableList.<ParameterizedType>builder().addAll(nCopies(channels, type(BlockCursor.class))).add(type(BlockBuilder.class)).build());
             }
         }
         ifStatement.ifTrue(trueBlock);
@@ -869,7 +868,7 @@ public class ExpressionCompiler
         ImmutableList.Builder<NamedParameterDefinition> parameters = ImmutableList.builder();
         int channels = inputTypes.isEmpty() ? 0 : Ordering.natural().max(transform(inputTypes.keySet(), Input.channelGetter())) + 1;
         for (int i = 0; i < channels; i++) {
-            parameters.add(arg("channel_" + i, TupleReadable.class));
+            parameters.add(arg("channel_" + i, BlockCursor.class));
         }
         return parameters.build();
     }

@@ -16,8 +16,8 @@ package com.facebook.presto.block.uncompressed;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.tuple.FixedWidthTypeInfo;
-import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
 import io.airlift.slice.Slice;
@@ -135,7 +135,7 @@ public class FixedWidthBlockCursor
     }
 
     @Override
-    public Tuple getTuple()
+    public RandomAccessBlock getSingleValueBlock()
     {
         checkReadablePosition();
 
@@ -143,7 +143,7 @@ public class FixedWidthBlockCursor
         Slice copy = Slices.allocate(entrySize);
         copy.setBytes(0, slice, offset, entrySize);
 
-        return new Tuple(copy, new TupleInfo(typeInfo.getType()));
+        return new FixedWidthBlock(typeInfo, 1, copy);
     }
 
     @Override
@@ -175,10 +175,27 @@ public class FixedWidthBlockCursor
     }
 
     @Override
+    public Object getObjectValue()
+    {
+        checkReadablePosition();
+        if (isNull()) {
+            return null;
+        }
+        return typeInfo.getObjectValue(slice, offset + SIZE_OF_BYTE);
+    }
+
+    @Override
     public boolean isNull()
     {
         checkReadablePosition();
         return slice.getByte(offset) != 0;
+    }
+
+    @Override
+    public int compareTo(Slice rightSlice, int rightOffset)
+    {
+        checkReadablePosition();
+        return typeInfo.compareTo(slice, offset + SIZE_OF_BYTE, rightSlice, rightOffset);
     }
 
     @Override
