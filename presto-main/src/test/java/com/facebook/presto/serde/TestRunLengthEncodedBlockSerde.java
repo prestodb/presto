@@ -16,37 +16,42 @@ package com.facebook.presto.serde;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
-import com.facebook.presto.tuple.Tuples;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.SliceInput;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
-import static com.facebook.presto.tuple.Tuples.createTuple;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestRunLengthEncodedBlockSerde
 {
     @Test
     public void testRoundTrip()
     {
-        RunLengthEncodedBlock expectedBlock = new RunLengthEncodedBlock(Tuples.createTuple("alice"), 11);
+        RandomAccessBlock value = new BlockBuilder(SINGLE_VARBINARY)
+                .append("alice")
+                .build()
+                .toRandomAccessBlock();
+
+        RunLengthEncodedBlock expectedBlock = new RunLengthEncodedBlock(value, 11);
 
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
         RunLengthBlockEncoding blockEncoding = new RunLengthBlockEncoding(SINGLE_VARBINARY);
         blockEncoding.writeBlock(sliceOutput, expectedBlock);
         RunLengthEncodedBlock actualBlock = blockEncoding.readBlock(sliceOutput.slice().getInput());
-        assertEquals(actualBlock.getSingleValue(), expectedBlock.getSingleValue());
+        assertTrue(actualBlock.equals(0, expectedBlock, 0));
         BlockAssertions.assertBlockEquals(actualBlock, expectedBlock);
     }
 
     @Test
     public void testCreateBlockWriter()
     {
-        Block expectedBlock = new BlockBuilder(SINGLE_VARBINARY)
+        RandomAccessBlock expectedBlock = new BlockBuilder(SINGLE_VARBINARY)
                 .append("alice")
                 .append("alice")
                 .append("bob")
@@ -59,7 +64,8 @@ public class TestRunLengthEncodedBlockSerde
                 .append("charlie")
                 .append("charlie")
                 .append("charlie")
-                .build();
+                .build()
+                .toRandomAccessBlock();
 
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
         BlockEncoding blockEncoding = new RunLengthEncoder(sliceOutput).append(expectedBlock).finish();
@@ -68,19 +74,19 @@ public class TestRunLengthEncodedBlockSerde
         Block block = blockEncoding.readBlock(sliceInput);
         assertInstanceOf(block, RunLengthEncodedBlock.class);
         RunLengthEncodedBlock rleBlock = (RunLengthEncodedBlock) block;
-        assertEquals(rleBlock.getSingleValue(), createTuple("alice"));
+        assertTrue(rleBlock.equals(0, expectedBlock, 0));
         assertEquals(rleBlock.getPositionCount(), 2);
 
         block = blockEncoding.readBlock(sliceInput);
         assertInstanceOf(block, RunLengthEncodedBlock.class);
         rleBlock = (RunLengthEncodedBlock) block;
-        assertEquals(rleBlock.getSingleValue(), createTuple("bob"));
+        assertTrue(rleBlock.equals(0, expectedBlock, 2));
         assertEquals(rleBlock.getPositionCount(), 4);
 
         block = blockEncoding.readBlock(sliceInput);
         assertInstanceOf(block, RunLengthEncodedBlock.class);
         rleBlock = (RunLengthEncodedBlock) block;
-        assertEquals(rleBlock.getSingleValue(), createTuple("charlie"));
+        assertTrue(rleBlock.equals(0, expectedBlock, 6));
         assertEquals(rleBlock.getPositionCount(), 6);
 
         assertFalse(sliceInput.isReadable());

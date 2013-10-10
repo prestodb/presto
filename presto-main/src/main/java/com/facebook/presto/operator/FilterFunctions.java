@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.tuple.TupleReadable;
 
 public final class FilterFunctions
 {
@@ -26,7 +26,7 @@ public final class FilterFunctions
             implements FilterFunction
     {
         @Override
-        public boolean filter(TupleReadable... cursors)
+        public boolean filter(BlockCursor... cursors)
         {
             return true;
         }

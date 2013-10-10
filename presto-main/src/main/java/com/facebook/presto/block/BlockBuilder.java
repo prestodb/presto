@@ -18,7 +18,6 @@ import com.facebook.presto.block.uncompressed.VariableWidthBlock;
 import com.facebook.presto.tuple.FixedWidthTypeInfo;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
-import com.facebook.presto.tuple.TupleReadable;
 import com.facebook.presto.tuple.VariableWidthTypeInfo;
 import com.google.common.base.Charsets;
 import io.airlift.slice.DynamicSliceOutput;
@@ -182,9 +181,9 @@ public class BlockBuilder
         return this;
     }
 
-    public BlockBuilder append(TupleReadable tuple)
+    public BlockBuilder append(BlockCursor cursor)
     {
-        tupleBuilder.append(tuple);
+        tupleBuilder.append(cursor);
         positionCount++;
         return this;
     }

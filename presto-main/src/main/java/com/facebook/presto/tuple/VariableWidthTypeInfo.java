@@ -14,9 +14,11 @@
 package com.facebook.presto.tuple;
 
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
+import com.google.common.base.Charsets;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
@@ -44,6 +46,13 @@ public class VariableWidthTypeInfo
     public Type getType()
     {
         return type;
+    }
+
+    @Override
+    public Object getObjectValue(Slice slice, int offset)
+    {
+        checkState(type == VARIABLE_BINARY, "Expected VARIABLE_BINARY, but is %s", type);
+        return slice.toString(offset + SIZE_OF_INT, getValueSize(slice, offset), Charsets.UTF_8);
     }
 
     public int getLength(Slice slice, int offset)
@@ -83,10 +92,10 @@ public class VariableWidthTypeInfo
     }
 
     @Override
-    public boolean equals(Slice leftSlice, int leftOffset, TupleReadable rightTuple)
+    public boolean equals(Slice leftSlice, int leftOffset, BlockCursor rightCursor)
     {
         int leftLength = getValueSize(leftSlice, leftOffset);
-        Slice rightSlice = rightTuple.getSlice();
+        Slice rightSlice = rightCursor.getSlice();
         return leftSlice.equals(leftOffset + SIZE_OF_INT, leftLength, rightSlice, 0, rightSlice.length());
     }
 

@@ -84,9 +84,7 @@ import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.facebook.presto.tuple.FieldOrderedTupleComparator;
 import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleReadable;
 import com.facebook.presto.util.IterableTransformer;
 import com.facebook.presto.util.MoreFunctions;
 import com.google.common.base.Function;
@@ -381,21 +379,18 @@ public class LocalExecutionPlanner
                 sortOrders.add(node.getOrderings().get(symbol));
             }
 
-            Ordering<TupleReadable[]> ordering = Ordering.from(new FieldOrderedTupleComparator(sortChannels, sortOrders));
-
-            IdentityProjectionInfo mappings = computeIdentityMapping(node.getOutputSymbols(), source.getLayout(), context.getTypes());
-
             Optional<Integer> sampleWeightChannel = node.getSampleWeight().transform(source.channelGetter());
 
             OperatorFactory operator = new TopNOperatorFactory(
                     context.getNextOperatorId(),
+                    source.getTupleInfos(),
                     (int) node.getCount(),
-                    mappings.getProjections(),
-                    ordering,
+                    sortChannels,
+                    sortOrders,
                     sampleWeightChannel,
                     node.isPartial());
 
-            return new PhysicalOperation(operator, mappings.getOutputLayout(), source);
+            return new PhysicalOperation(operator, source.getLayout(), source);
         }
 
         @Override

@@ -15,8 +15,8 @@ package com.facebook.presto.serde;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
-import com.facebook.presto.tuple.Tuple;
 import io.airlift.slice.SliceOutput;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -29,7 +29,7 @@ public class RunLengthEncoder
     private boolean finished;
 
     private int tupleCount = 0;
-    private Tuple lastTuple;
+    private RandomAccessBlock lastValue;
     private RunLengthBlockEncoding encoding;
 
     public RunLengthEncoder(SliceOutput sliceOutput)
@@ -49,13 +49,13 @@ public class RunLengthEncoder
 
         BlockCursor cursor = block.cursor();
         while (cursor.advanceNextPosition()) {
-            Tuple tuple = cursor.getTuple();
-            if (lastTuple == null) {
-                lastTuple = tuple;
+            RandomAccessBlock value = cursor.getSingleValueBlock();
+            if (lastValue == null) {
+                lastValue = value;
             }
-            else if (!tuple.equals(lastTuple)) {
+            else if (!value.equals(0, lastValue, 0)) {
                 writeBlock();
-                lastTuple = tuple;
+                lastValue = value;
             }
             tupleCount++;
         }
@@ -65,10 +65,10 @@ public class RunLengthEncoder
 
     private void writeBlock()
     {
-        RunLengthEncodedBlock block = new RunLengthEncodedBlock(lastTuple, tupleCount);
+        RunLengthEncodedBlock block = new RunLengthEncodedBlock(lastValue, tupleCount);
 
         encoding.writeBlock(sliceOutput, block);
-        lastTuple = null;
+        lastValue = null;
         tupleCount = 0;
     }
 

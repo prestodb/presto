@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.tuple;
 
+import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.block.RandomAccessBlock;
+import com.facebook.presto.block.uncompressed.FixedWidthBlock;
+import com.facebook.presto.block.uncompressed.VariableWidthRandomAccessBlock;
 import com.facebook.presto.spi.ColumnType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
@@ -190,6 +194,16 @@ public class TupleInfo
         return type;
     }
 
+    public TypeInfo getTypeInfo()
+    {
+        if (fixedWidthTypeInfo != null) {
+            return fixedWidthTypeInfo;
+        }
+        else {
+            return variableWidthTypeInfo;
+        }
+    }
+
     public int getFixedSize()
     {
         return type.getSize() + 1;
@@ -256,6 +270,19 @@ public class TupleInfo
         return variableWidthTypeInfo.getSlice(slice, offset + SIZE_OF_BYTE);
     }
 
+    public Object getObjectValue(Slice slice, int offset)
+    {
+        if (isNull(slice, offset)) {
+            return null;
+        }
+        else if (fixedWidthTypeInfo != null) {
+            return fixedWidthTypeInfo.getObjectValue(slice, offset + SIZE_OF_BYTE);
+        }
+        else {
+            return variableWidthTypeInfo.getObjectValue(slice, offset + SIZE_OF_BYTE);
+        }
+    }
+
     public boolean isNull(Slice slice, int offset)
     {
         return slice.getByte(offset) != 0;
@@ -311,10 +338,10 @@ public class TupleInfo
         }
 
         if (fixedWidthTypeInfo != null) {
-            return fixedWidthTypeInfo.equals(slice, offset + SIZE_OF_BYTE, value, 1);
+            return fixedWidthTypeInfo.equals(slice, offset + SIZE_OF_BYTE, value, SIZE_OF_BYTE);
         }
         else {
-            return variableWidthTypeInfo.equals(slice, offset + SIZE_OF_BYTE, value, 1);
+            return variableWidthTypeInfo.equals(slice, offset + SIZE_OF_BYTE, value, SIZE_OF_BYTE);
         }
     }
 
@@ -437,26 +464,26 @@ public class TupleInfo
             return this;
         }
 
-        public Builder append(TupleReadable tuple)
+        public Builder append(BlockCursor cursor)
         {
-            checkArgument(type == tuple.getTupleInfo().getType(), "Type (%s) does not match tuple type (%s)", type, tuple.getTupleInfo().getType());
+            checkArgument(type == cursor.getTupleInfo().getType(), "Type (%s) does not match cursor type (%s)", type, cursor.getTupleInfo().getType());
 
-            if (tuple.isNull()) {
+            if (cursor.isNull()) {
                 appendNull();
             }
             else {
                 switch (type) {
                     case BOOLEAN:
-                        append(tuple.getBoolean());
+                        append(cursor.getBoolean());
                         break;
                     case FIXED_INT_64:
-                        append(tuple.getLong());
+                        append(cursor.getLong());
                         break;
                     case DOUBLE:
-                        append(tuple.getDouble());
+                        append(cursor.getDouble());
                         break;
                     case VARIABLE_BINARY:
-                        append(tuple.getSlice());
+                        append(cursor.getSlice());
                         break;
                     default:
                         throw new IllegalStateException("Type not yet supported: " + type);
@@ -466,9 +493,14 @@ public class TupleInfo
             return this;
         }
 
-        public Tuple build()
+        public RandomAccessBlock build()
         {
-            return new Tuple(sliceOutput.slice(), TupleInfo.this);
+            if (fixedWidthTypeInfo != null) {
+                return new FixedWidthBlock(fixedWidthTypeInfo, 1, sliceOutput.slice());
+            }
+            else {
+                return new VariableWidthRandomAccessBlock(variableWidthTypeInfo, 1, sliceOutput.slice());
+            }
         }
     }
 }
