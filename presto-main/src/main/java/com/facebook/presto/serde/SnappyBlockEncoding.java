@@ -16,10 +16,12 @@ package com.facebook.presto.serde;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.snappy.SnappyBlock;
 import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.base.Preconditions;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class SnappyBlockEncoding
         implements BlockEncoding
@@ -28,14 +30,12 @@ public class SnappyBlockEncoding
 
     public SnappyBlockEncoding(SliceInput input)
     {
-        Preconditions.checkNotNull(input, "input is null");
-        this.tupleInfo = TupleInfoSerde.readTupleInfo(input);
+        this.tupleInfo = TupleInfoSerde.readTupleInfo(checkNotNull(input, "input is null"));
     }
 
     public SnappyBlockEncoding(TupleInfo tupleInfo)
     {
-        Preconditions.checkNotNull(tupleInfo, "tupleInfo is null");
-        this.tupleInfo = tupleInfo;
+        this.tupleInfo = checkNotNull(tupleInfo, "tupleInfo is null");
     }
 
     @Override
@@ -48,13 +48,13 @@ public class SnappyBlockEncoding
     public void writeBlock(SliceOutput sliceOutput, Block block)
     {
         SnappyBlock snappyBlock = (SnappyBlock) block;
-        Preconditions.checkArgument(block.getTupleInfo().equals(tupleInfo), "Invalid tuple info");
+        checkArgument(block.getTupleInfo().equals(tupleInfo), "Invalid tuple info");
 
-        Slice slice = snappyBlock.getCompressedSlice();
+        Slice compressedSlice = snappyBlock.getCompressedSlice();
         sliceOutput
-                .appendInt(slice.length())
+                .appendInt(compressedSlice.length())
                 .appendInt(snappyBlock.getPositionCount())
-                .writeBytes(slice);
+                .writeBytes(compressedSlice);
     }
 
     @Override
@@ -63,8 +63,8 @@ public class SnappyBlockEncoding
         int blockSize = sliceInput.readInt();
         int tupleCount = sliceInput.readInt();
 
-        Slice block = sliceInput.readSlice(blockSize);
-        return new SnappyBlock(tupleCount, tupleInfo, block);
+        Slice compressedSlice = sliceInput.readSlice(blockSize);
+        return new SnappyBlock(tupleCount, tupleInfo, compressedSlice);
     }
 
     public static void serialize(SliceOutput output, SnappyBlockEncoding encoding)

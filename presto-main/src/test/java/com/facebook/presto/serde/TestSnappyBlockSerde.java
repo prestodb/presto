@@ -15,17 +15,15 @@ package com.facebook.presto.serde;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockAssertions;
-import com.facebook.presto.block.uncompressed.VariableWidthBlock;
+import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.tuple.Tuple;
-import com.facebook.presto.tuple.VariableWidthTypeInfo;
+import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.DynamicSliceOutput;
 import org.testng.annotations.Test;
 
-import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 
-import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 import static com.facebook.presto.tuple.Tuples.createTuple;
 import static org.testng.Assert.assertTrue;
 
@@ -34,26 +32,20 @@ public class TestSnappyBlockSerde
     @Test
     public void testRoundTrip()
     {
-        ImmutableList<Tuple> tuples = ImmutableList.of(
-                createTuple("alice"),
-                createTuple("bob"),
-                createTuple("charlie"),
-                createTuple("dave"));
-
-        DynamicSliceOutput blockSlice = new DynamicSliceOutput(1024);
+        Block block = new BlockBuilder(TupleInfo.SINGLE_VARBINARY)
+                .append("alice")
+                .append("bob")
+                .append("charlie")
+                .append("dave")
+                .build();
 
         DynamicSliceOutput compressedOutput = new DynamicSliceOutput(1024);
         Encoder encoder = BlocksFileEncoding.SNAPPY.createBlocksWriter(compressedOutput);
 
-        for (Tuple tuple : tuples) {
-            tuple.writeTo(blockSlice);
-        }
-        Block expectedBlock = new VariableWidthBlock(new VariableWidthTypeInfo(VARIABLE_BINARY), tuples.size(), blockSlice.slice());
-
-        encoder.append(tuples);
+        encoder.append(block);
         BlockEncoding snappyEncoding = encoder.finish();
         Block actualBlock = snappyEncoding.readBlock(compressedOutput.slice().getInput());
-        BlockAssertions.assertBlockEquals(actualBlock, expectedBlock);
+        BlockAssertions.assertBlockEquals(actualBlock, block);
     }
 
     @Test
@@ -65,25 +57,32 @@ public class TestSnappyBlockSerde
                 createTuple("charlie"),
                 createTuple("dave"));
 
-        DynamicSliceOutput blockSlice = new DynamicSliceOutput(1024);
+        DynamicSliceOutput encoderOutput = new DynamicSliceOutput(1024);
+        Encoder encoder = BlocksFileEncoding.SNAPPY.createBlocksWriter(encoderOutput);
 
-        DynamicSliceOutput compressedOutput = new DynamicSliceOutput(1024);
-        Encoder encoder = BlocksFileEncoding.SNAPPY.createBlocksWriter(compressedOutput);
+        BlockBuilder expectedBlockBuilder = new BlockBuilder(TupleInfo.SINGLE_VARBINARY);
 
         int count = 1000;
-        Random r = new Random();
         for (int i = 0; i < count; i++) {
-            int x = r.nextInt(tuples.size());
-            tuples.get(x).writeTo(blockSlice);
-            encoder.append(ImmutableSet.of(tuples.get(x)));
+            // select a random tuple
+            Tuple tuple = tuples.get(ThreadLocalRandom.current().nextInt(tuples.size()));
+
+            // add to expected block
+            expectedBlockBuilder.append(tuple);
+
+            // create block with single value and add to encoder
+            Block block = new BlockBuilder(TupleInfo.SINGLE_VARBINARY)
+                    .append(tuple)
+                    .build();
+            encoder.append(block);
         }
 
-        Block expectedBlock = new VariableWidthBlock(new VariableWidthTypeInfo(VARIABLE_BINARY), count, blockSlice.slice());
+        Block expectedBlock = expectedBlockBuilder.build();
 
         BlockEncoding snappyEncoding = encoder.finish();
-        assertTrue(compressedOutput.size() < blockSlice.size());
+        assertTrue(encoderOutput.size() < expectedBlock.getDataSize().toBytes());
 
-        Block actualBlock = snappyEncoding.readBlock(compressedOutput.slice().getInput());
+        Block actualBlock = snappyEncoding.readBlock(encoderOutput.slice().getInput());
 
         BlockAssertions.assertBlockEquals(actualBlock, expectedBlock);
     }

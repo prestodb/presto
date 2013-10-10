@@ -14,10 +14,10 @@
 package com.facebook.presto.serde;
 
 import com.facebook.presto.block.Block;
+import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.tuple.Tuple;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.io.OutputSupplier;
 import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.SliceOutput;
@@ -29,7 +29,6 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
 
-import static com.facebook.presto.block.BlockUtils.toTupleIterable;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -51,7 +50,7 @@ public class BlocksFileWriter
         checkNotNull(sliceOutput, "sliceOutput is null");
         BlocksFileWriter fileWriter = new BlocksFileWriter(encoding, sliceOutput);
         while (blocks.hasNext()) {
-            fileWriter.append(toTupleIterable(blocks.next()));
+            fileWriter.append(blocks.next());
         }
         fileWriter.close();
     }
@@ -72,16 +71,14 @@ public class BlocksFileWriter
         this.outputSupplier = outputSupplier;
     }
 
-    public BlocksFileWriter append(Iterable<Tuple> tuples)
+    public BlocksFileWriter append(Block block)
     {
-        checkNotNull(tuples, "tuples is null");
-        if (!Iterables.isEmpty(tuples)) {
-            if (encoder == null) {
-                open();
-            }
-            statsBuilder.process(tuples);
-            encoder.append(tuples);
+        checkNotNull(block, "block is null");
+        if (encoder == null) {
+            open();
         }
+        statsBuilder.process(block);
+        encoder.append(block);
         return this;
     }
 
@@ -160,11 +157,13 @@ public class BlocksFileWriter
         private Tuple lastTuple;
         private final Set<Tuple> set = new HashSet<>(MAX_UNIQUE_COUNT);
 
-        public void process(Iterable<Tuple> tuples)
+        public void process(Block block)
         {
-            checkNotNull(tuples, "tuples is null");
+            checkNotNull(block, "block is null");
 
-            for (Tuple tuple : tuples) {
+            BlockCursor cursor = block.cursor();
+            while (cursor.advanceNextPosition()) {
+                Tuple tuple = cursor.getTuple();
                 if (lastTuple == null) {
                     lastTuple = tuple;
                     if (set.size() < MAX_UNIQUE_COUNT) {

@@ -35,6 +35,10 @@ import org.iq80.snappy.Snappy;
 
 import javax.annotation.concurrent.GuardedBy;
 
+import java.util.Arrays;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 public class SnappyBlock
@@ -49,13 +53,21 @@ public class SnappyBlock
 
     public SnappyBlock(int positionCount, TupleInfo tupleInfo, Slice compressedSlice)
     {
-        Preconditions.checkArgument(positionCount >= 0, "positionCount is negative");
-        Preconditions.checkNotNull(tupleInfo, "tupleInfo is null");
-        Preconditions.checkNotNull(compressedSlice, "compressedSlice is null");
-
-        this.tupleInfo = tupleInfo;
-        this.compressedSlice = compressedSlice;
+        this.tupleInfo = checkNotNull(tupleInfo, "tupleInfo is null");
+        checkArgument(positionCount >= 0, "positionCount is negative");
         this.positionCount = positionCount;
+        this.compressedSlice = checkNotNull(compressedSlice, "compressedSlice is null");
+    }
+
+    public SnappyBlock(Block block)
+    {
+        tupleInfo = block.getTupleInfo();
+        positionCount = block.getPositionCount();
+
+        uncompressedSlice = block.getRawSlice();
+        byte[] compressedBytes = new byte[Snappy.maxCompressedLength(uncompressedSlice.length())];
+        int actualLength = Snappy.compress(uncompressedSlice.getBytes(), 0, uncompressedSlice.length(), compressedBytes, 0);
+        compressedSlice = Slices.wrappedBuffer(Arrays.copyOf(compressedBytes, actualLength));
     }
 
     @Override
@@ -79,11 +91,6 @@ public class SnappyBlock
             uncompressedSlice = Slices.wrappedBuffer(output);
         }
         return uncompressedSlice;
-    }
-
-    public int getSliceOffset()
-    {
-        return 0;
     }
 
     @Override

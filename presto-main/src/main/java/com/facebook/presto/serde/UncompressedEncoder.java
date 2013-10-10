@@ -14,33 +14,21 @@
 package com.facebook.presto.serde;
 
 import com.facebook.presto.block.Block;
-import com.facebook.presto.block.uncompressed.FixedWidthBlock;
-import com.facebook.presto.block.uncompressed.VariableWidthBlock;
-import com.facebook.presto.tuple.FixedWidthTypeInfo;
-import com.facebook.presto.tuple.Tuple;
-import com.facebook.presto.tuple.TupleInfo.Type;
-import com.facebook.presto.tuple.VariableWidthTypeInfo;
-import com.google.common.base.Preconditions;
-import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.Slice;
+import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockCursor;
 import io.airlift.slice.SliceOutput;
-import io.airlift.units.DataSize;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.units.DataSize.Unit.KILOBYTE;
 
 public class UncompressedEncoder
         implements Encoder
 {
-    private static final int MAX_BLOCK_SIZE = (int) new DataSize(64, KILOBYTE).toBytes();
-
     private final SliceOutput sliceOutput;
-    private final DynamicSliceOutput buffer = new DynamicSliceOutput(MAX_BLOCK_SIZE);
 
     private UncompressedBlockEncoding encoding;
+    private BlockBuilder blockBuilder;
     private boolean finished;
-    private int positionCount;
 
     public UncompressedEncoder(SliceOutput sliceOutput)
     {
@@ -48,19 +36,19 @@ public class UncompressedEncoder
     }
 
     @Override
-    public Encoder append(Iterable<Tuple> tuples)
+    public Encoder append(Block block)
     {
-        Preconditions.checkNotNull(tuples, "tuples is null");
+        checkNotNull(block, "tuples is null");
         checkState(!finished, "already finished");
 
-        for (Tuple tuple : tuples) {
-            if (encoding == null) {
-                encoding = new UncompressedBlockEncoding(tuple.getTupleInfo());
-            }
-            tuple.writeTo(buffer);
-            positionCount++;
-
-            if (buffer.size() >= MAX_BLOCK_SIZE) {
+        if (encoding == null) {
+            encoding = new UncompressedBlockEncoding(block.getTupleInfo());
+            blockBuilder = new BlockBuilder(block.getTupleInfo());
+        }
+        BlockCursor cursor = block.cursor();
+        while (cursor.advanceNextPosition()) {
+            cursor.appendTupleTo(blockBuilder);
+            if (blockBuilder.isFull()) {
                 writeBlock();
             }
         }
@@ -75,7 +63,7 @@ public class UncompressedEncoder
         checkState(!finished, "already finished");
         finished = true;
 
-        if (buffer.size() > 0) {
+        if (!blockBuilder.isEmpty()) {
             writeBlock();
         }
         return encoding;
@@ -83,19 +71,8 @@ public class UncompressedEncoder
 
     private void writeBlock()
     {
-        Slice slice = buffer.slice();
-        Type type = encoding.getTupleInfo().getType();
-
-        Block block;
-        if (type.isFixedSize()) {
-            block = new FixedWidthBlock(new FixedWidthTypeInfo(type), positionCount, slice);
-        }
-        else {
-            block = new VariableWidthBlock(new VariableWidthTypeInfo(type), positionCount, slice);
-        }
-
+        Block block = blockBuilder.build();
         encoding.writeBlock(sliceOutput, block);
-        buffer.reset();
-        positionCount = 0;
+        blockBuilder = new BlockBuilder(block.getTupleInfo());
     }
 }

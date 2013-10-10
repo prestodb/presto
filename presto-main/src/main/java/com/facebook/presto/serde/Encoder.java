@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.serde;
 
-import com.facebook.presto.tuple.Tuple;
+import com.facebook.presto.block.Block;
 
 public interface Encoder
 {
     /**
-     * Appends the specified tuples
+     * Appends the specified block
      */
-    Encoder append(Iterable<Tuple> tuples);
+    Encoder append(Block block);
 
     /**
      * Must be called after all blocks have been appended to complete the serialization
