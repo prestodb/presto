@@ -50,7 +50,6 @@ public final class BlockCursorAssertions
 
         assertEquals(cursor.getTuple(), tuple);
         assertEquals(cursor.getPosition(), position);
-        assertTrue(cursor.currentTupleEquals(tuple));
 
         assertEquals(cursor.isNull(), tuple.isNull());
         if (cursor.isNull()) {

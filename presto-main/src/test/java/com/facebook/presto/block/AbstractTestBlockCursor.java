@@ -14,7 +14,6 @@
 package com.facebook.presto.block;
 
 import com.facebook.presto.tuple.Tuple;
-import com.facebook.presto.tuple.Tuples;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -32,7 +31,7 @@ import static org.testng.Assert.fail;
 
 public abstract class AbstractTestBlockCursor
 {
-    private final SortedMap<Integer, Tuple> expectedValues = BlockCursorAssertions.toTuplesMap(createTestCursor());
+    private final SortedMap<Integer, Tuple> expectedValues = BlockCursorAssertions.toTuplesMap(createExpectedValues().cursor());
 
     protected abstract Block createExpectedValues();
 
@@ -121,13 +120,6 @@ public abstract class AbstractTestBlockCursor
 
         try {
             cursor.getTuple();
-            fail("Expected IllegalStateException");
-        }
-        catch (IllegalStateException expected) {
-        }
-
-        try {
-            cursor.currentTupleEquals(Tuples.createTuple(0L));
             fail("Expected IllegalStateException");
         }
         catch (IllegalStateException expected) {

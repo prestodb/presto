@@ -16,27 +16,27 @@ package com.facebook.presto.block.dictionary;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkPositionIndex;
 
 public class DictionaryEncodedBlockCursor
         implements BlockCursor
 {
-    private final Dictionary dictionary;
-    private final BlockCursor sourceCursor;
+    private final RandomAccessBlock dictionary;
+    private final BlockCursor idCursor;
 
-    public DictionaryEncodedBlockCursor(Dictionary dictionary, BlockCursor sourceCursor)
+    public DictionaryEncodedBlockCursor(RandomAccessBlock dictionary, BlockCursor idCursor)
     {
-        checkNotNull(dictionary, "dictionary is null");
-        checkNotNull(sourceCursor, "sourceCursor is null");
-
-        this.dictionary = dictionary;
-        this.sourceCursor = sourceCursor;
+        this.dictionary = checkNotNull(dictionary, "dictionary is null");
+        this.idCursor = checkNotNull(idCursor, "idCursor is null");
+        checkArgument(idCursor.getTupleInfo().equals(TupleInfo.SINGLE_LONG), "id cursor must contain tuples with a single long value");
     }
 
     @Override
@@ -48,37 +48,37 @@ public class DictionaryEncodedBlockCursor
     @Override
     public int getRemainingPositions()
     {
-        return sourceCursor.getRemainingPositions();
+        return idCursor.getRemainingPositions();
     }
 
     @Override
     public boolean isValid()
     {
-        return sourceCursor.isValid();
+        return idCursor.isValid();
     }
 
     @Override
     public boolean isFinished()
     {
-        return sourceCursor.isFinished();
+        return idCursor.isFinished();
     }
 
     @Override
     public boolean advanceNextPosition()
     {
-        return sourceCursor.advanceNextPosition();
+        return idCursor.advanceNextPosition();
     }
 
     @Override
     public boolean advanceToPosition(int position)
     {
-        return sourceCursor.advanceToPosition(position);
+        return idCursor.advanceToPosition(position);
     }
 
     @Override
     public Block getRegionAndAdvance(int length)
     {
-        return new DictionaryEncodedBlock(dictionary, sourceCursor.getRegionAndAdvance(length));
+        return new DictionaryEncodedBlock(dictionary, (RandomAccessBlock) idCursor.getRegionAndAdvance(length));
     }
 
     @Override
@@ -120,13 +120,7 @@ public class DictionaryEncodedBlockCursor
     @Override
     public int getPosition()
     {
-        return sourceCursor.getPosition();
-    }
-
-    @Override
-    public boolean currentTupleEquals(Tuple value)
-    {
-        return dictionary.tupleEquals(getDictionaryKey(), value);
+        return idCursor.getPosition();
     }
 
     @Override
@@ -149,8 +143,8 @@ public class DictionaryEncodedBlockCursor
 
     public int getDictionaryKey()
     {
-        int dictionaryKey = Ints.checkedCast(sourceCursor.getLong());
-        checkPositionIndex(dictionaryKey, dictionary.size(), "dictionaryKey does not exist");
+        int dictionaryKey = Ints.checkedCast(idCursor.getLong());
+        checkPositionIndex(dictionaryKey, dictionary.getPositionCount(), "dictionaryKey does not exist");
         return dictionaryKey;
     }
 }
