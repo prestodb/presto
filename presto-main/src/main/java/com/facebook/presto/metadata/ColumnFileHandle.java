@@ -32,7 +32,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.facebook.presto.block.BlockUtils.toTupleIterable;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -89,7 +88,7 @@ public class ColumnFileHandle
         int i = 0;
         for (BlocksFileWriter writer : writers.values()) {
             Block block = blocks[i];
-            writer.append(toTupleIterable(block));
+            writer.append(block);
             tupleCount[i] = block.getPositionCount();
             if (i > 0) {
                 checkState(tupleCount[i] == tupleCount[i - 1], "different tuple count (%s vs. %s) for block!", tupleCount[i], tupleCount[i - 1]);

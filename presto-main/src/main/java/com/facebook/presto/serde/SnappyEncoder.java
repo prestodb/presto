@@ -13,33 +13,23 @@
  */
 package com.facebook.presto.serde;
 
+import com.facebook.presto.block.Block;
+import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.snappy.SnappyBlock;
-import com.facebook.presto.tuple.Tuple;
-import com.google.common.base.Preconditions;
-import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
-import io.airlift.slice.Slices;
-import io.airlift.units.DataSize;
-import org.iq80.snappy.Snappy;
-
-import java.util.Arrays;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class SnappyEncoder
         implements Encoder
 {
-    public static final int MAX_UNCOMPRESSED_BLOCK_SIZE = (int) new DataSize(1, MEGABYTE).toBytes();
-
     private final SliceOutput sliceOutput;
-    private final DynamicSliceOutput buffer = new DynamicSliceOutput(MAX_UNCOMPRESSED_BLOCK_SIZE);
 
     private SnappyBlockEncoding encoding;
+    private BlockBuilder blockBuilder;
     private boolean finished;
-    private int tupleCount;
 
     public SnappyEncoder(SliceOutput sliceOutput)
     {
@@ -47,19 +37,19 @@ public class SnappyEncoder
     }
 
     @Override
-    public Encoder append(Iterable<Tuple> tuples)
+    public Encoder append(Block block)
     {
-        Preconditions.checkNotNull(tuples, "tuples is null");
+        checkNotNull(block, "tuples is null");
         checkState(!finished, "already finished");
 
-        for (Tuple tuple : tuples) {
-            if (encoding == null) {
-                encoding = new SnappyBlockEncoding(tuple.getTupleInfo());
-            }
-            tuple.writeTo(buffer);
-            tupleCount++;
-
-            if (buffer.size() >= MAX_UNCOMPRESSED_BLOCK_SIZE) {
+        if (encoding == null) {
+            encoding = new SnappyBlockEncoding(block.getTupleInfo());
+            blockBuilder = new BlockBuilder(block.getTupleInfo());
+        }
+        BlockCursor cursor = block.cursor();
+        while (cursor.advanceNextPosition()) {
+            cursor.appendTupleTo(blockBuilder);
+            if (blockBuilder.isFull()) {
                 flushBlock();
             }
         }
@@ -73,21 +63,18 @@ public class SnappyEncoder
         checkState(!finished, "already finished");
 
         finished = true;
-        flushBlock();
+        if (!blockBuilder.isEmpty()) {
+            flushBlock();
+        }
 
         return encoding;
     }
 
     private void flushBlock()
     {
-        if (buffer.size() > 0) {
-            Slice slice = buffer.slice();
-            byte[] compressedBytes = new byte[Snappy.maxCompressedLength(slice.length())];
-            int actualLength = Snappy.compress(slice.getBytes(), 0, slice.length(), compressedBytes, 0);
-            SnappyBlock block = new SnappyBlock(tupleCount, encoding.getTupleInfo(), Slices.wrappedBuffer(Arrays.copyOf(compressedBytes, actualLength)));
-            encoding.writeBlock(sliceOutput, block);
-            buffer.reset();
-            tupleCount = 0;
-        }
+        Block block = blockBuilder.build();
+        SnappyBlock snappyBlock = new SnappyBlock(block);
+        encoding.writeBlock(sliceOutput, snappyBlock);
+        blockBuilder = new BlockBuilder(snappyBlock.getTupleInfo());
     }
 }
