@@ -13,9 +13,7 @@
  */
 package com.facebook.presto.block;
 
-import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleReadable;
 import io.airlift.slice.Slice;
 
 /**
@@ -31,12 +29,10 @@ import io.airlift.slice.Slice;
  * }</pre>
  */
 public interface BlockCursor
-        extends TupleReadable
 {
     /**
      * Gets the type of all tuples in this cursor
      */
-    @Override
     TupleInfo getTupleInfo();
 
     /**
@@ -96,15 +92,13 @@ public interface BlockCursor
      *
      * @throws IllegalStateException if this cursor is not at a valid position
      */
-    @Override
-    Tuple getTuple();
+    RandomAccessBlock getSingleValueBlock();
 
     /**
      * Gets a boolean at the current position.
      *
      * @throws IllegalStateException if this cursor is not at a valid position
      */
-    @Override
     boolean getBoolean();
 
     /**
@@ -112,7 +106,6 @@ public interface BlockCursor
      *
      * @throws IllegalStateException if this cursor is not at a valid position
      */
-    @Override
     long getLong();
 
     /**
@@ -120,7 +113,6 @@ public interface BlockCursor
      *
      * @throws IllegalStateException if this cursor is not at a valid position
      */
-    @Override
     double getDouble();
 
     /**
@@ -128,15 +120,15 @@ public interface BlockCursor
      *
      * @throws IllegalStateException if this cursor is not at a valid position
      */
-    @Override
     Slice getSlice();
+
+    Object getObjectValue();
 
     /**
      * Is the current position null?
      *
      * @throws IllegalStateException if this cursor is not at a valid position
      */
-    @Override
     boolean isNull();
 
     /**
@@ -145,6 +137,8 @@ public interface BlockCursor
      * @throws IllegalStateException if this cursor is not at a valid position
      */
     int getPosition();
+
+    int compareTo(Slice slice, int offset);
 
     int getRawOffset();
 

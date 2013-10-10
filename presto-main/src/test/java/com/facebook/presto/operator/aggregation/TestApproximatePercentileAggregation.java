@@ -14,6 +14,8 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.block.Block;
+import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 import com.facebook.presto.block.uncompressed.FixedWidthBlock;
 import com.facebook.presto.operator.Page;
@@ -28,9 +30,9 @@ import static com.facebook.presto.operator.aggregation.ApproximatePercentileAggr
 import static com.facebook.presto.operator.aggregation.ApproximatePercentileAggregations.LONG_APPROXIMATE_PERCENTILE_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.ApproximatePercentileWeightedAggregations.DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.ApproximatePercentileWeightedAggregations.LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION;
+import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
-import static com.facebook.presto.tuple.Tuples.createTuple;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 
 public class TestApproximatePercentileAggregation
@@ -298,7 +300,8 @@ public class TestApproximatePercentileAggregation
         }
         else {
             valuesBlock = createDoublesBlock(values);
-            percentilesBlock = new RunLengthEncodedBlock(createTuple(percentile), values.length);
+            int positionCount = values.length;
+            percentilesBlock = createRLEBlock(percentile, positionCount);
         }
 
         return new Page(valuesBlock, percentilesBlock);
@@ -315,7 +318,7 @@ public class TestApproximatePercentileAggregation
         }
         else {
             valuesBlock = createLongsBlock(values);
-            percentilesBlock = new RunLengthEncodedBlock(createTuple(percentile), values.length);
+            percentilesBlock = createRLEBlock(percentile, values.length);
         }
 
         return new Page(valuesBlock, percentilesBlock);
@@ -337,7 +340,7 @@ public class TestApproximatePercentileAggregation
         else {
             valuesBlock = createLongsBlock(values);
             weightsBlock = createLongsBlock(weights);
-            percentilesBlock = new RunLengthEncodedBlock(createTuple(percentile), values.length);
+            percentilesBlock = createRLEBlock(percentile, values.length);
         }
 
         return new Page(valuesBlock, weightsBlock, percentilesBlock);
@@ -359,9 +362,19 @@ public class TestApproximatePercentileAggregation
         else {
             valuesBlock = createDoublesBlock(values);
             weightsBlock = createLongsBlock(weights);
-            percentilesBlock = new RunLengthEncodedBlock(createTuple(percentile), values.length);
+            percentilesBlock = createRLEBlock(percentile, values.length);
         }
 
         return new Page(valuesBlock, weightsBlock, percentilesBlock);
+    }
+
+    private static RunLengthEncodedBlock createRLEBlock(double percentile, int positionCount)
+    {
+        RandomAccessBlock value = new BlockBuilder(SINGLE_DOUBLE)
+                .append(percentile)
+                .build()
+                .toRandomAccessBlock();
+
+        return new RunLengthEncodedBlock(value, positionCount);
     }
 }

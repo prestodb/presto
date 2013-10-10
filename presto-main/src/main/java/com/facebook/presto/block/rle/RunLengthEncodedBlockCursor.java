@@ -16,23 +16,30 @@ package com.facebook.presto.block.rle;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.tuple.Tuple;
+import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
 import io.airlift.slice.Slice;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 public final class RunLengthEncodedBlockCursor
         implements BlockCursor
 {
-    private final Tuple value;
+    private final RandomAccessBlock value;
     private final int positionCount;
 
     private int position = -1;
 
-    public RunLengthEncodedBlockCursor(Tuple value, int positionCount)
+    public RunLengthEncodedBlockCursor(RandomAccessBlock value, int positionCount)
     {
-        this.value = value;
+        this.value = checkNotNull(value, "value is null");
+        checkArgument(value.getPositionCount() == 1, "Expected value to contain a single position but has %s positions", value.getPositionCount());
+
+        checkArgument(positionCount >= 0, "positionCount is negative");
         this.positionCount = positionCount;
+
         position = -1;
     }
 
@@ -103,7 +110,7 @@ public final class RunLengthEncodedBlockCursor
     }
 
     @Override
-    public Tuple getTuple()
+    public RandomAccessBlock getSingleValueBlock()
     {
         checkReadablePosition();
         return value;
@@ -113,35 +120,42 @@ public final class RunLengthEncodedBlockCursor
     public boolean getBoolean()
     {
         checkReadablePosition();
-        return value.getBoolean();
+        return value.getBoolean(0);
     }
 
     @Override
     public long getLong()
     {
         checkReadablePosition();
-        return value.getLong();
+        return value.getLong(0);
     }
 
     @Override
     public double getDouble()
     {
         checkReadablePosition();
-        return value.getDouble();
+        return value.getDouble(0);
     }
 
     @Override
     public Slice getSlice()
     {
         checkReadablePosition();
-        return value.getSlice();
+        return value.getSlice(0);
+    }
+
+    @Override
+    public Object getObjectValue()
+    {
+        checkReadablePosition();
+        return value.getObjectValue(0);
     }
 
     @Override
     public boolean isNull()
     {
         checkReadablePosition();
-        return value.isNull();
+        return value.isNull(0);
     }
 
     @Override
@@ -149,6 +163,13 @@ public final class RunLengthEncodedBlockCursor
     {
         checkReadablePosition();
         return position;
+    }
+
+    @Override
+    public int compareTo(Slice slice, int offset)
+    {
+        checkReadablePosition();
+        return value.compareTo(0, slice, offset);
     }
 
     @Override
@@ -160,12 +181,12 @@ public final class RunLengthEncodedBlockCursor
     @Override
     public Slice getRawSlice()
     {
-        return value.getTupleSlice();
+        return value.getRawSlice();
     }
 
     @Override
     public void appendTupleTo(BlockBuilder blockBuilder)
     {
-        blockBuilder.append(value);
+        value.appendTupleTo(0, blockBuilder);
     }
 }

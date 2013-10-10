@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.tuple;
 
+import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.tuple.TupleInfo.Builder;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -21,7 +22,6 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.tuple.TupleInfo.Type.BOOLEAN;
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
-import static com.facebook.presto.tuple.Tuples.NULL_LONG_TUPLE;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
@@ -37,20 +37,22 @@ public class TestTupleInfo
     {
         TupleInfo info = new TupleInfo(BOOLEAN);
 
-        Tuple tuple = info.builder()
+        RandomAccessBlock value = info.builder()
                 .append(true)
                 .build();
 
-        assertEquals(tuple.getBoolean(), true);
-        assertEquals(tuple.size(), SIZE_OF_BYTE + SIZE_OF_BYTE);
+        assertEquals(value.getBoolean(0), true);
+        assertEquals(value.getObjectValue(0), true);
+        assertEquals(value.getDataSize().toBytes(), SIZE_OF_BYTE + SIZE_OF_BYTE);
 
-        tuple = info.builder()
+        value = info.builder()
                 .append(false)
                 .build();
 
-        assertFalse(tuple.isNull());
-        assertEquals(tuple.getBoolean(), false);
-        assertEquals(tuple.size(), SIZE_OF_BYTE + SIZE_OF_BYTE);
+        assertFalse(value.isNull(0));
+        assertEquals(value.getBoolean(0), false);
+        assertEquals(value.getObjectValue(0), false);
+        assertEquals(value.getDataSize().toBytes(), SIZE_OF_BYTE + SIZE_OF_BYTE);
     }
 
     /**
@@ -64,21 +66,21 @@ public class TestTupleInfo
     {
         TupleInfo info = new TupleInfo(BOOLEAN);
 
-        Tuple tuple = info.builder()
+        RandomAccessBlock value = info.builder()
                 .append(true)
                 .build();
 
-        Slice tupleSlice = tuple.getTupleSlice();
+        Slice tupleSlice = value.getRawSlice();
         assertEquals(tupleSlice.length(), SIZE_OF_BYTE + SIZE_OF_BYTE);
         // null bit set is in first byte
         assertEquals(tupleSlice.getByte(0), 0);
         assertEquals(tupleSlice.getByte(SIZE_OF_BYTE), 1);
 
-        tuple = info.builder()
+        value = info.builder()
                 .append(false)
                 .build();
 
-        tupleSlice = tuple.getTupleSlice();
+        tupleSlice = value.getRawSlice();
         assertEquals(tupleSlice.length(), SIZE_OF_BYTE + SIZE_OF_BYTE);
         // null bit set is in first byte
         assertEquals(tupleSlice.getByte(0), 0);
@@ -88,14 +90,15 @@ public class TestTupleInfo
     @Test
     public void testSingleBooleanLengthNull()
     {
-        Tuple tuple = TupleInfo.SINGLE_BOOLEAN.builder()
+        RandomAccessBlock value = TupleInfo.SINGLE_BOOLEAN.builder()
                 .appendNull()
                 .build();
 
-        assertTrue(tuple.isNull());
+        assertTrue(value.isNull(0));
         // value of a null boolean is false
-        assertEquals(tuple.getBoolean(), false);
-        assertEquals(tuple.size(), SIZE_OF_BYTE + SIZE_OF_BYTE);
+        assertEquals(value.getBoolean(0), false);
+        assertEquals(value.getObjectValue(0), null);
+        assertEquals(value.getDataSize().toBytes(), SIZE_OF_BYTE + SIZE_OF_BYTE);
     }
 
     /**
@@ -107,11 +110,11 @@ public class TestTupleInfo
     @Test
     public void testSingleBooleanLengthNullMemoryLayout()
     {
-        Tuple tuple = TupleInfo.SINGLE_BOOLEAN.builder()
+        RandomAccessBlock value = TupleInfo.SINGLE_BOOLEAN.builder()
                 .appendNull()
                 .build();
 
-        Slice tupleSlice = tuple.getTupleSlice();
+        Slice tupleSlice = value.getRawSlice();
         assertEquals(tupleSlice.length(), SIZE_OF_BYTE + SIZE_OF_BYTE);
         // null bit set is in first byte
         assertEquals(tupleSlice.getByte(0), 0b0000_0001);
@@ -124,12 +127,13 @@ public class TestTupleInfo
     {
         TupleInfo info = new TupleInfo(FIXED_INT_64);
 
-        Tuple tuple = info.builder()
+        RandomAccessBlock value = info.builder()
                 .append(42)
                 .build();
 
-        assertEquals(tuple.getLong(), 42L);
-        assertEquals(tuple.size(), SIZE_OF_LONG + SIZE_OF_BYTE);
+        assertEquals(value.getLong(0), 42L);
+        assertEquals(value.getObjectValue(0), 42L);
+        assertEquals(value.getDataSize().toBytes(), SIZE_OF_LONG + SIZE_OF_BYTE);
     }
 
     /**
@@ -143,11 +147,11 @@ public class TestTupleInfo
     {
         TupleInfo info = new TupleInfo(FIXED_INT_64);
 
-        Tuple tuple = info.builder()
+        RandomAccessBlock value = info.builder()
                 .append(42)
                 .build();
 
-        Slice tupleSlice = tuple.getTupleSlice();
+        Slice tupleSlice = value.getRawSlice();
         assertEquals(tupleSlice.length(), SIZE_OF_LONG + SIZE_OF_BYTE);
         // null bit set is in first byte
         assertEquals(tupleSlice.getByte(0), 0);
@@ -157,21 +161,22 @@ public class TestTupleInfo
     @Test
     public void testSingleLongLengthNull()
     {
-        Tuple tuple = TupleInfo.SINGLE_LONG.builder()
+        RandomAccessBlock value = TupleInfo.SINGLE_LONG.builder()
                 .appendNull()
                 .build();
 
-        assertTrue(tuple.isNull());
+        assertTrue(value.isNull(0));
         // value of a null long is 0
-        assertEquals(tuple.getLong(), 0L);
-        assertEquals(tuple.size(), SIZE_OF_LONG + SIZE_OF_BYTE);
+        assertEquals(value.getLong(0), 0L);
+        assertEquals(value.getObjectValue(0), null);
+        assertEquals(value.getDataSize().toBytes(), SIZE_OF_LONG + SIZE_OF_BYTE);
     }
 
     @Test
     public void testAppendWithNull()
     {
         Builder builder = TupleInfo.SINGLE_LONG.builder();
-        assertTrue(builder.append(NULL_LONG_TUPLE).build().isNull());
+        assertTrue(builder.appendNull().build().isNull(0));
     }
 
     /**
@@ -183,11 +188,11 @@ public class TestTupleInfo
     @Test
     public void testSingleLongLengthNullMemoryLayout()
     {
-        Tuple tuple = TupleInfo.SINGLE_LONG.builder()
+        RandomAccessBlock value = TupleInfo.SINGLE_LONG.builder()
                 .appendNull()
                 .build();
 
-        Slice tupleSlice = tuple.getTupleSlice();
+        Slice tupleSlice = value.getRawSlice();
         assertEquals(tupleSlice.length(), SIZE_OF_LONG + SIZE_OF_BYTE);
         // null bit set is in first byte
         assertEquals(tupleSlice.getByte(0), 0b0000_0001);
@@ -200,12 +205,13 @@ public class TestTupleInfo
     {
         TupleInfo info = new TupleInfo(DOUBLE);
 
-        Tuple tuple = info.builder()
+        RandomAccessBlock value = info.builder()
                 .append(42.42)
                 .build();
 
-        assertEquals(tuple.getDouble(), 42.42);
-        assertEquals(tuple.size(), SIZE_OF_DOUBLE + SIZE_OF_BYTE);
+        assertEquals(value.getDouble(0), 42.42);
+        assertEquals(value.getObjectValue(0), 42.42);
+        assertEquals(value.getDataSize().toBytes(), SIZE_OF_DOUBLE + SIZE_OF_BYTE);
     }
 
     /**
@@ -219,11 +225,11 @@ public class TestTupleInfo
     {
         TupleInfo info = new TupleInfo(DOUBLE);
 
-        Tuple tuple = info.builder()
+        RandomAccessBlock value = info.builder()
                 .append(42.42)
                 .build();
 
-        Slice tupleSlice = tuple.getTupleSlice();
+        Slice tupleSlice = value.getRawSlice();
         assertEquals(tupleSlice.length(), SIZE_OF_LONG + SIZE_OF_BYTE);
         // null bit set is in first byte
         assertEquals(tupleSlice.getByte(0), 0);
@@ -233,14 +239,15 @@ public class TestTupleInfo
     @Test
     public void testSingleDoubleLengthNull()
     {
-        Tuple tuple = TupleInfo.SINGLE_DOUBLE.builder()
+        RandomAccessBlock value = TupleInfo.SINGLE_DOUBLE.builder()
                 .appendNull()
                 .build();
 
-        assertTrue(tuple.isNull());
+        assertTrue(value.isNull(0));
         // value of a null double is 0
-        assertEquals(tuple.getDouble(), 0.0);
-        assertEquals(tuple.size(), SIZE_OF_DOUBLE + SIZE_OF_BYTE);
+        assertEquals(value.getDouble(0), 0.0);
+        assertEquals(value.getObjectValue(0), null);
+        assertEquals(value.getDataSize().toBytes(), SIZE_OF_DOUBLE + SIZE_OF_BYTE);
     }
 
     /**
@@ -252,11 +259,11 @@ public class TestTupleInfo
     @Test
     public void testSingleDoubleLengthNullMemoryLayout()
     {
-        Tuple tuple = TupleInfo.SINGLE_DOUBLE.builder()
+        RandomAccessBlock value = TupleInfo.SINGLE_DOUBLE.builder()
                 .appendNull()
                 .build();
 
-        Slice tupleSlice = tuple.getTupleSlice();
+        Slice tupleSlice = value.getRawSlice();
         assertEquals(tupleSlice.length(), SIZE_OF_DOUBLE + SIZE_OF_BYTE);
         // null bit set is in first byte
         assertEquals(tupleSlice.getByte(0), 0b0000_0001);
@@ -269,12 +276,13 @@ public class TestTupleInfo
     {
         Slice binary = Slices.wrappedBuffer(new byte[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
 
-        Tuple tuple = TupleInfo.SINGLE_VARBINARY.builder()
+        RandomAccessBlock value = TupleInfo.SINGLE_VARBINARY.builder()
                 .append(binary)
                 .build();
 
-        assertEquals(tuple.size(), binary.length() + SIZE_OF_INT + SIZE_OF_BYTE);
-        assertEquals(tuple.getSlice(), binary);
+        assertEquals(value.getDataSize().toBytes(), binary.length() + SIZE_OF_INT + SIZE_OF_BYTE);
+        assertEquals(value.getSlice(0), binary);
+        assertEquals(value.getObjectValue(0), binary.toStringUtf8());
     }
 
     /**
@@ -288,11 +296,11 @@ public class TestTupleInfo
     {
         Slice binary = Slices.wrappedBuffer(new byte[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
 
-        Tuple tuple = TupleInfo.SINGLE_VARBINARY.builder()
+        RandomAccessBlock value = TupleInfo.SINGLE_VARBINARY.builder()
                 .append(binary)
                 .build();
 
-        Slice tupleSlice = tuple.getTupleSlice();
+        Slice tupleSlice = value.getRawSlice();
         assertEquals(tupleSlice.length(), binary.length() + SIZE_OF_INT + SIZE_OF_BYTE);
         // null bit set is in first byte
         assertEquals(tupleSlice.getByte(0), 0);
@@ -303,19 +311,20 @@ public class TestTupleInfo
     @Test
     public void testSingleVariableLengthNull()
     {
-        Tuple tuple = TupleInfo.SINGLE_VARBINARY.builder()
+        RandomAccessBlock value = TupleInfo.SINGLE_VARBINARY.builder()
                 .appendNull()
                 .build();
 
-        assertTrue(tuple.isNull());
-        assertEquals(tuple.size(), SIZE_OF_BYTE);
+        assertTrue(value.isNull(0));
+        assertEquals(value.getDataSize().toBytes(), SIZE_OF_BYTE);
 
         // can not get slice of a null
         try {
-            assertEquals(tuple.getSlice(), Slices.EMPTY_SLICE);
+            value.getSlice(0);
         }
         catch (IllegalStateException e) {
         }
+        assertEquals(value.getObjectValue(0), null);
     }
 
     /**
@@ -327,11 +336,11 @@ public class TestTupleInfo
     @Test
     public void testSingleVariableLengthNullMemoryLayout()
     {
-        Tuple tuple = TupleInfo.SINGLE_VARBINARY.builder()
+        RandomAccessBlock value = TupleInfo.SINGLE_VARBINARY.builder()
                 .appendNull()
                 .build();
 
-        Slice tupleSlice = tuple.getTupleSlice();
+        Slice tupleSlice = value.getRawSlice();
         assertEquals(tupleSlice.length(), SIZE_OF_BYTE);
         // null bit set is in first byte
         assertEquals(tupleSlice.getByte(0), 0b0000_0001);

@@ -59,7 +59,7 @@ public class TestFileBlocksSerde
             try {
                 testRoundTrip(encoding);
             }
-            catch (Exception e) {
+            catch (Throwable e) {
                 throw new RuntimeException("Round trip failed for encoding: " + encoding, e);
             }
         }
