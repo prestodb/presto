@@ -14,12 +14,20 @@
 package com.facebook.presto.block;
 
 import com.facebook.presto.operator.SortOrder;
+import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleReadable;
 import io.airlift.slice.Slice;
 
 public interface RandomAccessBlock
         extends Block
 {
+    /**
+     * Returns a block starting at the specified position and extends for the
+     * specified length.  The specified region must be entirely contained
+     * within this block.
+     */
+    RandomAccessBlock getRegion(int positionOffset, int length);
+
     /**
      * Gets a position from the current tuple.
      *
@@ -47,6 +55,9 @@ public interface RandomAccessBlock
      * @throws IllegalArgumentException if this position is not valid
      */
     Slice getSlice(int position);
+
+    @Deprecated
+    Tuple getTuple(int position);
 
     /**
      * Is the specified position null.
