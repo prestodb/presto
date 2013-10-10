@@ -14,7 +14,7 @@
 package com.facebook.presto.serde;
 
 import com.facebook.presto.block.Block;
-import com.facebook.presto.block.dictionary.Dictionary;
+import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.block.dictionary.DictionaryEncodedBlock;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
@@ -26,10 +26,10 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class DictionaryBlockEncoding
         implements BlockEncoding
 {
-    private final Dictionary dictionary;
+    private final RandomAccessBlock dictionary;
     private final BlockEncoding idBlockEncoding;
 
-    public DictionaryBlockEncoding(Dictionary dictionary, BlockEncoding idBlockEncoding)
+    public DictionaryBlockEncoding(RandomAccessBlock dictionary, BlockEncoding idBlockEncoding)
     {
         this.dictionary = checkNotNull(dictionary, "dictionary is null");
         this.idBlockEncoding = checkNotNull(idBlockEncoding, "idBlockEncoding is null");
@@ -37,18 +37,9 @@ public class DictionaryBlockEncoding
 
     public DictionaryBlockEncoding(SliceInput input)
     {
-        dictionary = DictionarySerde.readDictionary(input);
+        BlockEncoding dictionaryEncoding = BlockEncodings.readBlockEncoding(input);
+        dictionary =  dictionaryEncoding.readBlock(input).toRandomAccessBlock();
         idBlockEncoding = BlockEncodings.readBlockEncoding(input);
-    }
-
-    public Dictionary getDictionary()
-    {
-        return dictionary;
-    }
-
-    public BlockEncoding getIdBlockEncoding()
-    {
-        return idBlockEncoding;
     }
 
     @Override
@@ -68,13 +59,18 @@ public class DictionaryBlockEncoding
     @Override
     public Block readBlock(SliceInput sliceInput)
     {
-        Block idBlock = idBlockEncoding.readBlock(sliceInput);
+        RandomAccessBlock idBlock = (RandomAccessBlock) idBlockEncoding.readBlock(sliceInput);
         return new DictionaryEncodedBlock(dictionary, idBlock);
     }
 
     public static void serialize(SliceOutput output, DictionaryBlockEncoding encoding)
     {
-        DictionarySerde.writeDictionary(output, encoding.dictionary);
+        // write the dictionary
+        BlockEncoding dictionaryBlockEncoding = encoding.dictionary.getEncoding();
+        BlockEncodings.writeBlockEncoding(output, dictionaryBlockEncoding);
+        dictionaryBlockEncoding.writeBlock(output, encoding.dictionary);
+
+        // write the id block
         BlockEncodings.writeBlockEncoding(output, encoding.idBlockEncoding);
     }
 }
