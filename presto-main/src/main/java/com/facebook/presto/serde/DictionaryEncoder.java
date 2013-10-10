@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.serde;
 
-import com.facebook.presto.block.dictionary.Dictionary.DictionaryBuilder;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Function;
@@ -49,11 +48,11 @@ public class DictionaryEncoder
             {
                 if (tupleInfo == null) {
                     tupleInfo = tuple.getTupleInfo();
-                    dictionaryBuilder = new DictionaryBuilder(tupleInfo);
+                    dictionaryBuilder = new DictionaryBuilder(tupleInfo.getType());
                 }
 
-                long id = dictionaryBuilder.getId(tuple);
-                return createTuple(id);
+                int key = dictionaryBuilder.putIfAbsent(tuple);
+                return createTuple(key);
             }
         });
         idWriter.append(idTuples);

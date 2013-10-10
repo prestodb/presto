@@ -257,7 +257,7 @@ public final class BlockAssertions
     }
 
     // This method makes it easy to create blocks without having to add an L to every value
-    public static Block createLongsBlock(int... values)
+    public static RandomAccessBlock createLongsBlock(int... values)
     {
         BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_LONG);
 
@@ -265,7 +265,7 @@ public final class BlockAssertions
             builder.append((long) value);
         }
 
-        return builder.build();
+        return builder.build().toRandomAccessBlock();
     }
 
     public static Block createLongsBlock(Long... values)

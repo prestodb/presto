@@ -200,12 +200,6 @@ class PoissonizedBlock
         }
 
         @Override
-        public boolean currentTupleEquals(Tuple value)
-        {
-            return value.getTupleInfo().equals(SINGLE_LONG) && value.getLong() == currentValue;
-        }
-
-        @Override
         public int getRawOffset()
         {
             throw new UnsupportedOperationException();

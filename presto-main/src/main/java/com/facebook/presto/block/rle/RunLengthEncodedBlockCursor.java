@@ -152,13 +152,6 @@ public final class RunLengthEncodedBlockCursor
     }
 
     @Override
-    public boolean currentTupleEquals(Tuple value)
-    {
-        checkReadablePosition();
-        return this.value.equals(value);
-    }
-
-    @Override
     public int getRawOffset()
     {
         return 0;

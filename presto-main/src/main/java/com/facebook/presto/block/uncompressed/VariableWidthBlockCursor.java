@@ -198,25 +198,6 @@ public class VariableWidthBlockCursor
     }
 
     @Override
-    public boolean currentTupleEquals(Tuple value)
-    {
-        checkReadablePosition();
-
-        boolean thisIsNull = isNull;
-        boolean valueIsNull = value.isNull();
-
-        if (thisIsNull != valueIsNull) {
-            return false;
-        }
-
-        // if values are both null, they are equal
-        if (thisIsNull) {
-            return true;
-        }
-        return typeInfo.equals(slice, entryOffset + SIZE_OF_BYTE, value);
-    }
-
-    @Override
     public int getRawOffset()
     {
         return entryOffset;

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.block.uncompressed;
 
-import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.RandomAccessBlock;
@@ -21,10 +20,12 @@ import com.facebook.presto.operator.SortOrder;
 import com.facebook.presto.serde.BlockEncoding;
 import com.facebook.presto.serde.UncompressedBlockEncoding;
 import com.facebook.presto.tuple.FixedWidthTypeInfo;
+import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleReadable;
 import com.google.common.base.Objects;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 
@@ -93,10 +94,10 @@ public class FixedWidthBlock
     }
 
     @Override
-    public Block getRegion(int positionOffset, int length)
+    public RandomAccessBlock getRegion(int positionOffset, int length)
     {
         checkPositionIndexes(positionOffset, positionOffset + length, positionCount);
-        return cursor().getRegionAndAdvance(length);
+        return (RandomAccessBlock) cursor().getRegionAndAdvance(length);
     }
 
     @Override
@@ -131,6 +132,19 @@ public class FixedWidthBlock
     {
         checkReadablePosition(position);
         return typeInfo.getSlice(slice, (position * entrySize) + SIZE_OF_BYTE);
+    }
+
+    @Override
+    public Tuple getTuple(int position)
+    {
+        checkReadablePosition(position);
+        int entryOffset = position * entrySize;
+
+        // TODO: add Slices.copyOf() to airlift
+        Slice copy = Slices.allocate(entrySize);
+        copy.setBytes(0, slice, entryOffset, entrySize);
+
+        return new Tuple(copy, new TupleInfo(typeInfo.getType()));
     }
 
     @Override

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.block.rle;
 
-import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.operator.SortOrder;
@@ -70,7 +69,7 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public Block getRegion(int positionOffset, int length)
+    public RandomAccessBlock getRegion(int positionOffset, int length)
     {
         checkPositionIndexes(positionOffset, positionOffset + length, positionCount);
         return new RunLengthEncodedBlock(value, length);
@@ -111,6 +110,13 @@ public class RunLengthEncodedBlock
     public Slice getSlice(int position)
     {
         return value.getSlice();
+    }
+
+    @Override
+    public Tuple getTuple(int position)
+    {
+        checkReadablePosition(position);
+        return value;
     }
 
     @Override

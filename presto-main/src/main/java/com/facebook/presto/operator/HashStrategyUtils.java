@@ -30,6 +30,23 @@ public final class HashStrategyUtils
         return result;
     }
 
+    public static boolean valueEquals(Type type, Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)
+    {
+        // check if null flags are the same
+        boolean leftIsNull = leftSlice.getByte(leftOffset) != 0;
+        boolean rightIsNull = rightSlice.getByte(rightOffset) != 0;
+        if (leftIsNull != rightIsNull) {
+            return false;
+        }
+
+        // if values are both null, they are equal
+        if (leftIsNull) {
+            return true;
+        }
+
+        return type.getTypeInfo().equals(leftSlice, leftOffset + SIZE_OF_BYTE, rightSlice, rightOffset + SIZE_OF_BYTE);
+    }
+
     public static int valueHashCode(Type type, Slice slice, int offset)
     {
         boolean isNull = slice.getByte(offset) != 0;

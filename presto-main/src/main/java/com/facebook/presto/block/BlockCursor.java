@@ -146,13 +146,6 @@ public interface BlockCursor
      */
     int getPosition();
 
-    /**
-     * True if the next tuple equals the specified tuple.
-     *
-     * @throws IllegalStateException if this cursor is not at a valid position
-     */
-    boolean currentTupleEquals(Tuple value);
-
     int getRawOffset();
 
     Slice getRawSlice();

@@ -13,18 +13,19 @@
  */
 package com.facebook.presto.block.uncompressed;
 
-import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.operator.SortOrder;
 import com.facebook.presto.serde.BlockEncoding;
 import com.facebook.presto.serde.UncompressedBlockEncoding;
+import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleReadable;
 import com.facebook.presto.tuple.VariableWidthTypeInfo;
 import com.google.common.base.Objects;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 
@@ -84,10 +85,10 @@ public class VariableWidthRandomAccessBlock
     }
 
     @Override
-    public Block getRegion(int positionOffset, int length)
+    public RandomAccessBlock getRegion(int positionOffset, int length)
     {
         checkPositionIndexes(positionOffset, positionOffset + length, offsets.length);
-        return cursor().getRegionAndAdvance(length);
+        return (RandomAccessBlock) cursor().getRegionAndAdvance(length);
     }
 
     @Override
@@ -121,6 +122,26 @@ public class VariableWidthRandomAccessBlock
 
         int offset = offsets[position];
         return typeInfo.getSlice(slice, offset + SIZE_OF_BYTE);
+    }
+
+    @Override
+    public Tuple getTuple(int position)
+    {
+        checkReadablePosition(position);
+        int entryOffset = offsets[position];
+        int entrySize;
+        if (slice.getByte(entryOffset) != 0) {
+            entrySize = SIZE_OF_BYTE;
+        }
+        else {
+            entrySize = typeInfo.getLength(slice, entryOffset + SIZE_OF_BYTE) + SIZE_OF_BYTE;
+        }
+
+        // TODO: add Slices.copyOf() to airlift
+        Slice copy = Slices.allocate(entrySize);
+        copy.setBytes(0, slice, entryOffset, entrySize);
+
+        return new Tuple(copy, new TupleInfo(typeInfo.getType()));
     }
 
     @Override
