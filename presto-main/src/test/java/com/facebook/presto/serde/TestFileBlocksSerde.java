@@ -55,7 +55,6 @@ public class TestFileBlocksSerde
     @Test
     public void testRoundTrip()
     {
-        testRoundTrip(BlocksFileEncoding.DIC_RAW);
         for (BlocksFileEncoding encoding : BlocksFileEncoding.values()) {
             try {
                 testRoundTrip(encoding);

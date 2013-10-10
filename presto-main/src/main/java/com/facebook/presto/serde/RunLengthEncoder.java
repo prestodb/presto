@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.serde;
 
+import com.facebook.presto.block.Block;
+import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 import com.facebook.presto.tuple.Tuple;
 import io.airlift.slice.SliceOutput;
@@ -26,7 +28,7 @@ public class RunLengthEncoder
     private final SliceOutput sliceOutput;
     private boolean finished;
 
-    private int tupleCount = -1;
+    private int tupleCount = 0;
     private Tuple lastTuple;
     private RunLengthBlockEncoding encoding;
 
@@ -36,24 +38,26 @@ public class RunLengthEncoder
     }
 
     @Override
-    public Encoder append(Iterable<Tuple> tuples)
+    public Encoder append(Block block)
     {
-        checkNotNull(tuples, "tuples is null");
+        checkNotNull(block, "tuples is null");
         checkState(!finished, "already finished");
 
-        for (Tuple tuple : tuples) {
-            if (encoding == null) {
-                encoding = new RunLengthBlockEncoding(tuple.getTupleInfo());
-                tupleCount = 1;
+        if (encoding == null) {
+            encoding = new RunLengthBlockEncoding(block.getTupleInfo());
+        }
+
+        BlockCursor cursor = block.cursor();
+        while (cursor.advanceNextPosition()) {
+            Tuple tuple = cursor.getTuple();
+            if (lastTuple == null) {
                 lastTuple = tuple;
             }
-            else {
-                if (!tuple.equals(lastTuple)) {
-                    writeBlock();
-                    lastTuple = tuple;
-                }
-                tupleCount++;
+            else if (!tuple.equals(lastTuple)) {
+                writeBlock();
+                lastTuple = tuple;
             }
+            tupleCount++;
         }
 
         return this;
@@ -64,6 +68,7 @@ public class RunLengthEncoder
         RunLengthEncodedBlock block = new RunLengthEncodedBlock(lastTuple, tupleCount);
 
         encoding.writeBlock(sliceOutput, block);
+        lastTuple = null;
         tupleCount = 0;
     }
 
@@ -75,7 +80,9 @@ public class RunLengthEncoder
         finished = true;
 
         // Flush out final block if there exists one (null if they were all empty blocks)
-        writeBlock();
+        if (tupleCount > 0) {
+            writeBlock();
+        }
 
         return encoding;
     }
