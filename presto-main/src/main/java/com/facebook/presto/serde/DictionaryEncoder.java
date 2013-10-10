@@ -48,7 +48,7 @@ public class DictionaryEncoder
         BlockCursor cursor = block.cursor();
         BlockBuilder idBlockBuilder = new BlockBuilder(TupleInfo.SINGLE_LONG);
         while (cursor.advanceNextPosition()) {
-            int key = dictionaryBuilder.putIfAbsent(cursor.getTuple());
+            int key = dictionaryBuilder.putIfAbsent(cursor);
             idBlockBuilder.append(key);
         }
         idWriter.append(idBlockBuilder.build());

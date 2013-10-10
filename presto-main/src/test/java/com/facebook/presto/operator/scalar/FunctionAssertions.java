@@ -276,7 +276,7 @@ public final class FunctionAssertions
             return null;
         }
         else {
-            return cursor.getTuple().getObjectValue();
+            return cursor.getObjectValue();
         }
     }
 

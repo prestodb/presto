@@ -14,13 +14,12 @@
 package com.facebook.presto.block.dictionary;
 
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.operator.SortOrder;
 import com.facebook.presto.serde.BlockEncoding;
 import com.facebook.presto.serde.DictionaryBlockEncoding;
-import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleReadable;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
@@ -125,9 +124,15 @@ public class DictionaryEncodedBlock
     }
 
     @Override
-    public Tuple getTuple(int position)
+    public RandomAccessBlock getSingleValueBlock(int position)
     {
-        return dictionary.getTuple(getDictionaryKey(position));
+        return dictionary.getSingleValueBlock(getDictionaryKey(position));
+    }
+
+    @Override
+    public Object getObjectValue(int position)
+    {
+        return dictionary.getObjectValue(getDictionaryKey(position));
     }
 
     @Override
@@ -143,9 +148,15 @@ public class DictionaryEncodedBlock
     }
 
     @Override
-    public boolean equals(int position, TupleReadable value)
+    public boolean equals(int position, BlockCursor value)
     {
         return dictionary.equals(getDictionaryKey(position), value);
+    }
+
+    @Override
+    public boolean equals(int position, Slice slice, int offset)
+    {
+        return dictionary.equals(getDictionaryKey(position), slice, offset);
     }
 
     @Override
@@ -158,6 +169,18 @@ public class DictionaryEncodedBlock
     public int compareTo(SortOrder sortOrder, int position, RandomAccessBlock right, int rightPosition)
     {
         return dictionary.compareTo(sortOrder, getDictionaryKey(position), right, rightPosition);
+    }
+
+    @Override
+    public int compareTo(SortOrder sortOrder, int position, BlockCursor cursor)
+    {
+        return dictionary.compareTo(sortOrder, getDictionaryKey(position), cursor);
+    }
+
+    @Override
+    public int compareTo(int position, Slice slice, int offset)
+    {
+        return dictionary.compareTo(getDictionaryKey(position), slice, offset);
     }
 
     @Override

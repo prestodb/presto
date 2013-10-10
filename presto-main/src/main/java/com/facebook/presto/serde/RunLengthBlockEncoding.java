@@ -14,9 +14,14 @@
 package com.facebook.presto.serde;
 
 import com.facebook.presto.block.Block;
+import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
-import com.facebook.presto.tuple.Tuple;
+import com.facebook.presto.block.uncompressed.FixedWidthBlock;
+import com.facebook.presto.block.uncompressed.VariableWidthRandomAccessBlock;
+import com.facebook.presto.tuple.FixedWidthTypeInfo;
 import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.tuple.TypeInfo;
+import com.facebook.presto.tuple.VariableWidthTypeInfo;
 import com.google.common.base.Preconditions;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
@@ -49,10 +54,9 @@ public class RunLengthBlockEncoding
     public void writeBlock(SliceOutput sliceOutput, Block block)
     {
         RunLengthEncodedBlock rleBlock = (RunLengthEncodedBlock) block;
-        Slice tupleSlice = rleBlock.getSingleValue().getTupleSlice();
-        sliceOutput.appendInt(tupleSlice.length())
+        sliceOutput.appendInt(rleBlock.getRawSlice().length())
                 .appendInt(rleBlock.getPositionCount())
-                .writeBytes(tupleSlice);
+                .writeBytes(rleBlock.getRawSlice());
     }
 
     @Override
@@ -61,9 +65,18 @@ public class RunLengthBlockEncoding
         int tupleLength = sliceInput.readInt();
         int tupleCount = sliceInput.readInt();
 
-        Slice tupleSlice = sliceInput.readSlice(tupleLength);
-        Tuple tuple = new Tuple(tupleSlice, tupleInfo);
-        return new RunLengthEncodedBlock(tuple, tupleCount);
+        Slice slice = sliceInput.readSlice(tupleLength);
+
+        RandomAccessBlock value;
+        TypeInfo typeInfo = tupleInfo.getTypeInfo();
+        if (typeInfo instanceof FixedWidthTypeInfo) {
+            value = new FixedWidthBlock((FixedWidthTypeInfo) typeInfo, 1, slice);
+        }
+        else {
+            value = new VariableWidthRandomAccessBlock((VariableWidthTypeInfo) typeInfo, 1, slice);
+        }
+
+        return new RunLengthEncodedBlock(value, tupleCount);
     }
 
     public static void serialize(SliceOutput output, RunLengthBlockEncoding encoding)

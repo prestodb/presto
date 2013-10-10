@@ -14,11 +14,11 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
-import com.facebook.presto.tuple.TupleReadable;
 import com.google.common.base.Preconditions;
 
 public final class ProjectionFunctions
@@ -59,7 +59,7 @@ public final class ProjectionFunctions
         }
 
         @Override
-        public void project(TupleReadable[] cursors, BlockBuilder output)
+        public void project(BlockCursor[] cursors, BlockBuilder output)
         {
             if (cursors[channelIndex].isNull()) {
                 output.appendNull();

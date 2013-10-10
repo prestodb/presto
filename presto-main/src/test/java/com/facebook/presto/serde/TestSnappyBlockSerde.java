@@ -16,15 +16,13 @@ package com.facebook.presto.serde;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.tuple.Tuple;
+import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import org.testng.annotations.Test;
 
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.facebook.presto.tuple.Tuples.createTuple;
 import static org.testng.Assert.assertTrue;
 
 public class TestSnappyBlockSerde
@@ -51,11 +49,13 @@ public class TestSnappyBlockSerde
     @Test
     public void testLotsOfStuff()
     {
-        ImmutableList<Tuple> tuples = ImmutableList.of(
-                createTuple("alice"),
-                createTuple("bob"),
-                createTuple("charlie"),
-                createTuple("dave"));
+        RandomAccessBlock block = new BlockBuilder(TupleInfo.SINGLE_VARBINARY)
+                .append("alice")
+                .append("bob")
+                .append("charlie")
+                .append("dave")
+                .build()
+                .toRandomAccessBlock();
 
         DynamicSliceOutput encoderOutput = new DynamicSliceOutput(1024);
         Encoder encoder = BlocksFileEncoding.SNAPPY.createBlocksWriter(encoderOutput);
@@ -64,17 +64,14 @@ public class TestSnappyBlockSerde
 
         int count = 1000;
         for (int i = 0; i < count; i++) {
-            // select a random tuple
-            Tuple tuple = tuples.get(ThreadLocalRandom.current().nextInt(tuples.size()));
+            // select a random position
+            int position = ThreadLocalRandom.current().nextInt(block.getPositionCount());
 
             // add to expected block
-            expectedBlockBuilder.append(tuple);
+            block.appendTupleTo(position, expectedBlockBuilder);
 
             // create block with single value and add to encoder
-            Block block = new BlockBuilder(TupleInfo.SINGLE_VARBINARY)
-                    .append(tuple)
-                    .build();
-            encoder.append(block);
+            encoder.append(block.getSingleValueBlock(position));
         }
 
         Block expectedBlock = expectedBlockBuilder.build();

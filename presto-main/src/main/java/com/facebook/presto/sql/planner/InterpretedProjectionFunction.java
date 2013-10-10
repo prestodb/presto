@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.spi.RecordCursor;
@@ -23,7 +24,6 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleReadable;
 import io.airlift.slice.Slice;
 
 import java.util.Map;
@@ -51,7 +51,7 @@ public class InterpretedProjectionFunction
     }
 
     @Override
-    public void project(TupleReadable[] cursors, BlockBuilder output)
+    public void project(BlockCursor[] cursors, BlockBuilder output)
     {
         Object value = evaluator.evaluate(cursors);
         append(output, value);

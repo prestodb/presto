@@ -19,9 +19,7 @@ import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.operator.SortOrder;
 import com.facebook.presto.serde.BlockEncoding;
 import com.facebook.presto.serde.UncompressedBlockEncoding;
-import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleReadable;
 import com.facebook.presto.tuple.VariableWidthTypeInfo;
 import com.google.common.base.Objects;
 import io.airlift.slice.Slice;
@@ -116,32 +114,41 @@ public class VariableWidthRandomAccessBlock
     }
 
     @Override
-    public Slice getSlice(int position)
+    public Object getObjectValue(int position)
     {
         checkReadablePosition(position);
+        if (isNull(position)) {
+            return null;
+        }
+        int offset = offsets[position];
+        return typeInfo.getObjectValue(slice, offset + SIZE_OF_BYTE);
+    }
 
+    @Override
+    public Slice getSlice(int position)
+    {
+        checkState(!isNull(position));
         int offset = offsets[position];
         return typeInfo.getSlice(slice, offset + SIZE_OF_BYTE);
     }
 
     @Override
-    public Tuple getTuple(int position)
+    public RandomAccessBlock getSingleValueBlock(int position)
     {
         checkReadablePosition(position);
-        int entryOffset = offsets[position];
-        int entrySize;
-        if (slice.getByte(entryOffset) != 0) {
-            entrySize = SIZE_OF_BYTE;
+
+        int offset = offsets[position];
+        if (slice.getByte(offset) != 0) {
+            return new VariableWidthRandomAccessBlock(typeInfo, 1, Slices.wrappedBuffer(new byte[] {1}));
         }
-        else {
-            entrySize = typeInfo.getLength(slice, entryOffset + SIZE_OF_BYTE) + SIZE_OF_BYTE;
-        }
+
+        int entrySize = typeInfo.getLength(slice, offset + SIZE_OF_BYTE) + SIZE_OF_BYTE;
 
         // TODO: add Slices.copyOf() to airlift
         Slice copy = Slices.allocate(entrySize);
-        copy.setBytes(0, slice, entryOffset, entrySize);
+        copy.setBytes(0, slice, offset, entrySize);
 
-        return new Tuple(copy, new TupleInfo(typeInfo.getType()));
+        return new VariableWidthRandomAccessBlock(typeInfo, 1, copy);
     }
 
     @Override
@@ -158,12 +165,8 @@ public class VariableWidthRandomAccessBlock
         checkReadablePosition(position);
         int leftOffset = offsets[position];
 
-        VariableWidthRandomAccessBlock rightBlock = (VariableWidthRandomAccessBlock) right;
-        rightBlock.checkReadablePosition(rightPosition);
-        int rightOffset = rightBlock.offsets[rightPosition];
-
         boolean leftIsNull = slice.getByte(leftOffset) != 0;
-        boolean rightIsNull = rightBlock.slice.getByte(rightPosition) != 0;
+        boolean rightIsNull = right.isNull(rightPosition);
 
         if (leftIsNull != rightIsNull) {
             return false;
@@ -174,16 +177,16 @@ public class VariableWidthRandomAccessBlock
             return true;
         }
 
-        return typeInfo.equals(slice, leftOffset + SIZE_OF_BYTE, rightBlock.slice, rightOffset + SIZE_OF_BYTE);
+        return right.equals(rightPosition, slice, leftOffset + SIZE_OF_BYTE);
     }
 
     @Override
-    public boolean equals(int position, TupleReadable value)
+    public boolean equals(int position, BlockCursor cursor)
     {
         checkReadablePosition(position);
         int offset = offsets[position];
         boolean thisIsNull = slice.getByte(offset) != 0;
-        boolean valueIsNull = value.isNull();
+        boolean valueIsNull = cursor.isNull();
 
         if (thisIsNull != valueIsNull) {
             return false;
@@ -194,7 +197,15 @@ public class VariableWidthRandomAccessBlock
             return true;
         }
 
-        return typeInfo.equals(slice, offset + SIZE_OF_BYTE, value);
+        return typeInfo.equals(slice, offset + SIZE_OF_BYTE, cursor);
+    }
+
+    @Override
+    public boolean equals(int position, Slice rightSlice, int rightOffset)
+    {
+        checkReadablePosition(position);
+        int leftEntryOffset = offsets[position];
+        return typeInfo.equals(slice, leftEntryOffset + SIZE_OF_BYTE, rightSlice, rightOffset);
     }
 
     @Override
@@ -211,17 +222,13 @@ public class VariableWidthRandomAccessBlock
     }
 
     @Override
-    public int compareTo(SortOrder sortOrder, int position, RandomAccessBlock right, int rightPosition)
+    public int compareTo(SortOrder sortOrder, int position, RandomAccessBlock rightBlock, int rightPosition)
     {
         checkReadablePosition(position);
         int leftOffset = offsets[position];
 
-        VariableWidthRandomAccessBlock rightBlock = (VariableWidthRandomAccessBlock) right;
-        rightBlock.checkReadablePosition(rightPosition);
-        int rightOffset = rightBlock.offsets[rightPosition];
-
         boolean leftIsNull = slice.getByte(leftOffset) != 0;
-        boolean rightIsNull = rightBlock.slice.getByte(rightOffset) != 0;
+        boolean rightIsNull = rightBlock.isNull(rightPosition);
 
         if (leftIsNull && rightIsNull) {
             return 0;
@@ -233,8 +240,41 @@ public class VariableWidthRandomAccessBlock
             return sortOrder.isNullsFirst() ? 1 : -1;
         }
 
-        int result = typeInfo.compareTo(slice, leftOffset + SIZE_OF_BYTE, rightBlock.slice, rightOffset + SIZE_OF_BYTE);
+        // compare the right block to our slice but negate the result since we are evaluating in the opposite order
+        int result = -rightBlock.compareTo(rightPosition, slice, leftOffset + SIZE_OF_BYTE);
         return sortOrder.isAscending() ? result : -result;
+    }
+
+    @Override
+    public int compareTo(SortOrder sortOrder, int position, BlockCursor cursor)
+    {
+        checkReadablePosition(position);
+        int leftEntryOffset = offsets[position];
+        boolean leftIsNull = slice.getByte(leftEntryOffset) != 0;
+
+        boolean rightIsNull = cursor.isNull();
+
+        if (leftIsNull && rightIsNull) {
+            return 0;
+        }
+        if (leftIsNull) {
+            return sortOrder.isNullsFirst() ? -1 : 1;
+        }
+        if (rightIsNull) {
+            return sortOrder.isNullsFirst() ? 1 : -1;
+        }
+
+        // compare the right cursor to our slice but negate the result since we are evaluating in the opposite order
+        int result = -cursor.compareTo(slice, leftEntryOffset + SIZE_OF_BYTE);
+        return sortOrder.isAscending() ? result : -result;
+    }
+
+    @Override
+    public int compareTo(int position, Slice rightSlice, int rightOffset)
+    {
+        checkReadablePosition(position);
+        int leftEntryOffset = offsets[position];
+        return typeInfo.compareTo(slice, leftEntryOffset + SIZE_OF_BYTE, rightSlice, rightOffset);
     }
 
     @Override

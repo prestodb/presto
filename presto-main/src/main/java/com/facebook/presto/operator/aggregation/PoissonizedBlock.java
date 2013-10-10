@@ -18,7 +18,6 @@ import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.serde.BlockEncoding;
-import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
@@ -157,9 +156,15 @@ class PoissonizedBlock
         }
 
         @Override
-        public Tuple getTuple()
+        public RandomAccessBlock getSingleValueBlock()
         {
-            return SINGLE_LONG.builder().append(currentValue).build();
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Object getObjectValue()
+        {
+            return currentValue;
         }
 
         @Override
@@ -191,6 +196,12 @@ class PoissonizedBlock
         {
             checkState(!delegate.isNull(), "delegate to poissonized cursor returned a null row");
             return false;
+        }
+
+        @Override
+        public int compareTo(Slice slice, int offset)
+        {
+            throw new UnsupportedOperationException();
         }
 
         @Override

@@ -14,12 +14,12 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleReadable;
 import com.facebook.presto.util.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterMethod;
@@ -74,7 +74,7 @@ public class TestFilterAndProjectOperator
                 new FilterFunction()
                 {
                     @Override
-                    public boolean filter(TupleReadable... cursors)
+                    public boolean filter(BlockCursor... cursors)
                     {
                         long value = cursors[1].getLong();
                         return 10 <= value && value < 20;
@@ -123,7 +123,7 @@ public class TestFilterAndProjectOperator
         }
 
         @Override
-        public void project(TupleReadable[] cursors, BlockBuilder output)
+        public void project(BlockCursor[] cursors, BlockBuilder output)
         {
             if (cursors[channelIndex].isNull()) {
                 output.appendNull();

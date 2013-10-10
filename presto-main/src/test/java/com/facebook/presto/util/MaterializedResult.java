@@ -138,7 +138,7 @@ public class MaterializedResult
                 List<Object> values = new ArrayList<>(tupleInfos.size());
                 for (BlockCursor cursor : cursors) {
                     if (cursor.advanceNextPosition()) {
-                        values.add(cursor.getTuple().getObjectValue());
+                        values.add(cursor.getObjectValue());
                     }
                     else {
                         checkState(values.isEmpty(), "unaligned cursors");
