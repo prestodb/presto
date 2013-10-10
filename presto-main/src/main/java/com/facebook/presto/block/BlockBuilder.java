@@ -67,6 +67,11 @@ public class BlockBuilder
         tupleBuilder = tupleInfo.builder(this.sliceOutput);
     }
 
+    public Slice getSlice()
+    {
+        return sliceOutput.getUnderlyingSlice();
+    }
+
     public TupleInfo getTupleInfo()
     {
         return tupleInfo;

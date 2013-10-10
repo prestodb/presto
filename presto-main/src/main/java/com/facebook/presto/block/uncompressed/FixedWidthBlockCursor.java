@@ -182,24 +182,6 @@ public class FixedWidthBlockCursor
     }
 
     @Override
-    public boolean currentTupleEquals(Tuple value)
-    {
-        checkReadablePosition();
-        boolean thisIsNull = slice.getByte(offset) != 0;
-        boolean valueIsNull = value.isNull();
-
-        if (thisIsNull != valueIsNull) {
-            return false;
-        }
-
-        // if values are both null, they are equal
-        if (thisIsNull) {
-            return true;
-        }
-        return typeInfo.equals(slice, offset + SIZE_OF_BYTE, value);
-    }
-
-    @Override
     public void appendTupleTo(BlockBuilder blockBuilder)
     {
         checkReadablePosition();
