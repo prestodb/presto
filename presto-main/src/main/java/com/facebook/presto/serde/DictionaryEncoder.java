@@ -13,12 +13,11 @@
  */
 package com.facebook.presto.serde;
 
-import com.facebook.presto.tuple.Tuple;
+import com.facebook.presto.block.Block;
+import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.base.Function;
-import com.google.common.collect.Iterables;
 
-import static com.facebook.presto.tuple.Tuples.createTuple;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -36,26 +35,23 @@ public class DictionaryEncoder
     }
 
     @Override
-    public Encoder append(Iterable<Tuple> tuples)
+    public Encoder append(Block block)
     {
-        checkNotNull(tuples, "tuples is null");
+        checkNotNull(block, "tuples is null");
         checkState(!finished, "already finished");
 
-        Iterable<Tuple> idTuples = Iterables.transform(tuples, new Function<Tuple, Tuple>()
-        {
-            @Override
-            public Tuple apply(Tuple tuple)
-            {
-                if (tupleInfo == null) {
-                    tupleInfo = tuple.getTupleInfo();
-                    dictionaryBuilder = new DictionaryBuilder(tupleInfo.getType());
-                }
+        if (tupleInfo == null) {
+            tupleInfo = block.getTupleInfo();
+            dictionaryBuilder = new DictionaryBuilder(tupleInfo.getType());
+        }
 
-                int key = dictionaryBuilder.putIfAbsent(tuple);
-                return createTuple(key);
-            }
-        });
-        idWriter.append(idTuples);
+        BlockCursor cursor = block.cursor();
+        BlockBuilder idBlockBuilder = new BlockBuilder(TupleInfo.SINGLE_LONG);
+        while (cursor.advanceNextPosition()) {
+            int key = dictionaryBuilder.putIfAbsent(cursor.getTuple());
+            idBlockBuilder.append(key);
+        }
+        idWriter.append(idBlockBuilder.build());
 
         return this;
     }
