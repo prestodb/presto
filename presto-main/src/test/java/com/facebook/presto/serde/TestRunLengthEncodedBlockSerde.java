@@ -15,10 +15,9 @@ package com.facebook.presto.serde;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockAssertions;
+import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
-import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.Tuples;
-import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.SliceInput;
 import org.testng.annotations.Test;
@@ -47,22 +46,23 @@ public class TestRunLengthEncodedBlockSerde
     @Test
     public void testCreateBlockWriter()
     {
-        ImmutableList<Tuple> tuples = ImmutableList.of(
-                createTuple("alice"),
-                createTuple("alice"),
-                createTuple("bob"),
-                createTuple("bob"),
-                createTuple("bob"),
-                createTuple("bob"),
-                createTuple("charlie"),
-                createTuple("charlie"),
-                createTuple("charlie"),
-                createTuple("charlie"),
-                createTuple("charlie"),
-                createTuple("charlie"));
+        Block expectedBlock = new BlockBuilder(SINGLE_VARBINARY)
+                .append("alice")
+                .append("alice")
+                .append("bob")
+                .append("bob")
+                .append("bob")
+                .append("bob")
+                .append("charlie")
+                .append("charlie")
+                .append("charlie")
+                .append("charlie")
+                .append("charlie")
+                .append("charlie")
+                .build();
 
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
-        BlockEncoding blockEncoding = new RunLengthEncoder(sliceOutput).append(tuples).finish();
+        BlockEncoding blockEncoding = new RunLengthEncoder(sliceOutput).append(expectedBlock).finish();
         SliceInput sliceInput = sliceOutput.slice().getInput();
 
         Block block = blockEncoding.readBlock(sliceInput);
