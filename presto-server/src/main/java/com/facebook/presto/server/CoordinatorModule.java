@@ -21,6 +21,7 @@ import com.facebook.presto.execution.NodeSchedulerConfig;
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.execution.QueryManager;
+import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.SqlQueryExecution;
 import com.facebook.presto.execution.SqlQueryManager;
 import com.facebook.presto.guice.AbstractConfigurationAwareModule;
@@ -93,6 +94,7 @@ public class CoordinatorModule
         binder.bind(QueryIdGenerator.class).in(Scopes.SINGLETON);
         binder.bind(QueryManager.class).to(SqlQueryManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(QueryManager.class).withGeneratedName();
+        bindConfig(binder).to(QueryManagerConfig.class);
 
         // native
         binder.bind(NativeSplitManager.class).in(Scopes.SINGLETON);
