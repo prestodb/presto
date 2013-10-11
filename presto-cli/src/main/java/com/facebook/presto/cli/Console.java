@@ -181,7 +181,7 @@ public class Console
         try (Query query = queryRunner.startQuery(sql)) {
             query.renderOutput(System.out, outputFormat, interactive);
         }
-        catch (Exception e) {
+        catch (RuntimeException e) {
             System.out.println("Error running command: " + e.getMessage());
             if (queryRunner.getSession().isDebug()) {
                 e.printStackTrace();

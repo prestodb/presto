@@ -95,7 +95,7 @@ public class DropTableExecution
 
             stateMachine.finished();
         }
-        catch (Exception e) {
+        catch (RuntimeException e) {
             fail(e);
         }
     }

@@ -147,7 +147,7 @@ public final class RegexpFunctions
                 constantRegexpExtract = lookup().findStatic(RegexpFunctions.class, "regexpExtract", methodType(Slice.class, Slice.class, Pattern.class, long.class));
                 dynamicRegexpExtract = lookup().findStatic(RegexpFunctions.class, "regexpExtract", methodType(Slice.class, PatternCache.class, Slice.class, Slice.class, long.class));
             }
-            catch (Exception e) {
+            catch (ReflectiveOperationException e) {
                 throw Throwables.propagate(e);
             }
         }

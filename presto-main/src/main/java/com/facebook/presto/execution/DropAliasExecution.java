@@ -81,7 +81,7 @@ public class DropAliasExecution
 
             stateMachine.finished();
         }
-        catch (Exception e) {
+        catch (RuntimeException e) {
             fail(e);
         }
     }

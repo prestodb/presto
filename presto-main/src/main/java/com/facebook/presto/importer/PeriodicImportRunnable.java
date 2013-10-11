@@ -62,7 +62,6 @@ public class PeriodicImportRunnable
 
     @Override
     public void doRun()
-            throws Exception
     {
         final PersistentPeriodicImportJob job = jobState.getJob();
 

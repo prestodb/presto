@@ -85,6 +85,9 @@ public class Driver
                         ((AutoCloseable) operator).close();
                     }
                     catch (Exception e) {
+                        if (e instanceof InterruptedException) {
+                            Thread.currentThread().interrupt();
+                        }
                         log.error(e, "Error closing operator %s for task %s", operator.getOperatorContext().getOperatorId(), driverContext.getTaskId());
                     }
                 }

@@ -68,6 +68,10 @@ public class Threads
         try {
             return Futures.get(isSameThreadExecutor, 10, TimeUnit.SECONDS, Exception.class);
         }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw Throwables.propagate(e);
+        }
         catch (Exception e) {
             throw Throwables.propagate(e);
         }
