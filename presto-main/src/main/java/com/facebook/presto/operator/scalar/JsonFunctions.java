@@ -250,7 +250,7 @@ public final class JsonFunctions
                 constantJsonExtract = lookup().findStatic(JsonExtract.class, "extract", methodType(Slice.class, Slice.class, JsonExtractor.class));
                 dynamicJsonExtract = lookup().findStatic(JsonExtract.class, "extract", methodType(Slice.class, ThreadLocalCache.class, Slice.class, Slice.class));
             }
-            catch (Exception e) {
+            catch (ReflectiveOperationException e) {
                 throw Throwables.propagate(e);
             }
         }

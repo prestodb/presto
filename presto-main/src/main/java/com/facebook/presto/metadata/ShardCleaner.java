@@ -179,11 +179,11 @@ public class ShardCleaner
         {
             try {
                 if (!dropShardRequest()) {
-                    throw new Exception("Failed to drop shard " + shardId + " for " + node);
+                    throw new RuntimeException("Failed to drop shard " + shardId + " for " + node);
                 }
                 shardManager.disassociateShard(shardId, node.getNodeIdentifier());
             }
-            catch (Exception e) {
+            catch (RuntimeException e) {
                 log.error(e);
             }
         }

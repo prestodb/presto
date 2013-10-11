@@ -21,7 +21,6 @@ import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.operator.Page;
-import com.google.common.base.Throwables;
 import com.google.common.reflect.TypeToken;
 import com.google.common.util.concurrent.RateLimiter;
 import io.airlift.log.Logger;
@@ -86,20 +85,15 @@ public class TaskResource
     @Produces(MediaType.APPLICATION_JSON)
     public Response createOrUpdateTask(@PathParam("taskId") TaskId taskId, TaskUpdateRequest taskUpdateRequest, @Context UriInfo uriInfo)
     {
-        try {
-            checkNotNull(taskUpdateRequest, "taskUpdateRequest is null");
+        checkNotNull(taskUpdateRequest, "taskUpdateRequest is null");
 
-            TaskInfo taskInfo = taskManager.updateTask(taskUpdateRequest.getSession(),
-                    taskId,
-                    taskUpdateRequest.getFragment(),
-                    taskUpdateRequest.getSources(),
-                    taskUpdateRequest.getOutputIds());
+        TaskInfo taskInfo = taskManager.updateTask(taskUpdateRequest.getSession(),
+                taskId,
+                taskUpdateRequest.getFragment(),
+                taskUpdateRequest.getSources(),
+                taskUpdateRequest.getOutputIds());
 
-            return Response.ok().entity(taskInfo).build();
-        }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
-        }
+        return Response.ok().entity(taskInfo).build();
     }
 
     @GET

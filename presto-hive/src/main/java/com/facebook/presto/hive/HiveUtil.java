@@ -74,7 +74,7 @@ final class HiveUtil
 
             return ReflectionUtils.newInstance(inputFormatClass, jobConf);
         }
-        catch (Exception e) {
+        catch (ClassNotFoundException | RuntimeException e) {
             throw new RuntimeException("Unable to create input format " + inputFormatName, e);
         }
     }

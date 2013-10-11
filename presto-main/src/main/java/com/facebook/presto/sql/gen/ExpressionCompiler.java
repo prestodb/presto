@@ -78,6 +78,7 @@ import java.lang.invoke.CallSite;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -186,7 +187,7 @@ public class ExpressionCompiler
 
             bootstrapMethod = bootstrapClass.getMethod("bootstrap", Lookup.class, String.class, MethodType.class, long.class);
         }
-        catch (Exception e) {
+        catch (ReflectiveOperationException e) {
             throw Throwables.propagate(e);
         }
     }
@@ -996,7 +997,10 @@ public class ExpressionCompiler
             try {
                 return constructor.newInstance(operatorContext, tupleInfos);
             }
-            catch (Exception e) {
+            catch (InvocationTargetException e) {
+                throw Throwables.propagate(e.getCause());
+            }
+            catch (ReflectiveOperationException e) {
                 throw Throwables.propagate(e);
             }
         }
@@ -1077,7 +1081,10 @@ public class ExpressionCompiler
             try {
                 return constructor.newInstance(operatorContext, sourceId, dataStreamProvider, columns, tupleInfos);
             }
-            catch (Exception e) {
+            catch (InvocationTargetException e) {
+                throw Throwables.propagate(e.getCause());
+            }
+            catch (ReflectiveOperationException e) {
                 throw Throwables.propagate(e);
             }
         }

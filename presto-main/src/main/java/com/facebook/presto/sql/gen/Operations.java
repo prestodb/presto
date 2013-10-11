@@ -367,7 +367,7 @@ public final class Operations
 
                 return value * sign;
             }
-            catch (Exception ignored) {
+            catch (RuntimeException ignored) {
             }
         }
         throw new IllegalArgumentException(String.format("Can not cast '%s' to BIGINT", slice.toString(UTF_8)));
@@ -408,7 +408,7 @@ public final class Operations
                 String string = new String(chars);
                 return Double.parseDouble(string);
             }
-            catch (Exception e) {
+            catch (RuntimeException ignored) {
             }
         }
         throw new IllegalArgumentException(String.format("Can not cast '%s' to DOUBLE", value.toString(UTF_8)));

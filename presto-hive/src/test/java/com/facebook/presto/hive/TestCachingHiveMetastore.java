@@ -30,7 +30,6 @@ import static com.facebook.presto.hive.MockHiveMetastoreClient.TEST_DATABASE;
 import static com.facebook.presto.hive.MockHiveMetastoreClient.TEST_PARTITION1;
 import static com.facebook.presto.hive.MockHiveMetastoreClient.TEST_PARTITION2;
 import static com.facebook.presto.hive.MockHiveMetastoreClient.TEST_TABLE;
-import static io.airlift.testing.Assertions.assertInstanceOf;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
@@ -208,8 +207,7 @@ public class TestCachingHiveMetastore
         try {
             metastore.getAllDatabases();
         }
-        catch (Exception e) {
-            assertInstanceOf(e, RuntimeException.class);
+        catch (RuntimeException ignored) {
         }
         assertEquals(mockClient.getAccessCount(), 1);
 
@@ -217,8 +215,7 @@ public class TestCachingHiveMetastore
         try {
             metastore.getAllDatabases();
         }
-        catch (Exception e) {
-            assertInstanceOf(e, RuntimeException.class);
+        catch (RuntimeException ignored) {
         }
         assertEquals(mockClient.getAccessCount(), 2);
     }

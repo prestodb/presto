@@ -149,7 +149,7 @@ public class SqlQueryManager
                 try {
                     return queryExecution.getQueryInfo();
                 }
-                catch (Exception ignored) {
+                catch (RuntimeException ignored) {
                     return null;
                 }
             }
@@ -309,7 +309,7 @@ public class SqlQueryManager
                     --toRemove;
                 }
             }
-            catch (Exception e) {
+            catch (RuntimeException e) {
                 log.warn(e, "Error while inspecting age of query %s", queryExecution.getQueryInfo().getQueryId());
             }
         }
@@ -329,7 +329,7 @@ public class SqlQueryManager
                     queryExecution.fail(new AbandonedException("Query " + queryInfo.getQueryId(), queryInfo.getQueryStats().getLastHeartbeat(), DateTime.now()));
                 }
             }
-            catch (Exception e) {
+            catch (RuntimeException e) {
                 log.warn(e, "Error while inspecting age of query %s", queryExecution.getQueryInfo().getQueryId());
             }
         }

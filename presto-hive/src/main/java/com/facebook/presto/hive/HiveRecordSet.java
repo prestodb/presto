@@ -22,7 +22,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.serde2.ColumnProjectionUtils;
+import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.columnar.BytesRefArrayWritable;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
@@ -101,31 +103,26 @@ public class HiveRecordSet
     @Override
     public RecordCursor cursor()
     {
-        try {
-            // Tell hive the columns we would like to read, this lets hive optimize reading column oriented files
-            ColumnProjectionUtils.setReadColumnIDs(configuration, readHiveColumnIndexes);
+        // Tell hive the columns we would like to read, this lets hive optimize reading column oriented files
+        ColumnProjectionUtils.setReadColumnIDs(configuration, readHiveColumnIndexes);
 
-            RecordReader<?, ?> recordReader = createRecordReader(split, configuration, wrappedPath);
+        RecordReader<?, ?> recordReader = createRecordReader(split, configuration, wrappedPath);
 
-            if (recordReader.createValue() instanceof BytesRefArrayWritable) {
-                return new BytesHiveRecordCursor<>(
-                        bytesRecordReader(recordReader),
-                        split.getLength(),
-                        split.getSchema(),
-                        split.getPartitionKeys(),
-                        columns);
-            }
-
-            return new GenericHiveRecordCursor<>(
-                    genericRecordReader(recordReader),
+        if (recordReader.createValue() instanceof BytesRefArrayWritable) {
+            return new BytesHiveRecordCursor<>(
+                    bytesRecordReader(recordReader),
                     split.getLength(),
                     split.getSchema(),
                     split.getPartitionKeys(),
                     columns);
         }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
-        }
+
+        return new GenericHiveRecordCursor<>(
+                genericRecordReader(recordReader),
+                split.getLength(),
+                split.getSchema(),
+                split.getPartitionKeys(),
+                columns);
     }
 
     @SuppressWarnings("unchecked")
@@ -153,7 +150,7 @@ public class HiveRecordSet
                 index++;
             }
         }
-        catch (Exception e) {
+        catch (MetaException | SerDeException | RuntimeException e) {
             throw Throwables.propagate(e);
         }
 

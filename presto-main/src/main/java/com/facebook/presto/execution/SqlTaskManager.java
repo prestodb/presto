@@ -428,7 +428,7 @@ public class SqlTaskManager
                     taskInfos.remove(taskInfo.getTaskId());
                 }
             }
-            catch (Exception e) {
+            catch (RuntimeException e) {
                 log.warn(e, "Error while inspecting age of complete task %s", taskInfo.getTaskId());
             }
         }
@@ -453,7 +453,7 @@ public class SqlTaskManager
                     getTaskInfo(taskExecution, false);
                 }
             }
-            catch (Exception e) {
+            catch (RuntimeException e) {
                 log.warn(e, "Error while inspecting age of task %s", taskExecution.getTaskId());
             }
         }

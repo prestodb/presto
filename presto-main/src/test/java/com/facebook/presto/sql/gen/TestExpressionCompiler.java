@@ -280,7 +280,7 @@ public class TestExpressionCompiler
                             assertEquals(actual, expectedNullIf, expression);
                         }
                     }
-                    catch (Exception e) {
+                    catch (RuntimeException e) {
                         throw new RuntimeException("Error processing " + expression, e);
                     }
                 }

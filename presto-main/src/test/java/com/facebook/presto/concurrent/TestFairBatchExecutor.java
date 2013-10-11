@@ -147,7 +147,8 @@ public class TestFairBatchExecutor
                     try {
                         meetingPoint.waitForNextPhase();
                     }
-                    catch (Exception e) {
+                    catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
                         throw Throwables.propagate(e);
                     }
                 }

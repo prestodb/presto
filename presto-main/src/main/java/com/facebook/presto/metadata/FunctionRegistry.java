@@ -87,9 +87,9 @@ import static com.facebook.presto.operator.aggregation.LongMinAggregation.LONG_M
 import static com.facebook.presto.operator.aggregation.LongSumAggregation.LONG_SUM;
 import static com.facebook.presto.operator.aggregation.VarBinaryMaxAggregation.VAR_BINARY_MAX;
 import static com.facebook.presto.operator.aggregation.VarBinaryMinAggregation.VAR_BINARY_MIN;
+import static com.facebook.presto.sql.analyzer.Type.BIGINT;
 import static com.facebook.presto.sql.analyzer.Type.BOOLEAN;
 import static com.facebook.presto.sql.analyzer.Type.DOUBLE;
-import static com.facebook.presto.sql.analyzer.Type.BIGINT;
 import static com.facebook.presto.sql.analyzer.Type.VARCHAR;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.LOWER_UNDERSCORE;
@@ -326,7 +326,7 @@ public class FunctionRegistry
                 }
                 checkArgument(foundOne, "Expected class %s to contain at least one method annotated with @%s", clazz.getName(), ScalarFunction.class.getSimpleName());
             }
-            catch (Exception e) {
+            catch (IllegalAccessException e) {
                 throw Throwables.propagate(e);
             }
             return this;
@@ -340,7 +340,7 @@ public class FunctionRegistry
                 Constructor<? extends FunctionBinder> constructor = functionBinderClass.getConstructor(MethodHandle.class, boolean.class);
                 return constructor.newInstance(lookup().unreflect(method), method.isAnnotationPresent(Nullable.class));
             }
-            catch (Exception e) {
+            catch (ReflectiveOperationException | RuntimeException ignored) {
             }
 
             try {

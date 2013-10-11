@@ -418,7 +418,7 @@ public class HeartbeatFailureDetector
                     }
                 });
             }
-            catch (Exception e) {
+            catch (RuntimeException e) {
                 log.warn(e, "Error scheduling request for %s", uri);
             }
         }

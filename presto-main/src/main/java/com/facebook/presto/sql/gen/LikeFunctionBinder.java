@@ -42,7 +42,7 @@ public class LikeFunctionBinder
             constantPattern = lookup().findStatic(LikeUtils.class, "regexMatches", methodType(boolean.class, Regex.class, Slice.class));
             dynamicPattern = lookup().findStatic(LikeUtils.class, "dynamicLike", methodType(boolean.class, LikePatternCache.class, Slice.class, Slice.class, Slice.class));
         }
-        catch (Exception e) {
+        catch (ReflectiveOperationException e) {
             throw Throwables.propagate(e);
         }
     }

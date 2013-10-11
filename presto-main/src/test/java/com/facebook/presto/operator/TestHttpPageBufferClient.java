@@ -38,6 +38,7 @@ import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -354,10 +355,11 @@ public class TestHttpPageBufferClient
             try {
                 done.await(1, TimeUnit.SECONDS);
             }
-            catch (Exception e) {
-                if (e instanceof InterruptedException) {
-                    Thread.currentThread().interrupt();
-                }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw Throwables.propagate(e);
+            }
+            catch (BrokenBarrierException | TimeoutException e) {
                 throw Throwables.propagate(e);
             }
         }
@@ -369,10 +371,11 @@ public class TestHttpPageBufferClient
             try {
                 done.await(1, TimeUnit.SECONDS);
             }
-            catch (Exception e) {
-                if (e instanceof InterruptedException) {
-                    Thread.currentThread().interrupt();
-                }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw Throwables.propagate(e);
+            }
+            catch (BrokenBarrierException | TimeoutException e) {
                 throw Throwables.propagate(e);
             }
         }
@@ -409,10 +412,11 @@ public class TestHttpPageBufferClient
             try {
                 beforeRequest.await(1, TimeUnit.SECONDS);
             }
-            catch (Exception e) {
-                if (e instanceof InterruptedException) {
-                    Thread.currentThread().interrupt();
-                }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw Throwables.propagate(e);
+            }
+            catch (BrokenBarrierException | TimeoutException e) {
                 throw Throwables.propagate(e);
             }
 
@@ -423,10 +427,11 @@ public class TestHttpPageBufferClient
                 try {
                     afterRequest.await(1, TimeUnit.SECONDS);
                 }
-                catch (Exception e) {
-                    if (e instanceof InterruptedException) {
-                        Thread.currentThread().interrupt();
-                    }
+                catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw Throwables.propagate(e);
+                }
+                catch (BrokenBarrierException | TimeoutException e) {
                     throw Throwables.propagate(e);
                 }
             }

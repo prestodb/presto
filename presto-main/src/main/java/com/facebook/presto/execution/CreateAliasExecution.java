@@ -82,7 +82,7 @@ public class CreateAliasExecution
 
             stateMachine.finished();
         }
-        catch (Exception e) {
+        catch (RuntimeException e) {
             fail(e);
         }
     }

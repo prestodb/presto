@@ -18,6 +18,8 @@ import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.RecordCursor;
 import com.google.common.base.Charsets;
 import com.google.common.base.Throwables;
+import org.apache.hadoop.hive.metastore.api.MetaException;
+import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.SerDeUtils;
 import org.apache.hadoop.hive.serde2.columnar.BytesRefArrayWritable;
 import org.apache.hadoop.hive.serde2.columnar.BytesRefWritable;
@@ -132,7 +134,7 @@ class BytesHiveRecordCursor<K>
                 isPartitionColumn[i] = column.isPartitionKey();
             }
         }
-        catch (Exception e) {
+        catch (MetaException | SerDeException | RuntimeException e) {
             throw Throwables.propagate(e);
         }
 
@@ -218,7 +220,7 @@ class BytesHiveRecordCursor<K>
 
             return true;
         }
-        catch (Exception e) {
+        catch (IOException | RuntimeException e) {
             close();
             throw Throwables.propagate(e);
         }
