@@ -22,6 +22,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -65,10 +66,10 @@ public class AsyncRecursiveWalker
                         }
                     }
                 }
-                catch (Exception e) {
-                    if (e instanceof FileNotFoundException) {
-                        e = new FileNotFoundException("Partition location does not exist: " + path);
-                    }
+                catch (FileNotFoundException e) {
+                    settableFuture.setException(new FileNotFoundException("Partition location does not exist: " + path));
+                }
+                catch (IOException | RuntimeException e) {
                     settableFuture.setException(e);
                 }
                 finally {

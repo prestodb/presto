@@ -47,7 +47,7 @@ public class Casts
                 }
             }
         }
-        catch (Exception ignored) {
+        catch (RuntimeException ignored) {
         }
 
         if (value instanceof Slice) {
@@ -73,7 +73,7 @@ public class Casts
                 return (long) MathFunctions.round(((Double) value).doubleValue());
             }
         }
-        catch (Exception ignored) {
+        catch (RuntimeException ignored) {
         }
 
         if (value instanceof Slice) {
@@ -95,7 +95,7 @@ public class Casts
                 return (Boolean) value ? TRUE : FALSE;
             }
         }
-        catch (Exception ignored) {
+        catch (RuntimeException ignored) {
         }
 
         if (value instanceof Slice) {
@@ -121,7 +121,7 @@ public class Casts
                 return Double.parseDouble(stringValue);
             }
         }
-        catch (Exception ignored) {
+        catch (RuntimeException ignored) {
         }
 
         if (value instanceof Slice) {

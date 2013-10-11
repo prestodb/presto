@@ -490,7 +490,7 @@ public abstract class AbstractTestHiveClient
                     try {
                         assertReadFields(cursor, tableMetadata.getColumns());
                     }
-                    catch (Exception e) {
+                    catch (RuntimeException e) {
                         throw new RuntimeException("row " + rowNumber, e);
                     }
 
@@ -716,7 +716,7 @@ public abstract class AbstractTestHiveClient
                         try {
                             cursor.getString(columnIndex);
                         }
-                        catch (Exception e) {
+                        catch (RuntimeException e) {
                             throw new RuntimeException("column " + column, e);
                         }
                         break;

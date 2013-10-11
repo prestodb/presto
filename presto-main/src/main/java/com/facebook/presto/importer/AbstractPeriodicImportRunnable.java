@@ -60,10 +60,7 @@ public abstract class AbstractPeriodicImportRunnable
                 success = true;
             }
         }
-        catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
-        }
-        catch (Exception e) {
+        catch (RuntimeException e) {
             log.warn(e, "Job %d: ", jobId);
         }
         finally {
@@ -76,6 +73,5 @@ public abstract class AbstractPeriodicImportRunnable
         }
     }
 
-    protected abstract void doRun()
-            throws Exception;
+    protected abstract void doRun();
 }

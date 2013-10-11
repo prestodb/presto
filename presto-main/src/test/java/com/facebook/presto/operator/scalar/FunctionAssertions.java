@@ -203,7 +203,7 @@ public final class FunctionAssertions
                 Object queryResult = Iterables.getOnlyElement(result.getMaterializedTuples()).getField(0);
                 results.add(queryResult);
             }
-            catch (Exception e) {
+            catch (RuntimeException e) {
                 // todo remove this when analyzer supports null types and full numeric type promotion
             }
         }

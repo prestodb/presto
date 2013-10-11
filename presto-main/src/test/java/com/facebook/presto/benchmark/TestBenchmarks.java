@@ -33,7 +33,7 @@ public class TestBenchmarks
                 try {
                     benchmark.runOnce();
                 }
-                catch (Exception e) {
+                catch (RuntimeException e) {
                     throw new AssertionError("Error running " + benchmark.getBenchmarkName(), e);
                 }
             }

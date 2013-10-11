@@ -82,7 +82,7 @@ public class MockQueryManager
                 try {
                     return queryWorker.getQueryInfo();
                 }
-                catch (Exception ignored) {
+                catch (RuntimeException ignored) {
                     return null;
                 }
             }

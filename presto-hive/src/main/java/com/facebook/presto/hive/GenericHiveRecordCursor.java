@@ -18,7 +18,9 @@ import com.facebook.presto.spi.RecordCursor;
 import com.google.common.base.Charsets;
 import com.google.common.base.Throwables;
 import org.apache.hadoop.hive.metastore.MetaStoreUtils;
+import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.serde2.Deserializer;
+import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.SerDeUtils;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
@@ -95,7 +97,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
             this.deserializer = MetaStoreUtils.getDeserializer(null, splitSchema);
             this.rowInspector = (StructObjectInspector) deserializer.getObjectInspector();
         }
-        catch (Exception e) {
+        catch (MetaException | SerDeException | RuntimeException e) {
             throw Throwables.propagate(e);
         }
 
@@ -215,7 +217,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
 
             return true;
         }
-        catch (Exception e) {
+        catch (IOException | SerDeException | RuntimeException e) {
             close();
             throw Throwables.propagate(e);
         }

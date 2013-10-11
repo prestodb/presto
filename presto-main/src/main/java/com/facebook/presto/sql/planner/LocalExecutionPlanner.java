@@ -586,7 +586,7 @@ public class LocalExecutionPlanner
                     return new PhysicalOperation(operatorFactory, outputMappings, source);
                 }
             }
-            catch (Exception e) {
+            catch (RuntimeException e) {
                 // compilation failed, use interpreter
                 log.error(e, "Compile failed for filter=%s projections=%s sourceTypes=%s error=%s", filterExpression, projectionExpressions, sourceTypes, e);
             }

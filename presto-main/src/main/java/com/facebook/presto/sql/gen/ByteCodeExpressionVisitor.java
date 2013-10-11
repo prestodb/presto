@@ -1394,7 +1394,7 @@ public class ByteCodeExpressionVisitor
             try {
                 inMethod = lookup().findStatic(InFunctionBinder.class, "in", MethodType.methodType(boolean.class, ImmutableSet.class, Object.class));
             }
-            catch (Exception e) {
+            catch (ReflectiveOperationException e) {
                 throw Throwables.propagate(e);
             }
         }

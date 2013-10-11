@@ -399,7 +399,7 @@ public class TaskExecutor
             try {
                 split.close();
             }
-            catch (Exception e) {
+            catch (RuntimeException e) {
                 log.error(e, "Error closing split for task %s", taskHandle.getTaskId());
             }
             destroyed.set(true);
