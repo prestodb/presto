@@ -15,10 +15,10 @@ package com.facebook.presto.block.rle;
 
 import com.facebook.presto.block.AbstractTestBlockCursor;
 import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.RandomAccessBlock;
 
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
+import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 
 public class TestRunLengthEncodedBlockCursor
@@ -27,7 +27,7 @@ public class TestRunLengthEncodedBlockCursor
     @Override
     protected RunLengthEncodedBlockCursor createTestCursor()
     {
-        RandomAccessBlock value = new BlockBuilder(SINGLE_VARBINARY)
+        RandomAccessBlock value = createBlockBuilder(SINGLE_VARBINARY)
                 .appendObject("cherry")
                 .build()
                 .toRandomAccessBlock();

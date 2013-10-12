@@ -22,6 +22,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 
+import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -152,7 +153,7 @@ public class LimitOperator
     private void addInputWithSampling(Page page, int sampleWeightChannel)
     {
         BlockCursor cursor = page.getBlock(sampleWeightChannel).cursor();
-        BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_LONG);
+        BlockBuilder builder = createBlockBuilder(TupleInfo.SINGLE_LONG);
 
         int rowsToCopy = 0;
         // Build the sample weight block, and count how many rows of data to copy

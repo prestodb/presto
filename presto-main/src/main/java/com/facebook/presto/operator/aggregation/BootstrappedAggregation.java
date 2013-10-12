@@ -36,6 +36,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
+import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
@@ -239,7 +240,7 @@ public class BootstrappedAggregation
 
             SliceOutput output = new DynamicSliceOutput(sizeEstimate);
             PagesSerde.writePages(output, new Page(blocks));
-            BlockBuilder builder = new BlockBuilder(SINGLE_VARBINARY);
+            BlockBuilder builder = createBlockBuilder(SINGLE_VARBINARY);
             builder.append(output.slice());
             return builder.build();
         }
@@ -254,7 +255,7 @@ public class BootstrappedAggregation
                 statistics.addValue(getNumeric(cursor));
             }
 
-            BlockBuilder builder = new BlockBuilder(SINGLE_VARBINARY);
+            BlockBuilder builder = createBlockBuilder(SINGLE_VARBINARY);
             builder.append(formatApproximateOutput(statistics, confidence));
             return builder.build();
         }
@@ -326,7 +327,7 @@ public class BootstrappedAggregation
             Block[] blocks = new Block[accumulators.size()];
             int sizeEstimate = 64 * accumulators.size();
             for (int i = 0; i < accumulators.size(); i++) {
-                BlockBuilder builder = new BlockBuilder(accumulators.get(i).getIntermediateTupleInfo());
+                BlockBuilder builder = createBlockBuilder(accumulators.get(i).getIntermediateTupleInfo());
                 accumulators.get(i).evaluateIntermediate(groupId, builder);
                 blocks[i] = builder.build();
                 sizeEstimate += blocks[i].getDataSize().toBytes();
@@ -342,7 +343,7 @@ public class BootstrappedAggregation
         {
             DescriptiveStatistics statistics = new DescriptiveStatistics();
             for (int i = 0; i < accumulators.size(); i++) {
-                BlockBuilder builder = new BlockBuilder(accumulators.get(i).getFinalTupleInfo());
+                BlockBuilder builder = createBlockBuilder(accumulators.get(i).getFinalTupleInfo());
                 accumulators.get(i).evaluateFinal(groupId, builder);
                 BlockCursor cursor = builder.build().cursor();
                 checkArgument(cursor.advanceNextPosition(), "accumulator returned no results");

@@ -21,6 +21,7 @@ import com.facebook.presto.tuple.TupleInfo.Type;
 import it.unimi.dsi.fastutil.ints.Int2IntOpenCustomHashMap;
 import it.unimi.dsi.fastutil.ints.IntHash.Strategy;
 
+import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static com.facebook.presto.operator.HashStrategyUtils.valueEquals;
 import static com.facebook.presto.operator.HashStrategyUtils.valueHashCode;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -42,7 +43,7 @@ public class DictionaryBuilder
     {
         this.type = checkNotNull(type, "type is null");
 
-        this.blockBuilder = new BlockBuilder(new TupleInfo(type));
+        this.blockBuilder = createBlockBuilder(new TupleInfo(type));
 
         this.hashStrategy = new BlockBuilderHashStrategy();
         this.offsetToPosition = new Int2IntOpenCustomHashMap(1024, hashStrategy);
@@ -108,7 +109,7 @@ public class DictionaryBuilder
 
         public int hashOffset(int offset)
         {
-            return valueHashCode(type, blockBuilder.getSlice(), offset);
+            return valueHashCode(type, blockBuilder.getRawSlice(), offset);
         }
 
         @Override
@@ -135,12 +136,12 @@ public class DictionaryBuilder
 
         public boolean offsetEqualsOffset(int leftOffset, int rightOffset)
         {
-            return valueEquals(type, blockBuilder.getSlice(), leftOffset, blockBuilder.getSlice(), rightOffset);
+            return valueEquals(type, blockBuilder.getRawSlice(), leftOffset, blockBuilder.getRawSlice(), rightOffset);
         }
 
         public boolean offsetEqualsCurrentValue(int offset)
         {
-            return valueEquals(type, blockBuilder.getSlice(), offset, currentValue.getRawSlice(), currentValue.getRawOffset());
+            return valueEquals(type, blockBuilder.getRawSlice(), offset, currentValue.getRawSlice(), currentValue.getRawOffset());
         }
     }
 }

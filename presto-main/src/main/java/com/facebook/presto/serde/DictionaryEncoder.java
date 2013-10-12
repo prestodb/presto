@@ -18,6 +18,7 @@ import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.tuple.TupleInfo;
 
+import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -46,7 +47,7 @@ public class DictionaryEncoder
         }
 
         BlockCursor cursor = block.cursor();
-        BlockBuilder idBlockBuilder = new BlockBuilder(TupleInfo.SINGLE_LONG);
+        BlockBuilder idBlockBuilder = createBlockBuilder(TupleInfo.SINGLE_LONG);
         while (cursor.advanceNextPosition()) {
             int key = dictionaryBuilder.putIfAbsent(cursor);
             idBlockBuilder.append(key);

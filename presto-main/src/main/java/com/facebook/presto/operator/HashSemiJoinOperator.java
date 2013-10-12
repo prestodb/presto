@@ -24,6 +24,7 @@ import io.airlift.slice.Slices;
 
 import java.util.List;
 
+import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static com.facebook.presto.util.MoreFutures.tryGetUnchecked;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -163,7 +164,7 @@ public class HashSemiJoinOperator
         // create the block builder for the new boolean column
         // we know the exact size required for the block
         int blockSize = page.getPositionCount() * TupleInfo.SINGLE_BOOLEAN.getFixedSize();
-        BlockBuilder blockBuilder = new BlockBuilder(TupleInfo.SINGLE_BOOLEAN, blockSize, Slices.allocate(blockSize).getOutput());
+        BlockBuilder blockBuilder = createBlockBuilder(TupleInfo.SINGLE_BOOLEAN, Slices.allocate(blockSize));
 
         BlockCursor probeJoinCursor = probeJoinBlock.cursor();
         for (int position = 0; position < page.getPositionCount(); position++) {

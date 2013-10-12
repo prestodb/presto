@@ -793,25 +793,25 @@ public class ExpressionCompiler
             if (body.getType() == boolean.class) {
                 notNullBlock
                         .comment("output.append(<booleanStackValue>);")
-                        .invokeVirtual(BlockBuilder.class, "append", BlockBuilder.class, boolean.class)
+                        .invokeInterface(BlockBuilder.class, "append", BlockBuilder.class, boolean.class)
                         .pop();
             }
             else if (body.getType() == long.class) {
                 notNullBlock
                         .comment("output.append(<longStackValue>);")
-                        .invokeVirtual(BlockBuilder.class, "append", BlockBuilder.class, long.class)
+                        .invokeInterface(BlockBuilder.class, "append", BlockBuilder.class, long.class)
                         .pop();
             }
             else if (body.getType() == double.class) {
                 notNullBlock
                         .comment("output.append(<doubleStackValue>);")
-                        .invokeVirtual(BlockBuilder.class, "append", BlockBuilder.class, double.class)
+                        .invokeInterface(BlockBuilder.class, "append", BlockBuilder.class, double.class)
                         .pop();
             }
             else if (body.getType() == Slice.class) {
                 notNullBlock
                         .comment("output.append(<sliceStackValue>);")
-                        .invokeVirtual(BlockBuilder.class, "append", BlockBuilder.class, Slice.class)
+                        .invokeInterface(BlockBuilder.class, "append", BlockBuilder.class, Slice.class)
                         .pop();
             }
             else {
@@ -821,7 +821,7 @@ public class ExpressionCompiler
             Block nullBlock = new Block(context)
                     .comment("output.appendNull();")
                     .pop(body.getType())
-                    .invokeVirtual(BlockBuilder.class, "appendNull", BlockBuilder.class)
+                    .invokeInterface(BlockBuilder.class, "appendNull", BlockBuilder.class)
                     .pop();
 
             projectionMethod.getBody()
@@ -834,7 +834,7 @@ public class ExpressionCompiler
                     .getBody()
                     .comment("output.appendNull();")
                     .getVariable("output")
-                    .invokeVirtual(BlockBuilder.class, "appendNull", BlockBuilder.class)
+                    .invokeInterface(BlockBuilder.class, "appendNull", BlockBuilder.class)
                     .pop()
                     .ret();
         }
