@@ -16,6 +16,7 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 
+import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static com.facebook.presto.operator.aggregation.LongMaxAggregation.LONG_MAX;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 
@@ -25,7 +26,7 @@ public class TestLongMaxAggregation
     @Override
     public Block getSequenceBlock(int start, int length)
     {
-        BlockBuilder blockBuilder = new BlockBuilder(SINGLE_LONG);
+        BlockBuilder blockBuilder = createBlockBuilder(SINGLE_LONG);
         for (int i = start; i < start + length; i++) {
             blockBuilder.append(i);
         }

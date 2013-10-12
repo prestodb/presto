@@ -15,7 +15,6 @@ package com.facebook.presto.serde;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockAssertions;
-import com.facebook.presto.block.BlockBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.OutputSupplier;
 import io.airlift.slice.DynamicSliceOutput;
@@ -24,6 +23,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static com.facebook.presto.serde.BlocksFileReader.readBlocks;
 import static com.facebook.presto.serde.BlocksFileWriter.writeBlocks;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
@@ -45,7 +45,7 @@ public class TestFileBlocksSerde
             "charlie",
             "dave");
 
-    private final Block expectedBlock = new BlockBuilder(SINGLE_VARBINARY)
+    private final Block expectedBlock = createBlockBuilder(SINGLE_VARBINARY)
             .append("alice")
             .append("bob")
             .append("charlie")

@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -231,7 +232,7 @@ public class CountAggregation
         @Override
         public final Block evaluateFinal()
         {
-            BlockBuilder out = new BlockBuilder(getFinalTupleInfo());
+            BlockBuilder out = createBlockBuilder(getFinalTupleInfo());
 
             out.append(count);
 

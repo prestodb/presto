@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.tuple.FieldOrderedTupleComparator;
@@ -28,6 +27,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.PriorityQueue;
 
+import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -386,7 +386,7 @@ public class TopNOperator
 
         private static RandomAccessBlock createBigintBlock(long value)
         {
-            return new BlockBuilder(SINGLE_LONG)
+            return createBlockBuilder(SINGLE_LONG)
                     .append(value)
                     .build()
                     .toRandomAccessBlock();

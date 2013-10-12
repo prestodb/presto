@@ -21,6 +21,7 @@ import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 import com.facebook.presto.tuple.TupleInfo;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 
 public abstract class AbstractTestAggregationFunction
@@ -64,7 +65,7 @@ public abstract class AbstractTestAggregationFunction
             throws Exception
     {
         TupleInfo tupleInfo = getSequenceBlock(0, 10).getTupleInfo();
-        RandomAccessBlock nullValueBlock = new BlockBuilder(tupleInfo)
+        RandomAccessBlock nullValueBlock = createBlockBuilder(tupleInfo)
                 .appendNull()
                 .build()
                 .toRandomAccessBlock();
@@ -94,7 +95,7 @@ public abstract class AbstractTestAggregationFunction
 
     public Block createAlternatingNullsBlock(Block sequenceBlock)
     {
-        BlockBuilder blockBuilder = new BlockBuilder(sequenceBlock.getTupleInfo());
+        BlockBuilder blockBuilder = createBlockBuilder(sequenceBlock.getTupleInfo());
         BlockCursor cursor = sequenceBlock.cursor();
         while (cursor.advanceNextPosition()) {
             // append null

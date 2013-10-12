@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static org.testng.Assert.assertEquals;
@@ -41,7 +42,7 @@ public final class OperatorAssertion
             @Override
             public Page apply(Page page)
             {
-                BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_LONG);
+                BlockBuilder builder = createBlockBuilder(TupleInfo.SINGLE_LONG);
                 for (int i = 0; i < page.getPositionCount(); i++) {
                     builder.append(sampleWeight);
                 }

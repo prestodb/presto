@@ -19,6 +19,7 @@ import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.snappy.SnappyBlock;
 import io.airlift.slice.SliceOutput;
 
+import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -44,7 +45,7 @@ public class SnappyEncoder
 
         if (encoding == null) {
             encoding = new SnappyBlockEncoding(block.getTupleInfo());
-            blockBuilder = new BlockBuilder(block.getTupleInfo());
+            blockBuilder = createBlockBuilder(block.getTupleInfo());
         }
         BlockCursor cursor = block.cursor();
         while (cursor.advanceNextPosition()) {
@@ -75,6 +76,6 @@ public class SnappyEncoder
         Block block = blockBuilder.build();
         SnappyBlock snappyBlock = new SnappyBlock(block);
         encoding.writeBlock(sliceOutput, snappyBlock);
-        blockBuilder = new BlockBuilder(snappyBlock.getTupleInfo());
+        blockBuilder = createBlockBuilder(snappyBlock.getTupleInfo());
     }
 }

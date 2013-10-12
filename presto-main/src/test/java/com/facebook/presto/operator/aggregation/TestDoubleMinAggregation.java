@@ -16,6 +16,7 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 
+import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static com.facebook.presto.operator.aggregation.DoubleMinAggregation.DOUBLE_MIN;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
 
@@ -25,7 +26,7 @@ public class TestDoubleMinAggregation
     @Override
     public Block getSequenceBlock(int start, int length)
     {
-        BlockBuilder blockBuilder = new BlockBuilder(SINGLE_DOUBLE);
+        BlockBuilder blockBuilder = createBlockBuilder(SINGLE_DOUBLE);
         for (int i = start; i < start + length; i++) {
             blockBuilder.append((double) i);
         }

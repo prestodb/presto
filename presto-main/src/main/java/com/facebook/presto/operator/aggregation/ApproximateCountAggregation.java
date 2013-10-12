@@ -28,6 +28,7 @@ import io.airlift.slice.Slices;
 
 import java.util.List;
 
+import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static com.facebook.presto.operator.aggregation.ApproximateUtils.countError;
 import static com.facebook.presto.operator.aggregation.ApproximateUtils.formatApproximateResult;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
@@ -250,13 +251,13 @@ public class ApproximateCountAggregation
         @Override
         public final Block evaluateIntermediate()
         {
-            return new BlockBuilder(SINGLE_VARBINARY).append(createIntermediate(count, samples)).build();
+            return createBlockBuilder(SINGLE_VARBINARY).append(createIntermediate(count, samples)).build();
         }
 
         @Override
         public final Block evaluateFinal()
         {
-            return new BlockBuilder(getFinalTupleInfo())
+            return createBlockBuilder(getFinalTupleInfo())
                     .append(formatApproximateResult(count, countError(samples, count), confidence, true))
                     .build();
         }

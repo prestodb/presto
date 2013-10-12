@@ -21,7 +21,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.tree.Input;
-import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.util.MaterializedResult;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -35,6 +34,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 
+import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
 import static com.facebook.presto.operator.OperatorAssertion.appendSampleWeight;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEqualsIgnoreOrder;
@@ -196,7 +196,7 @@ public class TestHashAggregationOperator
 
     public void testHashBuilderResize()
     {
-        BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_VARBINARY);
+        BlockBuilder builder = createBlockBuilder(SINGLE_VARBINARY);
         builder.append(new String(new byte[200_000])); // this must be larger than DEFAULT_MAX_BLOCK_SIZE, 64K
         builder.build();
 
@@ -227,7 +227,7 @@ public class TestHashAggregationOperator
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Not enough memory to build group by hash")
     public void testHashBuilderResizeLimit()
     {
-        BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_VARBINARY);
+        BlockBuilder builder = createBlockBuilder(SINGLE_VARBINARY);
         builder.append(new String(new byte[5_000_000])); // this must be larger than DEFAULT_MAX_BLOCK_SIZE, 64K
         builder.build();
 
