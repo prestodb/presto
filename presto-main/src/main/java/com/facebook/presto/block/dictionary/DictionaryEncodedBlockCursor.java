@@ -135,6 +135,12 @@ public class DictionaryEncodedBlockCursor
     }
 
     @Override
+    public int calculateHashCode()
+    {
+        return dictionary.hashCode(getDictionaryKey());
+    }
+
+    @Override
     public int getRawOffset()
     {
         throw new UnsupportedOperationException();

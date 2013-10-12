@@ -199,6 +199,16 @@ public class FixedWidthBlockCursor
     }
 
     @Override
+    public int calculateHashCode()
+    {
+        checkReadablePosition();
+        if (slice.getByte(offset) != 0) {
+            return 0;
+        }
+        return typeInfo.hashCode(slice, offset + SIZE_OF_BYTE);
+    }
+
+    @Override
     public void appendTupleTo(BlockBuilder blockBuilder)
     {
         checkReadablePosition();
