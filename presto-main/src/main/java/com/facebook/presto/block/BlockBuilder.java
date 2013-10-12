@@ -17,9 +17,10 @@ import com.facebook.presto.block.uncompressed.FixedWidthBlock;
 import com.facebook.presto.block.uncompressed.VariableWidthBlock;
 import com.facebook.presto.tuple.FixedWidthTypeInfo;
 import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleInfo.Type;
+import com.facebook.presto.tuple.TypeInfo;
 import com.facebook.presto.tuple.VariableWidthTypeInfo;
 import com.google.common.base.Charsets;
+import com.google.common.base.Objects;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -28,18 +29,17 @@ import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 public class BlockBuilder
 {
     public static final DataSize DEFAULT_MAX_BLOCK_SIZE = new DataSize(64, Unit.KILOBYTE);
     public static final double DEFAULT_STORAGE_MULTIPLIER = 1.2;
 
-    private final TupleInfo tupleInfo;
+    private final TypeInfo typeInfo;
     private final int maxBlockSize;
     private final SliceOutput sliceOutput;
     private int positionCount;
-
-    private TupleInfo.Builder tupleBuilder;
 
     public BlockBuilder(TupleInfo tupleInfo)
     {
@@ -59,11 +59,9 @@ public class BlockBuilder
         checkNotNull(maxBlockSize, "maxBlockSize is null");
         checkNotNull(tupleInfo, "tupleInfo is null");
 
-        this.tupleInfo = tupleInfo;
+        this.typeInfo = tupleInfo.getTypeInfo();
         this.maxBlockSize = maxBlockSize;
         this.sliceOutput = sliceOutput;
-
-        tupleBuilder = tupleInfo.builder(this.sliceOutput);
     }
 
     public Slice getSlice()
@@ -73,7 +71,7 @@ public class BlockBuilder
 
     public TupleInfo getTupleInfo()
     {
-        return tupleInfo;
+        return new TupleInfo(typeInfo.getType());
     }
 
     public int getPositionCount()
@@ -104,50 +102,58 @@ public class BlockBuilder
     public BlockBuilder appendObject(Object value)
     {
         if (value == null) {
-            tupleBuilder.appendNull();
+            appendNull();
         }
         else if (value instanceof Boolean) {
-            tupleBuilder.append((Boolean) value);
+            append((Boolean) value);
         }
         else if (value instanceof Double || value instanceof Float) {
-            tupleBuilder.append(((Number) value).doubleValue());
+            append(((Number) value).doubleValue());
         }
         else if (value instanceof Number) {
-            tupleBuilder.append(((Number) value).longValue());
+            append(((Number) value).longValue());
         }
         else if (value instanceof byte[]) {
-            tupleBuilder.append(Slices.wrappedBuffer((byte[]) value));
+            append(Slices.wrappedBuffer((byte[]) value));
         }
         else if (value instanceof String) {
-            tupleBuilder.append((String) value);
+            append((String) value);
         }
         else if (value instanceof Slice) {
-            tupleBuilder.append((Slice) value);
+            append((Slice) value);
         }
         else {
             throw new IllegalArgumentException("Unsupported type: " + value.getClass());
         }
-        positionCount++;
         return this;
     }
 
     public BlockBuilder append(boolean value)
     {
-        tupleBuilder.append(value);
+        checkState(typeInfo instanceof FixedWidthTypeInfo, "Expected fixed width type");
+
+        sliceOutput.writeByte(0);
+        ((FixedWidthTypeInfo) typeInfo).setBoolean(sliceOutput, value);
         positionCount++;
         return this;
     }
 
     public BlockBuilder append(long value)
     {
-        tupleBuilder.append(value);
+        checkState(typeInfo instanceof FixedWidthTypeInfo, "Expected fixed width type");
+
+        sliceOutput.writeByte(0);
+        ((FixedWidthTypeInfo) typeInfo).setLong(sliceOutput, value);
         positionCount++;
         return this;
     }
 
     public BlockBuilder append(double value)
     {
-        tupleBuilder.append(value);
+        checkState(typeInfo instanceof FixedWidthTypeInfo, "Expected fixed width type");
+
+        sliceOutput.writeByte(0);
+        ((FixedWidthTypeInfo) typeInfo).setDouble(sliceOutput, value);
         positionCount++;
         return this;
     }
@@ -169,30 +175,31 @@ public class BlockBuilder
 
     public BlockBuilder append(Slice value, int offset, int length)
     {
-        tupleBuilder.append(value, offset, length);
+        sliceOutput.writeByte(0);
+
+        if (typeInfo instanceof FixedWidthTypeInfo) {
+            ((FixedWidthTypeInfo) typeInfo).setSlice(sliceOutput, value, offset, length);
+        }
+        else {
+            ((VariableWidthTypeInfo) typeInfo).setSlice(sliceOutput, value, offset, length);
+        }
+
         positionCount++;
         return this;
     }
 
     public BlockBuilder appendNull()
     {
-        tupleBuilder.appendNull();
+        sliceOutput.writeByte(1);
+
+        // fixed width is always written regardless of null flag
+        if (typeInfo instanceof FixedWidthTypeInfo) {
+            FixedWidthTypeInfo info = (FixedWidthTypeInfo) typeInfo;
+            sliceOutput.writeZero(info.getSize());
+        }
+
         positionCount++;
         return this;
-    }
-
-    public BlockBuilder append(BlockCursor cursor)
-    {
-        tupleBuilder.append(cursor);
-        positionCount++;
-        return this;
-    }
-
-    public BlockBuilder appendTuple(Slice slice, int offset)
-    {
-        // read the tuple length
-        int length = tupleInfo.size(slice, offset);
-        return appendTuple(slice, offset, length);
     }
 
     public BlockBuilder appendTuple(Slice slice, int offset, int length)
@@ -206,25 +213,22 @@ public class BlockBuilder
 
     public Block build()
     {
-        Type type = tupleInfo.getType();
-        if (type.isFixedSize()) {
-            return new FixedWidthBlock(new FixedWidthTypeInfo(type), positionCount, sliceOutput.getUnderlyingSlice());
+        if (typeInfo instanceof FixedWidthTypeInfo) {
+            return new FixedWidthBlock((FixedWidthTypeInfo) typeInfo, positionCount, sliceOutput.getUnderlyingSlice());
         }
         else {
-            return new VariableWidthBlock(new VariableWidthTypeInfo(type), positionCount, sliceOutput.getUnderlyingSlice());
+            return new VariableWidthBlock((VariableWidthTypeInfo) typeInfo, positionCount, sliceOutput.getUnderlyingSlice());
         }
     }
 
     @Override
     public String toString()
     {
-        final StringBuilder sb = new StringBuilder();
-        sb.append("BlockBuilder");
-        sb.append("{count=").append(positionCount);
-        sb.append(", size=").append(sliceOutput.size());
-        sb.append(", maxSize=").append(maxBlockSize);
-        sb.append(", tupleInfo=").append(tupleInfo);
-        sb.append('}');
-        return sb.toString();
+        return Objects.toStringHelper(this)
+                .add("positionCount", positionCount)
+                .add("size", sliceOutput.size())
+                .add("maxSize", maxBlockSize)
+                .add("typeInfo", typeInfo)
+                .toString();
     }
 }

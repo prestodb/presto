@@ -183,7 +183,7 @@ public class MaterializeSampleOperator
             pageBuilder.declarePosition();
 
             for (int i = 0; i < cursors.length; i++) {
-                pageBuilder.getBlockBuilder(i).append(cursors[i]);
+                cursors[i].appendTupleTo(pageBuilder.getBlockBuilder(i));
             }
         }
 

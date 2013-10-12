@@ -74,7 +74,7 @@ public class DictionaryBuilder
         int position = nextPosition++;
 
         int offset = blockBuilder.size();
-        blockBuilder.append(value);
+        value.appendTupleTo(blockBuilder);
         offsetToPosition.put(offset, position);
 
         return position;

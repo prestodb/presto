@@ -308,29 +308,6 @@ public class TupleInfo
         slice.setByte(offset, 0);
     }
 
-    /**
-     * Extracts the Slice representation of a Tuple with this TupleInfo format from the head of a larger Slice.
-     */
-    public Slice extractTupleSlice(SliceInput sliceInput)
-    {
-        if (type.isFixedSize()) {
-            return sliceInput.readSlice(type.getSize() + SIZE_OF_BYTE);
-        }
-        else {
-            int originalPosition = sliceInput.position();
-
-            boolean isNull = sliceInput.readByte() != 0;
-            if (isNull) {
-                return Slices.wrappedBuffer(new byte[] {1});
-            }
-
-            int size = variableWidthTypeInfo.getLength(sliceInput);
-            sliceInput.setPosition(originalPosition);
-
-            return sliceInput.readSlice(size + SIZE_OF_BYTE);
-        }
-    }
-
     public boolean equals(Slice slice, int offset, Slice value)
     {
         if (slice.getByte(offset) != slice.getByte(0)) {

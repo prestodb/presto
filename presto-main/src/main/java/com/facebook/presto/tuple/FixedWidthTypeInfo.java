@@ -26,7 +26,6 @@ import io.airlift.slice.SliceOutput;
 import static com.facebook.presto.tuple.TupleInfo.Type.BOOLEAN;
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
-import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -78,11 +77,11 @@ public class FixedWidthTypeInfo
         return slice.getByte(offset) != 0;
     }
 
-    public void setBoolean(Slice slice, int offset, boolean value)
+    public void setBoolean(SliceOutput sliceOutput, boolean value)
     {
         checkState(type == BOOLEAN, "Expected BOOLEAN, but is %s", type);
 
-        slice.setByte(offset, value ? 1 : 0);
+        sliceOutput.writeByte(value ? 1 : 0);
     }
 
     public long getLong(Slice slice, int offset)
@@ -92,11 +91,11 @@ public class FixedWidthTypeInfo
         return slice.getLong(offset);
     }
 
-    public void setLong(Slice slice, int offset, long value)
+    public void setLong(SliceOutput sliceOutput, long value)
     {
         checkState(type == FIXED_INT_64, "Expected FIXED_INT_64, but is %s", type);
 
-        slice.setLong(offset, value);
+        sliceOutput.writeLong(value);
     }
 
     public double getDouble(Slice slice, int offset)
@@ -106,18 +105,22 @@ public class FixedWidthTypeInfo
         return slice.getDouble(offset);
     }
 
-    public void setDouble(Slice slice, int offset, double value)
+    public void setDouble(SliceOutput sliceOutput, double value)
     {
         checkState(type == DOUBLE, "Expected DOUBLE, but is %s", type);
 
-        slice.setDouble(offset, value);
+        sliceOutput.writeDouble(value);
     }
 
     public Slice getSlice(Slice slice, int offset)
     {
-        checkState(type == VARIABLE_BINARY, "Expected VARIABLE_BINARY, but is %s", type);
-
         return slice.slice(offset, getSize());
+    }
+
+    public void setSlice(SliceOutput sliceOutput, Slice value, int offset, int length)
+    {
+        checkArgument(length == type.getSize());
+        sliceOutput.writeBytes(value, offset, length);
     }
 
     public boolean equals(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)

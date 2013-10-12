@@ -20,7 +20,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import com.google.common.base.Charsets;
 import io.airlift.slice.Slice;
-import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
@@ -60,18 +59,6 @@ public class VariableWidthTypeInfo
         return getValueSize(slice, offset) + SIZE_OF_INT;
     }
 
-    /**
-     * Extract the byte length of the Tuple Slice at the head of sliceInput
-     * (Does not have any side effects on sliceInput position)
-     */
-    public int getLength(SliceInput sliceInput)
-    {
-        int originalPosition = sliceInput.position();
-        int tupleSize = sliceInput.readInt();
-        sliceInput.setPosition(originalPosition);
-        return tupleSize + SIZE_OF_INT;
-    }
-
     private int getValueSize(Slice slice, int offset)
     {
         return slice.getInt(offset);
@@ -81,6 +68,13 @@ public class VariableWidthTypeInfo
     {
         checkState(type == VARIABLE_BINARY, "Expected VARIABLE_BINARY, but is %s", type);
         return slice.slice(offset + SIZE_OF_INT, getValueSize(slice, offset));
+    }
+
+    public void setSlice(SliceOutput sliceOutput, Slice value, int offset, int length)
+    {
+        checkState(type == VARIABLE_BINARY, "Expected VARIABLE_BINARY, but is %s", type);
+        sliceOutput.writeInt(length);
+        sliceOutput.writeBytes(value, offset, length);
     }
 
     @Override
