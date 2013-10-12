@@ -157,23 +157,24 @@ public class HashSemiJoinOperator
         checkState(channelSet != null, "Set has not been built yet");
         checkState(outputPage == null, "Operator still has pending output");
 
-        // update hashing strategy to use probe block
-        Block probeJoinBlock = page.getBlock(probeJoinChannel);
-        channelSet.setLookupSlice(probeJoinBlock.getRawSlice());
-
         // create the block builder for the new boolean column
         // we know the exact size required for the block
         int blockSize = page.getPositionCount() * TupleInfo.SINGLE_BOOLEAN.getFixedSize();
         BlockBuilder blockBuilder = createBlockBuilder(TupleInfo.SINGLE_BOOLEAN, Slices.allocate(blockSize));
 
+        Block probeJoinBlock = page.getBlock(probeJoinChannel);
         BlockCursor probeJoinCursor = probeJoinBlock.cursor();
+
+        // update hashing strategy to use probe cursor
+        channelSet.setCurrentValue(probeJoinCursor);
+
         for (int position = 0; position < page.getPositionCount(); position++) {
             checkState(probeJoinCursor.advanceNextPosition());
             if (probeJoinCursor.isNull()) {
                 blockBuilder.appendNull();
             }
             else {
-                boolean contains = channelSet.contains(probeJoinCursor);
+                boolean contains = channelSet.containsCurrentValue();
                 if (!contains && channelSet.containsNull()) {
                     blockBuilder.appendNull();
                 }
