@@ -17,40 +17,46 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.tuple.TupleInfo;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import it.unimi.dsi.fastutil.longs.LongHash;
 import it.unimi.dsi.fastutil.longs.LongOpenCustomHashSet;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+
+import java.util.List;
 
 import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
-import static com.facebook.presto.operator.SliceHashStrategy.LOOKUP_SLICE_INDEX;
+import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
+import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.units.DataSize.Unit.BYTE;
 
 public class ChannelSet
 {
-    private final SliceHashStrategy strategy;
+    public static final long CURRENT_VALUE_ADDRESS = 0xFF_FF_FF_FF_FF_FF_FF_FFL;
+
+    private final BlockBuilderHashStrategy strategy;
     private final AddressValueSet addressValueSet;
     private final boolean containsNull;
+    private final DataSize estimatedSize;
 
     public ChannelSet(ChannelSet channelSet)
     {
         checkNotNull(channelSet, "channelSet is null");
-        this.strategy = new SliceHashStrategy(channelSet.strategy);
+        this.strategy = new BlockBuilderHashStrategy(channelSet.strategy);
         this.addressValueSet = new AddressValueSet(channelSet.addressValueSet, strategy);
         this.containsNull = channelSet.containsNull;
+        this.estimatedSize = channelSet.estimatedSize;
     }
 
-    private ChannelSet(SliceHashStrategy strategy, AddressValueSet addressValueSet, boolean containsNull)
+    private ChannelSet(BlockBuilderHashStrategy strategy, AddressValueSet addressValueSet, boolean containsNull, DataSize estimatedSize)
     {
         this.strategy = strategy;
         this.addressValueSet = addressValueSet;
         this.containsNull = containsNull;
+        this.estimatedSize = estimatedSize;
     }
 
     public boolean containsNull()
@@ -58,14 +64,14 @@ public class ChannelSet
         return containsNull;
     }
 
-    public void setLookupSlice(Slice lookupSlice)
+    public void setCurrentValue(BlockCursor value)
     {
-        strategy.setLookupSlice(lookupSlice);
+        strategy.setLookupValue(value);
     }
 
-    public boolean contains(BlockCursor cursor)
+    public boolean containsCurrentValue()
     {
-        return addressValueSet.contains(SyntheticAddress.encodeSyntheticAddress(LOOKUP_SLICE_INDEX, cursor.getRawOffset()));
+        return addressValueSet.contains(CURRENT_VALUE_ADDRESS);
     }
 
     public int size()
@@ -75,7 +81,7 @@ public class ChannelSet
 
     public DataSize getEstimatedSize()
     {
-        return new DataSize(addressValueSet.getEstimatedSize().toBytes() + strategy.getEstimatedSize().toBytes(), BYTE);
+        return estimatedSize;
     }
 
     private static class AddressValueSet
@@ -99,14 +105,16 @@ public class ChannelSet
 
     public static class ChannelSetBuilder
     {
-        private final SliceHashStrategy strategy;
+        private final BlockBuilderHashStrategy strategy;
         private final AddressValueSet addressValueSet;
         private final OperatorContext operatorContext;
         private final TupleInfo tupleInfo;
+        private final ObjectArrayList<BlockBuilder> blocks;
 
         private int currentBlockId;
         private boolean containsNull;
-        private BlockBuilder blockBuilder;
+        private BlockBuilder openBlockBuilder;
+        private long blocksMemorySize;
 
         // Note: Supporting multi-field channel sets (e.g. tuples) is much more difficult because of null handling, and hence is not supported by this class.
         public ChannelSetBuilder(TupleInfo tupleInfo, int expectedPositions, OperatorContext operatorContext)
@@ -116,54 +124,133 @@ public class ChannelSet
             this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
 
             // Construct the set from the source
-            strategy = new SliceHashStrategy(tupleInfo);
+            blocks = ObjectArrayList.wrap(new BlockBuilder[1024], 0);
+            strategy = new BlockBuilderHashStrategy(blocks);
             addressValueSet = new AddressValueSet(expectedPositions, strategy);
 
-            // allocate the first slice of the set
-            Slice slice = Slices.allocate((int) BlockBuilder.DEFAULT_MAX_BLOCK_SIZE.toBytes());
-            strategy.addSlice(slice);
-            blockBuilder = createBlockBuilder(tupleInfo, slice);
+            openBlockBuilder = createBlockBuilder(tupleInfo);
+            blocks.add(openBlockBuilder);
         }
 
         public void addBlock(Block sourceBlock)
         {
-            operatorContext.setMemoryReservation(getEstimatedSize());
-
             BlockCursor sourceCursor = sourceBlock.cursor();
-            Slice sourceSlice = sourceBlock.getRawSlice();
-            strategy.setLookupSlice(sourceSlice);
+            strategy.setLookupValue(sourceCursor);
 
-            for (int position = 0; position < sourceBlock.getPositionCount(); position++) {
-                checkState(sourceCursor.advanceNextPosition());
-
+            while (sourceCursor.advanceNextPosition()) {
                 // Record whether we have seen a null
                 containsNull |= sourceCursor.isNull();
 
-                long sourceAddress = encodeSyntheticAddress(LOOKUP_SLICE_INDEX, sourceCursor.getRawOffset());
+                if (!addressValueSet.contains(CURRENT_VALUE_ADDRESS)) {
+                    if (openBlockBuilder.isFull()) {
+                        // record the memory usage for the open block
+                        blocksMemorySize += openBlockBuilder.getDataSize().toBytes();
 
-                if (!addressValueSet.contains(sourceAddress)) {
-                    int length = tupleInfo.size(sourceSlice, sourceCursor.getRawOffset());
-                    if (blockBuilder.writableBytes() < length) {
-                        Slice slice = Slices.allocate(Math.max((int) BlockBuilder.DEFAULT_MAX_BLOCK_SIZE.toBytes(), length));
-                        strategy.addSlice(slice);
-                        blockBuilder = createBlockBuilder(tupleInfo, slice);
+                        // create a new block builder (there is no need to actually "build" the block)
+                        openBlockBuilder = createBlockBuilder(tupleInfo);
+                        blocks.add(openBlockBuilder);
                         currentBlockId++;
                     }
-                    int blockRawOffset = blockBuilder.size();
-                    blockBuilder.appendTuple(sourceSlice, sourceCursor.getRawOffset(), length);
-                    addressValueSet.add(encodeSyntheticAddress(currentBlockId, blockRawOffset));
+
+                    int blockPosition = openBlockBuilder.getPositionCount();
+                    sourceCursor.appendTupleTo(openBlockBuilder);
+                    addressValueSet.add(encodeSyntheticAddress(currentBlockId, blockPosition));
                 }
             }
+
+            operatorContext.setMemoryReservation(getEstimatedSize());
         }
 
         public long getEstimatedSize()
         {
-            return addressValueSet.getEstimatedSize().toBytes() + strategy.getEstimatedSize().toBytes();
+            return blocksMemorySize;
         }
 
         public ChannelSet build()
         {
-            return new ChannelSet(strategy, addressValueSet, containsNull);
+            DataSize estimatedSize = new DataSize(addressValueSet.getEstimatedSize().toBytes() + blocksMemorySize + openBlockBuilder.size(), BYTE);
+            return new ChannelSet(strategy, addressValueSet, containsNull, estimatedSize);
+        }
+    }
+
+    private static class BlockBuilderHashStrategy
+            implements LongHash.Strategy
+    {
+        private final List<BlockBuilder> blocks;
+        private BlockCursor lookupValue;
+
+        public BlockBuilderHashStrategy(BlockBuilderHashStrategy strategy)
+        {
+            this(checkNotNull(strategy, "strategy is null").blocks);
+        }
+
+        private BlockBuilderHashStrategy(List<BlockBuilder> blocks)
+        {
+            checkNotNull(blocks, "blocks is null");
+            this.blocks = blocks;
+        }
+
+        public void setLookupValue(BlockCursor lookupValue)
+        {
+            checkNotNull(lookupValue, "lookupValue is null");
+            this.lookupValue = lookupValue;
+        }
+
+        @Override
+        public int hashCode(long sliceAddress)
+        {
+            if (sliceAddress == CURRENT_VALUE_ADDRESS) {
+                return hashCurrentRow();
+            }
+            else {
+                return hashPosition(sliceAddress);
+            }
+        }
+
+        private int hashPosition(long sliceAddress)
+        {
+            int sliceIndex = decodeSliceIndex(sliceAddress);
+            int position = decodePosition(sliceAddress);
+            return blocks.get(sliceIndex).hashCode(position);
+        }
+
+        private int hashCurrentRow()
+        {
+            return lookupValue.calculateHashCode();
+        }
+
+        @Override
+        public boolean equals(long leftSliceAddress, long rightSliceAddress)
+        {
+            // current row always equals itself
+            if (leftSliceAddress == CURRENT_VALUE_ADDRESS && rightSliceAddress == CURRENT_VALUE_ADDRESS) {
+                return true;
+            }
+
+            // current row == position
+            if (leftSliceAddress == CURRENT_VALUE_ADDRESS) {
+                return positionEqualsCurrentRow(decodeSliceIndex(rightSliceAddress), decodePosition(rightSliceAddress));
+            }
+
+            // position == current row
+            if (rightSliceAddress == CURRENT_VALUE_ADDRESS) {
+                return positionEqualsCurrentRow(decodeSliceIndex(leftSliceAddress), decodePosition(leftSliceAddress));
+            }
+
+            // position == position
+            return positionEqualsPosition(
+                    decodeSliceIndex(leftSliceAddress), decodePosition(leftSliceAddress),
+                    decodeSliceIndex(rightSliceAddress), decodePosition(rightSliceAddress));
+        }
+
+        private boolean positionEqualsCurrentRow(int sliceIndex, int position)
+        {
+            return blocks.get(sliceIndex).equals(position, lookupValue);
+        }
+
+        private boolean positionEqualsPosition(int leftSliceIndex, int leftPosition, int rightSliceIndex, int rightPosition)
+        {
+            return blocks.get(leftSliceIndex).equals(leftPosition, blocks.get(rightSliceIndex), rightPosition);
         }
     }
 }
