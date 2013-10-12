@@ -14,11 +14,11 @@
 package com.facebook.presto.serde;
 
 import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
 import io.airlift.slice.DynamicSliceOutput;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.block.BlockAssertions.assertBlockEquals;
+import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 
 public class TestDictionaryEncodedBlockSerde
@@ -26,7 +26,7 @@ public class TestDictionaryEncodedBlockSerde
     @Test
     public void testRoundTrip()
     {
-        Block block = new BlockBuilder(SINGLE_VARBINARY)
+        Block block = createBlockBuilder(SINGLE_VARBINARY)
                 .append("alice")
                 .append("bob")
                 .append("charlie")
@@ -36,7 +36,7 @@ public class TestDictionaryEncodedBlockSerde
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
         BlockEncoding blockEncoding = new DictionaryEncoder(new UncompressedEncoder(sliceOutput)).append(block).append(block).append(block).finish();
         Block actualBlock = blockEncoding.readBlock(sliceOutput.slice().getInput());
-        assertBlockEquals(actualBlock, new BlockBuilder(SINGLE_VARBINARY)
+        assertBlockEquals(actualBlock, createBlockBuilder(SINGLE_VARBINARY)
                 .append("alice")
                 .append("bob")
                 .append("charlie")

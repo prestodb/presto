@@ -20,6 +20,7 @@ import io.airlift.slice.Slices;
 
 import java.util.List;
 
+import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_BOOLEAN;
 
 public class MarkDistinctHash
@@ -46,7 +47,7 @@ public class MarkDistinctHash
     {
         int positionCount = page.getPositionCount();
         int blockSize = SINGLE_BOOLEAN.getFixedSize() * positionCount;
-        BlockBuilder blockBuilder = new BlockBuilder(SINGLE_BOOLEAN, blockSize, Slices.allocate(blockSize).getOutput());
+        BlockBuilder blockBuilder = createBlockBuilder(SINGLE_BOOLEAN, Slices.allocate(blockSize));
         GroupByIdBlock ids = groupByHash.getGroupIds(page);
         for (int i = 0; i < ids.getPositionCount(); i++) {
             if (ids.getGroupId(i) == nextDistinctId) {

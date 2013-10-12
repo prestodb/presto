@@ -31,6 +31,7 @@ import io.airlift.slice.Slices;
 import java.util.Arrays;
 import java.util.Collections;
 
+import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_BOOLEAN;
 import static org.testng.Assert.assertEquals;
 
@@ -86,7 +87,7 @@ public final class AggregationTestUtils
             Page page = pages[i];
             int positionCount = page.getPositionCount();
             int blockSize = SINGLE_BOOLEAN.getFixedSize() * positionCount;
-            BlockBuilder blockBuilder = new BlockBuilder(SINGLE_BOOLEAN, blockSize, Slices.allocate(blockSize).getOutput());
+            BlockBuilder blockBuilder = createBlockBuilder(SINGLE_BOOLEAN, Slices.allocate(blockSize));
             for (int j = 0; j < page.getPositionCount(); j++) {
                 blockBuilder.append(maskValue);
             }
@@ -229,7 +230,7 @@ public final class AggregationTestUtils
             partialAggregation.addInput(createGroupByIdBlock(0, page.getPositionCount()), page);
         }
 
-        BlockBuilder partialOut = new BlockBuilder(partialAggregation.getIntermediateTupleInfo());
+        BlockBuilder partialOut = createBlockBuilder(partialAggregation.getIntermediateTupleInfo());
         partialAggregation.evaluateIntermediate(0, partialOut);
         Block partialBlock = partialOut.build();
 
@@ -245,7 +246,7 @@ public final class AggregationTestUtils
             return new GroupByIdBlock(groupId, new FixedWidthBlock(new FixedWidthTypeInfo(Type.FIXED_INT_64), 0, Slices.EMPTY_SLICE));
         }
 
-        BlockBuilder blockBuilder = new BlockBuilder(TupleInfo.SINGLE_LONG);
+        BlockBuilder blockBuilder = createBlockBuilder(TupleInfo.SINGLE_LONG);
         for (int i = 0; i < positions; i++) {
             blockBuilder.append(groupId);
         }
@@ -318,7 +319,7 @@ public final class AggregationTestUtils
 
     private static RunLengthEncodedBlock createNullRLEBlock(int positionCount)
     {
-        RandomAccessBlock value = new BlockBuilder(SINGLE_BOOLEAN)
+        RandomAccessBlock value = createBlockBuilder(SINGLE_BOOLEAN)
                 .appendNull()
                 .build()
                 .toRandomAccessBlock();
@@ -328,7 +329,7 @@ public final class AggregationTestUtils
 
     private static Object getGroupValue(GroupedAccumulator groupedAggregation, int groupId)
     {
-        BlockBuilder out = new BlockBuilder(groupedAggregation.getFinalTupleInfo());
+        BlockBuilder out = createBlockBuilder(groupedAggregation.getFinalTupleInfo());
         groupedAggregation.evaluateFinal(groupId, out);
         return BlockAssertions.getOnlyValue(out.build());
     }

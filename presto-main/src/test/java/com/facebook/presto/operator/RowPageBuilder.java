@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -43,7 +44,7 @@ public class RowPageBuilder
         checkNotNull(tupleInfos, "tupleInfos is null");
         ImmutableList.Builder<BlockBuilder> builders = ImmutableList.builder();
         for (TupleInfo tupleInfo : tupleInfos) {
-            builders.add(new BlockBuilder(tupleInfo));
+            builders.add(createBlockBuilder(tupleInfo));
         }
         this.builders = builders.build();
         checkArgument(!this.builders.isEmpty(), "At least one tuple info is required");

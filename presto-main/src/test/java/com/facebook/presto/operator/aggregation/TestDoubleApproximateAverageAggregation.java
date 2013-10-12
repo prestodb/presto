@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
+import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static com.facebook.presto.operator.aggregation.ApproximateAverageAggregations.DOUBLE_APPROXIMATE_AVERAGE_AGGREGATION;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
 
@@ -30,7 +31,7 @@ public class TestDoubleApproximateAverageAggregation
     @Override
     public Block getSequenceBlock(int start, int length)
     {
-        BlockBuilder blockBuilder = new BlockBuilder(SINGLE_DOUBLE);
+        BlockBuilder blockBuilder = createBlockBuilder(SINGLE_DOUBLE);
         for (int i = start; i < start + length; i++) {
             blockBuilder.append((double) i);
         }

@@ -30,6 +30,7 @@ import javax.annotation.Nullable;
 
 import java.util.Map;
 
+import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static com.facebook.presto.connector.dual.DualMetadata.DUAL_METADATA_MANAGER;
 import static com.facebook.presto.sql.analyzer.Type.BIGINT;
 import static com.facebook.presto.sql.analyzer.Type.BOOLEAN;
@@ -187,7 +188,7 @@ public class TestInterpretedProjectionFunction
         );
 
         // create output
-        BlockBuilder builder = new BlockBuilder(new TupleInfo(outputType.getRawType()));
+        BlockBuilder builder = createBlockBuilder(new TupleInfo(outputType.getRawType()));
 
         // project
         projectionFunction.project(channels, builder);
@@ -199,7 +200,7 @@ public class TestInterpretedProjectionFunction
 
     private static BlockCursor createCursor(Type type, Object value)
     {
-        BlockCursor cursor = new BlockBuilder(new TupleInfo(type.getRawType())).appendObject(value).build().cursor();
+        BlockCursor cursor = createBlockBuilder(new TupleInfo(type.getRawType())).appendObject(value).build().cursor();
         assertTrue(cursor.advanceNextPosition());
         return cursor;
     }

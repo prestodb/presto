@@ -31,6 +31,7 @@ import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
+import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static io.airlift.testing.Assertions.assertLessThan;
 import static org.testng.Assert.assertEquals;
 
@@ -152,7 +153,7 @@ public abstract class AbstractTestApproximateCountDistinct
      */
     private Block createBlock(List<Object> values)
     {
-        BlockBuilder blockBuilder = new BlockBuilder(new TupleInfo(getValueType()));
+        BlockBuilder blockBuilder = createBlockBuilder(new TupleInfo(getValueType()));
 
         for (Object value : values) {
             if (value == null) {

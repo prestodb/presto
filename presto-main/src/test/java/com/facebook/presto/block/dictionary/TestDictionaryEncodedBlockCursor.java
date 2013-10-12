@@ -15,7 +15,6 @@ package com.facebook.presto.block.dictionary;
 
 import com.facebook.presto.block.AbstractTestBlockCursor;
 import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.tuple.TupleInfo;
@@ -23,6 +22,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
+import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 
 public class TestDictionaryEncodedBlockCursor
@@ -37,7 +37,7 @@ public class TestDictionaryEncodedBlockCursor
     @Override
     protected BlockCursor createTestCursor()
     {
-        RandomAccessBlock dictionary = new BlockBuilder(TupleInfo.SINGLE_VARBINARY)
+        RandomAccessBlock dictionary = createBlockBuilder(TupleInfo.SINGLE_VARBINARY)
                 .append("apple")
                 .append("banana")
                 .append("cherry")
