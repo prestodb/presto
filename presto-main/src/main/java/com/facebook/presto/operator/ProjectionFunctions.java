@@ -65,7 +65,7 @@ public final class ProjectionFunctions
                 output.appendNull();
             }
             else {
-                output.append(cursors[channelIndex]);
+                cursors[channelIndex].appendTupleTo(output);
             }
         }
 
