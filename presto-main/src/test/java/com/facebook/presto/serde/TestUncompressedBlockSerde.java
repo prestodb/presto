@@ -15,11 +15,11 @@ package com.facebook.presto.serde;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockAssertions;
-import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.tuple.TupleInfo;
 import io.airlift.slice.DynamicSliceOutput;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 
 public class TestUncompressedBlockSerde
@@ -27,7 +27,7 @@ public class TestUncompressedBlockSerde
     @Test
     public void testRoundTrip()
     {
-        Block expectedBlock = new BlockBuilder(SINGLE_VARBINARY)
+        Block expectedBlock = createBlockBuilder(SINGLE_VARBINARY)
                 .append("alice")
                 .append("bob")
                 .append("charlie")
@@ -44,7 +44,7 @@ public class TestUncompressedBlockSerde
     @Test
     public void testCreateBlockWriter()
     {
-        Block block = new BlockBuilder(TupleInfo.SINGLE_VARBINARY)
+        Block block = createBlockBuilder(TupleInfo.SINGLE_VARBINARY)
                 .append("alice")
                 .append("bob")
                 .append("charlie")
@@ -54,7 +54,7 @@ public class TestUncompressedBlockSerde
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
         BlockEncoding blockEncoding = new UncompressedEncoder(sliceOutput).append(block).append(block).finish();
         Block actualBlock = blockEncoding.readBlock(sliceOutput.slice().getInput());
-        BlockAssertions.assertBlockEquals(actualBlock, new BlockBuilder(SINGLE_VARBINARY)
+        BlockAssertions.assertBlockEquals(actualBlock, createBlockBuilder(SINGLE_VARBINARY)
                 .append("alice")
                 .append("bob")
                 .append("charlie")

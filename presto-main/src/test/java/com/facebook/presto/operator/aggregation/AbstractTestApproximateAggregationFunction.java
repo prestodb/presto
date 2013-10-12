@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
+import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertApproximateAggregation;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
@@ -51,7 +52,7 @@ public abstract class AbstractTestApproximateAggregationFunction
     @Override
     public Block getSequenceBlock(int start, int length)
     {
-        BlockBuilder blockBuilder = new BlockBuilder(getTupleInfo());
+        BlockBuilder blockBuilder = createBlockBuilder(getTupleInfo());
         for (int i = start; i < start + length; i++) {
             if (getTupleInfo() == SINGLE_LONG) {
                 blockBuilder.append((long) i);
@@ -154,7 +155,7 @@ public abstract class AbstractTestApproximateAggregationFunction
                 }
             }
 
-            BlockBuilder builder = new BlockBuilder(getTupleInfo());
+            BlockBuilder builder = createBlockBuilder(getTupleInfo());
             for (Number sample : sampledList.build()) {
                 if (getTupleInfo() == SINGLE_LONG) {
                     builder.append(sample.longValue());

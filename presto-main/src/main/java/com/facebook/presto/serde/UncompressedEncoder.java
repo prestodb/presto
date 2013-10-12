@@ -18,6 +18,7 @@ import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import io.airlift.slice.SliceOutput;
 
+import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -43,7 +44,7 @@ public class UncompressedEncoder
 
         if (encoding == null) {
             encoding = new UncompressedBlockEncoding(block.getTupleInfo());
-            blockBuilder = new BlockBuilder(block.getTupleInfo());
+            blockBuilder = createBlockBuilder(block.getTupleInfo());
         }
         BlockCursor cursor = block.cursor();
         while (cursor.advanceNextPosition()) {
@@ -73,6 +74,6 @@ public class UncompressedEncoder
     {
         Block block = blockBuilder.build();
         encoding.writeBlock(sliceOutput, block);
-        blockBuilder = new BlockBuilder(block.getTupleInfo());
+        blockBuilder = createBlockBuilder(block.getTupleInfo());
     }
 }

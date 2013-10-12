@@ -21,6 +21,7 @@ import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
+import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static com.facebook.presto.operator.aggregation.VarBinaryMinAggregation.VAR_BINARY_MIN;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 
@@ -30,7 +31,7 @@ public class TestVarBinaryMinAggregation
     @Override
     public Block getSequenceBlock(int start, int length)
     {
-        BlockBuilder blockBuilder = new BlockBuilder(SINGLE_VARBINARY);
+        BlockBuilder blockBuilder = createBlockBuilder(SINGLE_VARBINARY);
         for (int i = 0; i < length; i++) {
             blockBuilder.append(Slices.wrappedBuffer(Ints.toByteArray(i)));
         }

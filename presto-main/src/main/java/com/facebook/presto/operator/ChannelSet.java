@@ -23,6 +23,7 @@ import io.airlift.units.DataSize;
 import it.unimi.dsi.fastutil.longs.LongHash;
 import it.unimi.dsi.fastutil.longs.LongOpenCustomHashSet;
 
+import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static com.facebook.presto.operator.SliceHashStrategy.LOOKUP_SLICE_INDEX;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -121,7 +122,7 @@ public class ChannelSet
             // allocate the first slice of the set
             Slice slice = Slices.allocate((int) BlockBuilder.DEFAULT_MAX_BLOCK_SIZE.toBytes());
             strategy.addSlice(slice);
-            blockBuilder = new BlockBuilder(tupleInfo, slice.length(), slice.getOutput());
+            blockBuilder = createBlockBuilder(tupleInfo, slice);
         }
 
         public void addBlock(Block sourceBlock)
@@ -145,7 +146,7 @@ public class ChannelSet
                     if (blockBuilder.writableBytes() < length) {
                         Slice slice = Slices.allocate(Math.max((int) BlockBuilder.DEFAULT_MAX_BLOCK_SIZE.toBytes(), length));
                         strategy.addSlice(slice);
-                        blockBuilder = new BlockBuilder(tupleInfo, slice.length(), slice.getOutput());
+                        blockBuilder = createBlockBuilder(tupleInfo, slice);
                         currentBlockId++;
                     }
                     int blockRawOffset = blockBuilder.size();
