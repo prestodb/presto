@@ -258,7 +258,7 @@ public class TestHashSemiJoinOperator
 
         OperatorContext operatorContext = driverContext.addOperatorContext(0, StaticOperator.class.getSimpleName());
         Operator buildOperator = new StaticOperator(operatorContext, rowPagesBuilder(SINGLE_LONG)
-                .addSequencePage(1000, 20)
+                .addSequencePage(10000, 20)
                 .build());
         SetBuilderOperatorFactory setBuilderOperatorFactory = new SetBuilderOperatorFactory(1, buildOperator.getTupleInfos(), 0, 10);
         Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
