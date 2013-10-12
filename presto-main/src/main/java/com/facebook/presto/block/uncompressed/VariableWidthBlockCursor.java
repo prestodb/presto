@@ -208,6 +208,16 @@ public class VariableWidthBlockCursor
     }
 
     @Override
+    public int calculateHashCode()
+    {
+        checkReadablePosition();
+        if (isNull) {
+            return 0;
+        }
+        return typeInfo.hashCode(slice, entryOffset + SIZE_OF_BYTE);
+    }
+
+    @Override
     public int getRawOffset()
     {
         return entryOffset;

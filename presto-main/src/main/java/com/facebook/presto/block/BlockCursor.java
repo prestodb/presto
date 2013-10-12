@@ -140,6 +140,8 @@ public interface BlockCursor
 
     int compareTo(Slice slice, int offset);
 
+    int calculateHashCode();
+
     int getRawOffset();
 
     Slice getRawSlice();
