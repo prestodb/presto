@@ -173,6 +173,12 @@ public final class RunLengthEncodedBlockCursor
     }
 
     @Override
+    public int calculateHashCode()
+    {
+        return value.hashCode(0);
+    }
+
+    @Override
     public int getRawOffset()
     {
         return 0;
