@@ -316,7 +316,7 @@ class MarkDistinctSampledOperator
                     }
                 }
                 else {
-                    builder.append(cursors[i]);
+                    cursors[i].appendTupleTo(builder);
                 }
             }
             pageBuilder.getBlockBuilder(markerChannel).append(distinct);

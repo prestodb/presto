@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.block;
 
+import com.facebook.presto.tuple.TupleInfo.Type;
+
 import java.util.SortedMap;
 import java.util.TreeMap;
 
@@ -51,67 +53,79 @@ public final class BlockCursorAssertions
         if (cursor.isNull()) {
             return;
         }
-        switch (cursor.getTupleInfo().getType()) {
-            case BOOLEAN:
-                assertEquals(cursor.getBoolean(), value);
-                try {
-                    cursor.getSlice();
-                    fail("Expected IllegalStateException or UnsupportedOperationException");
-                }
-                catch (IllegalStateException | UnsupportedOperationException expected) {
-                }
-                try {
-                    cursor.getSlice();
-                    fail("Expected IllegalStateException or UnsupportedOperationException");
-                }
-                catch (IllegalStateException | UnsupportedOperationException expected) {
-                }
-                break;
-            case FIXED_INT_64:
-                assertEquals(cursor.getLong(), value);
-                try {
-                    cursor.getDouble();
-                    fail("Expected IllegalStateException or UnsupportedOperationException");
-                }
-                catch (IllegalStateException | UnsupportedOperationException expected) {
-                }
-                try {
-                    cursor.getSlice();
-                    fail("Expected IllegalStateException or UnsupportedOperationException");
-                }
-                catch (IllegalStateException | UnsupportedOperationException expected) {
-                }
-                break;
-            case VARIABLE_BINARY:
-                assertEquals(cursor.getSlice().toStringUtf8(), value);
-                try {
-                    cursor.getDouble();
-                    fail("Expected IllegalStateException or UnsupportedOperationException");
-                }
-                catch (IllegalStateException | UnsupportedOperationException expected) {
-                }
-                try {
-                    cursor.getLong();
-                    fail("Expected IllegalStateException or UnsupportedOperationException");
-                }
-                catch (IllegalStateException | UnsupportedOperationException expected) {
-                }
-                break;
-            case DOUBLE:
-                assertEquals(cursor.getDouble(), value);
-                try {
-                    cursor.getSlice();
-                    fail("Expected IllegalStateException or UnsupportedOperationException");
-                }
-                catch (IllegalStateException | UnsupportedOperationException expected) {
-                }
-                try {
-                    cursor.getSlice();
-                    fail("Expected IllegalStateException or UnsupportedOperationException");
-                }
-                catch (IllegalStateException | UnsupportedOperationException expected) {
-                }
-                break;
+
+        Type type = cursor.getTupleInfo().getType();
+        if (type == Type.BOOLEAN) {
+            assertEquals(cursor.getBoolean(), value);
+            assertEquals(cursor.getSlice().getByte(0) != 0, value);
+            try {
+                cursor.getLong();
+                fail("Expected IllegalStateException or UnsupportedOperationException");
+            }
+            catch (IllegalStateException | UnsupportedOperationException expected) {
+            }
+            try {
+                cursor.getDouble();
+                fail("Expected IllegalStateException or UnsupportedOperationException");
+            }
+            catch (IllegalStateException | UnsupportedOperationException expected) {
+            }
+        }
+        else if (type == Type.FIXED_INT_64) {
+            assertEquals(cursor.getLong(), value);
+            assertEquals(cursor.getSlice().getLong(0), value);
+            try {
+                cursor.getBoolean();
+                fail("Expected IllegalStateException or UnsupportedOperationException");
+            }
+            catch (IllegalStateException | UnsupportedOperationException expected) {
+            }
+            try {
+                cursor.getDouble();
+                fail("Expected IllegalStateException or UnsupportedOperationException");
+            }
+            catch (IllegalStateException | UnsupportedOperationException expected) {
+            }
+
+        }
+        else if (type == Type.DOUBLE) {
+            assertEquals(cursor.getDouble(), value);
+            assertEquals(cursor.getSlice().getDouble(0), value);
+            try {
+                cursor.getBoolean();
+                fail("Expected IllegalStateException or UnsupportedOperationException");
+            }
+            catch (IllegalStateException | UnsupportedOperationException expected) {
+            }
+            try {
+                cursor.getLong();
+                fail("Expected IllegalStateException or UnsupportedOperationException");
+            }
+            catch (IllegalStateException | UnsupportedOperationException expected) {
+            }
+
+        }
+        else if (type == Type.VARIABLE_BINARY) {
+            assertEquals(cursor.getSlice().toStringUtf8(), value);
+            try {
+                cursor.getBoolean();
+                fail("Expected IllegalStateException or UnsupportedOperationException");
+            }
+            catch (IllegalStateException | UnsupportedOperationException expected) {
+            }
+            try {
+                cursor.getLong();
+                fail("Expected IllegalStateException or UnsupportedOperationException");
+            }
+            catch (IllegalStateException | UnsupportedOperationException expected) {
+            }
+            try {
+                cursor.getDouble();
+                fail("Expected IllegalStateException or UnsupportedOperationException");
+            }
+            catch (IllegalStateException | UnsupportedOperationException expected) {
+            }
+
         }
     }
 
