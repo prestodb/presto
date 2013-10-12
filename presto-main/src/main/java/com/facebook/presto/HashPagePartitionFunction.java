@@ -22,7 +22,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -91,14 +90,14 @@ public final class HashPagePartitionFunction
                 }
 
                 // if hash is not in range skip
-                int partitionHashBucket = getPartitionHashBucket(tupleInfos, cursors);
+                int partitionHashBucket = getPartitionHashBucket(cursors);
                 if (partitionHashBucket != partition) {
                     continue;
                 }
 
                 // append row
                 for (int channel = 0; channel < cursors.length; channel++) {
-                    pageBuilder.getBlockBuilder(channel).append(cursors[channel]);
+                    cursors[channel].appendTupleTo(pageBuilder.getBlockBuilder(channel));
                 }
 
                 // if page is full, flush
@@ -115,12 +114,12 @@ public final class HashPagePartitionFunction
         return partitionedPages.build();
     }
 
-    private int getPartitionHashBucket(List<TupleInfo> tupleInfos, BlockCursor[] cursors)
+    private int getPartitionHashBucket(BlockCursor[] cursors)
     {
         long hashCode = 1;
         for (int channel : partitioningChannels) {
             hashCode *= 31;
-            hashCode += calculateHashCode(tupleInfos.get(channel), cursors[channel]);
+            hashCode += cursors[channel].calculateHashCode();
         }
         // clear the sign bit
         hashCode &= 0x7fff_ffff_ffff_ffffL;
@@ -128,14 +127,6 @@ public final class HashPagePartitionFunction
         int bucket = (int) (hashCode % partitionCount);
         checkState(bucket >= 0 && bucket < partitionCount);
         return bucket;
-    }
-
-    private static int calculateHashCode(TupleInfo tupleInfo, BlockCursor cursor)
-    {
-        Slice slice = cursor.getRawSlice();
-        int offset = cursor.getRawOffset();
-        int length = tupleInfo.size(slice, offset);
-        return slice.hashCode(offset, length);
     }
 
     @Override

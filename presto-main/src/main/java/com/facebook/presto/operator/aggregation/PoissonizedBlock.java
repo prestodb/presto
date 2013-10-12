@@ -19,6 +19,7 @@ import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.serde.BlockEncoding;
 import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.primitives.Longs;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import org.apache.commons.math3.random.RandomDataGenerator;
@@ -220,6 +221,12 @@ class PoissonizedBlock
         public Slice getRawSlice()
         {
             throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public int calculateHashCode()
+        {
+            return Longs.hashCode(currentValue);
         }
 
         @Override
