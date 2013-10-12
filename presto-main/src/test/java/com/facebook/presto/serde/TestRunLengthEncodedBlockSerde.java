@@ -15,13 +15,13 @@ package com.facebook.presto.serde;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockAssertions;
-import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.SliceInput;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static org.testng.Assert.assertEquals;
@@ -33,7 +33,7 @@ public class TestRunLengthEncodedBlockSerde
     @Test
     public void testRoundTrip()
     {
-        RandomAccessBlock value = new BlockBuilder(SINGLE_VARBINARY)
+        RandomAccessBlock value = createBlockBuilder(SINGLE_VARBINARY)
                 .append("alice")
                 .build()
                 .toRandomAccessBlock();
@@ -51,7 +51,7 @@ public class TestRunLengthEncodedBlockSerde
     @Test
     public void testCreateBlockWriter()
     {
-        RandomAccessBlock expectedBlock = new BlockBuilder(SINGLE_VARBINARY)
+        RandomAccessBlock expectedBlock = createBlockBuilder(SINGLE_VARBINARY)
                 .append("alice")
                 .append("alice")
                 .append("bob")

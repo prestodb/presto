@@ -32,6 +32,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
+import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static com.facebook.presto.block.BlockIterables.createBlockIterable;
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -199,7 +200,7 @@ public final class BlockAssertions
 
     public static Block createStringsBlock(Iterable<String> values)
     {
-        BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_VARBINARY);
+        BlockBuilder builder = createBlockBuilder(TupleInfo.SINGLE_VARBINARY);
 
         for (String value : values) {
             if (value == null) {
@@ -220,7 +221,7 @@ public final class BlockAssertions
 
     public static Block createStringSequenceBlock(int start, int end)
     {
-        BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_VARBINARY);
+        BlockBuilder builder = createBlockBuilder(TupleInfo.SINGLE_VARBINARY);
 
         for (int i = start; i < end; i++) {
             builder.append(String.valueOf(i));
@@ -243,7 +244,7 @@ public final class BlockAssertions
 
     public static Block createBooleansBlock(Iterable<Boolean> values)
     {
-        BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_BOOLEAN);
+        BlockBuilder builder = createBlockBuilder(TupleInfo.SINGLE_BOOLEAN);
 
         for (Boolean value : values) {
             if (value == null) {
@@ -260,7 +261,7 @@ public final class BlockAssertions
     // This method makes it easy to create blocks without having to add an L to every value
     public static RandomAccessBlock createLongsBlock(int... values)
     {
-        BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_LONG);
+        BlockBuilder builder = createBlockBuilder(TupleInfo.SINGLE_LONG);
 
         for (int value : values) {
             builder.append((long) value);
@@ -278,7 +279,7 @@ public final class BlockAssertions
 
     public static Block createLongsBlock(Iterable<Long> values)
     {
-        BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_LONG);
+        BlockBuilder builder = createBlockBuilder(TupleInfo.SINGLE_LONG);
 
         for (Long value : values) {
             if (value == null) {
@@ -304,7 +305,7 @@ public final class BlockAssertions
 
     public static Block createLongSequenceBlock(int start, int end)
     {
-        BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_LONG);
+        BlockBuilder builder = createBlockBuilder(TupleInfo.SINGLE_LONG);
 
         for (int i = start; i < end; i++) {
             builder.append(i);
@@ -315,7 +316,7 @@ public final class BlockAssertions
 
     public static Block createBooleanSequenceBlock(int start, int end)
     {
-        BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_BOOLEAN);
+        BlockBuilder builder = createBlockBuilder(TupleInfo.SINGLE_BOOLEAN);
 
         for (int i = start; i < end; i++) {
             builder.append(i % 2 == 0);
@@ -333,7 +334,7 @@ public final class BlockAssertions
 
     public static Block createDoublesBlock(Iterable<Double> values)
     {
-        BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_DOUBLE);
+        BlockBuilder builder = createBlockBuilder(TupleInfo.SINGLE_DOUBLE);
 
         for (Double value : values) {
             if (value == null) {
@@ -354,7 +355,7 @@ public final class BlockAssertions
 
     public static Block createDoubleSequenceBlock(int start, int end)
     {
-        BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_DOUBLE);
+        BlockBuilder builder = createBlockBuilder(TupleInfo.SINGLE_DOUBLE);
 
         for (int i = start; i < end; i++) {
             builder.append((double) i);
@@ -375,7 +376,7 @@ public final class BlockAssertions
 
         private BlockIterableBuilder(TupleInfo tupleInfo)
         {
-            blockBuilder = new BlockBuilder(tupleInfo);
+            blockBuilder = createBlockBuilder(tupleInfo);
         }
 
         public BlockIterableBuilder append(Slice value)
@@ -419,7 +420,7 @@ public final class BlockAssertions
             if (!blockBuilder.isEmpty()) {
                 Block block = blockBuilder.build();
                 blocks.add(block);
-                blockBuilder = new BlockBuilder(block.getTupleInfo());
+                blockBuilder = createBlockBuilder(block.getTupleInfo());
             }
             return this;
         }

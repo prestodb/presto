@@ -27,6 +27,7 @@ import javax.annotation.Nullable;
 
 import java.util.List;
 
+import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public abstract class SimpleAggregationFunction
@@ -230,7 +231,7 @@ public abstract class SimpleAggregationFunction
         @Override
         public final Block evaluateIntermediate()
         {
-            BlockBuilder out = new BlockBuilder(intermediateTupleInfo);
+            BlockBuilder out = createBlockBuilder(intermediateTupleInfo);
             evaluateIntermediate(out);
             return out.build();
         }
@@ -238,7 +239,7 @@ public abstract class SimpleAggregationFunction
         @Override
         public final Block evaluateFinal()
         {
-            BlockBuilder out = new BlockBuilder(finalTupleInfo);
+            BlockBuilder out = createBlockBuilder(finalTupleInfo);
             evaluateFinal(out);
             return out.build();
         }

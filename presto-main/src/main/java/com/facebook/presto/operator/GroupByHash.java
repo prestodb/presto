@@ -39,6 +39,7 @@ import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 import java.util.List;
 
+import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
@@ -101,8 +102,9 @@ public class GroupByHash
     {
         int positionCount = page.getPositionCount();
 
+        // we know the exact size required for the block
         int groupIdBlockSize = SINGLE_LONG.getFixedSize() * positionCount;
-        BlockBuilder blockBuilder = new BlockBuilder(SINGLE_LONG, groupIdBlockSize, Slices.allocate(groupIdBlockSize).getOutput());
+        BlockBuilder blockBuilder = createBlockBuilder(SINGLE_LONG, Slices.allocate(groupIdBlockSize));
 
         // open cursors for group blocks
         BlockCursor[] cursors = new BlockCursor[channels.length];

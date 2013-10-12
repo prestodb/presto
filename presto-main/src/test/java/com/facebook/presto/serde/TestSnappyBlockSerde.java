@@ -23,6 +23,7 @@ import org.testng.annotations.Test;
 
 import java.util.concurrent.ThreadLocalRandom;
 
+import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static org.testng.Assert.assertTrue;
 
 public class TestSnappyBlockSerde
@@ -30,7 +31,7 @@ public class TestSnappyBlockSerde
     @Test
     public void testRoundTrip()
     {
-        Block block = new BlockBuilder(TupleInfo.SINGLE_VARBINARY)
+        Block block = createBlockBuilder(TupleInfo.SINGLE_VARBINARY)
                 .append("alice")
                 .append("bob")
                 .append("charlie")
@@ -49,7 +50,7 @@ public class TestSnappyBlockSerde
     @Test
     public void testLotsOfStuff()
     {
-        RandomAccessBlock block = new BlockBuilder(TupleInfo.SINGLE_VARBINARY)
+        RandomAccessBlock block = createBlockBuilder(TupleInfo.SINGLE_VARBINARY)
                 .append("alice")
                 .append("bob")
                 .append("charlie")
@@ -60,7 +61,7 @@ public class TestSnappyBlockSerde
         DynamicSliceOutput encoderOutput = new DynamicSliceOutput(1024);
         Encoder encoder = BlocksFileEncoding.SNAPPY.createBlocksWriter(encoderOutput);
 
-        BlockBuilder expectedBlockBuilder = new BlockBuilder(TupleInfo.SINGLE_VARBINARY);
+        BlockBuilder expectedBlockBuilder = createBlockBuilder(TupleInfo.SINGLE_VARBINARY);
 
         int count = 1000;
         for (int i = 0; i < count; i++) {

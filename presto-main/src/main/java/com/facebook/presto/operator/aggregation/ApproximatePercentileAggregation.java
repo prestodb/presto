@@ -30,6 +30,7 @@ import io.airlift.stats.QuantileDigest;
 
 import java.util.List;
 
+import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
@@ -346,7 +347,7 @@ public class ApproximatePercentileAggregation
         @Override
         public final Block evaluateIntermediate()
         {
-            BlockBuilder out = new BlockBuilder(getIntermediateTupleInfo());
+            BlockBuilder out = createBlockBuilder(getIntermediateTupleInfo());
 
             if (digest.getCount() == 0.0) {
                 out.appendNull();
@@ -368,7 +369,7 @@ public class ApproximatePercentileAggregation
         @Override
         public final Block evaluateFinal()
         {
-            BlockBuilder out = new BlockBuilder(getFinalTupleInfo());
+            BlockBuilder out = createBlockBuilder(getFinalTupleInfo());
             evaluate(out, parameterType, digest, percentile);
             return out.build();
         }

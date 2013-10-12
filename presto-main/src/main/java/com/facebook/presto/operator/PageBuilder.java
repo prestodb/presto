@@ -16,21 +16,23 @@ package com.facebook.presto.operator;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.tuple.TupleInfo;
-import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 
 import java.util.List;
 
+import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static io.airlift.units.DataSize.Unit.BYTE;
 
 public class PageBuilder
 {
     public static final DataSize DEFAULT_MAX_PAGE_SIZE = new DataSize(1, Unit.MEGABYTE);
+    private static final double BUFFER_MULTIPLIER = 1.5;
 
     private final BlockBuilder[] blockBuilders;
     private final long maxSizeInBytes;
-    private final int maxBlockSize;
+    private final DataSize maxBlockSize;
     private int declaredPositions;
 
     public PageBuilder(List<TupleInfo> tupleInfos)
@@ -41,15 +43,17 @@ public class PageBuilder
     public PageBuilder(List<TupleInfo> tupleInfos, DataSize maxSize)
     {
         if (!tupleInfos.isEmpty()) {
-            maxBlockSize = (int) (maxSize.toBytes() / tupleInfos.size());
+            maxBlockSize = new DataSize((int) (maxSize.toBytes() / tupleInfos.size()), BYTE);
         }
         else {
-            maxBlockSize = 0;
+            maxBlockSize = new DataSize(0, BYTE);
         }
+
+        DataSize initialBlockBufferSize = new DataSize((int) (maxBlockSize.toBytes() * BUFFER_MULTIPLIER), BYTE);
 
         blockBuilders = new BlockBuilder[tupleInfos.size()];
         for (int i = 0; i < blockBuilders.length; i++) {
-            blockBuilders[i] = new BlockBuilder(tupleInfos.get(i), maxBlockSize, new DynamicSliceOutput((int) (maxBlockSize * 1.5)));
+            blockBuilders[i] = createBlockBuilder(tupleInfos.get(i), maxBlockSize, initialBlockBufferSize);
         }
         this.maxSizeInBytes = checkNotNull(maxSize, "maxSize is null").toBytes();
     }
@@ -63,8 +67,8 @@ public class PageBuilder
 
         for (int i = 0; i < blockBuilders.length; i++) {
             BlockBuilder blockBuilder = blockBuilders[i];
-            int estimatedSize = (int) (blockBuilder.size() * 1.5);
-            blockBuilders[i] = new BlockBuilder(blockBuilder.getTupleInfo(), maxBlockSize, new DynamicSliceOutput(estimatedSize));
+            DataSize blockBufferSize = new DataSize((int) (blockBuilder.size() * BUFFER_MULTIPLIER), BYTE);
+            blockBuilders[i] = createBlockBuilder(blockBuilder.getTupleInfo(), maxBlockSize, blockBufferSize);
         }
     }
 
