@@ -18,14 +18,14 @@ import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.operator.SortOrder;
 import com.facebook.presto.block.BlockEncoding;
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.VariableWidthTypeInfo;
+import com.facebook.presto.type.Type;
+import com.facebook.presto.type.VariableWidthType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
+import static com.facebook.presto.type.Types.VARCHAR;
 import static com.google.common.base.Preconditions.checkPositionIndexes;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
@@ -33,20 +33,20 @@ import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 public abstract class AbstractVariableWidthRandomAccessBlock
         implements RandomAccessBlock
 {
-    protected final VariableWidthTypeInfo typeInfo;
+    protected final VariableWidthType type;
 
-    protected AbstractVariableWidthRandomAccessBlock(VariableWidthTypeInfo typeInfo)
+    protected AbstractVariableWidthRandomAccessBlock(VariableWidthType type)
     {
-        this.typeInfo = typeInfo;
+        this.type = type;
     }
 
     protected abstract Slice getRawSlice();
     protected abstract int getPositionOffset(int position);
 
     @Override
-    public TupleInfo getTupleInfo()
+    public Type getType()
     {
-        return new TupleInfo(typeInfo.getType());
+        return type;
     }
 
     @Override
@@ -58,13 +58,13 @@ public abstract class AbstractVariableWidthRandomAccessBlock
     @Override
     public BlockCursor cursor()
     {
-        return new VariableWidthBlockCursor(typeInfo, getPositionCount(), getRawSlice());
+        return new VariableWidthBlockCursor(type, getPositionCount(), getRawSlice());
     }
 
     @Override
     public BlockEncoding getEncoding()
     {
-        return new VariableWidthBlockEncoding(SINGLE_VARBINARY);
+        return new VariableWidthBlockEncoding(VARCHAR);
     }
 
     @Override
@@ -107,7 +107,7 @@ public abstract class AbstractVariableWidthRandomAccessBlock
             return null;
         }
         int offset = getPositionOffset(position);
-        return typeInfo.getObjectValue(getRawSlice(), offset + SIZE_OF_BYTE);
+        return type.getObjectValue(getRawSlice(), offset + SIZE_OF_BYTE);
     }
 
     @Override
@@ -115,7 +115,7 @@ public abstract class AbstractVariableWidthRandomAccessBlock
     {
         checkState(!isNull(position));
         int offset = getPositionOffset(position);
-        return typeInfo.getSlice(getRawSlice(), offset + SIZE_OF_BYTE);
+        return type.getSlice(getRawSlice(), offset + SIZE_OF_BYTE);
     }
 
     @Override
@@ -125,16 +125,16 @@ public abstract class AbstractVariableWidthRandomAccessBlock
 
         int offset = getPositionOffset(position);
         if (getRawSlice().getByte(offset) != 0) {
-            return new VariableWidthRandomAccessBlock(typeInfo, 1, Slices.wrappedBuffer(new byte[] {1}));
+            return new VariableWidthRandomAccessBlock(type, 1, Slices.wrappedBuffer(new byte[] {1}));
         }
 
-        int entrySize = typeInfo.getLength(getRawSlice(), offset + SIZE_OF_BYTE) + SIZE_OF_BYTE;
+        int entrySize = type.getLength(getRawSlice(), offset + SIZE_OF_BYTE) + SIZE_OF_BYTE;
 
         // TODO: add Slices.copyOf() to airlift
         Slice copy = Slices.allocate(entrySize);
         copy.setBytes(0, getRawSlice(), offset, entrySize);
 
-        return new VariableWidthRandomAccessBlock(typeInfo, 1, copy);
+        return new VariableWidthRandomAccessBlock(type, 1, copy);
     }
 
     @Override
@@ -183,7 +183,7 @@ public abstract class AbstractVariableWidthRandomAccessBlock
             return true;
         }
 
-        return typeInfo.equals(getRawSlice(), offset + SIZE_OF_BYTE, cursor);
+        return type.equals(getRawSlice(), offset + SIZE_OF_BYTE, cursor);
     }
 
     @Override
@@ -191,7 +191,7 @@ public abstract class AbstractVariableWidthRandomAccessBlock
     {
         checkReadablePosition(position);
         int leftEntryOffset = getPositionOffset(position);
-        return typeInfo.equals(getRawSlice(), leftEntryOffset + SIZE_OF_BYTE, rightSlice, rightOffset);
+        return type.equals(getRawSlice(), leftEntryOffset + SIZE_OF_BYTE, rightSlice, rightOffset);
     }
 
     @Override
@@ -203,7 +203,7 @@ public abstract class AbstractVariableWidthRandomAccessBlock
             return 0;
         }
         else {
-            return typeInfo.hashCode(getRawSlice(), offset + SIZE_OF_BYTE);
+            return type.hashCode(getRawSlice(), offset + SIZE_OF_BYTE);
         }
     }
 
@@ -260,11 +260,11 @@ public abstract class AbstractVariableWidthRandomAccessBlock
     {
         checkReadablePosition(position);
         int leftEntryOffset = getPositionOffset(position);
-        return typeInfo.compareTo(getRawSlice(), leftEntryOffset + SIZE_OF_BYTE, rightSlice, rightOffset);
+        return type.compareTo(getRawSlice(), leftEntryOffset + SIZE_OF_BYTE, rightSlice, rightOffset);
     }
 
     @Override
-    public void appendTupleTo(int position, BlockBuilder blockBuilder)
+    public void appendTo(int position, BlockBuilder blockBuilder)
     {
         checkReadablePosition(position);
         int offset = getPositionOffset(position);
@@ -272,7 +272,7 @@ public abstract class AbstractVariableWidthRandomAccessBlock
             blockBuilder.appendNull();
         }
         else {
-            typeInfo.appendTo(getRawSlice(), offset + SIZE_OF_BYTE, blockBuilder);
+            type.appendTo(getRawSlice(), offset + SIZE_OF_BYTE, blockBuilder);
         }
     }
 

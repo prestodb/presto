@@ -16,8 +16,9 @@ package com.facebook.presto.operator;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Optional;
+import com.facebook.presto.type.Type;
+import com.facebook.presto.type.Types;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -26,7 +27,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 
-import static com.facebook.presto.operator.HashAggregationOperator.HashMemoryManager;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -39,11 +39,11 @@ public class MarkDistinctOperator
     {
         private final int operatorId;
         private final int[] markDistinctChannels;
-        private final List<TupleInfo> tupleInfos;
+        private final List<Type> types;
         private final Optional<Integer> sampleWeightChannel;
         private boolean closed;
 
-        public MarkDistinctOperatorFactory(int operatorId, List<TupleInfo> sourceTupleInfos, Collection<Integer> markDistinctChannels, Optional<Integer> sampleWeightChannel)
+        public MarkDistinctOperatorFactory(int operatorId, List<Type> sourceTypes, Collection<Integer> markDistinctChannels, Optional<Integer> sampleWeightChannel)
         {
             this.operatorId = operatorId;
             checkNotNull(markDistinctChannels, "markDistinctChannels is null");
@@ -52,16 +52,16 @@ public class MarkDistinctOperator
             this.markDistinctChannels = Ints.toArray(markDistinctChannels);
             this.sampleWeightChannel = sampleWeightChannel;
 
-            this.tupleInfos = ImmutableList.<TupleInfo>builder()
-                    .addAll(sourceTupleInfos)
-                    .add(TupleInfo.SINGLE_BOOLEAN)
+            this.types = ImmutableList.<Type>builder()
+                    .addAll(sourceTypes)
+                    .add(Types.BOOLEAN)
                     .build();
         }
 
         @Override
-        public List<TupleInfo> getTupleInfos()
+        public List<Type> getTypes()
         {
-            return tupleInfos;
+            return types;
         }
 
         @Override
@@ -70,10 +70,10 @@ public class MarkDistinctOperator
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, MarkDistinctOperator.class.getSimpleName());
             if (sampleWeightChannel.isPresent()) {
-                return new MarkDistinctSampledOperator(operatorContext, tupleInfos, markDistinctChannels, sampleWeightChannel.get());
+                return new MarkDistinctSampledOperator(operatorContext, types, markDistinctChannels, sampleWeightChannel.get());
             }
             else {
-                return new MarkDistinctOperator(operatorContext, tupleInfos, markDistinctChannels);
+                return new MarkDistinctOperator(operatorContext, types, markDistinctChannels);
             }
         }
 
@@ -85,28 +85,26 @@ public class MarkDistinctOperator
     }
 
     private final OperatorContext operatorContext;
-    private final List<TupleInfo> tupleInfos;
+    private final List<Type> types;
     private final MarkDistinctHash markDistinctHash;
 
     private Page outputPage;
     private boolean finishing;
 
-    public MarkDistinctOperator(OperatorContext operatorContext, List<TupleInfo> tupleInfos, int[] markDistinctChannels)
+    public MarkDistinctOperator(OperatorContext operatorContext, List<Type> types, int[] markDistinctChannels)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
 
-        checkNotNull(tupleInfos, "tupleInfos is null");
+        checkNotNull(types, "types is null");
         checkArgument(markDistinctChannels.length >= 0, "markDistinctChannels is empty");
 
-        ImmutableList.Builder<TupleInfo.Type> types = ImmutableList.builder();
-
+        ImmutableList.Builder<Type> markDistinctTypes = ImmutableList.builder();
         for (int channel : markDistinctChannels) {
-            types.add(tupleInfos.get(channel).getType());
+            markDistinctTypes.add(types.get(channel));
         }
+        this.markDistinctHash = new MarkDistinctHash(markDistinctTypes.build(), markDistinctChannels);
 
-        this.markDistinctHash = new MarkDistinctHash(types.build(), markDistinctChannels, new HashMemoryManager(operatorContext));
-
-        this.tupleInfos = tupleInfos;
+        this.types = ImmutableList.copyOf(types);
     }
 
     @Override
@@ -116,9 +114,9 @@ public class MarkDistinctOperator
     }
 
     @Override
-    public List<TupleInfo> getTupleInfos()
+    public List<Type> getTypes()
     {
-        return tupleInfos;
+        return types;
     }
 
     @Override
@@ -182,7 +180,7 @@ class MarkDistinctSampledOperator
         implements Operator
 {
     private final OperatorContext operatorContext;
-    private final List<TupleInfo> tupleInfos;
+    private final List<Type> types;
     private final MarkDistinctHash markDistinctHash;
     private final int sampleWeightChannel;
     private final int markerChannel;
@@ -194,26 +192,24 @@ class MarkDistinctSampledOperator
     private long sampleWeight;
     private boolean distinct;
 
-    public MarkDistinctSampledOperator(OperatorContext operatorContext, List<TupleInfo> tupleInfos, int[] markDistinctChannels, int sampleWeightChannel)
+    public MarkDistinctSampledOperator(OperatorContext operatorContext, List<Type> types, int[] markDistinctChannels, int sampleWeightChannel)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
 
-        checkNotNull(tupleInfos, "tupleInfos is null");
+        checkNotNull(types, "types is null");
         checkArgument(markDistinctChannels.length >= 0, "markDistinctChannels is empty");
         this.sampleWeightChannel = sampleWeightChannel;
         // Add marker at end of columns
-        this.markerChannel = tupleInfos.size() - 1;
+        this.markerChannel = types.size() - 1;
 
-        ImmutableList.Builder<TupleInfo.Type> types = ImmutableList.builder();
-
+        ImmutableList.Builder<Type> markDistinctTypes = ImmutableList.builder();
         for (int channel : markDistinctChannels) {
-            types.add(tupleInfos.get(channel).getType());
+            markDistinctTypes.add(types.get(channel));
         }
+        this.markDistinctHash = new MarkDistinctHash(markDistinctTypes.build(), markDistinctChannels);
 
-        this.markDistinctHash = new MarkDistinctHash(types.build(), markDistinctChannels, new HashMemoryManager(operatorContext));
-
-        this.tupleInfos = tupleInfos;
-        this.pageBuilder = new PageBuilder(tupleInfos);
+        this.types = ImmutableList.copyOf(types);
+        this.pageBuilder = new PageBuilder(types);
     }
 
     @Override
@@ -223,9 +219,9 @@ class MarkDistinctSampledOperator
     }
 
     @Override
-    public List<TupleInfo> getTupleInfos()
+    public List<Type> getTypes()
     {
-        return tupleInfos;
+        return types;
     }
 
     @Override
@@ -317,7 +313,7 @@ class MarkDistinctSampledOperator
                     }
                 }
                 else {
-                    cursors[i].appendTupleTo(builder);
+                    cursors[i].appendTo(builder);
                 }
             }
             pageBuilder.getBlockBuilder(markerChannel).append(distinct);

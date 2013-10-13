@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
+import com.facebook.presto.type.Types;
 
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregations.DOUBLE_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS;
-import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 
 public class TestApproximateCountDistinctDouble
         extends AbstractTestApproximateCountDistinct
@@ -30,9 +30,9 @@ public class TestApproximateCountDistinctDouble
     }
 
     @Override
-    public TupleInfo.Type getValueType()
+    public Type getValueType()
     {
-        return DOUBLE;
+        return Types.DOUBLE;
     }
 
     @Override

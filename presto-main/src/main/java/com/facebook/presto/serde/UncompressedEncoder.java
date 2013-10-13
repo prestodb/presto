@@ -40,16 +40,16 @@ public class UncompressedEncoder
     @Override
     public Encoder append(Block block)
     {
-        checkNotNull(block, "tuples is null");
+        checkNotNull(block, "block is null");
         checkState(!finished, "already finished");
 
         if (encoding == null) {
-            blockBuilder = createBlockBuilder(block.getTupleInfo());
+            blockBuilder = createBlockBuilder(block.getType());
             encoding = blockBuilder.getEncoding();
         }
         BlockCursor cursor = block.cursor();
         while (cursor.advanceNextPosition()) {
-            cursor.appendTupleTo(blockBuilder);
+            cursor.appendTo(blockBuilder);
             if (blockBuilder.isFull()) {
                 writeBlock();
             }
@@ -75,6 +75,6 @@ public class UncompressedEncoder
     {
         Block block = blockBuilder.build();
         encoding.writeBlock(sliceOutput, block);
-        blockBuilder = createBlockBuilder(block.getTupleInfo());
+        blockBuilder = createBlockBuilder(block.getType());
     }
 }

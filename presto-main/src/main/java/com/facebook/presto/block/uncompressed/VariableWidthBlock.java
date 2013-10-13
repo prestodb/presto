@@ -17,8 +17,8 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockEncoding;
 import com.facebook.presto.block.RandomAccessBlock;
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.VariableWidthTypeInfo;
+import com.facebook.presto.type.Type;
+import com.facebook.presto.type.VariableWidthType;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import io.airlift.slice.Slice;
@@ -29,23 +29,23 @@ public class VariableWidthBlock
         implements Block
 {
     private final int positionCount;
-    private final VariableWidthTypeInfo typeInfo;
+    private final VariableWidthType type;
     private final Slice slice;
 
-    public VariableWidthBlock(VariableWidthTypeInfo typeInfo, int positionCount, Slice slice)
+    public VariableWidthBlock(VariableWidthType type, int positionCount, Slice slice)
     {
         Preconditions.checkArgument(positionCount >= 0, "positionCount is negative");
-        Preconditions.checkNotNull(typeInfo, "typeInfo is null");
+        Preconditions.checkNotNull(type, "type is null");
         Preconditions.checkNotNull(slice, "data is null");
 
-        this.typeInfo = typeInfo;
+        this.type = type;
         this.slice = slice;
         this.positionCount = positionCount;
     }
 
-    public TupleInfo getTupleInfo()
+    public Type getType()
     {
-        return new TupleInfo(typeInfo.getType());
+        return type;
     }
 
     Slice getRawSlice()
@@ -67,13 +67,13 @@ public class VariableWidthBlock
     @Override
     public BlockCursor cursor()
     {
-        return new VariableWidthBlockCursor(typeInfo, positionCount, slice);
+        return new VariableWidthBlockCursor(type, positionCount, slice);
     }
 
     @Override
     public BlockEncoding getEncoding()
     {
-        return new VariableWidthBlockEncoding(getTupleInfo());
+        return new VariableWidthBlockEncoding(getType());
     }
 
     @Override
@@ -86,7 +86,7 @@ public class VariableWidthBlock
     @Override
     public RandomAccessBlock toRandomAccessBlock()
     {
-        return new VariableWidthRandomAccessBlock(typeInfo, positionCount, slice);
+        return new VariableWidthRandomAccessBlock(type, positionCount, slice);
     }
 
     @Override
@@ -94,7 +94,7 @@ public class VariableWidthBlock
     {
         return Objects.toStringHelper(this)
                 .add("positionCount", positionCount)
-                .add("tupleInfo", typeInfo)
+                .add("type", type)
                 .add("slice", slice)
                 .toString();
     }

@@ -31,12 +31,9 @@ import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEqual
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.operator.SortOrder.ASC_NULLS_LAST;
 import static com.facebook.presto.operator.SortOrder.DESC_NULLS_LAST;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
-import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
-import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
-import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
+import static com.facebook.presto.type.Types.BIGINT;
+import static com.facebook.presto.type.Types.DOUBLE;
+import static com.facebook.presto.type.Types.VARCHAR;
 import static com.facebook.presto.util.MaterializedResult.resultBuilder;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -67,7 +64,7 @@ public class TestTopNOperator
     public void testSampledTopN()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(SINGLE_LONG, SINGLE_DOUBLE)
+        List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
                 .row(1, 0.1)
                 .row(2, 0.2)
                 .pageBreak()
@@ -84,7 +81,7 @@ public class TestTopNOperator
 
         TopNOperatorFactory factory = new TopNOperatorFactory(
                 0,
-                ImmutableList.of(SINGLE_LONG, SINGLE_DOUBLE, SINGLE_LONG),
+                ImmutableList.of(BIGINT, DOUBLE, BIGINT),
                 5,
                 ImmutableList.of(0),
                 ImmutableList.of(DESC_NULLS_LAST),
@@ -93,7 +90,7 @@ public class TestTopNOperator
 
         Operator operator = factory.createOperator(driverContext);
 
-        MaterializedResult expected = resultBuilder(FIXED_INT_64, DOUBLE, FIXED_INT_64)
+        MaterializedResult expected = resultBuilder(BIGINT, DOUBLE, BIGINT)
                 .row(6, 0.6, 2)
                 .row(5, 0.5, 1)
                 .row(5, 0.5, 2)
@@ -106,7 +103,7 @@ public class TestTopNOperator
     public void testSingleFieldKey()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(SINGLE_LONG, SINGLE_DOUBLE)
+        List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
                 .row(1, 0.1)
                 .row(2, 0.2)
                 .pageBreak()
@@ -121,7 +118,7 @@ public class TestTopNOperator
 
         TopNOperatorFactory factory = new TopNOperatorFactory(
                 0,
-                ImmutableList.of(SINGLE_LONG, SINGLE_DOUBLE),
+                ImmutableList.of(BIGINT, DOUBLE),
                 2,
                 ImmutableList.of(0),
                 ImmutableList.of(DESC_NULLS_LAST),
@@ -130,7 +127,7 @@ public class TestTopNOperator
 
         Operator operator = factory.createOperator(driverContext);
 
-        MaterializedResult expected = resultBuilder(FIXED_INT_64, DOUBLE)
+        MaterializedResult expected = resultBuilder(BIGINT, DOUBLE)
                 .row(6, 0.6)
                 .row(5, 0.5)
                 .build();
@@ -142,7 +139,7 @@ public class TestTopNOperator
     public void testMultiFieldKey()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(SINGLE_VARBINARY, SINGLE_LONG)
+        List<Page> input = rowPagesBuilder(VARCHAR, BIGINT)
                 .row("a", 1)
                 .row("b", 2)
                 .pageBreak()
@@ -156,7 +153,7 @@ public class TestTopNOperator
 
         TopNOperatorFactory operatorFactory = new TopNOperatorFactory(
                 0,
-                ImmutableList.of(SINGLE_VARBINARY, SINGLE_LONG),
+                ImmutableList.of(VARCHAR, BIGINT),
                 3,
                 ImmutableList.of(0, 1),
                 ImmutableList.of(DESC_NULLS_LAST, DESC_NULLS_LAST),
@@ -165,7 +162,7 @@ public class TestTopNOperator
 
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        MaterializedResult expected = MaterializedResult.resultBuilder(VARIABLE_BINARY, FIXED_INT_64)
+        MaterializedResult expected = MaterializedResult.resultBuilder(VARCHAR, BIGINT)
                 .row("f", 3)
                 .row("e", 6)
                 .row("d", 7)
@@ -178,7 +175,7 @@ public class TestTopNOperator
     public void testReverseOrder()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(SINGLE_LONG, SINGLE_DOUBLE)
+        List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
                 .row(1, 0.1)
                 .row(2, 0.2)
                 .pageBreak()
@@ -193,7 +190,7 @@ public class TestTopNOperator
 
         TopNOperatorFactory operatorFactory = new TopNOperatorFactory(
                 0,
-                ImmutableList.of(SINGLE_LONG, SINGLE_DOUBLE),
+                ImmutableList.of(BIGINT, DOUBLE),
                 2,
                 ImmutableList.of(0),
                 ImmutableList.of(ASC_NULLS_LAST),
@@ -202,7 +199,7 @@ public class TestTopNOperator
 
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        MaterializedResult expected = resultBuilder(FIXED_INT_64, DOUBLE)
+        MaterializedResult expected = resultBuilder(BIGINT, DOUBLE)
                 .row(-1, -0.1)
                 .row(1, 0.1)
                 .build();

@@ -209,7 +209,7 @@ public final class FunctionAssertions
 
         // execute as standalone operator
         OperatorFactory operatorFactory = compileFilterProject(TRUE_LITERAL, projectionExpression);
-        Type expressionType = Type.fromRaw(operatorFactory.getTupleInfos().get(0).getType());
+        Type expressionType = Type.fromRaw(operatorFactory.getTypes().get(0));
         Object directOperatorValue = selectSingleValue(operatorFactory, session);
         results.add(directOperatorValue);
 
@@ -232,9 +232,9 @@ public final class FunctionAssertions
             try {
                 LocalQueryRunner runner = new LocalQueryRunner(session, EXECUTOR);
                 MaterializedResult result = runner.execute("SELECT " + projection + " FROM dual");
-                assertEquals(result.getTupleInfos().size(), 1);
-                assertEquals(result.getMaterializedTuples().size(), 1);
-                Object queryResult = Iterables.getOnlyElement(result.getMaterializedTuples()).getField(0);
+                assertEquals(result.getTypes().size(), 1);
+                assertEquals(result.getMaterializedRows().size(), 1);
+                Object queryResult = Iterables.getOnlyElement(result.getMaterializedRows()).getField(0);
                 results.add(queryResult);
             }
             catch (RuntimeException e) {
@@ -301,7 +301,7 @@ public final class FunctionAssertions
 
         // execute as standalone operator
         OperatorFactory operatorFactory = compileFilterProject(filterExpression, TRUE_LITERAL);
-        Type expressionType = Type.fromRaw(operatorFactory.getTupleInfos().get(0).getType());
+        Type expressionType = Type.fromRaw(operatorFactory.getTypes().get(0));
         results.add(executeFilter(operatorFactory, session));
 
         if (executeWithNoInputColumns) {
@@ -329,15 +329,15 @@ public final class FunctionAssertions
             try {
                 LocalQueryRunner runner = new LocalQueryRunner(session, EXECUTOR);
                 MaterializedResult result = runner.execute("SELECT TRUE FROM dual WHERE " + filter);
-                assertEquals(result.getTupleInfos().size(), 1);
+                assertEquals(result.getTypes().size(), 1);
 
                 Boolean queryResult;
-                if (result.getMaterializedTuples().isEmpty()) {
+                if (result.getMaterializedRows().isEmpty()) {
                     queryResult = false;
                 }
                 else {
-                    assertEquals(result.getMaterializedTuples().size(), 1);
-                    queryResult = (Boolean) Iterables.getOnlyElement(result.getMaterializedTuples()).getField(0);
+                    assertEquals(result.getMaterializedRows().size(), 1);
+                    queryResult = (Boolean) Iterables.getOnlyElement(result.getMaterializedRows()).getField(0);
                 }
                 results.add(queryResult);
             }

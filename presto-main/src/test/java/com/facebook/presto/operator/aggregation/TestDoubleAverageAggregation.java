@@ -18,7 +18,7 @@ import com.facebook.presto.block.BlockBuilder;
 
 import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static com.facebook.presto.operator.aggregation.AverageAggregations.DOUBLE_AVERAGE;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
+import static com.facebook.presto.type.Types.DOUBLE;
 
 public class TestDoubleAverageAggregation
         extends AbstractTestAggregationFunction
@@ -26,7 +26,7 @@ public class TestDoubleAverageAggregation
     @Override
     public Block getSequenceBlock(int start, int length)
     {
-        BlockBuilder blockBuilder = createBlockBuilder(SINGLE_DOUBLE);
+        BlockBuilder blockBuilder = createBlockBuilder(DOUBLE);
         for (int i = start; i < start + length; i++) {
             blockBuilder.append((double) i);
         }

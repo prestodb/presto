@@ -13,20 +13,20 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 
 import java.util.List;
 
 import static com.facebook.presto.operator.aggregation.ApproximateCountAggregation.APPROXIMATE_COUNT_AGGREGATION;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
+import static com.facebook.presto.type.Types.BIGINT;
 
 public class TestApproximateCountAggregation
         extends AbstractTestApproximateAggregationFunction
 {
     @Override
-    protected TupleInfo getTupleInfo()
+    protected Type getType()
     {
-        return SINGLE_LONG;
+        return BIGINT;
     }
 
     @Override

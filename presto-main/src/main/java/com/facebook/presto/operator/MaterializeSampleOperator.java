@@ -14,7 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -32,20 +32,20 @@ public class MaterializeSampleOperator
     {
         private final int operatorId;
         private final int sampleWeightChannel;
-        private final List<TupleInfo> tupleInfos;
+        private final List<Type> types;
         private boolean closed;
 
-        public MaterializeSampleOperatorFactory(int operatorId, List<TupleInfo> outputTupleInfos, int sampleWeightChannel)
+        public MaterializeSampleOperatorFactory(int operatorId, List<Type> outputTypes, int sampleWeightChannel)
         {
             this.operatorId = operatorId;
             this.sampleWeightChannel = sampleWeightChannel;
-            this.tupleInfos = ImmutableList.copyOf(checkNotNull(outputTupleInfos, "outputTupleInfos is null"));
+            this.types = ImmutableList.copyOf(checkNotNull(outputTypes, "outputTypes is null"));
         }
 
         @Override
-        public List<TupleInfo> getTupleInfos()
+        public List<Type> getTypes()
         {
-            return tupleInfos;
+            return types;
         }
 
         @Override
@@ -53,7 +53,7 @@ public class MaterializeSampleOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, MaterializeSampleOperator.class.getSimpleName());
-            return new MaterializeSampleOperator(operatorContext, tupleInfos, sampleWeightChannel);
+            return new MaterializeSampleOperator(operatorContext, types, sampleWeightChannel);
         }
 
         @Override
@@ -64,7 +64,7 @@ public class MaterializeSampleOperator
     }
 
     private final OperatorContext operatorContext;
-    private final List<TupleInfo> tupleInfos;
+    private final List<Type> types;
     private final int sampleWeightChannel;
     private boolean finishing;
     private BlockCursor[] cursors;
@@ -72,13 +72,13 @@ public class MaterializeSampleOperator
     private long remainingWeight;
     private PageBuilder pageBuilder;
 
-    public MaterializeSampleOperator(OperatorContext operatorContext, List<TupleInfo> tupleInfos, int sampleWeightChannel)
+    public MaterializeSampleOperator(OperatorContext operatorContext, List<Type> types, int sampleWeightChannel)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         this.sampleWeightChannel = sampleWeightChannel;
-        this.tupleInfos = ImmutableList.copyOf(checkNotNull(tupleInfos, "tupleInfos is null"));
-        this.pageBuilder = new PageBuilder(tupleInfos);
-        this.cursors = new BlockCursor[tupleInfos.size()];
+        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
+        this.pageBuilder = new PageBuilder(types);
+        this.cursors = new BlockCursor[types.size()];
     }
 
     @Override
@@ -88,9 +88,9 @@ public class MaterializeSampleOperator
     }
 
     @Override
-    public List<TupleInfo> getTupleInfos()
+    public List<Type> getTypes()
     {
-        return tupleInfos;
+        return types;
     }
 
     @Override
@@ -183,7 +183,7 @@ public class MaterializeSampleOperator
             pageBuilder.declarePosition();
 
             for (int i = 0; i < cursors.length; i++) {
-                cursors[i].appendTupleTo(pageBuilder.getBlockBuilder(i));
+                cursors[i].appendTo(pageBuilder.getBlockBuilder(i));
             }
         }
 

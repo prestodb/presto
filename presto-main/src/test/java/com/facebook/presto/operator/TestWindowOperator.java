@@ -33,14 +33,10 @@ import java.util.concurrent.ExecutorService;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
 import static com.facebook.presto.operator.OperatorAssertion.toPages;
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_BOOLEAN;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
-import static com.facebook.presto.tuple.TupleInfo.Type.BOOLEAN;
-import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
-import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
-import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
+import static com.facebook.presto.type.Types.BIGINT;
+import static com.facebook.presto.type.Types.BOOLEAN;
+import static com.facebook.presto.type.Types.DOUBLE;
+import static com.facebook.presto.type.Types.VARCHAR;
 import static com.facebook.presto.util.MaterializedResult.resultBuilder;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -73,7 +69,7 @@ public class TestWindowOperator
     public void testRowNumber()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(SINGLE_LONG, SINGLE_DOUBLE)
+        List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
                 .row(2, 0.3)
                 .row(4, 0.2)
                 .row(6, 0.1)
@@ -84,7 +80,7 @@ public class TestWindowOperator
 
         WindowOperatorFactory operatorFactory = new WindowOperatorFactory(
                 0,
-                ImmutableList.of(SINGLE_LONG, SINGLE_DOUBLE),
+                ImmutableList.of(BIGINT, DOUBLE),
                 ints(1, 0),
                 ROW_NUMBER,
                 ints(),
@@ -94,7 +90,7 @@ public class TestWindowOperator
 
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        MaterializedResult expected = resultBuilder(DOUBLE, FIXED_INT_64, FIXED_INT_64)
+        MaterializedResult expected = resultBuilder(DOUBLE, BIGINT, BIGINT)
                 .row(-0.1, -1, 1)
                 .row(0.3, 2, 2)
                 .row(0.2, 4, 3)
@@ -109,7 +105,7 @@ public class TestWindowOperator
     public void testRowNumberPartition()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(SINGLE_VARBINARY, SINGLE_LONG, SINGLE_DOUBLE, SINGLE_BOOLEAN)
+        List<Page> input = rowPagesBuilder(VARCHAR, BIGINT, DOUBLE, BOOLEAN)
                 .row("b", -1, -0.1, true)
                 .row("a", 2, 0.3, false)
                 .row("a", 4, 0.2, true)
@@ -120,7 +116,7 @@ public class TestWindowOperator
 
         WindowOperatorFactory operatorFactory = new WindowOperatorFactory(
                 0,
-                ImmutableList.of(SINGLE_VARBINARY, SINGLE_LONG, SINGLE_DOUBLE, SINGLE_BOOLEAN),
+                ImmutableList.of(VARCHAR, BIGINT, DOUBLE, BOOLEAN),
                 ints(0, 1, 2, 3),
                 ROW_NUMBER,
                 ints(0),
@@ -130,7 +126,7 @@ public class TestWindowOperator
 
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        MaterializedResult expected = resultBuilder(VARIABLE_BINARY, FIXED_INT_64, DOUBLE, BOOLEAN, FIXED_INT_64)
+        MaterializedResult expected = resultBuilder(VARCHAR, BIGINT, DOUBLE, BOOLEAN, BIGINT)
                 .row("a", 2, 0.3, false, 1)
                 .row("a", 4, 0.2, true, 2)
                 .row("a", 6, 0.1, true, 3)
@@ -145,7 +141,7 @@ public class TestWindowOperator
     public void testRowNumberArbitrary()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(SINGLE_LONG)
+        List<Page> input = rowPagesBuilder(BIGINT)
                 .row(1)
                 .row(3)
                 .row(5)
@@ -159,7 +155,7 @@ public class TestWindowOperator
 
         WindowOperatorFactory operatorFactory = new WindowOperatorFactory(
                 0,
-                ImmutableList.of(SINGLE_LONG),
+                ImmutableList.of(BIGINT),
                 ints(0),
                 ROW_NUMBER,
                 ints(),
@@ -168,7 +164,7 @@ public class TestWindowOperator
                 10);
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        MaterializedResult expected = resultBuilder(FIXED_INT_64, FIXED_INT_64)
+        MaterializedResult expected = resultBuilder(BIGINT, BIGINT)
                 .row(1, 1)
                 .row(3, 2)
                 .row(5, 3)
@@ -186,7 +182,7 @@ public class TestWindowOperator
     public void testMemoryLimit()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(SINGLE_LONG, SINGLE_DOUBLE)
+        List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
                 .row(1, 0.1)
                 .row(2, 0.2)
                 .pageBreak()
@@ -201,7 +197,7 @@ public class TestWindowOperator
 
         WindowOperatorFactory operatorFactory = new WindowOperatorFactory(
                 0,
-                ImmutableList.of(SINGLE_LONG, SINGLE_DOUBLE),
+                ImmutableList.of(BIGINT, DOUBLE),
                 ints(1),
                 ROW_NUMBER,
                 ints(),

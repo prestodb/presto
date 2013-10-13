@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.block.uncompressed;
 
-import com.facebook.presto.tuple.FixedWidthTypeInfo;
+import com.facebook.presto.type.FixedWidthType;
 import com.google.common.base.Objects;
 import io.airlift.slice.Slice;
 
@@ -26,9 +26,9 @@ public class FixedWidthBlock
     private final Slice slice;
     private final int positionCount;
 
-    public FixedWidthBlock(FixedWidthTypeInfo typeInfo, int positionCount, Slice slice)
+    public FixedWidthBlock(FixedWidthType type, int positionCount, Slice slice)
     {
-        super(typeInfo);
+        super(type);
 
         checkArgument(positionCount >= 0, "positionCount is negative");
         this.positionCount = positionCount;
@@ -38,9 +38,7 @@ public class FixedWidthBlock
 
     public FixedWidthBlock(FixedWidthBlock block)
     {
-        super(checkNotNull(block, "block is null").getTypeInfo());
-        this.slice = block.slice;
-        this.positionCount = block.positionCount;
+        this(checkNotNull(block, "block is null").getType(), block.positionCount, block.slice);
     }
 
     @Override

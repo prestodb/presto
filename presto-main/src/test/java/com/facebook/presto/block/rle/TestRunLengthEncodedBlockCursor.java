@@ -19,7 +19,7 @@ import com.facebook.presto.block.RandomAccessBlock;
 
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
+import static com.facebook.presto.type.Types.VARCHAR;
 
 public class TestRunLengthEncodedBlockCursor
         extends AbstractTestBlockCursor
@@ -27,7 +27,7 @@ public class TestRunLengthEncodedBlockCursor
     @Override
     protected RunLengthEncodedBlockCursor createTestCursor()
     {
-        RandomAccessBlock value = createBlockBuilder(SINGLE_VARBINARY)
+        RandomAccessBlock value = createBlockBuilder(VARCHAR)
                 .appendObject("cherry")
                 .build()
                 .toRandomAccessBlock();

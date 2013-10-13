@@ -14,7 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.block.Block;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -33,21 +33,21 @@ public class ValuesOperator
             implements OperatorFactory
     {
         private final int operatorId;
-        private final List<TupleInfo> tupleInfos;
+        private final List<Type> types;
         private final List<Page> pages;
         private boolean closed;
 
         public ValuesOperatorFactory(int operatorId, List<Page> pages)
         {
             this.operatorId = operatorId;
-            this.tupleInfos = extractTupleInfos(pages);
+            this.types = extractTypes(pages);
             this.pages = pages;
         }
 
         @Override
-        public List<TupleInfo> getTupleInfos()
+        public List<Type> getTypes()
         {
-            return tupleInfos;
+            return types;
         }
 
         @Override
@@ -66,7 +66,7 @@ public class ValuesOperator
     }
 
     private final OperatorContext operatorContext;
-    private final ImmutableList<TupleInfo> tupleInfos;
+    private final ImmutableList<Type> types;
     private final Iterator<Page> pages;
 
     public ValuesOperator(OperatorContext operatorContext, List<Page> pages)
@@ -76,7 +76,7 @@ public class ValuesOperator
         checkNotNull(pages, "pages is null");
         checkArgument(!pages.isEmpty(), "pages is empty");
 
-        tupleInfos = extractTupleInfos(pages);
+        this.types = extractTypes(pages);
         this.pages = ImmutableList.copyOf(pages).iterator();
     }
 
@@ -87,9 +87,9 @@ public class ValuesOperator
     }
 
     @Override
-    public List<TupleInfo> getTupleInfos()
+    public List<Type> getTypes()
     {
-        return tupleInfos;
+        return types;
     }
 
     @Override
@@ -135,11 +135,11 @@ public class ValuesOperator
         return page;
     }
 
-    private static ImmutableList<TupleInfo> extractTupleInfos(List<Page> pages)
+    private static ImmutableList<Type> extractTypes(List<Page> pages)
     {
-        ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
+        ImmutableList.Builder<Type> tupleInfos = ImmutableList.builder();
         for (Block block : pages.get(0).getBlocks()) {
-            tupleInfos.add(block.getTupleInfo());
+            tupleInfos.add(block.getType());
         }
         return tupleInfos.build();
     }

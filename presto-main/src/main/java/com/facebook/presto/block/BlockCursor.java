@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.block;
 
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import io.airlift.slice.Slice;
 
 /**
@@ -31,9 +31,9 @@ import io.airlift.slice.Slice;
 public interface BlockCursor
 {
     /**
-     * Gets the type of all tuples in this cursor
+     * Gets the type of this cursor
      */
-    TupleInfo getTupleInfo();
+    Type getType();
 
     /**
      * Gets the number of positions remaining in this cursor.
@@ -88,44 +88,49 @@ public interface BlockCursor
     Block getRegionAndAdvance(int length);
 
     /**
-     * Gets the current tuple.
+     * Gets the current value as a single element block.
      *
      * @throws IllegalStateException if this cursor is not at a valid position
      */
     RandomAccessBlock getSingleValueBlock();
 
     /**
-     * Gets a boolean at the current position.
+     * Gets the current value as a boolean.
      *
      * @throws IllegalStateException if this cursor is not at a valid position
      */
     boolean getBoolean();
 
     /**
-     * Gets a long at the current position.
+     * Gets the current value as a long.
      *
      * @throws IllegalStateException if this cursor is not at a valid position
      */
     long getLong();
 
     /**
-     * Gets a double at the current position.
+     * Gets the current value as a double.
      *
      * @throws IllegalStateException if this cursor is not at a valid position
      */
     double getDouble();
 
     /**
-     * Gets a slice at the current position.
+     * Gets the current value as a Slice.
      *
      * @throws IllegalStateException if this cursor is not at a valid position
      */
     Slice getSlice();
 
+    /**
+     * Gets the current value as an Object.
+     *
+     * @throws IllegalStateException if this cursor is not at a valid position
+     */
     Object getObjectValue();
 
     /**
-     * Is the current position null?
+     * Is the current value null.
      *
      * @throws IllegalStateException if this cursor is not at a valid position
      */
@@ -142,5 +147,5 @@ public interface BlockCursor
 
     int calculateHashCode();
 
-    void appendTupleTo(BlockBuilder blockBuilder);
+    void appendTo(BlockBuilder blockBuilder);
 }

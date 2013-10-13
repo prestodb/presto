@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.block.uncompressed;
 
-import com.facebook.presto.tuple.VariableWidthTypeInfo;
+import com.facebook.presto.type.VariableWidthType;
 import com.google.common.base.Objects;
 import io.airlift.slice.Slice;
 
@@ -25,22 +25,22 @@ public class VariableWidthRandomAccessBlock
     private final Slice slice;
     private final int[] offsets;
 
-    public VariableWidthRandomAccessBlock(VariableWidthTypeInfo typeInfo, Slice slice, int[] offsets)
+    public VariableWidthRandomAccessBlock(VariableWidthType type, Slice slice, int[] offsets)
     {
-        super(typeInfo);
+        super(type);
 
         this.slice = slice;
         this.offsets = offsets;
     }
 
-    public VariableWidthRandomAccessBlock(VariableWidthTypeInfo typeInfo, int positionCount, Slice slice)
+    public VariableWidthRandomAccessBlock(VariableWidthType type, int positionCount, Slice slice)
     {
-        super(typeInfo);
+        super(type);
 
         this.slice = slice;
         this.offsets = new int[positionCount];
 
-        VariableWidthBlockCursor cursor = new VariableWidthBlockCursor(typeInfo, getPositionCount(), slice);
+        VariableWidthBlockCursor cursor = new VariableWidthBlockCursor(type, getPositionCount(), slice);
         for (int position = 0; position < positionCount; position++) {
             checkState(cursor.advanceNextPosition());
             offsets[position] = cursor.getRawOffset();

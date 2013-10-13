@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.LimitOperator.LimitOperatorFactory;
 import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.type.Types;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterMethod;
@@ -27,7 +28,7 @@ import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.operator.OperatorAssertion.appendSampleWeight;
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
+import static com.facebook.presto.type.Types.BIGINT;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
@@ -57,17 +58,17 @@ public class TestLimitOperator
     public void testSampledLimit()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(SINGLE_LONG)
+        List<Page> input = rowPagesBuilder(Types.BIGINT)
                 .addSequencePage(2, 1)
                 .addSequencePage(2, 4)
                 .addSequencePage(2, 6)
                 .build();
         input = appendSampleWeight(input, 2);
 
-        OperatorFactory operatorFactory = new LimitOperatorFactory(0, ImmutableList.of(SINGLE_LONG), 5, Optional.of(input.get(0).getChannelCount() - 1));
+        OperatorFactory operatorFactory = new LimitOperatorFactory(0, ImmutableList.of(BIGINT), 5, Optional.of(input.get(0).getChannelCount() - 1));
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        List<Page> expected = rowPagesBuilder(SINGLE_LONG, SINGLE_LONG)
+        List<Page> expected = rowPagesBuilder(BIGINT, BIGINT)
                 .row(1, 2)
                 .row(2, 2)
                 .pageBreak()
@@ -81,16 +82,16 @@ public class TestLimitOperator
     public void testLimitWithPageAlignment()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(SINGLE_LONG)
+        List<Page> input = rowPagesBuilder(BIGINT)
                 .addSequencePage(3, 1)
                 .addSequencePage(2, 4)
                 .addSequencePage(2, 6)
                 .build();
 
-        OperatorFactory operatorFactory = new LimitOperatorFactory(0, ImmutableList.of(SINGLE_LONG), 5, Optional.<Integer>absent());
+        OperatorFactory operatorFactory = new LimitOperatorFactory(0, ImmutableList.of(BIGINT), 5, Optional.<Integer>absent());
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        List<Page> expected = rowPagesBuilder(SINGLE_LONG)
+        List<Page> expected = rowPagesBuilder(BIGINT)
                 .addSequencePage(3, 1)
                 .addSequencePage(2, 4)
                 .build();
@@ -102,16 +103,16 @@ public class TestLimitOperator
     public void testLimitWithBlockView()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(SINGLE_LONG)
+        List<Page> input = rowPagesBuilder(BIGINT)
                 .addSequencePage(3, 1)
                 .addSequencePage(2, 4)
                 .addSequencePage(2, 6)
                 .build();
 
-        OperatorFactory operatorFactory = new LimitOperatorFactory(0, ImmutableList.of(SINGLE_LONG), 6, Optional.<Integer>absent());
+        OperatorFactory operatorFactory = new LimitOperatorFactory(0, ImmutableList.of(BIGINT), 6, Optional.<Integer>absent());
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        List<Page> expected = rowPagesBuilder(SINGLE_LONG)
+        List<Page> expected = rowPagesBuilder(BIGINT)
                 .addSequencePage(3, 1)
                 .addSequencePage(2, 4)
                 .addSequencePage(1, 6)

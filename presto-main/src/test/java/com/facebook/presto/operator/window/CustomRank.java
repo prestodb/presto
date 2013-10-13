@@ -14,7 +14,8 @@
 package com.facebook.presto.operator.window;
 
 import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
+import com.facebook.presto.type.Types;
 
 public class CustomRank
         implements WindowFunction
@@ -23,9 +24,9 @@ public class CustomRank
     private long count;
 
     @Override
-    public TupleInfo getTupleInfo()
+    public Type getType()
     {
-        return TupleInfo.SINGLE_LONG;
+        return Types.BIGINT;
     }
 
     @Override
