@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.block;
 
-import com.facebook.presto.serde.BlockEncoding;
 import com.facebook.presto.tuple.TupleInfo;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;

@@ -17,7 +17,6 @@ import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.operator.SortOrder;
-import com.facebook.presto.serde.RunLengthBlockEncoding;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Objects;
 import io.airlift.slice.Slice;

@@ -11,9 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.serde;
+package com.facebook.presto.block;
 
-import com.facebook.presto.serde.BlockEncoding.BlockEncodingFactory;
+import com.facebook.presto.block.BlockEncoding.BlockEncodingFactory;
 import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.SliceInput;
