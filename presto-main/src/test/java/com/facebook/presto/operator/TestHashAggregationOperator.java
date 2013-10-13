@@ -47,7 +47,6 @@ import static com.facebook.presto.operator.aggregation.CountColumnAggregations.C
 import static com.facebook.presto.operator.aggregation.LongSumAggregation.LONG_SUM;
 import static com.facebook.presto.operator.aggregation.VarBinaryMaxAggregation.VAR_BINARY_MAX;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_BOOLEAN;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
@@ -55,6 +54,8 @@ import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 import static com.facebook.presto.util.MaterializedResult.resultBuilder;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
+import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 
@@ -258,7 +259,8 @@ public class TestHashAggregationOperator
     @Test
     public void testMultiSliceAggregationOutput()
     {
-        long fixedWidthSize = SINGLE_LONG.getFixedSize() + SINGLE_DOUBLE.getFixedSize() + SINGLE_DOUBLE.getFixedSize();
+        // estimate the number of entries required to create 1.5 pages of results
+        int fixedWidthSize = SIZE_OF_LONG + SIZE_OF_DOUBLE + SIZE_OF_DOUBLE;
         int multiSlicePositionCount = (int) (1.5 * PageBuilder.DEFAULT_MAX_PAGE_SIZE.toBytes() / fixedWidthSize);
 
         List<Page> input = rowPagesBuilder(SINGLE_VARBINARY, SINGLE_LONG)
