@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.operator.HttpPageBufferClient.ClientCallback;
+import com.facebook.presto.serde.BlockEncodingManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Futures;
@@ -52,6 +53,7 @@ public class ExchangeClient
 {
     private static final Page NO_MORE_PAGES = new Page(0);
 
+    private final BlockEncodingManager blockEncodingManager;
     private final long maxBufferedBytes;
     private final DataSize maxResponseSize;
     private final int concurrentRequestMultiplier;
@@ -84,12 +86,15 @@ public class ExchangeClient
 
     private final AtomicBoolean closed = new AtomicBoolean();
 
-    public ExchangeClient(DataSize maxBufferedBytes,
+    public ExchangeClient(
+            BlockEncodingManager blockEncodingManager,
+            DataSize maxBufferedBytes,
             DataSize maxResponseSize,
             int concurrentRequestMultiplier,
             AsyncHttpClient httpClient,
             Executor executor)
     {
+        this.blockEncodingManager = blockEncodingManager;
         this.maxBufferedBytes = maxBufferedBytes.toBytes();
         this.maxResponseSize = maxResponseSize;
         this.concurrentRequestMultiplier = concurrentRequestMultiplier;
@@ -233,7 +238,7 @@ public class ExchangeClient
         // add clients for new locations
         for (URI location : locations) {
             if (!allClients.containsKey(location)) {
-                HttpPageBufferClient client = new HttpPageBufferClient(httpClient, maxResponseSize, location, new ExchangeClientCallback(), executor);
+                HttpPageBufferClient client = new HttpPageBufferClient(httpClient, maxResponseSize, location, new ExchangeClientCallback(), blockEncodingManager, executor);
                 allClients.put(location, client);
                 queuedClients.add(client);
             }

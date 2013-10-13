@@ -28,6 +28,9 @@ import io.airlift.slice.SliceOutput;
 public class UncompressedBlockEncoding
         implements BlockEncoding
 {
+    public static final BlockEncodingFactory<UncompressedBlockEncoding> FACTORY = new UncompressedBlockEncodingFactory();
+    private static final String NAME = "RAW";
+
     private final TupleInfo tupleInfo;
 
     public UncompressedBlockEncoding(TupleInfo tupleInfo)
@@ -36,10 +39,10 @@ public class UncompressedBlockEncoding
         this.tupleInfo = tupleInfo;
     }
 
-    public UncompressedBlockEncoding(SliceInput input)
+    @Override
+    public String getName()
     {
-        Preconditions.checkNotNull(input, "input is null");
-        tupleInfo = TupleInfoSerde.readTupleInfo(input);
+        return NAME;
     }
 
     @Override
@@ -81,8 +84,26 @@ public class UncompressedBlockEncoding
                 .writeBytes(slice);
     }
 
-    public static void serialize(SliceOutput output, UncompressedBlockEncoding encoding)
+    private static class UncompressedBlockEncodingFactory
+            implements BlockEncodingFactory<UncompressedBlockEncoding>
     {
-        TupleInfoSerde.writeTupleInfo(output, encoding.tupleInfo);
+        @Override
+        public String getName()
+        {
+            return NAME;
+        }
+
+        @Override
+        public UncompressedBlockEncoding readEncoding(BlockEncodingManager blockEncodingManager, SliceInput input)
+        {
+            TupleInfo tupleInfo = TupleInfoSerde.readTupleInfo(input);
+            return new UncompressedBlockEncoding(tupleInfo);
+        }
+
+        @Override
+        public void writeEncoding(BlockEncodingManager blockEncodingManager, SliceOutput output, UncompressedBlockEncoding blockEncoding)
+        {
+            TupleInfoSerde.writeTupleInfo(output, blockEncoding.tupleInfo);
+        }
     }
 }

@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.PageBuilder;
+import com.facebook.presto.serde.BlockEncodingManager;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -26,6 +27,7 @@ import java.util.Random;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.approximateAggregationWithinErrorBound;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertApproximateAggregation;
 import static com.facebook.presto.operator.aggregation.LongSumAggregation.LONG_SUM;
+import static com.facebook.presto.serde.TestingBlockEncodingManager.createTestingBlockEncodingManager;
 import static org.testng.Assert.assertTrue;
 
 public class TestBootstrappedAggregation
@@ -45,7 +47,7 @@ public class TestBootstrappedAggregation
             }
         }
 
-        AggregationFunction function = new DeterministicBootstrappedAggregation(LONG_SUM);
+        AggregationFunction function = new DeterministicBootstrappedAggregation(createTestingBlockEncodingManager(), LONG_SUM);
 
         assertApproximateAggregation(function, 1, 0.99, (double) sum, builder.build());
     }
@@ -70,7 +72,7 @@ public class TestBootstrappedAggregation
                 }
             }
 
-            AggregationFunction function = new DeterministicBootstrappedAggregation(LONG_SUM);
+            AggregationFunction function = new DeterministicBootstrappedAggregation(createTestingBlockEncodingManager(), LONG_SUM);
 
             successes += approximateAggregationWithinErrorBound(function, 1, 0.5, (double) sum, builder.build()) ? 1 : 0;
         }
@@ -82,9 +84,9 @@ public class TestBootstrappedAggregation
     private static class DeterministicBootstrappedAggregation
             extends BootstrappedAggregation
     {
-        public DeterministicBootstrappedAggregation(AggregationFunction function)
+        public DeterministicBootstrappedAggregation(BlockEncodingManager blockEncodingManager, AggregationFunction function)
         {
-            super(function);
+            super(blockEncodingManager, function);
         }
 
         @Override
