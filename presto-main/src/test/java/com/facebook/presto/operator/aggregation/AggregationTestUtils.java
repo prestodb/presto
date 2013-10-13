@@ -28,7 +28,7 @@ import com.google.common.primitives.Ints;
 import java.util.Arrays;
 import java.util.Collections;
 
-import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
+import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.facebook.presto.type.Types.BOOLEAN;
 import static org.testng.Assert.assertEquals;
 
@@ -82,7 +82,7 @@ public final class AggregationTestUtils
         Page[] maskedPages = new Page[pages.length];
         for (int i = 0; i < pages.length; i++) {
             Page page = pages[i];
-            BlockBuilder blockBuilder = createBlockBuilder(BOOLEAN);
+            BlockBuilder blockBuilder = BOOLEAN.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
             for (int j = 0; j < page.getPositionCount(); j++) {
                 blockBuilder.append(maskValue);
             }
@@ -225,7 +225,7 @@ public final class AggregationTestUtils
             partialAggregation.addInput(createGroupByIdBlock(0, page.getPositionCount()), page);
         }
 
-        BlockBuilder partialOut = createBlockBuilder(partialAggregation.getIntermediateType());
+        BlockBuilder partialOut = partialAggregation.getIntermediateType().createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
         partialAggregation.evaluateIntermediate(0, partialOut);
         Block partialBlock = partialOut.build();
 
@@ -237,7 +237,7 @@ public final class AggregationTestUtils
 
     public static GroupByIdBlock createGroupByIdBlock(int groupId, int positions)
     {
-        BlockBuilder blockBuilder = createBlockBuilder(Types.BIGINT);
+        BlockBuilder blockBuilder = Types.BIGINT.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
         for (int i = 0; i < positions; i++) {
             blockBuilder.append(groupId);
         }
@@ -310,7 +310,7 @@ public final class AggregationTestUtils
 
     private static RunLengthEncodedBlock createNullRLEBlock(int positionCount)
     {
-        RandomAccessBlock value = createBlockBuilder(BOOLEAN)
+        RandomAccessBlock value = BOOLEAN.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE)
                 .appendNull()
                 .build()
                 .toRandomAccessBlock();
@@ -320,7 +320,7 @@ public final class AggregationTestUtils
 
     private static Object getGroupValue(GroupedAccumulator groupedAggregation, int groupId)
     {
-        BlockBuilder out = createBlockBuilder(groupedAggregation.getFinalType());
+        BlockBuilder out = groupedAggregation.getFinalType().createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
         groupedAggregation.evaluateFinal(groupId, out);
         return BlockAssertions.getOnlyValue(out.build());
     }

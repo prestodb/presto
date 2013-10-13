@@ -21,7 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
-import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
+import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.facebook.presto.operator.aggregation.ApproximateAverageAggregations.LONG_APPROXIMATE_AVERAGE_AGGREGATION;
 import static com.facebook.presto.type.Types.BIGINT;
 
@@ -31,7 +31,7 @@ public class TestLongApproximateAverageAggregation
     @Override
     public Block getSequenceBlock(int start, int length)
     {
-        BlockBuilder blockBuilder = createBlockBuilder(BIGINT);
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
         for (int i = start; i < start + length; i++) {
             blockBuilder.append(i);
         }

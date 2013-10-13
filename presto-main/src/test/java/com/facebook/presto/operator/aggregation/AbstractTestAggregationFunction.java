@@ -21,7 +21,7 @@ import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 import com.facebook.presto.type.Type;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
+import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 
 public abstract class AbstractTestAggregationFunction
@@ -65,7 +65,7 @@ public abstract class AbstractTestAggregationFunction
             throws Exception
     {
         Type type = getSequenceBlock(0, 10).getType();
-        RandomAccessBlock nullValueBlock = createBlockBuilder(type)
+        RandomAccessBlock nullValueBlock = type.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE)
                 .appendNull()
                 .build()
                 .toRandomAccessBlock();
@@ -95,7 +95,7 @@ public abstract class AbstractTestAggregationFunction
 
     public Block createAlternatingNullsBlock(Block sequenceBlock)
     {
-        BlockBuilder blockBuilder = createBlockBuilder(sequenceBlock.getType());
+        BlockBuilder blockBuilder = sequenceBlock.getType().createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
         BlockCursor cursor = sequenceBlock.cursor();
         while (cursor.advanceNextPosition()) {
             // append null

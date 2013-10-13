@@ -18,12 +18,15 @@ import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.spi.ColumnType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.airlift.units.DataSize;
 
 public interface Type
 {
     String getName();
 
     Object getObjectValue(Slice slice, int offset);
+
+    BlockBuilder createBlockBuilder(DataSize maxBlockSize);
 
     boolean equals(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset);
 

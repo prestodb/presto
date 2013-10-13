@@ -26,7 +26,7 @@ import javax.annotation.Nullable;
 
 import java.util.List;
 
-import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
+import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public abstract class SimpleAggregationFunction
@@ -230,7 +230,7 @@ public abstract class SimpleAggregationFunction
         @Override
         public final Block evaluateIntermediate()
         {
-            BlockBuilder out = createBlockBuilder(intermediateType);
+            BlockBuilder out = intermediateType.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
             evaluateIntermediate(out);
             return out.build();
         }
@@ -238,7 +238,7 @@ public abstract class SimpleAggregationFunction
         @Override
         public final Block evaluateFinal()
         {
-            BlockBuilder out = createBlockBuilder(finalType);
+            BlockBuilder out = finalType.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
             evaluateFinal(out);
             return out.build();
         }

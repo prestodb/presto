@@ -29,7 +29,7 @@ import javax.annotation.Nullable;
 
 import java.util.Map;
 
-import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
+import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.facebook.presto.connector.dual.DualMetadata.DUAL_METADATA_MANAGER;
 import static com.facebook.presto.sql.analyzer.Type.BIGINT;
 import static com.facebook.presto.sql.analyzer.Type.BOOLEAN;
@@ -172,7 +172,7 @@ public class TestInterpretedProjectionFunction
         );
 
         // create output
-        BlockBuilder builder = createBlockBuilder(outputType.getRawType());
+        BlockBuilder builder = outputType.getRawType().createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
 
         // project
         projectionFunction.project(channels, builder);
@@ -184,7 +184,7 @@ public class TestInterpretedProjectionFunction
 
     private static BlockCursor createCursor(com.facebook.presto.sql.analyzer.Type type, Object value)
     {
-        BlockCursor cursor = createBlockBuilder(type.getRawType()).appendObject(value).build().cursor();
+        BlockCursor cursor = type.getRawType().createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE).appendObject(value).build().cursor();
         assertTrue(cursor.advanceNextPosition());
         return cursor;
     }

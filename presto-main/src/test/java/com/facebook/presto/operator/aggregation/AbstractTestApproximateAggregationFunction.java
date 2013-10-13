@@ -26,7 +26,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
-import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
+import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestApproximateAggregationFunction
@@ -60,7 +60,7 @@ public abstract class AbstractTestApproximateAggregationFunction
             //Compute Sampled Value using sampledList (numberOfRuns times)
             Iterable<Number> sampledList = Iterables.limit(shuffle(inputList), (int) (inputList.size() * sampleRatio));
 
-            BlockBuilder builder = createBlockBuilder(type);
+            BlockBuilder builder = type.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
             for (Number sample : sampledList) {
                 if (sample instanceof Double) {
                     builder.append(sample.doubleValue());

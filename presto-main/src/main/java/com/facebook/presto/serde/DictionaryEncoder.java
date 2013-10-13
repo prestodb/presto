@@ -20,8 +20,8 @@ import com.facebook.presto.block.BlockEncoding;
 import com.facebook.presto.block.dictionary.DictionaryBlockEncoding;
 import com.facebook.presto.type.Type;
 
-import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static com.facebook.presto.type.Types.BIGINT;
+import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -50,7 +50,7 @@ public class DictionaryEncoder
         }
 
         BlockCursor cursor = block.cursor();
-        BlockBuilder idBlockBuilder = createBlockBuilder(BIGINT);
+        BlockBuilder idBlockBuilder = BIGINT.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
         while (cursor.advanceNextPosition()) {
             int key = dictionaryBuilder.putIfAbsent(cursor);
             idBlockBuilder.append(key);
