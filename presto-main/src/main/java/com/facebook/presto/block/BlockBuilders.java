@@ -13,13 +13,14 @@
  */
 package com.facebook.presto.block;
 
-import com.facebook.presto.tuple.FixedWidthTypeInfo;
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TypeInfo;
-import com.facebook.presto.tuple.VariableWidthTypeInfo;
+import com.facebook.presto.type.FixedWidthType;
+import com.facebook.presto.type.Type;
+import com.facebook.presto.type.VariableWidthType;
+import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 
 public final class BlockBuilders
@@ -28,25 +29,37 @@ public final class BlockBuilders
     {
     }
 
-    public static BlockBuilder createBlockBuilder(TupleInfo tupleInfo)
+    public static BlockBuilder createBlockBuilder(Type type)
     {
-        return createBlockBuilder(tupleInfo, BlockBuilder.DEFAULT_MAX_BLOCK_SIZE, BlockBuilder.DEFAULT_INITIAL_BUFFER_SIZE);
+        return createBlockBuilder(type, BlockBuilder.DEFAULT_MAX_BLOCK_SIZE, BlockBuilder.DEFAULT_INITIAL_BUFFER_SIZE);
     }
 
-    public static BlockBuilder createBlockBuilder(TupleInfo tupleInfo, DataSize maxBlockSize, DataSize initialBufferSize)
+    public static BlockBuilder createBlockBuilder(Type type, DataSize maxBlockSize, DataSize initialBufferSize)
     {
-        TypeInfo typeInfo = tupleInfo.getTypeInfo();
-        if (typeInfo instanceof FixedWidthTypeInfo) {
-            return new FixedWidthBlockBuilder((FixedWidthTypeInfo) typeInfo, maxBlockSize, initialBufferSize);
+        if (type instanceof FixedWidthType) {
+            return new FixedWidthBlockBuilder((FixedWidthType) type, maxBlockSize, initialBufferSize);
         }
         else {
-            return new VariableWidthBlockBuilder((VariableWidthTypeInfo) typeInfo, maxBlockSize, initialBufferSize);
+            return new VariableWidthBlockBuilder((VariableWidthType) type, maxBlockSize, initialBufferSize);
         }
     }
 
-    public static BlockBuilder createFixedSizeBlockBuilder(FixedWidthTypeInfo typeInfo, int positionCount)
+    public static BlockBuilder createBlockBuilder(Type type, Slice slice)
     {
-        int entrySize = typeInfo.getSize() + SIZE_OF_BYTE;
-        return new FixedWidthBlockBuilder(typeInfo, Slices.allocate(entrySize * positionCount));
+        if (type instanceof FixedWidthType) {
+            return new FixedWidthBlockBuilder((FixedWidthType) type, slice);
+        }
+        else {
+            return new VariableWidthBlockBuilder((VariableWidthType) type, slice);
+        }
+    }
+
+    public static BlockBuilder createFixedSizeBlockBuilder(Type type, int positionCount)
+    {
+        checkArgument(type instanceof FixedWidthType, "type is not fixed width");
+        FixedWidthType fixedWidthType = (FixedWidthType) type;
+
+        int entrySize = fixedWidthType.getFixedSize() + SIZE_OF_BYTE;
+        return new FixedWidthBlockBuilder(fixedWidthType, Slices.allocate(entrySize * positionCount));
     }
 }

@@ -16,11 +16,11 @@ package com.facebook.presto.operator;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 
 public interface ProjectionFunction
 {
-    TupleInfo getTupleInfo();
+    Type getType();
 
     void project(BlockCursor[] cursors, BlockBuilder output);
 

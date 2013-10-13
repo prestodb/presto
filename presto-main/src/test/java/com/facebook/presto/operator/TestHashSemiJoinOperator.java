@@ -28,9 +28,8 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
-import static com.facebook.presto.tuple.TupleInfo.Type.BOOLEAN;
-import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
+import static com.facebook.presto.type.Types.BIGINT;
+import static com.facebook.presto.type.Types.BOOLEAN;
 import static com.facebook.presto.util.MaterializedResult.resultBuilder;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -63,7 +62,7 @@ public class TestHashSemiJoinOperator
 
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, StaticOperator.class.getSimpleName());
-        Operator buildOperator = new StaticOperator(operatorContext, rowPagesBuilder(SINGLE_LONG)
+        Operator buildOperator = new StaticOperator(operatorContext, rowPagesBuilder(BIGINT)
                 .row(10)
                 .row(30)
                 .row(30)
@@ -72,7 +71,7 @@ public class TestHashSemiJoinOperator
                 .row(37)
                 .row(50)
                 .build());
-        SetBuilderOperatorFactory setBuilderOperatorFactory = new SetBuilderOperatorFactory(1, buildOperator.getTupleInfos(), 0, 10);
+        SetBuilderOperatorFactory setBuilderOperatorFactory = new SetBuilderOperatorFactory(1, buildOperator.getTypes(), 0, 10);
         Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
 
         Driver driver = new Driver(driverContext, buildOperator, setBuilderOperator);
@@ -81,18 +80,18 @@ public class TestHashSemiJoinOperator
         }
 
         // probe
-        List<Page> probeInput = rowPagesBuilder(SINGLE_LONG, SINGLE_LONG)
+        List<Page> probeInput = rowPagesBuilder(BIGINT, BIGINT)
                 .addSequencePage(10, 30, 0)
                 .build();
         HashSemiJoinOperatorFactory joinOperatorFactory = new HashSemiJoinOperatorFactory(
                 2,
                 setBuilderOperatorFactory.getSetProvider(),
-                ImmutableList.of(SINGLE_LONG, SINGLE_LONG),
+                ImmutableList.of(BIGINT, BIGINT),
                 0);
         Operator joinOperator = joinOperatorFactory.createOperator(driverContext);
 
         // expected
-        MaterializedResult expected = resultBuilder(FIXED_INT_64, FIXED_INT_64, BOOLEAN)
+        MaterializedResult expected = resultBuilder(BIGINT, BIGINT, BOOLEAN)
                 .row(30, 0, true)
                 .row(31, 1, false)
                 .row(32, 2, false)
@@ -116,7 +115,7 @@ public class TestHashSemiJoinOperator
 
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, StaticOperator.class.getSimpleName());
-        Operator buildOperator = new StaticOperator(operatorContext, rowPagesBuilder(SINGLE_LONG)
+        Operator buildOperator = new StaticOperator(operatorContext, rowPagesBuilder(BIGINT)
                 .row(0)
                 .row(1)
                 .row(2)
@@ -124,7 +123,7 @@ public class TestHashSemiJoinOperator
                 .row(3)
                 .row((Object) null)
                 .build());
-        SetBuilderOperatorFactory setBuilderOperatorFactory = new SetBuilderOperatorFactory(1, buildOperator.getTupleInfos(), 0, 10);
+        SetBuilderOperatorFactory setBuilderOperatorFactory = new SetBuilderOperatorFactory(1, buildOperator.getTypes(), 0, 10);
         Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
 
         Driver driver = new Driver(driverContext, buildOperator, setBuilderOperator);
@@ -133,18 +132,18 @@ public class TestHashSemiJoinOperator
         }
 
         // probe
-        List<Page> probeInput = rowPagesBuilder(SINGLE_LONG)
+        List<Page> probeInput = rowPagesBuilder(BIGINT)
                 .addSequencePage(4, 1)
                 .build();
         HashSemiJoinOperatorFactory joinOperatorFactory = new HashSemiJoinOperatorFactory(
                 2,
                 setBuilderOperatorFactory.getSetProvider(),
-                ImmutableList.of(SINGLE_LONG),
+                ImmutableList.of(BIGINT),
                 0);
         Operator joinOperator = joinOperatorFactory.createOperator(driverContext);
 
         // expected
-        MaterializedResult expected = resultBuilder(FIXED_INT_64, BOOLEAN)
+        MaterializedResult expected = resultBuilder(BIGINT, BOOLEAN)
                 .row(1, true)
                 .row(2, true)
                 .row(3, true)
@@ -162,12 +161,12 @@ public class TestHashSemiJoinOperator
 
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, StaticOperator.class.getSimpleName());
-        Operator buildOperator = new StaticOperator(operatorContext, rowPagesBuilder(SINGLE_LONG)
+        Operator buildOperator = new StaticOperator(operatorContext, rowPagesBuilder(BIGINT)
                 .row(0)
                 .row(1)
                 .row(3)
                 .build());
-        SetBuilderOperatorFactory setBuilderOperatorFactory = new SetBuilderOperatorFactory(1, buildOperator.getTupleInfos(), 0, 10);
+        SetBuilderOperatorFactory setBuilderOperatorFactory = new SetBuilderOperatorFactory(1, buildOperator.getTypes(), 0, 10);
         Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
 
         Driver driver = new Driver(driverContext, buildOperator, setBuilderOperator);
@@ -176,7 +175,7 @@ public class TestHashSemiJoinOperator
         }
 
         // probe
-        List<Page> probeInput = rowPagesBuilder(SINGLE_LONG)
+        List<Page> probeInput = rowPagesBuilder(BIGINT)
                 .row(0)
                 .row((Object) null)
                 .row(1)
@@ -185,12 +184,12 @@ public class TestHashSemiJoinOperator
         HashSemiJoinOperatorFactory joinOperatorFactory = new HashSemiJoinOperatorFactory(
                 2,
                 setBuilderOperatorFactory.getSetProvider(),
-                ImmutableList.of(SINGLE_LONG),
+                ImmutableList.of(BIGINT),
                 0);
         Operator joinOperator = joinOperatorFactory.createOperator(driverContext);
 
         // expected
-        MaterializedResult expected = resultBuilder(FIXED_INT_64, BOOLEAN)
+        MaterializedResult expected = resultBuilder(BIGINT, BOOLEAN)
                 .row(0, true)
                 .row(null, null)
                 .row(1, true)
@@ -208,13 +207,13 @@ public class TestHashSemiJoinOperator
 
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, StaticOperator.class.getSimpleName());
-        Operator buildOperator = new StaticOperator(operatorContext, rowPagesBuilder(SINGLE_LONG)
+        Operator buildOperator = new StaticOperator(operatorContext, rowPagesBuilder(BIGINT)
                 .row(0)
                 .row(1)
                 .row((Object) null)
                 .row(3)
                 .build());
-        SetBuilderOperatorFactory setBuilderOperatorFactory = new SetBuilderOperatorFactory(1, buildOperator.getTupleInfos(), 0, 10);
+        SetBuilderOperatorFactory setBuilderOperatorFactory = new SetBuilderOperatorFactory(1, buildOperator.getTypes(), 0, 10);
         Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
 
         Driver driver = new Driver(driverContext, buildOperator, setBuilderOperator);
@@ -223,7 +222,7 @@ public class TestHashSemiJoinOperator
         }
 
         // probe
-        List<Page> probeInput = rowPagesBuilder(SINGLE_LONG)
+        List<Page> probeInput = rowPagesBuilder(BIGINT)
                 .row(0)
                 .row((Object) null)
                 .row(1)
@@ -232,12 +231,12 @@ public class TestHashSemiJoinOperator
         HashSemiJoinOperatorFactory joinOperatorFactory = new HashSemiJoinOperatorFactory(
                 2,
                 setBuilderOperatorFactory.getSetProvider(),
-                ImmutableList.of(SINGLE_LONG),
+                ImmutableList.of(BIGINT),
                 0);
         Operator joinOperator = joinOperatorFactory.createOperator(driverContext);
 
         // expected
-        MaterializedResult expected = resultBuilder(FIXED_INT_64, BOOLEAN)
+        MaterializedResult expected = resultBuilder(BIGINT, BOOLEAN)
                 .row(0, true)
                 .row(null, null)
                 .row(1, true)
@@ -257,10 +256,10 @@ public class TestHashSemiJoinOperator
                 .addDriverContext();
 
         OperatorContext operatorContext = driverContext.addOperatorContext(0, StaticOperator.class.getSimpleName());
-        Operator buildOperator = new StaticOperator(operatorContext, rowPagesBuilder(SINGLE_LONG)
+        Operator buildOperator = new StaticOperator(operatorContext, rowPagesBuilder(BIGINT)
                 .addSequencePage(10000, 20)
                 .build());
-        SetBuilderOperatorFactory setBuilderOperatorFactory = new SetBuilderOperatorFactory(1, buildOperator.getTupleInfos(), 0, 10);
+        SetBuilderOperatorFactory setBuilderOperatorFactory = new SetBuilderOperatorFactory(1, buildOperator.getTypes(), 0, 10);
         Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
 
         Driver driver = new Driver(driverContext, buildOperator, setBuilderOperator);

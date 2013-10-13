@@ -17,7 +17,7 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.operator.Page;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import com.google.common.base.Optional;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -41,7 +41,7 @@ public abstract class AbstractTestApproximateAggregationFunction
      * @param inputList
      * @throws Exception
      */
-    public void testCorrectnessOfErrorFunction(List<Number> inputList, TupleInfo type)
+    public void testCorrectnessOfErrorFunction(List<Number> inputList, Type type)
             throws Exception
     {
         //Compute Actual Value using list

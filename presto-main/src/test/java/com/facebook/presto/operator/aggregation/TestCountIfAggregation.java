@@ -18,7 +18,7 @@ import com.facebook.presto.block.BlockBuilder;
 
 import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static com.facebook.presto.operator.aggregation.CountIfAggregation.COUNT_IF;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_BOOLEAN;
+import static com.facebook.presto.type.Types.BOOLEAN;
 
 public class TestCountIfAggregation
         extends AbstractTestAggregationFunction
@@ -26,7 +26,7 @@ public class TestCountIfAggregation
     @Override
     public Block getSequenceBlock(int start, int length)
     {
-        BlockBuilder blockBuilder = createBlockBuilder(SINGLE_BOOLEAN);
+        BlockBuilder blockBuilder = createBlockBuilder(BOOLEAN);
         for (int i = start; i < start + length; i++) {
             blockBuilder.append(i % 2 == 0);
         }

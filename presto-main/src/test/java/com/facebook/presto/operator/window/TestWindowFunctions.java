@@ -21,9 +21,9 @@ import org.testng.annotations.Test;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.operator.window.WindowAssertions.assertWindowQuery;
-import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
-import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
-import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
+import static com.facebook.presto.type.Types.BIGINT;
+import static com.facebook.presto.type.Types.DOUBLE;
+import static com.facebook.presto.type.Types.VARCHAR;
 import static com.facebook.presto.util.MaterializedResult.resultBuilder;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -47,7 +47,7 @@ public class TestWindowFunctions
     @Test
     public void testRowNumber()
     {
-        MaterializedResult expected = resultBuilder(FIXED_INT_64, VARIABLE_BINARY, FIXED_INT_64)
+        MaterializedResult expected = resultBuilder(BIGINT, VARCHAR, BIGINT)
                 .row(1, "O", 1)
                 .row(2, "O", 2)
                 .row(3, "F", 3)
@@ -68,7 +68,7 @@ public class TestWindowFunctions
     public void testRowNumberPartitioning()
     {
         assertWindowQuery("row_number() OVER (PARTITION BY orderstatus ORDER BY orderkey)",
-                resultBuilder(FIXED_INT_64, VARIABLE_BINARY, FIXED_INT_64)
+                resultBuilder(BIGINT, VARCHAR, BIGINT)
                         .row(3, "F", 1)
                         .row(5, "F", 2)
                         .row(6, "F", 3)
@@ -83,7 +83,7 @@ public class TestWindowFunctions
 
         // TODO: add better test for non-deterministic sorting behavior
         assertWindowQuery("row_number() OVER (PARTITION BY orderstatus)",
-                resultBuilder(FIXED_INT_64, VARIABLE_BINARY, FIXED_INT_64)
+                resultBuilder(BIGINT, VARCHAR, BIGINT)
                         .row(3, "F", 1)
                         .row(5, "F", 2)
                         .row(33, "F", 3)
@@ -101,7 +101,7 @@ public class TestWindowFunctions
     public void testRank()
     {
         assertWindowQuery("rank() OVER (ORDER BY orderstatus)",
-                resultBuilder(FIXED_INT_64, VARIABLE_BINARY, FIXED_INT_64)
+                resultBuilder(BIGINT, VARCHAR, BIGINT)
                         .row(3, "F", 1)
                         .row(5, "F", 1)
                         .row(6, "F", 1)
@@ -119,7 +119,7 @@ public class TestWindowFunctions
     public void testDenseRank()
     {
         assertWindowQuery("dense_rank() OVER (ORDER BY orderstatus)",
-                resultBuilder(FIXED_INT_64, VARIABLE_BINARY, FIXED_INT_64)
+                resultBuilder(BIGINT, VARCHAR, BIGINT)
                         .row(3, "F", 1)
                         .row(5, "F", 1)
                         .row(6, "F", 1)
@@ -137,7 +137,7 @@ public class TestWindowFunctions
     public void testPercentRank()
     {
         assertWindowQuery("percent_rank() OVER (PARTITION BY orderstatus ORDER BY orderkey)",
-                resultBuilder(FIXED_INT_64, VARIABLE_BINARY, DOUBLE)
+                resultBuilder(BIGINT, VARCHAR, DOUBLE)
                         .row(3, "F", 0.0)
                         .row(5, "F", 1 / 3.0)
                         .row(6, "F", 2 / 3.0)
@@ -151,7 +151,7 @@ public class TestWindowFunctions
                         .build(), executor);
 
         assertWindowQuery("percent_rank() OVER (ORDER BY orderkey)",
-                resultBuilder(FIXED_INT_64, VARIABLE_BINARY, DOUBLE)
+                resultBuilder(BIGINT, VARCHAR, DOUBLE)
                         .row(1, "O", 0.0)
                         .row(2, "O", 1 / 9.0)
                         .row(3, "F", 2 / 9.0)
@@ -165,7 +165,7 @@ public class TestWindowFunctions
                         .build(), executor);
 
         assertWindowQuery("percent_rank() OVER (ORDER BY orderstatus)",
-                resultBuilder(FIXED_INT_64, VARIABLE_BINARY, DOUBLE)
+                resultBuilder(BIGINT, VARCHAR, DOUBLE)
                         .row(3, "F", 0.0)
                         .row(5, "F", 0.0)
                         .row(6, "F", 0.0)
@@ -179,7 +179,7 @@ public class TestWindowFunctions
                         .build(), executor);
 
         assertWindowQuery("percent_rank() OVER (PARTITION BY orderkey)",
-                resultBuilder(FIXED_INT_64, VARIABLE_BINARY, DOUBLE)
+                resultBuilder(BIGINT, VARCHAR, DOUBLE)
                         .row(1, "O", 0.0)
                         .row(2, "O", 0.0)
                         .row(3, "F", 0.0)
@@ -197,7 +197,7 @@ public class TestWindowFunctions
     public void testCumulativeDistribution()
     {
         assertWindowQuery("cume_dist() OVER (PARTITION BY orderstatus ORDER BY orderkey)",
-                resultBuilder(FIXED_INT_64, VARIABLE_BINARY, DOUBLE)
+                resultBuilder(BIGINT, VARCHAR, DOUBLE)
                         .row(3, "F", 0.25)
                         .row(5, "F", 0.5)
                         .row(6, "F", 0.75)
@@ -211,7 +211,7 @@ public class TestWindowFunctions
                         .build(), executor);
 
         assertWindowQuery("cume_dist() OVER (ORDER BY orderkey)",
-                resultBuilder(FIXED_INT_64, VARIABLE_BINARY, DOUBLE)
+                resultBuilder(BIGINT, VARCHAR, DOUBLE)
                         .row(1, "O", 0.1)
                         .row(2, "O", 0.2)
                         .row(3, "F", 0.3)
@@ -225,7 +225,7 @@ public class TestWindowFunctions
                         .build(), executor);
 
         assertWindowQuery("cume_dist() OVER (ORDER BY orderstatus)",
-                resultBuilder(FIXED_INT_64, VARIABLE_BINARY, DOUBLE)
+                resultBuilder(BIGINT, VARCHAR, DOUBLE)
                         .row(3, "F", 0.4)
                         .row(5, "F", 0.4)
                         .row(6, "F", 0.4)
@@ -239,7 +239,7 @@ public class TestWindowFunctions
                         .build(), executor);
 
         assertWindowQuery("cume_dist() OVER (PARTITION BY orderkey)",
-                resultBuilder(FIXED_INT_64, VARIABLE_BINARY, DOUBLE)
+                resultBuilder(BIGINT, VARCHAR, DOUBLE)
                         .row(1, "O", 1.0)
                         .row(2, "O", 1.0)
                         .row(3, "F", 1.0)

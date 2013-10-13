@@ -17,8 +17,8 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.operator.GroupByIdBlock;
-import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.base.Optional;
+import com.facebook.presto.type.Type;
 import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hashing;
 import com.google.common.primitives.Ints;
@@ -30,8 +30,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
+import static com.facebook.presto.type.Types.BIGINT;
+import static com.facebook.presto.type.Types.DOUBLE;
+import static com.facebook.presto.type.Types.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -51,9 +52,9 @@ public class ApproximateCountDistinctAggregation
 
     public ApproximateCountDistinctAggregation(Type parameterType)
     {
-        super(SINGLE_LONG, SINGLE_VARBINARY, parameterType);
+        super(BIGINT, VARCHAR, parameterType);
 
-        checkArgument(parameterType == Type.FIXED_INT_64 || parameterType == Type.DOUBLE || parameterType == Type.VARIABLE_BINARY,
+        checkArgument(parameterType == BIGINT || parameterType == DOUBLE || parameterType == VARCHAR,
                 "Expected parameter type to be FIXED_INT_64, DOUBLE, or VARIABLE_BINARY, but was %s",
                 parameterType);
 
@@ -75,7 +76,7 @@ public class ApproximateCountDistinctAggregation
 
         public ApproximateCountDistinctGroupedAccumulator(Type parameterType, int valueChannel, Optional<Integer> maskChannel)
         {
-            super(valueChannel, SINGLE_LONG, SINGLE_VARBINARY, maskChannel, Optional.<Integer>absent());
+            super(valueChannel, BIGINT, VARCHAR, maskChannel, Optional.<Integer>absent());
             this.parameterType = parameterType;
         }
 
@@ -209,8 +210,7 @@ public class ApproximateCountDistinctAggregation
 
         public ApproximateCountDistinctAccumulator(Type parameterType, int valueChannel, Optional<Integer> maskChannel)
         {
-            // Ignore sample weight, because we're trying to count distincts
-            super(valueChannel, SINGLE_LONG, SINGLE_VARBINARY, maskChannel, Optional.<Integer>absent());
+            super(valueChannel, BIGINT, VARCHAR, maskChannel, Optional.<Integer>absent());
 
             this.parameterType = parameterType;
         }
@@ -293,15 +293,15 @@ public class ApproximateCountDistinctAggregation
 
     private static long hash(BlockCursor values, Type parameterType)
     {
-        if (parameterType == Type.FIXED_INT_64) {
+        if (parameterType == BIGINT) {
             long value = values.getLong();
             return HASH.hashLong(value).asLong();
         }
-        else if (parameterType == Type.DOUBLE) {
+        else if (parameterType == DOUBLE) {
             double value = values.getDouble();
             return HASH.hashLong(Double.doubleToLongBits(value)).asLong();
         }
-        else if (parameterType == Type.VARIABLE_BINARY) {
+        else if (parameterType == VARCHAR) {
             Slice value = values.getSlice();
             return HASH.hashBytes(value.getBytes()).asLong();
         }

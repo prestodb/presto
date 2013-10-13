@@ -17,20 +17,20 @@ import com.facebook.presto.operator.aggregation.CountColumnAggregation.CountColu
 import com.facebook.presto.operator.aggregation.CountColumnAggregation.CountColumnGroupedAccumulator;
 import com.facebook.presto.operator.aggregation.SimpleAggregationFunction.SimpleAccumulator;
 import com.facebook.presto.operator.aggregation.SimpleAggregationFunction.SimpleGroupedAccumulator;
-import com.facebook.presto.tuple.TupleInfo.Type;
+import com.facebook.presto.type.Type;
 import com.google.common.base.Throwables;
 
-import static com.facebook.presto.tuple.TupleInfo.Type.BOOLEAN;
-import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
-import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
-import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
+import static com.facebook.presto.type.Types.BIGINT;
+import static com.facebook.presto.type.Types.BOOLEAN;
+import static com.facebook.presto.type.Types.DOUBLE;
+import static com.facebook.presto.type.Types.VARCHAR;
 
 public final class CountColumnAggregations
 {
     public static final AggregationFunction COUNT_BOOLEAN_COLUMN = createIsolatedAggregation(BOOLEAN);
-    public static final AggregationFunction COUNT_LONG_COLUMN = createIsolatedAggregation(FIXED_INT_64);
+    public static final AggregationFunction COUNT_LONG_COLUMN = createIsolatedAggregation(BIGINT);
     public static final AggregationFunction COUNT_DOUBLE_COLUMN = createIsolatedAggregation(DOUBLE);
-    public static final AggregationFunction COUNT_STRING_COLUMN = createIsolatedAggregation(VARIABLE_BINARY);
+    public static final AggregationFunction COUNT_STRING_COLUMN = createIsolatedAggregation(VARCHAR);
 
     private CountColumnAggregations() {}
 

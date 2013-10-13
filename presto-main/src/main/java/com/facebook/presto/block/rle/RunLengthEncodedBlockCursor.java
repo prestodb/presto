@@ -17,7 +17,7 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.RandomAccessBlock;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import com.google.common.base.Preconditions;
 import io.airlift.slice.Slice;
 
@@ -44,9 +44,9 @@ public final class RunLengthEncodedBlockCursor
     }
 
     @Override
-    public TupleInfo getTupleInfo()
+    public Type getType()
     {
-        return value.getTupleInfo();
+        return value.getType();
     }
 
     @Override
@@ -179,8 +179,8 @@ public final class RunLengthEncodedBlockCursor
     }
 
     @Override
-    public void appendTupleTo(BlockBuilder blockBuilder)
+    public void appendTo(BlockBuilder blockBuilder)
     {
-        value.appendTupleTo(0, blockBuilder);
+        value.appendTo(0, blockBuilder);
     }
 }

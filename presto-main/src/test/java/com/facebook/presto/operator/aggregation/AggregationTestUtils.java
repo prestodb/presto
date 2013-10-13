@@ -21,18 +21,15 @@ import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 import com.facebook.presto.block.uncompressed.FixedWidthBlock;
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.operator.Page;
-import com.facebook.presto.tuple.FixedWidthTypeInfo;
-import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Optional;
+import com.facebook.presto.type.Types;
 import com.google.common.primitives.Ints;
-import io.airlift.slice.Slices;
 
 import java.util.Arrays;
 import java.util.Collections;
 
 import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_BOOLEAN;
-import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
+import static com.facebook.presto.type.Types.BOOLEAN;
 import static org.testng.Assert.assertEquals;
 
 public final class AggregationTestUtils
@@ -85,7 +82,7 @@ public final class AggregationTestUtils
         Page[] maskedPages = new Page[pages.length];
         for (int i = 0; i < pages.length; i++) {
             Page page = pages[i];
-            BlockBuilder blockBuilder = createBlockBuilder(SINGLE_BOOLEAN);
+            BlockBuilder blockBuilder = createBlockBuilder(BOOLEAN);
             for (int j = 0; j < page.getPositionCount(); j++) {
                 blockBuilder.append(maskValue);
             }
@@ -228,7 +225,7 @@ public final class AggregationTestUtils
             partialAggregation.addInput(createGroupByIdBlock(0, page.getPositionCount()), page);
         }
 
-        BlockBuilder partialOut = createBlockBuilder(partialAggregation.getIntermediateTupleInfo());
+        BlockBuilder partialOut = createBlockBuilder(partialAggregation.getIntermediateType());
         partialAggregation.evaluateIntermediate(0, partialOut);
         Block partialBlock = partialOut.build();
 
@@ -240,11 +237,7 @@ public final class AggregationTestUtils
 
     public static GroupByIdBlock createGroupByIdBlock(int groupId, int positions)
     {
-        if (positions == 0) {
-            return new GroupByIdBlock(groupId, new FixedWidthBlock(new FixedWidthTypeInfo(FIXED_INT_64), 0, Slices.EMPTY_SLICE));
-        }
-
-        BlockBuilder blockBuilder = createBlockBuilder(TupleInfo.SINGLE_LONG);
+        BlockBuilder blockBuilder = createBlockBuilder(Types.BIGINT);
         for (int i = 0; i < positions; i++) {
             blockBuilder.append(groupId);
         }
@@ -317,7 +310,7 @@ public final class AggregationTestUtils
 
     private static RunLengthEncodedBlock createNullRLEBlock(int positionCount)
     {
-        RandomAccessBlock value = createBlockBuilder(SINGLE_BOOLEAN)
+        RandomAccessBlock value = createBlockBuilder(BOOLEAN)
                 .appendNull()
                 .build()
                 .toRandomAccessBlock();
@@ -327,7 +320,7 @@ public final class AggregationTestUtils
 
     private static Object getGroupValue(GroupedAccumulator groupedAggregation, int groupId)
     {
-        BlockBuilder out = createBlockBuilder(groupedAggregation.getFinalTupleInfo());
+        BlockBuilder out = createBlockBuilder(groupedAggregation.getFinalType());
         groupedAggregation.evaluateFinal(groupId, out);
         return BlockAssertions.getOnlyValue(out.build());
     }

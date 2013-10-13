@@ -14,30 +14,31 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.spi.ColumnType;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Types;
 import com.google.common.base.Function;
 
 import javax.annotation.Nullable;
 
+import static com.facebook.presto.type.Types.fromColumnType;
 import static com.google.common.base.Preconditions.checkState;
 
 public enum Type
 {
-    BIGINT(TupleInfo.Type.FIXED_INT_64),
-    DOUBLE(TupleInfo.Type.DOUBLE),
-    VARCHAR(TupleInfo.Type.VARIABLE_BINARY),
-    BOOLEAN(TupleInfo.Type.BOOLEAN),
+    BIGINT(Types.BIGINT),
+    DOUBLE(Types.DOUBLE),
+    VARCHAR(Types.VARCHAR),
+    BOOLEAN(Types.BOOLEAN),
     NULL(null);
 
-    private final TupleInfo.Type rawType;
+    private final com.facebook.presto.type.Type rawType;
 
-    Type(@Nullable TupleInfo.Type rawType)
+    Type(@Nullable com.facebook.presto.type.Type rawType)
     {
         this.rawType = rawType;
     }
 
     @Nullable
-    public TupleInfo.Type getRawType()
+    public com.facebook.presto.type.Type getRawType()
     {
         return rawType;
     }
@@ -61,10 +62,10 @@ public enum Type
 
     public static Type fromRaw(ColumnType type)
     {
-        return fromRaw(TupleInfo.Type.fromColumnType(type));
+        return fromRaw(fromColumnType(type));
     }
 
-    public static Type fromRaw(TupleInfo.Type raw)
+    public static Type fromRaw(com.facebook.presto.type.Type raw)
     {
         for (Type type : values()) {
             if (type.getRawType() == raw) {
@@ -75,12 +76,12 @@ public enum Type
         throw new IllegalArgumentException("Can't map raw type to Type: " + raw);
     }
 
-    public static Function<Type, TupleInfo.Type> toRaw()
+    public static Function<Type, com.facebook.presto.type.Type> toRaw()
     {
-        return new Function<Type, TupleInfo.Type>()
+        return new Function<Type, com.facebook.presto.type.Type>()
         {
             @Override
-            public TupleInfo.Type apply(Type input)
+            public com.facebook.presto.type.Type apply(Type input)
             {
                 return input.getRawType();
             }

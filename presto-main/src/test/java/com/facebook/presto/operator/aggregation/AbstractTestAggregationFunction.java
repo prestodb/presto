@@ -18,7 +18,7 @@ import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
@@ -64,8 +64,8 @@ public abstract class AbstractTestAggregationFunction
     public void testAllPositionsNull()
             throws Exception
     {
-        TupleInfo tupleInfo = getSequenceBlock(0, 10).getTupleInfo();
-        RandomAccessBlock nullValueBlock = createBlockBuilder(tupleInfo)
+        Type type = getSequenceBlock(0, 10).getType();
+        RandomAccessBlock nullValueBlock = createBlockBuilder(type)
                 .appendNull()
                 .build()
                 .toRandomAccessBlock();
@@ -95,13 +95,13 @@ public abstract class AbstractTestAggregationFunction
 
     public Block createAlternatingNullsBlock(Block sequenceBlock)
     {
-        BlockBuilder blockBuilder = createBlockBuilder(sequenceBlock.getTupleInfo());
+        BlockBuilder blockBuilder = createBlockBuilder(sequenceBlock.getType());
         BlockCursor cursor = sequenceBlock.cursor();
         while (cursor.advanceNextPosition()) {
             // append null
             blockBuilder.appendNull();
             // append value
-            cursor.appendTupleTo(blockBuilder);
+            cursor.appendTo(blockBuilder);
         }
         return blockBuilder.build();
     }

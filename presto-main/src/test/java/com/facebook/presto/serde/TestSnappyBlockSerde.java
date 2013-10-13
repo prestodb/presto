@@ -18,13 +18,13 @@ import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockEncoding;
 import com.facebook.presto.block.RandomAccessBlock;
-import com.facebook.presto.tuple.TupleInfo;
 import io.airlift.slice.DynamicSliceOutput;
 import org.testng.annotations.Test;
 
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
+import static com.facebook.presto.type.Types.VARCHAR;
 import static org.testng.Assert.assertTrue;
 
 public class TestSnappyBlockSerde
@@ -32,7 +32,7 @@ public class TestSnappyBlockSerde
     @Test
     public void testRoundTrip()
     {
-        Block block = createBlockBuilder(TupleInfo.SINGLE_VARBINARY)
+        Block block = createBlockBuilder(VARCHAR)
                 .append("alice")
                 .append("bob")
                 .append("charlie")
@@ -51,7 +51,7 @@ public class TestSnappyBlockSerde
     @Test
     public void testLotsOfStuff()
     {
-        RandomAccessBlock block = createBlockBuilder(TupleInfo.SINGLE_VARBINARY)
+        RandomAccessBlock block = createBlockBuilder(VARCHAR)
                 .append("alice")
                 .append("bob")
                 .append("charlie")
@@ -62,7 +62,7 @@ public class TestSnappyBlockSerde
         DynamicSliceOutput encoderOutput = new DynamicSliceOutput(1024);
         Encoder encoder = BlocksFileEncoding.SNAPPY.createBlocksWriter(encoderOutput);
 
-        BlockBuilder expectedBlockBuilder = createBlockBuilder(TupleInfo.SINGLE_VARBINARY);
+        BlockBuilder expectedBlockBuilder = createBlockBuilder(VARCHAR);
 
         int count = 1000;
         for (int i = 0; i < count; i++) {
@@ -70,7 +70,7 @@ public class TestSnappyBlockSerde
             int position = ThreadLocalRandom.current().nextInt(block.getPositionCount());
 
             // add to expected block
-            block.appendTupleTo(position, expectedBlockBuilder);
+            block.appendTo(position, expectedBlockBuilder);
 
             // create block with single value and add to encoder
             encoder.append(block.getSingleValueBlock(position));

@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 
 import java.util.List;
 
 public interface OutputFactory
 {
-    OperatorFactory createOutputOperator(int operatorId, List<TupleInfo> sourceTupleInfo);
+    OperatorFactory createOutputOperator(int operatorId, List<Type> sourceType);
 }

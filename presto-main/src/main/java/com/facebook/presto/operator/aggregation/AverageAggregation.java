@@ -17,15 +17,16 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.operator.GroupByIdBlock;
-import com.facebook.presto.tuple.TupleInfo.Type;
+import com.facebook.presto.type.Type;
 import com.facebook.presto.util.array.DoubleBigArray;
 import com.facebook.presto.util.array.LongBigArray;
 import com.google.common.base.Optional;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
+import static com.facebook.presto.type.Types.BIGINT;
+import static com.facebook.presto.type.Types.DOUBLE;
+import static com.facebook.presto.type.Types.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
@@ -38,12 +39,12 @@ public class AverageAggregation
 
     public AverageAggregation(Type parameterType)
     {
-        super(SINGLE_DOUBLE, SINGLE_VARBINARY, parameterType);
+        super(DOUBLE, VARCHAR, parameterType);
 
-        if (parameterType == Type.FIXED_INT_64) {
+        if (parameterType == BIGINT) {
             this.inputIsLong = true;
         }
-        else if (parameterType == Type.DOUBLE) {
+        else if (parameterType == DOUBLE) {
             this.inputIsLong = false;
         }
         else {
@@ -68,7 +69,7 @@ public class AverageAggregation
 
         public AverageGroupedAccumulator(int valueChannel, boolean inputIsLong, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel)
         {
-            super(valueChannel, SINGLE_DOUBLE, SINGLE_VARBINARY, maskChannel, sampleWeightChannel);
+            super(valueChannel, DOUBLE, VARCHAR, maskChannel, sampleWeightChannel);
             this.inputIsLong = inputIsLong;
             this.counts = new LongBigArray();
             this.sums = new DoubleBigArray();
@@ -187,7 +188,7 @@ public class AverageAggregation
 
         public AverageAccumulator(int valueChannel, boolean inputIsLong, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel)
         {
-            super(valueChannel, SINGLE_DOUBLE, SINGLE_VARBINARY, maskChannel, sampleWeightChannel);
+            super(valueChannel, DOUBLE, VARCHAR, maskChannel, sampleWeightChannel);
             this.inputIsLong = inputIsLong;
         }
 

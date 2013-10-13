@@ -15,44 +15,31 @@ package com.facebook.presto.split;
 
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Split;
-import com.facebook.presto.tuple.TupleInfo;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import java.net.URI;
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 public class RemoteSplit
         implements Split
 {
     private final URI location;
-    private final List<TupleInfo> tupleInfos;
 
     @JsonCreator
-    public RemoteSplit(
-            @JsonProperty("location") URI location,
-            @JsonProperty("tupleInfos") List<TupleInfo> tupleInfos)
+    public RemoteSplit(@JsonProperty("location") URI location)
     {
-        Preconditions.checkNotNull(location, "location is null");
-        Preconditions.checkNotNull(tupleInfos, "tupleInfos is null");
-
-        this.location = location;
-        this.tupleInfos = ImmutableList.copyOf(tupleInfos);
+        this.location = checkNotNull(location, "location is null");
     }
 
     @JsonProperty
     public URI getLocation()
     {
         return location;
-    }
-
-    @JsonProperty
-    public List<TupleInfo> getTupleInfos()
-    {
-        return tupleInfos;
     }
 
     @Override
@@ -78,7 +65,6 @@ public class RemoteSplit
     {
         return Objects.toStringHelper(this)
                 .add("location", location)
-                .add("tupleInfos", tupleInfos)
                 .toString();
     }
 }

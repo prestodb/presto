@@ -17,8 +17,8 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.RandomAccessBlock;
-import com.facebook.presto.tuple.FixedWidthTypeInfo;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.FixedWidthType;
+import com.facebook.presto.type.Type;
 import com.google.common.base.Preconditions;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -30,7 +30,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 public class FixedWidthBlockCursor
         implements BlockCursor
 {
-    private final FixedWidthTypeInfo typeInfo;
+    private final FixedWidthType type;
     private final int entrySize;
     private final Slice slice;
     private final int positionCount;
@@ -38,10 +38,10 @@ public class FixedWidthBlockCursor
     private int position;
     private int offset;
 
-    public FixedWidthBlockCursor(FixedWidthTypeInfo typeInfo, int positionCount, Slice slice)
+    public FixedWidthBlockCursor(FixedWidthType type, int positionCount, Slice slice)
     {
-        this.typeInfo = checkNotNull(typeInfo, "typeInfo is null");
-        this.entrySize = typeInfo.getSize() + SIZE_OF_BYTE;
+        this.type = checkNotNull(type, "type is null");
+        this.entrySize = type.getFixedSize() + SIZE_OF_BYTE;
 
         checkArgument(positionCount >= 0, "positionCount is negative");
         this.positionCount = positionCount;
@@ -54,9 +54,9 @@ public class FixedWidthBlockCursor
     }
 
     @Override
-    public TupleInfo getTupleInfo()
+    public Type getType()
     {
-        return new TupleInfo(typeInfo.getType());
+        return type;
     }
 
     @Override
@@ -124,7 +124,7 @@ public class FixedWidthBlockCursor
         position += length;
 
         Slice newSlice = slice.slice(startOffset, length * entrySize);
-        return new FixedWidthBlock(typeInfo, length, newSlice);
+        return new FixedWidthBlock(type, length, newSlice);
     }
 
     @Override
@@ -143,35 +143,35 @@ public class FixedWidthBlockCursor
         Slice copy = Slices.allocate(entrySize);
         copy.setBytes(0, slice, offset, entrySize);
 
-        return new FixedWidthBlock(typeInfo, 1, copy);
+        return new FixedWidthBlock(type, 1, copy);
     }
 
     @Override
     public boolean getBoolean()
     {
         checkReadablePosition();
-        return typeInfo.getBoolean(slice, offset + SIZE_OF_BYTE);
+        return type.getBoolean(slice, offset + SIZE_OF_BYTE);
     }
 
     @Override
     public long getLong()
     {
         checkReadablePosition();
-        return typeInfo.getLong(slice, offset + SIZE_OF_BYTE);
+        return type.getLong(slice, offset + SIZE_OF_BYTE);
     }
 
     @Override
     public double getDouble()
     {
         checkReadablePosition();
-        return typeInfo.getDouble(slice, offset + SIZE_OF_BYTE);
+        return type.getDouble(slice, offset + SIZE_OF_BYTE);
     }
 
     @Override
     public Slice getSlice()
     {
         checkReadablePosition();
-        return typeInfo.getSlice(slice, offset + SIZE_OF_BYTE);
+        return type.getSlice(slice, offset + SIZE_OF_BYTE);
     }
 
     @Override
@@ -181,7 +181,7 @@ public class FixedWidthBlockCursor
         if (isNull()) {
             return null;
         }
-        return typeInfo.getObjectValue(slice, offset + SIZE_OF_BYTE);
+        return type.getObjectValue(slice, offset + SIZE_OF_BYTE);
     }
 
     @Override
@@ -195,7 +195,7 @@ public class FixedWidthBlockCursor
     public int compareTo(Slice rightSlice, int rightOffset)
     {
         checkReadablePosition();
-        return typeInfo.compareTo(slice, offset + SIZE_OF_BYTE, rightSlice, rightOffset);
+        return type.compareTo(slice, offset + SIZE_OF_BYTE, rightSlice, rightOffset);
     }
 
     @Override
@@ -205,18 +205,18 @@ public class FixedWidthBlockCursor
         if (slice.getByte(offset) != 0) {
             return 0;
         }
-        return typeInfo.hashCode(slice, offset + SIZE_OF_BYTE);
+        return type.hashCode(slice, offset + SIZE_OF_BYTE);
     }
 
     @Override
-    public void appendTupleTo(BlockBuilder blockBuilder)
+    public void appendTo(BlockBuilder blockBuilder)
     {
         checkReadablePosition();
         if (slice.getByte(offset) != 0) {
             blockBuilder.appendNull();
         }
         else {
-            typeInfo.appendTo(slice, offset + SIZE_OF_BYTE, blockBuilder);
+            type.appendTo(slice, offset + SIZE_OF_BYTE, blockBuilder);
         }
     }
 }

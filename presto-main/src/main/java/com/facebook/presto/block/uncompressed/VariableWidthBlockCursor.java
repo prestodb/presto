@@ -17,8 +17,8 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.RandomAccessBlock;
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.VariableWidthTypeInfo;
+import com.facebook.presto.type.Type;
+import com.facebook.presto.type.VariableWidthType;
 import com.google.common.base.Preconditions;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -30,7 +30,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 public class VariableWidthBlockCursor
         implements BlockCursor
 {
-    private final VariableWidthTypeInfo typeInfo;
+    private final VariableWidthType type;
     private final int positionCount;
     private final Slice slice;
 
@@ -39,9 +39,9 @@ public class VariableWidthBlockCursor
     private int entrySize;
     private boolean isNull;
 
-    public VariableWidthBlockCursor(VariableWidthTypeInfo typeInfo, int positionCount, Slice slice)
+    public VariableWidthBlockCursor(VariableWidthType type, int positionCount, Slice slice)
     {
-        this.typeInfo = checkNotNull(typeInfo, "typeInfo is null");
+        this.type = checkNotNull(type, "type is null");
         this.slice = checkNotNull(slice, "slice is null");
         checkArgument(positionCount >= 0, "positionCount is negative");
         this.positionCount = positionCount;
@@ -60,9 +60,9 @@ public class VariableWidthBlockCursor
     }
 
     @Override
-    public TupleInfo getTupleInfo()
+    public Type getType()
     {
-        return new TupleInfo(typeInfo.getType());
+        return type;
     }
 
     @Override
@@ -130,7 +130,7 @@ public class VariableWidthBlockCursor
         }
 
         Slice newSlice = slice.slice(startOffset, entryOffset + entrySize - startOffset);
-        return new VariableWidthBlock(typeInfo, length, newSlice);
+        return new VariableWidthBlock(type, length, newSlice);
     }
 
     private void nextPosition()
@@ -142,7 +142,7 @@ public class VariableWidthBlockCursor
             entrySize = SIZE_OF_BYTE;
         }
         else {
-            entrySize = typeInfo.getLength(slice, entryOffset + SIZE_OF_BYTE) + SIZE_OF_BYTE;
+            entrySize = type.getLength(slice, entryOffset + SIZE_OF_BYTE) + SIZE_OF_BYTE;
         }
     }
 
@@ -161,7 +161,7 @@ public class VariableWidthBlockCursor
         Slice copy = Slices.allocate(entrySize);
         copy.setBytes(0, slice, entryOffset, entrySize);
 
-        return new VariableWidthRandomAccessBlock(typeInfo, 1, copy);
+        return new VariableWidthRandomAccessBlock(type, 1, copy);
     }
 
     @Override
@@ -186,7 +186,7 @@ public class VariableWidthBlockCursor
     public Slice getSlice()
     {
         checkReadablePosition();
-        return typeInfo.getSlice(slice, entryOffset + SIZE_OF_BYTE);
+        return type.getSlice(slice, entryOffset + SIZE_OF_BYTE);
     }
 
     @Override
@@ -196,7 +196,7 @@ public class VariableWidthBlockCursor
         if (isNull) {
             return null;
         }
-        return typeInfo.getObjectValue(slice, entryOffset + SIZE_OF_BYTE);
+        return type.getObjectValue(slice, entryOffset + SIZE_OF_BYTE);
     }
 
     @Override
@@ -210,7 +210,7 @@ public class VariableWidthBlockCursor
     public int compareTo(Slice rightSlice, int rightOffset)
     {
         checkReadablePosition();
-        return typeInfo.compareTo(slice, entryOffset + SIZE_OF_BYTE, rightSlice, rightOffset);
+        return type.compareTo(slice, entryOffset + SIZE_OF_BYTE, rightSlice, rightOffset);
     }
 
     @Override
@@ -220,18 +220,18 @@ public class VariableWidthBlockCursor
         if (isNull) {
             return 0;
         }
-        return typeInfo.hashCode(slice, entryOffset + SIZE_OF_BYTE);
+        return type.hashCode(slice, entryOffset + SIZE_OF_BYTE);
     }
 
     @Override
-    public void appendTupleTo(BlockBuilder blockBuilder)
+    public void appendTo(BlockBuilder blockBuilder)
     {
         checkReadablePosition();
         if (isNull) {
             blockBuilder.appendNull();
         }
         else {
-            typeInfo.appendTo(slice, entryOffset + SIZE_OF_BYTE, blockBuilder);
+            type.appendTo(slice, entryOffset + SIZE_OF_BYTE, blockBuilder);
         }
     }
 }

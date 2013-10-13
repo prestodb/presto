@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -29,7 +29,7 @@ import static com.google.common.base.Preconditions.checkState;
 
 public class InMemoryExchange
 {
-    private final List<TupleInfo> tupleInfos;
+    private final List<Type> types;
     private final Queue<Page> buffer;
     private final List<SettableFuture<?>> blockedCallers = new ArrayList<>();
     private boolean finishing;
@@ -37,15 +37,15 @@ public class InMemoryExchange
     private int sinkFactories;
     private int sinks;
 
-    public InMemoryExchange(List<TupleInfo> tupleInfos)
+    public InMemoryExchange(List<Type> types)
     {
-        this.tupleInfos = ImmutableList.copyOf(checkNotNull(tupleInfos, "tupleInfos is null"));
+        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
         this.buffer = new ConcurrentLinkedQueue<>();
     }
 
-    public List<TupleInfo> getTupleInfos()
+    public List<Type> getTypes()
     {
-        return tupleInfos;
+        return types;
     }
 
     public synchronized OperatorFactory createSinkFactory(int operatorId)
@@ -147,9 +147,9 @@ public class InMemoryExchange
         }
 
         @Override
-        public List<TupleInfo> getTupleInfos()
+        public List<Type> getTypes()
         {
-            return tupleInfos;
+            return types;
         }
 
         @Override

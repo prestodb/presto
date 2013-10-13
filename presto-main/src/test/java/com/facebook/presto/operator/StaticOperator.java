@@ -14,7 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.block.Block;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -29,7 +29,7 @@ public class StaticOperator
         implements Operator
 {
     private final OperatorContext operatorContext;
-    private final ImmutableList<TupleInfo> tupleInfos;
+    private final ImmutableList<Type> types;
     private final Iterator<Page> pages;
 
     public StaticOperator(OperatorContext operatorContext, List<Page> pages)
@@ -39,11 +39,11 @@ public class StaticOperator
         checkNotNull(pages, "pages is null");
         checkArgument(!pages.isEmpty(), "pages is empty");
 
-        ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
+        ImmutableList.Builder<Type> types = ImmutableList.builder();
         for (Block block : pages.get(0).getBlocks()) {
-            tupleInfos.add(block.getTupleInfo());
+            types.add(block.getType());
         }
-        this.tupleInfos = tupleInfos.build();
+        this.types = types.build();
         this.pages = ImmutableList.copyOf(pages).iterator();
     }
 
@@ -54,9 +54,9 @@ public class StaticOperator
     }
 
     @Override
-    public List<TupleInfo> getTupleInfos()
+    public List<Type> getTypes()
     {
-        return tupleInfos;
+        return types;
     }
 
     @Override
