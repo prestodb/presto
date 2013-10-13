@@ -21,21 +21,26 @@ import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 
 public class SnappyBlockEncoding
         implements BlockEncoding
 {
-    private final TupleInfo tupleInfo;
+    public static final BlockEncodingFactory<SnappyBlockEncoding> FACTORY = new SnappyBlockEncodingFactory();
+    private static final String NAME = "SNAPPY";
 
-    public SnappyBlockEncoding(SliceInput input)
+    private final TupleInfo tupleInfo;
+    private final BlockEncoding uncompressedBlockEncoding;
+
+    public SnappyBlockEncoding(TupleInfo tupleInfo, BlockEncoding uncompressedBlockEncoding)
     {
-        this.tupleInfo = TupleInfoSerde.readTupleInfo(checkNotNull(input, "input is null"));
+        this.tupleInfo = tupleInfo;
+        this.uncompressedBlockEncoding = uncompressedBlockEncoding;
     }
 
-    public SnappyBlockEncoding(TupleInfo tupleInfo)
+    @Override
+    public String getName()
     {
-        this.tupleInfo = checkNotNull(tupleInfo, "tupleInfo is null");
+        return NAME;
     }
 
     @Override
@@ -64,11 +69,31 @@ public class SnappyBlockEncoding
         int tupleCount = sliceInput.readInt();
 
         Slice compressedSlice = sliceInput.readSlice(blockSize);
-        return new SnappyBlock(tupleCount, tupleInfo, compressedSlice);
+        return new SnappyBlock(tupleCount, tupleInfo, compressedSlice, uncompressedBlockEncoding);
     }
 
-    public static void serialize(SliceOutput output, SnappyBlockEncoding encoding)
+    private static class SnappyBlockEncodingFactory
+            implements BlockEncodingFactory<SnappyBlockEncoding>
     {
-        TupleInfoSerde.writeTupleInfo(output, encoding.getTupleInfo());
+        @Override
+        public String getName()
+        {
+            return NAME;
+        }
+
+        @Override
+        public SnappyBlockEncoding readEncoding(BlockEncodingManager blockEncodingManager, SliceInput input)
+        {
+            TupleInfo tupleInfo = TupleInfoSerde.readTupleInfo(input);
+            BlockEncoding valueBlockEncoding = blockEncodingManager.readBlockEncoding(input);
+            return new SnappyBlockEncoding(tupleInfo, valueBlockEncoding);
+        }
+
+        @Override
+        public void writeEncoding(BlockEncodingManager blockEncodingManager, SliceOutput output, SnappyBlockEncoding blockEncoding)
+        {
+            TupleInfoSerde.writeTupleInfo(output, blockEncoding.tupleInfo);
+            blockEncodingManager.writeBlockEncoding(output, blockEncoding.uncompressedBlockEncoding);
+        }
     }
 }

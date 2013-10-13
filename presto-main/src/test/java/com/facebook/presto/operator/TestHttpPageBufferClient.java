@@ -43,6 +43,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
+import static com.facebook.presto.serde.TestingBlockEncodingManager.createTestingBlockEncodingManager;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -85,6 +86,7 @@ public class TestHttpPageBufferClient
                 expectedMaxSize,
                 location,
                 callback,
+                createTestingBlockEncodingManager(),
                 executor);
 
         assertStatus(client, location, "queued", 0, 0, 0, "queued");
@@ -155,6 +157,7 @@ public class TestHttpPageBufferClient
                 new DataSize(10, Unit.MEGABYTE),
                 location,
                 callback,
+                createTestingBlockEncodingManager(),
                 executor);
 
         assertStatus(client, location, "queued", 0, 0, 0, "queued");
@@ -188,6 +191,7 @@ public class TestHttpPageBufferClient
                 new DataSize(10, Unit.MEGABYTE),
                 location,
                 callback,
+                createTestingBlockEncodingManager(),
                 executor);
 
         assertStatus(client, location, "queued", 0, 0, 0, "queued");
@@ -243,6 +247,7 @@ public class TestHttpPageBufferClient
                 new DataSize(10, Unit.MEGABYTE),
                 location,
                 callback,
+                createTestingBlockEncodingManager(),
                 executor);
 
         assertStatus(client, location, "queued", 0, 0, 0, "queued");
@@ -284,6 +289,7 @@ public class TestHttpPageBufferClient
                 new DataSize(10, Unit.MEGABYTE),
                 location,
                 callback,
+                createTestingBlockEncodingManager(),
                 executor);
 
         assertStatus(client, location, "queued", 0, 0, 0, "queued");

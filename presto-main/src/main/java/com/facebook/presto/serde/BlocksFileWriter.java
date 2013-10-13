@@ -17,7 +17,6 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.RandomAccessBlock;
 import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableList;
 import com.google.common.io.OutputSupplier;
 import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.SliceOutput;
@@ -25,7 +24,6 @@ import io.airlift.slice.SliceOutput;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.Iterator;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -33,26 +31,7 @@ import static com.google.common.base.Preconditions.checkState;
 public class BlocksFileWriter
         implements Closeable
 {
-    public static void writeBlocks(BlocksFileEncoding encoding, OutputSupplier<? extends OutputStream> sliceOutput, Block... blocks)
-    {
-        writeBlocks(encoding, sliceOutput, ImmutableList.copyOf(blocks));
-    }
-
-    public static void writeBlocks(BlocksFileEncoding encoding, OutputSupplier<? extends OutputStream> sliceOutput, Iterable<? extends Block> blocks)
-    {
-        writeBlocks(encoding, sliceOutput, blocks.iterator());
-    }
-
-    public static void writeBlocks(BlocksFileEncoding encoding, OutputSupplier<? extends OutputStream> sliceOutput, Iterator<? extends Block> blocks)
-    {
-        checkNotNull(sliceOutput, "sliceOutput is null");
-        BlocksFileWriter fileWriter = new BlocksFileWriter(encoding, sliceOutput);
-        while (blocks.hasNext()) {
-            fileWriter.append(blocks.next());
-        }
-        fileWriter.close();
-    }
-
+    private final BlockEncodingManager blockEncodingManager;
     private final BlocksFileEncoding encoding;
     private final OutputSupplier<? extends OutputStream> outputSupplier;
     private final StatsBuilder statsBuilder = new StatsBuilder();
@@ -60,13 +39,11 @@ public class BlocksFileWriter
     private SliceOutput sliceOutput;
     private boolean closed;
 
-    public BlocksFileWriter(BlocksFileEncoding encoding, OutputSupplier<? extends OutputStream> outputSupplier)
+    public BlocksFileWriter(BlockEncodingManager blockEncodingManager, BlocksFileEncoding encoding, OutputSupplier<? extends OutputStream> outputSupplier)
     {
-        checkNotNull(encoding, "encoding is null");
-        checkNotNull(outputSupplier, "outputSupplier is null");
-
-        this.encoding = encoding;
-        this.outputSupplier = outputSupplier;
+        this.blockEncodingManager = checkNotNull(blockEncodingManager, "blockEncodingManager is null");
+        this.encoding = checkNotNull(encoding, "encoding is null");
+        this.outputSupplier = checkNotNull(outputSupplier, "outputSupplier is null");
     }
 
     public BlocksFileWriter append(Block block)
@@ -118,7 +95,7 @@ public class BlocksFileWriter
         int startingIndex = sliceOutput.size();
 
         // write file encoding
-        BlockEncodings.writeBlockEncoding(sliceOutput, blockEncoding);
+        blockEncodingManager.writeBlockEncoding(sliceOutput, blockEncoding);
 
         // write stats
         BlocksFileStats.serialize(statsBuilder.build(), sliceOutput);

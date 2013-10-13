@@ -42,6 +42,8 @@ import org.skife.jdbi.v2.IDBI;
 import java.io.File;
 import java.util.concurrent.ExecutorService;
 
+import static com.facebook.presto.serde.TestingBlockEncodingManager.createTestingBlockEncodingManager;
+
 public final class BenchmarkQueryRunner
 {
     private BenchmarkQueryRunner()
@@ -111,7 +113,7 @@ public final class BenchmarkQueryRunner
             DatabaseLocalStorageManagerConfig storageManagerConfig = new DatabaseLocalStorageManagerConfig()
                     .setCompressed(false)
                     .setDataDirectory(new File(dataDir, "data"));
-            LocalStorageManager localStorageManager = new DatabaseLocalStorageManager(localStorageManagerDbi, storageManagerConfig);
+            LocalStorageManager localStorageManager = new DatabaseLocalStorageManager(localStorageManagerDbi, createTestingBlockEncodingManager(), storageManagerConfig);
 
             NativeDataStreamProvider nativeDataStreamProvider = new NativeDataStreamProvider(localStorageManager);
 

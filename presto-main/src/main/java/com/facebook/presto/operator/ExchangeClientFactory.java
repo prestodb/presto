@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.serde.BlockEncodingManager;
 import com.google.common.base.Supplier;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.units.DataSize;
@@ -28,6 +29,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class ExchangeClientFactory
         implements Supplier<ExchangeClient>
 {
+    private final BlockEncodingManager blockEncodingManager;
     private final DataSize maxBufferedBytes;
     private final int concurrentRequestMultiplier;
     private final AsyncHttpClient httpClient;
@@ -35,21 +37,28 @@ public class ExchangeClientFactory
     private final Executor executor;
 
     @Inject
-    public ExchangeClientFactory(ExchangeClientConfig config, @ForExchange AsyncHttpClient httpClient, @ForExchange Executor executor)
+    public ExchangeClientFactory(BlockEncodingManager blockEncodingManager,
+            ExchangeClientConfig config,
+            @ForExchange AsyncHttpClient httpClient,
+            @ForExchange Executor executor)
     {
-        this(config.getExchangeMaxBufferSize(),
+        this(blockEncodingManager,
+                config.getExchangeMaxBufferSize(),
                 new DataSize(10, Unit.MEGABYTE),
                 config.getExchangeConcurrentRequestMultiplier(),
                 httpClient,
                 executor);
     }
 
-    public ExchangeClientFactory(DataSize maxBufferedBytes,
+    public ExchangeClientFactory(
+            BlockEncodingManager blockEncodingManager,
+            DataSize maxBufferedBytes,
             DataSize maxResponseSize,
             int concurrentRequestMultiplier,
             AsyncHttpClient httpClient,
             Executor executor)
     {
+        this.blockEncodingManager = blockEncodingManager;
         this.maxBufferedBytes = checkNotNull(maxBufferedBytes, "maxBufferedBytes is null");
         this.concurrentRequestMultiplier = concurrentRequestMultiplier;
         this.httpClient = checkNotNull(httpClient, "httpClient is null");
@@ -64,6 +73,6 @@ public class ExchangeClientFactory
     @Override
     public ExchangeClient get()
     {
-        return new ExchangeClient(maxBufferedBytes, maxResponseSize, concurrentRequestMultiplier, httpClient, executor);
+        return new ExchangeClient(blockEncodingManager, maxBufferedBytes, maxResponseSize, concurrentRequestMultiplier, httpClient, executor);
     }
 }

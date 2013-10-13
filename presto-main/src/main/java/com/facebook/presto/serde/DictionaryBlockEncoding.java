@@ -26,6 +26,9 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class DictionaryBlockEncoding
         implements BlockEncoding
 {
+    public static final BlockEncodingFactory<DictionaryBlockEncoding> FACTORY = new DictionaryBlockEncodingFactory();
+    private static final String NAME = "DIC";
+
     private final RandomAccessBlock dictionary;
     private final BlockEncoding idBlockEncoding;
 
@@ -35,11 +38,10 @@ public class DictionaryBlockEncoding
         this.idBlockEncoding = checkNotNull(idBlockEncoding, "idBlockEncoding is null");
     }
 
-    public DictionaryBlockEncoding(SliceInput input)
+    @Override
+    public String getName()
     {
-        BlockEncoding dictionaryEncoding = BlockEncodings.readBlockEncoding(input);
-        dictionary =  dictionaryEncoding.readBlock(input).toRandomAccessBlock();
-        idBlockEncoding = BlockEncodings.readBlockEncoding(input);
+        return NAME;
     }
 
     @Override
@@ -63,14 +65,37 @@ public class DictionaryBlockEncoding
         return new DictionaryEncodedBlock(dictionary, idBlock);
     }
 
-    public static void serialize(SliceOutput output, DictionaryBlockEncoding encoding)
+    private static class DictionaryBlockEncodingFactory
+            implements BlockEncodingFactory<DictionaryBlockEncoding>
     {
-        // write the dictionary
-        BlockEncoding dictionaryBlockEncoding = encoding.dictionary.getEncoding();
-        BlockEncodings.writeBlockEncoding(output, dictionaryBlockEncoding);
-        dictionaryBlockEncoding.writeBlock(output, encoding.dictionary);
+        @Override
+        public String getName()
+        {
+            return NAME;
+        }
 
-        // write the id block
-        BlockEncodings.writeBlockEncoding(output, encoding.idBlockEncoding);
+        @Override
+        public DictionaryBlockEncoding readEncoding(BlockEncodingManager blockEncodingManager, SliceInput input)
+        {
+            // read the dictionary
+            BlockEncoding dictionaryEncoding = blockEncodingManager.readBlockEncoding(input);
+            RandomAccessBlock dictionary = dictionaryEncoding.readBlock(input).toRandomAccessBlock();
+
+            // read the id block encoding
+            BlockEncoding idBlockEncoding = blockEncodingManager.readBlockEncoding(input);
+            return new DictionaryBlockEncoding(dictionary, idBlockEncoding);
+        }
+
+        @Override
+        public void writeEncoding(BlockEncodingManager blockEncodingManager, SliceOutput output, DictionaryBlockEncoding blockEncoding)
+        {
+            // write the dictionary
+            BlockEncoding dictionaryBlockEncoding = blockEncoding.dictionary.getEncoding();
+            blockEncodingManager.writeBlockEncoding(output, dictionaryBlockEncoding);
+            dictionaryBlockEncoding.writeBlock(output, blockEncoding.dictionary);
+
+            // write the id block encoding
+            blockEncodingManager.writeBlockEncoding(output, blockEncoding.idBlockEncoding);
+        }
     }
 }

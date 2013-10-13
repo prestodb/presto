@@ -21,6 +21,11 @@ import io.airlift.slice.SliceOutput;
 public interface BlockEncoding
 {
     /**
+     * Gets the unique name of this encoding.
+     */
+    String getName();
+
+    /**
      * Gets the TupleInfo this encoding supports.
      */
     TupleInfo getTupleInfo();
@@ -35,4 +40,22 @@ public interface BlockEncoding
      * Write the specified block to the specified output
      */
     void writeBlock(SliceOutput sliceOutput, Block block);
+
+    public interface BlockEncodingFactory<T extends BlockEncoding>
+    {
+        /**
+         * Gets the unique name of this encoding.
+         */
+        String getName();
+
+        /**
+         * Reads the encoding from the specified input.
+         */
+        T readEncoding(BlockEncodingManager blockEncodingManager, SliceInput input);
+
+        /**
+         * Writes this encoding to the output stream.
+         */
+        void writeEncoding(BlockEncodingManager blockEncodingManager, SliceOutput output, T blockEncoding);
+    }
 }

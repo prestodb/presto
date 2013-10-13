@@ -46,6 +46,11 @@ public class RunLengthEncodedBlock
         this.positionCount = checkNotNull(positionCount, "positionCount is null");
     }
 
+    public RandomAccessBlock getValue()
+    {
+        return value;
+    }
+
     @Override
     public int getPositionCount()
     {
@@ -61,7 +66,7 @@ public class RunLengthEncodedBlock
     @Override
     public RunLengthBlockEncoding getEncoding()
     {
-        return new RunLengthBlockEncoding(getTupleInfo());
+        return new RunLengthBlockEncoding(value.getEncoding());
     }
 
     @Override

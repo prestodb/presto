@@ -55,6 +55,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.operator.SequencePageBuilder.createSequencePage;
+import static com.facebook.presto.serde.TestingBlockEncodingManager.createTestingBlockEncodingManager;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -100,7 +101,7 @@ public class TestExchangeOperator
             @Override
             public ExchangeClient get()
             {
-                return new ExchangeClient(new DataSize(32, MEGABYTE), new DataSize(10, MEGABYTE), 3, httpClient, executor);
+                return new ExchangeClient(createTestingBlockEncodingManager(), new DataSize(32, MEGABYTE), new DataSize(10, MEGABYTE), 3, httpClient, executor);
             }
         };
     }
@@ -340,7 +341,7 @@ public class TestExchangeOperator
                 headers.put(CONTENT_TYPE, PRESTO_PAGES);
                 headers.put(PRESTO_PAGE_NEXT_TOKEN, String.valueOf(pageToken + 1));
                 DynamicSliceOutput output = new DynamicSliceOutput(256);
-                PagesSerde.writePages(output, page);
+                PagesSerde.writePages(createTestingBlockEncodingManager(), output, page);
                 return new TestingResponse(HttpStatus.OK, headers.build(), output.slice().getInput());
             }
             else if (taskBuffer.isFinished()) {

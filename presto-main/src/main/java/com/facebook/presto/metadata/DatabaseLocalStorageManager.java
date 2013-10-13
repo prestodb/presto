@@ -21,6 +21,7 @@ import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.TaskContext;
+import com.facebook.presto.serde.BlockEncodingManager;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.serde.BlocksFileReader;
 import com.facebook.presto.serde.BlocksFileStats;
@@ -80,6 +81,7 @@ public class DatabaseLocalStorageManager
     private final KeyBoundedExecutor<UUID> shardBoundedExecutor;
 
     private final IDBI dbi;
+    private final BlockEncodingManager blockEncodingManager;
     private final File baseStorageDir;
     private final File baseStagingDir;
     private final StorageManagerDao dao;
@@ -101,9 +103,11 @@ public class DatabaseLocalStorageManager
     private final BlocksFileEncoding defaultEncoding;
 
     @Inject
-    public DatabaseLocalStorageManager(@ForLocalStorageManager IDBI dbi, DatabaseLocalStorageManagerConfig config)
+    public DatabaseLocalStorageManager(@ForLocalStorageManager IDBI dbi, BlockEncodingManager blockEncodingManager, DatabaseLocalStorageManagerConfig config)
             throws IOException
     {
+        this.blockEncodingManager = checkNotNull(blockEncodingManager, "blockEncodingManager is null");
+
         checkNotNull(config, "config is null");
         File baseDataDir = checkNotNull(config.getDataDirectory(), "dataDirectory is null");
         this.baseStorageDir = createDirectory(new File(baseDataDir, "storage"));
@@ -144,7 +148,7 @@ public class DatabaseLocalStorageManager
     {
         File shardPath = getShardPath(baseStagingDir, shardUuid);
 
-        ColumnFileHandle.Builder builder = ColumnFileHandle.builder(shardUuid);
+        ColumnFileHandle.Builder builder = ColumnFileHandle.builder(shardUuid, blockEncodingManager);
 
         for (ColumnHandle columnHandle : columnHandles) {
             File file = getColumnFile(shardPath, columnHandle, defaultEncoding);
@@ -180,7 +184,7 @@ public class DatabaseLocalStorageManager
         File shardPath = getShardPath(baseStorageDir, shardUuid);
 
         ImmutableList.Builder<BlockIterable> sourcesBuilder = ImmutableList.builder();
-        ColumnFileHandle.Builder builder = ColumnFileHandle.builder(shardUuid);
+        ColumnFileHandle.Builder builder = ColumnFileHandle.builder(shardUuid, blockEncodingManager);
 
         for (Map.Entry<ColumnHandle, File> entry : columnFileHandle.getFiles().entrySet()) {
             File file = entry.getValue();
@@ -190,7 +194,7 @@ public class DatabaseLocalStorageManager
                 Slice slice = mappedFileCache.getUnchecked(file.getAbsoluteFile());
                 checkState(file.length() == slice.length(), "File %s, length %s was mapped to Slice length %s", file.getAbsolutePath(), file.length(), slice.length());
                 // Compute optimal encoding from stats
-                BlocksFileReader blocks = BlocksFileReader.readBlocks(slice);
+                BlocksFileReader blocks = BlocksFileReader.readBlocks(blockEncodingManager, slice);
                 BlocksFileStats stats = blocks.getStats();
                 boolean rleEncode = stats.getAvgRunLength() > RUN_LENGTH_AVERAGE_CUTOFF;
                 boolean dicEncode = stats.getUniqueCount() < DICTIONARY_CARDINALITY_CUTOFF;
@@ -361,7 +365,7 @@ public class DatabaseLocalStorageManager
             public Iterable<? extends Block> apply(File file)
             {
                 Slice slice = mappedFileCache.getUnchecked(file.getAbsoluteFile());
-                return BlocksFileReader.readBlocks(slice);
+                return BlocksFileReader.readBlocks(blockEncodingManager, slice);
             }
         }));
 

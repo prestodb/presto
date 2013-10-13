@@ -28,6 +28,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.operator.PageBufferClientStatus.uriGetter;
+import static com.facebook.presto.serde.TestingBlockEncodingManager.createTestingBlockEncodingManager;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
@@ -71,7 +72,8 @@ public class TestExchangeClient
         processor.addPage(location, createPage(3));
         processor.setComplete(location);
 
-        ExchangeClient exchangeClient = new ExchangeClient(new DataSize(32, Unit.MEGABYTE),
+        ExchangeClient exchangeClient = new ExchangeClient(createTestingBlockEncodingManager(),
+                new DataSize(32, Unit.MEGABYTE),
                 maxResponseSize,
                 1,
                 new TestingHttpClient(processor, executor),
@@ -104,7 +106,8 @@ public class TestExchangeClient
         DataSize maxResponseSize = new DataSize(10, Unit.MEGABYTE);
         MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
 
-        ExchangeClient exchangeClient = new ExchangeClient(new DataSize(32, Unit.MEGABYTE),
+        ExchangeClient exchangeClient = new ExchangeClient(createTestingBlockEncodingManager(),
+                new DataSize(32, Unit.MEGABYTE),
                 maxResponseSize,
                 1,
                 new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
@@ -159,7 +162,8 @@ public class TestExchangeClient
         DataSize maxResponseSize = new DataSize(1, Unit.BYTE);
         MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
 
-        ExchangeClient exchangeClient = new ExchangeClient(new DataSize(1, Unit.BYTE),
+        ExchangeClient exchangeClient = new ExchangeClient(createTestingBlockEncodingManager(),
+                new DataSize(1, Unit.BYTE),
                 maxResponseSize,
                 1,
                 new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
@@ -242,7 +246,8 @@ public class TestExchangeClient
         processor.addPage(location, createPage(2));
         processor.addPage(location, createPage(3));
 
-        ExchangeClient exchangeClient = new ExchangeClient(new DataSize(1, Unit.BYTE),
+        ExchangeClient exchangeClient = new ExchangeClient(createTestingBlockEncodingManager(),
+                new DataSize(1, Unit.BYTE),
                 maxResponseSize, 1,
                 new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
                 executor);

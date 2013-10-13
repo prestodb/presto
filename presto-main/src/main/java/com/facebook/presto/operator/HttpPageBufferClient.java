@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.serde.BlockEncodingManager;
 import com.facebook.presto.serde.PagesSerde;
 import com.google.common.base.Objects;
 import com.google.common.base.Throwables;
@@ -59,7 +60,6 @@ public class HttpPageBufferClient
         implements Closeable
 {
     private static final Logger log = Logger.get(HttpPageBufferClient.class);
-    private final Executor executor;
 
     /**
      * For each request, the addPage method will be called zero or more times,
@@ -82,6 +82,8 @@ public class HttpPageBufferClient
     private final DataSize maxResponseSize;
     private final URI location;
     private final ClientCallback clientCallback;
+    private final BlockEncodingManager blockEncodingManager;
+    private final Executor executor;
     @GuardedBy("this")
     private boolean closed;
     @GuardedBy("this")
@@ -96,12 +98,18 @@ public class HttpPageBufferClient
     private final AtomicInteger requestsScheduled = new AtomicInteger();
     private final AtomicInteger requestsCompleted = new AtomicInteger();
 
-    public HttpPageBufferClient(AsyncHttpClient httpClient, DataSize maxResponseSize, URI location, ClientCallback clientCallback, Executor executor)
+    public HttpPageBufferClient(AsyncHttpClient httpClient,
+            DataSize maxResponseSize,
+            URI location,
+            ClientCallback clientCallback,
+            BlockEncodingManager blockEncodingManager,
+            Executor executor)
     {
         this.httpClient = checkNotNull(httpClient, "httpClient is null");
         this.maxResponseSize = checkNotNull(maxResponseSize, "maxResponseSize is null");
         this.location = checkNotNull(location, "location is null");
         this.clientCallback = checkNotNull(clientCallback, "clientCallback is null");
+        this.blockEncodingManager = checkNotNull(blockEncodingManager, "blockEncodingManager is null");
         this.executor = checkNotNull(executor, "executor is null");
     }
 
@@ -166,9 +174,11 @@ public class HttpPageBufferClient
         }
 
         final URI uri = HttpUriBuilder.uriBuilderFrom(location).appendPath(String.valueOf(token)).build();
-        future = httpClient.executeAsync(prepareGet()
-                .setHeader(PRESTO_MAX_SIZE, maxResponseSize.toString())
-                .setUri(uri).build(), new PageResponseHandler());
+        future = httpClient.executeAsync(
+                prepareGet()
+                        .setHeader(PRESTO_MAX_SIZE, maxResponseSize.toString())
+                        .setUri(uri).build(),
+                new PageResponseHandler(blockEncodingManager));
 
         Futures.addCallback(future, new FutureCallback<PagesResponse>()
         {
@@ -287,6 +297,13 @@ public class HttpPageBufferClient
     public static class PageResponseHandler
             implements ResponseHandler<PagesResponse, RuntimeException>
     {
+        private final BlockEncodingManager blockEncodingManager;
+
+        public PageResponseHandler(BlockEncodingManager blockEncodingManager)
+        {
+            this.blockEncodingManager = blockEncodingManager;
+        }
+
         @Override
         public PagesResponse handleException(Request request, Exception exception)
         {
@@ -333,7 +350,7 @@ public class HttpPageBufferClient
 
             try {
                 InputStreamSliceInput sliceInput = new InputStreamSliceInput(response.getInputStream());
-                return PagesResponse.createPagesResponse(token, nextToken, ImmutableList.copyOf(PagesSerde.readPages(sliceInput)));
+                return PagesResponse.createPagesResponse(token, nextToken, ImmutableList.copyOf(PagesSerde.readPages(blockEncodingManager, sliceInput)));
             }
             catch (IOException e) {
                 throw Throwables.propagate(e);

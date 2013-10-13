@@ -41,7 +41,7 @@ public class TestRunLengthEncodedBlockSerde
         RunLengthEncodedBlock expectedBlock = new RunLengthEncodedBlock(value, 11);
 
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
-        RunLengthBlockEncoding blockEncoding = new RunLengthBlockEncoding(SINGLE_VARBINARY);
+        RunLengthBlockEncoding blockEncoding = new RunLengthBlockEncoding(new UncompressedBlockEncoding(SINGLE_VARBINARY));
         blockEncoding.writeBlock(sliceOutput, expectedBlock);
         RunLengthEncodedBlock actualBlock = blockEncoding.readBlock(sliceOutput.slice().getInput());
         assertTrue(actualBlock.equals(0, expectedBlock, 0));

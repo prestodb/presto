@@ -44,7 +44,7 @@ public class RunLengthEncoder
         checkState(!finished, "already finished");
 
         if (encoding == null) {
-            encoding = new RunLengthBlockEncoding(block.getTupleInfo());
+            encoding = new RunLengthBlockEncoding(block.getEncoding());
         }
 
         BlockCursor cursor = block.cursor();
