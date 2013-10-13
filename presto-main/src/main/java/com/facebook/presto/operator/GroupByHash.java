@@ -16,10 +16,10 @@ package com.facebook.presto.operator;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.uncompressed.FixedWidthBlock;
+import com.facebook.presto.tuple.FixedWidthTypeInfo;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slices;
 import it.unimi.dsi.fastutil.longs.Long2IntOpenCustomHashMap;
 import it.unimi.dsi.fastutil.longs.LongHash;
 import it.unimi.dsi.fastutil.longs.LongHash.Strategy;
@@ -28,10 +28,11 @@ import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import java.util.List;
 
 import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
+import static com.facebook.presto.block.BlockBuilders.createFixedSizeBlockBuilder;
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
+import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -82,8 +83,7 @@ public class GroupByHash
         int positionCount = page.getPositionCount();
 
         // we know the exact size required for the block
-        int groupIdBlockSize = SINGLE_LONG.getFixedSize() * positionCount;
-        BlockBuilder blockBuilder = createBlockBuilder(SINGLE_LONG, Slices.allocate(groupIdBlockSize));
+        BlockBuilder blockBuilder = createFixedSizeBlockBuilder(new FixedWidthTypeInfo(FIXED_INT_64), positionCount);
 
         // open cursors for group blocks
         BlockCursor[] cursors = new BlockCursor[channels.length];
