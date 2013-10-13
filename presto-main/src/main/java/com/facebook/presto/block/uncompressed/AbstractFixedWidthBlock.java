@@ -42,6 +42,8 @@ public abstract class AbstractFixedWidthBlock
         this.entrySize = typeInfo.getSize() + SIZE_OF_BYTE;
     }
 
+    protected abstract Slice getRawSlice();
+
     public FixedWidthTypeInfo getTypeInfo()
     {
         return typeInfo;
@@ -68,7 +70,7 @@ public abstract class AbstractFixedWidthBlock
     @Override
     public BlockEncoding getEncoding()
     {
-        return new UncompressedBlockEncoding(new TupleInfo(typeInfo.getType()));
+        return new FixedWidthBlockEncoding(new TupleInfo(typeInfo.getType()));
     }
 
     @Override

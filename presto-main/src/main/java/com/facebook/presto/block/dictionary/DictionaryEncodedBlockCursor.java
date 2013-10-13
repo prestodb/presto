@@ -141,18 +141,6 @@ public class DictionaryEncodedBlockCursor
     }
 
     @Override
-    public int getRawOffset()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Slice getRawSlice()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public void appendTupleTo(BlockBuilder blockBuilder)
     {
         dictionary.appendTupleTo(getDictionaryKey(), blockBuilder);

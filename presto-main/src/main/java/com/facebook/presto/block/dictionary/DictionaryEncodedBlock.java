@@ -15,9 +15,9 @@ package com.facebook.presto.block.dictionary;
 
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.block.BlockEncoding;
 import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.operator.SortOrder;
-import com.facebook.presto.block.BlockEncoding;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
@@ -38,12 +38,6 @@ public class DictionaryEncodedBlock
         this.dictionary = checkNotNull(dictionary, "dictionary is null");
         this.idBlock = checkNotNull(idBlock, "idBlock is null");
         checkArgument(idBlock.getTupleInfo().equals(TupleInfo.SINGLE_LONG), "block must contain tuples with a single long value");
-    }
-
-    @Override
-    public Slice getRawSlice()
-    {
-        throw new UnsupportedOperationException();
     }
 
     @Override

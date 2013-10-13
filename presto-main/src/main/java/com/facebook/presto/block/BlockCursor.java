@@ -142,9 +142,5 @@ public interface BlockCursor
 
     int calculateHashCode();
 
-    int getRawOffset();
-
-    Slice getRawSlice();
-
     void appendTupleTo(BlockBuilder blockBuilder);
 }

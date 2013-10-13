@@ -146,10 +146,4 @@ public class SnappyBlock
                 .add("compressedSlice", compressedSlice)
                 .toString();
     }
-
-    @Override
-    public Slice getRawSlice()
-    {
-        return getUncompressedBlock().getRawSlice();
-    }
 }

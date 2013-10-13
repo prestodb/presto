@@ -17,7 +17,6 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockEncoding;
-import com.facebook.presto.block.uncompressed.UncompressedBlockEncoding;
 import io.airlift.slice.SliceOutput;
 
 import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
@@ -29,7 +28,7 @@ public class UncompressedEncoder
 {
     private final SliceOutput sliceOutput;
 
-    private UncompressedBlockEncoding encoding;
+    private BlockEncoding encoding;
     private BlockBuilder blockBuilder;
     private boolean finished;
 
@@ -45,8 +44,8 @@ public class UncompressedEncoder
         checkState(!finished, "already finished");
 
         if (encoding == null) {
-            encoding = new UncompressedBlockEncoding(block.getTupleInfo());
             blockBuilder = createBlockBuilder(block.getTupleInfo());
+            encoding = blockBuilder.getEncoding();
         }
         BlockCursor cursor = block.cursor();
         while (cursor.advanceNextPosition()) {

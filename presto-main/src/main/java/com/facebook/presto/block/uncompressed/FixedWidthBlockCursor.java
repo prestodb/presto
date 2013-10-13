@@ -219,16 +219,4 @@ public class FixedWidthBlockCursor
             typeInfo.appendTo(slice, offset + SIZE_OF_BYTE, blockBuilder);
         }
     }
-
-    @Override
-    public int getRawOffset()
-    {
-        return offset;
-    }
-
-    @Override
-    public Slice getRawSlice()
-    {
-        return slice;
-    }
 }

@@ -15,6 +15,7 @@ package com.facebook.presto.block.uncompressed;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.block.BlockEncoding;
 import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.VariableWidthTypeInfo;
@@ -47,7 +48,7 @@ public class VariableWidthBlock
         return new TupleInfo(typeInfo.getType());
     }
 
-    public Slice getRawSlice()
+    Slice getRawSlice()
     {
         return slice;
     }
@@ -70,9 +71,9 @@ public class VariableWidthBlock
     }
 
     @Override
-    public UncompressedBlockEncoding getEncoding()
+    public BlockEncoding getEncoding()
     {
-        return new UncompressedBlockEncoding(getTupleInfo());
+        return new VariableWidthBlockEncoding(getTupleInfo());
     }
 
     @Override

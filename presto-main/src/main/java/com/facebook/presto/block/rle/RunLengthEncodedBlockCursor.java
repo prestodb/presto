@@ -179,18 +179,6 @@ public final class RunLengthEncodedBlockCursor
     }
 
     @Override
-    public int getRawOffset()
-    {
-        return 0;
-    }
-
-    @Override
-    public Slice getRawSlice()
-    {
-        return value.getRawSlice();
-    }
-
-    @Override
     public void appendTupleTo(BlockBuilder blockBuilder)
     {
         value.appendTupleTo(0, blockBuilder);

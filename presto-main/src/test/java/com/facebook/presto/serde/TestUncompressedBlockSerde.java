@@ -16,7 +16,7 @@ package com.facebook.presto.serde;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockEncoding;
-import com.facebook.presto.block.uncompressed.UncompressedBlockEncoding;
+import com.facebook.presto.block.uncompressed.VariableWidthBlockEncoding;
 import com.facebook.presto.tuple.TupleInfo;
 import io.airlift.slice.DynamicSliceOutput;
 import org.testng.annotations.Test;
@@ -37,7 +37,7 @@ public class TestUncompressedBlockSerde
                 .build();
 
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
-        BlockEncoding blockEncoding = new UncompressedBlockEncoding(SINGLE_VARBINARY);
+        BlockEncoding blockEncoding = new VariableWidthBlockEncoding(SINGLE_VARBINARY);
         blockEncoding.writeBlock(sliceOutput, expectedBlock);
         Block actualBlock = blockEncoding.readBlock(sliceOutput.slice().getInput());
         BlockAssertions.assertBlockEquals(actualBlock, expectedBlock);

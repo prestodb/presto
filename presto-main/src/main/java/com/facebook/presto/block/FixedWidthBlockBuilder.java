@@ -53,8 +53,7 @@ public class FixedWidthBlockBuilder
         this.sliceOutput = slice.getOutput();
     }
 
-    @Override
-    public Slice getRawSlice()
+    protected Slice getRawSlice()
     {
         return sliceOutput.getUnderlyingSlice();
     }
