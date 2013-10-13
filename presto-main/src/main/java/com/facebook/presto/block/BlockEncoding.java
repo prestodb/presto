@@ -11,9 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.serde;
+package com.facebook.presto.block;
 
-import com.facebook.presto.block.Block;
 import com.facebook.presto.tuple.TupleInfo;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
