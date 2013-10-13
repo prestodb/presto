@@ -28,7 +28,6 @@ import com.facebook.presto.execution.StageStats;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
@@ -47,7 +46,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
+import static com.facebook.presto.type.Types.VARCHAR;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
 
@@ -55,7 +54,7 @@ import static com.google.common.collect.Iterables.transform;
 public class MockQueryManager
         implements QueryManager
 {
-    public static final List<TupleInfo> TUPLE_INFOS = ImmutableList.of(SINGLE_VARBINARY);
+    public static final List<String> TYPES = ImmutableList.of(VARCHAR.getName());
 
     private final MockTaskManager mockTaskManager;
     private final LocationFactory locationFactory;
@@ -186,7 +185,7 @@ public class MockQueryManager
                             StageState.FINISHED,
                             locationFactory.createStageLocation(outputTaskId.getStageId()),
                             null,
-                            TUPLE_INFOS,
+                            TYPES,
                             new StageStats(),
                             ImmutableList.<TaskInfo>of(outputTask),
                             ImmutableList.<StageInfo>of(),

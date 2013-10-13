@@ -47,7 +47,7 @@ public class BootstrapFunctionBinder
 
     public FunctionBinding bindFunction(QualifiedName name, ByteCodeNode getSessionByteCode, List<TypedByteCodeNode> arguments)
     {
-        List<Type> argumentTypes = Lists.transform(arguments, toTupleType());
+        List<Type> argumentTypes = Lists.transform(arguments, toType());
         FunctionInfo function = metadata.getFunction(name, argumentTypes, false);
         checkArgument(function != null, "Unknown function %s%s", name, argumentTypes);
 
@@ -75,7 +75,7 @@ public class BootstrapFunctionBinder
         return functionBinding.getCallSite();
     }
 
-    public static Function<TypedByteCodeNode, Type> toTupleType()
+    public static Function<TypedByteCodeNode, Type> toType()
     {
         return new Function<TypedByteCodeNode, Type>()
         {

@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.block;
 
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import com.google.common.base.Optional;
 import io.airlift.units.DataSize;
 
 public interface BlockIterable
         extends Iterable<Block>
 {
-    TupleInfo getTupleInfo();
+    Type getType();
 
     Optional<DataSize> getDataSize();
 

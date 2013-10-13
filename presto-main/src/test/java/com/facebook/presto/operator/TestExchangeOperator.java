@@ -19,7 +19,7 @@ import com.facebook.presto.serde.PagesSerde;
 import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import com.google.common.base.Function;
 import com.google.common.base.Splitter;
 import com.google.common.base.Supplier;
@@ -56,7 +56,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.operator.SequencePageBuilder.createSequencePage;
 import static com.facebook.presto.serde.TestingBlockEncodingManager.createTestingBlockEncodingManager;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
+import static com.facebook.presto.type.Types.VARCHAR;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -67,8 +67,8 @@ import static org.testng.Assert.assertNull;
 @Test(singleThreaded = true)
 public class TestExchangeOperator
 {
-    private static final List<TupleInfo> TUPLE_INFOS = ImmutableList.of(SINGLE_VARBINARY);
-    private static final Page PAGE = createSequencePage(TUPLE_INFOS, 10, 100);
+    private static final List<Type> TYPES = ImmutableList.of(VARCHAR);
+    private static final Page PAGE = createSequencePage(TYPES, 10, 100);
 
     private static final String TASK_1_ID = "task1";
     private static final String TASK_2_ID = "task2";
@@ -129,9 +129,9 @@ public class TestExchangeOperator
     {
         SourceOperator operator = createExchangeOperator();
 
-        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_1_ID), TUPLE_INFOS));
-        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_2_ID), TUPLE_INFOS));
-        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_3_ID), TUPLE_INFOS));
+        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_1_ID)));
+        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_2_ID)));
+        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_3_ID)));
         operator.noMoreSplits();
 
         // add pages and close the buffers
@@ -152,9 +152,9 @@ public class TestExchangeOperator
     {
         SourceOperator operator = createExchangeOperator();
 
-        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_1_ID), TUPLE_INFOS));
-        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_2_ID), TUPLE_INFOS));
-        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_3_ID), TUPLE_INFOS));
+        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_1_ID)));
+        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_2_ID)));
+        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_3_ID)));
         operator.noMoreSplits();
 
         // add pages and leave buffers open
@@ -189,7 +189,9 @@ public class TestExchangeOperator
         SourceOperator operator = createExchangeOperator();
 
         // add a buffer location containing one page and close the buffer
-        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_1_ID), TUPLE_INFOS));
+        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_1_ID)));
+
+        // add pages and leave buffers open
         taskBuffers.getUnchecked(TASK_1_ID).addPages(1, true);
 
         // read page
@@ -201,7 +203,7 @@ public class TestExchangeOperator
         assertEquals(operator.getOutput(), null);
 
         // add a buffer location
-        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_2_ID), TUPLE_INFOS));
+        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_2_ID)));
         // set no more splits (buffer locations)
         operator.noMoreSplits();
         // add two pages and close the last buffer
@@ -220,9 +222,9 @@ public class TestExchangeOperator
     {
         SourceOperator operator = createExchangeOperator();
 
-        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_1_ID), TUPLE_INFOS));
-        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_2_ID), TUPLE_INFOS));
-        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_3_ID), TUPLE_INFOS));
+        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_1_ID)));
+        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_2_ID)));
+        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_3_ID)));
         operator.noMoreSplits();
 
         // add pages and leave buffers open
@@ -247,7 +249,7 @@ public class TestExchangeOperator
 
     private SourceOperator createExchangeOperator()
     {
-        ExchangeOperatorFactory operatorFactory = new ExchangeOperatorFactory(0, new PlanNodeId("test"), exchangeClientSupplier, TUPLE_INFOS);
+        ExchangeOperatorFactory operatorFactory = new ExchangeOperatorFactory(0, new PlanNodeId("test"), exchangeClientSupplier, TYPES);
 
         Session session = new Session("user", "source", "catalog", "schema", "address", "agent");
         DriverContext driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session)

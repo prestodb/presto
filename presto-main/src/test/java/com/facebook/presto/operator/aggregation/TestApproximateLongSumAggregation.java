@@ -13,22 +13,22 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Predicates;
 
 import java.util.List;
 
 import static com.facebook.presto.operator.aggregation.ApproximateLongSumAggregation.LONG_APPROXIMATE_SUM_AGGREGATION;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
+import static com.facebook.presto.type.Types.BIGINT;
 
 public class TestApproximateLongSumAggregation
         extends AbstractTestApproximateAggregationFunction
 {
     @Override
-    protected TupleInfo getTupleInfo()
+    protected Type getType()
     {
-        return SINGLE_LONG;
+        return BIGINT;
     }
 
     @Override

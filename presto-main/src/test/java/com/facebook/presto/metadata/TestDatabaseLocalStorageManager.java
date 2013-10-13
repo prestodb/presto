@@ -44,8 +44,8 @@ import static com.facebook.presto.metadata.DatabaseLocalStorageManager.getShardP
 import static com.facebook.presto.operator.OperatorAssertion.toMaterializedResult;
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.serde.TestingBlockEncodingManager.createTestingBlockEncodingManager;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
+import static com.facebook.presto.type.Types.BIGINT;
+import static com.facebook.presto.type.Types.VARCHAR;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
@@ -94,7 +94,7 @@ public class TestDatabaseLocalStorageManager
 
         List<ColumnHandle> columnHandles = ImmutableList.<ColumnHandle>of(new NativeColumnHandle("column_7", 7L), new NativeColumnHandle("column_11", 11L));
 
-        List<Page> pages = rowPagesBuilder(SINGLE_VARBINARY, SINGLE_LONG)
+        List<Page> pages = rowPagesBuilder(VARCHAR, BIGINT)
                 .row("alice", 0)
                 .row("bob", 1)
                 .row("charlie", 2)
@@ -125,7 +125,7 @@ public class TestDatabaseLocalStorageManager
         Operator operator = factory.createOperator(driverContext);
 
         // materialize pages to force comparision only on contents and not page boundaries
-        MaterializedResult expected = toMaterializedResult(operator.getTupleInfos(), pages);
+        MaterializedResult expected = toMaterializedResult(operator.getTypes(), pages);
 
         OperatorAssertion.assertOperatorEquals(operator, expected);
     }

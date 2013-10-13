@@ -17,7 +17,7 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockEncoding;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.block.RandomAccessBlock;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
@@ -43,9 +43,9 @@ public class RunLengthBlockEncoding
     }
 
     @Override
-    public TupleInfo getTupleInfo()
+    public Type getType()
     {
-        return getValueBlockEncoding().getTupleInfo();
+        return valueBlockEncoding.getType();
     }
 
     public BlockEncoding getValueBlockEncoding()

@@ -33,7 +33,7 @@ import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import com.facebook.presto.util.IterableTransformer;
 import com.facebook.presto.util.SetThreadName;
 import com.google.common.annotations.VisibleForTesting;
@@ -104,7 +104,7 @@ public class SqlStageExecution
     private final StageId stageId;
     private final URI location;
     private final PlanFragment fragment;
-    private final List<TupleInfo> tupleInfos;
+    private final List<String> types;
     private final Map<PlanFragmentId, StageExecutionNode> subStages;
 
     private final ConcurrentMap<Node, RemoteTask> tasks = new ConcurrentHashMap<>();
@@ -205,7 +205,11 @@ public class SqlStageExecution
             this.initialHashPartitions = initialHashPartitions;
             this.executor = executor;
 
-            tupleInfos = fragment.getTupleInfos();
+            ImmutableList.Builder<String> types = ImmutableList.builder();
+            for (Type type : fragment.getTypes()) {
+                types.add(type.getName());
+            }
+            this.types = types.build();
 
             ImmutableMap.Builder<PlanFragmentId, StageExecutionNode> subStages = ImmutableMap.builder();
             for (StageExecutionPlan subStagePlan : plan.getSubStages()) {
@@ -374,7 +378,7 @@ public class SqlStageExecution
                     state,
                     location,
                     fragment,
-                    tupleInfos,
+                    types,
                     stageStats,
                     taskInfos,
                     subStageInfos,
@@ -956,7 +960,7 @@ public class SqlStageExecution
     private RemoteSplit createRemoteSplitFor(String nodeId, URI taskLocation)
     {
         URI splitLocation = uriBuilderFrom(taskLocation).appendPath("results").appendPath(nodeId).build();
-        return new RemoteSplit(splitLocation, tupleInfos);
+        return new RemoteSplit(splitLocation);
     }
 
     @Override

@@ -15,7 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.operator.ChannelSet.ChannelSetBuilder;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -36,17 +36,17 @@ public class SetBuilderOperator
 {
     public static class SetSupplier
     {
-        private final TupleInfo tupleInfo;
+        private final Type type;
         private final SettableFuture<ChannelSet> channelSetFuture = SettableFuture.create();
 
-        public SetSupplier(TupleInfo tupleInfo)
+        public SetSupplier(Type type)
         {
-            this.tupleInfo = checkNotNull(tupleInfo, "tupleInfo is null");
+            this.type = checkNotNull(type, "type is null");
         }
 
-        public TupleInfo getTupleInfo()
+        public Type getType()
         {
-            return tupleInfo;
+            return type;
         }
 
         public ListenableFuture<ChannelSet> getChannelSet()
@@ -79,13 +79,13 @@ public class SetBuilderOperator
 
         public SetBuilderOperatorFactory(
                 int operatorId,
-                List<TupleInfo> tupleInfos,
+                List<Type> types,
                 int setChannel,
                 int expectedPositions)
         {
             this.operatorId = operatorId;
             Preconditions.checkArgument(setChannel >= 0, "setChannel is negative");
-            this.setProvider = new SetSupplier(checkNotNull(tupleInfos, "tupleInfos is null").get(setChannel));
+            this.setProvider = new SetSupplier(checkNotNull(types, "types is null").get(setChannel));
             this.setChannel = setChannel;
             this.expectedPositions = checkNotNull(expectedPositions, "expectedPositions is null");
         }
@@ -96,7 +96,7 @@ public class SetBuilderOperator
         }
 
         @Override
-        public List<TupleInfo> getTupleInfos()
+        public List<Type> getTypes()
         {
             return ImmutableList.of();
         }
@@ -134,7 +134,7 @@ public class SetBuilderOperator
         this.setSupplier = checkNotNull(setSupplier, "setProvider is null");
         this.setChannel = setChannel;
         this.channelSetBuilder = new ChannelSetBuilder(
-                setSupplier.getTupleInfo(),
+                setSupplier.getType(),
                 expectedPositions,
                 checkNotNull(operatorContext, "operatorContext is null"));
     }
@@ -146,7 +146,7 @@ public class SetBuilderOperator
     }
 
     @Override
-    public List<TupleInfo> getTupleInfos()
+    public List<Type> getTypes()
     {
         return ImmutableList.of();
     }

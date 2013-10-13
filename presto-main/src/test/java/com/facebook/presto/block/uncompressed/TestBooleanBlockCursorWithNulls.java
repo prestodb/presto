@@ -14,7 +14,7 @@
 package com.facebook.presto.block.uncompressed;
 
 import com.facebook.presto.block.Block;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Types;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
@@ -34,6 +34,6 @@ public class TestBooleanBlockCursorWithNulls
     public void testCursorType()
     {
         assertInstanceOf(createExpectedValues().cursor(), FixedWidthBlockCursor.class);
-        assertEquals(createExpectedValues().cursor().getTupleInfo(), TupleInfo.SINGLE_BOOLEAN);
+        assertEquals(createExpectedValues().cursor().getType(), Types.BOOLEAN);
     }
 }

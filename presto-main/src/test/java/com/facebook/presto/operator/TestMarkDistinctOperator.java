@@ -28,8 +28,8 @@ import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.operator.OperatorAssertion.appendSampleWeight;
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_BOOLEAN;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
+import static com.facebook.presto.type.Types.BIGINT;
+import static com.facebook.presto.type.Types.BOOLEAN;
 import static com.facebook.presto.util.MaterializedResult.resultBuilder;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -60,16 +60,16 @@ public class TestMarkDistinctOperator
     public void testSampledMarkDistinct()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(SINGLE_LONG)
+        List<Page> input = rowPagesBuilder(BIGINT)
                 .addSequencePage(100, 0)
                 .addSequencePage(100, 0)
                 .build();
         input = appendSampleWeight(input, 2);
 
-        OperatorFactory operatorFactory = new MarkDistinctOperatorFactory(0, ImmutableList.of(SINGLE_LONG, SINGLE_LONG), ImmutableList.of(0), Optional.of(1));
+        OperatorFactory operatorFactory = new MarkDistinctOperatorFactory(0, ImmutableList.of(BIGINT, BIGINT), ImmutableList.of(0), Optional.of(1));
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        MaterializedResult.Builder expected = resultBuilder(SINGLE_LONG, SINGLE_LONG, SINGLE_BOOLEAN);
+        MaterializedResult.Builder expected = resultBuilder(BIGINT, BIGINT, BOOLEAN);
         for (int i = 0; i < 100; i++) {
             expected.row(i, 1, true);
             expected.row(i, 1, false);
@@ -83,15 +83,15 @@ public class TestMarkDistinctOperator
     public void testMarkDistinct()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(SINGLE_LONG)
+        List<Page> input = rowPagesBuilder(BIGINT)
                 .addSequencePage(100, 0)
                 .addSequencePage(100, 0)
                 .build();
 
-        OperatorFactory operatorFactory = new MarkDistinctOperatorFactory(0, ImmutableList.of(SINGLE_LONG), ImmutableList.of(0), Optional.<Integer>absent());
+        OperatorFactory operatorFactory = new MarkDistinctOperatorFactory(0, ImmutableList.of(BIGINT), ImmutableList.of(0), Optional.<Integer>absent());
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        MaterializedResult.Builder expected = resultBuilder(SINGLE_LONG, SINGLE_BOOLEAN);
+        MaterializedResult.Builder expected = resultBuilder(BIGINT, BOOLEAN);
         for (int i = 0; i < 100; i++) {
             expected.row(i, true);
             expected.row(i, false);

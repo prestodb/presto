@@ -15,7 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 
@@ -35,15 +35,15 @@ public class PageBuilder
     private final DataSize maxBlockSize;
     private int declaredPositions;
 
-    public PageBuilder(List<TupleInfo> tupleInfos)
+    public PageBuilder(List<Type> types)
     {
-        this(tupleInfos, DEFAULT_MAX_PAGE_SIZE);
+        this(types, DEFAULT_MAX_PAGE_SIZE);
     }
 
-    public PageBuilder(List<TupleInfo> tupleInfos, DataSize maxSize)
+    public PageBuilder(List<Type> types, DataSize maxSize)
     {
-        if (!tupleInfos.isEmpty()) {
-            maxBlockSize = new DataSize((int) (maxSize.toBytes() / tupleInfos.size()), BYTE);
+        if (!types.isEmpty()) {
+            maxBlockSize = new DataSize((int) (maxSize.toBytes() / types.size()), BYTE);
         }
         else {
             maxBlockSize = new DataSize(0, BYTE);
@@ -51,9 +51,9 @@ public class PageBuilder
 
         DataSize initialBlockBufferSize = new DataSize((int) (maxBlockSize.toBytes() * BUFFER_MULTIPLIER), BYTE);
 
-        blockBuilders = new BlockBuilder[tupleInfos.size()];
+        blockBuilders = new BlockBuilder[types.size()];
         for (int i = 0; i < blockBuilders.length; i++) {
-            blockBuilders[i] = createBlockBuilder(tupleInfos.get(i), maxBlockSize, initialBlockBufferSize);
+            blockBuilders[i] = createBlockBuilder(types.get(i), maxBlockSize, initialBlockBufferSize);
         }
         this.maxSizeInBytes = checkNotNull(maxSize, "maxSize is null").toBytes();
     }
@@ -68,7 +68,7 @@ public class PageBuilder
         for (int i = 0; i < blockBuilders.length; i++) {
             BlockBuilder blockBuilder = blockBuilders[i];
             DataSize blockBufferSize = new DataSize((int) (blockBuilder.size() * BUFFER_MULTIPLIER), BYTE);
-            blockBuilders[i] = createBlockBuilder(blockBuilder.getTupleInfo(), maxBlockSize, blockBufferSize);
+            blockBuilders[i] = createBlockBuilder(blockBuilder.getType(), maxBlockSize, blockBufferSize);
         }
     }
 

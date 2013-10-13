@@ -16,7 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import io.airlift.units.DataSize;
 import it.unimi.dsi.fastutil.longs.LongHash;
 import it.unimi.dsi.fastutil.longs.LongOpenCustomHashSet;
@@ -108,7 +108,7 @@ public class ChannelSet
         private final BlockBuilderHashStrategy strategy;
         private final AddressValueSet addressValueSet;
         private final OperatorContext operatorContext;
-        private final TupleInfo tupleInfo;
+        private final Type type;
         private final ObjectArrayList<BlockBuilder> blocks;
 
         private int currentBlockId;
@@ -116,10 +116,10 @@ public class ChannelSet
         private BlockBuilder openBlockBuilder;
         private long blocksMemorySize;
 
-        // Note: Supporting multi-field channel sets (e.g. tuples) is much more difficult because of null handling, and hence is not supported by this class.
-        public ChannelSetBuilder(TupleInfo tupleInfo, int expectedPositions, OperatorContext operatorContext)
+        // Note: Supporting multi-channel sets (e.g. tuples) is much more difficult because of null handling, and hence is not supported by this class.
+        public ChannelSetBuilder(Type type, int expectedPositions, OperatorContext operatorContext)
         {
-            this.tupleInfo = checkNotNull(tupleInfo, "tupleInfo is null");
+            this.type = checkNotNull(type, "type is null");
             checkArgument(expectedPositions >= 0, "expectedPositions must be greater than or equal to zero");
             this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
 
@@ -128,7 +128,7 @@ public class ChannelSet
             strategy = new BlockBuilderHashStrategy(blocks);
             addressValueSet = new AddressValueSet(expectedPositions, strategy);
 
-            openBlockBuilder = createBlockBuilder(tupleInfo);
+            openBlockBuilder = createBlockBuilder(type);
             blocks.add(openBlockBuilder);
         }
 
@@ -147,13 +147,13 @@ public class ChannelSet
                         blocksMemorySize += openBlockBuilder.getDataSize().toBytes();
 
                         // create a new block builder (there is no need to actually "build" the block)
-                        openBlockBuilder = createBlockBuilder(tupleInfo);
+                        openBlockBuilder = createBlockBuilder(type);
                         blocks.add(openBlockBuilder);
                         currentBlockId++;
                     }
 
                     int blockPosition = openBlockBuilder.getPositionCount();
-                    sourceCursor.appendTupleTo(openBlockBuilder);
+                    sourceCursor.appendTo(openBlockBuilder);
                     addressValueSet.add(encodeSyntheticAddress(currentBlockId, blockPosition));
                 }
             }

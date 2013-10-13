@@ -21,8 +21,7 @@ import com.facebook.presto.util.array.BooleanBigArray;
 import com.facebook.presto.util.array.DoubleBigArray;
 import com.google.common.base.Optional;
 
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
-import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
+import static com.facebook.presto.type.Types.DOUBLE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -33,7 +32,7 @@ public class DoubleMinAggregation
 
     public DoubleMinAggregation()
     {
-        super(SINGLE_DOUBLE, SINGLE_DOUBLE, DOUBLE);
+        super(DOUBLE, DOUBLE, DOUBLE);
     }
 
     @Override
@@ -52,7 +51,7 @@ public class DoubleMinAggregation
 
         public DoubleMinGroupedAccumulator(int valueChannel)
         {
-            super(valueChannel, SINGLE_DOUBLE, SINGLE_DOUBLE, Optional.<Integer>absent(), Optional.<Integer>absent());
+            super(valueChannel, DOUBLE, DOUBLE, Optional.<Integer>absent(), Optional.<Integer>absent());
 
             this.notNull = new BooleanBigArray();
 
@@ -118,7 +117,7 @@ public class DoubleMinAggregation
 
         public DoubleMinAccumulator(int valueChannel)
         {
-            super(valueChannel, SINGLE_DOUBLE, SINGLE_DOUBLE, Optional.<Integer>absent(), Optional.<Integer>absent());
+            super(valueChannel, DOUBLE, DOUBLE, Optional.<Integer>absent(), Optional.<Integer>absent());
         }
 
         @Override

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.block;
 
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import com.google.common.base.Optional;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
@@ -35,32 +35,32 @@ public final class BlockIterables
 
     public static BlockIterable createBlockIterable(Block firstBlock, Block... otherBlocks)
     {
-        TupleInfo tupleInfo = firstBlock.getTupleInfo();
-        return new StaticBlockIterable(tupleInfo, ImmutableList.<Block>builder().add(firstBlock).add(otherBlocks).build());
+        Type type = firstBlock.getType();
+        return new StaticBlockIterable(type, ImmutableList.<Block>builder().add(firstBlock).add(otherBlocks).build());
     }
 
     public static BlockIterable createBlockIterable(Iterable<? extends Block> blocks)
     {
-        TupleInfo tupleInfo = Iterables.get(blocks, 0).getTupleInfo();
-        return new StaticBlockIterable(tupleInfo, ImmutableList.copyOf(blocks));
+        Type type = Iterables.get(blocks, 0).getType();
+        return new StaticBlockIterable(type, ImmutableList.copyOf(blocks));
     }
 
-    public static BlockIterable createBlockIterable(TupleInfo tupleInfo, Iterable<? extends Block> blocks)
+    public static BlockIterable createBlockIterable(Type type, Iterable<? extends Block> blocks)
     {
-        return new StaticBlockIterable(tupleInfo, ImmutableList.copyOf(blocks));
+        return new StaticBlockIterable(type, ImmutableList.copyOf(blocks));
     }
 
     private static class StaticBlockIterable
             implements BlockIterable
     {
-        private final TupleInfo tupleInfo;
+        private final Type type;
         private final List<Block> blocks;
         private final int positionCount;
         private final DataSize dataSize;
 
-        public StaticBlockIterable(TupleInfo tupleInfo, Iterable<Block> blocks)
+        public StaticBlockIterable(Type type, Iterable<Block> blocks)
         {
-            this.tupleInfo = checkNotNull(tupleInfo, "tupleInfo is null");
+            this.type = checkNotNull(type, "type is null");
             this.blocks = ImmutableList.copyOf(checkNotNull(blocks, "blocks is null"));
 
             long positionCount = 0;
@@ -74,9 +74,9 @@ public final class BlockIterables
         }
 
         @Override
-        public TupleInfo getTupleInfo()
+        public Type getType()
         {
-            return tupleInfo;
+            return type;
         }
 
         @Override
@@ -145,7 +145,7 @@ public final class BlockIterables
             implements BlockIterable
     {
         private final Iterable<? extends BlockIterable> blockIterables;
-        private final TupleInfo tupleInfo;
+        private final Type type;
         private final Optional<DataSize> dataSize;
         private final Optional<Integer> positionCount;
 
@@ -154,13 +154,13 @@ public final class BlockIterables
             this.blockIterables = blockIterables;
             this.dataSize = BlockIterables.getDataSize(blockIterables);
             this.positionCount = BlockIterables.getPositionCount(blockIterables);
-            tupleInfo = blockIterables.iterator().next().getTupleInfo();
+            type = blockIterables.iterator().next().getType();
         }
 
         @Override
-        public TupleInfo getTupleInfo()
+        public Type getType()
         {
-            return tupleInfo;
+            return type;
         }
 
         @Override

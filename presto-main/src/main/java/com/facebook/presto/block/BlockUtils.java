@@ -13,7 +13,8 @@
  */
 package com.facebook.presto.block;
 
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
+import com.facebook.presto.type.Types;
 import com.google.common.base.Optional;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
@@ -32,9 +33,9 @@ public final class BlockUtils
         return new BlockIterable()
         {
             @Override
-            public TupleInfo getTupleInfo()
+            public Type getType()
             {
-                return TupleInfo.SINGLE_LONG;
+                return Types.BIGINT;
             }
 
             @Override
@@ -59,7 +60,7 @@ public final class BlockUtils
 
     public static BlockIterable toBlocks(Iterable<Block> blocks)
     {
-        return new BlocksIterableAdapter(Iterables.get(blocks, 0).getTupleInfo(),
+        return new BlocksIterableAdapter(Iterables.get(blocks, 0).getType(),
                 Optional.<DataSize>absent(),
                 Optional.<Integer>absent(),
                 blocks);
@@ -68,23 +69,23 @@ public final class BlockUtils
     private static class BlocksIterableAdapter
             implements BlockIterable
     {
-        private final TupleInfo tupleInfo;
+        private final Type type;
         private final Iterable<Block> blocks;
         private Optional<DataSize> dataSize;
         private final Optional<Integer> positionCount;
 
-        public BlocksIterableAdapter(TupleInfo tupleInfo, Optional<DataSize> dataSize, Optional<Integer> positionCount, Iterable<Block> blocks)
+        public BlocksIterableAdapter(Type type, Optional<DataSize> dataSize, Optional<Integer> positionCount, Iterable<Block> blocks)
         {
-            this.tupleInfo = tupleInfo;
+            this.type = type;
             this.blocks = blocks;
             this.dataSize = dataSize;
             this.positionCount = positionCount;
         }
 
         @Override
-        public TupleInfo getTupleInfo()
+        public Type getType()
         {
-            return tupleInfo;
+            return type;
         }
 
         @Override

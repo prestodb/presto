@@ -16,8 +16,7 @@ package com.facebook.presto.serde;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.RandomAccessBlock;
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleInfo.Type;
+import com.facebook.presto.type.Type;
 import it.unimi.dsi.fastutil.ints.Int2IntOpenCustomHashMap;
 import it.unimi.dsi.fastutil.ints.IntHash.Strategy;
 
@@ -36,7 +35,7 @@ public class DictionaryBuilder
 
     public DictionaryBuilder(Type type)
     {
-        this.blockBuilder = createBlockBuilder(new TupleInfo(type));
+        this.blockBuilder = createBlockBuilder(type);
 
         this.hashStrategy = new BlockBuilderHashStrategy();
         this.positions = new Int2IntOpenCustomHashMap(1024, hashStrategy);
@@ -67,7 +66,7 @@ public class DictionaryBuilder
     {
         int position = nextPosition++;
 
-        value.appendTupleTo(blockBuilder);
+        value.appendTo(blockBuilder);
         positions.put(position, position);
 
         return position;

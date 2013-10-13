@@ -80,7 +80,7 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.Statement;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -99,7 +99,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.sql.parser.TreeAssertions.assertFormattedSql;
-import static com.facebook.presto.tuple.TupleInfo.Type.fromColumnType;
+import static com.facebook.presto.type.Types.fromColumnType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -214,14 +214,14 @@ public class LocalQueryRunner
         }
 
         @Override
-        public OperatorFactory createOutputOperator(final int operatorId, final List<TupleInfo> sourceTupleInfo)
+        public OperatorFactory createOutputOperator(final int operatorId, final List<Type> sourceType)
         {
-            checkNotNull(sourceTupleInfo, "sourceTupleInfo is null");
+            checkNotNull(sourceType, "sourceType is null");
 
             return new OperatorFactory()
             {
                 @Override
-                public List<TupleInfo> getTupleInfos()
+                public List<Type> getTypes()
                 {
                     return ImmutableList.of();
                 }
@@ -230,7 +230,7 @@ public class LocalQueryRunner
                 public Operator createOperator(DriverContext driverContext)
                 {
                     OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, MaterializingOperator.class.getSimpleName());
-                    MaterializingOperator operator = new MaterializingOperator(operatorContext, sourceTupleInfo);
+                    MaterializingOperator operator = new MaterializingOperator(operatorContext, sourceType);
 
                     if (!materializingOperator.compareAndSet(null, operator)) {
                         throw new IllegalArgumentException("Output already created");
@@ -383,16 +383,16 @@ public class LocalQueryRunner
 
         // lookup the columns
         ImmutableList.Builder<ColumnHandle> columnHandlesBuilder = ImmutableList.builder();
-        ImmutableList.Builder<TupleInfo> columnTypesBuilder = ImmutableList.builder();
+        ImmutableList.Builder<Type> columnTypesBuilder = ImmutableList.builder();
         for (String columnName : columnNames) {
             ColumnHandle columnHandle = metadata.getColumnHandle(tableHandle, columnName).orNull();
             checkArgument(columnHandle != null, "Table %s does not have a column %s", tableName, columnName);
             columnHandlesBuilder.add(columnHandle);
             ColumnMetadata columnMetadata = metadata.getColumnMetadata(tableHandle, columnHandle);
-            columnTypesBuilder.add(new TupleInfo(fromColumnType(columnMetadata.getType())));
+            columnTypesBuilder.add(fromColumnType(columnMetadata.getType()));
         }
         final List<ColumnHandle> columnHandles = columnHandlesBuilder.build();
-        final List<TupleInfo> columnTypes = columnTypesBuilder.build();
+        final List<Type> columnTypes = columnTypesBuilder.build();
 
         // get the split for this table
         final Split split = getLocalQuerySplit(tableHandle);
@@ -400,7 +400,7 @@ public class LocalQueryRunner
         return new OperatorFactory()
         {
             @Override
-            public List<TupleInfo> getTupleInfos()
+            public List<Type> getTypes()
             {
                 return columnTypes;
             }

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -35,7 +35,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 @ThreadSafe
 public class InMemoryExchange
 {
-    private final List<TupleInfo> tupleInfos;
+    private final List<Type> types;
     private final Queue<Page> buffer;
     private final long maxBufferedBytes;
 
@@ -60,23 +60,23 @@ public class InMemoryExchange
     @GuardedBy("this")
     private SettableFuture<?> writerFuture;
 
-    public InMemoryExchange(List<TupleInfo> tupleInfos)
+    public InMemoryExchange(List<Type> types)
     {
-        this(tupleInfos, new DataSize(32, MEGABYTE));
+        this(types, new DataSize(32, MEGABYTE));
     }
 
-    public InMemoryExchange(List<TupleInfo> tupleInfos, DataSize maxBufferedBytes)
+    public InMemoryExchange(List<Type> types, DataSize maxBufferedBytes)
     {
-        this.tupleInfos = ImmutableList.copyOf(checkNotNull(tupleInfos, "tupleInfos is null"));
+        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
         this.buffer = new ConcurrentLinkedQueue<>();
 
         checkArgument(maxBufferedBytes.toBytes() > 0, "maxBufferedBytes must be greater than zero");
         this.maxBufferedBytes = maxBufferedBytes.toBytes();
     }
 
-    public List<TupleInfo> getTupleInfos()
+    public List<Type> getTypes()
     {
-        return tupleInfos;
+        return types;
     }
 
     public synchronized OperatorFactory createSinkFactory(int operatorId)
@@ -208,9 +208,9 @@ public class InMemoryExchange
         }
 
         @Override
-        public List<TupleInfo> getTupleInfos()
+        public List<Type> getTypes()
         {
-            return tupleInfos;
+            return types;
         }
 
         @Override

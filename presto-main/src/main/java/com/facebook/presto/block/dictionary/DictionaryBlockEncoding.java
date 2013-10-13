@@ -17,7 +17,7 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockEncoding;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.block.RandomAccessBlock;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import com.google.common.base.Preconditions;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
@@ -46,9 +46,9 @@ public class DictionaryBlockEncoding
     }
 
     @Override
-    public TupleInfo getTupleInfo()
+    public Type getType()
     {
-        return dictionary.getTupleInfo();
+        return dictionary.getType();
     }
 
     @Override

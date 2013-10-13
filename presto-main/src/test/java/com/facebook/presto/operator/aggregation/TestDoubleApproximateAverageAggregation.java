@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 
 import java.util.List;
 
 import static com.facebook.presto.operator.aggregation.ApproximateAverageAggregations.DOUBLE_APPROXIMATE_AVERAGE_AGGREGATION;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
+import static com.facebook.presto.type.Types.DOUBLE;
 
 public class TestDoubleApproximateAverageAggregation
         extends AbstractTestApproximateAggregationFunction
@@ -30,9 +30,9 @@ public class TestDoubleApproximateAverageAggregation
     }
 
     @Override
-    protected TupleInfo getTupleInfo()
+    protected Type getType()
     {
-        return SINGLE_DOUBLE;
+        return DOUBLE;
     }
 
     @Override

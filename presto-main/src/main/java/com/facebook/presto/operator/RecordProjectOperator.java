@@ -17,8 +17,7 @@ import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleInfo.Type;
+import com.facebook.presto.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
@@ -26,6 +25,7 @@ import io.airlift.units.DataSize;
 import java.io.Closeable;
 import java.util.List;
 
+import static com.facebook.presto.type.Types.fromColumnType;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.units.DataSize.Unit.BYTE;
 
@@ -35,7 +35,7 @@ public class RecordProjectOperator
     private static final int ROWS_PER_REQUEST = 16384;
     private final OperatorContext operatorContext;
     private final RecordCursor cursor;
-    private final List<TupleInfo> tupleInfos;
+    private final List<Type> types;
     private final PageBuilder pageBuilder;
     private boolean finishing;
     private long completedBytes;
@@ -51,13 +51,13 @@ public class RecordProjectOperator
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         this.cursor = checkNotNull(cursor, "cursor is null");
 
-        ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
+        ImmutableList.Builder<Type> types = ImmutableList.builder();
         for (ColumnType columnType : columnTypes) {
-            tupleInfos.add(new TupleInfo(Type.fromColumnType(columnType)));
+            types.add(fromColumnType(columnType));
         }
-        this.tupleInfos = tupleInfos.build();
+        this.types = types.build();
 
-        pageBuilder = new PageBuilder(this.tupleInfos);
+        pageBuilder = new PageBuilder(getTypes());
     }
 
     @Override
@@ -72,9 +72,9 @@ public class RecordProjectOperator
     }
 
     @Override
-    public List<TupleInfo> getTupleInfos()
+    public List<Type> getTypes()
     {
-        return tupleInfos;
+        return types;
     }
 
     @Override
@@ -129,24 +129,24 @@ public class RecordProjectOperator
                     break;
                 }
 
-                for (int column = 0; column < tupleInfos.size(); column++) {
+                for (int column = 0; column < types.size(); column++) {
                     BlockBuilder output = pageBuilder.getBlockBuilder(column);
                     if (cursor.isNull(column)) {
                         output.appendNull();
                     }
                     else {
-                        Type type = getTupleInfos().get(column).getType();
-                        switch (type) {
+                        Type type = getTypes().get(column);
+                        switch (type.toColumnType()) {
                             case BOOLEAN:
                                 output.append(cursor.getBoolean(column));
                                 break;
-                            case FIXED_INT_64:
+                            case LONG:
                                 output.append(cursor.getLong(column));
                                 break;
                             case DOUBLE:
                                 output.append(cursor.getDouble(column));
                                 break;
-                            case VARIABLE_BINARY:
+                            case STRING:
                                 output.append(cursor.getString(column));
                                 break;
                             default:

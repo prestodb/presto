@@ -160,21 +160,21 @@ public class ExpressionInterpreter
             int channel = input.getChannel();
             if (context instanceof BlockCursor[]) {
                 BlockCursor[] inputs = (BlockCursor[]) context;
-                BlockCursor tuple = inputs[channel];
+                BlockCursor cursor = inputs[channel];
 
-                if (tuple.isNull()) {
+                if (cursor.isNull()) {
                     return null;
                 }
 
-                switch (tuple.getTupleInfo().getType()) {
+                switch (cursor.getType().toColumnType()) {
                     case BOOLEAN:
-                        return tuple.getBoolean();
-                    case FIXED_INT_64:
-                        return tuple.getLong();
+                        return cursor.getBoolean();
+                    case LONG:
+                        return cursor.getLong();
                     case DOUBLE:
-                        return tuple.getDouble();
-                    case VARIABLE_BINARY:
-                        return tuple.getSlice();
+                        return cursor.getDouble();
+                    case STRING:
+                        return cursor.getSlice();
                     default:
                         throw new UnsupportedOperationException("not yet implemented");
                 }

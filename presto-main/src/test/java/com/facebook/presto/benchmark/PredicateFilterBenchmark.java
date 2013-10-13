@@ -18,8 +18,8 @@ import com.facebook.presto.operator.FilterAndProjectOperator.FilterAndProjectOpe
 import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.util.LocalQueryRunner;
+import com.facebook.presto.type.Types;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -45,7 +45,7 @@ public class PredicateFilterBenchmark
         FilterAndProjectOperatorFactory filterAndProjectOperator = new FilterAndProjectOperatorFactory(
                 1,
                 new DoubleFilter(50000.00),
-                ImmutableList.of(singleColumn(Type.DOUBLE, 0)));
+                ImmutableList.of(singleColumn(Types.DOUBLE, 0)));
 
         return ImmutableList.of(tableScanOperator, filterAndProjectOperator);
     }

@@ -16,8 +16,9 @@ package com.facebook.presto.operator;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Types;
 import com.google.common.base.Optional;
+import com.facebook.presto.type.Type;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
@@ -34,23 +35,23 @@ public class LimitOperator
             implements OperatorFactory
     {
         private final int operatorId;
-        private final List<TupleInfo> tupleInfos;
+        private final List<Type> types;
         private final long limit;
         private final Optional<Integer> sampleWeightChannel;
         private boolean closed;
 
-        public LimitOperatorFactory(int operatorId, List<TupleInfo> tupleInfos, long limit, Optional<Integer> sampleWeightChannel)
+        public LimitOperatorFactory(int operatorId, List<Type> types, long limit, Optional<Integer> sampleWeightChannel)
         {
             this.operatorId = operatorId;
-            this.tupleInfos = tupleInfos;
+            this.types = types;
             this.limit = limit;
             this.sampleWeightChannel = sampleWeightChannel;
         }
 
         @Override
-        public List<TupleInfo> getTupleInfos()
+        public List<Type> getTypes()
         {
-            return tupleInfos;
+            return types;
         }
 
         @Override
@@ -58,7 +59,7 @@ public class LimitOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, LimitOperator.class.getSimpleName());
-            return new LimitOperator(operatorContext, tupleInfos, limit, sampleWeightChannel);
+            return new LimitOperator(operatorContext, types, limit, sampleWeightChannel);
         }
 
         @Override
@@ -69,15 +70,15 @@ public class LimitOperator
     }
 
     private final OperatorContext operatorContext;
-    private final List<TupleInfo> tupleInfos;
+    private final List<Type> types;
     private final Optional<Integer> sampleWeightChannel;
     private Page nextPage;
     private long remainingLimit;
 
-    public LimitOperator(OperatorContext operatorContext, List<TupleInfo> tupleInfos, long limit, Optional<Integer> sampleWeightChannel)
+    public LimitOperator(OperatorContext operatorContext, List<Type> types, long limit, Optional<Integer> sampleWeightChannel)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.tupleInfos = checkNotNull(tupleInfos, "tupleInfos is null");
+        this.types = checkNotNull(types, "types is null");
 
         checkArgument(limit >= 0, "limit must be at least zero");
         this.remainingLimit = limit;
@@ -91,9 +92,9 @@ public class LimitOperator
     }
 
     @Override
-    public List<TupleInfo> getTupleInfos()
+    public List<Type> getTypes()
     {
-        return tupleInfos;
+        return types;
     }
 
     @Override
@@ -153,7 +154,7 @@ public class LimitOperator
     private void addInputWithSampling(Page page, int sampleWeightChannel)
     {
         BlockCursor cursor = page.getBlock(sampleWeightChannel).cursor();
-        BlockBuilder builder = createBlockBuilder(TupleInfo.SINGLE_LONG);
+        BlockBuilder builder = createBlockBuilder(Types.BIGINT);
 
         int rowsToCopy = 0;
         // Build the sample weight block, and count how many rows of data to copy

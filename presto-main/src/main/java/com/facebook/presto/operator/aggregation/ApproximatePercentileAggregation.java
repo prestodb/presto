@@ -18,10 +18,9 @@ import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.operator.Page;
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.util.array.ObjectBigArray;
 import com.google.common.base.Optional;
+import com.facebook.presto.type.Type;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -31,11 +30,9 @@ import io.airlift.stats.QuantileDigest;
 import java.util.List;
 
 import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
-import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
-import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
+import static com.facebook.presto.type.Types.DOUBLE;
+import static com.facebook.presto.type.Types.BIGINT;
+import static com.facebook.presto.type.Types.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
@@ -57,15 +54,15 @@ public class ApproximatePercentileAggregation
     }
 
     @Override
-    public TupleInfo getFinalTupleInfo()
+    public Type getFinalType()
     {
-        return getOutputTupleInfo(parameterType);
+        return getOutputType(parameterType);
     }
 
     @Override
-    public TupleInfo getIntermediateTupleInfo()
+    public Type getIntermediateType()
     {
-        return SINGLE_VARBINARY;
+        return VARCHAR;
     }
 
     @Override
@@ -116,15 +113,15 @@ public class ApproximatePercentileAggregation
         }
 
         @Override
-        public TupleInfo getFinalTupleInfo()
+        public Type getFinalType()
         {
-            return getOutputTupleInfo(parameterType);
+            return getOutputType(parameterType);
         }
 
         @Override
-        public TupleInfo getIntermediateTupleInfo()
+        public Type getIntermediateType()
         {
-            return SINGLE_VARBINARY;
+            return VARCHAR;
         }
 
         @Override
@@ -280,15 +277,15 @@ public class ApproximatePercentileAggregation
         }
 
         @Override
-        public TupleInfo getFinalTupleInfo()
+        public Type getFinalType()
         {
-            return getOutputTupleInfo(parameterType);
+            return getOutputType(parameterType);
         }
 
         @Override
-        public TupleInfo getIntermediateTupleInfo()
+        public Type getIntermediateType()
         {
-            return SINGLE_VARBINARY;
+            return VARCHAR;
         }
 
         @Override
@@ -347,7 +344,7 @@ public class ApproximatePercentileAggregation
         @Override
         public final Block evaluateIntermediate()
         {
-            BlockBuilder out = createBlockBuilder(getIntermediateTupleInfo());
+            BlockBuilder out = createBlockBuilder(getIntermediateType());
 
             if (digest.getCount() == 0.0) {
                 out.appendNull();
@@ -369,19 +366,19 @@ public class ApproximatePercentileAggregation
         @Override
         public final Block evaluateFinal()
         {
-            BlockBuilder out = createBlockBuilder(getFinalTupleInfo());
+            BlockBuilder out = createBlockBuilder(getFinalType());
             evaluate(out, parameterType, digest, percentile);
             return out.build();
         }
     }
 
-    private static TupleInfo getOutputTupleInfo(Type parameterType)
+    private static Type getOutputType(Type parameterType)
     {
-        if (parameterType == FIXED_INT_64) {
-            return SINGLE_LONG;
+        if (parameterType == BIGINT) {
+            return BIGINT;
         }
         else if (parameterType == DOUBLE) {
-            return SINGLE_DOUBLE;
+            return DOUBLE;
         }
         else {
             throw new IllegalArgumentException("Expected parameter type to be FIXED_INT_64 or DOUBLE");
@@ -391,7 +388,7 @@ public class ApproximatePercentileAggregation
     private static void addValue(QuantileDigest digest, BlockCursor values, Type parameterType, long count)
     {
         long value;
-        if (parameterType == FIXED_INT_64) {
+        if (parameterType == BIGINT) {
             value = values.getLong();
         }
         else if (parameterType == DOUBLE) {
@@ -414,7 +411,7 @@ public class ApproximatePercentileAggregation
 
             long value = digest.getQuantile(percentile);
 
-            if (parameterType == FIXED_INT_64) {
+            if (parameterType == BIGINT) {
                 out.append(value);
             }
             else if (parameterType == DOUBLE) {

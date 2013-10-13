@@ -19,7 +19,7 @@ import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
 
 import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static com.facebook.presto.operator.aggregation.VarianceAggregations.DOUBLE_STDDEV_POP_INSTANCE;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
+import static com.facebook.presto.type.Types.DOUBLE;
 
 public class TestDoubleStdDevPopAggregation
         extends AbstractTestAggregationFunction
@@ -27,7 +27,7 @@ public class TestDoubleStdDevPopAggregation
     @Override
     public Block getSequenceBlock(int start, int length)
     {
-        BlockBuilder blockBuilder = createBlockBuilder(SINGLE_DOUBLE);
+        BlockBuilder blockBuilder = createBlockBuilder(DOUBLE);
         for (int i = start; i < start + length; i++) {
             blockBuilder.append((double) i);
         }
