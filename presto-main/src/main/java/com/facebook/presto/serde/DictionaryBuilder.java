@@ -22,43 +22,36 @@ import it.unimi.dsi.fastutil.ints.Int2IntOpenCustomHashMap;
 import it.unimi.dsi.fastutil.ints.IntHash.Strategy;
 
 import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
-import static com.facebook.presto.operator.HashStrategyUtils.valueEquals;
-import static com.facebook.presto.operator.HashStrategyUtils.valueHashCode;
-import static com.google.common.base.Preconditions.checkNotNull;
 
 public class DictionaryBuilder
 {
-    private static final int CURRENT_VALUE_OFFSET = 0xFF_FF_FF_FF;
-
-    private final Type type;
+    private static final int CURRENT_VALUE_POSITION = 0xFF_FF_FF_FF;
 
     private final BlockBuilder blockBuilder;
 
     private final BlockBuilderHashStrategy hashStrategy;
-    private final Int2IntOpenCustomHashMap offsetToPosition;
+    private final Int2IntOpenCustomHashMap positions;
 
     private int nextPosition;
 
     public DictionaryBuilder(Type type)
     {
-        this.type = checkNotNull(type, "type is null");
-
         this.blockBuilder = createBlockBuilder(new TupleInfo(type));
 
         this.hashStrategy = new BlockBuilderHashStrategy();
-        this.offsetToPosition = new Int2IntOpenCustomHashMap(1024, hashStrategy);
-        this.offsetToPosition.defaultReturnValue(-1);
+        this.positions = new Int2IntOpenCustomHashMap(1024, hashStrategy);
+        this.positions.defaultReturnValue(-1);
     }
 
     public int size()
     {
-        return offsetToPosition.size();
+        return positions.size();
     }
 
     public int putIfAbsent(BlockCursor value)
     {
         hashStrategy.setCurrentValue(value);
-        int position = offsetToPosition.get(CURRENT_VALUE_OFFSET);
+        int position = positions.get(CURRENT_VALUE_POSITION);
         if (position < 0) {
             position = addNewValue(value);
         }
@@ -74,9 +67,8 @@ public class DictionaryBuilder
     {
         int position = nextPosition++;
 
-        int offset = blockBuilder.size();
         value.appendTupleTo(blockBuilder);
-        offsetToPosition.put(offset, position);
+        positions.put(position, position);
 
         return position;
     }
@@ -94,7 +86,7 @@ public class DictionaryBuilder
         @Override
         public int hashCode(int offset)
         {
-            if (offset == CURRENT_VALUE_OFFSET) {
+            if (offset == CURRENT_VALUE_POSITION) {
                 return hashCurrentRow();
             }
             else {
@@ -104,29 +96,29 @@ public class DictionaryBuilder
 
         private int hashCurrentRow()
         {
-            return valueHashCode(type, currentValue.getRawSlice(), currentValue.getRawOffset());
+            return currentValue.calculateHashCode();
         }
 
         public int hashOffset(int offset)
         {
-            return valueHashCode(type, blockBuilder.getRawSlice(), offset);
+            return blockBuilder.hashCode(offset);
         }
 
         @Override
         public boolean equals(int leftPosition, int rightPosition)
         {
             // current row always equals itself
-            if (leftPosition == CURRENT_VALUE_OFFSET && rightPosition == CURRENT_VALUE_OFFSET) {
+            if (leftPosition == CURRENT_VALUE_POSITION && rightPosition == CURRENT_VALUE_POSITION) {
                 return true;
             }
 
             // current row == position
-            if (leftPosition == CURRENT_VALUE_OFFSET) {
+            if (leftPosition == CURRENT_VALUE_POSITION) {
                 return offsetEqualsCurrentValue(rightPosition);
             }
 
             // position == current row
-            if (rightPosition == CURRENT_VALUE_OFFSET) {
+            if (rightPosition == CURRENT_VALUE_POSITION) {
                 return offsetEqualsCurrentValue(leftPosition);
             }
 
@@ -136,12 +128,12 @@ public class DictionaryBuilder
 
         public boolean offsetEqualsOffset(int leftOffset, int rightOffset)
         {
-            return valueEquals(type, blockBuilder.getRawSlice(), leftOffset, blockBuilder.getRawSlice(), rightOffset);
+            return blockBuilder.equals(leftOffset, blockBuilder, rightOffset);
         }
 
         public boolean offsetEqualsCurrentValue(int offset)
         {
-            return valueEquals(type, blockBuilder.getRawSlice(), offset, currentValue.getRawSlice(), currentValue.getRawOffset());
+            return blockBuilder.equals(offset, currentValue);
         }
     }
 }
