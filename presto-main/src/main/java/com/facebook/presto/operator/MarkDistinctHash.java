@@ -20,7 +20,7 @@ import com.facebook.presto.type.Type;
 import java.util.List;
 
 import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
-import static com.facebook.presto.type.Types.BOOLEAN;
+import static com.facebook.presto.type.BooleanType.BOOLEAN;
 
 public class MarkDistinctHash
 {

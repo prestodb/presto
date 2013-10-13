@@ -29,8 +29,8 @@ import static com.facebook.presto.operator.aggregation.ApproximatePercentileAggr
 import static com.facebook.presto.operator.aggregation.ApproximatePercentileAggregations.LONG_APPROXIMATE_PERCENTILE_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.ApproximatePercentileWeightedAggregations.DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.ApproximatePercentileWeightedAggregations.LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION;
-import static com.facebook.presto.type.Types.BIGINT;
-import static com.facebook.presto.type.Types.DOUBLE;
+import static com.facebook.presto.type.BigintType.BIGINT;
+import static com.facebook.presto.type.DoubleType.DOUBLE;
 import static io.airlift.units.DataSize.Unit.BYTE;
 
 public class TestApproximatePercentileAggregation

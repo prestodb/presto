@@ -14,7 +14,10 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.spi.ColumnType;
-import com.facebook.presto.type.Types;
+import com.facebook.presto.type.BigintType;
+import com.facebook.presto.type.BooleanType;
+import com.facebook.presto.type.DoubleType;
+import com.facebook.presto.type.VarcharType;
 import com.google.common.base.Function;
 
 import javax.annotation.Nullable;
@@ -24,10 +27,10 @@ import static com.google.common.base.Preconditions.checkState;
 
 public enum Type
 {
-    BIGINT(Types.BIGINT),
-    DOUBLE(Types.DOUBLE),
-    VARCHAR(Types.VARCHAR),
-    BOOLEAN(Types.BOOLEAN),
+    BIGINT(BigintType.BIGINT),
+    DOUBLE(DoubleType.DOUBLE),
+    VARCHAR(VarcharType.VARCHAR),
+    BOOLEAN(BooleanType.BOOLEAN),
     NULL(null);
 
     private final com.facebook.presto.type.Type rawType;

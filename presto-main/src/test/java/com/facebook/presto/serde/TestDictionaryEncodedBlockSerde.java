@@ -20,7 +20,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.block.BlockAssertions.assertBlockEquals;
 import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
-import static com.facebook.presto.type.Types.VARCHAR;
+import static com.facebook.presto.type.VarcharType.VARCHAR;
 
 public class TestDictionaryEncodedBlockSerde
 {

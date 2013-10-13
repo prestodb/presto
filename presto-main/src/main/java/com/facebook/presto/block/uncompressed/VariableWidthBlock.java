@@ -18,7 +18,7 @@ import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockEncoding;
 import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.type.Type;
-import com.facebook.presto.type.VariableWidthType;
+import com.facebook.presto.type.VarcharType;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import io.airlift.slice.Slice;
@@ -29,10 +29,10 @@ public class VariableWidthBlock
         implements Block
 {
     private final int positionCount;
-    private final VariableWidthType type;
+    private final VarcharType type;
     private final Slice slice;
 
-    public VariableWidthBlock(VariableWidthType type, int positionCount, Slice slice)
+    public VariableWidthBlock(VarcharType type, int positionCount, Slice slice)
     {
         Preconditions.checkArgument(positionCount >= 0, "positionCount is negative");
         Preconditions.checkNotNull(type, "type is null");

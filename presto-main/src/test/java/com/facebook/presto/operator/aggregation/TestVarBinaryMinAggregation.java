@@ -23,7 +23,7 @@ import io.airlift.slice.Slices;
 
 import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.facebook.presto.operator.aggregation.VarBinaryMinAggregation.VAR_BINARY_MIN;
-import static com.facebook.presto.type.Types.VARCHAR;
+import static com.facebook.presto.type.VarcharType.VARCHAR;
 
 public class TestVarBinaryMinAggregation
         extends AbstractTestAggregationFunction

@@ -33,12 +33,12 @@ public class PageBuilder
     private final DataSize maxBlockSize;
     private int declaredPositions;
 
-    public PageBuilder(List<Type> types)
+    public PageBuilder(List<? extends Type> types)
     {
         this(types, DEFAULT_MAX_PAGE_SIZE);
     }
 
-    public PageBuilder(List<Type> types, DataSize maxSize)
+    public PageBuilder(List<? extends Type> types, DataSize maxSize)
     {
         if (!types.isEmpty()) {
             maxBlockSize = new DataSize((int) (maxSize.toBytes() / types.size()), BYTE);

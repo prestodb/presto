@@ -14,11 +14,14 @@
 package com.facebook.presto.block;
 
 import com.facebook.presto.type.Type;
-import com.facebook.presto.type.Types;
 
 import java.util.SortedMap;
 import java.util.TreeMap;
 
+import static com.facebook.presto.type.BigintType.BIGINT;
+import static com.facebook.presto.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.type.DoubleType.DOUBLE;
+import static com.facebook.presto.type.VarcharType.VARCHAR;
 import static java.util.Collections.unmodifiableSortedMap;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -56,7 +59,7 @@ public final class BlockCursorAssertions
         }
 
         Type type = cursor.getType();
-        if (type == Types.BOOLEAN) {
+        if (type == BOOLEAN) {
             assertEquals(cursor.getBoolean(), value);
             assertEquals(cursor.getSlice().getByte(0) != 0, value);
             try {
@@ -72,7 +75,7 @@ public final class BlockCursorAssertions
             catch (IllegalStateException | UnsupportedOperationException expected) {
             }
         }
-        else if (type == Types.BIGINT) {
+        else if (type == BIGINT) {
             assertEquals(cursor.getLong(), value);
             assertEquals(cursor.getSlice().getLong(0), value);
             try {
@@ -89,7 +92,7 @@ public final class BlockCursorAssertions
             }
 
         }
-        else if (type == Types.DOUBLE) {
+        else if (type == DOUBLE) {
             assertEquals(cursor.getDouble(), value);
             assertEquals(cursor.getSlice().getDouble(0), value);
             try {
@@ -106,7 +109,7 @@ public final class BlockCursorAssertions
             }
 
         }
-        else if (type == Types.VARCHAR) {
+        else if (type == VARCHAR) {
             assertEquals(cursor.getSlice().toStringUtf8(), value);
             try {
                 cursor.getBoolean();

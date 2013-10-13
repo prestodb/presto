@@ -31,8 +31,8 @@ import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
-import static com.facebook.presto.type.Types.BIGINT;
-import static com.facebook.presto.type.Types.VARCHAR;
+import static com.facebook.presto.type.BigintType.BIGINT;
+import static com.facebook.presto.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.concurrent.Executors.newCachedThreadPool;

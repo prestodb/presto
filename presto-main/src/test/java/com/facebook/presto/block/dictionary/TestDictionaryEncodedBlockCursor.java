@@ -17,12 +17,12 @@ import com.facebook.presto.block.AbstractTestBlockCursor;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.RandomAccessBlock;
-import com.facebook.presto.type.Types;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
+import static com.facebook.presto.type.VarcharType.VARCHAR;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 
 public class TestDictionaryEncodedBlockCursor
@@ -37,7 +37,7 @@ public class TestDictionaryEncodedBlockCursor
     @Override
     protected BlockCursor createTestCursor()
     {
-        RandomAccessBlock dictionary = Types.VARCHAR.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE)
+        RandomAccessBlock dictionary = VARCHAR.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE)
                 .append("apple")
                 .append("banana")
                 .append("cherry")

@@ -25,11 +25,13 @@ import io.airlift.units.DataSize;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 
-public class VariableWidthType
+public class VarcharType
         implements Type
 {
+    public static final Type VARCHAR = new VarcharType();
+
     @JsonCreator
-    public VariableWidthType()
+    public VarcharType()
     {
     }
 

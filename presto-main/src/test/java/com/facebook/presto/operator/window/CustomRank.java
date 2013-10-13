@@ -14,8 +14,8 @@
 package com.facebook.presto.operator.window;
 
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.type.BigintType;
 import com.facebook.presto.type.Type;
-import com.facebook.presto.type.Types;
 
 public class CustomRank
         implements WindowFunction
@@ -26,7 +26,7 @@ public class CustomRank
     @Override
     public Type getType()
     {
-        return Types.BIGINT;
+        return BigintType.BIGINT;
     }
 
     @Override

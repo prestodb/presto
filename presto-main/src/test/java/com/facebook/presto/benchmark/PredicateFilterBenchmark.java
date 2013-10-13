@@ -19,7 +19,6 @@ import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.util.LocalQueryRunner;
-import com.facebook.presto.type.Types;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -27,6 +26,7 @@ import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
+import static com.facebook.presto.type.DoubleType.DOUBLE;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
@@ -45,7 +45,7 @@ public class PredicateFilterBenchmark
         FilterAndProjectOperatorFactory filterAndProjectOperator = new FilterAndProjectOperatorFactory(
                 1,
                 new DoubleFilter(50000.00),
-                ImmutableList.of(singleColumn(Types.DOUBLE, 0)));
+                ImmutableList.of(singleColumn(DOUBLE, 0)));
 
         return ImmutableList.of(tableScanOperator, filterAndProjectOperator);
     }

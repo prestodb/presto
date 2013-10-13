@@ -48,7 +48,7 @@ public class WindowOperator
 
         public WindowOperatorFactory(
                 int operatorId,
-                List<Type> sourceTypes,
+                List<? extends Type> sourceTypes,
                 int[] outputChannels,
                 List<WindowFunction> windowFunctions,
                 int[] partitionChannels,
@@ -57,7 +57,7 @@ public class WindowOperator
                 int expectedPositions)
         {
             this.operatorId = operatorId;
-            this.sourceTypes = sourceTypes;
+            this.sourceTypes = ImmutableList.copyOf(sourceTypes);
             this.outputChannels = outputChannels;
             this.windowFunctions = windowFunctions;
             this.partitionChannels = partitionChannels;
@@ -284,7 +284,7 @@ public class WindowOperator
         return page;
     }
 
-    private static List<Type> toTypes(List<Type> sourceTypes, int[] outputChannels, List<WindowFunction> windowFunctions)
+    private static List<Type> toTypes(List<? extends Type> sourceTypes, int[] outputChannels, List<WindowFunction> windowFunctions)
     {
         ImmutableList.Builder<Type> types = ImmutableList.builder();
         for (int channel : outputChannels) {

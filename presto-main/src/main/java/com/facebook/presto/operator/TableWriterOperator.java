@@ -24,8 +24,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 
-import static com.facebook.presto.type.Types.BIGINT;
-import static com.facebook.presto.type.Types.VARCHAR;
+import static com.facebook.presto.type.BigintType.BIGINT;
+import static com.facebook.presto.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;

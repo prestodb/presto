@@ -14,10 +14,10 @@
 package com.facebook.presto.block.uncompressed;
 
 import com.facebook.presto.block.Block;
-import com.facebook.presto.type.Types;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
+import static com.facebook.presto.type.BooleanType.BOOLEAN;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static org.testng.Assert.assertEquals;
 
@@ -34,6 +34,6 @@ public class TestBooleanBlockCursorWithNulls
     public void testCursorType()
     {
         assertInstanceOf(createExpectedValues().cursor(), FixedWidthBlockCursor.class);
-        assertEquals(createExpectedValues().cursor().getType(), Types.BOOLEAN);
+        assertEquals(createExpectedValues().cursor().getType(), BOOLEAN);
     }
 }

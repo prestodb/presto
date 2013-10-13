@@ -14,7 +14,6 @@
 package com.facebook.presto.block;
 
 import com.facebook.presto.type.Type;
-import com.facebook.presto.type.Types;
 import com.google.common.base.Optional;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
@@ -22,6 +21,8 @@ import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 
 import java.util.Iterator;
+
+import static com.facebook.presto.type.BigintType.BIGINT;
 
 public final class BlockUtils
 {
@@ -35,7 +36,7 @@ public final class BlockUtils
             @Override
             public Type getType()
             {
-                return Types.BIGINT;
+                return BIGINT;
             }
 
             @Override

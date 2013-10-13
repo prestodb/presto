@@ -15,20 +15,18 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.operator.PageBuilder;
-import com.facebook.presto.type.Type;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import org.apache.commons.math3.distribution.BinomialDistribution;
 import org.testng.annotations.Test;
 
-import java.util.List;
 import java.util.Random;
 
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.approximateAggregationWithinErrorBound;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertApproximateAggregation;
 import static com.facebook.presto.operator.aggregation.LongSumAggregation.LONG_SUM;
 import static com.facebook.presto.serde.TestingBlockEncodingManager.createTestingBlockEncodingManager;
-import static com.facebook.presto.type.Types.BIGINT;
+import static com.facebook.presto.type.BigintType.BIGINT;
 import static org.testng.Assert.assertTrue;
 
 public class TestBootstrappedAggregation
@@ -38,8 +36,7 @@ public class TestBootstrappedAggregation
             throws Exception
     {
         int sum = 1_000;
-        List<Type> types = ImmutableList.of(BIGINT, BIGINT);
-        PageBuilder builder = new PageBuilder(types);
+        PageBuilder builder = new PageBuilder(ImmutableList.of(BIGINT, BIGINT));
         Random rand = new Random(0);
         for (int i = 0; i < sum; i++) {
             if (rand.nextDouble() < 0.5) {
@@ -64,8 +61,7 @@ public class TestBootstrappedAggregation
         Random rand = new Random(0);
         for (int i = 0; i < trials; i++) {
             int sum = 1_000;
-            List<Type> types = ImmutableList.of(BIGINT, BIGINT);
-            PageBuilder builder = new PageBuilder(types);
+            PageBuilder builder = new PageBuilder(ImmutableList.of(BIGINT, BIGINT));
             for (int j = 0; j < sum; j++) {
                 if (rand.nextDouble() < 0.5) {
                     builder.getBlockBuilder(0).append(1);

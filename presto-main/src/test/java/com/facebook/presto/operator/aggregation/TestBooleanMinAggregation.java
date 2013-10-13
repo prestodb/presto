@@ -18,7 +18,7 @@ import com.facebook.presto.block.BlockBuilder;
 
 import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.facebook.presto.operator.aggregation.BooleanMinAggregation.BOOLEAN_MIN;
-import static com.facebook.presto.type.Types.BOOLEAN;
+import static com.facebook.presto.type.BooleanType.BOOLEAN;
 import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
 

@@ -29,7 +29,6 @@ import com.facebook.presto.tpch.SampledTpchPlugin;
 import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.facebook.presto.type.Type;
-import com.facebook.presto.type.Types;
 import com.facebook.presto.util.MaterializedResult;
 import com.facebook.presto.util.MaterializedRow;
 import com.google.common.base.Function;
@@ -57,6 +56,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
+import static com.facebook.presto.type.BigintType.BIGINT;
+import static com.facebook.presto.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.type.DoubleType.DOUBLE;
+import static com.facebook.presto.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.MaterializedResult.DEFAULT_PRECISION;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -365,13 +368,13 @@ public class TestDistributedQueries
                 String type = column.getType();
                 switch (type) {
                     case "boolean":
-                        return Types.BOOLEAN;
+                        return BOOLEAN;
                     case "bigint":
-                        return Types.BIGINT;
+                        return BIGINT;
                     case "double":
-                        return Types.DOUBLE;
+                        return DOUBLE;
                     case "varchar":
-                        return Types.VARCHAR;
+                        return VARCHAR;
                 }
                 throw new AssertionError("Unhandled type: " + type);
             }

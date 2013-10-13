@@ -35,7 +35,7 @@ public class MaterializeSampleOperator
         private final List<Type> types;
         private boolean closed;
 
-        public MaterializeSampleOperatorFactory(int operatorId, List<Type> outputTypes, int sampleWeightChannel)
+        public MaterializeSampleOperatorFactory(int operatorId, List<? extends Type> outputTypes, int sampleWeightChannel)
         {
             this.operatorId = operatorId;
             this.sampleWeightChannel = sampleWeightChannel;

@@ -18,7 +18,7 @@ import com.facebook.presto.type.Type;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregations.LONG_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS;
-import static com.facebook.presto.type.Types.BIGINT;
+import static com.facebook.presto.type.BigintType.BIGINT;
 
 public class TestApproximateCountDistinctLong
         extends AbstractTestApproximateCountDistinct

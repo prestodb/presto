@@ -18,7 +18,7 @@ import com.facebook.presto.block.BlockEncoding;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.serde.TypeSerde;
 import com.facebook.presto.type.Type;
-import com.facebook.presto.type.VariableWidthType;
+import com.facebook.presto.type.VarcharType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
@@ -32,11 +32,11 @@ public class VariableWidthBlockEncoding
     public static final BlockEncodingFactory<VariableWidthBlockEncoding> FACTORY = new VariableWidthBlockEncodingFactory();
     private static final String NAME = "VARIABLE_WIDTH";
 
-    private final VariableWidthType type;
+    private final VarcharType type;
 
     public VariableWidthBlockEncoding(Type type)
     {
-        this.type = (VariableWidthType) checkNotNull(type, "type is null");
+        this.type = (VarcharType) checkNotNull(type, "type is null");
     }
 
     @Override

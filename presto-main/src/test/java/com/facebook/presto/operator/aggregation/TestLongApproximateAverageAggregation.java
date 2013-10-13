@@ -18,7 +18,7 @@ import com.facebook.presto.type.Type;
 import java.util.List;
 
 import static com.facebook.presto.operator.aggregation.ApproximateAverageAggregations.LONG_APPROXIMATE_AVERAGE_AGGREGATION;
-import static com.facebook.presto.type.Types.BIGINT;
+import static com.facebook.presto.type.BigintType.BIGINT;
 
 public class TestLongApproximateAverageAggregation
         extends AbstractTestApproximateAggregationFunction

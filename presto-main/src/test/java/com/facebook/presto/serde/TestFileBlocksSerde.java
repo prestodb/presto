@@ -26,7 +26,7 @@ import java.util.List;
 import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.facebook.presto.serde.BlocksFileReader.readBlocks;
 import static com.facebook.presto.serde.TestingBlockEncodingManager.createTestingBlockEncodingManager;
-import static com.facebook.presto.type.Types.VARCHAR;
+import static com.facebook.presto.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 
 public class TestFileBlocksSerde

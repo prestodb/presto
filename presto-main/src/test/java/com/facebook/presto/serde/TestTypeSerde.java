@@ -14,12 +14,12 @@
 package com.facebook.presto.serde;
 
 import com.facebook.presto.type.Type;
-import com.facebook.presto.type.Types;
 import io.airlift.slice.DynamicSliceOutput;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.serde.TypeSerde.readType;
 import static com.facebook.presto.serde.TypeSerde.writeInfo;
+import static com.facebook.presto.type.BooleanType.BOOLEAN;
 import static org.testng.Assert.assertEquals;
 
 public class TestTypeSerde
@@ -27,11 +27,9 @@ public class TestTypeSerde
     @Test
     public void testRoundTrip()
     {
-        Type expectedType = Types.BOOLEAN;
-
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
-        writeInfo(sliceOutput, expectedType);
+        writeInfo(sliceOutput, BOOLEAN);
         Type actualType = readType(sliceOutput.slice().getInput());
-        assertEquals(actualType, expectedType);
+        assertEquals(actualType, BOOLEAN);
     }
 }
