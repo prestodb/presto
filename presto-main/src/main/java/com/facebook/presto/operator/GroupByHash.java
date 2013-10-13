@@ -28,8 +28,6 @@ import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import java.util.List;
 
 import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
-import static com.facebook.presto.operator.HashStrategyUtils.addToHashCode;
-import static com.facebook.presto.operator.HashStrategyUtils.valueHashCode;
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
@@ -180,9 +178,8 @@ public class GroupByHash
         {
             int result = 0;
             for (int channel = 0; channel < types.size(); channel++) {
-                Type type = types.get(channel);
                 BlockCursor cursor = currentRow[channel];
-                result = addToHashCode(result, valueHashCode(type, cursor.getRawSlice(), cursor.getRawOffset()));
+                result = 31 * result + cursor.calculateHashCode();
             }
             return result;
         }
@@ -273,7 +270,7 @@ public class GroupByHash
         {
             int result = 0;
             for (BlockBuilder channel : channels) {
-                result = addToHashCode(result, channel.hashCode(position));
+                result = 31 * result + channel.hashCode(position);
             }
             return result;
         }
