@@ -27,8 +27,6 @@ import it.unimi.dsi.fastutil.longs.LongHash.Strategy;
 import java.util.Arrays;
 import java.util.List;
 
-import static com.facebook.presto.operator.HashStrategyUtils.addToHashCode;
-import static com.facebook.presto.operator.HashStrategyUtils.valueHashCode;
 import static io.airlift.slice.SizeOf.sizeOf;
 
 public class JoinHash
@@ -161,9 +159,8 @@ public class JoinHash
         {
             int result = 0;
             for (int channel = 0; channel < types.size(); channel++) {
-                Type type = types.get(channel);
                 BlockCursor cursor = joinCursors[channel];
-                result = addToHashCode(result, valueHashCode(type, cursor.getRawSlice(), cursor.getRawOffset()));
+                result = 31 * result + cursor.calculateHashCode();
             }
             return result;
         }
