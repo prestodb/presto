@@ -23,7 +23,6 @@ import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.tuple.FixedWidthTypeInfo;
 import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.base.Optional;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slices;
@@ -33,6 +32,7 @@ import java.util.Collections;
 
 import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_BOOLEAN;
+import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static org.testng.Assert.assertEquals;
 
 public final class AggregationTestUtils
@@ -243,14 +243,14 @@ public final class AggregationTestUtils
     public static GroupByIdBlock createGroupByIdBlock(int groupId, int positions)
     {
         if (positions == 0) {
-            return new GroupByIdBlock(groupId, new FixedWidthBlock(new FixedWidthTypeInfo(Type.FIXED_INT_64), 0, Slices.EMPTY_SLICE));
+            return new GroupByIdBlock(groupId, new FixedWidthBlock(new FixedWidthTypeInfo(FIXED_INT_64), 0, Slices.EMPTY_SLICE));
         }
 
         BlockBuilder blockBuilder = createBlockBuilder(TupleInfo.SINGLE_LONG);
         for (int i = 0; i < positions; i++) {
             blockBuilder.append(groupId);
         }
-        return new GroupByIdBlock(groupId, (FixedWidthBlock) blockBuilder.build().toRandomAccessBlock());
+        return new GroupByIdBlock(groupId, (FixedWidthBlock) blockBuilder.build());
     }
 
     private static int[] createArgs(AggregationFunction function)

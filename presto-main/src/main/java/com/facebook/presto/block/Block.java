@@ -14,13 +14,10 @@
 package com.facebook.presto.block;
 
 import com.facebook.presto.tuple.TupleInfo;
-import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 
 public interface Block
 {
-    Slice getRawSlice();
-
     /**
      * Gets the type of all tuples in this block
      */
