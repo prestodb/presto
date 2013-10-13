@@ -23,7 +23,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
+import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.facebook.presto.serde.BlocksFileReader.readBlocks;
 import static com.facebook.presto.serde.TestingBlockEncodingManager.createTestingBlockEncodingManager;
 import static com.facebook.presto.type.Types.VARCHAR;
@@ -45,7 +45,7 @@ public class TestFileBlocksSerde
             "charlie",
             "dave");
 
-    private final Block expectedBlock = createBlockBuilder(VARCHAR)
+    private final Block expectedBlock = VARCHAR.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE)
             .append("alice")
             .append("bob")
             .append("charlie")

@@ -16,7 +16,7 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 
-import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
+import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.facebook.presto.operator.aggregation.LongMinAggregation.LONG_MIN;
 import static com.facebook.presto.type.Types.BIGINT;
 
@@ -26,7 +26,7 @@ public class TestLongMinAggregation
     @Override
     public Block getSequenceBlock(int start, int length)
     {
-        BlockBuilder blockBuilder = createBlockBuilder(BIGINT);
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
         for (int i = start; i < start + length; i++) {
             blockBuilder.append(i);
         }

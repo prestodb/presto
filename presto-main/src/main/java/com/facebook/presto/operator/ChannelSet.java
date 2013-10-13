@@ -24,7 +24,7 @@ import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 import java.util.List;
 
-import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
+import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
@@ -128,7 +128,7 @@ public class ChannelSet
             strategy = new BlockBuilderHashStrategy(blocks);
             addressValueSet = new AddressValueSet(expectedPositions, strategy);
 
-            openBlockBuilder = createBlockBuilder(type);
+            openBlockBuilder = type.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
             blocks.add(openBlockBuilder);
         }
 
@@ -147,7 +147,7 @@ public class ChannelSet
                         blocksMemorySize += openBlockBuilder.getDataSize().toBytes();
 
                         // create a new block builder (there is no need to actually "build" the block)
-                        openBlockBuilder = createBlockBuilder(type);
+                        openBlockBuilder = type.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
                         blocks.add(openBlockBuilder);
                         currentBlockId++;
                     }

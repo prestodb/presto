@@ -31,7 +31,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
-import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
+import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.facebook.presto.block.BlockIterables.createBlockIterable;
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -179,7 +179,7 @@ public final class BlockAssertions
 
     public static Block createStringsBlock(Iterable<String> values)
     {
-        BlockBuilder builder = createBlockBuilder(Types.VARCHAR);
+        BlockBuilder builder = Types.VARCHAR.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
 
         for (String value : values) {
             if (value == null) {
@@ -200,7 +200,7 @@ public final class BlockAssertions
 
     public static Block createStringSequenceBlock(int start, int end)
     {
-        BlockBuilder builder = createBlockBuilder(Types.VARCHAR);
+        BlockBuilder builder = Types.VARCHAR.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
 
         for (int i = start; i < end; i++) {
             builder.append(String.valueOf(i));
@@ -223,7 +223,7 @@ public final class BlockAssertions
 
     public static Block createBooleansBlock(Iterable<Boolean> values)
     {
-        BlockBuilder builder = createBlockBuilder(Types.BOOLEAN);
+        BlockBuilder builder = Types.BOOLEAN.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
 
         for (Boolean value : values) {
             if (value == null) {
@@ -240,7 +240,7 @@ public final class BlockAssertions
     // This method makes it easy to create blocks without having to add an L to every value
     public static RandomAccessBlock createLongsBlock(int... values)
     {
-        BlockBuilder builder = createBlockBuilder(Types.BIGINT);
+        BlockBuilder builder = Types.BIGINT.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
 
         for (int value : values) {
             builder.append((long) value);
@@ -258,7 +258,7 @@ public final class BlockAssertions
 
     public static Block createLongsBlock(Iterable<Long> values)
     {
-        BlockBuilder builder = createBlockBuilder(Types.BIGINT);
+        BlockBuilder builder = Types.BIGINT.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
 
         for (Long value : values) {
             if (value == null) {
@@ -284,7 +284,7 @@ public final class BlockAssertions
 
     public static Block createLongSequenceBlock(int start, int end)
     {
-        BlockBuilder builder = createBlockBuilder(Types.BIGINT);
+        BlockBuilder builder = Types.BIGINT.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
 
         for (int i = start; i < end; i++) {
             builder.append(i);
@@ -295,7 +295,7 @@ public final class BlockAssertions
 
     public static Block createBooleanSequenceBlock(int start, int end)
     {
-        BlockBuilder builder = createBlockBuilder(Types.BOOLEAN);
+        BlockBuilder builder = Types.BOOLEAN.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
 
         for (int i = start; i < end; i++) {
             builder.append(i % 2 == 0);
@@ -313,7 +313,7 @@ public final class BlockAssertions
 
     public static Block createDoublesBlock(Iterable<Double> values)
     {
-        BlockBuilder builder = createBlockBuilder(Types.DOUBLE);
+        BlockBuilder builder = Types.DOUBLE.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
 
         for (Double value : values) {
             if (value == null) {
@@ -334,7 +334,7 @@ public final class BlockAssertions
 
     public static Block createDoubleSequenceBlock(int start, int end)
     {
-        BlockBuilder builder = createBlockBuilder(Types.DOUBLE);
+        BlockBuilder builder = Types.DOUBLE.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
 
         for (int i = start; i < end; i++) {
             builder.append((double) i);
@@ -355,7 +355,7 @@ public final class BlockAssertions
 
         private BlockIterableBuilder(Type type)
         {
-            blockBuilder = createBlockBuilder(type);
+            blockBuilder = type.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
         }
 
         public BlockIterableBuilder append(Slice value)
@@ -399,7 +399,7 @@ public final class BlockAssertions
             if (!blockBuilder.isEmpty()) {
                 Block block = blockBuilder.build();
                 blocks.add(block);
-                blockBuilder = createBlockBuilder(block.getType());
+                blockBuilder = block.getType().createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
             }
             return this;
         }

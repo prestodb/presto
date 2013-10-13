@@ -36,22 +36,13 @@ public class VariableWidthBlockBuilder
     private final SliceOutput sliceOutput;
     private final IntArrayList offsets = new IntArrayList(1024);
 
-    public VariableWidthBlockBuilder(VariableWidthType type, DataSize maxBlockSize, DataSize initialBufferSize)
+    public VariableWidthBlockBuilder(VariableWidthType type, DataSize maxBlockSize)
     {
         super(type);
 
         checkNotNull(maxBlockSize, "maxBlockSize is null");
         this.maxBlockSize = (int) maxBlockSize.toBytes();
-
-        checkNotNull(initialBufferSize, "initialBufferSize is null");
-        this.sliceOutput = new DynamicSliceOutput((int) initialBufferSize.toBytes());
-    }
-
-    public VariableWidthBlockBuilder(VariableWidthType type, Slice slice)
-    {
-        super(type);
-        this.maxBlockSize = slice.length();
-        this.sliceOutput = slice.getOutput();
+        this.sliceOutput = new DynamicSliceOutput((int) (this.maxBlockSize * 1.2));
     }
 
     @Override

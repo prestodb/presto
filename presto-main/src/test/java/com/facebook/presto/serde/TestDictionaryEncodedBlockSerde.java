@@ -19,7 +19,7 @@ import io.airlift.slice.DynamicSliceOutput;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.block.BlockAssertions.assertBlockEquals;
-import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
+import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.facebook.presto.type.Types.VARCHAR;
 
 public class TestDictionaryEncodedBlockSerde
@@ -27,7 +27,7 @@ public class TestDictionaryEncodedBlockSerde
     @Test
     public void testRoundTrip()
     {
-        Block block = createBlockBuilder(VARCHAR)
+        Block block = VARCHAR.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE)
                 .append("alice")
                 .append("bob")
                 .append("charlie")
@@ -37,7 +37,7 @@ public class TestDictionaryEncodedBlockSerde
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
         BlockEncoding blockEncoding = new DictionaryEncoder(new UncompressedEncoder(sliceOutput)).append(block).append(block).append(block).finish();
         Block actualBlock = blockEncoding.readBlock(sliceOutput.slice().getInput());
-        assertBlockEquals(actualBlock, createBlockBuilder(VARCHAR)
+        assertBlockEquals(actualBlock, VARCHAR.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE)
                 .append("alice")
                 .append("bob")
                 .append("charlie")
