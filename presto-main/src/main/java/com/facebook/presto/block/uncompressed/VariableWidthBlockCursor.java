@@ -53,6 +53,12 @@ public class VariableWidthBlockCursor
         position = -1;
     }
 
+    // Accessible for VariableWidthRandomAccessBlock
+    int getRawOffset()
+    {
+        return entryOffset;
+    }
+
     @Override
     public TupleInfo getTupleInfo()
     {
@@ -215,18 +221,6 @@ public class VariableWidthBlockCursor
             return 0;
         }
         return typeInfo.hashCode(slice, entryOffset + SIZE_OF_BYTE);
-    }
-
-    @Override
-    public int getRawOffset()
-    {
-        return entryOffset;
-    }
-
-    @Override
-    public Slice getRawSlice()
-    {
-        return slice;
     }
 
     @Override

@@ -60,8 +60,7 @@ public class VariableWidthBlockBuilder
         return offsets.getInt(position);
     }
 
-    @Override
-    public Slice getRawSlice()
+    protected Slice getRawSlice()
     {
         return sliceOutput.getUnderlyingSlice();
     }

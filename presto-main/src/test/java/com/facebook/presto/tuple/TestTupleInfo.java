@@ -55,38 +55,6 @@ public class TestTupleInfo
         assertEquals(value.getDataSize().toBytes(), SIZE_OF_BYTE + SIZE_OF_BYTE);
     }
 
-    /**
-     * The following classes depend on this exact memory layout
-     *
-     * @see com.facebook.presto.block.uncompressed.FixedWidthBlockCursor
-     * @see com.facebook.presto.block.uncompressed.FixedWidthBlock
-     */
-    @Test
-    public void testOnlySingleBooleanMemoryLayout()
-    {
-        TupleInfo info = new TupleInfo(BOOLEAN);
-
-        RandomAccessBlock value = info.builder()
-                .append(true)
-                .build();
-
-        Slice tupleSlice = value.getRawSlice();
-        assertEquals(tupleSlice.length(), SIZE_OF_BYTE + SIZE_OF_BYTE);
-        // null bit set is in first byte
-        assertEquals(tupleSlice.getByte(0), 0);
-        assertEquals(tupleSlice.getByte(SIZE_OF_BYTE), 1);
-
-        value = info.builder()
-                .append(false)
-                .build();
-
-        tupleSlice = value.getRawSlice();
-        assertEquals(tupleSlice.length(), SIZE_OF_BYTE + SIZE_OF_BYTE);
-        // null bit set is in first byte
-        assertEquals(tupleSlice.getByte(0), 0);
-        assertEquals(tupleSlice.getByte(SIZE_OF_BYTE), 0);
-    }
-
     @Test
     public void testSingleBooleanLengthNull()
     {
@@ -101,27 +69,6 @@ public class TestTupleInfo
         assertEquals(value.getDataSize().toBytes(), SIZE_OF_BYTE + SIZE_OF_BYTE);
     }
 
-    /**
-     * The following classes depend on this exact memory layout
-     *
-     * @see com.facebook.presto.block.uncompressed.FixedWidthBlockCursor
-     * @see com.facebook.presto.block.uncompressed.FixedWidthBlock
-     */
-    @Test
-    public void testSingleBooleanLengthNullMemoryLayout()
-    {
-        RandomAccessBlock value = TupleInfo.SINGLE_BOOLEAN.builder()
-                .appendNull()
-                .build();
-
-        Slice tupleSlice = value.getRawSlice();
-        assertEquals(tupleSlice.length(), SIZE_OF_BYTE + SIZE_OF_BYTE);
-        // null bit set is in first byte
-        assertEquals(tupleSlice.getByte(0), 0b0000_0001);
-        // value of a null boolean is 0
-        assertEquals(tupleSlice.getByte(SIZE_OF_BYTE), 0, 0);
-    }
-
     @Test
     public void testSingleLongLength()
     {
@@ -134,28 +81,6 @@ public class TestTupleInfo
         assertEquals(value.getLong(0), 42L);
         assertEquals(value.getObjectValue(0), 42L);
         assertEquals(value.getDataSize().toBytes(), SIZE_OF_LONG + SIZE_OF_BYTE);
-    }
-
-    /**
-     * The following classes depend on this exact memory layout
-     *
-     * @see com.facebook.presto.block.uncompressed.FixedWidthBlockCursor
-     * @see com.facebook.presto.block.uncompressed.FixedWidthBlock
-     */
-    @Test
-    public void testOnlySingleLongMemoryLayout()
-    {
-        TupleInfo info = new TupleInfo(FIXED_INT_64);
-
-        RandomAccessBlock value = info.builder()
-                .append(42)
-                .build();
-
-        Slice tupleSlice = value.getRawSlice();
-        assertEquals(tupleSlice.length(), SIZE_OF_LONG + SIZE_OF_BYTE);
-        // null bit set is in first byte
-        assertEquals(tupleSlice.getByte(0), 0);
-        assertEquals(tupleSlice.getLong(SIZE_OF_BYTE), 42L);
     }
 
     @Test
@@ -179,27 +104,6 @@ public class TestTupleInfo
         assertTrue(builder.appendNull().build().isNull(0));
     }
 
-    /**
-     * The following classes depend on this exact memory layout
-     *
-     * @see com.facebook.presto.block.uncompressed.VariableWidthBlockCursor
-     * @see com.facebook.presto.block.uncompressed.VariableWidthBlock
-     */
-    @Test
-    public void testSingleLongLengthNullMemoryLayout()
-    {
-        RandomAccessBlock value = TupleInfo.SINGLE_LONG.builder()
-                .appendNull()
-                .build();
-
-        Slice tupleSlice = value.getRawSlice();
-        assertEquals(tupleSlice.length(), SIZE_OF_LONG + SIZE_OF_BYTE);
-        // null bit set is in first byte
-        assertEquals(tupleSlice.getByte(0), 0b0000_0001);
-        // value of a null long is 0
-        assertEquals(tupleSlice.getLong(SIZE_OF_BYTE), 0L);
-    }
-
     @Test
     public void testSingleDoubleLength()
     {
@@ -212,28 +116,6 @@ public class TestTupleInfo
         assertEquals(value.getDouble(0), 42.42);
         assertEquals(value.getObjectValue(0), 42.42);
         assertEquals(value.getDataSize().toBytes(), SIZE_OF_DOUBLE + SIZE_OF_BYTE);
-    }
-
-    /**
-     * The following classes depend on this exact memory layout
-     *
-     * @see com.facebook.presto.block.uncompressed.FixedWidthBlockCursor
-     * @see com.facebook.presto.block.uncompressed.FixedWidthBlock
-     */
-    @Test
-    public void testOnlySingleDoubleMemoryLayout()
-    {
-        TupleInfo info = new TupleInfo(DOUBLE);
-
-        RandomAccessBlock value = info.builder()
-                .append(42.42)
-                .build();
-
-        Slice tupleSlice = value.getRawSlice();
-        assertEquals(tupleSlice.length(), SIZE_OF_LONG + SIZE_OF_BYTE);
-        // null bit set is in first byte
-        assertEquals(tupleSlice.getByte(0), 0);
-        assertEquals(tupleSlice.getDouble(SIZE_OF_BYTE), 42.42);
     }
 
     @Test
@@ -250,27 +132,6 @@ public class TestTupleInfo
         assertEquals(value.getDataSize().toBytes(), SIZE_OF_DOUBLE + SIZE_OF_BYTE);
     }
 
-    /**
-     * The following classes depend on this exact memory layout
-     *
-     * @see com.facebook.presto.block.uncompressed.FixedWidthBlockCursor
-     * @see com.facebook.presto.block.uncompressed.FixedWidthBlock
-     */
-    @Test
-    public void testSingleDoubleLengthNullMemoryLayout()
-    {
-        RandomAccessBlock value = TupleInfo.SINGLE_DOUBLE.builder()
-                .appendNull()
-                .build();
-
-        Slice tupleSlice = value.getRawSlice();
-        assertEquals(tupleSlice.length(), SIZE_OF_DOUBLE + SIZE_OF_BYTE);
-        // null bit set is in first byte
-        assertEquals(tupleSlice.getByte(0), 0b0000_0001);
-        // value of a null double is 0
-        assertEquals(tupleSlice.getDouble(SIZE_OF_BYTE), 0, 0);
-    }
-
     @Test
     public void testSingleVariableLength()
     {
@@ -283,29 +144,6 @@ public class TestTupleInfo
         assertEquals(value.getDataSize().toBytes(), binary.length() + SIZE_OF_INT + SIZE_OF_BYTE);
         assertEquals(value.getSlice(0), binary);
         assertEquals(value.getObjectValue(0), binary.toStringUtf8());
-    }
-
-    /**
-     * The following classes depend on this exact memory layout
-     *
-     * @see com.facebook.presto.block.uncompressed.VariableWidthBlockCursor
-     * @see com.facebook.presto.block.uncompressed.VariableWidthBlock
-     */
-    @Test
-    public void testSingleVariableLengthMemoryLayout()
-    {
-        Slice binary = Slices.wrappedBuffer(new byte[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
-
-        RandomAccessBlock value = TupleInfo.SINGLE_VARBINARY.builder()
-                .append(binary)
-                .build();
-
-        Slice tupleSlice = value.getRawSlice();
-        assertEquals(tupleSlice.length(), binary.length() + SIZE_OF_INT + SIZE_OF_BYTE);
-        // null bit set is in first byte
-        assertEquals(tupleSlice.getByte(0), 0);
-        assertEquals(tupleSlice.getInt(SIZE_OF_BYTE), binary.length());
-        assertEquals(tupleSlice.slice(SIZE_OF_INT + SIZE_OF_BYTE, binary.length()), binary);
     }
 
     @Test
@@ -325,25 +163,6 @@ public class TestTupleInfo
         catch (IllegalStateException e) {
         }
         assertEquals(value.getObjectValue(0), null);
-    }
-
-    /**
-     * The following classes depend on this exact memory layout
-     *
-     * @see com.facebook.presto.block.uncompressed.VariableWidthBlockCursor
-     * @see com.facebook.presto.block.uncompressed.VariableWidthBlock
-     */
-    @Test
-    public void testSingleVariableLengthNullMemoryLayout()
-    {
-        RandomAccessBlock value = TupleInfo.SINGLE_VARBINARY.builder()
-                .appendNull()
-                .build();
-
-        Slice tupleSlice = value.getRawSlice();
-        assertEquals(tupleSlice.length(), SIZE_OF_BYTE);
-        // null bit set is in first byte
-        assertEquals(tupleSlice.getByte(0), 0b0000_0001);
     }
 
     @Test

@@ -40,6 +40,7 @@ public abstract class AbstractVariableWidthRandomAccessBlock
         this.typeInfo = typeInfo;
     }
 
+    protected abstract Slice getRawSlice();
     protected abstract int getPositionOffset(int position);
 
     @Override
@@ -63,7 +64,7 @@ public abstract class AbstractVariableWidthRandomAccessBlock
     @Override
     public BlockEncoding getEncoding()
     {
-        return new UncompressedBlockEncoding(SINGLE_VARBINARY);
+        return new VariableWidthBlockEncoding(SINGLE_VARBINARY);
     }
 
     @Override

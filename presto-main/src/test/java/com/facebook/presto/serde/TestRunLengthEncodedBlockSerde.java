@@ -19,7 +19,7 @@ import com.facebook.presto.block.BlockEncoding;
 import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.block.rle.RunLengthBlockEncoding;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
-import com.facebook.presto.block.uncompressed.UncompressedBlockEncoding;
+import com.facebook.presto.block.uncompressed.VariableWidthBlockEncoding;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.SliceInput;
 import org.testng.annotations.Test;
@@ -44,7 +44,7 @@ public class TestRunLengthEncodedBlockSerde
         RunLengthEncodedBlock expectedBlock = new RunLengthEncodedBlock(value, 11);
 
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
-        RunLengthBlockEncoding blockEncoding = new RunLengthBlockEncoding(new UncompressedBlockEncoding(SINGLE_VARBINARY));
+        RunLengthBlockEncoding blockEncoding = new RunLengthBlockEncoding(new VariableWidthBlockEncoding(SINGLE_VARBINARY));
         blockEncoding.writeBlock(sliceOutput, expectedBlock);
         RunLengthEncodedBlock actualBlock = blockEncoding.readBlock(sliceOutput.slice().getInput());
         assertTrue(actualBlock.equals(0, expectedBlock, 0));

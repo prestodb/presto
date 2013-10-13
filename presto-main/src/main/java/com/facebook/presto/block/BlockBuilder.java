@@ -48,8 +48,6 @@ public interface BlockBuilder
 
     int getPositionCount();
 
-    Slice getRawSlice();
-
     TupleInfo getTupleInfo();
 
     boolean isEmpty();
