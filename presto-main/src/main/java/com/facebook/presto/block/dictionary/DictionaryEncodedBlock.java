@@ -19,12 +19,12 @@ import com.facebook.presto.block.BlockEncoding;
 import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.operator.SortOrder;
 import com.facebook.presto.type.Type;
-import com.facebook.presto.type.Types;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 
+import static com.facebook.presto.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -38,7 +38,7 @@ public class DictionaryEncodedBlock
     {
         this.dictionary = checkNotNull(dictionary, "dictionary is null");
         this.idBlock = checkNotNull(idBlock, "idBlock is null");
-        checkArgument(idBlock.getType().equals(Types.BIGINT), "Expected bigint block but got %s block", idBlock.getType());
+        checkArgument(idBlock.getType().equals(BIGINT), "Expected bigint block but got %s block", idBlock.getType());
     }
 
     @Override

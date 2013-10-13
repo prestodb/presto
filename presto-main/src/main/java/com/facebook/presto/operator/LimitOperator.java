@@ -18,12 +18,13 @@ import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.type.Type;
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 
 import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
-import static com.facebook.presto.type.Types.BIGINT;
+import static com.facebook.presto.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -40,10 +41,10 @@ public class LimitOperator
         private final Optional<Integer> sampleWeightChannel;
         private boolean closed;
 
-        public LimitOperatorFactory(int operatorId, List<Type> types, long limit, Optional<Integer> sampleWeightChannel)
+        public LimitOperatorFactory(int operatorId, List<? extends Type> types, long limit, Optional<Integer> sampleWeightChannel)
         {
             this.operatorId = operatorId;
-            this.types = types;
+            this.types = ImmutableList.copyOf(types);
             this.limit = limit;
             this.sampleWeightChannel = sampleWeightChannel;
         }

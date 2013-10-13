@@ -23,7 +23,6 @@ import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.operator.Page;
 import com.google.common.base.Optional;
 import com.google.common.base.Splitter;
-import com.facebook.presto.type.Types;
 import com.google.common.primitives.Ints;
 
 import java.util.Arrays;
@@ -31,7 +30,8 @@ import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
-import static com.facebook.presto.type.Types.BOOLEAN;
+import static com.facebook.presto.type.BigintType.BIGINT;
+import static com.facebook.presto.type.BooleanType.BOOLEAN;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -319,7 +319,7 @@ public final class AggregationTestUtils
 
     public static GroupByIdBlock createGroupByIdBlock(int groupId, int positions)
     {
-        BlockBuilder blockBuilder = Types.BIGINT.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
         for (int i = 0; i < positions; i++) {
             blockBuilder.append(groupId);
         }

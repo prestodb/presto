@@ -18,7 +18,7 @@ import com.facebook.presto.block.BlockBuilder;
 
 import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.facebook.presto.operator.aggregation.AverageAggregations.DOUBLE_AVERAGE;
-import static com.facebook.presto.type.Types.DOUBLE;
+import static com.facebook.presto.type.DoubleType.DOUBLE;
 
 public class TestDoubleAverageAggregation
         extends AbstractTestAggregationFunction

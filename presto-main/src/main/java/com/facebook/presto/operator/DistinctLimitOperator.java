@@ -37,7 +37,7 @@ public class DistinctLimitOperator
         private final long limit;
         private boolean closed;
 
-        public DistinctLimitOperatorFactory(int operatorId, List<Type> types, long limit)
+        public DistinctLimitOperatorFactory(int operatorId, List<? extends Type> types, long limit)
         {
             this.operatorId = operatorId;
             this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
