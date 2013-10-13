@@ -16,6 +16,8 @@ package com.facebook.presto.serde;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.block.BlockEncoding;
+import com.facebook.presto.block.dictionary.DictionaryBlockEncoding;
 import com.facebook.presto.tuple.TupleInfo;
 
 import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;

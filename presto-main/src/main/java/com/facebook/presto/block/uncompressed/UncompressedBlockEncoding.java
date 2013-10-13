@@ -11,11 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.serde;
+package com.facebook.presto.block.uncompressed;
 
 import com.facebook.presto.block.Block;
-import com.facebook.presto.block.uncompressed.FixedWidthBlock;
-import com.facebook.presto.block.uncompressed.VariableWidthBlock;
+import com.facebook.presto.block.BlockEncoding;
+import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.serde.TupleInfoSerde;
 import com.facebook.presto.tuple.FixedWidthTypeInfo;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;

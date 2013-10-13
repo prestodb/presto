@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.operator.PageBuilder;
-import com.facebook.presto.serde.BlockEncodingManager;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;

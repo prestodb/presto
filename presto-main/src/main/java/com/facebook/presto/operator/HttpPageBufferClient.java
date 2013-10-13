@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.serde.BlockEncodingManager;
+import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.serde.PagesSerde;
 import com.google.common.base.Objects;
 import com.google.common.base.Throwables;
