@@ -210,10 +210,4 @@ public class RunLengthEncodedBlock
     {
         checkState(position >= 0 && position < positionCount, "position is not valid");
     }
-
-    @Override
-    public Slice getRawSlice()
-    {
-        return value.getRawSlice();
-    }
 }

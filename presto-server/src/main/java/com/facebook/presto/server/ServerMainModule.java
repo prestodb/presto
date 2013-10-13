@@ -13,6 +13,13 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.block.BlockEncoding.BlockEncodingFactory;
+import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.block.dictionary.DictionaryBlockEncoding;
+import com.facebook.presto.block.rle.RunLengthBlockEncoding;
+import com.facebook.presto.block.snappy.SnappyBlockEncoding;
+import com.facebook.presto.block.uncompressed.FixedWidthBlockEncoding;
+import com.facebook.presto.block.uncompressed.VariableWidthBlockEncoding;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.NativeConnectorFactory;
@@ -54,12 +61,6 @@ import com.facebook.presto.operator.ForExchange;
 import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.operator.RecordSinkManager;
 import com.facebook.presto.operator.RecordSinkProvider;
-import com.facebook.presto.block.BlockEncoding.BlockEncodingFactory;
-import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.block.dictionary.DictionaryBlockEncoding;
-import com.facebook.presto.block.rle.RunLengthBlockEncoding;
-import com.facebook.presto.block.snappy.SnappyBlockEncoding;
-import com.facebook.presto.block.uncompressed.UncompressedBlockEncoding;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.Split;
@@ -254,7 +255,8 @@ public class ServerMainModule
         // block encodings
         binder.bind(BlockEncodingManager.class).in(Scopes.SINGLETON);
         Multibinder<BlockEncodingFactory<?>> blockEncodingFactoryBinder = newSetBinder(binder, new TypeLiteral<BlockEncodingFactory<?>>() {});
-        blockEncodingFactoryBinder.addBinding().toInstance(UncompressedBlockEncoding.FACTORY);
+        blockEncodingFactoryBinder.addBinding().toInstance(FixedWidthBlockEncoding.FACTORY);
+        blockEncodingFactoryBinder.addBinding().toInstance(VariableWidthBlockEncoding.FACTORY);
         blockEncodingFactoryBinder.addBinding().toInstance(RunLengthBlockEncoding.FACTORY);
         blockEncodingFactoryBinder.addBinding().toInstance(DictionaryBlockEncoding.FACTORY);
         blockEncodingFactoryBinder.addBinding().toInstance(SnappyBlockEncoding.FACTORY);
@@ -311,7 +313,8 @@ public class ServerMainModule
             binder.bind(NodeResource.class).in(Scopes.SINGLETON);
         }
         else {
-            binder.bind(FailureDetector.class).toInstance(new FailureDetector() {
+            binder.bind(FailureDetector.class).toInstance(new FailureDetector()
+            {
                 @Override
                 public Set<ServiceDescriptor> getFailed()
                 {

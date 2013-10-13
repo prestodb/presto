@@ -41,12 +41,6 @@ class PoissonizedBlock
     }
 
     @Override
-    public Slice getRawSlice()
-    {
-        return delegate.getRawSlice();
-    }
-
-    @Override
     public TupleInfo getTupleInfo()
     {
         return SINGLE_LONG;
@@ -209,18 +203,6 @@ class PoissonizedBlock
         public int getPosition()
         {
             return delegate.getPosition();
-        }
-
-        @Override
-        public int getRawOffset()
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Slice getRawSlice()
-        {
-            throw new UnsupportedOperationException();
         }
 
         @Override
