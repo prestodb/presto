@@ -58,8 +58,7 @@ public class VariableWidthRandomAccessBlock
         return offsets.length;
     }
 
-    @Override
-    public Slice getRawSlice()
+    protected Slice getRawSlice()
     {
         return slice;
     }
