@@ -17,7 +17,7 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.block.BlockEncoding;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.primitives.Ints;
@@ -41,16 +41,16 @@ public class SnappyBlock
 {
     private static final DataSize ENCODING_BUFFER_OVERHEAD = new DataSize(1, Unit.KILOBYTE);
     private final int positionCount;
-    private final TupleInfo tupleInfo;
+    private final Type type;
     private final Slice compressedSlice;
     private final BlockEncoding uncompressedBlockEncoding;
 
     @GuardedBy("this")
     private Block uncompressedBlock;
 
-    public SnappyBlock(int positionCount, TupleInfo tupleInfo, Slice compressedSlice, BlockEncoding uncompressedBlockEncoding)
+    public SnappyBlock(int positionCount, Type type, Slice compressedSlice, BlockEncoding uncompressedBlockEncoding)
     {
-        this.tupleInfo = checkNotNull(tupleInfo, "tupleInfo is null");
+        this.type = checkNotNull(type, "type is null");
         checkArgument(positionCount >= 0, "positionCount is negative");
         this.positionCount = positionCount;
         this.compressedSlice = checkNotNull(compressedSlice, "compressedSlice is null");
@@ -59,7 +59,7 @@ public class SnappyBlock
 
     public SnappyBlock(Block block)
     {
-        tupleInfo = block.getTupleInfo();
+        type = block.getType();
         positionCount = block.getPositionCount();
 
         uncompressedBlock = block;
@@ -75,9 +75,9 @@ public class SnappyBlock
     }
 
     @Override
-    public TupleInfo getTupleInfo()
+    public Type getType()
     {
-        return tupleInfo;
+        return type;
     }
 
     public Slice getCompressedSlice()
@@ -121,7 +121,7 @@ public class SnappyBlock
     @Override
     public SnappyBlockEncoding getEncoding()
     {
-        return new SnappyBlockEncoding(tupleInfo, uncompressedBlockEncoding);
+        return new SnappyBlockEncoding(type, uncompressedBlockEncoding);
     }
 
     @Override
@@ -142,7 +142,7 @@ public class SnappyBlock
     {
         return Objects.toStringHelper(this)
                 .add("positionCount", positionCount)
-                .add("tupleInfo", tupleInfo)
+                .add("type", type)
                 .add("compressedSlice", compressedSlice)
                 .toString();
     }

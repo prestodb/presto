@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
+import static com.facebook.presto.type.Types.BIGINT;
 import static com.facebook.presto.util.MaterializedResult.resultBuilder;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -56,15 +56,15 @@ public class TestDistinctLimitOperator
     public void testDistinctLimit()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(SINGLE_LONG)
+        List<Page> input = rowPagesBuilder(BIGINT)
                 .addSequencePage(3, 1)
                 .addSequencePage(5, 2)
                 .build();
 
-        OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(0, ImmutableList.of(SINGLE_LONG), 5);
+        OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(0, ImmutableList.of(BIGINT), 5);
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        MaterializedResult expected = resultBuilder(SINGLE_LONG)
+        MaterializedResult expected = resultBuilder(BIGINT)
                 .row(1)
                 .row(2)
                 .row(3)
@@ -79,15 +79,15 @@ public class TestDistinctLimitOperator
     public void testDistinctLimitWithPageAlignment()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(SINGLE_LONG)
+        List<Page> input = rowPagesBuilder(BIGINT)
                 .addSequencePage(3, 1)
                 .addSequencePage(3, 2)
                 .build();
 
-        OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(0, ImmutableList.of(SINGLE_LONG), 3);
+        OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(0, ImmutableList.of(BIGINT), 3);
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        MaterializedResult expected = resultBuilder(SINGLE_LONG)
+        MaterializedResult expected = resultBuilder(BIGINT)
                 .row(1)
                 .row(2)
                 .row(3)
@@ -100,15 +100,15 @@ public class TestDistinctLimitOperator
     public void testDistinctLimitValuesLessThanLimit()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(SINGLE_LONG)
+        List<Page> input = rowPagesBuilder(BIGINT)
                 .addSequencePage(3, 1)
                 .addSequencePage(3, 2)
                 .build();
 
-        OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(0, ImmutableList.of(SINGLE_LONG), 5);
+        OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(0, ImmutableList.of(BIGINT), 5);
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        MaterializedResult expected = resultBuilder(SINGLE_LONG)
+        MaterializedResult expected = resultBuilder(BIGINT)
                 .row(1)
                 .row(2)
                 .row(3)

@@ -14,7 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.tuple.TupleInfo.Type;
+import com.facebook.presto.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
@@ -75,7 +75,7 @@ public class JoinHash
 
     public int getChannelCount()
     {
-        return pagesIndex.getTupleInfos().size();
+        return pagesIndex.getTypes().size();
     }
 
     public void setProbeCursors(BlockCursor[] cursors, int[] probeJoinChannels)
@@ -94,10 +94,10 @@ public class JoinHash
         return positionLinks.getInt(currentPosition);
     }
 
-    public void appendTupleTo(int position, PageBuilder pageBuilder, int outputChannelOffset)
+    public void appendTo(int position, PageBuilder pageBuilder, int outputChannelOffset)
     {
         for (int channel = 0; channel < getChannelCount(); channel++) {
-            pagesIndex.appendTupleTo(channel, position, pageBuilder.getBlockBuilder(outputChannelOffset + channel));
+            pagesIndex.appendTo(channel, position, pageBuilder.getBlockBuilder(outputChannelOffset + channel));
         }
     }
 
@@ -116,7 +116,7 @@ public class JoinHash
 
             ImmutableList.Builder<Type> types = ImmutableList.builder();
             for (int channel : hashChannels) {
-                types.add(pagesIndex.getTupleInfo(channel).getType());
+                types.add(pagesIndex.getType(channel));
             }
             this.types = types.build();
             this.joinCursors = new BlockCursor[hashChannels.size()];

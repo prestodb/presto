@@ -49,7 +49,7 @@ public class HashBuildAndJoinBenchmark
     {
         // hash build
         OperatorFactory ordersTableScan = createTableScanOperator(0, "orders", "orderkey", "totalprice");
-        HashBuilderOperatorFactory hashBuilder = new HashBuilderOperatorFactory(1, ordersTableScan.getTupleInfos(), Ints.asList(0), 1_500_000);
+        HashBuilderOperatorFactory hashBuilder = new HashBuilderOperatorFactory(1, ordersTableScan.getTypes(), Ints.asList(0), 1_500_000);
 
         DriverFactory hashBuildDriverFactory = new DriverFactory(true, false, ordersTableScan, hashBuilder);
         Driver hashBuildDriver = hashBuildDriverFactory.createDriver(taskContext.addPipelineContext(true, false).addDriverContext());
@@ -57,9 +57,9 @@ public class HashBuildAndJoinBenchmark
         // join
         OperatorFactory lineItemTableScan = createTableScanOperator(0, "lineitem", "orderkey", "quantity");
 
-        HashJoinOperatorFactory joinOperator = HashJoinOperator.innerJoin(1, hashBuilder.getHashSupplier(), lineItemTableScan.getTupleInfos(), Ints.asList(0));
+        HashJoinOperatorFactory joinOperator = HashJoinOperator.innerJoin(1, hashBuilder.getHashSupplier(), lineItemTableScan.getTypes(), Ints.asList(0));
 
-        NullOutputOperatorFactory output = new NullOutputOperatorFactory(2, joinOperator.getTupleInfos());
+        NullOutputOperatorFactory output = new NullOutputOperatorFactory(2, joinOperator.getTypes());
 
         DriverFactory joinDriverFactory = new DriverFactory(true, true, lineItemTableScan, joinOperator, output);
         Driver joinDriver = joinDriverFactory.createDriver(taskContext.addPipelineContext(true, true).addDriverContext());

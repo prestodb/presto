@@ -41,7 +41,7 @@ public class HashBuildBenchmark
     protected List<Driver> createDrivers(TaskContext taskContext)
     {
         OperatorFactory ordersTableScan = createTableScanOperator(0, "orders", "orderkey", "totalprice");
-        HashBuilderOperatorFactory hashBuilder = new HashBuilderOperatorFactory(1, ordersTableScan.getTupleInfos(), Ints.asList(0), 1_500_000);
+        HashBuilderOperatorFactory hashBuilder = new HashBuilderOperatorFactory(1, ordersTableScan.getTypes(), Ints.asList(0), 1_500_000);
 
         DriverFactory driverFactory = new DriverFactory(true, true, ordersTableScan, hashBuilder);
         Driver driver = driverFactory.createDriver(taskContext.addPipelineContext(true, true).addDriverContext());

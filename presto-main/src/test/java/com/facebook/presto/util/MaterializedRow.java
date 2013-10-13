@@ -26,18 +26,18 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
- * Materialize all values from a Tuple
+ * Materialize all values in a row
  * Special handling is added for Double types for approximate comparisons
  */
-public class MaterializedTuple
+public class MaterializedRow
 {
     private final List<Object> values;
 
-    public MaterializedTuple(int precision, Object... values)
+    public MaterializedRow(int precision, Object... values)
     {
         this(precision, Arrays.asList(checkNotNull(values, "values is null")));
     }
-    public MaterializedTuple(int precision, List<Object> values)
+    public MaterializedRow(int precision, List<Object> values)
     {
         checkArgument(precision > 0, "Need at least one digit of precision");
 
@@ -82,7 +82,7 @@ public class MaterializedTuple
         if ((obj == null) || (getClass() != obj.getClass())) {
             return false;
         }
-        MaterializedTuple o = (MaterializedTuple) obj;
+        MaterializedRow o = (MaterializedRow) obj;
         return Objects.equal(values, o.values);
     }
 

@@ -30,7 +30,7 @@ public class RunLengthEncoder
     private final SliceOutput sliceOutput;
     private boolean finished;
 
-    private int tupleCount = 0;
+    private int positionCount;
     private RandomAccessBlock lastValue;
     private RunLengthBlockEncoding encoding;
 
@@ -42,7 +42,7 @@ public class RunLengthEncoder
     @Override
     public Encoder append(Block block)
     {
-        checkNotNull(block, "tuples is null");
+        checkNotNull(block, "block is null");
         checkState(!finished, "already finished");
 
         if (encoding == null) {
@@ -59,7 +59,7 @@ public class RunLengthEncoder
                 writeBlock();
                 lastValue = value;
             }
-            tupleCount++;
+            positionCount++;
         }
 
         return this;
@@ -67,11 +67,11 @@ public class RunLengthEncoder
 
     private void writeBlock()
     {
-        RunLengthEncodedBlock block = new RunLengthEncodedBlock(lastValue, tupleCount);
+        RunLengthEncodedBlock block = new RunLengthEncodedBlock(lastValue, positionCount);
 
         encoding.writeBlock(sliceOutput, block);
         lastValue = null;
-        tupleCount = 0;
+        positionCount = 0;
     }
 
     @Override
@@ -82,7 +82,7 @@ public class RunLengthEncoder
         finished = true;
 
         // Flush out final block if there exists one (null if they were all empty blocks)
-        if (tupleCount > 0) {
+        if (positionCount > 0) {
             writeBlock();
         }
 

@@ -18,7 +18,7 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -39,7 +39,7 @@ public abstract class AbstractScanFilterAndProjectOperator
     private final OperatorContext operatorContext;
     private final PlanNodeId planNodeId;
     private final DataStreamProvider dataStreamProvider;
-    private final List<TupleInfo> tupleInfos;
+    private final List<Type> types;
     private final List<ColumnHandle> columns;
     private final PageBuilder pageBuilder;
 
@@ -59,15 +59,15 @@ public abstract class AbstractScanFilterAndProjectOperator
             PlanNodeId sourceId,
             DataStreamProvider dataStreamProvider,
             Iterable<ColumnHandle> columns,
-            Iterable<TupleInfo> tupleInfos)
+            Iterable<Type> types)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         this.planNodeId = checkNotNull(sourceId, "sourceId is null");
         this.dataStreamProvider = checkNotNull(dataStreamProvider, "dataStreamProvider is null");
-        this.tupleInfos = ImmutableList.copyOf(checkNotNull(tupleInfos, "tupleInfos is null"));
+        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
         this.columns = ImmutableList.copyOf(checkNotNull(columns, "columns is null"));
 
-        this.pageBuilder = new PageBuilder(getTupleInfos());
+        this.pageBuilder = new PageBuilder(getTypes());
     }
 
     protected abstract void filterAndProjectRowOriented(Page page, PageBuilder pageBuilder);
@@ -115,9 +115,9 @@ public abstract class AbstractScanFilterAndProjectOperator
     }
 
     @Override
-    public final List<TupleInfo> getTupleInfos()
+    public final List<Type> getTypes()
     {
-        return tupleInfos;
+        return types;
     }
 
     @Override

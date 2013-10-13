@@ -25,7 +25,7 @@ import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.serde.PagesSerde.readPages;
 import static com.facebook.presto.serde.PagesSerde.writePages;
 import static com.facebook.presto.serde.TestingBlockEncodingManager.createTestingBlockEncodingManager;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
+import static com.facebook.presto.type.Types.VARCHAR;
 import static org.testng.Assert.assertFalse;
 
 public class TestPagesSerde
@@ -33,7 +33,7 @@ public class TestPagesSerde
     @Test
     public void testRoundTrip()
     {
-        Block expectedBlock = createBlockBuilder(SINGLE_VARBINARY)
+        Block expectedBlock = createBlockBuilder(VARCHAR)
                 .append("alice")
                 .append("bob")
                 .append("charlie")

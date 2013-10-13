@@ -13,7 +13,8 @@
  */
 package com.facebook.presto.block;
 
-import com.facebook.presto.tuple.TupleInfo.Type;
+import com.facebook.presto.type.Type;
+import com.facebook.presto.type.Types;
 
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -54,8 +55,8 @@ public final class BlockCursorAssertions
             return;
         }
 
-        Type type = cursor.getTupleInfo().getType();
-        if (type == Type.BOOLEAN) {
+        Type type = cursor.getType();
+        if (type == Types.BOOLEAN) {
             assertEquals(cursor.getBoolean(), value);
             assertEquals(cursor.getSlice().getByte(0) != 0, value);
             try {
@@ -71,7 +72,7 @@ public final class BlockCursorAssertions
             catch (IllegalStateException | UnsupportedOperationException expected) {
             }
         }
-        else if (type == Type.FIXED_INT_64) {
+        else if (type == Types.BIGINT) {
             assertEquals(cursor.getLong(), value);
             assertEquals(cursor.getSlice().getLong(0), value);
             try {
@@ -88,7 +89,7 @@ public final class BlockCursorAssertions
             }
 
         }
-        else if (type == Type.DOUBLE) {
+        else if (type == Types.DOUBLE) {
             assertEquals(cursor.getDouble(), value);
             assertEquals(cursor.getSlice().getDouble(0), value);
             try {
@@ -105,7 +106,7 @@ public final class BlockCursorAssertions
             }
 
         }
-        else if (type == Type.VARIABLE_BINARY) {
+        else if (type == Types.VARCHAR) {
             assertEquals(cursor.getSlice().toStringUtf8(), value);
             try {
                 cursor.getBoolean();

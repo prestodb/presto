@@ -22,7 +22,7 @@ import java.util.List;
 import static java.util.Arrays.asList;
 import static org.testng.Assert.assertEquals;
 
-public class TestAlignedTuplePrinter
+public class TestAlignedTablePrinter
 {
     @Test
     public void testAlignedPrinting()
@@ -30,7 +30,7 @@ public class TestAlignedTuplePrinter
     {
         StringWriter writer = new StringWriter();
         List<String> fieldNames = ImmutableList.of("first", "last", "quantity");
-        OutputPrinter printer = new AlignedTuplePrinter(fieldNames, writer);
+        OutputPrinter printer = new AlignedTablePrinter(fieldNames, writer);
 
         printer.printRows(rows(
                 row("hello", "world", 123),
@@ -62,7 +62,7 @@ public class TestAlignedTuplePrinter
     {
         StringWriter writer = new StringWriter();
         List<String> fieldNames = ImmutableList.of("first", "last");
-        OutputPrinter printer = new AlignedTuplePrinter(fieldNames, writer);
+        OutputPrinter printer = new AlignedTablePrinter(fieldNames, writer);
 
         printer.printRows(rows(row("a long line\nwithout wrapping", "text")), true);
         printer.finish();
@@ -83,7 +83,7 @@ public class TestAlignedTuplePrinter
     {
         StringWriter writer = new StringWriter();
         List<String> fieldNames = ImmutableList.of("first", "last");
-        OutputPrinter printer = new AlignedTuplePrinter(fieldNames, writer);
+        OutputPrinter printer = new AlignedTablePrinter(fieldNames, writer);
 
         printer.finish();
 

@@ -17,7 +17,7 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.block.BlockIterables;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -38,7 +38,7 @@ public class AlignmentOperator
     {
         private final int operatorId;
         private final List<BlockIterable> channels;
-        private final List<TupleInfo> tupleInfos;
+        private final List<Type> types;
         private boolean closed;
 
         public AlignmentOperatorFactory(int operatorId, BlockIterable firstChannel, BlockIterable... otherChannels)
@@ -54,13 +54,13 @@ public class AlignmentOperator
         {
             this.operatorId = operatorId;
             this.channels = ImmutableList.copyOf(checkNotNull(channels, "channels is null"));
-            this.tupleInfos = toTupleInfos(channels);
+            this.types = toTypes(channels);
         }
 
         @Override
-        public List<TupleInfo> getTupleInfos()
+        public List<Type> getTypes()
         {
-            return tupleInfos;
+            return types;
         }
 
         @Override
@@ -79,7 +79,7 @@ public class AlignmentOperator
     }
 
     private final OperatorContext operatorContext;
-    private final List<TupleInfo> tupleInfos;
+    private final List<Type> types;
     private final Optional<DataSize> expectedDataSize;
     private final Optional<Integer> expectedPositionCount;
 
@@ -96,7 +96,7 @@ public class AlignmentOperator
     public AlignmentOperator(OperatorContext operatorContext, Iterable<BlockIterable> channels)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.tupleInfos = toTupleInfos(checkNotNull(channels, "channels is null"));
+        this.types = toTypes(checkNotNull(channels, "channels is null"));
 
         expectedDataSize = BlockIterables.getDataSize(channels);
         expectedPositionCount = BlockIterables.getPositionCount(channels);
@@ -129,9 +129,9 @@ public class AlignmentOperator
     }
 
     @Override
-    public List<TupleInfo> getTupleInfos()
+    public List<Type> getTypes()
     {
-        return tupleInfos;
+        return types;
     }
 
     public Optional<DataSize> getExpectedDataSize()
@@ -215,12 +215,12 @@ public class AlignmentOperator
         return page;
     }
 
-    private static List<TupleInfo> toTupleInfos(Iterable<BlockIterable> channels)
+    private static List<Type> toTypes(Iterable<BlockIterable> channels)
     {
-        ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
+        ImmutableList.Builder<Type> types = ImmutableList.builder();
         for (BlockIterable channel : channels) {
-            tupleInfos.add(channel.getTupleInfo());
+            types.add(channel.getType());
         }
-        return tupleInfos.build();
+        return types.build();
     }
 }

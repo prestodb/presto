@@ -15,20 +15,20 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.RandomAccessBlock;
-import com.facebook.presto.tuple.FieldOrderedTupleComparator;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.PriorityQueue;
 
 import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
+import static com.facebook.presto.type.Types.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -43,7 +43,7 @@ public class TopNOperator
             implements OperatorFactory
     {
         private final int operatorId;
-        private final List<TupleInfo> sourceTupleInfos;
+        private final List<Type> sourceTypes;
         private final int n;
         private final List<Integer> sortChannels;
         private final List<SortOrder> sortOrders;
@@ -53,7 +53,7 @@ public class TopNOperator
 
         public TopNOperatorFactory(
                 int operatorId,
-                List<TupleInfo> tupleInfos,
+                List<Type> types,
                 int n,
                 List<Integer> sortChannels,
                 List<SortOrder> sortOrders,
@@ -61,7 +61,7 @@ public class TopNOperator
                 boolean partial)
         {
             this.operatorId = operatorId;
-            this.sourceTupleInfos = checkNotNull(tupleInfos, "tupleInfos is null");
+            this.sourceTypes = checkNotNull(types, "types is null");
             this.n = n;
             this.sortChannels = ImmutableList.copyOf(checkNotNull(sortChannels, "sortChannels is null"));
             this.sortOrders = ImmutableList.copyOf(checkNotNull(sortOrders, "sortOrders is null"));
@@ -70,9 +70,9 @@ public class TopNOperator
         }
 
         @Override
-        public List<TupleInfo> getTupleInfos()
+        public List<Type> getTypes()
         {
-            return sourceTupleInfos;
+            return sourceTypes;
         }
 
         @Override
@@ -82,7 +82,7 @@ public class TopNOperator
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, TopNOperator.class.getSimpleName());
             return new TopNOperator(
                     operatorContext,
-                    sourceTupleInfos,
+                    sourceTypes,
                     n,
                     sortChannels,
                     sortOrders,
@@ -101,7 +101,7 @@ public class TopNOperator
     private static final DataSize OVERHEAD_PER_VALUE = new DataSize(100, DataSize.Unit.BYTE); // for estimating in-memory size. This is a completely arbitrary number
 
     private final OperatorContext operatorContext;
-    private final List<TupleInfo> tupleInfos;
+    private final List<Type> types;
     private final int n;
     private final List<Integer> sortChannels;
     private final List<SortOrder> sortOrders;
@@ -118,7 +118,7 @@ public class TopNOperator
 
     public TopNOperator(
             OperatorContext operatorContext,
-            List<TupleInfo> tupleInfos,
+            List<Type> types,
             int n,
             List<Integer> sortChannels,
             List<SortOrder> sortOrders,
@@ -126,7 +126,7 @@ public class TopNOperator
             boolean partial)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.tupleInfos = checkNotNull(tupleInfos, "tupleInfos is null");
+        this.types = checkNotNull(types, "types is null");
 
         checkArgument(n > 0, "n must be greater than zero");
         this.n = n;
@@ -138,7 +138,7 @@ public class TopNOperator
 
         this.memoryManager = new TopNMemoryManager(checkNotNull(operatorContext, "operatorContext is null"));
 
-        this.pageBuilder = new PageBuilder(tupleInfos);
+        this.pageBuilder = new PageBuilder(getTypes());
 
         this.sampleWeight = sampleWeight;
     }
@@ -150,9 +150,9 @@ public class TopNOperator
     }
 
     @Override
-    public List<TupleInfo> getTupleInfos()
+    public List<Type> getTypes()
     {
-        return tupleInfos;
+        return types;
     }
 
     @Override
@@ -222,7 +222,7 @@ public class TopNOperator
         while (!pageBuilder.isFull() && outputIterator.hasNext()) {
             RandomAccessBlock[] next = outputIterator.next();
             for (int i = 0; i < next.length; i++) {
-                next[i].appendTupleTo(0, pageBuilder.getBlockBuilder(i));
+                next[i].appendTo(0, pageBuilder.getBlockBuilder(i));
             }
         }
 
@@ -251,7 +251,7 @@ public class TopNOperator
             this.memoryManager = memoryManager;
             this.sampleWeightChannel = sampleWeightChannel;
 
-            Ordering<RandomAccessBlock[]> comparator = Ordering.from(new FieldOrderedTupleComparator(sortChannels, sortOrders)).reverse();
+            Ordering<RandomAccessBlock[]> comparator = Ordering.from(new RowComparator(sortChannels, sortOrders)).reverse();
             this.globalCandidates = new PriorityQueue<>(Math.min(n, MAX_INITIAL_PRIORITY_QUEUE_SIZE), comparator);
         }
 
@@ -386,7 +386,7 @@ public class TopNOperator
 
         private static RandomAccessBlock createBigintBlock(long value)
         {
-            return createBlockBuilder(SINGLE_LONG)
+            return createBlockBuilder(BIGINT)
                     .append(value)
                     .build()
                     .toRandomAccessBlock();
@@ -425,6 +425,41 @@ public class TopNOperator
         public DataSize getMaxMemorySize()
         {
             return operatorContext.getMaxMemorySize();
+        }
+    }
+
+    private static class RowComparator
+            implements Comparator<RandomAccessBlock[]>
+    {
+        private final List<Integer> sortChannels;
+        private final List<SortOrder> sortOrders;
+
+        public RowComparator(List<Integer> sortChannels, List<SortOrder> sortOrders)
+        {
+            checkNotNull(sortChannels, "sortChannels is null");
+            checkNotNull(sortOrders, "sortOrders is null");
+            checkArgument(sortChannels.size() == sortOrders.size(), "sortFields size (%s) doesn't match sortOrders size (%s)", sortChannels.size(), sortOrders.size());
+
+            this.sortChannels = ImmutableList.copyOf(sortChannels);
+            this.sortOrders = ImmutableList.copyOf(sortOrders);
+        }
+
+        @Override
+        public int compare(RandomAccessBlock[] leftRow, RandomAccessBlock[] rightRow)
+        {
+            for (int index = 0; index < sortChannels.size(); index++) {
+                int channel = sortChannels.get(index);
+                SortOrder sortOrder = sortOrders.get(index);
+
+                RandomAccessBlock left = leftRow[channel];
+                RandomAccessBlock right = rightRow[channel];
+
+                int comparison = left.compareTo(sortOrder, 0, right, 0);
+                if (comparison != 0) {
+                    return comparison;
+                }
+            }
+            return 0;
         }
     }
 }

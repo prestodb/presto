@@ -15,11 +15,10 @@ package com.facebook.presto.block.uncompressed;
 
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.block.BlockEncoding;
 import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.operator.SortOrder;
-import com.facebook.presto.block.BlockEncoding;
-import com.facebook.presto.tuple.FixedWidthTypeInfo;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.FixedWidthType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
@@ -33,26 +32,21 @@ import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 public abstract class AbstractFixedWidthBlock
         implements RandomAccessBlock
 {
-    protected final FixedWidthTypeInfo typeInfo;
+    protected final FixedWidthType type;
     protected final int entrySize;
 
-    protected AbstractFixedWidthBlock(FixedWidthTypeInfo typeInfo)
+    protected AbstractFixedWidthBlock(FixedWidthType type)
     {
-        this.typeInfo = checkNotNull(typeInfo, "typeInfo is null");
-        this.entrySize = typeInfo.getSize() + SIZE_OF_BYTE;
+        this.type = checkNotNull(type, "type is null");
+        this.entrySize = type.getFixedSize() + SIZE_OF_BYTE;
     }
 
     protected abstract Slice getRawSlice();
 
-    public FixedWidthTypeInfo getTypeInfo()
-    {
-        return typeInfo;
-    }
-
     @Override
-    public TupleInfo getTupleInfo()
+    public FixedWidthType getType()
     {
-        return new TupleInfo(typeInfo.getType());
+        return type;
     }
 
     @Override
@@ -64,13 +58,13 @@ public abstract class AbstractFixedWidthBlock
     @Override
     public BlockCursor cursor()
     {
-        return new FixedWidthBlockCursor(typeInfo, getPositionCount(), getRawSlice());
+        return new FixedWidthBlockCursor(type, getPositionCount(), getRawSlice());
     }
 
     @Override
     public BlockEncoding getEncoding()
     {
-        return new FixedWidthBlockEncoding(new TupleInfo(typeInfo.getType()));
+        return new FixedWidthBlockEncoding(type);
     }
 
     @Override
@@ -90,21 +84,21 @@ public abstract class AbstractFixedWidthBlock
     public boolean getBoolean(int position)
     {
         checkReadablePosition(position);
-        return typeInfo.getBoolean(getRawSlice(), (position * entrySize) + SIZE_OF_BYTE);
+        return type.getBoolean(getRawSlice(), (position * entrySize) + SIZE_OF_BYTE);
     }
 
     @Override
     public long getLong(int position)
     {
         checkReadablePosition(position);
-        return typeInfo.getLong(getRawSlice(), (position * entrySize) + SIZE_OF_BYTE);
+        return type.getLong(getRawSlice(), (position * entrySize) + SIZE_OF_BYTE);
     }
 
     @Override
     public double getDouble(int position)
     {
         checkReadablePosition(position);
-        return typeInfo.getDouble(getRawSlice(), (position * entrySize) + SIZE_OF_BYTE);
+        return type.getDouble(getRawSlice(), (position * entrySize) + SIZE_OF_BYTE);
     }
 
     @Override
@@ -114,14 +108,14 @@ public abstract class AbstractFixedWidthBlock
         if (isNull(position)) {
             return null;
         }
-        return typeInfo.getObjectValue(getRawSlice(), (position * entrySize) + SIZE_OF_BYTE);
+        return type.getObjectValue(getRawSlice(), (position * entrySize) + SIZE_OF_BYTE);
     }
 
     @Override
     public Slice getSlice(int position)
     {
         checkReadablePosition(position);
-        return typeInfo.getSlice(getRawSlice(), (position * entrySize) + SIZE_OF_BYTE);
+        return type.getSlice(getRawSlice(), (position * entrySize) + SIZE_OF_BYTE);
     }
 
     @Override
@@ -133,7 +127,7 @@ public abstract class AbstractFixedWidthBlock
         Slice copy = Slices.allocate(entrySize);
         copy.setBytes(0, getRawSlice(), (position * entrySize), entrySize);
 
-        return new FixedWidthBlock(typeInfo, 1, copy);
+        return new FixedWidthBlock(type, 1, copy);
     }
 
     @Override
@@ -180,7 +174,7 @@ public abstract class AbstractFixedWidthBlock
         if (thisIsNull) {
             return true;
         }
-        return typeInfo.equals(getRawSlice(), entryOffset + SIZE_OF_BYTE, cursor);
+        return type.equals(getRawSlice(), entryOffset + SIZE_OF_BYTE, cursor);
     }
 
     @Override
@@ -188,7 +182,7 @@ public abstract class AbstractFixedWidthBlock
     {
         checkReadablePosition(position);
         int leftEntryOffset = position * entrySize;
-        return typeInfo.equals(getRawSlice(), leftEntryOffset + SIZE_OF_BYTE, rightSlice, rightOffset);
+        return type.equals(getRawSlice(), leftEntryOffset + SIZE_OF_BYTE, rightSlice, rightOffset);
     }
 
     @Override
@@ -200,7 +194,7 @@ public abstract class AbstractFixedWidthBlock
             return 0;
         }
         else {
-            return typeInfo.hashCode(getRawSlice(), entryOffset + SIZE_OF_BYTE);
+            return type.hashCode(getRawSlice(), entryOffset + SIZE_OF_BYTE);
         }
     }
 
@@ -257,11 +251,11 @@ public abstract class AbstractFixedWidthBlock
     {
         checkReadablePosition(position);
         int leftEntryOffset = position * entrySize;
-        return typeInfo.compareTo(getRawSlice(), leftEntryOffset + SIZE_OF_BYTE, rightSlice, rightOffset);
+        return type.compareTo(getRawSlice(), leftEntryOffset + SIZE_OF_BYTE, rightSlice, rightOffset);
     }
 
     @Override
-    public void appendTupleTo(int position, BlockBuilder blockBuilder)
+    public void appendTo(int position, BlockBuilder blockBuilder)
     {
         checkReadablePosition(position);
         int entryOffset = position * entrySize;
@@ -269,7 +263,7 @@ public abstract class AbstractFixedWidthBlock
             blockBuilder.appendNull();
         }
         else {
-            typeInfo.appendTo(getRawSlice(), entryOffset + SIZE_OF_BYTE, blockBuilder);
+            type.appendTo(getRawSlice(), entryOffset + SIZE_OF_BYTE, blockBuilder);
         }
     }
 

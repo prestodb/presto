@@ -19,7 +19,7 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import com.facebook.presto.util.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterMethod;
@@ -32,10 +32,8 @@ import java.util.concurrent.ExecutorService;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
 import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
-import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
-import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
+import static com.facebook.presto.type.Types.BIGINT;
+import static com.facebook.presto.type.Types.VARCHAR;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
@@ -65,7 +63,7 @@ public class TestFilterAndProjectOperator
     public void test()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(SINGLE_VARBINARY, SINGLE_LONG)
+        List<Page> input = rowPagesBuilder(VARCHAR, BIGINT)
                 .addSequencePage(100, 0, 0)
                 .build();
 
@@ -86,11 +84,12 @@ public class TestFilterAndProjectOperator
                         long value = cursor.getLong(0);
                         return 10 <= value && value < 20;
                     }
-                }, ImmutableList.of(singleColumn(VARIABLE_BINARY, 0), new Add5Projection(1)));
+                },
+                ImmutableList.of(singleColumn(VARCHAR, 0), new Add5Projection(1)));
 
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        MaterializedResult expected = MaterializedResult.resultBuilder(VARIABLE_BINARY, FIXED_INT_64)
+        MaterializedResult expected = MaterializedResult.resultBuilder(VARCHAR, BIGINT)
                 .row("10", 15)
                 .row("11", 16)
                 .row("12", 17)
@@ -117,9 +116,9 @@ public class TestFilterAndProjectOperator
         }
 
         @Override
-        public TupleInfo getTupleInfo()
+        public Type getType()
         {
-            return SINGLE_LONG;
+            return BIGINT;
         }
 
         @Override

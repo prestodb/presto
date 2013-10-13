@@ -28,8 +28,8 @@ import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.spi.ColumnType.LONG;
 import static com.facebook.presto.spi.ColumnType.STRING;
-import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
-import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
+import static com.facebook.presto.type.Types.BIGINT;
+import static com.facebook.presto.type.Types.VARCHAR;
 import static com.facebook.presto.util.MaterializedResult.resultBuilder;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -69,7 +69,7 @@ public class TestRecordProjectOperator
         OperatorContext operatorContext = driverContext.addOperatorContext(0, RecordProjectOperator.class.getSimpleName());
         Operator operator = new RecordProjectOperator(operatorContext, records);
 
-        MaterializedResult expected = resultBuilder(VARIABLE_BINARY)
+        MaterializedResult expected = resultBuilder(VARCHAR)
                 .row("abc")
                 .row("def")
                 .row("g")
@@ -90,7 +90,7 @@ public class TestRecordProjectOperator
         OperatorContext operatorContext = driverContext.addOperatorContext(0, RecordProjectOperator.class.getSimpleName());
         Operator operator = new RecordProjectOperator(operatorContext, records);
 
-        MaterializedResult expected = resultBuilder(VARIABLE_BINARY, FIXED_INT_64)
+        MaterializedResult expected = resultBuilder(VARCHAR, BIGINT)
                 .row("abc", 1)
                 .row("def", 2)
                 .row("g", 0)

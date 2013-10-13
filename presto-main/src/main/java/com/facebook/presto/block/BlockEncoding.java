@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.block;
 
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
@@ -25,9 +25,9 @@ public interface BlockEncoding
     String getName();
 
     /**
-     * Gets the TupleInfo this encoding supports.
+     * Gets the type this encoding supports.
      */
-    TupleInfo getTupleInfo();
+    Type getType();
 
     /**
      * Read a block from the specified input.  The returned
