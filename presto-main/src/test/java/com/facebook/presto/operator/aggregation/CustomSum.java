@@ -25,8 +25,8 @@ import com.google.common.base.Optional;
 
 import java.util.List;
 
-import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static com.facebook.presto.operator.aggregation.SimpleAggregationFunction.computeSampleWeight;
+import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.facebook.presto.type.Types.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -154,14 +154,14 @@ public class CustomSum
         @Override
         public Block evaluateIntermediate()
         {
-            BlockBuilder out = createBlockBuilder(getIntermediateType());
+            BlockBuilder out = getIntermediateType().createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
             return getBlock(out);
         }
 
         @Override
         public Block evaluateFinal()
         {
-            BlockBuilder out = createBlockBuilder(getFinalType());
+            BlockBuilder out = getFinalType().createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
             return getBlock(out);
         }
 

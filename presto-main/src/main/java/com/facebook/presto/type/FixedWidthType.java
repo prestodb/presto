@@ -15,11 +15,13 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.block.FixedWidthBlockBuilder;
 import com.facebook.presto.spi.ColumnType;
 import com.google.common.primitives.Booleans;
 import com.google.common.primitives.Longs;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.airlift.units.DataSize;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -70,6 +72,17 @@ public class FixedWidthType
         else {
             throw new IllegalArgumentException("Unsupported type " + type);
         }
+    }
+
+    @Override
+    public BlockBuilder createBlockBuilder(DataSize maxBlockSize)
+    {
+        return new FixedWidthBlockBuilder(this, maxBlockSize);
+    }
+
+    public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
+    {
+        return new FixedWidthBlockBuilder(this, positionCount);
     }
 
     public boolean getBoolean(Slice slice, int offset)

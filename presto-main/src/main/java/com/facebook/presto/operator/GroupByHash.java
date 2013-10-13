@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.uncompressed.FixedWidthBlock;
+import com.facebook.presto.type.FixedWidthType;
 import com.facebook.presto.type.Type;
 import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.longs.Long2IntOpenCustomHashMap;
@@ -25,8 +26,7 @@ import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 import java.util.List;
 
-import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
-import static com.facebook.presto.block.BlockBuilders.createFixedSizeBlockBuilder;
+import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
@@ -81,7 +81,7 @@ public class GroupByHash
         int positionCount = page.getPositionCount();
 
         // we know the exact size required for the block
-        BlockBuilder blockBuilder = createFixedSizeBlockBuilder(BIGINT, positionCount);
+        BlockBuilder blockBuilder = ((FixedWidthType) BIGINT).createFixedSizeBlockBuilder(positionCount);
 
         // open cursors for group blocks
         BlockCursor[] cursors = new BlockCursor[channels.length];
@@ -227,7 +227,7 @@ public class GroupByHash
         {
             ImmutableList.Builder<BlockBuilder> builder = ImmutableList.builder();
             for (Type type : types) {
-                builder.add(createBlockBuilder(type));
+                builder.add(type.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE));
             }
             channels = builder.build();
         }

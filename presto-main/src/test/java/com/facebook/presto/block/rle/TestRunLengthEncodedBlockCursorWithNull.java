@@ -18,7 +18,7 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.RandomAccessBlock;
 
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
-import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
+import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.facebook.presto.type.Types.VARCHAR;
 
 public class TestRunLengthEncodedBlockCursorWithNull
@@ -27,7 +27,7 @@ public class TestRunLengthEncodedBlockCursorWithNull
     @Override
     protected RunLengthEncodedBlockCursor createTestCursor()
     {
-        RandomAccessBlock value = createBlockBuilder(VARCHAR)
+        RandomAccessBlock value = VARCHAR.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE)
                 .appendNull()
                 .build()
                 .toRandomAccessBlock();

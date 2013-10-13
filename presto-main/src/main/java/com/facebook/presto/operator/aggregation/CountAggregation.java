@@ -25,7 +25,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
+import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.facebook.presto.type.Types.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -231,7 +231,7 @@ public class CountAggregation
         @Override
         public final Block evaluateFinal()
         {
-            BlockBuilder out = createBlockBuilder(getFinalType());
+            BlockBuilder out = getFinalType().createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
 
             out.append(count);
 
