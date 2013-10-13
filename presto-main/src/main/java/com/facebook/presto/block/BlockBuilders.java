@@ -17,8 +17,10 @@ import com.facebook.presto.tuple.FixedWidthTypeInfo;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TypeInfo;
 import com.facebook.presto.tuple.VariableWidthTypeInfo;
-import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
+
+import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 
 public final class BlockBuilders
 {
@@ -42,14 +44,9 @@ public final class BlockBuilders
         }
     }
 
-    public static BlockBuilder createBlockBuilder(TupleInfo tupleInfo, Slice slice)
+    public static BlockBuilder createFixedSizeBlockBuilder(FixedWidthTypeInfo typeInfo, int positionCount)
     {
-        TypeInfo typeInfo = tupleInfo.getTypeInfo();
-        if (typeInfo instanceof FixedWidthTypeInfo) {
-            return new FixedWidthBlockBuilder((FixedWidthTypeInfo) typeInfo, slice);
-        }
-        else {
-            return new VariableWidthBlockBuilder((VariableWidthTypeInfo) typeInfo, slice);
-        }
+        int entrySize = typeInfo.getSize() + SIZE_OF_BYTE;
+        return new FixedWidthBlockBuilder(typeInfo, Slices.allocate(entrySize * positionCount));
     }
 }

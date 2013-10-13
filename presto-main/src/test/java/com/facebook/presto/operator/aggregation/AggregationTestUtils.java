@@ -157,9 +157,7 @@ public final class AggregationTestUtils
         Page[] maskedPages = new Page[pages.length];
         for (int i = 0; i < pages.length; i++) {
             Page page = pages[i];
-            int positionCount = page.getPositionCount();
-            int blockSize = SINGLE_BOOLEAN.getFixedSize() * positionCount;
-            BlockBuilder blockBuilder = createBlockBuilder(SINGLE_BOOLEAN, Slices.allocate(blockSize));
+            BlockBuilder blockBuilder = createBlockBuilder(SINGLE_BOOLEAN);
             for (int j = 0; j < page.getPositionCount(); j++) {
                 blockBuilder.append(maskValue);
             }

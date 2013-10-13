@@ -13,20 +13,10 @@
  */
 package com.facebook.presto.tuple;
 
-import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.block.RandomAccessBlock;
-import com.facebook.presto.block.uncompressed.FixedWidthBlock;
-import com.facebook.presto.block.uncompressed.VariableWidthRandomAccessBlock;
 import com.facebook.presto.spi.ColumnType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
-import com.google.common.base.Charsets;
 import com.google.common.base.Function;
-import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.Slice;
-import io.airlift.slice.SliceInput;
-import io.airlift.slice.SliceOutput;
-import io.airlift.slice.Slices;
 
 import java.util.Map;
 
@@ -204,134 +194,137 @@ public class TupleInfo
         }
     }
 
-    public int getFixedSize()
-    {
-        return type.getSize() + 1;
-    }
-
-    public int size(Slice slice, int offset)
-    {
-        if (fixedWidthTypeInfo != null) {
-            return fixedWidthTypeInfo.getSize() + SIZE_OF_BYTE;
-        }
-        else if (isNull(slice, offset)) {
-            return SIZE_OF_BYTE;
-        }
-        else {
-            return variableWidthTypeInfo.getLength(slice, offset + SIZE_OF_BYTE) + SIZE_OF_BYTE;
-        }
-    }
-
-    /**
-     * Extract the byte length of the Tuple Slice at the head of sliceInput
-     * (Does not have any side effects on sliceInput position)
-     */
-    public int size(SliceInput sliceInput)
-    {
-//        if (type.isFixedSize()) {
-//            return type.getSize();
+//<<<<<<< HEAD
+//    public int getFixedSize()
+//    {
+//        return type.getSize() + 1;
+//    }
+//
+//    public int size(Slice slice, int offset)
+//    {
+//        if (fixedWidthTypeInfo != null) {
+//            return fixedWidthTypeInfo.getSize() + SIZE_OF_BYTE;
 //        }
-
-        // length of the tuple is located in the "last" fixed-width slot
-        // this makes variable length column size easy to calculate
-        int originalPosition = sliceInput.position();
-        sliceInput.skipBytes(1);
-        int tupleSize = sliceInput.readInt();
-        sliceInput.setPosition(originalPosition);
-        return tupleSize;
-    }
-
-    public boolean getBoolean(Slice slice, int offset)
-    {
-        checkState(type == BOOLEAN, "Expected BOOLEAN, but is %s", type);
-
-        return fixedWidthTypeInfo.getBoolean(slice, offset + SIZE_OF_BYTE);
-    }
-
-    public long getLong(Slice slice, int offset)
-    {
-        checkState(type == FIXED_INT_64, "Expected FIXED_INT_64, but is %s", type);
-
-        return fixedWidthTypeInfo.getLong(slice, offset + SIZE_OF_BYTE);
-    }
-
-    public double getDouble(Slice slice, int offset)
-    {
-        checkState(type == DOUBLE, "Expected DOUBLE, but is %s", type);
-
-        return fixedWidthTypeInfo.getDouble(slice, offset + SIZE_OF_BYTE);
-    }
-
-    public Slice getSlice(Slice slice, int offset)
-    {
-        checkState(type == VARIABLE_BINARY, "Expected VARIABLE_BINARY, but is %s", type);
-        checkState(!isNull(slice, offset), "Value is null");
-
-        return variableWidthTypeInfo.getSlice(slice, offset + SIZE_OF_BYTE);
-    }
-
-    public Object getObjectValue(Slice slice, int offset)
-    {
-        if (isNull(slice, offset)) {
-            return null;
-        }
-        else if (fixedWidthTypeInfo != null) {
-            return fixedWidthTypeInfo.getObjectValue(slice, offset + SIZE_OF_BYTE);
-        }
-        else {
-            return variableWidthTypeInfo.getObjectValue(slice, offset + SIZE_OF_BYTE);
-        }
-    }
-
-    public boolean isNull(Slice slice, int offset)
-    {
-        return slice.getByte(offset) != 0;
-    }
-
-    /**
-     * Marks the tuple at the specified offset as null.
-     * <p/>
-     * Note: this DOES NOT clear the current value of the tuple.
-     */
-    public void setNull(Slice slice, int offset)
-    {
-        slice.setByte(offset, 1);
-    }
-
-    /**
-     * Marks the tuple at the specified offset as not null.
-     * <p/>
-     * Note this DOES NOT clear the current value of the tuple.
-     */
-    public void setNotNull(Slice slice, int offset)
-    {
-        slice.setByte(offset, 0);
-    }
-
-    public boolean equals(Slice slice, int offset, Slice value)
-    {
-        if (slice.getByte(offset) != slice.getByte(0)) {
-            return false;
-        }
-
-        if (fixedWidthTypeInfo != null) {
-            return fixedWidthTypeInfo.equals(slice, offset + SIZE_OF_BYTE, value, SIZE_OF_BYTE);
-        }
-        else {
-            return variableWidthTypeInfo.equals(slice, offset + SIZE_OF_BYTE, value, SIZE_OF_BYTE);
-        }
-    }
-
-    public Builder builder(SliceOutput sliceOutput)
-    {
-        return new Builder(sliceOutput);
-    }
-
-    public Builder builder()
-    {
-        return new Builder(new DynamicSliceOutput(0));
-    }
-
+//        else if (isNull(slice, offset)) {
+//            return SIZE_OF_BYTE;
+//        }
+//        else {
+//            return variableWidthTypeInfo.getLength(slice, offset + SIZE_OF_BYTE) + SIZE_OF_BYTE;
+//        }
+//    }
+//
+//    /**
+//     * Extract the byte length of the Tuple Slice at the head of sliceInput
+//     * (Does not have any side effects on sliceInput position)
+//     */
+//    public int size(SliceInput sliceInput)
+//    {
+////        if (type.isFixedSize()) {
+////            return type.getSize();
+////        }
+//
+//        // length of the tuple is located in the "last" fixed-width slot
+//        // this makes variable length column size easy to calculate
+//        int originalPosition = sliceInput.position();
+//        sliceInput.skipBytes(1);
+//        int tupleSize = sliceInput.readInt();
+//        sliceInput.setPosition(originalPosition);
+//        return tupleSize;
+//    }
+//
+//    public boolean getBoolean(Slice slice, int offset)
+//    {
+//        checkState(type == BOOLEAN, "Expected BOOLEAN, but is %s", type);
+//
+//        return fixedWidthTypeInfo.getBoolean(slice, offset + SIZE_OF_BYTE);
+//    }
+//
+//    public long getLong(Slice slice, int offset)
+//    {
+//        checkState(type == FIXED_INT_64, "Expected FIXED_INT_64, but is %s", type);
+//
+//        return fixedWidthTypeInfo.getLong(slice, offset + SIZE_OF_BYTE);
+//    }
+//
+//    public double getDouble(Slice slice, int offset)
+//    {
+//        checkState(type == DOUBLE, "Expected DOUBLE, but is %s", type);
+//
+//        return fixedWidthTypeInfo.getDouble(slice, offset + SIZE_OF_BYTE);
+//    }
+//
+//    public Slice getSlice(Slice slice, int offset)
+//    {
+//        checkState(type == VARIABLE_BINARY, "Expected VARIABLE_BINARY, but is %s", type);
+//        checkState(!isNull(slice, offset), "Value is null");
+//
+//        return variableWidthTypeInfo.getSlice(slice, offset + SIZE_OF_BYTE);
+//    }
+//
+//    public Object getObjectValue(Slice slice, int offset)
+//    {
+//        if (isNull(slice, offset)) {
+//            return null;
+//        }
+//        else if (fixedWidthTypeInfo != null) {
+//            return fixedWidthTypeInfo.getObjectValue(slice, offset + SIZE_OF_BYTE);
+//        }
+//        else {
+//            return variableWidthTypeInfo.getObjectValue(slice, offset + SIZE_OF_BYTE);
+//        }
+//    }
+//
+//    public boolean isNull(Slice slice, int offset)
+//    {
+//        return slice.getByte(offset) != 0;
+//    }
+//
+//    /**
+//     * Marks the tuple at the specified offset as null.
+//     * <p/>
+//     * Note: this DOES NOT clear the current value of the tuple.
+//     */
+//    public void setNull(Slice slice, int offset)
+//    {
+//        slice.setByte(offset, 1);
+//    }
+//
+//    /**
+//     * Marks the tuple at the specified offset as not null.
+//     * <p/>
+//     * Note this DOES NOT clear the current value of the tuple.
+//     */
+//    public void setNotNull(Slice slice, int offset)
+//    {
+//        slice.setByte(offset, 0);
+//    }
+//
+//    public boolean equals(Slice slice, int offset, Slice value)
+//    {
+//        if (slice.getByte(offset) != slice.getByte(0)) {
+//            return false;
+//        }
+//
+//        if (fixedWidthTypeInfo != null) {
+//            return fixedWidthTypeInfo.equals(slice, offset + SIZE_OF_BYTE, value, SIZE_OF_BYTE);
+//        }
+//        else {
+//            return variableWidthTypeInfo.equals(slice, offset + SIZE_OF_BYTE, value, SIZE_OF_BYTE);
+//        }
+//    }
+//
+//    public Builder builder(SliceOutput sliceOutput)
+//    {
+//        return new Builder(sliceOutput);
+//    }
+//
+//    public Builder builder()
+//    {
+//        return new Builder(new DynamicSliceOutput(0));
+//    }
+//
+//=======
+//>>>>>>> Remove data manipulation methods from TupleInfo
     @Override
     public boolean equals(Object o)
     {
@@ -358,126 +351,129 @@ public class TupleInfo
     {
         return "TupleInfo{" + type + "}";
     }
-
-    public class Builder
-    {
-        private final SliceOutput sliceOutput;
-
-        public Builder(SliceOutput sliceOutput)
-        {
-            this.sliceOutput = sliceOutput;
-        }
-
-        public Builder append(boolean value)
-        {
-            checkState(TupleInfo.this.type == BOOLEAN, "Cannot append boolean to type %s", TupleInfo.this.type);
-
-            sliceOutput.writeByte(0);
-            sliceOutput.writeByte(value ? 1 : 0);
-
-            return this;
-        }
-
-        public Builder append(long value)
-        {
-            checkState(TupleInfo.this.type == FIXED_INT_64, "Cannot append long to type %s", TupleInfo.this.type);
-
-            sliceOutput.writeByte(0);
-            sliceOutput.writeLong(value);
-
-            return this;
-        }
-
-        public Builder append(double value)
-        {
-            checkState(TupleInfo.this.type == DOUBLE, "Cannot append double to type %s", TupleInfo.this.type);
-
-            sliceOutput.writeByte(0);
-            sliceOutput.writeDouble(value);
-
-            return this;
-        }
-
-        public Builder append(String value)
-        {
-            return append(Slices.copiedBuffer(value, Charsets.UTF_8));
-        }
-
-        public Builder append(Slice value)
-        {
-            return append(value, 0, value.length());
-        }
-
-        public Builder append(Slice value, int offset, int length)
-        {
-            checkState(TupleInfo.this.type == VARIABLE_BINARY, "Cannot append binary to type %s", TupleInfo.this.type);
-
-            sliceOutput.writeByte(0);
-            sliceOutput.writeInt(length);
-            sliceOutput.writeBytes(value, offset, length);
-
-            return this;
-        }
-
-        public Builder appendNull()
-        {
-            sliceOutput.writeByte(1);
-            switch (type) {
-                case FIXED_INT_64:
-                    sliceOutput.writeLong(0);
-                    break;
-                case VARIABLE_BINARY:
-                    break;
-                case DOUBLE:
-                    sliceOutput.writeDouble(0);
-                    break;
-                case BOOLEAN:
-                    sliceOutput.writeByte(0);
-                    break;
-                default:
-                    throw new IllegalStateException("Unsupported type: " + type);
-            }
-
-            return this;
-        }
-
-        public Builder append(BlockCursor cursor)
-        {
-            checkArgument(type == cursor.getTupleInfo().getType(), "Type (%s) does not match cursor type (%s)", type, cursor.getTupleInfo().getType());
-
-            if (cursor.isNull()) {
-                appendNull();
-            }
-            else {
-                switch (type) {
-                    case BOOLEAN:
-                        append(cursor.getBoolean());
-                        break;
-                    case FIXED_INT_64:
-                        append(cursor.getLong());
-                        break;
-                    case DOUBLE:
-                        append(cursor.getDouble());
-                        break;
-                    case VARIABLE_BINARY:
-                        append(cursor.getSlice());
-                        break;
-                    default:
-                        throw new IllegalStateException("Type not yet supported: " + type);
-                }
-            }
-
-            return this;
-        }
-
-        public RandomAccessBlock build()
-        {
-            if (fixedWidthTypeInfo != null) {
-                return new FixedWidthBlock(fixedWidthTypeInfo, 1, sliceOutput.slice());
-            }
-            else {
-                return new VariableWidthRandomAccessBlock(variableWidthTypeInfo, 1, sliceOutput.slice());
-            }
-        }
-    }
+//<<<<<<< HEAD
+//
+//    public class Builder
+//    {
+//        private final SliceOutput sliceOutput;
+//
+//        public Builder(SliceOutput sliceOutput)
+//        {
+//            this.sliceOutput = sliceOutput;
+//        }
+//
+//        public Builder append(boolean value)
+//        {
+//            checkState(TupleInfo.this.type == BOOLEAN, "Cannot append boolean to type %s", TupleInfo.this.type);
+//
+//            sliceOutput.writeByte(0);
+//            sliceOutput.writeByte(value ? 1 : 0);
+//
+//            return this;
+//        }
+//
+//        public Builder append(long value)
+//        {
+//            checkState(TupleInfo.this.type == FIXED_INT_64, "Cannot append long to type %s", TupleInfo.this.type);
+//
+//            sliceOutput.writeByte(0);
+//            sliceOutput.writeLong(value);
+//
+//            return this;
+//        }
+//
+//        public Builder append(double value)
+//        {
+//            checkState(TupleInfo.this.type == DOUBLE, "Cannot append double to type %s", TupleInfo.this.type);
+//
+//            sliceOutput.writeByte(0);
+//            sliceOutput.writeDouble(value);
+//
+//            return this;
+//        }
+//
+//        public Builder append(String value)
+//        {
+//            return append(Slices.copiedBuffer(value, Charsets.UTF_8));
+//        }
+//
+//        public Builder append(Slice value)
+//        {
+//            return append(value, 0, value.length());
+//        }
+//
+//        public Builder append(Slice value, int offset, int length)
+//        {
+//            checkState(TupleInfo.this.type == VARIABLE_BINARY, "Cannot append binary to type %s", TupleInfo.this.type);
+//
+//            sliceOutput.writeByte(0);
+//            sliceOutput.writeInt(length);
+//            sliceOutput.writeBytes(value, offset, length);
+//
+//            return this;
+//        }
+//
+//        public Builder appendNull()
+//        {
+//            sliceOutput.writeByte(1);
+//            switch (type) {
+//                case FIXED_INT_64:
+//                    sliceOutput.writeLong(0);
+//                    break;
+//                case VARIABLE_BINARY:
+//                    break;
+//                case DOUBLE:
+//                    sliceOutput.writeDouble(0);
+//                    break;
+//                case BOOLEAN:
+//                    sliceOutput.writeByte(0);
+//                    break;
+//                default:
+//                    throw new IllegalStateException("Unsupported type: " + type);
+//            }
+//
+//            return this;
+//        }
+//
+//        public Builder append(BlockCursor cursor)
+//        {
+//            checkArgument(type == cursor.getTupleInfo().getType(), "Type (%s) does not match cursor type (%s)", type, cursor.getTupleInfo().getType());
+//
+//            if (cursor.isNull()) {
+//                appendNull();
+//            }
+//            else {
+//                switch (type) {
+//                    case BOOLEAN:
+//                        append(cursor.getBoolean());
+//                        break;
+//                    case FIXED_INT_64:
+//                        append(cursor.getLong());
+//                        break;
+//                    case DOUBLE:
+//                        append(cursor.getDouble());
+//                        break;
+//                    case VARIABLE_BINARY:
+//                        append(cursor.getSlice());
+//                        break;
+//                    default:
+//                        throw new IllegalStateException("Type not yet supported: " + type);
+//                }
+//            }
+//
+//            return this;
+//        }
+//
+//        public RandomAccessBlock build()
+//        {
+//            if (fixedWidthTypeInfo != null) {
+//                return new FixedWidthBlock(fixedWidthTypeInfo, 1, sliceOutput.slice());
+//            }
+//            else {
+//                return new VariableWidthRandomAccessBlock(variableWidthTypeInfo, 1, sliceOutput.slice());
+//            }
+//        }
+//    }
+//=======
+//>>>>>>> Remove data manipulation methods from TupleInfo
 }
