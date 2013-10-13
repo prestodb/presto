@@ -34,7 +34,7 @@ public class MaterializedResult
     private final List<MaterializedRow> rows;
     private final List<Type> types;
 
-    public MaterializedResult(List<MaterializedRow> rows, List<Type> types)
+    public MaterializedResult(List<MaterializedRow> rows, List<? extends Type> types)
     {
         this.rows = ImmutableList.copyOf(checkNotNull(rows, "rows is null"));
         this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));

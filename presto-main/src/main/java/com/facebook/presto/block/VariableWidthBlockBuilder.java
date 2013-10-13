@@ -16,7 +16,7 @@ package com.facebook.presto.block;
 import com.facebook.presto.block.uncompressed.AbstractVariableWidthRandomAccessBlock;
 import com.facebook.presto.block.uncompressed.VariableWidthRandomAccessBlock;
 import com.facebook.presto.type.Type;
-import com.facebook.presto.type.VariableWidthType;
+import com.facebook.presto.type.VarcharType;
 import com.google.common.base.Charsets;
 import com.google.common.base.Objects;
 import io.airlift.slice.DynamicSliceOutput;
@@ -36,7 +36,7 @@ public class VariableWidthBlockBuilder
     private final SliceOutput sliceOutput;
     private final IntArrayList offsets = new IntArrayList(1024);
 
-    public VariableWidthBlockBuilder(VariableWidthType type, DataSize maxBlockSize)
+    public VariableWidthBlockBuilder(VarcharType type, DataSize maxBlockSize)
     {
         super(type);
 

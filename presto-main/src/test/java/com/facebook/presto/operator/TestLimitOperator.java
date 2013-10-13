@@ -16,7 +16,6 @@ package com.facebook.presto.operator;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.LimitOperator.LimitOperatorFactory;
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.type.Types;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterMethod;
@@ -28,7 +27,7 @@ import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.operator.OperatorAssertion.appendSampleWeight;
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
-import static com.facebook.presto.type.Types.BIGINT;
+import static com.facebook.presto.type.BigintType.BIGINT;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
@@ -58,7 +57,7 @@ public class TestLimitOperator
     public void testSampledLimit()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(Types.BIGINT)
+        List<Page> input = rowPagesBuilder(BIGINT)
                 .addSequencePage(2, 1)
                 .addSequencePage(2, 4)
                 .addSequencePage(2, 6)

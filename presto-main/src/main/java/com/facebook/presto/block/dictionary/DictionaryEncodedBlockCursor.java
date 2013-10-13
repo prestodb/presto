@@ -18,10 +18,10 @@ import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.type.Type;
-import com.facebook.presto.type.Types;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 
+import static com.facebook.presto.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkPositionIndex;
@@ -36,7 +36,7 @@ public class DictionaryEncodedBlockCursor
     {
         this.dictionary = checkNotNull(dictionary, "dictionary is null");
         this.idCursor = checkNotNull(idCursor, "idCursor is null");
-        checkArgument(idCursor.getType().equals(Types.BIGINT), "Expected bigint cursor but got %s cursor", idCursor.getType());
+        checkArgument(idCursor.getType().equals(BIGINT), "Expected bigint cursor but got %s cursor", idCursor.getType());
     }
 
     @Override

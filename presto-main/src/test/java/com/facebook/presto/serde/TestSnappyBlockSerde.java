@@ -23,8 +23,8 @@ import org.testng.annotations.Test;
 
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.facebook.presto.type.Types.VARCHAR;
 import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
+import static com.facebook.presto.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertTrue;
 
 public class TestSnappyBlockSerde

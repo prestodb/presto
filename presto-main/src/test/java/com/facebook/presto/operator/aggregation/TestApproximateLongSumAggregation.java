@@ -20,7 +20,7 @@ import com.google.common.base.Predicates;
 import java.util.List;
 
 import static com.facebook.presto.operator.aggregation.ApproximateLongSumAggregation.LONG_APPROXIMATE_SUM_AGGREGATION;
-import static com.facebook.presto.type.Types.BIGINT;
+import static com.facebook.presto.type.BigintType.BIGINT;
 
 public class TestApproximateLongSumAggregation
         extends AbstractTestApproximateAggregationFunction

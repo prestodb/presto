@@ -28,7 +28,7 @@ import java.util.List;
 import java.util.PriorityQueue;
 
 import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
-import static com.facebook.presto.type.Types.BIGINT;
+import static com.facebook.presto.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;

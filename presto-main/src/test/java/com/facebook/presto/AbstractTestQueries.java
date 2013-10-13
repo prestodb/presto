@@ -83,10 +83,10 @@ import static com.facebook.presto.sql.tree.ExplainType.Type.DISTRIBUTED;
 import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static com.facebook.presto.tpch.TpchRecordSet.createTpchRecordSet;
-import static com.facebook.presto.type.Types.BIGINT;
-import static com.facebook.presto.type.Types.BOOLEAN;
-import static com.facebook.presto.type.Types.DOUBLE;
-import static com.facebook.presto.type.Types.VARCHAR;
+import static com.facebook.presto.type.BigintType.BIGINT;
+import static com.facebook.presto.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.type.DoubleType.DOUBLE;
+import static com.facebook.presto.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.MaterializedResult.resultBuilder;
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -3185,7 +3185,7 @@ public abstract class AbstractTestQueries
         }
     }
 
-    protected MaterializedResult computeExpected(@Language("SQL") String sql, List<Type> resultTypes)
+    protected MaterializedResult computeExpected(@Language("SQL") String sql, List<? extends Type> resultTypes)
     {
         return new MaterializedResult(
                 handle.createQuery(sql)
@@ -3195,7 +3195,7 @@ public abstract class AbstractTestQueries
         );
     }
 
-    private static ResultSetMapper<MaterializedRow> rowMapper(final List<Type> types)
+    private static ResultSetMapper<MaterializedRow> rowMapper(final List<? extends Type> types)
     {
         return new ResultSetMapper<MaterializedRow>()
         {
