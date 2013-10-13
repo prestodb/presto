@@ -15,7 +15,7 @@ package com.facebook.presto.block;
 
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
+import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.facebook.presto.type.Types.BIGINT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -25,7 +25,8 @@ public class TestBlockBuilder
     @Test
     public void testMultipleValuesWithNull()
     {
-        BlockCursor cursor = createBlockBuilder(BIGINT).appendNull()
+        BlockCursor cursor = BIGINT.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE)
+                .appendNull()
                 .append(42)
                 .appendNull()
                 .append(42)
