@@ -16,17 +16,13 @@ package com.facebook.presto.block.snappy;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.RandomAccessBlock;
-import com.facebook.presto.block.uncompressed.FixedWidthBlock;
-import com.facebook.presto.block.uncompressed.FixedWidthBlockCursor;
-import com.facebook.presto.block.uncompressed.VariableWidthBlockCursor;
-import com.facebook.presto.block.uncompressed.VariableWidthRandomAccessBlock;
+import com.facebook.presto.serde.BlockEncoding;
 import com.facebook.presto.serde.SnappyBlockEncoding;
-import com.facebook.presto.tuple.FixedWidthTypeInfo;
 import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleInfo.Type;
-import com.facebook.presto.tuple.VariableWidthTypeInfo;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+import com.google.common.primitives.Ints;
+import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
@@ -44,19 +40,22 @@ import static com.google.common.base.Preconditions.checkState;
 public class SnappyBlock
         implements Block
 {
+    private static final DataSize ENCODING_BUFFER_OVERHEAD = new DataSize(1, Unit.KILOBYTE);
     private final int positionCount;
     private final TupleInfo tupleInfo;
     private final Slice compressedSlice;
+    private final BlockEncoding uncompressedBlockEncoding;
 
     @GuardedBy("this")
-    private Slice uncompressedSlice = null;
+    private Block uncompressedBlock;
 
-    public SnappyBlock(int positionCount, TupleInfo tupleInfo, Slice compressedSlice)
+    public SnappyBlock(int positionCount, TupleInfo tupleInfo, Slice compressedSlice, BlockEncoding uncompressedBlockEncoding)
     {
         this.tupleInfo = checkNotNull(tupleInfo, "tupleInfo is null");
         checkArgument(positionCount >= 0, "positionCount is negative");
         this.positionCount = positionCount;
         this.compressedSlice = checkNotNull(compressedSlice, "compressedSlice is null");
+        this.uncompressedBlockEncoding = checkNotNull(uncompressedBlockEncoding, "uncompressedBlockEncoding is null");
     }
 
     public SnappyBlock(Block block)
@@ -64,7 +63,13 @@ public class SnappyBlock
         tupleInfo = block.getTupleInfo();
         positionCount = block.getPositionCount();
 
-        uncompressedSlice = block.getRawSlice();
+        uncompressedBlock = block;
+        uncompressedBlockEncoding = block.getEncoding();
+
+        DynamicSliceOutput sliceOutput = new DynamicSliceOutput(Ints.checkedCast(uncompressedBlock.getDataSize().toBytes() + ENCODING_BUFFER_OVERHEAD.toBytes()));
+        uncompressedBlockEncoding.writeBlock(sliceOutput, uncompressedBlock);
+        Slice uncompressedSlice = sliceOutput.slice();
+
         byte[] compressedBytes = new byte[Snappy.maxCompressedLength(uncompressedSlice.length())];
         int actualLength = Snappy.compress(uncompressedSlice.getBytes(), 0, uncompressedSlice.length(), compressedBytes, 0);
         compressedSlice = Slices.wrappedBuffer(Arrays.copyOf(compressedBytes, actualLength));
@@ -81,16 +86,19 @@ public class SnappyBlock
         return compressedSlice;
     }
 
-    public synchronized Slice getUncompressedSlice()
+    public synchronized Block getUncompressedBlock()
     {
-        if (uncompressedSlice == null) {
+        if (uncompressedBlock == null) {
+            // decompress the slice
             int uncompressedLength = Snappy.getUncompressedLength(compressedSlice.getBytes(), 0);
             checkState(uncompressedLength > 0, "Empty block encountered!");
             byte[] output = new byte[uncompressedLength];
             Snappy.uncompress(compressedSlice.getBytes(), 0, compressedSlice.length(), output, 0);
-            uncompressedSlice = Slices.wrappedBuffer(output);
+
+            // decode the block
+            uncompressedBlock = uncompressedBlockEncoding.readBlock(Slices.wrappedBuffer(output).getInput());
         }
-        return uncompressedSlice;
+        return uncompressedBlock;
     }
 
     @Override
@@ -102,25 +110,19 @@ public class SnappyBlock
     @Override
     public DataSize getDataSize()
     {
-        return new DataSize(getUncompressedSlice().length(), Unit.BYTE);
+        return getUncompressedBlock().getDataSize();
     }
 
     @Override
     public BlockCursor cursor()
     {
-        Type type = tupleInfo.getType();
-        if (type.isFixedSize()) {
-            return new FixedWidthBlockCursor(new FixedWidthTypeInfo(type), positionCount, getUncompressedSlice());
-        }
-        else {
-            return new VariableWidthBlockCursor(new VariableWidthTypeInfo(type), positionCount, getUncompressedSlice());
-        }
+        return getUncompressedBlock().cursor();
     }
 
     @Override
     public SnappyBlockEncoding getEncoding()
     {
-        return new SnappyBlockEncoding(tupleInfo);
+        return new SnappyBlockEncoding(tupleInfo, uncompressedBlockEncoding);
     }
 
     @Override
@@ -133,13 +135,7 @@ public class SnappyBlock
     @Override
     public RandomAccessBlock toRandomAccessBlock()
     {
-        Type type = tupleInfo.getType();
-        if (type.isFixedSize()) {
-            return new FixedWidthBlock(new FixedWidthTypeInfo(type), positionCount, getUncompressedSlice());
-        }
-        else {
-            return new VariableWidthRandomAccessBlock(new VariableWidthTypeInfo(type), positionCount, getCompressedSlice());
-        }
+        return getUncompressedBlock().toRandomAccessBlock();
     }
 
     @Override
@@ -155,6 +151,6 @@ public class SnappyBlock
     @Override
     public Slice getRawSlice()
     {
-        return getUncompressedSlice();
+        return getUncompressedBlock().getRawSlice();
     }
 }
