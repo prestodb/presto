@@ -16,21 +16,17 @@ package com.facebook.presto.type;
 import com.facebook.presto.spi.ColumnType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 
+import static com.facebook.presto.type.BigintType.BIGINT;
+import static com.facebook.presto.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.type.DoubleType.DOUBLE;
+import static com.facebook.presto.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
-import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 
-public class Types
+public final class Types
 {
     private Types()
     {
     }
-
-    public static final Type BOOLEAN = new FixedWidthType("boolean", SIZE_OF_BYTE, ColumnType.BOOLEAN);
-    public static final Type BIGINT = new FixedWidthType("bigint", SIZE_OF_LONG, ColumnType.LONG);
-    public static final Type DOUBLE = new FixedWidthType("double", SIZE_OF_DOUBLE, ColumnType.DOUBLE);
-    public static final Type VARCHAR = new VariableWidthType();
 
     public static Type fromColumnType(ColumnType type)
     {

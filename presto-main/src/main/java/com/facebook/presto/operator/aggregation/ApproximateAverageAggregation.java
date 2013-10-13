@@ -22,7 +22,6 @@ import com.facebook.presto.util.array.LongBigArray;
 import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.facebook.presto.type.Type;
-import com.facebook.presto.type.Types;
 import io.airlift.slice.Slice;
 import org.apache.commons.math.MathException;
 import org.apache.commons.math.distribution.NormalDistribution;
@@ -32,7 +31,9 @@ import static com.facebook.presto.operator.aggregation.VarianceAggregation.creat
 import static com.facebook.presto.operator.aggregation.VarianceAggregation.getCount;
 import static com.facebook.presto.operator.aggregation.VarianceAggregation.getM2;
 import static com.facebook.presto.operator.aggregation.VarianceAggregation.getMean;
-import static com.facebook.presto.type.Types.VARCHAR;
+import static com.facebook.presto.type.BigintType.BIGINT;
+import static com.facebook.presto.type.DoubleType.DOUBLE;
+import static com.facebook.presto.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkState;
 
 public class ApproximateAverageAggregation
@@ -46,10 +47,10 @@ public class ApproximateAverageAggregation
         // Intermediate type should be a fixed width structure
         super(VARCHAR, VARCHAR, parameterType);
 
-        if (parameterType == Types.BIGINT) {
+        if (parameterType == BIGINT) {
             this.inputIsLong = true;
         }
-        else if (parameterType == Types.DOUBLE) {
+        else if (parameterType == DOUBLE) {
             this.inputIsLong = false;
         }
         else {

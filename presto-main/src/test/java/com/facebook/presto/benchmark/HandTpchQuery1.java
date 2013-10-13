@@ -26,7 +26,6 @@ import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.type.Type;
-import com.facebook.presto.type.Types;
 import com.facebook.presto.util.LocalQueryRunner;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -45,6 +44,9 @@ import static com.facebook.presto.operator.aggregation.AverageAggregations.LONG_
 import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
 import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUBLE_SUM;
 import static com.facebook.presto.operator.aggregation.LongSumAggregation.LONG_SUM;
+import static com.facebook.presto.type.BigintType.BIGINT;
+import static com.facebook.presto.type.DoubleType.DOUBLE;
+import static com.facebook.presto.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -119,13 +121,13 @@ public class HandTpchQuery1
             implements com.facebook.presto.operator.Operator
     {
         private static final ImmutableList<Type> TYPES = ImmutableList.of(
-                Types.VARCHAR,
-                Types.VARCHAR,
-                Types.BIGINT,
-                Types.DOUBLE,
-                Types.DOUBLE,
-                Types.DOUBLE,
-                Types.DOUBLE);
+                VARCHAR,
+                VARCHAR,
+                BIGINT,
+                DOUBLE,
+                DOUBLE,
+                DOUBLE,
+                DOUBLE);
 
         public static class TpchQuery1OperatorFactory
                 implements OperatorFactory

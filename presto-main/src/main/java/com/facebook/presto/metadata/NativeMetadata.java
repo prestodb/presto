@@ -22,7 +22,6 @@ import com.facebook.presto.spi.OutputTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.type.Types;
 import com.google.common.base.Predicate;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -47,6 +46,7 @@ import java.util.UUID;
 import java.util.concurrent.Callable;
 
 import static com.facebook.presto.metadata.MetadataDaoUtils.createMetadataTablesWithRetry;
+import static com.facebook.presto.type.BigintType.BIGINT;
 import static com.facebook.presto.type.Types.fromColumnType;
 import static com.facebook.presto.util.SqlUtils.runIgnoringConstraintViolation;
 import static com.facebook.presto.util.Types.checkType;
@@ -247,7 +247,7 @@ public class NativeMetadata
                             ordinalPosition++;
                         }
                         if (tableMetadata.isSampled()) {
-                            dao.insertColumn(tableId, ordinalPosition + 1, NativeColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME, ordinalPosition, Types.BIGINT.getName());
+                            dao.insertColumn(tableId, ordinalPosition + 1, NativeColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME, ordinalPosition, BIGINT.getName());
                         }
                         return tableId;
                     }

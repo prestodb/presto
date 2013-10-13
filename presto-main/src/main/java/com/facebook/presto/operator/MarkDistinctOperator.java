@@ -18,7 +18,6 @@ import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.google.common.base.Optional;
 import com.facebook.presto.type.Type;
-import com.facebook.presto.type.Types;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -27,6 +26,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 
+import static com.facebook.presto.type.BooleanType.BOOLEAN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -43,7 +43,7 @@ public class MarkDistinctOperator
         private final Optional<Integer> sampleWeightChannel;
         private boolean closed;
 
-        public MarkDistinctOperatorFactory(int operatorId, List<Type> sourceTypes, Collection<Integer> markDistinctChannels, Optional<Integer> sampleWeightChannel)
+        public MarkDistinctOperatorFactory(int operatorId, List<? extends Type> sourceTypes, Collection<Integer> markDistinctChannels, Optional<Integer> sampleWeightChannel)
         {
             this.operatorId = operatorId;
             checkNotNull(markDistinctChannels, "markDistinctChannels is null");
@@ -54,7 +54,7 @@ public class MarkDistinctOperator
 
             this.types = ImmutableList.<Type>builder()
                     .addAll(sourceTypes)
-                    .add(Types.BOOLEAN)
+                    .add(BOOLEAN)
                     .build();
         }
 

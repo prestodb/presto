@@ -23,7 +23,7 @@ import java.util.Random;
 
 import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.facebook.presto.operator.aggregation.ApproximateAverageAggregations.DOUBLE_APPROXIMATE_AVERAGE_AGGREGATION;
-import static com.facebook.presto.type.Types.DOUBLE;
+import static com.facebook.presto.type.DoubleType.DOUBLE;
 
 public class TestDoubleApproximateAverageAggregation
         extends AbstractTestApproximateAggregationFunction

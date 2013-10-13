@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.block.uncompressed;
 
-import com.facebook.presto.type.VariableWidthType;
+import com.facebook.presto.type.VarcharType;
 import com.google.common.base.Objects;
 import io.airlift.slice.Slice;
 
@@ -25,7 +25,7 @@ public class VariableWidthRandomAccessBlock
     private final Slice slice;
     private final int[] offsets;
 
-    public VariableWidthRandomAccessBlock(VariableWidthType type, Slice slice, int[] offsets)
+    public VariableWidthRandomAccessBlock(VarcharType type, Slice slice, int[] offsets)
     {
         super(type);
 
@@ -33,7 +33,7 @@ public class VariableWidthRandomAccessBlock
         this.offsets = offsets;
     }
 
-    public VariableWidthRandomAccessBlock(VariableWidthType type, int positionCount, Slice slice)
+    public VariableWidthRandomAccessBlock(VarcharType type, int positionCount, Slice slice)
     {
         super(type);
 
