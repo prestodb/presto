@@ -16,7 +16,7 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 
-import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
+import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.facebook.presto.operator.aggregation.CountIfAggregation.COUNT_IF;
 import static com.facebook.presto.type.Types.BOOLEAN;
 
@@ -26,7 +26,7 @@ public class TestCountIfAggregation
     @Override
     public Block getSequenceBlock(int start, int length)
     {
-        BlockBuilder blockBuilder = createBlockBuilder(BOOLEAN);
+        BlockBuilder blockBuilder = BOOLEAN.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
         for (int i = start; i < start + length; i++) {
             blockBuilder.append(i % 2 == 0);
         }

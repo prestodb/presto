@@ -24,7 +24,7 @@ import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 
 public class FixedWidthBlockBuilder
         extends AbstractFixedWidthBlock
@@ -34,20 +34,20 @@ public class FixedWidthBlockBuilder
     private final SliceOutput sliceOutput;
     private int positionCount;
 
-    public FixedWidthBlockBuilder(FixedWidthType type, DataSize maxBlockSize, DataSize initialBufferSize)
+    public FixedWidthBlockBuilder(FixedWidthType type, DataSize maxBlockSize)
     {
         super(type);
 
-        checkNotNull(maxBlockSize, "maxBlockSize is null");
         this.maxBlockSize = (int) maxBlockSize.toBytes();
-
-        checkNotNull(initialBufferSize, "initialBufferSize is null");
-        this.sliceOutput = new DynamicSliceOutput((int) initialBufferSize.toBytes());
+        this.sliceOutput = new DynamicSliceOutput(this.maxBlockSize);
     }
 
-    public FixedWidthBlockBuilder(FixedWidthType type, Slice slice)
+    public FixedWidthBlockBuilder(FixedWidthType type, int positionCount)
     {
         super(type);
+
+        int entrySize = type.getFixedSize() + SIZE_OF_BYTE;
+        Slice slice = Slices.allocate(entrySize * positionCount);
 
         this.maxBlockSize = slice.length();
         this.sliceOutput = slice.getOutput();

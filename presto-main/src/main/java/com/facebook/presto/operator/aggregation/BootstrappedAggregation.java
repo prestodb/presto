@@ -36,7 +36,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
+import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.facebook.presto.type.Types.BIGINT;
 import static com.facebook.presto.type.Types.DOUBLE;
 import static com.facebook.presto.type.Types.VARCHAR;
@@ -244,7 +244,7 @@ public class BootstrappedAggregation
 
             SliceOutput output = new DynamicSliceOutput(sizeEstimate);
             PagesSerde.writePages(blockEncodingManager, output, new Page(blocks));
-            BlockBuilder builder = createBlockBuilder(VARCHAR);
+            BlockBuilder builder = VARCHAR.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
             builder.append(output.slice());
             return builder.build();
         }
@@ -259,7 +259,7 @@ public class BootstrappedAggregation
                 statistics.addValue(getNumeric(cursor));
             }
 
-            BlockBuilder builder = createBlockBuilder(VARCHAR);
+            BlockBuilder builder = VARCHAR.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
             builder.append(formatApproximateOutput(statistics, confidence));
             return builder.build();
         }
@@ -337,7 +337,7 @@ public class BootstrappedAggregation
             Block[] blocks = new Block[accumulators.size()];
             int sizeEstimate = 64 * accumulators.size();
             for (int i = 0; i < accumulators.size(); i++) {
-                BlockBuilder builder = createBlockBuilder(accumulators.get(i).getIntermediateType());
+                BlockBuilder builder = accumulators.get(i).getIntermediateType().createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
                 accumulators.get(i).evaluateIntermediate(groupId, builder);
                 blocks[i] = builder.build();
                 sizeEstimate += blocks[i].getDataSize().toBytes();
@@ -353,7 +353,7 @@ public class BootstrappedAggregation
         {
             DescriptiveStatistics statistics = new DescriptiveStatistics();
             for (int i = 0; i < accumulators.size(); i++) {
-                BlockBuilder builder = createBlockBuilder(accumulators.get(i).getFinalType());
+                BlockBuilder builder = accumulators.get(i).getFinalType().createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
                 accumulators.get(i).evaluateFinal(groupId, builder);
                 BlockCursor cursor = builder.build().cursor();
                 checkArgument(cursor.advanceNextPosition(), "accumulator returned no results");

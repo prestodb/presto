@@ -24,7 +24,7 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.SliceInput;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
+import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.facebook.presto.type.Types.VARCHAR;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static org.testng.Assert.assertEquals;
@@ -36,7 +36,7 @@ public class TestRunLengthEncodedBlockSerde
     @Test
     public void testRoundTrip()
     {
-        RandomAccessBlock value = createBlockBuilder(VARCHAR)
+        RandomAccessBlock value = VARCHAR.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE)
                 .append("alice")
                 .build()
                 .toRandomAccessBlock();
@@ -54,7 +54,7 @@ public class TestRunLengthEncodedBlockSerde
     @Test
     public void testCreateBlockWriter()
     {
-        RandomAccessBlock expectedBlock = createBlockBuilder(VARCHAR)
+        RandomAccessBlock expectedBlock = VARCHAR.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE)
                 .append("alice")
                 .append("alice")
                 .append("bob")

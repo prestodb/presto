@@ -17,7 +17,7 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import org.apache.commons.math3.stat.descriptive.moment.Variance;
 
-import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
+import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.facebook.presto.operator.aggregation.VarianceAggregations.DOUBLE_VARIANCE_INSTANCE;
 import static com.facebook.presto.type.Types.DOUBLE;
 
@@ -27,7 +27,7 @@ public class TestDoubleVarianceAggregation
     @Override
     public Block getSequenceBlock(int start, int length)
     {
-        BlockBuilder blockBuilder = createBlockBuilder(DOUBLE);
+        BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
         for (int i = start; i < start + length; i++) {
             blockBuilder.append((double) i);
         }

@@ -17,13 +17,13 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.operator.SetBuilderOperator.SetSupplier;
+import com.facebook.presto.type.FixedWidthType;
 import com.facebook.presto.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 
-import static com.facebook.presto.block.BlockBuilders.createFixedSizeBlockBuilder;
 import static com.facebook.presto.type.Types.BOOLEAN;
 import static com.facebook.presto.util.MoreFutures.tryGetUnchecked;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -159,7 +159,7 @@ public class HashSemiJoinOperator
 
         // create the block builder for the new boolean column
         // we know the exact size required for the block
-        BlockBuilder blockBuilder = createFixedSizeBlockBuilder(BOOLEAN, page.getPositionCount());
+        BlockBuilder blockBuilder = ((FixedWidthType) BOOLEAN).createFixedSizeBlockBuilder(page.getPositionCount());
 
         Block probeJoinBlock = page.getBlock(probeJoinChannel);
         BlockCursor probeJoinCursor = probeJoinBlock.cursor();

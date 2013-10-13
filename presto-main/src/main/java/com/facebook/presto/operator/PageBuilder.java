@@ -21,14 +21,12 @@ import io.airlift.units.DataSize.Unit;
 
 import java.util.List;
 
-import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.units.DataSize.Unit.BYTE;
 
 public class PageBuilder
 {
     public static final DataSize DEFAULT_MAX_PAGE_SIZE = new DataSize(1, Unit.MEGABYTE);
-    private static final double BUFFER_MULTIPLIER = 1.5;
 
     private final BlockBuilder[] blockBuilders;
     private final long maxSizeInBytes;
@@ -49,11 +47,9 @@ public class PageBuilder
             maxBlockSize = new DataSize(0, BYTE);
         }
 
-        DataSize initialBlockBufferSize = new DataSize((int) (maxBlockSize.toBytes() * BUFFER_MULTIPLIER), BYTE);
-
         blockBuilders = new BlockBuilder[types.size()];
         for (int i = 0; i < blockBuilders.length; i++) {
-            blockBuilders[i] = createBlockBuilder(types.get(i), maxBlockSize, initialBlockBufferSize);
+            blockBuilders[i] = types.get(i).createBlockBuilder(maxBlockSize);
         }
         this.maxSizeInBytes = checkNotNull(maxSize, "maxSize is null").toBytes();
     }
@@ -67,8 +63,7 @@ public class PageBuilder
 
         for (int i = 0; i < blockBuilders.length; i++) {
             BlockBuilder blockBuilder = blockBuilders[i];
-            DataSize blockBufferSize = new DataSize((int) (blockBuilder.size() * BUFFER_MULTIPLIER), BYTE);
-            blockBuilders[i] = createBlockBuilder(blockBuilder.getType(), maxBlockSize, blockBufferSize);
+            blockBuilders[i] = blockBuilder.getType().createBlockBuilder(maxBlockSize);
         }
     }
 

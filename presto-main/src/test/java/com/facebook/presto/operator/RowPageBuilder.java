@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
+import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -44,7 +44,7 @@ public class RowPageBuilder
         checkNotNull(types, "types is null");
         ImmutableList.Builder<BlockBuilder> builders = ImmutableList.builder();
         for (Type type : types) {
-            builders.add(createBlockBuilder(type));
+            builders.add(type.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE));
         }
         this.builders = builders.build();
         checkArgument(!this.builders.isEmpty(), "At least one value info is required");

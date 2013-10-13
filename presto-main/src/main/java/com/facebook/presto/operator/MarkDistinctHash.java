@@ -19,7 +19,7 @@ import com.facebook.presto.type.Type;
 
 import java.util.List;
 
-import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
+import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.facebook.presto.type.Types.BOOLEAN;
 
 public class MarkDistinctHash
@@ -44,7 +44,7 @@ public class MarkDistinctHash
 
     public Block markDistinctRows(Page page)
     {
-        BlockBuilder blockBuilder = createBlockBuilder(BOOLEAN);
+        BlockBuilder blockBuilder = BOOLEAN.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
         GroupByIdBlock ids = groupByHash.getGroupIds(page);
         for (int i = 0; i < ids.getPositionCount(); i++) {
             if (ids.getGroupId(i) == nextDistinctId) {

@@ -21,7 +21,7 @@ import com.facebook.presto.block.snappy.SnappyBlock;
 import com.facebook.presto.block.snappy.SnappyBlockEncoding;
 import io.airlift.slice.SliceOutput;
 
-import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
+import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -47,7 +47,7 @@ public class SnappyEncoder
 
         if (encoding == null) {
             encoding = new SnappyBlockEncoding(block.getType(), block.getEncoding());
-            blockBuilder = createBlockBuilder(block.getType());
+            blockBuilder = block.getType().createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
         }
         BlockCursor cursor = block.cursor();
         while (cursor.advanceNextPosition()) {
@@ -77,6 +77,6 @@ public class SnappyEncoder
     {
         SnappyBlock snappyBlock = new SnappyBlock(blockBuilder);
         encoding.writeBlock(sliceOutput, snappyBlock);
-        blockBuilder = createBlockBuilder(snappyBlock.getType());
+        blockBuilder = snappyBlock.getType().createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
     }
 }

@@ -22,7 +22,6 @@ public interface BlockBuilder
         extends RandomAccessBlock
 {
     DataSize DEFAULT_MAX_BLOCK_SIZE = new DataSize(64, Unit.KILOBYTE);
-    DataSize DEFAULT_INITIAL_BUFFER_SIZE = new DataSize(DEFAULT_MAX_BLOCK_SIZE.toBytes() * 1.2, Unit.BYTE).convertToMostSuccinctDataSize();
 
     BlockBuilder append(boolean value);
 
