@@ -15,8 +15,8 @@ package com.facebook.presto.block;
 
 import com.facebook.presto.block.uncompressed.AbstractVariableWidthRandomAccessBlock;
 import com.facebook.presto.block.uncompressed.VariableWidthRandomAccessBlock;
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.VariableWidthTypeInfo;
+import com.facebook.presto.type.Type;
+import com.facebook.presto.type.VariableWidthType;
 import com.google.common.base.Charsets;
 import com.google.common.base.Objects;
 import io.airlift.slice.DynamicSliceOutput;
@@ -36,9 +36,9 @@ public class VariableWidthBlockBuilder
     private final SliceOutput sliceOutput;
     private final IntArrayList offsets = new IntArrayList(1024);
 
-    public VariableWidthBlockBuilder(VariableWidthTypeInfo typeInfo, DataSize maxBlockSize, DataSize initialBufferSize)
+    public VariableWidthBlockBuilder(VariableWidthType type, DataSize maxBlockSize, DataSize initialBufferSize)
     {
-        super(typeInfo);
+        super(type);
 
         checkNotNull(maxBlockSize, "maxBlockSize is null");
         this.maxBlockSize = (int) maxBlockSize.toBytes();
@@ -47,9 +47,9 @@ public class VariableWidthBlockBuilder
         this.sliceOutput = new DynamicSliceOutput((int) initialBufferSize.toBytes());
     }
 
-    public VariableWidthBlockBuilder(VariableWidthTypeInfo typeInfo, Slice slice)
+    public VariableWidthBlockBuilder(VariableWidthType type, Slice slice)
     {
-        super(typeInfo);
+        super(type);
         this.maxBlockSize = slice.length();
         this.sliceOutput = slice.getOutput();
     }
@@ -66,9 +66,9 @@ public class VariableWidthBlockBuilder
     }
 
     @Override
-    public TupleInfo getTupleInfo()
+    public Type getType()
     {
-        return new TupleInfo(typeInfo.getType());
+        return type;
     }
 
     @Override
@@ -93,12 +93,6 @@ public class VariableWidthBlockBuilder
     public int size()
     {
         return sliceOutput.size();
-    }
-
-    @Override
-    public int writableBytes()
-    {
-        return maxBlockSize - sliceOutput.size();
     }
 
     @Override
@@ -174,7 +168,7 @@ public class VariableWidthBlockBuilder
 
         sliceOutput.writeByte(0);
 
-        typeInfo.setSlice(sliceOutput, value, offset, length);
+        type.setSlice(sliceOutput, value, offset, length);
 
         return this;
     }
@@ -188,20 +182,9 @@ public class VariableWidthBlockBuilder
     }
 
     @Override
-    public BlockBuilder appendTuple(Slice slice, int offset, int length)
-    {
-        offsets.add(sliceOutput.size());
-
-        // copy tuple to output
-        sliceOutput.writeBytes(slice, offset, length);
-
-        return this;
-    }
-
-    @Override
     public RandomAccessBlock build()
     {
-        return new VariableWidthRandomAccessBlock(typeInfo, sliceOutput.getUnderlyingSlice(), offsets.toIntArray());
+        return new VariableWidthRandomAccessBlock(type, sliceOutput.getUnderlyingSlice(), offsets.toIntArray());
     }
 
     @Override
@@ -211,7 +194,7 @@ public class VariableWidthBlockBuilder
                 .add("positionCount", offsets.size())
                 .add("size", sliceOutput.size())
                 .add("maxSize", maxBlockSize)
-                .add("typeInfo", typeInfo)
+                .add("type", type)
                 .toString();
     }
 }

@@ -19,24 +19,25 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.Input;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import io.airlift.slice.Slice;
 
 import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 public class InterpretedProjectionFunction
         implements ProjectionFunction
 {
-    private final Type type;
+    private final com.facebook.presto.sql.analyzer.Type type;
     private final ExpressionInterpreter evaluator;
 
-    public InterpretedProjectionFunction(Type type, Expression expression, Map<Symbol, Input> symbolToInputMapping, Metadata metadata, Session session)
+    public InterpretedProjectionFunction(com.facebook.presto.sql.analyzer.Type type, Expression expression, Map<Symbol, Input> symbolToInputMapping, Metadata metadata, Session session)
     {
-        this.type = type;
+        this.type = checkNotNull(type, "type is null");
 
         // pre-compute symbol -> input mappings and replace the corresponding nodes in the tree
         Expression rewritten = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(symbolToInputMapping), expression);
@@ -45,9 +46,9 @@ public class InterpretedProjectionFunction
     }
 
     @Override
-    public TupleInfo getTupleInfo()
+    public Type getType()
     {
-        return new TupleInfo(type.getRawType());
+        return type.getRawType();
     }
 
     @Override

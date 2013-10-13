@@ -22,7 +22,7 @@ import java.util.List;
 import static java.util.Arrays.asList;
 import static org.testng.Assert.assertEquals;
 
-public class TestVerticalTuplePrinter
+public class TestVerticalRecordPrinter
 {
     @Test
     public void testVerticalPrinting()
@@ -30,7 +30,7 @@ public class TestVerticalTuplePrinter
     {
         StringWriter writer = new StringWriter();
         List<String> fieldNames = ImmutableList.of("first", "last", "quantity");
-        OutputPrinter printer = new VerticalTuplePrinter(fieldNames, writer);
+        OutputPrinter printer = new VerticalRecordPrinter(fieldNames, writer);
 
         printer.printRows(rows(
                 row("hello", "world", 123),
@@ -72,7 +72,7 @@ public class TestVerticalTuplePrinter
     {
         StringWriter writer = new StringWriter();
         List<String> fieldNames = ImmutableList.of("a");
-        OutputPrinter printer = new VerticalTuplePrinter(fieldNames, writer);
+        OutputPrinter printer = new VerticalRecordPrinter(fieldNames, writer);
 
         printer.printRows(rows(row("x")), true);
         printer.finish();
@@ -90,7 +90,7 @@ public class TestVerticalTuplePrinter
     {
         StringWriter writer = new StringWriter();
         List<String> fieldNames = ImmutableList.of("shippriority");
-        OutputPrinter printer = new VerticalTuplePrinter(fieldNames, writer);
+        OutputPrinter printer = new VerticalRecordPrinter(fieldNames, writer);
 
         printer.printRows(rows(row("hello")), true);
         printer.finish();
@@ -108,7 +108,7 @@ public class TestVerticalTuplePrinter
     {
         StringWriter writer = new StringWriter();
         List<String> fieldNames = ImmutableList.of("order_priority");
-        OutputPrinter printer = new VerticalTuplePrinter(fieldNames, writer);
+        OutputPrinter printer = new VerticalRecordPrinter(fieldNames, writer);
 
         printer.printRows(rows(row("hello")), true);
         printer.finish();
@@ -126,7 +126,7 @@ public class TestVerticalTuplePrinter
     {
         StringWriter writer = new StringWriter();
         List<String> fieldNames = ImmutableList.of("none");
-        OutputPrinter printer = new VerticalTuplePrinter(fieldNames, writer);
+        OutputPrinter printer = new VerticalRecordPrinter(fieldNames, writer);
 
         printer.finish();
 

@@ -21,8 +21,7 @@ import com.facebook.presto.util.array.BooleanBigArray;
 import com.facebook.presto.util.array.LongBigArray;
 import com.google.common.base.Optional;
 
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
-import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
+import static com.facebook.presto.type.Types.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -33,7 +32,7 @@ public class LongSumAggregation
 
     public LongSumAggregation()
     {
-        super(SINGLE_LONG, SINGLE_LONG, FIXED_INT_64);
+        super(BIGINT, BIGINT, BIGINT);
     }
 
     @Override
@@ -51,7 +50,7 @@ public class LongSumAggregation
 
         public LongSumGroupedAccumulator(int valueChannel, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel)
         {
-            super(valueChannel, SINGLE_LONG, SINGLE_LONG, maskChannel, sampleWeightChannel);
+            super(valueChannel, BIGINT, BIGINT, maskChannel, sampleWeightChannel);
 
             this.notNull = new BooleanBigArray();
 
@@ -126,7 +125,7 @@ public class LongSumAggregation
 
         public LongSumAccumulator(int valueChannel, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel)
         {
-            super(valueChannel, SINGLE_LONG, SINGLE_LONG, maskChannel, sampleWeightChannel);
+            super(valueChannel, BIGINT, BIGINT, maskChannel, sampleWeightChannel);
         }
 
         @Override

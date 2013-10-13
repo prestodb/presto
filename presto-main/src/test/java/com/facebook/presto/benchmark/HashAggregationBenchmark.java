@@ -44,7 +44,7 @@ public class HashAggregationBenchmark
     {
         OperatorFactory tableScanOperator = createTableScanOperator(0, "orders", "orderstatus", "totalprice");
         HashAggregationOperatorFactory aggregationOperator = new HashAggregationOperatorFactory(1,
-                ImmutableList.of(tableScanOperator.getTupleInfos().get(0)),
+                ImmutableList.of(tableScanOperator.getTypes().get(0)),
                 Ints.asList(0),
                 Step.SINGLE,
                 ImmutableList.of(aggregation(DOUBLE_SUM, ImmutableList.of(new Input(1)), Optional.<Input>absent(), Optional.<Input>absent(), 1.0)),

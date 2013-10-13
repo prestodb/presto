@@ -15,7 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -26,28 +26,28 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public class RowPageBuilder
 {
-    public static RowPageBuilder rowPageBuilder(TupleInfo... tupleInfos)
+    public static RowPageBuilder rowPageBuilder(Type... types)
     {
-        return rowPageBuilder(ImmutableList.copyOf(tupleInfos));
+        return rowPageBuilder(ImmutableList.copyOf(types));
     }
 
-    public static RowPageBuilder rowPageBuilder(Iterable<TupleInfo> tupleInfos)
+    public static RowPageBuilder rowPageBuilder(Iterable<Type> types)
     {
-        return new RowPageBuilder(tupleInfos);
+        return new RowPageBuilder(types);
     }
 
     private final List<BlockBuilder> builders;
     private long rowCount;
 
-    RowPageBuilder(Iterable<TupleInfo> tupleInfos)
+    RowPageBuilder(Iterable<Type> types)
     {
-        checkNotNull(tupleInfos, "tupleInfos is null");
+        checkNotNull(types, "types is null");
         ImmutableList.Builder<BlockBuilder> builders = ImmutableList.builder();
-        for (TupleInfo tupleInfo : tupleInfos) {
-            builders.add(createBlockBuilder(tupleInfo));
+        for (Type type : types) {
+            builders.add(createBlockBuilder(type));
         }
         this.builders = builders.build();
-        checkArgument(!this.builders.isEmpty(), "At least one tuple info is required");
+        checkArgument(!this.builders.isEmpty(), "At least one value info is required");
     }
 
     public boolean isEmpty()

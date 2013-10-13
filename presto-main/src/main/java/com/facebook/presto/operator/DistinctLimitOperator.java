@@ -14,7 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -33,22 +33,22 @@ public class DistinctLimitOperator
             implements OperatorFactory
     {
         private final int operatorId;
-        private final List<TupleInfo> tupleInfos;
+        private final List<Type> types;
         private final long limit;
         private boolean closed;
 
-        public DistinctLimitOperatorFactory(int operatorId, List<TupleInfo> tupleInfos, long limit)
+        public DistinctLimitOperatorFactory(int operatorId, List<Type> types, long limit)
         {
             this.operatorId = operatorId;
-            this.tupleInfos = ImmutableList.copyOf(checkNotNull(tupleInfos, "tupleInfos is null"));
+            this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
             checkArgument(limit >= 0, "limit must be at least zero");
             this.limit = limit;
         }
 
         @Override
-        public List<TupleInfo> getTupleInfos()
+        public List<Type> getTypes()
         {
-            return tupleInfos;
+            return types;
         }
 
         @Override
@@ -56,7 +56,7 @@ public class DistinctLimitOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, DistinctLimitOperator.class.getSimpleName());
-            return new DistinctLimitOperator(operatorContext, tupleInfos, limit);
+            return new DistinctLimitOperator(operatorContext, types, limit);
         }
 
         @Override
@@ -67,7 +67,7 @@ public class DistinctLimitOperator
     }
 
     private final OperatorContext operatorContext;
-    private final List<TupleInfo> tupleInfos;
+    private final List<Type> types;
     private final BlockCursor[] cursors;
 
     private final PageBuilder pageBuilder;
@@ -79,23 +79,23 @@ public class DistinctLimitOperator
     private final GroupByHash groupByHash;
     private long nextDistinctId;
 
-    public DistinctLimitOperator(OperatorContext operatorContext, List<TupleInfo> tupleInfos, long limit)
+    public DistinctLimitOperator(OperatorContext operatorContext, List<Type> types, long limit)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.tupleInfos = ImmutableList.copyOf(checkNotNull(tupleInfos, "tupleInfos is null"));
+        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
         checkArgument(limit >= 0, "limit must be at least zero");
 
-        ImmutableList.Builder<TupleInfo.Type> types = ImmutableList.builder();
+        ImmutableList.Builder<Type> distinctTypes = ImmutableList.builder();
         ImmutableList.Builder<Integer> distinctChannels = ImmutableList.builder();
-        for (int i = 0; i < tupleInfos.size(); i++) {
-            types.add(tupleInfos.get(i).getType());
+        for (int i = 0; i < types.size(); i++) {
+            distinctTypes.add(types.get(i));
             distinctChannels.add(i);
         }
 
-        this.groupByHash = new GroupByHash(types.build(), Ints.toArray(distinctChannels.build()), 10_000);
+        this.groupByHash = new GroupByHash(distinctTypes.build(), Ints.toArray(distinctChannels.build()), 10_000);
 
-        this.cursors = new BlockCursor[tupleInfos.size()];
-        this.pageBuilder = new PageBuilder(getTupleInfos());
+        this.cursors = new BlockCursor[types.size()];
+        this.pageBuilder = new PageBuilder(getTypes());
         remainingLimit = limit;
     }
 
@@ -106,9 +106,9 @@ public class DistinctLimitOperator
     }
 
     @Override
-    public List<TupleInfo> getTupleInfos()
+    public List<Type> getTypes()
     {
-        return tupleInfos;
+        return types;
     }
 
     @Override
@@ -155,7 +155,7 @@ public class DistinctLimitOperator
             checkState(advanceNextCursorPosition());
             if (ids.getGroupId(i) == nextDistinctId) {
                 for (int j = 0; j < cursors.length; j++) {
-                    cursors[j].appendTupleTo(pageBuilder.getBlockBuilder(j));
+                    cursors[j].appendTo(pageBuilder.getBlockBuilder(j));
                 }
                 remainingLimit--;
                 nextDistinctId++;

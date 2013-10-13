@@ -42,11 +42,11 @@ public class OrderByBenchmark
     {
         OperatorFactory tableScanOperator = createTableScanOperator(0, "orders", "totalprice", "clerk");
 
-        LimitOperatorFactory limitOperator = new LimitOperatorFactory(1, tableScanOperator.getTupleInfos(), ROWS, Optional.<Integer>absent());
+        LimitOperatorFactory limitOperator = new LimitOperatorFactory(1, tableScanOperator.getTypes(), ROWS, Optional.<Integer>absent());
 
         OrderByOperatorFactory orderByOperator = new OrderByOperatorFactory(
                 2,
-                limitOperator.getTupleInfos(),
+                limitOperator.getTypes(),
                 new int[] {0},
                 new int[] {1},
                 ROWS);

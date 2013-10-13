@@ -18,8 +18,7 @@ import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.operator.Page;
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleInfo.Type;
+import com.facebook.presto.type.Type;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 
@@ -33,14 +32,14 @@ import static com.google.common.base.Preconditions.checkArgument;
 public abstract class SimpleAggregationFunction
         implements AggregationFunction
 {
-    private final TupleInfo finalTupleInfo;
-    private final TupleInfo intermediateTupleInfo;
+    private final Type finalType;
+    private final Type intermediateType;
     private final ImmutableList<Type> parameterTypes;
 
-    public SimpleAggregationFunction(TupleInfo finalTupleInfo, TupleInfo intermediateTupleInfo, Type parameterType)
+    public SimpleAggregationFunction(Type finalType, Type intermediateType, Type parameterType)
     {
-        this.finalTupleInfo = finalTupleInfo;
-        this.intermediateTupleInfo = intermediateTupleInfo;
+        this.finalType = finalType;
+        this.intermediateType = intermediateType;
         this.parameterTypes = ImmutableList.of(parameterType);
     }
 
@@ -51,15 +50,15 @@ public abstract class SimpleAggregationFunction
     }
 
     @Override
-    public final TupleInfo getFinalTupleInfo()
+    public final Type getFinalType()
     {
-        return finalTupleInfo;
+        return finalType;
     }
 
     @Override
-    public final TupleInfo getIntermediateTupleInfo()
+    public final Type getIntermediateType()
     {
-        return intermediateTupleInfo;
+        return intermediateType;
     }
 
     @Override
@@ -101,30 +100,36 @@ public abstract class SimpleAggregationFunction
             implements GroupedAccumulator
     {
         private final int valueChannel;
-        private final TupleInfo finalTupleInfo;
-        private final TupleInfo intermediateTupleInfo;
+        private final Type finalType;
+        private final Type intermediateType;
         private final Optional<Integer> maskChannel;
         private final Optional<Integer> sampleWeightChannel;
 
-        public SimpleGroupedAccumulator(int valueChannel, TupleInfo finalTupleInfo, TupleInfo intermediateTupleInfo, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel)
+        public SimpleGroupedAccumulator(int valueChannel, Type finalType, Type intermediateType, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel)
         {
             this.valueChannel = valueChannel;
-            this.finalTupleInfo = finalTupleInfo;
-            this.intermediateTupleInfo = intermediateTupleInfo;
+            this.finalType = finalType;
+            this.intermediateType = intermediateType;
             this.maskChannel = maskChannel;
             this.sampleWeightChannel = sampleWeightChannel;
         }
 
         @Override
-        public final TupleInfo getFinalTupleInfo()
+        public long getEstimatedSize()
         {
-            return finalTupleInfo;
+            return 0;
         }
 
         @Override
-        public final TupleInfo getIntermediateTupleInfo()
+        public final Type getFinalType()
         {
-            return intermediateTupleInfo;
+            return finalType;
+        }
+
+        @Override
+        public final Type getIntermediateType()
+        {
+            return intermediateType;
         }
 
         @Override
@@ -180,30 +185,30 @@ public abstract class SimpleAggregationFunction
             implements Accumulator
     {
         private final int valueChannel;
-        private final TupleInfo finalTupleInfo;
-        private final TupleInfo intermediateTupleInfo;
+        private final Type finalType;
+        private final Type intermediateType;
         private final Optional<Integer> maskChannel;
         private final Optional<Integer> sampleWeightChannel;
 
-        public SimpleAccumulator(int valueChannel, TupleInfo finalTupleInfo, TupleInfo intermediateTupleInfo, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel)
+        public SimpleAccumulator(int valueChannel, Type finalType, Type intermediateType, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel)
         {
             this.valueChannel = valueChannel;
-            this.finalTupleInfo = finalTupleInfo;
-            this.intermediateTupleInfo = intermediateTupleInfo;
+            this.finalType = finalType;
+            this.intermediateType = intermediateType;
             this.maskChannel = maskChannel;
             this.sampleWeightChannel = sampleWeightChannel;
         }
 
         @Override
-        public final TupleInfo getFinalTupleInfo()
+        public final Type getFinalType()
         {
-            return finalTupleInfo;
+            return finalType;
         }
 
         @Override
-        public final TupleInfo getIntermediateTupleInfo()
+        public final Type getIntermediateType()
         {
-            return intermediateTupleInfo;
+            return intermediateType;
         }
 
         public final void addInput(Page page)
@@ -231,7 +236,7 @@ public abstract class SimpleAggregationFunction
         @Override
         public final Block evaluateIntermediate()
         {
-            BlockBuilder out = createBlockBuilder(intermediateTupleInfo);
+            BlockBuilder out = createBlockBuilder(intermediateType);
             evaluateIntermediate(out);
             return out.build();
         }
@@ -239,7 +244,7 @@ public abstract class SimpleAggregationFunction
         @Override
         public final Block evaluateFinal()
         {
-            BlockBuilder out = createBlockBuilder(finalTupleInfo);
+            BlockBuilder out = createBlockBuilder(finalType);
             evaluateFinal(out);
             return out.build();
         }

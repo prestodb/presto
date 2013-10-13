@@ -14,7 +14,7 @@
 package com.facebook.presto;
 
 import com.facebook.presto.util.MaterializedResult;
-import com.facebook.presto.util.MaterializedTuple;
+import com.facebook.presto.util.MaterializedRow;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
@@ -234,14 +234,14 @@ public abstract class AbstractTestSampledQueries
         Duration actualTime = Duration.nanosSince(start);
 
         long expectedStart = System.nanoTime();
-        MaterializedResult expectedResults = computeExpected(expected, actualResults.getTupleInfos());
+        MaterializedResult expectedResults = computeExpected(expected, actualResults.getTypes());
         log.info("FINISHED in presto: %s, h2: %s, total: %s", actualTime, Duration.nanosSince(expectedStart), Duration.nanosSince(start));
 
         if (ensureOrdering) {
-            assertEquals(actualResults.getMaterializedTuples(), expectedResults.getMaterializedTuples());
+            assertEquals(actualResults.getMaterializedRows(), expectedResults.getMaterializedRows());
         }
         else {
-            assertEqualsIgnoreOrder(actualResults.getMaterializedTuples(), expectedResults.getMaterializedTuples());
+            assertEqualsIgnoreOrder(actualResults.getMaterializedRows(), expectedResults.getMaterializedRows());
         }
     }
 
@@ -252,18 +252,18 @@ public abstract class AbstractTestSampledQueries
         MaterializedResult actualResults = computeActualSampled(actual);
         log.info("FINISHED in %s", Duration.nanosSince(start));
 
-        MaterializedResult expectedResults = computeExpected(expected, actualResults.getTupleInfos());
-        assertApproximatelyEqual(actualResults.getMaterializedTuples(), expectedResults.getMaterializedTuples());
+        MaterializedResult expectedResults = computeExpected(expected, actualResults.getTypes());
+        assertApproximatelyEqual(actualResults.getMaterializedRows(), expectedResults.getMaterializedRows());
     }
 
-    private void assertApproximatelyEqual(List<MaterializedTuple> actual, List<MaterializedTuple> expected)
+    private void assertApproximatelyEqual(List<MaterializedRow> actual, List<MaterializedRow> expected)
             throws Exception
     {
         // TODO: support GROUP BY queries
         assertEquals(actual.size(), 1, "approximate query returned more than one row");
 
-        MaterializedTuple actualRow = actual.get(0);
-        MaterializedTuple expectedRow = expected.get(0);
+        MaterializedRow actualRow = actual.get(0);
+        MaterializedRow expectedRow = expected.get(0);
 
         for (int i = 0; i < actualRow.getFieldCount(); i++) {
             String actualField = (String) actualRow.getField(i);

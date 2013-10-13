@@ -13,22 +13,22 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
+import com.facebook.presto.type.Types;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Predicates;
 
 import java.util.List;
 
 import static com.facebook.presto.operator.aggregation.ApproximateCountColumnAggregations.DOUBLE_APPROXIMATE_COUNT_AGGREGATION;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
 
 public class TestApproximateCountDoubleAggregation
         extends AbstractTestApproximateAggregationFunction
 {
     @Override
-    protected TupleInfo getTupleInfo()
+    protected Type getType()
     {
-        return SINGLE_DOUBLE;
+        return Types.BIGINT;
     }
 
     @Override

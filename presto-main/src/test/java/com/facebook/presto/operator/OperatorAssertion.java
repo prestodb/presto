@@ -15,7 +15,8 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
+import com.facebook.presto.type.Types;
 import com.facebook.presto.util.IterableTransformer;
 import com.facebook.presto.util.MaterializedResult;
 import com.google.common.base.Function;
@@ -42,7 +43,7 @@ public final class OperatorAssertion
             @Override
             public Page apply(Page page)
             {
-                BlockBuilder builder = createBlockBuilder(TupleInfo.SINGLE_LONG);
+                BlockBuilder builder = createBlockBuilder(Types.BIGINT);
                 for (int i = 0; i < page.getPositionCount(); i++) {
                     builder.append(sampleWeight);
                 }
@@ -124,10 +125,10 @@ public final class OperatorAssertion
         assertEquals(operator.getOutput(), null);
     }
 
-    public static MaterializedResult toMaterializedResult(List<TupleInfo> tupleInfos, List<Page> pages)
+    public static MaterializedResult toMaterializedResult(List<Type> types, List<Page> pages)
     {
         // materialize pages
-        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(tupleInfos);
+        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(types);
         for (Page outputPage : pages) {
             resultBuilder.page(outputPage);
         }
@@ -155,23 +156,23 @@ public final class OperatorAssertion
     public static void assertOperatorEquals(Operator operator, MaterializedResult expected)
     {
         List<Page> pages = toPages(operator);
-        MaterializedResult actual = toMaterializedResult(operator.getTupleInfos(), pages);
+        MaterializedResult actual = toMaterializedResult(operator.getTypes(), pages);
         assertEquals(actual, expected);
     }
 
     public static void assertOperatorEquals(Operator operator, List<Page> input, MaterializedResult expected)
     {
         List<Page> pages = toPages(operator, input);
-        MaterializedResult actual = toMaterializedResult(operator.getTupleInfos(), pages);
+        MaterializedResult actual = toMaterializedResult(operator.getTypes(), pages);
         assertEquals(actual, expected);
     }
 
     public static void assertOperatorEqualsIgnoreOrder(Operator operator, List<Page> input, MaterializedResult expected)
     {
         List<Page> pages = toPages(operator, input);
-        MaterializedResult actual = toMaterializedResult(operator.getTupleInfos(), pages);
+        MaterializedResult actual = toMaterializedResult(operator.getTypes(), pages);
 
-        assertEquals(actual.getTupleInfos(), expected.getTupleInfos());
-        assertEqualsIgnoreOrder(actual.getMaterializedTuples(), expected.getMaterializedTuples());
+        assertEquals(actual.getTypes(), expected.getTypes());
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
     }
 }

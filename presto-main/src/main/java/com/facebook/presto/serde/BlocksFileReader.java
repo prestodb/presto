@@ -17,7 +17,7 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockEncoding;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.primitives.Ints;
@@ -62,9 +62,9 @@ public class BlocksFileReader
     }
 
     @Override
-    public TupleInfo getTupleInfo()
+    public Type getType()
     {
-        return blockEncoding.getTupleInfo();
+        return blockEncoding.getType();
     }
 
     @Override

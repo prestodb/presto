@@ -42,16 +42,16 @@ public class SnappyEncoder
     @Override
     public Encoder append(Block block)
     {
-        checkNotNull(block, "tuples is null");
+        checkNotNull(block, "block is null");
         checkState(!finished, "already finished");
 
         if (encoding == null) {
-            encoding = new SnappyBlockEncoding(block.getTupleInfo(), block.getEncoding());
-            blockBuilder = createBlockBuilder(block.getTupleInfo());
+            encoding = new SnappyBlockEncoding(block.getType(), block.getEncoding());
+            blockBuilder = createBlockBuilder(block.getType());
         }
         BlockCursor cursor = block.cursor();
         while (cursor.advanceNextPosition()) {
-            cursor.appendTupleTo(blockBuilder);
+            cursor.appendTo(blockBuilder);
             if (blockBuilder.isFull()) {
                 flushBlock();
             }
@@ -77,6 +77,6 @@ public class SnappyEncoder
     {
         SnappyBlock snappyBlock = new SnappyBlock(blockBuilder);
         encoding.writeBlock(sliceOutput, snappyBlock);
-        blockBuilder = createBlockBuilder(snappyBlock.getTupleInfo());
+        blockBuilder = createBlockBuilder(snappyBlock.getType());
     }
 }

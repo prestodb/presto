@@ -58,7 +58,6 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
@@ -89,7 +88,7 @@ import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import com.facebook.presto.util.IterableTransformer;
 import com.facebook.presto.util.MoreFunctions;
 import com.google.common.base.Function;
@@ -163,7 +162,7 @@ public class LocalExecutionPlanner
 
     public LocalExecutionPlan plan(Session session,
             PlanNode plan,
-            Map<Symbol, Type> types,
+            Map<Symbol, com.facebook.presto.sql.analyzer.Type> types,
             OutputFactory outputOperatorFactory)
     {
         LocalExecutionPlanContext context = new LocalExecutionPlanContext(session, types);
@@ -174,7 +173,7 @@ public class LocalExecutionPlanner
                 true,
                 ImmutableList.<OperatorFactory>builder()
                         .addAll(physicalOperation.getOperatorFactories())
-                        .add(outputOperatorFactory.createOutputOperator(context.getNextOperatorId(), physicalOperation.getTupleInfos()))
+                        .add(outputOperatorFactory.createOutputOperator(context.getNextOperatorId(), physicalOperation.getTypes()))
                         .build());
         context.addDriverFactory(driverFactory);
 
@@ -184,19 +183,19 @@ public class LocalExecutionPlanner
     private static class LocalExecutionPlanContext
     {
         private final Session session;
-        private final Map<Symbol, Type> types;
+        private final Map<Symbol, com.facebook.presto.sql.analyzer.Type> types;
 
         private final List<DriverFactory> driverFactories;
 
         private int nextOperatorId;
         private boolean inputDriver = true;
 
-        public LocalExecutionPlanContext(Session session, Map<Symbol, Type> types)
+        public LocalExecutionPlanContext(Session session, Map<Symbol, com.facebook.presto.sql.analyzer.Type> types)
         {
             this(session, types, new ArrayList<DriverFactory>());
         }
 
-        private LocalExecutionPlanContext(Session session, Map<Symbol, Type> types, List<DriverFactory> driverFactories)
+        private LocalExecutionPlanContext(Session session, Map<Symbol, com.facebook.presto.sql.analyzer.Type> types, List<DriverFactory> driverFactories)
         {
             this.session = session;
             this.types = types;
@@ -218,7 +217,7 @@ public class LocalExecutionPlanner
             return session;
         }
 
-        public Map<Symbol, Type> getTypes()
+        public Map<Symbol, com.facebook.presto.sql.analyzer.Type> getTypes()
         {
             return types;
         }
@@ -265,9 +264,9 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitExchange(ExchangeNode node, LocalExecutionPlanContext context)
         {
-            List<TupleInfo> tupleInfos = getSourceOperatorTupleInfos(node, context.getTypes());
+            List<Type> types = getSourceOperatorTypes(node, context.getTypes());
 
-            OperatorFactory operatorFactory = new ExchangeOperatorFactory(context.getNextOperatorId(), node.getId(), exchangeClientSupplier, tupleInfos);
+            OperatorFactory operatorFactory = new ExchangeOperatorFactory(context.getNextOperatorId(), node.getId(), exchangeClientSupplier, types);
 
             ImmutableMap.Builder<Symbol, Input> outputMappings = ImmutableMap.builder();
             int channel = 0;
@@ -295,7 +294,7 @@ public class LocalExecutionPlanner
                     .list();
 
             List<Symbol> resultSymbols = node.getOutputSymbols();
-            if (resultSymbols.equals(sourceSymbols) && resultSymbols.size() == source.getTupleInfos().size()) {
+            if (resultSymbols.equals(sourceSymbols) && resultSymbols.size() == source.getTypes().size()) {
                 // no projection needed
                 return source;
             }
@@ -330,7 +329,7 @@ public class LocalExecutionPlanner
                 sortOrder[i] = node.getOrderings().get(symbol);
             }
 
-            int[] outputChannels = new int[source.getTupleInfos().size()];
+            int[] outputChannels = new int[source.getTypes().size()];
             for (int i = 0; i < outputChannels.length; i++) {
                 outputChannels[i] = i;
             }
@@ -351,7 +350,7 @@ public class LocalExecutionPlanner
             }
 
             // window functions go in remaining channels starting after the last channel from the source operator, one per channel
-            int channel = source.getTupleInfos().size();
+            int channel = source.getTypes().size();
             for (Symbol symbol : windowFunctionOutputSymbols) {
                 outputMappings.put(symbol, new Input(channel));
                 channel++;
@@ -359,7 +358,7 @@ public class LocalExecutionPlanner
 
             OperatorFactory operatorFactory = new WindowOperatorFactory(
                     context.getNextOperatorId(),
-                    source.getTupleInfos(),
+                    source.getTypes(),
                     outputChannels,
                     windowFunctions.build(),
                     partitionChannels,
@@ -388,7 +387,7 @@ public class LocalExecutionPlanner
 
             OperatorFactory operator = new TopNOperatorFactory(
                     context.getNextOperatorId(),
-                    source.getTupleInfos(),
+                    source.getTypes(),
                     (int) node.getCount(),
                     sortChannels,
                     sortOrders,
@@ -413,14 +412,14 @@ public class LocalExecutionPlanner
                 sortOrder[i] = node.getOrderings().get(symbol);
             }
 
-            int[] outputChannels = new int[source.getTupleInfos().size()];
+            int[] outputChannels = new int[source.getTypes().size()];
             for (int i = 0; i < outputChannels.length; i++) {
                 outputChannels[i] = i;
             }
 
             OperatorFactory operator = new OrderByOperatorFactory(
                     context.getNextOperatorId(),
-                    source.getTupleInfos(),
+                    source.getTypes(),
                     outputChannels,
                     10_000,
                     orderByChannels,
@@ -436,7 +435,7 @@ public class LocalExecutionPlanner
 
             Optional<Integer> sampleWeightChannel = node.getSampleWeight().transform(source.channelGetter());
 
-            OperatorFactory operatorFactory = new LimitOperatorFactory(context.getNextOperatorId(), source.getTupleInfos(), node.getCount(), sampleWeightChannel);
+            OperatorFactory operatorFactory = new LimitOperatorFactory(context.getNextOperatorId(), source.getTypes(), node.getCount(), sampleWeightChannel);
             return new PhysicalOperation(operatorFactory, source.getLayout(), source);
         }
 
@@ -446,7 +445,7 @@ public class LocalExecutionPlanner
             PhysicalOperation source = node.getSource().accept(this, context);
             OperatorFactory operatorFactory = new DistinctLimitOperatorFactory(
                     context.getNextOperatorId(),
-                    source.getTupleInfos(),
+                    source.getTypes(),
                     node.getLimit());
             return new PhysicalOperation(operatorFactory, source.getLayout(), source);
         }
@@ -477,7 +476,7 @@ public class LocalExecutionPlanner
 
             Optional<Integer> sampleWeightChannel = node.getSampleWeightSymbol().transform(source.channelGetter());
 
-            MarkDistinctOperatorFactory operator = new MarkDistinctOperatorFactory(context.getNextOperatorId(), source.getTupleInfos(), channels, sampleWeightChannel);
+            MarkDistinctOperatorFactory operator = new MarkDistinctOperatorFactory(context.getNextOperatorId(), source.getTypes(), channels, sampleWeightChannel);
             return new PhysicalOperation(operator, outputMappings, source);
         }
 
@@ -498,11 +497,11 @@ public class LocalExecutionPlanner
                 outputMappings.put(entry.getKey(), new Input(value > sampleWeightChannel ? value - 1 : value));
             }
 
-            List<TupleInfo> tupleInfos = new ArrayList<>();
-            tupleInfos.addAll(source.getTupleInfos());
-            tupleInfos.remove(sampleWeightChannel);
+            List<Type> types = new ArrayList<>();
+            types.addAll(source.getTypes());
+            types.remove(sampleWeightChannel);
 
-            MaterializeSampleOperator.MaterializeSampleOperatorFactory operator = new MaterializeSampleOperator.MaterializeSampleOperatorFactory(context.getNextOperatorId(), tupleInfos, sampleWeightChannel);
+            MaterializeSampleOperator.MaterializeSampleOperatorFactory operator = new MaterializeSampleOperator.MaterializeSampleOperatorFactory(context.getNextOperatorId(), types, sampleWeightChannel);
             return new PhysicalOperation(operator, outputMappings.build(), source);
         }
 
@@ -516,9 +515,9 @@ public class LocalExecutionPlanner
 
             if (node.getSampleType() == SampleNode.Type.POISSONIZED) {
                 PhysicalOperation source = node.getSource().accept(this, context);
-                OperatorFactory operatorFactory = new SampleOperatorFactory(context.getNextOperatorId(), node.getSampleRatio(), node.isRescaled(), source.getTupleInfos());
+                OperatorFactory operatorFactory = new SampleOperatorFactory(context.getNextOperatorId(), node.getSampleRatio(), node.isRescaled(), source.getTypes());
                 checkState(node.getSampleWeightSymbol().isPresent(), "sample weight symbol missing");
-                Map<Symbol, Input> layout = ImmutableMap.<Symbol, Input>builder().putAll(source.getLayout()).put(node.getSampleWeightSymbol().get(), new Input(source.getTupleInfos().size())).build();
+                Map<Symbol, Input> layout = ImmutableMap.<Symbol, Input>builder().putAll(source.getLayout()).put(node.getSampleWeightSymbol().get(), new Input(source.getTypes().size())).build();
                 return new PhysicalOperation(operatorFactory, layout, source);
             }
 
@@ -575,7 +574,7 @@ public class LocalExecutionPlanner
             // if source is a table scan we fold it directly into the filter and project
             // otherwise we plan it as a normal operator
             Map<Symbol, Input> sourceLayout;
-            Map<Input, Type> sourceTypes;
+            Map<Input, com.facebook.presto.sql.analyzer.Type> sourceTypes;
             List<ColumnHandle> columns = null;
             PhysicalOperation source = null;
             if (sourceNode instanceof TableScanNode) {
@@ -592,7 +591,7 @@ public class LocalExecutionPlanner
                     Input input = new Input(channel);
                     sourceLayout.put(symbol, input);
 
-                    Type type = checkNotNull(context.getTypes().get(symbol), "No type for symbol %s", symbol);
+                    com.facebook.presto.sql.analyzer.Type type = checkNotNull(context.getTypes().get(symbol), "No type for symbol %s", symbol);
                     sourceTypes.put(input, type);
 
                     channel++;
@@ -602,7 +601,7 @@ public class LocalExecutionPlanner
                 // plan source
                 source = sourceNode.accept(this, context);
                 sourceLayout = source.getLayout();
-                sourceTypes = getInputTypes(source.getLayout(), source.getTupleInfos());
+                sourceTypes = getInputTypes(source.getLayout(), source.getTypes());
             }
 
             // build output mapping
@@ -619,7 +618,7 @@ public class LocalExecutionPlanner
                 Expression rewrittenFilter = ExpressionTreeRewriter.rewriteWith(symbolToInputRewriter, filterExpression);
 
                 List<Expression> rewrittenProjections = new ArrayList<>();
-                List<Type> outputTypes = new ArrayList<>();
+                List<com.facebook.presto.sql.analyzer.Type> outputTypes = new ArrayList<>();
                 for (int i = 0; i < projectionExpressions.size(); i++) {
                     Expression projection = projectionExpressions.get(i);
                     rewrittenProjections.add(ExpressionTreeRewriter.rewriteWith(symbolToInputRewriter, projection));
@@ -702,27 +701,12 @@ public class LocalExecutionPlanner
             }
         }
 
-        private Map<Input, Type> getInputTypes(Map<Symbol, Input> layout, List<TupleInfo> tupleInfos)
+        private Map<Input, com.facebook.presto.sql.analyzer.Type> getInputTypes(Map<Symbol, Input> layout, List<Type> types)
         {
-            Builder<Input, Type> inputTypes = ImmutableMap.builder();
+            Builder<Input, com.facebook.presto.sql.analyzer.Type> inputTypes = ImmutableMap.builder();
             for (Input input : ImmutableSet.copyOf(layout.values())) {
-                TupleInfo.Type type = tupleInfos.get(input.getChannel()).getType();
-                switch (type) {
-                    case BOOLEAN:
-                        inputTypes.put(input, Type.BOOLEAN);
-                        break;
-                    case FIXED_INT_64:
-                        inputTypes.put(input, Type.BIGINT);
-                        break;
-                    case VARIABLE_BINARY:
-                        inputTypes.put(input, Type.VARCHAR);
-                        break;
-                    case DOUBLE:
-                        inputTypes.put(input, Type.DOUBLE);
-                        break;
-                    default:
-                        throw new IllegalArgumentException("Unsupported type " + type);
-                }
+                Type type = types.get(input.getChannel());
+                inputTypes.put(input, com.facebook.presto.sql.analyzer.Type.fromRaw(type));
             }
             return inputTypes.build();
         }
@@ -741,8 +725,8 @@ public class LocalExecutionPlanner
                 channel++;
             }
 
-            List<TupleInfo> tupleInfos = getSourceOperatorTupleInfos(node, context.getTypes());
-            OperatorFactory operatorFactory = new TableScanOperatorFactory(context.getNextOperatorId(), node.getId(), dataStreamProvider, tupleInfos, columns);
+            List<Type> types = getSourceOperatorTypes(node, context.getTypes());
+            OperatorFactory operatorFactory = new TableScanOperatorFactory(context.getNextOperatorId(), node.getId(), dataStreamProvider, types, columns);
             return new PhysicalOperation(operatorFactory, outputMappings.build());
         }
 
@@ -750,15 +734,15 @@ public class LocalExecutionPlanner
         public PhysicalOperation visitValues(ValuesNode node, LocalExecutionPlanContext context)
         {
             Map<Symbol, Input> outputMappings = new LinkedHashMap<>();
-            List<TupleInfo> outputTypes = new ArrayList<>();
+            List<Type> outputTypes = new ArrayList<>();
 
             int channel = 0;
             for (Symbol symbol : node.getOutputSymbols()) {
                 Input input = new Input(channel);
                 outputMappings.put(symbol, input);
 
-                Type type = checkNotNull(context.getTypes().get(symbol), "No type for symbol %s", symbol);
-                outputTypes.add(new TupleInfo(type.getRawType()));
+                com.facebook.presto.sql.analyzer.Type type = checkNotNull(context.getTypes().get(symbol), "No type for symbol %s", symbol);
+                outputTypes.add(type.getRawType());
 
                 channel++;
             }
@@ -813,7 +797,7 @@ public class LocalExecutionPlanner
 
             HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(
                     buildContext.getNextOperatorId(),
-                    buildSource.getTupleInfos(),
+                    buildSource.getTypes(),
                     buildChannels,
                     100_000);
             HashSupplier hashSupplier = hashBuilderOperatorFactory.getHashSupplier();
@@ -831,29 +815,29 @@ public class LocalExecutionPlanner
 
             // inputs from build side of the join are laid out following the input from the probe side,
             // so adjust the channel ids but keep the field layouts intact
-            int offset = probeSource.getTupleInfos().size();
+            int offset = probeSource.getTypes().size();
             for (Map.Entry<Symbol, Input> entry : buildSource.getLayout().entrySet()) {
                 Input input = entry.getValue();
                 outputMappings.put(entry.getKey(), new Input(offset + input.getChannel()));
             }
 
-            OperatorFactory operator = createJoinOperator(node.getType(), hashSupplier, probeSource.getTupleInfos(), probeChannels, context);
+            OperatorFactory operator = createJoinOperator(node.getType(), hashSupplier, probeSource.getTypes(), probeChannels, context);
             return new PhysicalOperation(operator, outputMappings.build(), probeSource);
         }
 
         private HashJoinOperatorFactory createJoinOperator(
                 JoinNode.Type type,
                 HashSupplier hashSupplier,
-                List<TupleInfo> probeTupleInfos,
+                List<Type> probeTypes,
                 List<Integer> probeJoinChannels,
                 LocalExecutionPlanContext context)
         {
             switch (type) {
                 case INNER:
-                    return HashJoinOperator.innerJoin(context.getNextOperatorId(), hashSupplier, probeTupleInfos, probeJoinChannels);
+                    return HashJoinOperator.innerJoin(context.getNextOperatorId(), hashSupplier, probeTypes, probeJoinChannels);
                 case LEFT:
                 case RIGHT:
-                    return HashJoinOperator.outerJoin(context.getNextOperatorId(), hashSupplier, probeTupleInfos, probeJoinChannels);
+                    return HashJoinOperator.outerJoin(context.getNextOperatorId(), hashSupplier, probeTypes, probeJoinChannels);
                 default:
                     throw new UnsupportedOperationException("Unsupported join type: " + type);
             }
@@ -872,7 +856,7 @@ public class LocalExecutionPlanner
             int probeChannel = probeSource.getLayout().get(node.getSourceJoinSymbol()).getChannel();
             int buildChannel = buildSource.getLayout().get(node.getFilteringSourceJoinSymbol()).getChannel();
 
-            SetBuilderOperatorFactory setBuilderOperatorFactory = new SetBuilderOperatorFactory(buildContext.getNextOperatorId(), buildSource.getTupleInfos(), buildChannel, 100_000);
+            SetBuilderOperatorFactory setBuilderOperatorFactory = new SetBuilderOperatorFactory(buildContext.getNextOperatorId(), buildSource.getTypes(), buildChannel, 100_000);
             SetSupplier setProvider = setBuilderOperatorFactory.getSetProvider();
             DriverFactory buildDriverFactory = new DriverFactory(
                     buildContext.isInputDriver(),
@@ -889,7 +873,7 @@ public class LocalExecutionPlanner
                     .put(node.getSemiJoinOutput(), new Input(probeSource.getLayout().size()))
                     .build();
 
-            HashSemiJoinOperatorFactory operator = new HashSemiJoinOperatorFactory(context.getNextOperatorId(), setProvider, probeSource.getTupleInfos(), probeChannel);
+            HashSemiJoinOperatorFactory operator = new HashSemiJoinOperatorFactory(context.getNextOperatorId(), setProvider, probeSource.getTypes(), probeChannel);
             return new PhysicalOperation(operator, outputMappings, probeSource);
         }
 
@@ -927,9 +911,9 @@ public class LocalExecutionPlanner
             // create the table writer
             RecordSink recordSink = recordSinkManager.getRecordSink(node.getTarget());
 
-            List<TupleInfo.Type> types = IterableTransformer.on(node.getColumns())
+            List<Type> types = IterableTransformer.on(node.getColumns())
                     .transform(Functions.forMap(context.getTypes()))
-                    .transform(Type.toRaw())
+                    .transform(com.facebook.presto.sql.analyzer.Type.toRaw())
                     .list();
 
             List<Integer> inputChannels = IterableTransformer.on(node.getColumns())
@@ -951,7 +935,7 @@ public class LocalExecutionPlanner
             LocalExecutionPlanContext subContext = context.createSubContext();
             PhysicalOperation source = node.accept(this, subContext);
 
-            InMemoryExchange exchange = new InMemoryExchange(source.getTupleInfos());
+            InMemoryExchange exchange = new InMemoryExchange(getSourceOperatorTypes(node, context.getTypes()));
 
             // create exchange sink
             List<OperatorFactory> factories = ImmutableList.<OperatorFactory>builder()
@@ -992,8 +976,8 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitUnion(UnionNode node, LocalExecutionPlanContext context)
         {
-            List<TupleInfo> tupleInfos = getSourceOperatorTupleInfos(node, context.getTypes());
-            InMemoryExchange inMemoryExchange = new InMemoryExchange(tupleInfos);
+            List<Type> types = getSourceOperatorTypes(node, context.getTypes());
+            InMemoryExchange inMemoryExchange = new InMemoryExchange(types);
 
             for (int i = 0; i < node.getSources().size(); i++) {
                 PlanNode subplan = node.getSources().get(i);
@@ -1040,19 +1024,16 @@ public class LocalExecutionPlanner
             throw new UnsupportedOperationException("not yet implemented");
         }
 
-        private List<TupleInfo> getSourceOperatorTupleInfos(PlanNode node, Map<Symbol, Type> types)
+        private List<Type> getSourceOperatorTypes(PlanNode node, Map<Symbol, com.facebook.presto.sql.analyzer.Type> types)
         {
-            return ImmutableList.copyOf(IterableTransformer.on(node.getOutputSymbols())
+            return getSymbolTypes(node.getOutputSymbols(), types);
+        }
+
+        private List<Type> getSymbolTypes(List<Symbol> symbols, Map<Symbol, com.facebook.presto.sql.analyzer.Type> types)
+        {
+            return ImmutableList.copyOf(IterableTransformer.on(symbols)
                     .transform(Functions.forMap(types))
-                    .transform(Type.toRaw())
-                    .transform(new Function<TupleInfo.Type, TupleInfo>()
-                    {
-                        @Override
-                        public TupleInfo apply(TupleInfo.Type input)
-                        {
-                            return new TupleInfo(input);
-                        }
-                    })
+                    .transform(com.facebook.presto.sql.analyzer.Type.toRaw())
                     .list());
         }
 
@@ -1123,17 +1104,17 @@ public class LocalExecutionPlanner
             }
 
             List<Integer> groupByChannels = ImmutableList.copyOf(getChannelsForSymbols(groupBySymbols, source.getLayout()));
-            List<TupleInfo> groupByTupleInfos = ImmutableList.copyOf(Iterables.transform(groupByChannels, new Function<Integer, TupleInfo>()
+            List<Type> groupByTypes = ImmutableList.copyOf(Iterables.transform(groupByChannels, new Function<Integer, Type>()
             {
-                public TupleInfo apply(Integer input)
+                public Type apply(Integer input)
                 {
-                    return source.getTupleInfos().get(input);
+                    return source.getTypes().get(input);
                 }
             }));
 
             OperatorFactory operatorFactory = new HashAggregationOperatorFactory(
                     context.getNextOperatorId(),
-                    groupByTupleInfos,
+                    groupByTypes,
                     groupByChannels,
                     node.getStep(),
                     functionDefinitions,
@@ -1155,7 +1136,7 @@ public class LocalExecutionPlanner
         };
     }
 
-    private static IdentityProjectionInfo computeIdentityMapping(List<Symbol> symbols, Map<Symbol, Input> inputLayout, Map<Symbol, Type> types)
+    private static IdentityProjectionInfo computeIdentityMapping(List<Symbol> symbols, Map<Symbol, Input> inputLayout, Map<Symbol, com.facebook.presto.sql.analyzer.Type> types)
     {
         Map<Symbol, Input> outputMappings = new HashMap<>();
         List<ProjectionFunction> projections = new ArrayList<>();
@@ -1211,7 +1192,7 @@ public class LocalExecutionPlanner
     {
         private final List<OperatorFactory> operatorFactories;
         private final Map<Symbol, Input> layout;
-        private final List<TupleInfo> tupleInfos;
+        private final List<Type> types;
 
         public PhysicalOperation(OperatorFactory operatorFactory, Map<Symbol, Input> layout)
         {
@@ -1220,7 +1201,7 @@ public class LocalExecutionPlanner
 
             this.operatorFactories = ImmutableList.of(operatorFactory);
             this.layout = ImmutableMap.copyOf(layout);
-            this.tupleInfos = operatorFactory.getTupleInfos();
+            this.types = operatorFactory.getTypes();
         }
 
         public PhysicalOperation(OperatorFactory operatorFactory, Map<Symbol, Input> layout, PhysicalOperation source)
@@ -1231,7 +1212,7 @@ public class LocalExecutionPlanner
 
             this.operatorFactories = ImmutableList.<OperatorFactory>builder().addAll(source.getOperatorFactories()).add(operatorFactory).build();
             this.layout = ImmutableMap.copyOf(layout);
-            this.tupleInfos = operatorFactory.getTupleInfos();
+            this.types = operatorFactory.getTypes();
         }
 
         public Function<Symbol, Integer> channelGetter()
@@ -1247,9 +1228,9 @@ public class LocalExecutionPlanner
             };
         }
 
-        public List<TupleInfo> getTupleInfos()
+        public List<Type> getTypes()
         {
-            return tupleInfos;
+            return types;
         }
 
         public Map<Symbol, Input> getLayout()

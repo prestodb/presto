@@ -16,8 +16,8 @@ package com.facebook.presto.block.snappy;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockEncoding;
 import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.serde.TupleInfoSerde;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.serde.TypeSerde;
+import com.facebook.presto.type.Type;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
@@ -30,12 +30,12 @@ public class SnappyBlockEncoding
     public static final BlockEncodingFactory<SnappyBlockEncoding> FACTORY = new SnappyBlockEncodingFactory();
     private static final String NAME = "SNAPPY";
 
-    private final TupleInfo tupleInfo;
+    private final Type type;
     private final BlockEncoding uncompressedBlockEncoding;
 
-    public SnappyBlockEncoding(TupleInfo tupleInfo, BlockEncoding uncompressedBlockEncoding)
+    public SnappyBlockEncoding(Type type, BlockEncoding uncompressedBlockEncoding)
     {
-        this.tupleInfo = tupleInfo;
+        this.type = type;
         this.uncompressedBlockEncoding = uncompressedBlockEncoding;
     }
 
@@ -46,16 +46,16 @@ public class SnappyBlockEncoding
     }
 
     @Override
-    public TupleInfo getTupleInfo()
+    public Type getType()
     {
-        return tupleInfo;
+        return type;
     }
 
     @Override
     public void writeBlock(SliceOutput sliceOutput, Block block)
     {
         SnappyBlock snappyBlock = (SnappyBlock) block;
-        checkArgument(block.getTupleInfo().equals(tupleInfo), "Invalid tuple info");
+        checkArgument(block.getType().equals(type), "Invalid block");
 
         Slice compressedSlice = snappyBlock.getCompressedSlice();
         sliceOutput
@@ -68,10 +68,10 @@ public class SnappyBlockEncoding
     public Block readBlock(SliceInput sliceInput)
     {
         int blockSize = sliceInput.readInt();
-        int tupleCount = sliceInput.readInt();
+        int positionCount = sliceInput.readInt();
 
         Slice compressedSlice = sliceInput.readSlice(blockSize);
-        return new SnappyBlock(tupleCount, tupleInfo, compressedSlice, uncompressedBlockEncoding);
+        return new SnappyBlock(positionCount, type, compressedSlice, uncompressedBlockEncoding);
     }
 
     private static class SnappyBlockEncodingFactory
@@ -86,15 +86,15 @@ public class SnappyBlockEncoding
         @Override
         public SnappyBlockEncoding readEncoding(BlockEncodingManager blockEncodingManager, SliceInput input)
         {
-            TupleInfo tupleInfo = TupleInfoSerde.readTupleInfo(input);
+            Type type = TypeSerde.readType(input);
             BlockEncoding valueBlockEncoding = blockEncodingManager.readBlockEncoding(input);
-            return new SnappyBlockEncoding(tupleInfo, valueBlockEncoding);
+            return new SnappyBlockEncoding(type, valueBlockEncoding);
         }
 
         @Override
         public void writeEncoding(BlockEncodingManager blockEncodingManager, SliceOutput output, SnappyBlockEncoding blockEncoding)
         {
-            TupleInfoSerde.writeTupleInfo(output, blockEncoding.tupleInfo);
+            TypeSerde.writeInfo(output, blockEncoding.type);
             blockEncodingManager.writeBlockEncoding(output, blockEncoding.uncompressedBlockEncoding);
         }
     }

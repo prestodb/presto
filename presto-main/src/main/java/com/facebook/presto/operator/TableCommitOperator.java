@@ -14,14 +14,14 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.Collection;
 import java.util.List;
 
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
+import static com.facebook.presto.type.Types.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -29,7 +29,7 @@ import static com.google.common.base.Preconditions.checkState;
 public class TableCommitOperator
         implements Operator
 {
-    public static final List<TupleInfo> TUPLE_INFOS = ImmutableList.of(SINGLE_LONG);
+    public static final List<Type> TYPES = ImmutableList.of(BIGINT);
 
     public static class TableCommitOperatorFactory
             implements OperatorFactory
@@ -45,9 +45,9 @@ public class TableCommitOperator
         }
 
         @Override
-        public List<TupleInfo> getTupleInfos()
+        public List<Type> getTypes()
         {
-            return TUPLE_INFOS;
+            return TYPES;
         }
 
         @Override
@@ -90,9 +90,9 @@ public class TableCommitOperator
     }
 
     @Override
-    public List<TupleInfo> getTupleInfos()
+    public List<Type> getTypes()
     {
-        return TUPLE_INFOS;
+        return TYPES;
     }
 
     @Override
@@ -147,7 +147,7 @@ public class TableCommitOperator
 
         tableCommitter.commitTable(fragmentBuilder.build());
 
-        PageBuilder page = new PageBuilder(getTupleInfos());
+        PageBuilder page = new PageBuilder(getTypes());
         page.getBlockBuilder(0).append(rowCount);
         return page.build();
     }

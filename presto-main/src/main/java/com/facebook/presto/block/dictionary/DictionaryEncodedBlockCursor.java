@@ -17,7 +17,8 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.RandomAccessBlock;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
+import com.facebook.presto.type.Types;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 
@@ -35,13 +36,13 @@ public class DictionaryEncodedBlockCursor
     {
         this.dictionary = checkNotNull(dictionary, "dictionary is null");
         this.idCursor = checkNotNull(idCursor, "idCursor is null");
-        checkArgument(idCursor.getTupleInfo().equals(TupleInfo.SINGLE_LONG), "id cursor must contain tuples with a single long value");
+        checkArgument(idCursor.getType().equals(Types.BIGINT), "Expected bigint cursor but got %s cursor", idCursor.getType());
     }
 
     @Override
-    public TupleInfo getTupleInfo()
+    public Type getType()
     {
-        return dictionary.getTupleInfo();
+        return dictionary.getType();
     }
 
     @Override
@@ -141,9 +142,9 @@ public class DictionaryEncodedBlockCursor
     }
 
     @Override
-    public void appendTupleTo(BlockBuilder blockBuilder)
+    public void appendTo(BlockBuilder blockBuilder)
     {
-        dictionary.appendTupleTo(getDictionaryKey(), blockBuilder);
+        dictionary.appendTo(getDictionaryKey(), blockBuilder);
     }
 
     public int getDictionaryKey()

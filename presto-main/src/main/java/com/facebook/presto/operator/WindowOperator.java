@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.operator.PagesIndex.MultiSliceFieldOrderedTupleComparator;
+import com.facebook.presto.operator.PagesIndex.RowComparator;
 import com.facebook.presto.operator.window.WindowFunction;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ObjectArrays;
 import com.google.common.primitives.Ints;
@@ -36,19 +36,19 @@ public class WindowOperator
             implements OperatorFactory
     {
         private final int operatorId;
-        private final List<TupleInfo> sourceTupleInfos;
+        private final List<Type> sourceTypes;
         private final int[] outputChannels;
         private final List<WindowFunction> windowFunctions;
         private final int[] partitionChannels;
         private final int[] sortChannels;
         private final SortOrder[] sortOrder;
         private final int expectedPositions;
-        private final List<TupleInfo> tupleInfos;
+        private final List<Type> types;
         private boolean closed;
 
         public WindowOperatorFactory(
                 int operatorId,
-                List<TupleInfo> sourceTupleInfos,
+                List<Type> sourceTypes,
                 int[] outputChannels,
                 List<WindowFunction> windowFunctions,
                 int[] partitionChannels,
@@ -57,7 +57,7 @@ public class WindowOperator
                 int expectedPositions)
         {
             this.operatorId = operatorId;
-            this.sourceTupleInfos = sourceTupleInfos;
+            this.sourceTypes = sourceTypes;
             this.outputChannels = outputChannels;
             this.windowFunctions = windowFunctions;
             this.partitionChannels = partitionChannels;
@@ -65,13 +65,13 @@ public class WindowOperator
             this.sortOrder = sortOrder;
             this.expectedPositions = expectedPositions;
 
-            this.tupleInfos = toTupleInfos(sourceTupleInfos, outputChannels, windowFunctions);
+            this.types = toTypes(sourceTypes, outputChannels, windowFunctions);
         }
 
         @Override
-        public List<TupleInfo> getTupleInfos()
+        public List<Type> getTypes()
         {
-            return tupleInfos;
+            return types;
         }
 
         @Override
@@ -82,7 +82,7 @@ public class WindowOperator
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, WindowOperator.class.getSimpleName());
             return new WindowOperator(
                     operatorContext,
-                    sourceTupleInfos,
+                    sourceTypes,
                     outputChannels,
                     windowFunctions,
                     partitionChannels,
@@ -111,7 +111,7 @@ public class WindowOperator
     private final int[] partitionChannels;
     private final int[] sortChannels;
     private final SortOrder[] sortOrder;
-    private final List<TupleInfo> tupleInfos;
+    private final List<Type> types;
 
     private final PagesIndex pageIndex;
 
@@ -130,7 +130,7 @@ public class WindowOperator
 
     public WindowOperator(
             OperatorContext operatorContext,
-            List<TupleInfo> sourceTupleInfos,
+            List<Type> sourceTypes,
             int[] outputChannels,
             List<WindowFunction> windowFunctions,
             int[] partitionChannels,
@@ -145,10 +145,10 @@ public class WindowOperator
         this.sortChannels = checkNotNull(sortChannels, "sortChannels is null");
         this.sortOrder = checkNotNull(sortOrder, "sortOrder is null").clone();
 
-        this.tupleInfos = toTupleInfos(sourceTupleInfos, outputChannels, windowFunctions);
+        this.types = toTypes(sourceTypes, outputChannels, windowFunctions);
 
-        this.pageIndex = new PagesIndex(sourceTupleInfos, expectedPositions, operatorContext);
-        this.pageBuilder = new PageBuilder(this.tupleInfos);
+        this.pageIndex = new PagesIndex(sourceTypes, expectedPositions, operatorContext);
+        this.pageBuilder = new PageBuilder(this.types);
     }
 
     @Override
@@ -158,9 +158,9 @@ public class WindowOperator
     }
 
     @Override
-    public List<TupleInfo> getTupleInfos()
+    public List<Type> getTypes()
     {
-        return tupleInfos;
+        return types;
     }
 
     @Override
@@ -169,7 +169,7 @@ public class WindowOperator
         if (state == State.NEEDS_INPUT) {
             state = State.HAS_OUTPUT;
 
-            // we partition by ordering the tuples so partitions are sequential tuples
+            // we partition by ordering the values so partitions are sequential values
             SortOrder[] partitionOrder = new SortOrder[partitionChannels.length];
             Arrays.fill(partitionOrder, ASC_NULLS_LAST);
 
@@ -181,10 +181,10 @@ public class WindowOperator
             pageIndex.sort(orderChannels, ordering);
 
             // create partition comparator
-            partitionComparator = new MultiSliceFieldOrderedTupleComparator(pageIndex, partitionChannels, partitionOrder);
+            partitionComparator = new RowComparator(pageIndex, partitionChannels, partitionOrder);
 
             // create order comparator
-            orderComparator = new MultiSliceFieldOrderedTupleComparator(pageIndex, sortChannels, sortOrder);
+            orderComparator = new RowComparator(pageIndex, sortChannels, sortOrder);
         }
     }
 
@@ -249,7 +249,7 @@ public class WindowOperator
             // copy output channels
             int channel = 0;
             while (channel < outputChannels.length) {
-                pageIndex.appendTupleTo(outputChannels[channel], currentPosition, pageBuilder.getBlockBuilder(channel));
+                pageIndex.appendTo(outputChannels[channel], currentPosition, pageBuilder.getBlockBuilder(channel));
                 channel++;
             }
 
@@ -284,15 +284,15 @@ public class WindowOperator
         return page;
     }
 
-    private static List<TupleInfo> toTupleInfos(List<TupleInfo> sourceTupleInfos, int[] outputChannels, List<WindowFunction> windowFunctions)
+    private static List<Type> toTypes(List<Type> sourceTypes, int[] outputChannels, List<WindowFunction> windowFunctions)
     {
-        ImmutableList.Builder<TupleInfo> tupleInfosBuilder = ImmutableList.builder();
+        ImmutableList.Builder<Type> types = ImmutableList.builder();
         for (int channel : outputChannels) {
-            tupleInfosBuilder.add(sourceTupleInfos.get(channel));
+            types.add(sourceTypes.get(channel));
         }
         for (WindowFunction function : windowFunctions) {
-            tupleInfosBuilder.add(function.getTupleInfo());
+            types.add(function.getType());
         }
-        return tupleInfosBuilder.build();
+        return types.build();
     }
 }

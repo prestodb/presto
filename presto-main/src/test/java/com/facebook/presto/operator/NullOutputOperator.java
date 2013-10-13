@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -28,9 +28,9 @@ public class NullOutputOperator
             implements OutputFactory
     {
         @Override
-        public OperatorFactory createOutputOperator(int operatorId, List<TupleInfo> sourceTupleInfo)
+        public OperatorFactory createOutputOperator(int operatorId, List<Type> sourceType)
         {
-            return new NullOutputOperatorFactory(operatorId, sourceTupleInfo);
+            return new NullOutputOperatorFactory(operatorId, sourceType);
         }
     }
 
@@ -38,25 +38,25 @@ public class NullOutputOperator
             implements OperatorFactory
     {
         private final int operatorId;
-        private final List<TupleInfo> tupleInfos;
+        private final List<Type> types;
 
-        public NullOutputOperatorFactory(int operatorId, List<TupleInfo> tupleInfos)
+        public NullOutputOperatorFactory(int operatorId, List<Type> types)
         {
             this.operatorId = operatorId;
-            this.tupleInfos = tupleInfos;
+            this.types = types;
         }
 
         @Override
-        public List<TupleInfo> getTupleInfos()
+        public List<Type> getTypes()
         {
-            return tupleInfos;
+            return types;
         }
 
         @Override
         public Operator createOperator(DriverContext driverContext)
         {
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, NullOutputOperator.class.getSimpleName());
-            return new NullOutputOperator(operatorContext, tupleInfos);
+            return new NullOutputOperator(operatorContext, types);
         }
 
         @Override
@@ -66,13 +66,13 @@ public class NullOutputOperator
     }
 
     private final OperatorContext operatorContext;
-    private final List<TupleInfo> tupleInfos;
+    private final List<Type> types;
     private boolean finished;
 
-    public NullOutputOperator(OperatorContext operatorContext, List<TupleInfo> tupleInfos)
+    public NullOutputOperator(OperatorContext operatorContext, List<Type> types)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.tupleInfos = ImmutableList.copyOf(checkNotNull(tupleInfos, "tupleInfos is null"));
+        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
     }
 
     @Override
@@ -82,9 +82,9 @@ public class NullOutputOperator
     }
 
     @Override
-    public List<TupleInfo> getTupleInfos()
+    public List<Type> getTypes()
     {
-        return tupleInfos;
+        return types;
     }
 
     @Override

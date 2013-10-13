@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Types;
 import org.skife.jdbi.v2.StatementContext;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
 
@@ -34,7 +34,7 @@ public class TableColumnMapper
         return new TableColumn(table,
                 r.getString("column_name"),
                 r.getInt("ordinal_position"),
-                TupleInfo.Type.fromName(r.getString("data_type")),
+                Types.fromName(r.getString("data_type")),
                 r.getLong("column_id"));
     }
 }

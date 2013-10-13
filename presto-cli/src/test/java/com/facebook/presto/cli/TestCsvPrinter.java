@@ -19,8 +19,8 @@ import org.testng.annotations.Test;
 import java.io.StringWriter;
 import java.util.List;
 
-import static com.facebook.presto.cli.TestAlignedTuplePrinter.row;
-import static com.facebook.presto.cli.TestAlignedTuplePrinter.rows;
+import static com.facebook.presto.cli.TestAlignedTablePrinter.row;
+import static com.facebook.presto.cli.TestAlignedTablePrinter.rows;
 import static org.testng.Assert.assertEquals;
 
 public class TestCsvPrinter

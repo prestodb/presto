@@ -17,7 +17,8 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.operator.GroupByIdBlock;
-import com.facebook.presto.tuple.TupleInfo.Type;
+import com.facebook.presto.type.Type;
+import com.facebook.presto.type.Types;
 import com.facebook.presto.util.array.DoubleBigArray;
 import com.facebook.presto.util.array.LongBigArray;
 import com.google.common.base.Optional;
@@ -25,9 +26,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import static com.facebook.presto.operator.aggregation.ApproximateUtils.formatApproximateResult;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
-import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
-import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
+import static com.facebook.presto.type.Types.VARCHAR;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
@@ -45,12 +44,12 @@ public class ApproximateAverageAggregation
     public ApproximateAverageAggregation(Type parameterType)
     {
         // Intermediate type should be a fixed width structure
-        super(SINGLE_VARBINARY, SINGLE_VARBINARY, parameterType);
+        super(VARCHAR, VARCHAR, parameterType);
 
-        if (parameterType == FIXED_INT_64) {
+        if (parameterType == Types.BIGINT) {
             this.inputIsLong = true;
         }
-        else if (parameterType == DOUBLE) {
+        else if (parameterType == Types.DOUBLE) {
             this.inputIsLong = false;
         }
         else {
@@ -77,7 +76,7 @@ public class ApproximateAverageAggregation
 
         private ApproximateAverageGroupedAccumulator(int valueChannel, boolean inputIsLong, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence)
         {
-            super(valueChannel, SINGLE_VARBINARY, SINGLE_VARBINARY, maskChannel, sampleWeightChannel);
+            super(valueChannel, VARCHAR, VARCHAR, maskChannel, sampleWeightChannel);
 
             this.inputIsLong = inputIsLong;
             this.confidence = confidence;
@@ -235,7 +234,7 @@ public class ApproximateAverageAggregation
 
         private ApproximateAverageAccumulator(int valueChannel, boolean inputIsLong, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence)
         {
-            super(valueChannel, SINGLE_VARBINARY, SINGLE_VARBINARY, maskChannel, sampleWeightChannel);
+            super(valueChannel, VARCHAR, VARCHAR, maskChannel, sampleWeightChannel);
 
             this.inputIsLong = inputIsLong;
             this.confidence = confidence;

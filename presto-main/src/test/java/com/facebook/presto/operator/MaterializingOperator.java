@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import com.facebook.presto.util.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -30,17 +30,17 @@ public class MaterializingOperator
             implements OperatorFactory
     {
         private final int operatorId;
-        private final List<TupleInfo> sourceTupleInfos;
+        private final List<Type> sourceTypes;
         private boolean closed;
 
-        public MaterializingOperatorFactory(int operatorId, List<TupleInfo> sourceTupleInfos)
+        public MaterializingOperatorFactory(int operatorId, List<Type> sourceTypes)
         {
             this.operatorId = operatorId;
-            this.sourceTupleInfos = sourceTupleInfos;
+            this.sourceTypes = sourceTypes;
         }
 
         @Override
-        public List<TupleInfo> getTupleInfos()
+        public List<Type> getTypes()
         {
             return ImmutableList.of();
         }
@@ -50,7 +50,7 @@ public class MaterializingOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, MaterializingOperator.class.getSimpleName());
-            return new MaterializingOperator(operatorContext, sourceTupleInfos);
+            return new MaterializingOperator(operatorContext, sourceTypes);
         }
 
         @Override
@@ -64,10 +64,10 @@ public class MaterializingOperator
     private final MaterializedResult.Builder resultBuilder;
     private boolean finished;
 
-    public MaterializingOperator(OperatorContext operatorContext, List<TupleInfo> sourceTupleInfos)
+    public MaterializingOperator(OperatorContext operatorContext, List<Type> sourceTypes)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        resultBuilder = MaterializedResult.resultBuilder(sourceTupleInfos);
+        resultBuilder = MaterializedResult.resultBuilder(sourceTypes);
     }
 
     public MaterializedResult getMaterializedResult()
@@ -82,7 +82,7 @@ public class MaterializingOperator
     }
 
     @Override
-    public List<TupleInfo> getTupleInfos()
+    public List<Type> getTypes()
     {
         return ImmutableList.of();
     }

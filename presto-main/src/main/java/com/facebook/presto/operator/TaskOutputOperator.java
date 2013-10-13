@@ -14,7 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.SharedBuffer;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -37,7 +37,7 @@ public class TaskOutputOperator
         }
 
         @Override
-        public OperatorFactory createOutputOperator(int operatorId, List<TupleInfo> sourceTupleInfo)
+        public OperatorFactory createOutputOperator(int operatorId, List<Type> sourceType)
         {
             return new TaskOutputOperatorFactory(operatorId, sharedBuffer);
         }
@@ -56,7 +56,7 @@ public class TaskOutputOperator
         }
 
         @Override
-        public List<TupleInfo> getTupleInfos()
+        public List<Type> getTypes()
         {
             return ImmutableList.of();
         }
@@ -92,7 +92,7 @@ public class TaskOutputOperator
     }
 
     @Override
-    public List<TupleInfo> getTupleInfos()
+    public List<Type> getTypes()
     {
         return ImmutableList.of();
     }

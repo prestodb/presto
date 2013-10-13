@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.block;
 
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
@@ -42,19 +42,15 @@ public interface BlockBuilder
 
     BlockBuilder appendObject(Object value);
 
-    BlockBuilder appendTuple(Slice slice, int offset, int length);
-
     RandomAccessBlock build();
 
     int getPositionCount();
 
-    TupleInfo getTupleInfo();
+    Type getType();
 
     boolean isEmpty();
 
     boolean isFull();
 
     int size();
-
-    int writableBytes();
 }

@@ -17,8 +17,7 @@ import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.sql.tree.Input;
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleInfo.Type;
+import com.facebook.presto.type.Type;
 import com.google.common.base.Preconditions;
 
 public final class ProjectionFunctions
@@ -40,7 +39,6 @@ public final class ProjectionFunctions
     {
         private final Type columnType;
         private final int channelIndex;
-        private final TupleInfo info;
 
         public SingleColumnProjection(Type columnType, int channelIndex)
         {
@@ -49,13 +47,12 @@ public final class ProjectionFunctions
 
             this.columnType = columnType;
             this.channelIndex = channelIndex;
-            this.info = new TupleInfo(columnType);
         }
 
         @Override
-        public TupleInfo getTupleInfo()
+        public Type getType()
         {
-            return info;
+            return columnType;
         }
 
         @Override
@@ -65,7 +62,7 @@ public final class ProjectionFunctions
                 output.appendNull();
             }
             else {
-                cursors[channelIndex].appendTupleTo(output);
+                cursors[channelIndex].appendTo(output);
             }
         }
 
@@ -77,14 +74,14 @@ public final class ProjectionFunctions
                 output.appendNull();
             }
             else {
-                switch (columnType) {
+                switch (columnType.toColumnType()) {
                     case BOOLEAN:
                         output.append(cursor.getBoolean(channelIndex));
                         break;
-                    case FIXED_INT_64:
+                    case LONG:
                         output.append(cursor.getLong(channelIndex));
                         break;
-                    case VARIABLE_BINARY:
+                    case STRING:
                         output.append(cursor.getString(channelIndex));
                         break;
                     case DOUBLE:

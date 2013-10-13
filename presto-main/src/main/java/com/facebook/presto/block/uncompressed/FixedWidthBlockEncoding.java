@@ -16,13 +16,15 @@ package com.facebook.presto.block.uncompressed;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockEncoding;
 import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.serde.TupleInfoSerde;
-import com.facebook.presto.tuple.FixedWidthTypeInfo;
-import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.base.Preconditions;
+import com.facebook.presto.serde.TypeSerde;
+import com.facebook.presto.type.FixedWidthType;
+import com.facebook.presto.type.Type;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class FixedWidthBlockEncoding
         implements BlockEncoding
@@ -30,12 +32,11 @@ public class FixedWidthBlockEncoding
     public static final BlockEncodingFactory<FixedWidthBlockEncoding> FACTORY = new FixedWidthBlockEncodingFactory();
     private static final String NAME = "FIXED_WIDTH";
 
-    private final TupleInfo tupleInfo;
+    private final FixedWidthType type;
 
-    public FixedWidthBlockEncoding(TupleInfo tupleInfo)
+    public FixedWidthBlockEncoding(Type type)
     {
-        Preconditions.checkNotNull(tupleInfo, "tupleInfo is null");
-        this.tupleInfo = tupleInfo;
+        this.type = (FixedWidthType) checkNotNull(type, "type is null");
     }
 
     @Override
@@ -45,16 +46,16 @@ public class FixedWidthBlockEncoding
     }
 
     @Override
-    public TupleInfo getTupleInfo()
+    public Type getType()
     {
-        return tupleInfo;
+        return type;
     }
 
     @Override
     public void writeBlock(SliceOutput sliceOutput, Block block)
     {
         AbstractFixedWidthBlock fixedWidthBlock = (AbstractFixedWidthBlock) block;
-        Preconditions.checkArgument(block.getTupleInfo().equals(tupleInfo), "Invalid tuple info");
+        checkArgument(block.getType().equals(type), "Invalid block");
         writeUncompressedBlock(sliceOutput,
                 fixedWidthBlock.getPositionCount(),
                 fixedWidthBlock.getRawSlice());
@@ -67,14 +68,14 @@ public class FixedWidthBlockEncoding
         int positionCount = sliceInput.readInt();
 
         Slice slice = sliceInput.readSlice(blockSize);
-        return new FixedWidthBlock(new FixedWidthTypeInfo(tupleInfo.getType()), positionCount, slice);
+        return new FixedWidthBlock(type, positionCount, slice);
     }
 
-    private static void writeUncompressedBlock(SliceOutput destination, int tupleCount, Slice slice)
+    private static void writeUncompressedBlock(SliceOutput destination, int positionCount, Slice slice)
     {
         destination
                 .appendInt(slice.length())
-                .appendInt(tupleCount)
+                .appendInt(positionCount)
                 .writeBytes(slice);
     }
 
@@ -90,14 +91,14 @@ public class FixedWidthBlockEncoding
         @Override
         public FixedWidthBlockEncoding readEncoding(BlockEncodingManager blockEncodingManager, SliceInput input)
         {
-            TupleInfo tupleInfo = TupleInfoSerde.readTupleInfo(input);
-            return new FixedWidthBlockEncoding(tupleInfo);
+            Type type = TypeSerde.readType(input);
+            return new FixedWidthBlockEncoding(type);
         }
 
         @Override
         public void writeEncoding(BlockEncodingManager blockEncodingManager, SliceOutput output, FixedWidthBlockEncoding blockEncoding)
         {
-            TupleInfoSerde.writeTupleInfo(output, blockEncoding.tupleInfo);
+            TypeSerde.writeInfo(output, blockEncoding.type);
         }
     }
 }

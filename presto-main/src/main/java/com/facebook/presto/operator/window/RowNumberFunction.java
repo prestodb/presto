@@ -14,7 +14,9 @@
 package com.facebook.presto.operator.window;
 
 import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
+
+import static com.facebook.presto.type.Types.BIGINT;
 
 public class RowNumberFunction
         implements WindowFunction
@@ -22,9 +24,9 @@ public class RowNumberFunction
     private long rowNumber;
 
     @Override
-    public TupleInfo getTupleInfo()
+    public Type getType()
     {
-        return TupleInfo.SINGLE_LONG;
+        return BIGINT;
     }
 
     @Override

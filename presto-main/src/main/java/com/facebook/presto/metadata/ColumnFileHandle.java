@@ -82,7 +82,7 @@ public class ColumnFileHandle
         checkState(!committed.get(), "already committed: %s", shardUuid);
 
         Block[] blocks = page.getBlocks();
-        int[] tupleCount = new int[blocks.length];
+        int[] positionCount = new int[blocks.length];
 
         checkState(blocks.length == writers.size(), "Block count does not match writer count (%s vs %s)!", blocks.length, writers.size());
 
@@ -90,14 +90,14 @@ public class ColumnFileHandle
         for (BlocksFileWriter writer : writers.values()) {
             Block block = blocks[i];
             writer.append(block);
-            tupleCount[i] = block.getPositionCount();
+            positionCount[i] = block.getPositionCount();
             if (i > 0) {
-                checkState(tupleCount[i] == tupleCount[i - 1], "different tuple count (%s vs. %s) for block!", tupleCount[i], tupleCount[i - 1]);
+                checkState(positionCount[i] == positionCount[i - 1], "different position count (%s vs. %s) for block!", positionCount[i], positionCount[i - 1]);
             }
             i++;
         }
 
-        return tupleCount[0]; // they are all the same. And [0] is guaranteed to exist...
+        return positionCount[0]; // they are all the same. And [0] is guaranteed to exist...
     }
 
     public void commit()

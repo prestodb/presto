@@ -16,8 +16,8 @@ package com.facebook.presto.operator;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.RandomAccessBlock;
-import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
+import com.facebook.presto.type.Type;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import it.unimi.dsi.fastutil.Arrays;
@@ -40,13 +40,13 @@ import static io.airlift.slice.SizeOf.sizeOf;
  * <ul>
  * <li>Sort via the {@link #sort} method</li>
  * <li>Hash build via the {@link #equals} and {@link #hashCode} methods</li>
- * <li>Positional output via the {@link #appendTupleTo} method</li>
+ * <li>Positional output via the {@link #appendTo} method</li>
  * </ul>
  */
 public class PagesIndex
         implements Swapper
 {
-    private final List<TupleInfo> tupleInfos;
+    private final List<Type> types;
     private final OperatorContext operatorContext;
     private final LongArrayList valueAddresses;
     private final ObjectArrayList<RandomAccessBlock>[] channels;
@@ -55,21 +55,21 @@ public class PagesIndex
     private long pagesMemorySize;
     private long estimatedSize;
 
-    public PagesIndex(List<TupleInfo> tupleInfos, int expectedPositions, OperatorContext operatorContext)
+    public PagesIndex(List<Type> types, int expectedPositions, OperatorContext operatorContext)
     {
-        this.tupleInfos = ImmutableList.copyOf(checkNotNull(tupleInfos, "tupleInfos is null"));
+        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         this.valueAddresses = new LongArrayList(expectedPositions);
 
-        channels = (ObjectArrayList<RandomAccessBlock>[]) new ObjectArrayList[tupleInfos.size()];
+        channels = (ObjectArrayList<RandomAccessBlock>[]) new ObjectArrayList[types.size()];
         for (int i = 0; i < channels.length; i++) {
             channels[i] = ObjectArrayList.wrap(new RandomAccessBlock[1024], 0);
         }
     }
 
-    public List<TupleInfo> getTupleInfos()
+    public List<Type> getTypes()
     {
-        return tupleInfos;
+        return types;
     }
 
     public int getPositionCount()
@@ -109,9 +109,9 @@ public class PagesIndex
         return pagesMemorySize + channelsArraySize + addressesArraySize;
     }
 
-    public TupleInfo getTupleInfo(int channel)
+    public Type getType(int channel)
     {
-        return tupleInfos.get(channel);
+        return types.get(channel);
     }
 
     @Override
@@ -134,7 +134,7 @@ public class PagesIndex
             for (int i = 0; i < outputChannels.length; i++) {
                 int outputChannel = outputChannels[i];
                 RandomAccessBlock block = this.channels[outputChannel].get(blockIndex);
-                block.appendTupleTo(blockPosition, pageBuilder.getBlockBuilder(i));
+                block.appendTo(blockPosition, pageBuilder.getBlockBuilder(i));
             }
 
             position++;
@@ -143,27 +143,13 @@ public class PagesIndex
         return position;
     }
 
-    public void appendTupleTo(int[] outputChannels, int position, PageBuilder pageBuilder)
-    {
-        // get block and offset for the position
-        long pageAddress = valueAddresses.getLong(position);
-        int blockIndex = decodeSliceIndex(pageAddress);
-        int blockPosition = decodePosition(pageAddress);
-
-        for (int i = 0; i < outputChannels.length; i++) {
-            int outputChannel = outputChannels[i];
-            RandomAccessBlock block = this.channels[outputChannel].get(blockIndex);
-            block.appendTupleTo(blockPosition, pageBuilder.getBlockBuilder(i));
-        }
-    }
-
-    public void appendTupleTo(int channel, int position, BlockBuilder output)
+    public void appendTo(int channel, int position, BlockBuilder output)
     {
         long pageAddress = valueAddresses.getLong(position);
 
         RandomAccessBlock block = channels[channel].get(decodeSliceIndex(pageAddress));
         int blockPosition = decodePosition(pageAddress);
-        block.appendTupleTo(blockPosition, output);
+        block.appendTo(blockPosition, output);
     }
 
     public boolean equals(int[] channels, int leftPosition, int rightPosition)
@@ -251,18 +237,18 @@ public class PagesIndex
 
     public void sort(int[] sortChannels, SortOrder[] sortOrders)
     {
-        MultiSliceFieldOrderedTupleComparator comparator = new MultiSliceFieldOrderedTupleComparator(this, sortChannels, sortOrders);
+        RowComparator comparator = new RowComparator(this, sortChannels, sortOrders);
         Arrays.quickSort(0, positionCount, comparator, this);
     }
 
-    public static class MultiSliceFieldOrderedTupleComparator
+    public static class RowComparator
             extends AbstractIntComparator
     {
         private final PagesIndex pagesIndex;
         private final int[] sortChannels;
         private final SortOrder[] sortOrders;
 
-        public MultiSliceFieldOrderedTupleComparator(PagesIndex pagesIndex, int[] sortChannels, SortOrder[] sortOrders)
+        public RowComparator(PagesIndex pagesIndex, int[] sortChannels, SortOrder[] sortOrders)
         {
             this.pagesIndex = pagesIndex;
             this.sortChannels = sortChannels;

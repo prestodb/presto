@@ -139,7 +139,7 @@ public class BlocksFileWriter
             checkNotNull(block, "block is null");
 
             if (dictionaryBuilder == null) {
-                dictionaryBuilder = new DictionaryBuilder(block.getTupleInfo().getType());
+                dictionaryBuilder = new DictionaryBuilder(block.getType());
             }
 
             BlockCursor cursor = block.cursor();

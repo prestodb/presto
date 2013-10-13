@@ -18,7 +18,7 @@ import com.facebook.presto.block.BlockBuilder;
 
 import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static com.facebook.presto.operator.aggregation.LongSumAggregation.LONG_SUM;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
+import static com.facebook.presto.type.Types.BIGINT;
 
 public class TestLongSumAggregation
         extends AbstractTestAggregationFunction
@@ -26,7 +26,7 @@ public class TestLongSumAggregation
     @Override
     public Block getSequenceBlock(int start, int length)
     {
-        BlockBuilder blockBuilder = createBlockBuilder(SINGLE_LONG);
+        BlockBuilder blockBuilder = createBlockBuilder(BIGINT);
         for (int i = start; i < start + length; i++) {
             blockBuilder.append(i);
         }

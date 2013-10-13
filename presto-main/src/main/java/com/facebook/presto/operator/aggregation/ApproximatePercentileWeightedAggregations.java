@@ -18,15 +18,15 @@ import com.facebook.presto.operator.aggregation.ApproximatePercentileWeightedAgg
 import com.facebook.presto.operator.aggregation.ApproximatePercentileWeightedAggregation.DigestAndPercentile;
 import com.facebook.presto.operator.aggregation.SimpleAggregationFunction.SimpleAccumulator;
 import com.facebook.presto.operator.aggregation.SimpleAggregationFunction.SimpleGroupedAccumulator;
-import com.facebook.presto.tuple.TupleInfo.Type;
+import com.facebook.presto.type.Type;
 import com.google.common.base.Throwables;
 
-import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
-import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
+import static com.facebook.presto.type.Types.BIGINT;
+import static com.facebook.presto.type.Types.DOUBLE;
 
 public final class ApproximatePercentileWeightedAggregations
 {
-    public static final AggregationFunction LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION = createIsolatedAggregation(FIXED_INT_64);
+    public static final AggregationFunction LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION = createIsolatedAggregation(BIGINT);
     public static final AggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION = createIsolatedAggregation(DOUBLE);
 
     private ApproximatePercentileWeightedAggregations() {}

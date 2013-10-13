@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -25,7 +25,7 @@ public interface Operator
 
     OperatorContext getOperatorContext();
 
-    List<TupleInfo> getTupleInfos();
+    List<Type> getTypes();
 
     void finish();
 

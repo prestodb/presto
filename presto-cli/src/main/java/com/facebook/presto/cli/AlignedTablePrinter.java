@@ -28,7 +28,7 @@ import static com.google.common.base.Strings.repeat;
 import static java.lang.Math.max;
 import static java.lang.String.format;
 
-public class AlignedTuplePrinter
+public class AlignedTablePrinter
         implements OutputPrinter
 {
     private static final Splitter LINE_SPLITTER = Splitter.on('\n');
@@ -39,7 +39,7 @@ public class AlignedTuplePrinter
     private boolean headerOutput;
     private long rowCount;
 
-    public AlignedTuplePrinter(List<String> fieldNames, Writer writer)
+    public AlignedTablePrinter(List<String> fieldNames, Writer writer)
     {
         this.fieldNames = ImmutableList.copyOf(checkNotNull(fieldNames, "fieldNames is null"));
         this.writer = checkNotNull(writer, "writer is null");

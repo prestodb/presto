@@ -23,7 +23,7 @@ import io.airlift.slice.Slices;
 
 import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static com.facebook.presto.operator.aggregation.VarBinaryMaxAggregation.VAR_BINARY_MAX;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
+import static com.facebook.presto.type.Types.VARCHAR;
 
 public class TestVarBinaryMaxAggregation
         extends AbstractTestAggregationFunction
@@ -31,7 +31,7 @@ public class TestVarBinaryMaxAggregation
     @Override
     public Block getSequenceBlock(int start, int length)
     {
-        BlockBuilder blockBuilder = createBlockBuilder(SINGLE_VARBINARY);
+        BlockBuilder blockBuilder = createBlockBuilder(VARCHAR);
         for (int i = 0; i < length; i++) {
             blockBuilder.append(Slices.wrappedBuffer(Ints.toByteArray(i)));
         }

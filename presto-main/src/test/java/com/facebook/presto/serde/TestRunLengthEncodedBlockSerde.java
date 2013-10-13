@@ -25,7 +25,7 @@ import io.airlift.slice.SliceInput;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
+import static com.facebook.presto.type.Types.VARCHAR;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -36,7 +36,7 @@ public class TestRunLengthEncodedBlockSerde
     @Test
     public void testRoundTrip()
     {
-        RandomAccessBlock value = createBlockBuilder(SINGLE_VARBINARY)
+        RandomAccessBlock value = createBlockBuilder(VARCHAR)
                 .append("alice")
                 .build()
                 .toRandomAccessBlock();
@@ -44,7 +44,7 @@ public class TestRunLengthEncodedBlockSerde
         RunLengthEncodedBlock expectedBlock = new RunLengthEncodedBlock(value, 11);
 
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
-        RunLengthBlockEncoding blockEncoding = new RunLengthBlockEncoding(new VariableWidthBlockEncoding(SINGLE_VARBINARY));
+        RunLengthBlockEncoding blockEncoding = new RunLengthBlockEncoding(new VariableWidthBlockEncoding(VARCHAR));
         blockEncoding.writeBlock(sliceOutput, expectedBlock);
         RunLengthEncodedBlock actualBlock = blockEncoding.readBlock(sliceOutput.slice().getInput());
         assertTrue(actualBlock.equals(0, expectedBlock, 0));
@@ -54,7 +54,7 @@ public class TestRunLengthEncodedBlockSerde
     @Test
     public void testCreateBlockWriter()
     {
-        RandomAccessBlock expectedBlock = createBlockBuilder(SINGLE_VARBINARY)
+        RandomAccessBlock expectedBlock = createBlockBuilder(VARCHAR)
                 .append("alice")
                 .append("alice")
                 .append("bob")

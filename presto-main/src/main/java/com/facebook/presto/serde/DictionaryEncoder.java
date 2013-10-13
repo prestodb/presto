@@ -18,9 +18,10 @@ import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockEncoding;
 import com.facebook.presto.block.dictionary.DictionaryBlockEncoding;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 
 import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
+import static com.facebook.presto.type.Types.BIGINT;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -28,7 +29,7 @@ public class DictionaryEncoder
         implements Encoder
 {
     private final Encoder idWriter;
-    private TupleInfo tupleInfo;
+    private Type type;
     private DictionaryBuilder dictionaryBuilder;
     private boolean finished;
 
@@ -40,16 +41,16 @@ public class DictionaryEncoder
     @Override
     public Encoder append(Block block)
     {
-        checkNotNull(block, "tuples is null");
+        checkNotNull(block, "block is null");
         checkState(!finished, "already finished");
 
-        if (tupleInfo == null) {
-            tupleInfo = block.getTupleInfo();
-            dictionaryBuilder = new DictionaryBuilder(tupleInfo.getType());
+        if (type == null) {
+            type = block.getType();
+            dictionaryBuilder = new DictionaryBuilder(type);
         }
 
         BlockCursor cursor = block.cursor();
-        BlockBuilder idBlockBuilder = createBlockBuilder(TupleInfo.SINGLE_LONG);
+        BlockBuilder idBlockBuilder = createBlockBuilder(BIGINT);
         while (cursor.advanceNextPosition()) {
             int key = dictionaryBuilder.putIfAbsent(cursor);
             idBlockBuilder.append(key);
@@ -62,7 +63,7 @@ public class DictionaryEncoder
     @Override
     public BlockEncoding finish()
     {
-        checkState(tupleInfo != null, "nothing appended");
+        checkState(type != null, "nothing appended");
         checkState(!finished, "already finished");
         finished = true;
 

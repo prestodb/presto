@@ -17,18 +17,18 @@ import com.facebook.presto.operator.aggregation.SimpleAggregationFunction.Simple
 import com.facebook.presto.operator.aggregation.SimpleAggregationFunction.SimpleGroupedAccumulator;
 import com.facebook.presto.operator.aggregation.VarianceAggregation.VarianceAccumulator;
 import com.facebook.presto.operator.aggregation.VarianceAggregation.VarianceGroupedAccumulator;
-import com.facebook.presto.tuple.TupleInfo.Type;
+import com.facebook.presto.type.Type;
 import com.google.common.base.Throwables;
 
-import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
-import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
+import static com.facebook.presto.type.Types.BIGINT;
+import static com.facebook.presto.type.Types.DOUBLE;
 
 public final class VarianceAggregations
 {
-    public static final AggregationFunction LONG_VARIANCE_INSTANCE = createIsolatedAggregation(FIXED_INT_64, false, false);
-    public static final AggregationFunction LONG_VARIANCE_POP_INSTANCE = createIsolatedAggregation(FIXED_INT_64, true, false);
-    public static final AggregationFunction LONG_STDDEV_INSTANCE = createIsolatedAggregation(FIXED_INT_64, false, true);
-    public static final AggregationFunction LONG_STDDEV_POP_INSTANCE = createIsolatedAggregation(FIXED_INT_64, true, true);
+    public static final AggregationFunction LONG_VARIANCE_INSTANCE = createIsolatedAggregation(BIGINT, false, false);
+    public static final AggregationFunction LONG_VARIANCE_POP_INSTANCE = createIsolatedAggregation(BIGINT, true, false);
+    public static final AggregationFunction LONG_STDDEV_INSTANCE = createIsolatedAggregation(BIGINT, false, true);
+    public static final AggregationFunction LONG_STDDEV_POP_INSTANCE = createIsolatedAggregation(BIGINT, true, true);
     public static final AggregationFunction DOUBLE_VARIANCE_INSTANCE = createIsolatedAggregation(DOUBLE, false, false);
     public static final AggregationFunction DOUBLE_VARIANCE_POP_INSTANCE = createIsolatedAggregation(DOUBLE, true, false);
     public static final AggregationFunction DOUBLE_STDDEV_INSTANCE = createIsolatedAggregation(DOUBLE, false, true);

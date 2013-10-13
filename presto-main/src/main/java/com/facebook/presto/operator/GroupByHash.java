@@ -16,9 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.uncompressed.FixedWidthBlock;
-import com.facebook.presto.tuple.FixedWidthTypeInfo;
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleInfo.Type;
+import com.facebook.presto.type.Type;
 import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.longs.Long2IntOpenCustomHashMap;
 import it.unimi.dsi.fastutil.longs.LongHash;
@@ -32,7 +30,7 @@ import static com.facebook.presto.block.BlockBuilders.createFixedSizeBlockBuilde
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
-import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
+import static com.facebook.presto.type.Types.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -83,7 +81,7 @@ public class GroupByHash
         int positionCount = page.getPositionCount();
 
         // we know the exact size required for the block
-        BlockBuilder blockBuilder = createFixedSizeBlockBuilder(new FixedWidthTypeInfo(FIXED_INT_64), positionCount);
+        BlockBuilder blockBuilder = createFixedSizeBlockBuilder(BIGINT, positionCount);
 
         // open cursors for group blocks
         BlockCursor[] cursors = new BlockCursor[channels.length];
@@ -229,7 +227,7 @@ public class GroupByHash
         {
             ImmutableList.Builder<BlockBuilder> builder = ImmutableList.builder();
             for (Type type : types) {
-                builder.add(createBlockBuilder(new TupleInfo(type)));
+                builder.add(createBlockBuilder(type));
             }
             channels = builder.build();
         }
@@ -252,7 +250,7 @@ public class GroupByHash
         {
             // append to each channel
             for (int channel = 0; channel < row.length; channel++) {
-                row[channel].appendTupleTo(channels.get(channel));
+                row[channel].appendTo(channels.get(channel));
                 full = full || channels.get(channel).isFull();
             }
             positionCount++;
@@ -262,7 +260,7 @@ public class GroupByHash
         {
             for (int i = 0; i < channels.size(); i++) {
                 BlockBuilder channel = channels.get(i);
-                channel.appendTupleTo(position, builders[i]);
+                channel.appendTo(position, builders[i]);
             }
         }
 

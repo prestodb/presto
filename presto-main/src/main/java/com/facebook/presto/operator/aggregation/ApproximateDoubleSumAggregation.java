@@ -25,8 +25,8 @@ import io.airlift.slice.Slices;
 
 import static com.facebook.presto.operator.aggregation.ApproximateUtils.formatApproximateResult;
 import static com.facebook.presto.operator.aggregation.ApproximateUtils.sumError;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
-import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
+import static com.facebook.presto.type.Types.DOUBLE;
+import static com.facebook.presto.type.Types.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
@@ -44,7 +44,7 @@ public class ApproximateDoubleSumAggregation
     public ApproximateDoubleSumAggregation()
     {
         // TODO: Change intermediate to fixed width, once we have a better type system
-        super(SINGLE_VARBINARY, SINGLE_VARBINARY, DOUBLE);
+        super(VARCHAR, VARCHAR, DOUBLE);
     }
 
     @Override
@@ -69,7 +69,7 @@ public class ApproximateDoubleSumAggregation
 
         public ApproximateSumGroupedAccumulator(int valueChannel, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence)
         {
-            super(valueChannel, SINGLE_VARBINARY, SINGLE_VARBINARY, maskChannel, sampleWeightChannel);
+            super(valueChannel, VARCHAR, VARCHAR, maskChannel, sampleWeightChannel);
             this.counts = new LongBigArray();
             this.samples = new LongBigArray();
             this.sums = new DoubleBigArray();
@@ -192,7 +192,7 @@ public class ApproximateDoubleSumAggregation
 
         public ApproximateSumAccumulator(int valueChannel, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence)
         {
-            super(valueChannel, SINGLE_VARBINARY, SINGLE_VARBINARY, maskChannel, sampleWeightChannel);
+            super(valueChannel, VARCHAR, VARCHAR, maskChannel, sampleWeightChannel);
             this.confidence = confidence;
         }
 

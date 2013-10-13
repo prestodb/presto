@@ -14,7 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.block.Block;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -25,34 +25,34 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public class RowPagesBuilder
 {
-    public static RowPagesBuilder rowPagesBuilder(TupleInfo... tupleInfos)
+    public static RowPagesBuilder rowPagesBuilder(Type... types)
     {
-        return rowPagesBuilder(ImmutableList.copyOf(tupleInfos));
+        return rowPagesBuilder(ImmutableList.copyOf(types));
     }
 
-    public static RowPagesBuilder rowPagesBuilder(Iterable<TupleInfo> tupleInfos)
+    public static RowPagesBuilder rowPagesBuilder(Iterable<Type> types)
     {
-        return new RowPagesBuilder(tupleInfos);
+        return new RowPagesBuilder(types);
     }
 
     private final ImmutableList.Builder<Page> pages = ImmutableList.builder();
-    private final List<TupleInfo> tupleInfos;
+    private final List<Type> types;
     private RowPageBuilder builder;
 
-    RowPagesBuilder(Iterable<TupleInfo> tupleInfos)
+    RowPagesBuilder(Iterable<Type> types)
     {
-        this.tupleInfos = ImmutableList.copyOf(checkNotNull(tupleInfos, "tupleInfos is null"));
-        builder = rowPageBuilder(tupleInfos);
+        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
+        builder = rowPageBuilder(types);
     }
 
     public RowPagesBuilder addSequencePage(int length, int... initialValues)
     {
         checkArgument(length > 0, "length must be at least 1");
         checkNotNull(initialValues, "initialValues is null");
-        checkArgument(initialValues.length == tupleInfos.size(), "Expected %s initialValues, but got %s", tupleInfos.size(), initialValues.length);
+        checkArgument(initialValues.length == types.size(), "Expected %s initialValues, but got %s", types.size(), initialValues.length);
 
         pageBreak();
-        Page page = SequencePageBuilder.createSequencePage(tupleInfos, length, initialValues);
+        Page page = SequencePageBuilder.createSequencePage(types, length, initialValues);
         pages.add(page);
         return this;
     }
@@ -73,7 +73,7 @@ public class RowPagesBuilder
     {
         if (!builder.isEmpty()) {
             pages.add(builder.build());
-            builder = rowPageBuilder(tupleInfos);
+            builder = rowPageBuilder(types);
         }
         return this;
     }

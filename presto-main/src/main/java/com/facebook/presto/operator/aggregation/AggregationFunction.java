@@ -13,8 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleInfo.Type;
+import com.facebook.presto.type.Type;
 import com.google.common.base.Optional;
 
 import java.util.List;
@@ -23,9 +22,9 @@ public interface AggregationFunction
 {
     List<Type> getParameterTypes();
 
-    TupleInfo getFinalTupleInfo();
+    Type getFinalType();
 
-    TupleInfo getIntermediateTupleInfo();
+    Type getIntermediateType();
 
     /**
      * Indicates that the aggregation can be decomposed, and run as partial aggregations followed by a final aggregation to combine the intermediate results

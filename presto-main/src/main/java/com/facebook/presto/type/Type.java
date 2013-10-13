@@ -11,17 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.tuple;
+package com.facebook.presto.type;
 
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.tuple.TupleInfo.Type;
+import com.facebook.presto.spi.ColumnType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 
-public interface TypeInfo
+public interface Type
 {
-    Type getType();
+    String getName();
 
     Object getObjectValue(Slice slice, int offset);
 
@@ -36,4 +36,6 @@ public interface TypeInfo
     void appendTo(Slice slice, int offset, BlockBuilder blockBuilder);
 
     void appendTo(Slice slice, int offset, SliceOutput sliceOutput);
+
+    ColumnType toColumnType();
 }

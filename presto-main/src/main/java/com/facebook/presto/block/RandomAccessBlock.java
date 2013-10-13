@@ -27,35 +27,45 @@ public interface RandomAccessBlock
     RandomAccessBlock getRegion(int positionOffset, int length);
 
     /**
-     * Gets a position from the current tuple.
+     * Gets the value at the specified position as a boolean.
      *
      * @throws IllegalArgumentException if this position is not valid
      */
     boolean getBoolean(int position);
 
     /**
-     * Gets a position from the current tuple.
+     * Gets the value at the specified position as a long.
      *
      * @throws IllegalArgumentException if this position is not valid
      */
     long getLong(int position);
 
     /**
-     * Gets a position from the current tuple.
+     * Gets the value at the specified position as a double.
      *
      * @throws IllegalArgumentException if this position is not valid
      */
     double getDouble(int position);
 
+    /**
+     * Gets the value at the specified position as an Object.
+     *
+     * @throws IllegalArgumentException if this position is not valid
+     */
     Object getObjectValue(int position);
 
     /**
-     * Gets a position from the current tuple.
+     * Gets the value at the specified position as a Slice.
      *
      * @throws IllegalArgumentException if this position is not valid
      */
     Slice getSlice(int position);
 
+    /**
+     * Gets the value at the specified position as a single element block.
+     *
+     * @throws IllegalStateException if this cursor is not at a valid position
+     */
     RandomAccessBlock getSingleValueBlock(int position);
 
     /**
@@ -75,5 +85,5 @@ public interface RandomAccessBlock
     int compareTo(SortOrder sortOrder, int position, BlockCursor cursor);
     int compareTo(int position, Slice slice, int offset);
 
-    void appendTupleTo(int position, BlockBuilder blockBuilder);
+    void appendTo(int position, BlockBuilder blockBuilder);
 }

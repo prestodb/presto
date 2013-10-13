@@ -20,8 +20,7 @@ import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.serde.PagesSerde;
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleInfo.Type;
+import com.facebook.presto.type.Type;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -38,9 +37,9 @@ import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
+import static com.facebook.presto.type.Types.BIGINT;
+import static com.facebook.presto.type.Types.DOUBLE;
+import static com.facebook.presto.type.Types.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -56,7 +55,7 @@ public class BootstrappedAggregation
     {
         this.blockEncodingManager = checkNotNull(blockEncodingManager, "blockEncodingManager is null");
         this.function = checkNotNull(function, "function is null");
-        checkArgument(function.getFinalTupleInfo().equals(SINGLE_LONG) || function.getFinalTupleInfo().equals(SINGLE_DOUBLE) , "bootstrap only supports functions that output a number");
+        checkArgument(function.getFinalType().equals(BIGINT) || function.getFinalType().equals(DOUBLE) , "bootstrap only supports functions that output a number");
     }
 
     @Override
@@ -66,15 +65,15 @@ public class BootstrappedAggregation
     }
 
     @Override
-    public TupleInfo getFinalTupleInfo()
+    public Type getFinalType()
     {
-        return SINGLE_VARBINARY;
+        return VARCHAR;
     }
 
     @Override
-    public TupleInfo getIntermediateTupleInfo()
+    public Type getIntermediateType()
     {
-        return SINGLE_VARBINARY;
+        return VARCHAR;
     }
 
     @Override
@@ -169,10 +168,10 @@ public class BootstrappedAggregation
 
         protected static double getNumeric(BlockCursor cursor)
         {
-            if (cursor.getTupleInfo().equals(SINGLE_DOUBLE)) {
+            if (cursor.getType().equals(DOUBLE)) {
                 return cursor.getDouble();
             }
-            else if (cursor.getTupleInfo().equals(SINGLE_LONG)) {
+            else if (cursor.getType().equals(BIGINT)) {
                 return cursor.getLong();
             }
             else {
@@ -198,15 +197,15 @@ public class BootstrappedAggregation
         }
 
         @Override
-        public TupleInfo getFinalTupleInfo()
+        public Type getFinalType()
         {
-            return SINGLE_VARBINARY;
+            return VARCHAR;
         }
 
         @Override
-        public TupleInfo getIntermediateTupleInfo()
+        public Type getIntermediateType()
         {
-            return SINGLE_VARBINARY;
+            return VARCHAR;
         }
 
         @Override
@@ -245,7 +244,7 @@ public class BootstrappedAggregation
 
             SliceOutput output = new DynamicSliceOutput(sizeEstimate);
             PagesSerde.writePages(blockEncodingManager, output, new Page(blocks));
-            BlockBuilder builder = createBlockBuilder(SINGLE_VARBINARY);
+            BlockBuilder builder = createBlockBuilder(VARCHAR);
             builder.append(output.slice());
             return builder.build();
         }
@@ -260,7 +259,7 @@ public class BootstrappedAggregation
                 statistics.addValue(getNumeric(cursor));
             }
 
-            BlockBuilder builder = createBlockBuilder(SINGLE_VARBINARY);
+            BlockBuilder builder = createBlockBuilder(VARCHAR);
             builder.append(formatApproximateOutput(statistics, confidence));
             return builder.build();
         }
@@ -297,15 +296,15 @@ public class BootstrappedAggregation
         }
 
         @Override
-        public TupleInfo getFinalTupleInfo()
+        public Type getFinalType()
         {
-            return SINGLE_VARBINARY;
+            return VARCHAR;
         }
 
         @Override
-        public TupleInfo getIntermediateTupleInfo()
+        public Type getIntermediateType()
         {
-            return SINGLE_VARBINARY;
+            return VARCHAR;
         }
 
         @Override
@@ -338,7 +337,7 @@ public class BootstrappedAggregation
             Block[] blocks = new Block[accumulators.size()];
             int sizeEstimate = 64 * accumulators.size();
             for (int i = 0; i < accumulators.size(); i++) {
-                BlockBuilder builder = createBlockBuilder(accumulators.get(i).getIntermediateTupleInfo());
+                BlockBuilder builder = createBlockBuilder(accumulators.get(i).getIntermediateType());
                 accumulators.get(i).evaluateIntermediate(groupId, builder);
                 blocks[i] = builder.build();
                 sizeEstimate += blocks[i].getDataSize().toBytes();
@@ -354,7 +353,7 @@ public class BootstrappedAggregation
         {
             DescriptiveStatistics statistics = new DescriptiveStatistics();
             for (int i = 0; i < accumulators.size(); i++) {
-                BlockBuilder builder = createBlockBuilder(accumulators.get(i).getFinalTupleInfo());
+                BlockBuilder builder = createBlockBuilder(accumulators.get(i).getFinalType());
                 accumulators.get(i).evaluateFinal(groupId, builder);
                 BlockCursor cursor = builder.build().cursor();
                 checkArgument(cursor.advanceNextPosition(), "accumulator returned no results");

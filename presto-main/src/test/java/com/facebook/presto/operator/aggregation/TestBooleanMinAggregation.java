@@ -18,7 +18,7 @@ import com.facebook.presto.block.BlockBuilder;
 
 import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static com.facebook.presto.operator.aggregation.BooleanMinAggregation.BOOLEAN_MIN;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_BOOLEAN;
+import static com.facebook.presto.type.Types.BOOLEAN;
 import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
 
@@ -28,7 +28,7 @@ public class TestBooleanMinAggregation
     @Override
     public Block getSequenceBlock(int start, int length)
     {
-        BlockBuilder blockBuilder = createBlockBuilder(SINGLE_BOOLEAN);
+        BlockBuilder blockBuilder = createBlockBuilder(BOOLEAN);
         for (int i = start; i < start + length; i++) {
             // true, false, true, false...
             blockBuilder.append(i % 2 == 0);

@@ -46,6 +46,6 @@ public final class WindowAssertions
                 "ORDER BY orderkey", sql);
 
         MaterializedResult actual = computeActual(query, executor);
-        assertEqualsIgnoreOrder(actual.getMaterializedTuples(), expected.getMaterializedTuples());
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
     }
 }

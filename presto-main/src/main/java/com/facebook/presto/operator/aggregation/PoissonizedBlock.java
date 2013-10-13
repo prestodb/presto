@@ -18,13 +18,13 @@ import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockEncoding;
 import com.facebook.presto.block.RandomAccessBlock;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import com.google.common.primitives.Longs;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import org.apache.commons.math3.random.RandomDataGenerator;
 
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
+import static com.facebook.presto.type.Types.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -41,9 +41,9 @@ class PoissonizedBlock
     }
 
     @Override
-    public TupleInfo getTupleInfo()
+    public Type getType()
     {
-        return SINGLE_LONG;
+        return BIGINT;
     }
 
     @Override
@@ -91,15 +91,15 @@ class PoissonizedBlock
 
         private PoissonizedBlockCursor(BlockCursor delegate, long seed)
         {
-            checkArgument(delegate.getTupleInfo().equals(SINGLE_LONG), "delegate must be a cursor of longs");
+            checkArgument(delegate.getType().equals(BIGINT), "delegate must be a cursor of longs");
             this.delegate = delegate;
             rand.reSeed(seed);
         }
 
         @Override
-        public TupleInfo getTupleInfo()
+        public Type getType()
         {
-            return SINGLE_LONG;
+            return BIGINT;
         }
 
         @Override
@@ -212,7 +212,7 @@ class PoissonizedBlock
         }
 
         @Override
-        public void appendTupleTo(BlockBuilder blockBuilder)
+        public void appendTo(BlockBuilder blockBuilder)
         {
             blockBuilder.append(currentValue);
         }

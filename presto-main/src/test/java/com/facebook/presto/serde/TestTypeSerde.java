@@ -13,25 +13,25 @@
  */
 package com.facebook.presto.serde;
 
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
+import com.facebook.presto.type.Types;
 import io.airlift.slice.DynamicSliceOutput;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.serde.TupleInfoSerde.readTupleInfo;
-import static com.facebook.presto.serde.TupleInfoSerde.writeTupleInfo;
-import static com.facebook.presto.tuple.TupleInfo.Type.BOOLEAN;
+import static com.facebook.presto.serde.TypeSerde.readType;
+import static com.facebook.presto.serde.TypeSerde.writeInfo;
 import static org.testng.Assert.assertEquals;
 
-public class TestTupleInfoSerde
+public class TestTypeSerde
 {
     @Test
     public void testRoundTrip()
     {
-        TupleInfo expectedTupleInfo = new TupleInfo(BOOLEAN);
+        Type expectedType = Types.BOOLEAN;
 
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
-        writeTupleInfo(sliceOutput, expectedTupleInfo);
-        TupleInfo actualTupleInfo = readTupleInfo(sliceOutput.slice().getInput());
-        assertEquals(actualTupleInfo, expectedTupleInfo);
+        writeInfo(sliceOutput, expectedType);
+        Type actualType = readType(sliceOutput.slice().getInput());
+        assertEquals(actualType, expectedType);
     }
 }

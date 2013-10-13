@@ -14,13 +14,14 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import org.apache.commons.math3.random.RandomDataGenerator;
 
 import java.util.List;
 
+import static com.facebook.presto.type.Types.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -35,24 +36,24 @@ public class SampleOperator
         private final double sampleRatio;
         private final boolean rescaled;
 
-        private final List<TupleInfo> tupleInfos;
+        private final List<Type> types;
         private boolean closed;
 
-        public SampleOperatorFactory(int operatorId, double sampleRatio, boolean rescaled, List<TupleInfo> sourceTupleInfos)
+        public SampleOperatorFactory(int operatorId, double sampleRatio, boolean rescaled, List<Type> sourceTypes)
         {
             this.operatorId = operatorId;
             this.sampleRatio = sampleRatio;
             this.rescaled = rescaled;
-            this.tupleInfos = ImmutableList.<TupleInfo>builder()
-                    .addAll(checkNotNull(sourceTupleInfos, "sourceTupleInfos is null"))
-                    .add(TupleInfo.SINGLE_LONG)
+            this.types = ImmutableList.<Type>builder()
+                    .addAll(checkNotNull(sourceTypes, "sourceTypes is null"))
+                    .add(BIGINT)
                     .build();
         }
 
         @Override
-        public List<TupleInfo> getTupleInfos()
+        public List<Type> getTypes()
         {
-            return tupleInfos;
+            return types;
         }
 
         @Override
@@ -60,7 +61,7 @@ public class SampleOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, SampleOperator.class.getSimpleName());
-            return new SampleOperator(operatorContext, sampleRatio, rescaled, tupleInfos);
+            return new SampleOperator(operatorContext, sampleRatio, rescaled, types);
         }
 
         @Override
@@ -71,7 +72,7 @@ public class SampleOperator
     }
 
     private final OperatorContext operatorContext;
-    private final List<TupleInfo> tupleInfos;
+    private final List<Type> types;
     private final PageBuilder pageBuilder;
     private final BlockCursor[] cursors;
     private final RandomDataGenerator rand = new RandomDataGenerator();
@@ -81,16 +82,16 @@ public class SampleOperator
     private boolean finishing;
     private int remainingPositions;
 
-    public SampleOperator(OperatorContext operatorContext, double sampleRatio, boolean rescaled, List<TupleInfo> tupleInfos)
+    public SampleOperator(OperatorContext operatorContext, double sampleRatio, boolean rescaled, List<Type> types)
     {
         //Note: Poissonized Samples can be larger than the original dataset if desired
         checkArgument(sampleRatio > 0, "sample ratio must be strictly positive");
 
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.tupleInfos = ImmutableList.copyOf(tupleInfos);
-        this.pageBuilder = new PageBuilder(tupleInfos);
-        this.cursors = new BlockCursor[tupleInfos.size() - 1];
-        this.sampleWeightChannel = tupleInfos.size() - 1;
+        this.types = ImmutableList.copyOf(types);
+        this.pageBuilder = new PageBuilder(types);
+        this.cursors = new BlockCursor[types.size() - 1];
+        this.sampleWeightChannel = types.size() - 1;
         this.sampleRatio = sampleRatio;
         this.rescaled = rescaled;
     }
@@ -102,9 +103,9 @@ public class SampleOperator
     }
 
     @Override
-    public List<TupleInfo> getTupleInfos()
+    public List<Type> getTypes()
     {
-        return tupleInfos;
+        return types;
     }
 
     @Override
@@ -160,7 +161,7 @@ public class SampleOperator
 
             if (repeats > 0) {
                 for (int i = 0; i < cursors.length; i++) {
-                    cursors[i].appendTupleTo(pageBuilder.getBlockBuilder(i));
+                    cursors[i].appendTo(pageBuilder.getBlockBuilder(i));
                 }
                 pageBuilder.getBlockBuilder(sampleWeightChannel).append(repeats);
             }

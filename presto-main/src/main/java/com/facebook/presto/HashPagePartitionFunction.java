@@ -17,7 +17,7 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageBuilder;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
@@ -71,14 +71,14 @@ public final class HashPagePartitionFunction
             return pages;
         }
 
-        List<TupleInfo> tupleInfos = getTupleInfos(pages);
+        List<Type> types = getTypes(pages);
 
-        PageBuilder pageBuilder = new PageBuilder(tupleInfos);
+        PageBuilder pageBuilder = new PageBuilder(types);
 
         ImmutableList.Builder<Page> partitionedPages = ImmutableList.builder();
         for (Page page : pages) {
             // open the page
-            BlockCursor[] cursors = new BlockCursor[tupleInfos.size()];
+            BlockCursor[] cursors = new BlockCursor[types.size()];
             for (int i = 0; i < cursors.length; i++) {
                 cursors[i] = page.getBlock(i).cursor();
             }
@@ -97,7 +97,7 @@ public final class HashPagePartitionFunction
 
                 // append row
                 for (int channel = 0; channel < cursors.length; channel++) {
-                    cursors[channel].appendTupleTo(pageBuilder.getBlockBuilder(channel));
+                    cursors[channel].appendTo(pageBuilder.getBlockBuilder(channel));
                 }
 
                 // if page is full, flush
@@ -160,13 +160,13 @@ public final class HashPagePartitionFunction
                 .toString();
     }
 
-    private static List<TupleInfo> getTupleInfos(List<Page> pages)
+    private static List<Type> getTypes(List<Page> pages)
     {
         Page firstPage = pages.get(0);
-        List<TupleInfo> tupleInfos = new ArrayList<>();
+        List<Type> types = new ArrayList<>();
         for (Block block : firstPage.getBlocks()) {
-            tupleInfos.add(block.getTupleInfo());
+            types.add(block.getType());
         }
-        return tupleInfos;
+        return types;
     }
 }

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -26,16 +26,16 @@ public abstract class AbstractFilterAndProjectOperator
         implements Operator
 {
     private final OperatorContext operatorContext;
-    private final List<TupleInfo> tupleInfos;
+    private final List<Type> types;
 
     private final PageBuilder pageBuilder;
     private boolean finishing;
 
-    public AbstractFilterAndProjectOperator(OperatorContext operatorContext, Iterable<TupleInfo> tupleInfos)
+    public AbstractFilterAndProjectOperator(OperatorContext operatorContext, Iterable<Type> types)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.tupleInfos = ImmutableList.copyOf(checkNotNull(tupleInfos, "tupleInfos is null"));
-        this.pageBuilder = new PageBuilder(getTupleInfos());
+        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
+        this.pageBuilder = new PageBuilder(getTypes());
     }
 
     protected abstract void filterAndProjectRowOriented(Page page, PageBuilder pageBuilder);
@@ -47,9 +47,9 @@ public abstract class AbstractFilterAndProjectOperator
     }
 
     @Override
-    public final List<TupleInfo> getTupleInfos()
+    public final List<Type> getTypes()
     {
-        return tupleInfos;
+        return types;
     }
 
     @Override

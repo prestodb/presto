@@ -15,7 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.operator.HashBuilderOperator.HashSupplier;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -29,14 +29,14 @@ import static com.google.common.base.Preconditions.checkState;
 public class HashJoinOperator
         implements Operator
 {
-    public static HashJoinOperatorFactory innerJoin(int operatorId, HashSupplier hashSupplier, List<TupleInfo> probeTupleInfos, List<Integer> probeJoinChannel)
+    public static HashJoinOperatorFactory innerJoin(int operatorId, HashSupplier hashSupplier, List<Type> probeTypes, List<Integer> probeJoinChannel)
     {
-        return new HashJoinOperatorFactory(operatorId, hashSupplier, probeTupleInfos, probeJoinChannel, false);
+        return new HashJoinOperatorFactory(operatorId, hashSupplier, probeTypes, probeJoinChannel, false);
     }
 
-    public static HashJoinOperatorFactory outerJoin(int operatorId, HashSupplier hashSupplier, List<TupleInfo> probeTupleInfos, List<Integer> probeJoinChannel)
+    public static HashJoinOperatorFactory outerJoin(int operatorId, HashSupplier hashSupplier, List<Type> probeTypes, List<Integer> probeJoinChannel)
     {
-        return new HashJoinOperatorFactory(operatorId, hashSupplier, probeTupleInfos, probeJoinChannel, true);
+        return new HashJoinOperatorFactory(operatorId, hashSupplier, probeTypes, probeJoinChannel, true);
     }
 
     public static class HashJoinOperatorFactory
@@ -44,30 +44,30 @@ public class HashJoinOperator
     {
         private final int operatorId;
         private final HashSupplier hashSupplier;
-        private final List<TupleInfo> probeTupleInfos;
+        private final List<Type> probeTypes;
         private final List<Integer> probeJoinChannels;
         private final boolean enableOuterJoin;
-        private final List<TupleInfo> tupleInfos;
+        private final List<Type> types;
         private boolean closed;
 
-        public HashJoinOperatorFactory(int operatorId, HashSupplier hashSupplier, List<TupleInfo> probeTupleInfos, List<Integer> probeJoinChannels, boolean enableOuterJoin)
+        public HashJoinOperatorFactory(int operatorId, HashSupplier hashSupplier, List<Type> probeTypes, List<Integer> probeJoinChannels, boolean enableOuterJoin)
         {
             this.operatorId = operatorId;
             this.hashSupplier = hashSupplier;
-            this.probeTupleInfos = probeTupleInfos;
+            this.probeTypes = probeTypes;
             this.probeJoinChannels = probeJoinChannels;
             this.enableOuterJoin = enableOuterJoin;
 
-            this.tupleInfos = ImmutableList.<TupleInfo>builder()
-                    .addAll(probeTupleInfos)
-                    .addAll(hashSupplier.getTupleInfos())
+            this.types = ImmutableList.<Type>builder()
+                    .addAll(probeTypes)
+                    .addAll(hashSupplier.getTypes())
                     .build();
         }
 
         @Override
-        public List<TupleInfo> getTupleInfos()
+        public List<Type> getTypes()
         {
-            return tupleInfos;
+            return types;
         }
 
         @Override
@@ -75,7 +75,7 @@ public class HashJoinOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, HashJoinOperator.class.getSimpleName());
-            return new HashJoinOperator(operatorContext, hashSupplier, probeTupleInfos, probeJoinChannels, enableOuterJoin);
+            return new HashJoinOperator(operatorContext, hashSupplier, probeTypes, probeJoinChannels, enableOuterJoin);
         }
 
         @Override
@@ -90,7 +90,7 @@ public class HashJoinOperator
     private final OperatorContext operatorContext;
     private final int[] probeJoinChannels;
     private final boolean enableOuterJoin;
-    private final List<TupleInfo> tupleInfos;
+    private final List<Type> types;
 
     private final BlockCursor[] cursors;
 
@@ -100,25 +100,25 @@ public class HashJoinOperator
     private boolean finishing;
     private int joinPosition = -1;
 
-    public HashJoinOperator(OperatorContext operatorContext, HashSupplier hashSupplier, List<TupleInfo> probeTupleInfos, List<Integer> probeJoinChannels, boolean enableOuterJoin)
+    public HashJoinOperator(OperatorContext operatorContext, HashSupplier hashSupplier, List<Type> probeTypes, List<Integer> probeJoinChannels, boolean enableOuterJoin)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
 
         // todo pass in desired projection
         checkNotNull(hashSupplier, "hashSupplier is null");
-        checkNotNull(probeTupleInfos, "probeTupleInfos is null");
+        checkNotNull(probeTypes, "probeTypes is null");
 
         this.hashFuture = hashSupplier.getSourceHash();
         this.probeJoinChannels = Ints.toArray(probeJoinChannels);
         this.enableOuterJoin = enableOuterJoin;
 
-        this.tupleInfos = ImmutableList.<TupleInfo>builder()
-                .addAll(probeTupleInfos)
-                .addAll(hashSupplier.getTupleInfos())
+        this.types = ImmutableList.<Type>builder()
+                .addAll(probeTypes)
+                .addAll(hashSupplier.getTypes())
                 .build();
-        this.pageBuilder = new PageBuilder(tupleInfos);
+        this.pageBuilder = new PageBuilder(types);
 
-        this.cursors = new BlockCursor[probeTupleInfos.size()];
+        this.cursors = new BlockCursor[probeTypes.size()];
     }
 
     @Override
@@ -128,9 +128,9 @@ public class HashJoinOperator
     }
 
     @Override
-    public List<TupleInfo> getTupleInfos()
+    public List<Type> getTypes()
     {
-        return tupleInfos;
+        return types;
     }
 
     @Override
@@ -226,11 +226,11 @@ public class HashJoinOperator
         while (joinPosition >= 0) {
             // write probe columns
             for (int i = 0; i < cursors.length; i++) {
-                cursors[i].appendTupleTo(pageBuilder.getBlockBuilder(i));
+                cursors[i].appendTo(pageBuilder.getBlockBuilder(i));
             }
 
             // write build columns
-            hash.appendTupleTo(joinPosition, pageBuilder, cursors.length);
+            hash.appendTo(joinPosition, pageBuilder, cursors.length);
 
             // get next join position for this row
             joinPosition = hash.getNextJoinPosition(joinPosition);
@@ -266,7 +266,7 @@ public class HashJoinOperator
             // write probe columns
             int outputIndex = 0;
             for (BlockCursor cursor : cursors) {
-                cursor.appendTupleTo(pageBuilder.getBlockBuilder(outputIndex));
+                cursor.appendTo(pageBuilder.getBlockBuilder(outputIndex));
                 outputIndex++;
             }
 

@@ -32,8 +32,6 @@ import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -422,33 +420,15 @@ public class StatementResource
             }
 
             List<String> names = queryInfo.getFieldNames();
-            ArrayList<Type> types = new ArrayList<>();
-            for (TupleInfo tupleInfo : outputStage.getTupleInfos()) {
-                types.add(tupleInfo.getType());
-            }
+            List<String> types = outputStage.getTypes();
 
             checkArgument(names.size() == types.size(), "names and types size mismatch");
 
             ImmutableList.Builder<Column> list = ImmutableList.builder();
             for (int i = 0; i < names.size(); i++) {
                 String name = names.get(i);
-                Type type = types.get(i);
-                switch (type) {
-                    case BOOLEAN:
-                        list.add(new Column(name, "boolean"));
-                        break;
-                    case FIXED_INT_64:
-                        list.add(new Column(name, "bigint"));
-                        break;
-                    case DOUBLE:
-                        list.add(new Column(name, "double"));
-                        break;
-                    case VARIABLE_BINARY:
-                        list.add(new Column(name, "varchar"));
-                        break;
-                    default:
-                        throw new IllegalArgumentException("unhandled type: " + type);
-                }
+                String type = types.get(i);
+                list.add(new Column(name, type));
             }
             return list.build();
         }

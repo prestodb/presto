@@ -15,7 +15,7 @@ package com.facebook.presto.block;
 
 import com.facebook.presto.block.uncompressed.AbstractFixedWidthBlock;
 import com.facebook.presto.block.uncompressed.FixedWidthBlock;
-import com.facebook.presto.tuple.FixedWidthTypeInfo;
+import com.facebook.presto.type.FixedWidthType;
 import com.google.common.base.Charsets;
 import com.google.common.base.Objects;
 import io.airlift.slice.DynamicSliceOutput;
@@ -34,9 +34,9 @@ public class FixedWidthBlockBuilder
     private final SliceOutput sliceOutput;
     private int positionCount;
 
-    public FixedWidthBlockBuilder(FixedWidthTypeInfo typeInfo, DataSize maxBlockSize, DataSize initialBufferSize)
+    public FixedWidthBlockBuilder(FixedWidthType type, DataSize maxBlockSize, DataSize initialBufferSize)
     {
-        super(typeInfo);
+        super(type);
 
         checkNotNull(maxBlockSize, "maxBlockSize is null");
         this.maxBlockSize = (int) maxBlockSize.toBytes();
@@ -45,9 +45,9 @@ public class FixedWidthBlockBuilder
         this.sliceOutput = new DynamicSliceOutput((int) initialBufferSize.toBytes());
     }
 
-    public FixedWidthBlockBuilder(FixedWidthTypeInfo typeInfo, Slice slice)
+    public FixedWidthBlockBuilder(FixedWidthType type, Slice slice)
     {
-        super(typeInfo);
+        super(type);
 
         this.maxBlockSize = slice.length();
         this.sliceOutput = slice.getOutput();
@@ -80,12 +80,6 @@ public class FixedWidthBlockBuilder
     public int size()
     {
         return sliceOutput.size();
-    }
-
-    @Override
-    public int writableBytes()
-    {
-        return maxBlockSize - sliceOutput.size();
     }
 
     @Override
@@ -123,7 +117,7 @@ public class FixedWidthBlockBuilder
     {
         positionCount++;
         sliceOutput.writeByte(0);
-        typeInfo.setBoolean(sliceOutput, value);
+        type.setBoolean(sliceOutput, value);
         return this;
     }
 
@@ -132,7 +126,7 @@ public class FixedWidthBlockBuilder
     {
         positionCount++;
         sliceOutput.writeByte(0);
-        typeInfo.setLong(sliceOutput, value);
+        type.setLong(sliceOutput, value);
         return this;
     }
 
@@ -141,7 +135,7 @@ public class FixedWidthBlockBuilder
     {
         positionCount++;
         sliceOutput.writeByte(0);
-        typeInfo.setDouble(sliceOutput, value);
+        type.setDouble(sliceOutput, value);
         return this;
     }
 
@@ -170,7 +164,7 @@ public class FixedWidthBlockBuilder
 
         sliceOutput.writeByte(0);
 
-        typeInfo.setSlice(sliceOutput, value, offset, length);
+        type.setSlice(sliceOutput, value, offset, length);
 
         return this;
     }
@@ -183,18 +177,7 @@ public class FixedWidthBlockBuilder
         sliceOutput.writeByte(1);
 
         // fixed width is always written regardless of null flag
-        sliceOutput.writeZero(typeInfo.getSize());
-
-        return this;
-    }
-
-    @Override
-    public BlockBuilder appendTuple(Slice slice, int offset, int length)
-    {
-        positionCount++;
-
-        // copy tuple to output
-        sliceOutput.writeBytes(slice, offset, length);
+        sliceOutput.writeZero(type.getFixedSize());
 
         return this;
     }
@@ -202,7 +185,7 @@ public class FixedWidthBlockBuilder
     @Override
     public RandomAccessBlock build()
     {
-        return new FixedWidthBlock(typeInfo, positionCount, sliceOutput.getUnderlyingSlice());
+        return new FixedWidthBlock(type, positionCount, sliceOutput.getUnderlyingSlice());
     }
 
     @Override
@@ -212,7 +195,7 @@ public class FixedWidthBlockBuilder
                 .add("positionCount", positionCount)
                 .add("size", sliceOutput.size())
                 .add("maxSize", maxBlockSize)
-                .add("typeInfo", typeInfo)
+                .add("type", type)
                 .toString();
     }
 }

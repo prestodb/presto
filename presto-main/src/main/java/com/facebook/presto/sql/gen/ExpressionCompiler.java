@@ -46,11 +46,10 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Input;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
@@ -214,7 +213,12 @@ public class ExpressionCompiler
         return sourceOperatorFactories.size();
     }
 
-    public OperatorFactory compileFilterAndProjectOperator(int operatorId, Expression filter, List<Expression> projections, Map<Input, Type> inputTypes, List<Type> outputTypes)
+    public OperatorFactory compileFilterAndProjectOperator(
+            int operatorId,
+            Expression filter,
+            List<Expression> projections,
+            Map<Input, com.facebook.presto.sql.analyzer.Type> inputTypes,
+            List<com.facebook.presto.sql.analyzer.Type> outputTypes)
     {
         return operatorFactories.getUnchecked(new OperatorCacheKey(filter, projections, inputTypes, outputTypes, null)).create(operatorId);
     }
@@ -228,8 +232,8 @@ public class ExpressionCompiler
     public FilterAndProjectOperatorFactoryFactory internalCompileFilterAndProjectOperator(
             Expression filter,
             List<Expression> projections,
-            Map<Input, Type> inputTypes,
-            List<Type> outputTypes)
+            Map<Input, com.facebook.presto.sql.analyzer.Type> inputTypes,
+            List<com.facebook.presto.sql.analyzer.Type> outputTypes)
     {
         DynamicClassLoader classLoader = createClassLoader();
 
@@ -243,7 +247,7 @@ public class ExpressionCompiler
         catch (NoSuchMethodException e) {
             throw Throwables.propagate(e);
         }
-        FilterAndProjectOperatorFactoryFactory operatorFactoryFactory = new FilterAndProjectOperatorFactoryFactory(constructor, typedOperatorClass.getTupleInfos());
+        FilterAndProjectOperatorFactoryFactory operatorFactoryFactory = new FilterAndProjectOperatorFactoryFactory(constructor, typedOperatorClass.getTypes());
 
         return operatorFactoryFactory;
     }
@@ -251,8 +255,8 @@ public class ExpressionCompiler
     private TypedOperatorClass compileFilterAndProjectOperator(
             Expression filter,
             List<Expression> projections,
-            Map<Input, Type> inputTypes,
-            List<Type> outputTypes,
+            Map<Input, com.facebook.presto.sql.analyzer.Type> inputTypes,
+            List<com.facebook.presto.sql.analyzer.Type> outputTypes,
             DynamicClassLoader classLoader)
     {
         ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(bootstrapMethod),
@@ -267,12 +271,12 @@ public class ExpressionCompiler
         classDefinition.declareConstructor(new CompilerContext(bootstrapMethod),
                 a(PUBLIC),
                 arg("operatorContext", OperatorContext.class),
-                arg("tupleInfos", type(Iterable.class, TupleInfo.class)))
+                arg("types", type(Iterable.class, Type.class)))
                 .getBody()
-                .comment("super(operatorContext, tupleInfos);")
+                .comment("super(operatorContext, types);")
                 .pushThis()
                 .getVariable("operatorContext")
-                .getVariable("tupleInfos")
+                .getVariable("types")
                 .invokeConstructor(AbstractFilterAndProjectOperator.class, OperatorContext.class, Iterable.class)
                 .comment("this.session = operatorContext.getSession();")
                 .pushThis()
@@ -292,12 +296,12 @@ public class ExpressionCompiler
         //
         // project methods
         //
-        List<TupleInfo> tupleInfos = new ArrayList<>();
+        List<Type> types = new ArrayList<>();
         int projectionIndex = 0;
         for (int i = 0; i < projections.size(); i++) {
-            Type outputType = outputTypes.get(i);
-            checkArgument(outputType != Type.NULL, "NULL output type is not supported");
-            tupleInfos.add(new TupleInfo(outputType.getRawType()));
+            com.facebook.presto.sql.analyzer.Type outputType = outputTypes.get(i);
+            checkArgument(outputType != com.facebook.presto.sql.analyzer.Type.NULL, "NULL output type is not supported");
+            types.add(outputType.getRawType());
 
             // verify the compiled projection has the correct type
             Expression projection = projections.get(i);
@@ -305,16 +309,16 @@ public class ExpressionCompiler
             Class<?> type = generateProjectMethod(classDefinition, "project_" + projectionIndex, projection, inputTypes, true);
             generateProjectMethod(classDefinition, "project_" + projectionIndex, projection, inputTypes, false);
             if (type == boolean.class) {
-                checkState(outputType == Type.BOOLEAN);
+                checkState(outputType == com.facebook.presto.sql.analyzer.Type.BOOLEAN);
             }
             else if (type == long.class) {
-                checkState(outputType == Type.BIGINT);
+                checkState(outputType == com.facebook.presto.sql.analyzer.Type.BIGINT);
             }
             else if (type == double.class) {
-                checkState(outputType == Type.DOUBLE);
+                checkState(outputType == com.facebook.presto.sql.analyzer.Type.DOUBLE);
             }
             else if (type == Slice.class) {
-                checkState(outputType == Type.VARCHAR);
+                checkState(outputType == com.facebook.presto.sql.analyzer.Type.VARCHAR);
             }
             else if (type == void.class) {
                 // void type is a null literal so it can be any type
@@ -337,7 +341,7 @@ public class ExpressionCompiler
                 .retObject();
 
         Class<? extends Operator> filterAndProjectClass = defineClass(classDefinition, Operator.class, classLoader);
-        return new TypedOperatorClass(filterAndProjectClass, tupleInfos);
+        return new TypedOperatorClass(filterAndProjectClass, types);
     }
 
     public SourceOperatorFactory compileScanFilterAndProjectOperator(
@@ -347,8 +351,8 @@ public class ExpressionCompiler
             List<ColumnHandle> columns,
             Expression filter,
             List<Expression> projections,
-            Map<Input, Type> inputTypes,
-            List<Type> outputTypes)
+            Map<Input, com.facebook.presto.sql.analyzer.Type> inputTypes,
+            List<com.facebook.presto.sql.analyzer.Type> outputTypes)
     {
         return sourceOperatorFactories.getUnchecked(new OperatorCacheKey(filter, projections, inputTypes, outputTypes, sourceId)).create(operatorId, dataStreamProvider, columns);
     }
@@ -358,8 +362,8 @@ public class ExpressionCompiler
             PlanNodeId sourceId,
             Expression filter,
             List<Expression> projections,
-            Map<Input, Type> inputTypes,
-            List<Type> outputTypes)
+            Map<Input, com.facebook.presto.sql.analyzer.Type> inputTypes,
+            List<com.facebook.presto.sql.analyzer.Type> outputTypes)
     {
         DynamicClassLoader classLoader = createClassLoader();
 
@@ -382,7 +386,7 @@ public class ExpressionCompiler
         ScanFilterAndProjectOperatorFactoryFactory operatorFactoryFactory = new ScanFilterAndProjectOperatorFactoryFactory(
                 constructor,
                 sourceId,
-                typedOperatorClass.getTupleInfos());
+                typedOperatorClass.getTypes());
 
         return operatorFactoryFactory;
     }
@@ -390,8 +394,8 @@ public class ExpressionCompiler
     private TypedOperatorClass compileScanFilterAndProjectOperator(
             Expression filter,
             List<Expression> projections,
-            Map<Input, Type> inputTypes,
-            List<Type> outputTypes,
+            Map<Input, com.facebook.presto.sql.analyzer.Type> inputTypes,
+            List<com.facebook.presto.sql.analyzer.Type> outputTypes,
             DynamicClassLoader classLoader)
     {
         ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(bootstrapMethod),
@@ -409,15 +413,15 @@ public class ExpressionCompiler
                 arg("sourceId", PlanNodeId.class),
                 arg("dataStreamProvider", DataStreamProvider.class),
                 arg("columns", type(Iterable.class, ColumnHandle.class)),
-                arg("tupleInfos", type(Iterable.class, TupleInfo.class)))
+                arg("types", type(Iterable.class, Type.class)))
                 .getBody()
-                .comment("super(operatorContext, sourceId, dataStreamProvider, columns, tupleInfos);")
+                .comment("super(operatorContext, sourceId, dataStreamProvider, columns, types);")
                 .pushThis()
                 .getVariable("operatorContext")
                 .getVariable("sourceId")
                 .getVariable("dataStreamProvider")
                 .getVariable("columns")
-                .getVariable("tupleInfos")
+                .getVariable("types")
                 .invokeConstructor(AbstractScanFilterAndProjectOperator.class, OperatorContext.class, PlanNodeId.class, DataStreamProvider.class, Iterable.class, Iterable.class)
                 .comment("this.session = operatorContext.getSession();")
                 .pushThis()
@@ -438,12 +442,12 @@ public class ExpressionCompiler
         //
         // project methods
         //
-        List<TupleInfo> tupleInfos = new ArrayList<>();
+        List<Type> types = new ArrayList<>();
         int projectionIndex = 0;
         for (int i = 0; i < projections.size(); i++) {
-            Type outputType = outputTypes.get(i);
-            checkArgument(outputType != Type.NULL, "NULL output type is not supported");
-            tupleInfos.add(new TupleInfo(outputType.getRawType()));
+            com.facebook.presto.sql.analyzer.Type outputType = outputTypes.get(i);
+            checkArgument(outputType != com.facebook.presto.sql.analyzer.Type.NULL, "NULL output type is not supported");
+            types.add(outputType.getRawType());
 
             // verify the compiled projection has the correct type
             Expression projection = projections.get(i);
@@ -451,16 +455,16 @@ public class ExpressionCompiler
             Class<?> type = generateProjectMethod(classDefinition, "project_" + projectionIndex, projection, inputTypes, true);
             generateProjectMethod(classDefinition, "project_" + projectionIndex, projection, inputTypes, false);
             if (type == boolean.class) {
-                checkState(outputType == Type.BOOLEAN);
+                checkState(outputType == com.facebook.presto.sql.analyzer.Type.BOOLEAN);
             }
             else if (type == long.class) {
-                checkState(outputType == Type.BIGINT);
+                checkState(outputType == com.facebook.presto.sql.analyzer.Type.BIGINT);
             }
             else if (type == double.class) {
-                checkState(outputType == Type.DOUBLE);
+                checkState(outputType == com.facebook.presto.sql.analyzer.Type.DOUBLE);
             }
             else if (type == Slice.class) {
-                checkState(outputType == Type.VARCHAR);
+                checkState(outputType == com.facebook.presto.sql.analyzer.Type.VARCHAR);
             }
             else if (type == void.class) {
                 // void type is a null literal so it can be any type
@@ -483,12 +487,12 @@ public class ExpressionCompiler
                 .retObject();
 
         Class<? extends SourceOperator> filterAndProjectClass = defineClass(classDefinition, SourceOperator.class, classLoader);
-        return new TypedOperatorClass(filterAndProjectClass, tupleInfos);
+        return new TypedOperatorClass(filterAndProjectClass, types);
     }
 
     private void generateFilterAndProjectRowOriented(ClassDefinition classDefinition,
             List<Expression> projections,
-            Map<Input, Type> inputTypes)
+            Map<Input, com.facebook.presto.sql.analyzer.Type> inputTypes)
     {
         MethodDefinition filterAndProjectMethod = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
                 a(PUBLIC),
@@ -699,7 +703,7 @@ public class ExpressionCompiler
 
     private void generateFilterMethod(ClassDefinition classDefinition,
             Expression filter,
-            Map<Input, Type> inputTypes,
+            Map<Input, com.facebook.presto.sql.analyzer.Type> inputTypes,
             boolean sourceIsCursor)
     {
         MethodDefinition filterMethod;
@@ -715,7 +719,7 @@ public class ExpressionCompiler
                     a(PUBLIC),
                     "filter",
                     type(boolean.class),
-                    toTupleReaderParameters(inputTypes));
+                    toBlockCursorParameters(inputTypes));
         }
 
         filterMethod.comment("Filter: %s", filter.toString());
@@ -749,7 +753,7 @@ public class ExpressionCompiler
     private Class<?> generateProjectMethod(ClassDefinition classDefinition,
             String methodName,
             Expression projection,
-            Map<Input, Type> inputTypes,
+            Map<Input, com.facebook.presto.sql.analyzer.Type> inputTypes,
             boolean sourceIsCursor)
     {
         MethodDefinition projectionMethod;
@@ -763,7 +767,7 @@ public class ExpressionCompiler
         }
         else {
             ImmutableList.Builder<NamedParameterDefinition> parameters = ImmutableList.builder();
-            parameters.addAll(toTupleReaderParameters(inputTypes));
+            parameters.addAll(toBlockCursorParameters(inputTypes));
             parameters.add(arg("output", BlockBuilder.class));
 
             projectionMethod = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
@@ -844,12 +848,12 @@ public class ExpressionCompiler
     private static class TypedOperatorClass
     {
         private final Class<? extends Operator> operatorClass;
-        private final List<TupleInfo> tupleInfos;
+        private final List<Type> types;
 
-        private TypedOperatorClass(Class<? extends Operator> operatorClass, List<TupleInfo> tupleInfos)
+        private TypedOperatorClass(Class<? extends Operator> operatorClass, List<Type> types)
         {
             this.operatorClass = operatorClass;
-            this.tupleInfos = tupleInfos;
+            this.types = types;
         }
 
         private Class<? extends Operator> getOperatorClass()
@@ -857,13 +861,13 @@ public class ExpressionCompiler
             return operatorClass;
         }
 
-        private List<TupleInfo> getTupleInfos()
+        private List<Type> getTypes()
         {
-            return tupleInfos;
+            return types;
         }
     }
 
-    private List<NamedParameterDefinition> toTupleReaderParameters(Map<Input, Type> inputTypes)
+    private List<NamedParameterDefinition> toBlockCursorParameters(Map<Input, com.facebook.presto.sql.analyzer.Type> inputTypes)
     {
         ImmutableList.Builder<NamedParameterDefinition> parameters = ImmutableList.builder();
         int channels = inputTypes.isEmpty() ? 0 : Ordering.natural().max(transform(inputTypes.keySet(), Input.channelGetter())) + 1;
@@ -931,11 +935,15 @@ public class ExpressionCompiler
     {
         private final Expression filter;
         private final List<Expression> projections;
-        private final Map<Input, Type> inputTypes;
-        private final List<Type> outputTypes;
+        private final Map<Input, com.facebook.presto.sql.analyzer.Type> inputTypes;
+        private final List<com.facebook.presto.sql.analyzer.Type> outputTypes;
         private final PlanNodeId sourceId;
 
-        private OperatorCacheKey(Expression expression, List<Expression> projections, Map<Input, Type> inputTypes, List<Type> outputTypes, PlanNodeId sourceId)
+        private OperatorCacheKey(Expression expression,
+                List<Expression> projections,
+                Map<Input, com.facebook.presto.sql.analyzer.Type> inputTypes,
+                List<com.facebook.presto.sql.analyzer.Type> outputTypes,
+                PlanNodeId sourceId)
         {
             this.filter = expression;
             this.projections = ImmutableList.copyOf(projections);
@@ -954,12 +962,12 @@ public class ExpressionCompiler
             return projections;
         }
 
-        private Map<Input, Type> getInputTypes()
+        private Map<Input, com.facebook.presto.sql.analyzer.Type> getInputTypes()
         {
             return inputTypes;
         }
 
-        public List<Type> getOutputTypes()
+        public List<com.facebook.presto.sql.analyzer.Type> getOutputTypes()
         {
             return outputTypes;
         }
@@ -1008,17 +1016,17 @@ public class ExpressionCompiler
     private static class FilterAndProjectOperatorFactoryFactory
     {
         private final Constructor<? extends Operator> constructor;
-        private final List<TupleInfo> tupleInfos;
+        private final List<Type> types;
 
-        public FilterAndProjectOperatorFactoryFactory(Constructor<? extends Operator> constructor, List<TupleInfo> tupleInfos)
+        public FilterAndProjectOperatorFactoryFactory(Constructor<? extends Operator> constructor, List<Type> types)
         {
             this.constructor = checkNotNull(constructor, "constructor is null");
-            this.tupleInfos = ImmutableList.copyOf(checkNotNull(tupleInfos, "tupleInfos is null"));
+            this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
         }
 
         public OperatorFactory create(int operatorId)
         {
-            return new FilterAndProjectOperatorFactory(constructor, operatorId, tupleInfos);
+            return new FilterAndProjectOperatorFactory(constructor, operatorId, types);
         }
     }
 
@@ -1027,23 +1035,23 @@ public class ExpressionCompiler
     {
         private final Constructor<? extends Operator> constructor;
         private final int operatorId;
-        private final List<TupleInfo> tupleInfos;
+        private final List<Type> types;
         private boolean closed;
 
         public FilterAndProjectOperatorFactory(
                 Constructor<? extends Operator> constructor,
                 int operatorId,
-                List<TupleInfo> tupleInfos)
+                List<Type> types)
         {
             this.constructor = checkNotNull(constructor, "constructor is null");
             this.operatorId = operatorId;
-            this.tupleInfos = ImmutableList.copyOf(checkNotNull(tupleInfos, "tupleInfos is null"));
+            this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
         }
 
         @Override
-        public List<TupleInfo> getTupleInfos()
+        public List<Type> getTypes()
         {
-            return tupleInfos;
+            return types;
         }
 
         @Override
@@ -1052,7 +1060,7 @@ public class ExpressionCompiler
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, constructor.getDeclaringClass().getSimpleName());
             try {
-                return constructor.newInstance(operatorContext, tupleInfos);
+                return constructor.newInstance(operatorContext, types);
             }
             catch (InvocationTargetException e) {
                 throw Throwables.propagate(e.getCause());
@@ -1073,21 +1081,21 @@ public class ExpressionCompiler
     {
         private final Constructor<? extends SourceOperator> constructor;
         private final PlanNodeId sourceId;
-        private final List<TupleInfo> tupleInfos;
+        private final List<Type> types;
 
         public ScanFilterAndProjectOperatorFactoryFactory(
                 Constructor<? extends SourceOperator> constructor,
                 PlanNodeId sourceId,
-                List<TupleInfo> tupleInfos)
+                List<Type> types)
         {
             this.sourceId = checkNotNull(sourceId, "sourceId is null");
             this.constructor = checkNotNull(constructor, "constructor is null");
-            this.tupleInfos = ImmutableList.copyOf(checkNotNull(tupleInfos, "tupleInfos is null"));
+            this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
         }
 
         public SourceOperatorFactory create(int operatorId, DataStreamProvider dataStreamProvider, List<ColumnHandle> columns)
         {
-            return new ScanFilterAndProjectOperatorFactory(constructor, operatorId, sourceId, dataStreamProvider, columns, tupleInfos);
+            return new ScanFilterAndProjectOperatorFactory(constructor, operatorId, sourceId, dataStreamProvider, columns, types);
         }
     }
 
@@ -1099,7 +1107,7 @@ public class ExpressionCompiler
         private final PlanNodeId sourceId;
         private final DataStreamProvider dataStreamProvider;
         private final List<ColumnHandle> columns;
-        private final List<TupleInfo> tupleInfos;
+        private final List<Type> types;
         private boolean closed;
 
         public ScanFilterAndProjectOperatorFactory(
@@ -1108,14 +1116,14 @@ public class ExpressionCompiler
                 PlanNodeId sourceId,
                 DataStreamProvider dataStreamProvider,
                 List<ColumnHandle> columns,
-                List<TupleInfo> tupleInfos)
+                List<Type> types)
         {
             this.constructor = checkNotNull(constructor, "constructor is null");
             this.operatorId = operatorId;
             this.sourceId = checkNotNull(sourceId, "sourceId is null");
             this.dataStreamProvider = checkNotNull(dataStreamProvider, "dataStreamProvider is null");
             this.columns = ImmutableList.copyOf(checkNotNull(columns, "columns is null"));
-            this.tupleInfos = ImmutableList.copyOf(checkNotNull(tupleInfos, "tupleInfos is null"));
+            this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
         }
 
         @Override
@@ -1125,9 +1133,9 @@ public class ExpressionCompiler
         }
 
         @Override
-        public List<TupleInfo> getTupleInfos()
+        public List<Type> getTypes()
         {
-            return tupleInfos;
+            return types;
         }
 
         @Override
@@ -1136,7 +1144,7 @@ public class ExpressionCompiler
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, constructor.getDeclaringClass().getSimpleName());
             try {
-                return constructor.newInstance(operatorContext, sourceId, dataStreamProvider, columns, tupleInfos);
+                return constructor.newInstance(operatorContext, sourceId, dataStreamProvider, columns, types);
             }
             catch (InvocationTargetException e) {
                 throw Throwables.propagate(e.getCause());

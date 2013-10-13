@@ -17,7 +17,7 @@ import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.RecordSink;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -25,7 +25,7 @@ import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.util.List;
 
-import static com.facebook.presto.tuple.TupleInfo.Type.fromColumnType;
+import static com.facebook.presto.type.Types.fromColumnType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -46,7 +46,7 @@ public class NativeRecordSink
         this.nodeId = checkNotNull(nodeId, "nodeId is null");
         this.fileHandle = checkNotNull(fileHandle, "fileHandle is null");
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
-        List<TupleInfo> tupleInfos = toTupleInfos(columnTypes);
+
         if (sampleWeightColumnHandle != null) {
             checkArgument(sampleWeightColumnHandle.getColumnName().equals(NativeColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME), "sample weight column handle has wrong name");
             // sample weight is always stored last in the table
@@ -55,7 +55,7 @@ public class NativeRecordSink
         else {
             sampleWeightField = -1;
         }
-        pageBuilder = new PageBuilder(tupleInfos);
+        pageBuilder = new PageBuilder(toTypes(columnTypes));
     }
 
     @Override
@@ -144,12 +144,12 @@ public class NativeRecordSink
         return builder;
     }
 
-    private static List<TupleInfo> toTupleInfos(List<ColumnType> columnTypes)
+    private static List<Type> toTypes(List<ColumnType> columnTypes)
     {
-        ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
+        ImmutableList.Builder<Type> types = ImmutableList.builder();
         for (ColumnType columnType : columnTypes) {
-            tupleInfos.add(new TupleInfo(fromColumnType(columnType)));
+            types.add(fromColumnType(columnType));
         }
-        return tupleInfos.build();
+        return types.build();
     }
 }

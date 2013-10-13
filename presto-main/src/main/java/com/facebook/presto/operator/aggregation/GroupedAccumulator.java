@@ -17,15 +17,15 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.operator.Page;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 
 public interface GroupedAccumulator
 {
     long getEstimatedSize();
 
-    TupleInfo getFinalTupleInfo();
+    Type getFinalType();
 
-    TupleInfo getIntermediateTupleInfo();
+    Type getIntermediateType();
 
     void addInput(GroupByIdBlock groupIdsBlock, Page page);
 

@@ -16,15 +16,15 @@ package com.facebook.presto.block.uncompressed;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockEncoding;
 import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.serde.TupleInfoSerde;
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.VariableWidthTypeInfo;
-import com.google.common.base.Preconditions;
+import com.facebook.presto.serde.TypeSerde;
+import com.facebook.presto.type.Type;
+import com.facebook.presto.type.VariableWidthType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class VariableWidthBlockEncoding
         implements BlockEncoding
@@ -32,12 +32,11 @@ public class VariableWidthBlockEncoding
     public static final BlockEncodingFactory<VariableWidthBlockEncoding> FACTORY = new VariableWidthBlockEncodingFactory();
     private static final String NAME = "VARIABLE_WIDTH";
 
-    private final TupleInfo tupleInfo;
+    private final VariableWidthType type;
 
-    public VariableWidthBlockEncoding(TupleInfo tupleInfo)
+    public VariableWidthBlockEncoding(Type type)
     {
-        Preconditions.checkNotNull(tupleInfo, "tupleInfo is null");
-        this.tupleInfo = tupleInfo;
+        this.type = (VariableWidthType) checkNotNull(type, "type is null");
     }
 
     @Override
@@ -47,15 +46,15 @@ public class VariableWidthBlockEncoding
     }
 
     @Override
-    public TupleInfo getTupleInfo()
+    public Type getType()
     {
-        return tupleInfo;
+        return type;
     }
 
     @Override
     public void writeBlock(SliceOutput sliceOutput, Block block)
     {
-        checkArgument(block.getTupleInfo().equals(getTupleInfo()), "Invalid tuple info");
+        checkArgument(block.getType().equals(type), "Invalid block");
 
         Slice rawSlice;
         if (block instanceof AbstractVariableWidthRandomAccessBlock) {
@@ -82,14 +81,14 @@ public class VariableWidthBlockEncoding
         int positionCount = sliceInput.readInt();
 
         Slice slice = sliceInput.readSlice(blockSize);
-        return new VariableWidthBlock(new VariableWidthTypeInfo(getTupleInfo().getType()), positionCount, slice);
+        return new VariableWidthBlock(type, positionCount, slice);
     }
 
-    private static void writeUncompressedBlock(SliceOutput destination, int tupleCount, Slice slice)
+    private static void writeUncompressedBlock(SliceOutput destination, int positionCount, Slice slice)
     {
         destination
                 .appendInt(slice.length())
-                .appendInt(tupleCount)
+                .appendInt(positionCount)
                 .writeBytes(slice);
     }
 
@@ -105,14 +104,14 @@ public class VariableWidthBlockEncoding
         @Override
         public VariableWidthBlockEncoding readEncoding(BlockEncodingManager blockEncodingManager, SliceInput input)
         {
-            TupleInfo tupleInfo = TupleInfoSerde.readTupleInfo(input);
-            return new VariableWidthBlockEncoding(tupleInfo);
+            Type type = TypeSerde.readType(input);
+            return new VariableWidthBlockEncoding(type);
         }
 
         @Override
         public void writeEncoding(BlockEncodingManager blockEncodingManager, SliceOutput output, VariableWidthBlockEncoding blockEncoding)
         {
-            TupleInfoSerde.writeTupleInfo(output, blockEncoding.getTupleInfo());
+            TypeSerde.writeInfo(output, blockEncoding.getType());
         }
     }
 }

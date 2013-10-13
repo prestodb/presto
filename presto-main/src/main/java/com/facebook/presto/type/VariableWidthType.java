@@ -11,46 +11,41 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.tuple;
+package com.facebook.presto.type;
 
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.tuple.TupleInfo.Type;
+import com.facebook.presto.spi.ColumnType;
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonValue;
 import com.google.common.base.Charsets;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 
-import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 
-public class VariableWidthTypeInfo
-        implements TypeInfo
+public class VariableWidthType
+        implements Type
 {
-    private final Type type;
-
     @JsonCreator
-    public VariableWidthTypeInfo(Type type)
+    public VariableWidthType()
     {
-        this.type = checkNotNull(type, "type is null");
-        checkArgument(!type.isFixedSize(), "type %s is not a variable width type", type);
     }
 
     @Override
-    @JsonValue
-    public Type getType()
+    public String getName()
     {
-        return type;
+        return "varchar";
+    }
+
+    @Override
+    public ColumnType toColumnType()
+    {
+        return ColumnType.STRING;
     }
 
     @Override
     public Object getObjectValue(Slice slice, int offset)
     {
-        checkState(type == VARIABLE_BINARY, "Expected VARIABLE_BINARY, but is %s", type);
         return slice.toString(offset + SIZE_OF_INT, getValueSize(slice, offset), Charsets.UTF_8);
     }
 
@@ -66,13 +61,11 @@ public class VariableWidthTypeInfo
 
     public Slice getSlice(Slice slice, int offset)
     {
-        checkState(type == VARIABLE_BINARY, "Expected VARIABLE_BINARY, but is %s", type);
         return slice.slice(offset + SIZE_OF_INT, getValueSize(slice, offset));
     }
 
     public void setSlice(SliceOutput sliceOutput, Slice value, int offset, int length)
     {
-        checkState(type == VARIABLE_BINARY, "Expected VARIABLE_BINARY, but is %s", type);
         sliceOutput.writeInt(length);
         sliceOutput.writeBytes(value, offset, length);
     }
@@ -133,24 +126,18 @@ public class VariableWidthTypeInfo
             return false;
         }
 
-        VariableWidthTypeInfo tupleInfo = (VariableWidthTypeInfo) o;
-
-        if (!type.equals(tupleInfo.type)) {
-            return false;
-        }
-
         return true;
     }
 
     @Override
     public int hashCode()
     {
-        return type.hashCode();
+        return getClass().hashCode();
     }
 
     @Override
     public String toString()
     {
-        return "TupleInfo{" + type + "}";
+        return getName();
     }
 }

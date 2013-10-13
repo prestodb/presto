@@ -73,8 +73,8 @@ public final class OutputHandler
         while (client.isValid()) {
             Iterable<List<Object>> data = client.current().getData();
             if (data != null) {
-                for (List<Object> tuple : data) {
-                    processRow(unmodifiableList(tuple));
+                for (List<Object> row : data) {
+                    processRow(unmodifiableList(row));
                 }
             }
 

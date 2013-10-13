@@ -17,11 +17,10 @@ import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Input;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMap.Builder;
 import org.testng.annotations.Test;
@@ -149,36 +148,21 @@ public class TestInterpretedProjectionFunction
         assertProjection(VARCHAR, createExpression("symbol"), null, ImmutableMap.of(new Symbol("symbol"), new Input(0)), createCursor(VARCHAR, null));
     }
 
-    public static void assertProjection(Type outputType, String expression, @Nullable Object expectedValue)
+    public static void assertProjection(com.facebook.presto.sql.analyzer.Type outputType, String expression, @Nullable Object expectedValue)
     {
         assertProjection(outputType, createExpression(expression), expectedValue, ImmutableMap.<Symbol, Input>of());
     }
 
-    private static void assertProjection(Type outputType,
+    private static void assertProjection(com.facebook.presto.sql.analyzer.Type outputType,
             Expression expression,
             @Nullable Object expectedValue,
             Map<Symbol, Input> symbolToInputMappings,
             BlockCursor... channels)
     {
-        Builder<Input, Type> inputTypes = ImmutableMap.builder();
+        Builder<Input, com.facebook.presto.sql.analyzer.Type> inputTypes = ImmutableMap.builder();
         for (Input input : symbolToInputMappings.values()) {
-            TupleInfo.Type type = channels[input.getChannel()].getTupleInfo().getType();
-            switch (type) {
-                case BOOLEAN:
-                    inputTypes.put(input, BOOLEAN);
-                    break;
-                case FIXED_INT_64:
-                    inputTypes.put(input, BIGINT);
-                    break;
-                case VARIABLE_BINARY:
-                    inputTypes.put(input, VARCHAR);
-                    break;
-                case DOUBLE:
-                    inputTypes.put(input, DOUBLE);
-                    break;
-                default:
-                    throw new IllegalStateException("Unsupported type");
-            }
+            Type type = channels[input.getChannel()].getType();
+            inputTypes.put(input, com.facebook.presto.sql.analyzer.Type.fromRaw(type.toColumnType()));
         }
         InterpretedProjectionFunction projectionFunction = new InterpretedProjectionFunction(outputType,
                 expression,
@@ -188,7 +172,7 @@ public class TestInterpretedProjectionFunction
         );
 
         // create output
-        BlockBuilder builder = createBlockBuilder(new TupleInfo(outputType.getRawType()));
+        BlockBuilder builder = createBlockBuilder(outputType.getRawType());
 
         // project
         projectionFunction.project(channels, builder);
@@ -198,9 +182,9 @@ public class TestInterpretedProjectionFunction
         assertEquals(actualValue, expectedValue);
     }
 
-    private static BlockCursor createCursor(Type type, Object value)
+    private static BlockCursor createCursor(com.facebook.presto.sql.analyzer.Type type, Object value)
     {
-        BlockCursor cursor = createBlockBuilder(new TupleInfo(type.getRawType())).appendObject(value).build().cursor();
+        BlockCursor cursor = createBlockBuilder(type.getRawType()).appendObject(value).build().cursor();
         assertTrue(cursor.advanceNextPosition());
         return cursor;
     }

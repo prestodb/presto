@@ -17,7 +17,7 @@ import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.operator.SortOrder;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import com.google.common.base.Objects;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
@@ -82,9 +82,9 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public TupleInfo getTupleInfo()
+    public Type getType()
     {
-        return value.getTupleInfo();
+        return value.getType();
     }
 
     @Override
@@ -186,9 +186,9 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public void appendTupleTo(int position, BlockBuilder blockBuilder)
+    public void appendTo(int position, BlockBuilder blockBuilder)
     {
-        value.appendTupleTo(0, blockBuilder);
+        value.appendTo(0, blockBuilder);
     }
 
     @Override

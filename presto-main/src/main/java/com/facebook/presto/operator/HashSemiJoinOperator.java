@@ -17,15 +17,14 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.operator.SetBuilderOperator.SetSupplier;
-import com.facebook.presto.tuple.FixedWidthTypeInfo;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 
 import static com.facebook.presto.block.BlockBuilders.createFixedSizeBlockBuilder;
-import static com.facebook.presto.tuple.TupleInfo.Type.BOOLEAN;
+import static com.facebook.presto.type.Types.BOOLEAN;
 import static com.facebook.presto.util.MoreFutures.tryGetUnchecked;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -41,29 +40,29 @@ public class HashSemiJoinOperator
     {
         private final int operatorId;
         private final SetSupplier setSupplier;
-        private final List<TupleInfo> probeTupleInfos;
+        private final List<Type> probeTypes;
         private final int probeJoinChannel;
-        private final List<TupleInfo> tupleInfos;
+        private final List<Type> types;
         private boolean closed;
 
-        public HashSemiJoinOperatorFactory(int operatorId, SetSupplier setSupplier, List<TupleInfo> probeTupleInfos, int probeJoinChannel)
+        public HashSemiJoinOperatorFactory(int operatorId, SetSupplier setSupplier, List<Type> probeTypes, int probeJoinChannel)
         {
             this.operatorId = operatorId;
             this.setSupplier = setSupplier;
-            this.probeTupleInfos = probeTupleInfos;
+            this.probeTypes = probeTypes;
             checkArgument(probeJoinChannel >= 0, "probeJoinChannel is negative");
             this.probeJoinChannel = probeJoinChannel;
 
-            this.tupleInfos = ImmutableList.<TupleInfo>builder()
-                    .addAll(probeTupleInfos)
-                    .add(TupleInfo.SINGLE_BOOLEAN)
+            this.types = ImmutableList.<Type>builder()
+                    .addAll(probeTypes)
+                    .add(BOOLEAN)
                     .build();
         }
 
         @Override
-        public List<TupleInfo> getTupleInfos()
+        public List<Type> getTypes()
         {
-            return tupleInfos;
+            return types;
         }
 
         @Override
@@ -71,7 +70,7 @@ public class HashSemiJoinOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, HashBuilderOperator.class.getSimpleName());
-            return new HashSemiJoinOperator(operatorContext, setSupplier, probeTupleInfos, probeJoinChannel);
+            return new HashSemiJoinOperator(operatorContext, setSupplier, probeTypes, probeJoinChannel);
         }
 
         @Override
@@ -82,28 +81,28 @@ public class HashSemiJoinOperator
     }
 
     private final int probeJoinChannel;
-    private final List<TupleInfo> tupleInfos;
+    private final List<Type> types;
     private final ListenableFuture<ChannelSet> channelSetFuture;
 
     private ChannelSet channelSet;
     private Page outputPage;
     private boolean finishing;
 
-    public HashSemiJoinOperator(OperatorContext operatorContext, SetSupplier channelSetFuture, List<TupleInfo> probeTupleInfos, int probeJoinChannel)
+    public HashSemiJoinOperator(OperatorContext operatorContext, SetSupplier channelSetFuture, List<Type> probeTypes, int probeJoinChannel)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
 
         // todo pass in desired projection
         checkNotNull(channelSetFuture, "hashProvider is null");
-        checkNotNull(probeTupleInfos, "probeTupleInfos is null");
+        checkNotNull(probeTypes, "probeTypes is null");
         checkArgument(probeJoinChannel >= 0, "probeJoinChannel is negative");
 
         this.channelSetFuture = channelSetFuture.getChannelSet();
         this.probeJoinChannel = probeJoinChannel;
 
-        this.tupleInfos = ImmutableList.<TupleInfo>builder()
-                .addAll(probeTupleInfos)
-                .add(TupleInfo.SINGLE_BOOLEAN)
+        this.types = ImmutableList.<Type>builder()
+                .addAll(probeTypes)
+                .add(BOOLEAN)
                 .build();
     }
 
@@ -114,9 +113,9 @@ public class HashSemiJoinOperator
     }
 
     @Override
-    public List<TupleInfo> getTupleInfos()
+    public List<Type> getTypes()
     {
-        return tupleInfos;
+        return types;
     }
 
     @Override
@@ -160,7 +159,7 @@ public class HashSemiJoinOperator
 
         // create the block builder for the new boolean column
         // we know the exact size required for the block
-        BlockBuilder blockBuilder = createFixedSizeBlockBuilder(new FixedWidthTypeInfo(BOOLEAN), page.getPositionCount());
+        BlockBuilder blockBuilder = createFixedSizeBlockBuilder(BOOLEAN, page.getPositionCount());
 
         Block probeJoinBlock = page.getBlock(probeJoinChannel);
         BlockCursor probeJoinCursor = probeJoinBlock.cursor();

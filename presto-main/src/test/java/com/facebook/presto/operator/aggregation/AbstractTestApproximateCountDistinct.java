@@ -16,7 +16,7 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.operator.Page;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -39,7 +39,7 @@ public abstract class AbstractTestApproximateCountDistinct
 {
     public abstract AggregationFunction getAggregationFunction();
 
-    public abstract TupleInfo.Type getValueType();
+    public abstract Type getValueType();
 
     public abstract Object randomValue();
 
@@ -153,22 +153,25 @@ public abstract class AbstractTestApproximateCountDistinct
      */
     private Block createBlock(List<Object> values)
     {
-        BlockBuilder blockBuilder = createBlockBuilder(new TupleInfo(getValueType()));
+        BlockBuilder blockBuilder = createBlockBuilder(getValueType());
 
         for (Object value : values) {
             if (value == null) {
                 blockBuilder.appendNull();
             }
             else {
-                switch (getValueType()) {
-                    case FIXED_INT_64:
-                        blockBuilder.append((Long) value);
+                switch (getValueType().toColumnType()) {
+                    case BOOLEAN:
+                        blockBuilder.append((Boolean) value);
                         break;
-                    case VARIABLE_BINARY:
-                        blockBuilder.append((Slice) value);
+                    case LONG:
+                        blockBuilder.append((Long) value);
                         break;
                     case DOUBLE:
                         blockBuilder.append((Double) value);
+                        break;
+                    case STRING:
+                        blockBuilder.append((Slice) value);
                         break;
                     default:
                         throw new UnsupportedOperationException("not yet implemented");

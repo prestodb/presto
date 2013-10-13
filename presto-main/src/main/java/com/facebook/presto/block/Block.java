@@ -13,15 +13,15 @@
  */
 package com.facebook.presto.block;
 
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import io.airlift.units.DataSize;
 
 public interface Block
 {
     /**
-     * Gets the type of all tuples in this block
+     * Gets the type of this block
      */
-    TupleInfo getTupleInfo();
+    Type getType();
 
     /**
      * Returns the number of positions in this block.

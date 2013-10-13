@@ -15,25 +15,24 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 
 import java.util.List;
 
 import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
-import static com.facebook.presto.operator.HashAggregationOperator.HashMemoryManager;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_BOOLEAN;
+import static com.facebook.presto.type.Types.BOOLEAN;
 
 public class MarkDistinctHash
 {
     private final GroupByHash groupByHash;
     private long nextDistinctId;
 
-    public MarkDistinctHash(List<TupleInfo.Type> types, int[] channels, HashMemoryManager memoryManager)
+    public MarkDistinctHash(List<Type> types, int[] channels)
     {
-        this(types, channels, memoryManager, 10_000);
+        this(types, channels, 10_000);
     }
 
-    public MarkDistinctHash(List<TupleInfo.Type> types, int[] channels, HashMemoryManager memoryManager, int expectedDistinctValues)
+    public MarkDistinctHash(List<Type> types, int[] channels, int expectedDistinctValues)
     {
         this.groupByHash = new GroupByHash(types, channels, expectedDistinctValues);
     }
@@ -45,7 +44,7 @@ public class MarkDistinctHash
 
     public Block markDistinctRows(Page page)
     {
-        BlockBuilder blockBuilder = createBlockBuilder(SINGLE_BOOLEAN);
+        BlockBuilder blockBuilder = createBlockBuilder(BOOLEAN);
         GroupByIdBlock ids = groupByHash.getGroupIds(page);
         for (int i = 0; i < ids.getPositionCount(); i++) {
             if (ids.getGroupId(i) == nextDistinctId) {

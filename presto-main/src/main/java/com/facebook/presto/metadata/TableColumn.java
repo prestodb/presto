@@ -13,8 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleInfo.Type;
+import com.facebook.presto.type.Type;
 import com.google.common.base.Objects;
 
 import static com.facebook.presto.metadata.MetadataUtil.checkTable;
@@ -26,7 +25,7 @@ public class TableColumn
     private final QualifiedTableName table;
     private final String columnName;
     private final int ordinalPosition;
-    private final TupleInfo.Type dataType;
+    private final Type dataType;
     private final long columnId;
 
     public TableColumn(QualifiedTableName table, String columnName, int ordinalPosition, Type dataType, long columnId)
@@ -54,7 +53,7 @@ public class TableColumn
         return ordinalPosition;
     }
 
-    public TupleInfo.Type getDataType()
+    public Type getDataType()
     {
         return dataType;
     }

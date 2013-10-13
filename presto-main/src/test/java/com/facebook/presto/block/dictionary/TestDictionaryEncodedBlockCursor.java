@@ -17,7 +17,7 @@ import com.facebook.presto.block.AbstractTestBlockCursor;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.RandomAccessBlock;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Types;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
@@ -37,7 +37,7 @@ public class TestDictionaryEncodedBlockCursor
     @Override
     protected BlockCursor createTestCursor()
     {
-        RandomAccessBlock dictionary = createBlockBuilder(TupleInfo.SINGLE_VARBINARY)
+        RandomAccessBlock dictionary = createBlockBuilder(Types.VARCHAR)
                 .append("apple")
                 .append("banana")
                 .append("cherry")

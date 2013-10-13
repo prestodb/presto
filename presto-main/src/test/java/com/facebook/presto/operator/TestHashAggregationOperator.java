@@ -46,12 +46,10 @@ import static com.facebook.presto.operator.aggregation.CountColumnAggregations.C
 import static com.facebook.presto.operator.aggregation.CountColumnAggregations.COUNT_STRING_COLUMN;
 import static com.facebook.presto.operator.aggregation.LongSumAggregation.LONG_SUM;
 import static com.facebook.presto.operator.aggregation.VarBinaryMaxAggregation.VAR_BINARY_MAX;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_BOOLEAN;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
-import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
-import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
-import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
+import static com.facebook.presto.type.Types.BIGINT;
+import static com.facebook.presto.type.Types.BOOLEAN;
+import static com.facebook.presto.type.Types.DOUBLE;
+import static com.facebook.presto.type.Types.VARCHAR;
 import static com.facebook.presto.util.MaterializedResult.resultBuilder;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
@@ -85,7 +83,7 @@ public class TestHashAggregationOperator
     public void testSampledHashAggregation()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(SINGLE_VARBINARY, SINGLE_VARBINARY, SINGLE_VARBINARY, SINGLE_LONG, SINGLE_BOOLEAN)
+        List<Page> input = rowPagesBuilder(VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
                 .addSequencePage(10, 100, 0, 100, 0, 500)
                 .addSequencePage(10, 100, 0, 200, 0, 500)
                 .addSequencePage(10, 100, 0, 300, 0, 500)
@@ -95,7 +93,7 @@ public class TestHashAggregationOperator
         Optional<Input> sampleWeightInput = Optional.of(new Input(input.get(0).getChannelCount() - 1));
         HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
                 0,
-                ImmutableList.of(SINGLE_VARBINARY),
+                ImmutableList.of(VARCHAR),
                 Ints.asList(1),
                 Step.SINGLE,
                 ImmutableList.of(aggregation(COUNT, ImmutableList.of(new Input(0)), Optional.<Input>absent(), sampleWeightInput, 1.0),
@@ -108,7 +106,7 @@ public class TestHashAggregationOperator
 
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        MaterializedResult expected = resultBuilder(VARIABLE_BINARY, FIXED_INT_64, FIXED_INT_64, DOUBLE, VARIABLE_BINARY, FIXED_INT_64, FIXED_INT_64)
+        MaterializedResult expected = resultBuilder(VARCHAR, BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT, BIGINT)
                 .row("0", 6, 2 * 0, 0.0, "300", 6, 6)
                 .row("1", 6, 2 * 3, 1.0, "301", 6, 6)
                 .row("2", 6, 2 * 6, 2.0, "302", 6, 6)
@@ -128,7 +126,7 @@ public class TestHashAggregationOperator
     public void testHashAggregation()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(SINGLE_VARBINARY, SINGLE_VARBINARY, SINGLE_VARBINARY, SINGLE_LONG, SINGLE_BOOLEAN)
+        List<Page> input = rowPagesBuilder(VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
                 .addSequencePage(10, 100, 0, 100, 0, 500)
                 .addSequencePage(10, 100, 0, 200, 0, 500)
                 .addSequencePage(10, 100, 0, 300, 0, 500)
@@ -136,7 +134,7 @@ public class TestHashAggregationOperator
 
         HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
                 0,
-                ImmutableList.of(SINGLE_VARBINARY),
+                ImmutableList.of(VARCHAR),
                 Ints.asList(1),
                 Step.SINGLE,
                 ImmutableList.of(aggregation(COUNT, ImmutableList.of(new Input(0)), Optional.<Input>absent(), Optional.<Input>absent(), 1.0),
@@ -149,7 +147,7 @@ public class TestHashAggregationOperator
 
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        MaterializedResult expected = resultBuilder(VARIABLE_BINARY, FIXED_INT_64, FIXED_INT_64, DOUBLE, VARIABLE_BINARY, FIXED_INT_64, FIXED_INT_64)
+        MaterializedResult expected = resultBuilder(VARCHAR, BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT, BIGINT)
                 .row("0", 3, 0, 0.0, "300", 3, 3)
                 .row("1", 3, 3, 1.0, "301", 3, 3)
                 .row("2", 3, 6, 2.0, "302", 3, 3)
@@ -168,7 +166,7 @@ public class TestHashAggregationOperator
     @Test(expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Task exceeded max memory size of 10B")
     public void testMemoryLimit()
     {
-        List<Page> input = rowPagesBuilder(SINGLE_VARBINARY, SINGLE_VARBINARY, SINGLE_VARBINARY, SINGLE_LONG)
+        List<Page> input = rowPagesBuilder(VARCHAR, VARCHAR, VARCHAR, BIGINT)
                 .addSequencePage(10, 100, 0, 100, 0)
                 .addSequencePage(10, 100, 0, 200, 0)
                 .addSequencePage(10, 100, 0, 300, 0)
@@ -181,7 +179,7 @@ public class TestHashAggregationOperator
 
         HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
                 0,
-                ImmutableList.of(SINGLE_VARBINARY),
+                ImmutableList.of(VARCHAR),
                 Ints.asList(1),
                 Step.SINGLE,
                 ImmutableList.of(aggregation(COUNT, ImmutableList.of(new Input(0)), Optional.<Input>absent(), Optional.<Input>absent(), 1.0),
@@ -197,11 +195,11 @@ public class TestHashAggregationOperator
 
     public void testHashBuilderResize()
     {
-        BlockBuilder builder = createBlockBuilder(SINGLE_VARBINARY);
+        BlockBuilder builder = createBlockBuilder(VARCHAR);
         builder.append(new String(new byte[200_000])); // this must be larger than DEFAULT_MAX_BLOCK_SIZE, 64K
         builder.build();
 
-        List<Page> input = rowPagesBuilder(SINGLE_VARBINARY)
+        List<Page> input = rowPagesBuilder(VARCHAR)
                 .addSequencePage(10, 100)
                 .addBlocksPage(builder.build())
                 .addSequencePage(10, 100)
@@ -214,7 +212,7 @@ public class TestHashAggregationOperator
 
         HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
                 0,
-                ImmutableList.of(SINGLE_VARBINARY),
+                ImmutableList.of(VARCHAR),
                 Ints.asList(0),
                 Step.SINGLE,
                 ImmutableList.of(aggregation(COUNT, ImmutableList.of(new Input(0)), Optional.<Input>absent(), Optional.<Input>absent(), 1.0)),
@@ -228,11 +226,11 @@ public class TestHashAggregationOperator
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Task exceeded max memory size of 3MB")
     public void testHashBuilderResizeLimit()
     {
-        BlockBuilder builder = createBlockBuilder(SINGLE_VARBINARY);
+        BlockBuilder builder = createBlockBuilder(VARCHAR);
         builder.append(new String(new byte[5_000_000])); // this must be larger than DEFAULT_MAX_BLOCK_SIZE, 64K
         builder.build();
 
-        List<Page> input = rowPagesBuilder(SINGLE_VARBINARY)
+        List<Page> input = rowPagesBuilder(VARCHAR)
                 .addSequencePage(10, 100)
                 .addBlocksPage(builder.build())
                 .addSequencePage(10, 100)
@@ -245,7 +243,7 @@ public class TestHashAggregationOperator
 
         HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
                 0,
-                ImmutableList.of(SINGLE_VARBINARY),
+                ImmutableList.of(VARCHAR),
                 Ints.asList(0),
                 Step.SINGLE,
                 ImmutableList.of(aggregation(COUNT, ImmutableList.of(new Input(0)), Optional.<Input>absent(), Optional.<Input>absent(), 1.0)),
@@ -263,13 +261,13 @@ public class TestHashAggregationOperator
         int fixedWidthSize = SIZE_OF_LONG + SIZE_OF_DOUBLE + SIZE_OF_DOUBLE;
         int multiSlicePositionCount = (int) (1.5 * PageBuilder.DEFAULT_MAX_PAGE_SIZE.toBytes() / fixedWidthSize);
 
-        List<Page> input = rowPagesBuilder(SINGLE_VARBINARY, SINGLE_LONG)
+        List<Page> input = rowPagesBuilder(BIGINT, BIGINT)
                 .addSequencePage(multiSlicePositionCount, 0, 0)
                 .build();
 
         HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
                 0,
-                ImmutableList.of(SINGLE_LONG),
+                ImmutableList.of(BIGINT),
                 Ints.asList(1),
                 Step.SINGLE,
                 ImmutableList.of(aggregation(COUNT, ImmutableList.of(new Input(0)), Optional.<Input>absent(), Optional.<Input>absent(), 1.0),
