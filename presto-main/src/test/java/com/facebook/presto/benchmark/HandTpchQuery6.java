@@ -26,7 +26,6 @@ import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.type.Type;
-import com.facebook.presto.type.Types;
 import com.facebook.presto.util.LocalQueryRunner;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -39,6 +38,7 @@ import java.util.concurrent.ExecutorService;
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
 import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUBLE_SUM;
+import static com.facebook.presto.type.DoubleType.DOUBLE;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkState;
@@ -92,7 +92,7 @@ public class HandTpchQuery6
             @Override
             public List<Type> getTypes()
             {
-                return ImmutableList.of(Types.DOUBLE);
+                return ImmutableList.of(DOUBLE);
             }
 
             @Override
@@ -113,7 +113,7 @@ public class HandTpchQuery6
 
         public TpchQuery6Operator(OperatorContext operatorContext)
         {
-            super(operatorContext, ImmutableList.of(Types.DOUBLE));
+            super(operatorContext, ImmutableList.of(DOUBLE));
         }
 
         @Override

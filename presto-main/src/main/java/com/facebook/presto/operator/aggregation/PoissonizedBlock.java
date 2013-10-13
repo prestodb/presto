@@ -24,7 +24,7 @@ import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import org.apache.commons.math3.random.RandomDataGenerator;
 
-import static com.facebook.presto.type.Types.BIGINT;
+import static com.facebook.presto.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 

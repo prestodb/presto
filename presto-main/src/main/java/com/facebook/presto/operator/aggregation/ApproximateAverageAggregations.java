@@ -18,13 +18,15 @@ import com.facebook.presto.operator.aggregation.ApproximateAverageAggregation.Ap
 import com.facebook.presto.operator.aggregation.SimpleAggregationFunction.SimpleAccumulator;
 import com.facebook.presto.operator.aggregation.SimpleAggregationFunction.SimpleGroupedAccumulator;
 import com.facebook.presto.type.Type;
-import com.facebook.presto.type.Types;
 import com.google.common.base.Throwables;
+
+import static com.facebook.presto.type.BigintType.BIGINT;
+import static com.facebook.presto.type.DoubleType.DOUBLE;
 
 public final class ApproximateAverageAggregations
 {
-    public static final AggregationFunction LONG_APPROXIMATE_AVERAGE_AGGREGATION = createIsolatedAggregation(Types.BIGINT);
-    public static final AggregationFunction DOUBLE_APPROXIMATE_AVERAGE_AGGREGATION = createIsolatedAggregation(Types.DOUBLE);
+    public static final AggregationFunction LONG_APPROXIMATE_AVERAGE_AGGREGATION = createIsolatedAggregation(BIGINT);
+    public static final AggregationFunction DOUBLE_APPROXIMATE_AVERAGE_AGGREGATION = createIsolatedAggregation(DOUBLE);
 
     private ApproximateAverageAggregations() {}
 

@@ -20,9 +20,8 @@ import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.util.array.BooleanBigArray;
 import com.facebook.presto.util.array.LongBigArray;
 import com.google.common.base.Optional;
-import com.facebook.presto.type.Types;
 
-import static com.facebook.presto.type.Types.BIGINT;
+import static com.facebook.presto.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -33,7 +32,7 @@ public class LongMinAggregation
 
     public LongMinAggregation()
     {
-        super(BIGINT, BIGINT, Types.BIGINT);
+        super(BIGINT, BIGINT, BIGINT);
     }
 
     @Override

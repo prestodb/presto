@@ -53,14 +53,14 @@ public class HashAggregationOperator
 
         public HashAggregationOperatorFactory(
                 int operatorId,
-                List<Type> groupByTypes,
+                List<? extends Type> groupByTypes,
                 List<Integer> groupByChannels,
                 Step step,
                 List<AggregationFunctionDefinition> functionDefinitions,
                 int expectedGroups)
         {
             this.operatorId = operatorId;
-            this.groupByTypes = groupByTypes;
+            this.groupByTypes = ImmutableList.copyOf(groupByTypes);
             this.groupByChannels = groupByChannels;
             this.step = step;
             this.functionDefinitions = functionDefinitions;
@@ -223,7 +223,7 @@ public class HashAggregationOperator
         return outputIterator.next();
     }
 
-    private static List<Type> toTypes(List<Type> groupByType, Step step, List<AggregationFunctionDefinition> functionDefinitions)
+    private static List<Type> toTypes(List<? extends Type> groupByType, Step step, List<AggregationFunctionDefinition> functionDefinitions)
     {
         ImmutableList.Builder<Type> types = ImmutableList.builder();
         types.addAll(groupByType);

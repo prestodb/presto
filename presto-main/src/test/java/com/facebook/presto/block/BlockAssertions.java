@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.block;
 
+import com.facebook.presto.type.BooleanType;
 import com.facebook.presto.type.Type;
-import com.facebook.presto.type.Types;
 import com.google.common.base.Function;
 import com.google.common.collect.ContiguousSet;
 import com.google.common.collect.DiscreteDomain;
@@ -33,6 +33,9 @@ import java.util.List;
 
 import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.facebook.presto.block.BlockIterables.createBlockIterable;
+import static com.facebook.presto.type.BigintType.BIGINT;
+import static com.facebook.presto.type.DoubleType.DOUBLE;
+import static com.facebook.presto.type.VarcharType.VARCHAR;
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static org.testng.Assert.assertEquals;
@@ -179,7 +182,7 @@ public final class BlockAssertions
 
     public static Block createStringsBlock(Iterable<String> values)
     {
-        BlockBuilder builder = Types.VARCHAR.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
+        BlockBuilder builder = VARCHAR.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
 
         for (String value : values) {
             if (value == null) {
@@ -200,7 +203,7 @@ public final class BlockAssertions
 
     public static Block createStringSequenceBlock(int start, int end)
     {
-        BlockBuilder builder = Types.VARCHAR.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
+        BlockBuilder builder = VARCHAR.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
 
         for (int i = start; i < end; i++) {
             builder.append(String.valueOf(i));
@@ -223,7 +226,7 @@ public final class BlockAssertions
 
     public static Block createBooleansBlock(Iterable<Boolean> values)
     {
-        BlockBuilder builder = Types.BOOLEAN.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
+        BlockBuilder builder = BooleanType.BOOLEAN.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
 
         for (Boolean value : values) {
             if (value == null) {
@@ -240,7 +243,7 @@ public final class BlockAssertions
     // This method makes it easy to create blocks without having to add an L to every value
     public static RandomAccessBlock createLongsBlock(int... values)
     {
-        BlockBuilder builder = Types.BIGINT.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
+        BlockBuilder builder = BIGINT.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
 
         for (int value : values) {
             builder.append((long) value);
@@ -258,7 +261,7 @@ public final class BlockAssertions
 
     public static Block createLongsBlock(Iterable<Long> values)
     {
-        BlockBuilder builder = Types.BIGINT.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
+        BlockBuilder builder = BIGINT.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
 
         for (Long value : values) {
             if (value == null) {
@@ -284,7 +287,7 @@ public final class BlockAssertions
 
     public static Block createLongSequenceBlock(int start, int end)
     {
-        BlockBuilder builder = Types.BIGINT.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
+        BlockBuilder builder = BIGINT.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
 
         for (int i = start; i < end; i++) {
             builder.append(i);
@@ -295,7 +298,7 @@ public final class BlockAssertions
 
     public static Block createBooleanSequenceBlock(int start, int end)
     {
-        BlockBuilder builder = Types.BOOLEAN.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
+        BlockBuilder builder = BooleanType.BOOLEAN.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
 
         for (int i = start; i < end; i++) {
             builder.append(i % 2 == 0);
@@ -313,7 +316,7 @@ public final class BlockAssertions
 
     public static Block createDoublesBlock(Iterable<Double> values)
     {
-        BlockBuilder builder = Types.DOUBLE.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
+        BlockBuilder builder = DOUBLE.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
 
         for (Double value : values) {
             if (value == null) {
@@ -334,7 +337,7 @@ public final class BlockAssertions
 
     public static Block createDoubleSequenceBlock(int start, int end)
     {
-        BlockBuilder builder = Types.DOUBLE.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
+        BlockBuilder builder = DOUBLE.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
 
         for (int i = start; i < end; i++) {
             builder.append((double) i);

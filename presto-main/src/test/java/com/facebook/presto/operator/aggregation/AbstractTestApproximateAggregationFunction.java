@@ -30,8 +30,8 @@ import java.util.Random;
 
 import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertApproximateAggregation;
-import static com.facebook.presto.type.Types.BIGINT;
-import static com.facebook.presto.type.Types.DOUBLE;
+import static com.facebook.presto.type.BigintType.BIGINT;
+import static com.facebook.presto.type.DoubleType.DOUBLE;
 import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestApproximateAggregationFunction
