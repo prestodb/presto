@@ -15,7 +15,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.operator.Page;
-import com.facebook.presto.serde.BlockEncodingManager;
+import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.serde.BlocksFileWriter;
 import com.facebook.presto.spi.ColumnHandle;

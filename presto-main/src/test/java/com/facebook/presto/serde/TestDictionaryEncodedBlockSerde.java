@@ -14,6 +14,7 @@
 package com.facebook.presto.serde;
 
 import com.facebook.presto.block.Block;
+import com.facebook.presto.block.BlockEncoding;
 import io.airlift.slice.DynamicSliceOutput;
 import org.testng.annotations.Test;
 

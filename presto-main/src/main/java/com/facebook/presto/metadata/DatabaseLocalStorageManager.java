@@ -21,7 +21,7 @@ import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.serde.BlockEncodingManager;
+import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.serde.BlocksFileReader;
 import com.facebook.presto.serde.BlocksFileStats;
