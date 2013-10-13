@@ -44,7 +44,7 @@ public class SnappyEncoder
         checkState(!finished, "already finished");
 
         if (encoding == null) {
-            encoding = new SnappyBlockEncoding(block.getTupleInfo());
+            encoding = new SnappyBlockEncoding(block.getTupleInfo(), block.getEncoding());
             blockBuilder = createBlockBuilder(block.getTupleInfo());
         }
         BlockCursor cursor = block.cursor();

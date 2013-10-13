@@ -54,6 +54,12 @@ import com.facebook.presto.operator.ForExchange;
 import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.operator.RecordSinkManager;
 import com.facebook.presto.operator.RecordSinkProvider;
+import com.facebook.presto.serde.BlockEncoding.BlockEncodingFactory;
+import com.facebook.presto.serde.BlockEncodingManager;
+import com.facebook.presto.serde.DictionaryBlockEncoding;
+import com.facebook.presto.serde.RunLengthBlockEncoding;
+import com.facebook.presto.serde.SnappyBlockEncoding;
+import com.facebook.presto.serde.UncompressedBlockEncoding;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.Split;
@@ -77,6 +83,7 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.MapBinder;
+import com.google.inject.multibindings.Multibinder;
 import io.airlift.dbpool.H2EmbeddedDataSource;
 import io.airlift.dbpool.H2EmbeddedDataSourceConfig;
 import io.airlift.dbpool.H2EmbeddedDataSourceModule;
@@ -244,6 +251,15 @@ public class ServerMainModule
         // optimizers
         binder.bind(new TypeLiteral<List<PlanOptimizer>>() {}).toProvider(PlanOptimizersFactory.class).in(Scopes.SINGLETON);
 
+        // block encodings
+        binder.bind(BlockEncodingManager.class).in(Scopes.SINGLETON);
+        Multibinder<BlockEncodingFactory<?>> blockEncodingFactoryBinder = newSetBinder(binder, new TypeLiteral<BlockEncodingFactory<?>>() {});
+        blockEncodingFactoryBinder.addBinding().toInstance(UncompressedBlockEncoding.FACTORY);
+        blockEncodingFactoryBinder.addBinding().toInstance(RunLengthBlockEncoding.FACTORY);
+        blockEncodingFactoryBinder.addBinding().toInstance(DictionaryBlockEncoding.FACTORY);
+        blockEncodingFactoryBinder.addBinding().toInstance(SnappyBlockEncoding.FACTORY);
+
+        // thread visualizer
         binder.bind(ThreadResource.class).in(Scopes.SINGLETON);
     }
 

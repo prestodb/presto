@@ -29,9 +29,9 @@ import java.util.Iterator;
 public class BlocksFileReader
         implements BlockIterable
 {
-    public static BlocksFileReader readBlocks(Slice slice)
+    public static BlocksFileReader readBlocks(BlockEncodingManager blockEncodingManager, Slice slice)
     {
-        return new BlocksFileReader(slice);
+        return new BlocksFileReader(blockEncodingManager, slice);
     }
 
     private final BlockEncoding blockEncoding;
@@ -39,7 +39,7 @@ public class BlocksFileReader
     private final BlockIterable blockIterable;
     private final BlocksFileStats stats;
 
-    public BlocksFileReader(Slice slice)
+    public BlocksFileReader(BlockEncodingManager blockEncodingManager, Slice slice)
     {
         Preconditions.checkNotNull(slice, "slice is null");
 
@@ -50,7 +50,7 @@ public class BlocksFileReader
         SliceInput input = footerSlice.getInput();
 
         // read file encoding
-        blockEncoding = BlockEncodings.readBlockEncoding(input);
+        blockEncoding = blockEncodingManager.readBlockEncoding(input);
 
         // read stats
         stats = BlocksFileStats.deserialize(input);

@@ -24,6 +24,7 @@ import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.serde.PagesSerde.readPages;
 import static com.facebook.presto.serde.PagesSerde.writePages;
+import static com.facebook.presto.serde.TestingBlockEncodingManager.createTestingBlockEncodingManager;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 import static org.testng.Assert.assertFalse;
 
@@ -41,8 +42,8 @@ public class TestPagesSerde
         Page expectedPage = new Page(expectedBlock, expectedBlock, expectedBlock);
 
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
-        writePages(sliceOutput, expectedPage, expectedPage, expectedPage);
-        Iterator<Page> pageIterator = readPages(sliceOutput.slice().getInput());
+        writePages(createTestingBlockEncodingManager(), sliceOutput, expectedPage, expectedPage, expectedPage);
+        Iterator<Page> pageIterator = readPages(createTestingBlockEncodingManager(), sliceOutput.slice().getInput());
         assertPageEquals(pageIterator.next(), expectedPage);
         assertPageEquals(pageIterator.next(), expectedPage);
         assertPageEquals(pageIterator.next(), expectedPage);
