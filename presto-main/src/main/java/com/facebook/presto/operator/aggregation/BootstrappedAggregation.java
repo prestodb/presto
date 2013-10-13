@@ -18,6 +18,7 @@ import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.serde.BlockEncodingManager;
 import com.facebook.presto.serde.PagesSerde;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
@@ -48,10 +49,12 @@ public class BootstrappedAggregation
         implements AggregationFunction
 {
     private static final int SAMPLES = 100;
+    private final BlockEncodingManager blockEncodingManager;
     private final AggregationFunction function;
 
-    public BootstrappedAggregation(AggregationFunction function)
+    public BootstrappedAggregation(BlockEncodingManager blockEncodingManager, AggregationFunction function)
     {
+        this.blockEncodingManager = checkNotNull(blockEncodingManager, "blockEncodingManager is null");
         this.function = checkNotNull(function, "function is null");
         checkArgument(function.getFinalTupleInfo().equals(SINGLE_LONG) || function.getFinalTupleInfo().equals(SINGLE_DOUBLE) , "bootstrap only supports functions that output a number");
     }
@@ -113,7 +116,7 @@ public class BootstrappedAggregation
         for (int i = 0; i < SAMPLES; i++) {
             builder.add(function.createAggregation(maskChannel, Optional.of(sampleWeightChannel), 1.0, argumentChannels));
         }
-        return new BootstrappedAccumulator(builder.build(), sampleWeightChannel, confidence, seed);
+        return new BootstrappedAccumulator(blockEncodingManager, builder.build(), sampleWeightChannel, confidence, seed);
     }
 
     @VisibleForTesting
@@ -123,7 +126,7 @@ public class BootstrappedAggregation
         for (int i = 0; i < SAMPLES; i++) {
             builder.add(function.createIntermediateAggregation(1.0));
         }
-        return new BootstrappedAccumulator(builder.build(), -1, confidence, seed);
+        return new BootstrappedAccumulator(blockEncodingManager, builder.build(), -1, confidence, seed);
     }
 
     @VisibleForTesting
@@ -133,7 +136,7 @@ public class BootstrappedAggregation
         for (int i = 0; i < SAMPLES; i++) {
             builder.add(function.createGroupedAggregation(maskChannel, Optional.of(sampleWeightChannel), 1.0, argumentChannels));
         }
-        return new BootstrappedGroupedAccumulator(builder.build(), sampleWeightChannel, confidence, seed);
+        return new BootstrappedGroupedAccumulator(blockEncodingManager, builder.build(), sampleWeightChannel, confidence, seed);
     }
 
     @VisibleForTesting
@@ -143,7 +146,7 @@ public class BootstrappedAggregation
         for (int i = 0; i < SAMPLES; i++) {
             builder.add(function.createGroupedIntermediateAggregation(1.0));
         }
-        return new BootstrappedGroupedAccumulator(builder.build(), -1, confidence, seed);
+        return new BootstrappedGroupedAccumulator(blockEncodingManager, builder.build(), -1, confidence, seed);
     }
 
     public abstract static class AbstractBootstrappedAccumulator
@@ -182,11 +185,13 @@ public class BootstrappedAggregation
             extends AbstractBootstrappedAccumulator
             implements Accumulator
     {
+        private final BlockEncodingManager blockEncodingManager;
         private final List<Accumulator> accumulators;
 
-        public BootstrappedAccumulator(List<Accumulator> accumulators, int sampleWeightChannel, double confidence, long seed)
+        public BootstrappedAccumulator(BlockEncodingManager blockEncodingManager, List<Accumulator> accumulators, int sampleWeightChannel, double confidence, long seed)
         {
             super(sampleWeightChannel, confidence, seed);
+            this.blockEncodingManager = blockEncodingManager;
 
             this.accumulators = ImmutableList.copyOf(checkNotNull(accumulators, "accumulators is null"));
             checkArgument(accumulators.size() > 1, "accumulators size is less than 2");
@@ -220,7 +225,7 @@ public class BootstrappedAggregation
             BlockCursor cursor = block.cursor();
             checkArgument(cursor.advanceNextPosition());
             SliceInput sliceInput = new BasicSliceInput(cursor.getSlice());
-            Page page = Iterators.getOnlyElement(PagesSerde.readPages(sliceInput));
+            Page page = Iterators.getOnlyElement(PagesSerde.readPages(blockEncodingManager, sliceInput));
             checkArgument(page.getChannelCount() == accumulators.size(), "number of blocks does not match accumulators");
 
             for (int i = 0; i < page.getChannelCount(); i++) {
@@ -239,7 +244,7 @@ public class BootstrappedAggregation
             }
 
             SliceOutput output = new DynamicSliceOutput(sizeEstimate);
-            PagesSerde.writePages(output, new Page(blocks));
+            PagesSerde.writePages(blockEncodingManager, output, new Page(blocks));
             BlockBuilder builder = createBlockBuilder(SINGLE_VARBINARY);
             builder.append(output.slice());
             return builder.build();
@@ -265,11 +270,17 @@ public class BootstrappedAggregation
             extends AbstractBootstrappedAccumulator
             implements GroupedAccumulator
     {
+        private final BlockEncodingManager blockEncodingManager;
         private final List<GroupedAccumulator> accumulators;
 
-        public BootstrappedGroupedAccumulator(List<GroupedAccumulator> accumulators, int sampleWeightChannel, double confidence, long seed)
+        public BootstrappedGroupedAccumulator(BlockEncodingManager blockEncodingManager,
+                List<GroupedAccumulator> accumulators,
+                int sampleWeightChannel,
+                double confidence,
+                long seed)
         {
             super(sampleWeightChannel, confidence, seed);
+            this.blockEncodingManager = blockEncodingManager;
 
             this.accumulators = ImmutableList.copyOf(checkNotNull(accumulators, "accumulators is null"));
             checkArgument(accumulators.size() > 1, "accumulators size is less than 2");
@@ -313,7 +324,7 @@ public class BootstrappedAggregation
             BlockCursor cursor = block.cursor();
             checkArgument(cursor.advanceNextPosition());
             SliceInput sliceInput = new BasicSliceInput(cursor.getSlice());
-            Page page = Iterators.getOnlyElement(PagesSerde.readPages(sliceInput));
+            Page page = Iterators.getOnlyElement(PagesSerde.readPages(blockEncodingManager, sliceInput));
             checkArgument(page.getChannelCount() == accumulators.size(), "number of blocks does not match accumulators");
 
             for (int i = 0; i < page.getChannelCount(); i++) {
@@ -334,7 +345,7 @@ public class BootstrappedAggregation
             }
 
             SliceOutput sliceOutput = new DynamicSliceOutput(sizeEstimate);
-            PagesSerde.writePages(sliceOutput, new Page(blocks));
+            PagesSerde.writePages(blockEncodingManager, sliceOutput, new Page(blocks));
             output.append(sliceOutput.slice());
         }
 

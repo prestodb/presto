@@ -16,71 +16,86 @@ package com.facebook.presto.serde;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
-import com.facebook.presto.block.uncompressed.FixedWidthBlock;
-import com.facebook.presto.block.uncompressed.VariableWidthRandomAccessBlock;
-import com.facebook.presto.tuple.FixedWidthTypeInfo;
 import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TypeInfo;
-import com.facebook.presto.tuple.VariableWidthTypeInfo;
-import com.google.common.base.Preconditions;
-import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class RunLengthBlockEncoding
         implements BlockEncoding
 {
-    private final TupleInfo tupleInfo;
+    public static final BlockEncodingFactory<RunLengthBlockEncoding> FACTORY = new RunLengthBlockEncodingFactory();
+    private static final String NAME = "RLE";
 
-    public RunLengthBlockEncoding(TupleInfo tupleInfo)
+    private final BlockEncoding valueBlockEncoding;
+
+    public RunLengthBlockEncoding(BlockEncoding valueBlockEncoding)
     {
-        Preconditions.checkNotNull(tupleInfo, "tupleInfo is null");
-        this.tupleInfo = tupleInfo;
+        this.valueBlockEncoding = checkNotNull(valueBlockEncoding, "valueBlockEncoding is null");
     }
 
-    public RunLengthBlockEncoding(SliceInput input)
+    @Override
+    public String getName()
     {
-        Preconditions.checkNotNull(input, "input is null");
-        tupleInfo = TupleInfoSerde.readTupleInfo(input);
+        return NAME;
     }
 
     @Override
     public TupleInfo getTupleInfo()
     {
-        return tupleInfo;
+        return getValueBlockEncoding().getTupleInfo();
+    }
+
+    public BlockEncoding getValueBlockEncoding()
+    {
+        return valueBlockEncoding;
     }
 
     @Override
     public void writeBlock(SliceOutput sliceOutput, Block block)
     {
         RunLengthEncodedBlock rleBlock = (RunLengthEncodedBlock) block;
-        sliceOutput.appendInt(rleBlock.getRawSlice().length())
-                .appendInt(rleBlock.getPositionCount())
-                .writeBytes(rleBlock.getRawSlice());
+
+        // write the run length
+        sliceOutput.writeInt(rleBlock.getPositionCount());
+
+        // write the value
+        getValueBlockEncoding().writeBlock(sliceOutput, rleBlock.getValue());
     }
 
     @Override
     public RunLengthEncodedBlock readBlock(SliceInput sliceInput)
     {
-        int tupleLength = sliceInput.readInt();
-        int tupleCount = sliceInput.readInt();
+        // read the run length
+        int positionCount = sliceInput.readInt();
 
-        Slice slice = sliceInput.readSlice(tupleLength);
+        // read the value
+        RandomAccessBlock value = getValueBlockEncoding().readBlock(sliceInput).toRandomAccessBlock();
 
-        RandomAccessBlock value;
-        TypeInfo typeInfo = tupleInfo.getTypeInfo();
-        if (typeInfo instanceof FixedWidthTypeInfo) {
-            value = new FixedWidthBlock((FixedWidthTypeInfo) typeInfo, 1, slice);
-        }
-        else {
-            value = new VariableWidthRandomAccessBlock((VariableWidthTypeInfo) typeInfo, 1, slice);
-        }
-
-        return new RunLengthEncodedBlock(value, tupleCount);
+        return new RunLengthEncodedBlock(value, positionCount);
     }
 
-    public static void serialize(SliceOutput output, RunLengthBlockEncoding encoding)
+    private static class RunLengthBlockEncodingFactory
+            implements BlockEncodingFactory<RunLengthBlockEncoding>
     {
-        TupleInfoSerde.writeTupleInfo(output, encoding.tupleInfo);
+        @Override
+        public String getName()
+        {
+            return NAME;
+        }
+
+        @Override
+        public RunLengthBlockEncoding readEncoding(BlockEncodingManager blockEncodingManager, SliceInput input)
+        {
+            BlockEncoding valueBlockEncoding = blockEncodingManager.readBlockEncoding(input);
+            return new RunLengthBlockEncoding(valueBlockEncoding);
+        }
+
+        @Override
+        public void writeEncoding(BlockEncodingManager blockEncodingManager, SliceOutput output, RunLengthBlockEncoding blockEncoding)
+        {
+            blockEncodingManager.writeBlockEncoding(output, blockEncoding.getValueBlockEncoding());
+        }
     }
 }

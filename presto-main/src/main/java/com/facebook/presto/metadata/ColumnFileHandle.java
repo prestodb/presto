@@ -15,6 +15,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.serde.BlockEncodingManager;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.serde.BlocksFileWriter;
 import com.facebook.presto.spi.ColumnHandle;
@@ -48,9 +49,9 @@ public class ColumnFileHandle
 
     private final AtomicBoolean committed = new AtomicBoolean();
 
-    public static Builder builder(UUID shardUuid)
+    public static Builder builder(UUID shardUuid, BlockEncodingManager blockEncodingManager)
     {
-        return new Builder(shardUuid);
+        return new Builder(shardUuid, blockEncodingManager);
     }
 
     private ColumnFileHandle(Builder builder)
@@ -126,14 +127,17 @@ public class ColumnFileHandle
     public static class Builder
     {
         private final UUID shardUuid;
+        private final BlockEncodingManager blockEncodingManager;
+
         // both of these Maps are ordered by the column handles. The writer map
         // may contain less writers than files.
         private final Map<ColumnHandle, File> files = new LinkedHashMap<>();
         private final Map<ColumnHandle, BlocksFileWriter> writers = new LinkedHashMap<>();
 
-        public Builder(UUID shardUuid)
+        public Builder(UUID shardUuid, BlockEncodingManager blockEncodingManager)
         {
             this.shardUuid = checkNotNull(shardUuid, "shardUuid is null");
+            this.blockEncodingManager = checkNotNull(blockEncodingManager, "blockEncodingManager is null");
         }
 
         /**
@@ -151,7 +155,7 @@ public class ColumnFileHandle
             checkState(!targetFile.exists(), "Can not write to existing file %s", targetFile.getAbsolutePath());
 
             files.put(columnHandle, targetFile);
-            writers.put(columnHandle, new BlocksFileWriter(encoding, new BufferedOutputSupplier(newOutputStreamSupplier(targetFile), OUTPUT_BUFFER_SIZE)));
+            writers.put(columnHandle, new BlocksFileWriter(blockEncodingManager, encoding, new BufferedOutputSupplier(newOutputStreamSupplier(targetFile), OUTPUT_BUFFER_SIZE)));
 
             return this;
         }

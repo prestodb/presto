@@ -14,6 +14,7 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.serde.BlockEncodingManager;
 import com.facebook.presto.serde.PagesSerde;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -21,6 +22,7 @@ import com.google.common.reflect.TypeToken;
 import io.airlift.slice.InputStreamSliceInput;
 import io.airlift.slice.OutputStreamSliceOutput;
 
+import javax.inject.Inject;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.Produces;
 import javax.ws.rs.WebApplicationException;
@@ -57,6 +59,14 @@ public class PagesMapper
         }
     }
 
+    private BlockEncodingManager blockEncodingManager;
+
+    @Inject
+    public PagesMapper(BlockEncodingManager blockEncodingManager)
+    {
+        this.blockEncodingManager = blockEncodingManager;
+    }
+
     @Override
     public boolean isReadable(Class<?> type, Type genericType, Annotation[] annotations, MediaType mediaType)
     {
@@ -74,7 +84,7 @@ public class PagesMapper
             InputStream input)
             throws IOException, WebApplicationException
     {
-        return ImmutableList.copyOf(PagesSerde.readPages(new InputStreamSliceInput(input)));
+        return ImmutableList.copyOf(PagesSerde.readPages(blockEncodingManager, new InputStreamSliceInput(input)));
     }
 
     @Override
@@ -101,6 +111,6 @@ public class PagesMapper
             OutputStream output)
             throws IOException, WebApplicationException
     {
-        PagesSerde.writePages(new OutputStreamSliceOutput(output), pages);
+        PagesSerde.writePages(blockEncodingManager, new OutputStreamSliceOutput(output), pages);
     }
 }

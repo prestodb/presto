@@ -25,7 +25,7 @@ import java.util.List;
 
 import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
 import static com.facebook.presto.serde.BlocksFileReader.readBlocks;
-import static com.facebook.presto.serde.BlocksFileWriter.writeBlocks;
+import static com.facebook.presto.serde.TestingBlockEncodingManager.createTestingBlockEncodingManager;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 import static org.testng.Assert.assertEquals;
 
@@ -68,9 +68,17 @@ public class TestFileBlocksSerde
     public void testRoundTrip(BlocksFileEncoding encoding)
     {
         DynamicSliceOutputSupplier sliceOutput = new DynamicSliceOutputSupplier(1024);
-        writeBlocks(encoding, sliceOutput, expectedBlock, expectedBlock, expectedBlock);
+
+        // write 3 copies the expected block
+        BlocksFileWriter fileWriter = new BlocksFileWriter(createTestingBlockEncodingManager(), encoding, sliceOutput);
+        fileWriter.append(expectedBlock);
+        fileWriter.append(expectedBlock);
+        fileWriter.append(expectedBlock);
+        fileWriter.close();
+
+        // read the block
         Slice slice = sliceOutput.getLastSlice();
-        BlocksFileReader actualBlocks = readBlocks(slice);
+        BlocksFileReader actualBlocks = readBlocks(createTestingBlockEncodingManager(), slice);
 
         List<Object> actualValues = BlockAssertions.toValues(actualBlocks);
 

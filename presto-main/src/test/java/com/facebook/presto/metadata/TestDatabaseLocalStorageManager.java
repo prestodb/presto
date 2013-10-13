@@ -43,6 +43,7 @@ import java.util.concurrent.ExecutorService;
 import static com.facebook.presto.metadata.DatabaseLocalStorageManager.getShardPath;
 import static com.facebook.presto.operator.OperatorAssertion.toMaterializedResult;
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
+import static com.facebook.presto.serde.TestingBlockEncodingManager.createTestingBlockEncodingManager;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
@@ -68,7 +69,7 @@ public class TestDatabaseLocalStorageManager
         dummyHandle = dbi.open();
         dataDir = Files.createTempDir();
         DatabaseLocalStorageManagerConfig config = new DatabaseLocalStorageManagerConfig().setDataDirectory(dataDir);
-        storageManager = new DatabaseLocalStorageManager(dbi, config);
+        storageManager = new DatabaseLocalStorageManager(dbi, createTestingBlockEncodingManager(), config);
         executor = newCachedThreadPool(daemonThreadsNamed("test"));
         Session session = new Session("user", "source", "catalog", "schema", "address", "agent");
         driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session)
