@@ -13,6 +13,12 @@
  */
 package com.facebook.presto.serde;
 
+import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.block.dictionary.DictionaryBlockEncoding;
+import com.facebook.presto.block.rle.RunLengthBlockEncoding;
+import com.facebook.presto.block.snappy.SnappyBlockEncoding;
+import com.facebook.presto.block.uncompressed.UncompressedBlockEncoding;
+
 public final class TestingBlockEncodingManager
 {
     private TestingBlockEncodingManager()

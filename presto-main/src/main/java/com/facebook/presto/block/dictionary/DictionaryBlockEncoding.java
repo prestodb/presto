@@ -11,11 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.serde;
+package com.facebook.presto.block.dictionary;
 
 import com.facebook.presto.block.Block;
+import com.facebook.presto.block.BlockEncoding;
+import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.block.RandomAccessBlock;
-import com.facebook.presto.block.dictionary.DictionaryEncodedBlock;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
 import io.airlift.slice.SliceInput;
