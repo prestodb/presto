@@ -92,7 +92,7 @@ public class HandTpchQuery6
             @Override
             public List<Type> getTypes()
             {
-                return ImmutableList.of(DOUBLE);
+                return ImmutableList.<Type>of(DOUBLE);
             }
 
             @Override
