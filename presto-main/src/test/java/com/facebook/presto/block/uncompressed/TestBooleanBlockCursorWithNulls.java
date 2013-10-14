@@ -18,7 +18,6 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
 import static com.facebook.presto.type.BooleanType.BOOLEAN;
-import static io.airlift.testing.Assertions.assertInstanceOf;
 import static org.testng.Assert.assertEquals;
 
 public class TestBooleanBlockCursorWithNulls
@@ -33,7 +32,6 @@ public class TestBooleanBlockCursorWithNulls
     @Test
     public void testCursorType()
     {
-        assertInstanceOf(createExpectedValues().cursor(), FixedWidthBlockCursor.class);
         assertEquals(createExpectedValues().cursor().getType(), BOOLEAN);
     }
 }

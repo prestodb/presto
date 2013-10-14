@@ -31,7 +31,7 @@ public abstract class AbstractFilterAndProjectOperator
     private final PageBuilder pageBuilder;
     private boolean finishing;
 
-    public AbstractFilterAndProjectOperator(OperatorContext operatorContext, Iterable<Type> types)
+    public AbstractFilterAndProjectOperator(OperatorContext operatorContext, Iterable<? extends Type> types)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));

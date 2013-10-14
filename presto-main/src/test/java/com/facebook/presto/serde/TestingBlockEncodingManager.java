@@ -17,8 +17,10 @@ import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.block.dictionary.DictionaryBlockEncoding;
 import com.facebook.presto.block.rle.RunLengthBlockEncoding;
 import com.facebook.presto.block.snappy.SnappyBlockEncoding;
-import com.facebook.presto.block.uncompressed.FixedWidthBlockEncoding;
 import com.facebook.presto.block.uncompressed.VariableWidthBlockEncoding;
+import com.facebook.presto.type.BigintType;
+import com.facebook.presto.type.BooleanType;
+import com.facebook.presto.type.DoubleType;
 
 public final class TestingBlockEncodingManager
 {
@@ -29,7 +31,9 @@ public final class TestingBlockEncodingManager
     public static BlockEncodingManager createTestingBlockEncodingManager()
     {
         return new BlockEncodingManager(
-                FixedWidthBlockEncoding.FACTORY,
+                BooleanType.BLOCK_ENCODING_FACTORY,
+                BigintType.BLOCK_ENCODING_FACTORY,
+                DoubleType.BLOCK_ENCODING_FACTORY,
                 VariableWidthBlockEncoding.FACTORY,
                 RunLengthBlockEncoding.FACTORY,
                 DictionaryBlockEncoding.FACTORY,

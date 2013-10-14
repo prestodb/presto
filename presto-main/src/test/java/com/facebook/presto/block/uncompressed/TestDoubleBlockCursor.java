@@ -19,7 +19,6 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static com.facebook.presto.type.DoubleType.DOUBLE;
-import static io.airlift.testing.Assertions.assertInstanceOf;
 import static org.testng.Assert.assertEquals;
 
 public class TestDoubleBlockCursor
@@ -34,7 +33,6 @@ public class TestDoubleBlockCursor
     @Test
     public void testCursorType()
     {
-        assertInstanceOf(createExpectedValues().cursor(), FixedWidthBlockCursor.class);
         assertEquals(createExpectedValues().cursor().getType(), DOUBLE);
     }
 }

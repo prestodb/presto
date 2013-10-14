@@ -15,20 +15,25 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.block.FixedWidthBlockBuilder;
+import com.facebook.presto.block.BlockEncoding.BlockEncodingFactory;
+import com.facebook.presto.block.FixedWidthBlockUtil.FixedWidthBlockBuilderFactory;
 import com.facebook.presto.spi.ColumnType;
 import com.google.common.primitives.Longs;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.units.DataSize;
 
+import static com.facebook.presto.block.FixedWidthBlockUtil.createIsolatedFixedWidthBlockBuilderFactory;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 
 public final class DoubleType
         implements FixedWidthType
 {
-    public static final Type DOUBLE = new DoubleType();
+    public static final DoubleType DOUBLE = new DoubleType();
+
+    private static final FixedWidthBlockBuilderFactory BLOCK_BUILDER_FACTORY = createIsolatedFixedWidthBlockBuilderFactory(DOUBLE);
+    public static final BlockEncodingFactory<?> BLOCK_ENCODING_FACTORY = BLOCK_BUILDER_FACTORY.getBlockEncodingFactory();
 
     private DoubleType()
     {
@@ -61,13 +66,13 @@ public final class DoubleType
     @Override
     public BlockBuilder createBlockBuilder(DataSize maxBlockSize)
     {
-        return new FixedWidthBlockBuilder(this, maxBlockSize);
+        return BLOCK_BUILDER_FACTORY.createFixedWidthBlockBuilder(maxBlockSize);
     }
 
     @Override
     public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
     {
-        return new FixedWidthBlockBuilder(this, positionCount);
+        return BLOCK_BUILDER_FACTORY.createFixedWidthBlockBuilder(positionCount);
     }
 
     @Override

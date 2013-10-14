@@ -15,7 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.block.uncompressed.FixedWidthBlock;
+import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.type.Type;
 import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.longs.Long2IntOpenCustomHashMap;
@@ -102,7 +102,7 @@ public class GroupByHash
             }
             blockBuilder.append(groupId);
         }
-        FixedWidthBlock block = (FixedWidthBlock) blockBuilder.build();
+        RandomAccessBlock block = blockBuilder.build();
         return new GroupByIdBlock(nextGroupId, block);
     }
 
