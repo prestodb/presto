@@ -53,7 +53,7 @@ public class TopNOperator
 
         public TopNOperatorFactory(
                 int operatorId,
-                List<Type> types,
+                List<? extends Type> types,
                 int n,
                 List<Integer> sortChannels,
                 List<SortOrder> sortOrders,
@@ -61,7 +61,7 @@ public class TopNOperator
                 boolean partial)
         {
             this.operatorId = operatorId;
-            this.sourceTypes = checkNotNull(types, "types is null");
+            this.sourceTypes = ImmutableList.copyOf(checkNotNull(types, "types is null"));
             this.n = n;
             this.sortChannels = ImmutableList.copyOf(checkNotNull(sortChannels, "sortChannels is null"));
             this.sortOrders = ImmutableList.copyOf(checkNotNull(sortOrders, "sortOrders is null"));
