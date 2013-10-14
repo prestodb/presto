@@ -40,7 +40,7 @@ public class OrderByOperator
 
         public OrderByOperatorFactory(
                 int operatorId,
-                List<Type> sourceTypes,
+                List<? extends Type> sourceTypes,
                 int[] sortChannels,
                 int[] outputChannels,
                 int expectedPositions)
@@ -56,7 +56,7 @@ public class OrderByOperator
 
         public OrderByOperatorFactory(
                 int operatorId,
-                List<Type> sourceTypes,
+                List<? extends Type> sourceTypes,
                 int[] outputChannels,
                 int expectedPositions,
                 int[] sortChannels,
@@ -222,7 +222,7 @@ public class OrderByOperator
         return sortOrder;
     }
 
-    private static List<Type> toTypes(List<Type> sourceTypes, int[] outputChannels)
+    private static List<Type> toTypes(List<? extends Type> sourceTypes, int[] outputChannels)
     {
         ImmutableList.Builder<Type> types = ImmutableList.builder();
         for (int channel : outputChannels) {

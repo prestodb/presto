@@ -36,13 +36,8 @@ public class FixedWidthBlock
         this.slice = checkNotNull(slice, "slice is null");
     }
 
-    public FixedWidthBlock(FixedWidthBlock block)
-    {
-        this(checkNotNull(block, "block is null").getType(), block.positionCount, block.slice);
-    }
-
     @Override
-    public Slice getRawSlice()
+    protected Slice getRawSlice()
     {
         return slice;
     }
