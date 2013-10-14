@@ -13,18 +13,25 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.uncompressed.FixedWidthBlock;
+import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.block.BlockEncoding;
+import com.facebook.presto.block.RandomAccessBlock;
+import com.facebook.presto.type.Type;
 import com.google.common.base.Objects;
+import io.airlift.slice.Slice;
+import io.airlift.units.DataSize;
 
 public class GroupByIdBlock
-        extends FixedWidthBlock
+        implements RandomAccessBlock
 {
     private final long groupCount;
+    private final RandomAccessBlock block;
 
-    public GroupByIdBlock(long groupCount, FixedWidthBlock block)
+    public GroupByIdBlock(long groupCount, RandomAccessBlock block)
     {
-        super(block);
         this.groupCount = groupCount;
+        this.block = block;
     }
 
     public long getGroupCount()
@@ -34,7 +41,139 @@ public class GroupByIdBlock
 
     public long getGroupId(int position)
     {
-        return super.getLong(position);
+        return block.getLong(position);
+    }
+
+    @Override
+    public RandomAccessBlock getRegion(int positionOffset, int length)
+    {
+        return block.getRegion(positionOffset, length);
+    }
+
+    @Override
+    public boolean getBoolean(int position)
+    {
+        return block.getBoolean(position);
+    }
+
+    @Override
+    public long getLong(int position)
+    {
+        return block.getLong(position);
+    }
+
+    @Override
+    public double getDouble(int position)
+    {
+        return block.getDouble(position);
+    }
+
+    @Override
+    public Object getObjectValue(int position)
+    {
+        return block.getObjectValue(position);
+    }
+
+    @Override
+    public Slice getSlice(int position)
+    {
+        return block.getSlice(position);
+    }
+
+    @Override
+    public RandomAccessBlock getSingleValueBlock(int position)
+    {
+        return block.getSingleValueBlock(position);
+    }
+
+    @Override
+    public boolean isNull(int position)
+    {
+        return block.isNull(position);
+    }
+
+    @Override
+    public boolean equals(int position, RandomAccessBlock right, int rightPosition)
+    {
+        return block.equals(position, right, rightPosition);
+    }
+
+    @Override
+    public boolean equals(int position, BlockCursor cursor)
+    {
+        return block.equals(position, cursor);
+    }
+
+    @Override
+    public boolean equals(int rightPosition, Slice slice, int offset)
+    {
+        return block.equals(rightPosition, slice, offset);
+    }
+
+    @Override
+    public int hashCode(int position)
+    {
+        return block.hashCode(position);
+    }
+
+    @Override
+    public int compareTo(SortOrder sortOrder, int position, RandomAccessBlock right, int rightPosition)
+    {
+        return block.compareTo(sortOrder, position, right, rightPosition);
+    }
+
+    @Override
+    public int compareTo(SortOrder sortOrder, int position, BlockCursor cursor)
+    {
+        return block.compareTo(sortOrder, position, cursor);
+    }
+
+    @Override
+    public int compareTo(int position, Slice slice, int offset)
+    {
+        return block.compareTo(position, slice, offset);
+    }
+
+    @Override
+    public void appendTo(int position, BlockBuilder blockBuilder)
+    {
+        block.appendTo(position, blockBuilder);
+    }
+
+    @Override
+    public Type getType()
+    {
+        return block.getType();
+    }
+
+    @Override
+    public int getPositionCount()
+    {
+        return block.getPositionCount();
+    }
+
+    @Override
+    public DataSize getDataSize()
+    {
+        return block.getDataSize();
+    }
+
+    @Override
+    public BlockCursor cursor()
+    {
+        return block.cursor();
+    }
+
+    @Override
+    public BlockEncoding getEncoding()
+    {
+        return block.getEncoding();
+    }
+
+    @Override
+    public RandomAccessBlock toRandomAccessBlock()
+    {
+        return block.toRandomAccessBlock();
     }
 
     @Override

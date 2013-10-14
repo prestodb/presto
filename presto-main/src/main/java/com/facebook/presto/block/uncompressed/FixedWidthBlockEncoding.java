@@ -16,7 +16,6 @@ package com.facebook.presto.block.uncompressed;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockEncoding;
 import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.serde.TypeSerde;
 import com.facebook.presto.type.FixedWidthType;
 import com.facebook.presto.type.Type;
 import io.airlift.slice.Slice;
@@ -29,9 +28,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class FixedWidthBlockEncoding
         implements BlockEncoding
 {
-    public static final BlockEncodingFactory<FixedWidthBlockEncoding> FACTORY = new FixedWidthBlockEncodingFactory();
-    private static final String NAME = "FIXED_WIDTH";
-
     private final FixedWidthType type;
 
     public FixedWidthBlockEncoding(Type type)
@@ -42,7 +38,7 @@ public class FixedWidthBlockEncoding
     @Override
     public String getName()
     {
-        return NAME;
+        return type.getName();
     }
 
     @Override
@@ -79,26 +75,31 @@ public class FixedWidthBlockEncoding
                 .writeBytes(slice);
     }
 
-    private static class FixedWidthBlockEncodingFactory
-            implements BlockEncodingFactory<FixedWidthBlockEncoding>
+    public static class FixedWidthBlockEncodingFactory
+            implements BlockEncodingFactory<BlockEncoding>
     {
-        @Override
-        public String getName()
+        private final Type type;
+
+        public FixedWidthBlockEncodingFactory(Type type)
         {
-            return NAME;
+            this.type = type;
         }
 
         @Override
-        public FixedWidthBlockEncoding readEncoding(BlockEncodingManager blockEncodingManager, SliceInput input)
+        public String getName()
         {
-            Type type = TypeSerde.readType(input);
+            return type.getName();
+        }
+
+        @Override
+        public BlockEncoding readEncoding(BlockEncodingManager blockEncodingManager, SliceInput input)
+        {
             return new FixedWidthBlockEncoding(type);
         }
 
         @Override
-        public void writeEncoding(BlockEncodingManager blockEncodingManager, SliceOutput output, FixedWidthBlockEncoding blockEncoding)
+        public void writeEncoding(BlockEncodingManager blockEncodingManager, SliceOutput output, BlockEncoding blockEncoding)
         {
-            TypeSerde.writeInfo(output, blockEncoding.type);
         }
     }
 }

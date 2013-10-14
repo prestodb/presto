@@ -19,7 +19,6 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.type.BigintType.BIGINT;
-import static io.airlift.testing.Assertions.assertInstanceOf;
 import static org.testng.Assert.assertEquals;
 
 public class TestLongBlockCursor
@@ -34,7 +33,6 @@ public class TestLongBlockCursor
     @Test
     public void testCursorType()
     {
-        assertInstanceOf(createExpectedValues().cursor(), FixedWidthBlockCursor.class);
         assertEquals(createExpectedValues().cursor().getType(), BIGINT);
     }
 }
