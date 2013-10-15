@@ -2839,6 +2839,37 @@ public abstract class AbstractTestQueries
         assertTrue(mean > 0.45 && mean < 0.55, String.format("Expected mean sampling rate to be ~0.5, but was %s", mean));
     }
 
+    @Test
+    public void testTableSamplePoissonizedBoundaryValues()
+            throws Exception
+    {
+        //Note: Theoretically, poissonized samples can be greater than 100%, however, practically they shouldn't be
+        MaterializedResult fullSample = computeActual("SELECT orderkey FROM orders TABLESAMPLE POISSONIZED (100)");
+        MaterializedResult emptySample = computeActual("SELECT orderkey FROM orders TABLESAMPLE POISSONIZED (0)");
+        MaterializedResult all = computeExpected("SELECT orderkey FROM orders", fullSample.getTupleInfos());
+
+        assertTrue(ImmutableSet.copyOf(all.getMaterializedTuples()).
+                containsAll(ImmutableSet.copyOf(fullSample.getMaterializedTuples())));
+        assertEquals(emptySample.getMaterializedTuples().size(), 0);
+    }
+
+    @Test
+    public void testTableSamplePoissonized()
+            throws Exception
+    {
+        DescriptiveStatistics stats = new DescriptiveStatistics();
+
+        int total = computeExpected("SELECT orderkey FROM orders", ImmutableList.of(SINGLE_LONG)).getMaterializedTuples().size();
+
+        for (int i = 0; i < 100; i++) {
+            List<MaterializedTuple> values = computeActual("SELECT orderkey FROM ORDERS TABLESAMPLE POISSONIZED (50)").getMaterializedTuples();
+            stats.addValue(values.size() * 1.0 / total);
+        }
+
+        double mean = stats.getGeometricMean();
+        assertTrue(mean > 0.45 && mean < 0.55, String.format("Expected mean sampling rate to be ~0.5, but was %s", mean));
+    }
+
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\QUnexpected parameters (bigint) for function length. Expected: length(varchar)\\E")
     public void testFunctionNotRegistered()
     {
