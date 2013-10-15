@@ -1,0 +1,48 @@
+@import url("haiku.css");
+
+html {
+  background: #fff;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  font-family: 'Helvetica Neue', Helvetica, Arial, 'lucida grande', tahoma, verdana, arial, sans-serif;
+}
+
+div.header {
+  background-color: #374665;
+  background-image: url(presto_logo.png);
+  background-position: 36px 50%;
+  background-repeat: no-repeat;
+  background-size: 57px 50px;
+  padding: 10px 40px 20px 120px;
+}
+
+div.header h1 a {
+  color: #fff !important;
+}
+
+div.topnav {
+  background: #eeeeee;
+}
+
+div.topnav,
+div.bottomnav {
+  padding: 10px 0;
+}
+
+div.content ul > li {
+ background-image: url(bullet.png);
+}
+
+div.admonition {
+  -webkit-border-radius: 3px;
+  -khtml-border-radius: 3px;
+  -moz-border-radius: 3px;
+  border-radius: 3px;
+  border-style: solid;
+}
+
+div.note {
+  background-color: #f5f5ff
+}
