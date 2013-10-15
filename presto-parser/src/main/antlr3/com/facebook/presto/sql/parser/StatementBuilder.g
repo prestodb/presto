@@ -224,6 +224,7 @@ limitClause returns [String value]
 sampleType returns [SampledRelation.Type value]
     : BERNOULLI { $value = SampledRelation.Type.BERNOULLI; }
     | SYSTEM    { $value = SampledRelation.Type.SYSTEM; }
+    | POISSONIZED    { $value = SampledRelation.Type.POISSONIZED; }
     ;
 
 stratifyOn returns [List<Expression> value]
