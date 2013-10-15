@@ -77,13 +77,8 @@ highlight_language = 'sql'
 
 # -- Options for HTML output ---------------------------------------------------
 
-html_theme = 'default'
-
-html_theme_options = {
-    'nosidebar': True,
-    'footertextcolor': 'black',
-    'footerbgcolor': 'white',
-}
+html_theme_path = ['./themes']
+html_theme = 'presto'
 
 html_title = '%s %s Documentation' % (project, release)
 
