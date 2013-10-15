@@ -224,8 +224,11 @@ class TupleAnalyzer
 
         double samplePercentageValue = ((Number) samplePercentageObject).doubleValue();
 
-        if (samplePercentageValue < 0.0 || samplePercentageValue > 100.0) {
-            throw new SemanticException(SemanticErrorCode.SAMPLE_PERCENTAGE_OUT_OF_RANGE, relation.getSamplePercentage(), "Sample percentage must be between 0 and 100");
+        if (samplePercentageValue < 0.0) {
+            throw new SemanticException(SemanticErrorCode.SAMPLE_PERCENTAGE_OUT_OF_RANGE, relation.getSamplePercentage(), "Sample percentage must be greater than or equal to 0");
+        }
+        else if ((samplePercentageValue > 100.0) && (relation.getType() != SampledRelation.Type.POISSONIZED)) {
+            throw new SemanticException(SemanticErrorCode.SAMPLE_PERCENTAGE_OUT_OF_RANGE, relation.getSamplePercentage(), "Sample percentage must be less than or equal to 100");
         }
 
         TupleDescriptor descriptor = process(relation.getRelation(), context);

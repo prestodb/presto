@@ -27,6 +27,7 @@ public class SampledRelation
     public enum Type
     {
         BERNOULLI,
+        POISSONIZED,
         SYSTEM
     }
 

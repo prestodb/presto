@@ -37,6 +37,7 @@ public class SampleNode
     public enum Type
     {
         BERNOULLI,
+        POISSONIZED,
         SYSTEM;
 
         public static Type fromType(SampledRelation.Type sampleType)
@@ -44,6 +45,8 @@ public class SampleNode
             switch (sampleType) {
                 case BERNOULLI:
                     return Type.BERNOULLI;
+                case POISSONIZED:
+                    return Type.POISSONIZED;
                 case SYSTEM:
                     return Type.SYSTEM;
                 default:
@@ -61,7 +64,8 @@ public class SampleNode
     {
         super(id);
 
-        checkArgument(sampleRatio >= 0.0 && sampleRatio <= 1.0, "sample ratio must be between 0 and 1");
+        checkArgument(sampleRatio >= 0.0, "sample ratio must be greater than or equal to 0");
+        checkArgument((sampleRatio <= 1.0) || (sampleType == Type.POISSONIZED), "sample ratio must be less than or equal to 1");
 
         this.sampleType = checkNotNull(sampleType, "sample type is null");
         this.source = checkNotNull(source, "source is null");

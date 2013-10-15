@@ -141,6 +141,7 @@ public class DistributedExecutionPlanner
         {
             switch (node.getSampleType()) {
                 case BERNOULLI:
+                case POISSONIZED:
                     return node.getSource().accept(this, context);
 
                 case SYSTEM:

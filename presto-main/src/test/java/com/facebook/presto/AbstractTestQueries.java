@@ -2922,6 +2922,23 @@ public abstract class AbstractTestQueries
         assertTrue(mean > 0.45 && mean < 0.55, format("Expected mean sampling rate to be ~0.5, but was %s", mean));
     }
 
+    @Test
+    public void testTableSamplePoissonized()
+            throws Exception
+    {
+        DescriptiveStatistics stats = new DescriptiveStatistics();
+
+        int total = computeExpected("SELECT orderkey FROM orders", ImmutableList.of(SINGLE_LONG)).getMaterializedTuples().size();
+
+        for (int i = 0; i < 100; i++) {
+            List<MaterializedTuple> values = computeActual("SELECT orderkey FROM ORDERS TABLESAMPLE POISSONIZED (50)").getMaterializedTuples();
+            stats.addValue(values.size() * 1.0 / total);
+        }
+
+        double mean = stats.getGeometricMean();
+        assertTrue(mean > 0.45 && mean < 0.55, format("Expected mean sampling rate to be ~0.5, but was %s", mean));
+    }
+
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\QUnexpected parameters (bigint) for function length. Expected: length(varchar)\\E")
     public void testFunctionNotRegistered()
     {
