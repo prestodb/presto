@@ -33,6 +33,7 @@
                 <groupId>org.tomdz.maven</groupId>
                 <artifactId>sphinx-maven-plugin</artifactId>
                 <configuration>
+                    <fork>true</fork>
                     <force>true</force>
                     <warningsAsErrors>true</warningsAsErrors>
                     <sourceDirectory>${project.basedir}/src/main/sphinx</sourceDirectory>
