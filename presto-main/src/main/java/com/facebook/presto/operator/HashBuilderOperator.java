@@ -14,10 +14,8 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.type.Type;
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
@@ -49,14 +47,7 @@ public class HashBuilderOperator
 
         public ListenableFuture<JoinHash> getSourceHash()
         {
-            return Futures.transform(hashFuture, new Function<JoinHash, JoinHash>()
-            {
-                @Override
-                public JoinHash apply(JoinHash joinHash)
-                {
-                    return new JoinHash(joinHash);
-                }
-            });
+            return hashFuture;
         }
 
         void setHash(JoinHash joinHash)
