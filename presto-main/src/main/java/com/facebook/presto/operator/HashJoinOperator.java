@@ -93,6 +93,7 @@ public class HashJoinOperator
     private final List<Type> types;
 
     private final BlockCursor[] cursors;
+    private final BlockCursor[] probeCursors;
 
     private final PageBuilder pageBuilder;
 
@@ -119,6 +120,7 @@ public class HashJoinOperator
         this.pageBuilder = new PageBuilder(types);
 
         this.cursors = new BlockCursor[probeTypes.size()];
+        this.probeCursors = new BlockCursor[probeJoinChannels.size()];
     }
 
     @Override
@@ -188,8 +190,9 @@ public class HashJoinOperator
             cursors[i] = page.getBlock(i).cursor();
         }
 
-        // set hashing strategy to use probe block
-        hash.setProbeCursors(cursors, probeJoinChannels);
+        for (int i = 0; i < probeJoinChannels.length; i++) {
+            probeCursors[i] = cursors[probeJoinChannels[i]];
+        }
 
         // initialize to invalid join position to force output code to advance the cursors
         joinPosition = -1;
@@ -254,7 +257,7 @@ public class HashJoinOperator
             joinPosition = -1;
         }
         else {
-            joinPosition = hash.getJoinPosition();
+            joinPosition = hash.getJoinPosition(probeCursors);
         }
 
         return true;
@@ -302,8 +305,8 @@ public class HashJoinOperator
 
     private boolean currentRowJoinPositionContainsNull()
     {
-        for (int probeJoinChannel : probeJoinChannels) {
-            if (cursors[probeJoinChannel].isNull()) {
+        for (BlockCursor probeCursor : probeCursors) {
+            if (probeCursor.isNull()) {
                 return true;
             }
         }
