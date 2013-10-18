@@ -189,6 +189,8 @@ public class TaskExecutor
 
         scheduleTaskIfNecessary(taskHandle);
 
+        addNewEntrants();
+
         return prioritizedSplitRunner.getFinishedFuture();
     }
 
