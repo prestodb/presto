@@ -21,6 +21,7 @@ html {
 
 body {
     font-family: 'Helvetica Neue', Helvetica, Arial, 'lucida grande', tahoma, verdana, arial, sans-serif;
+    color: #222222;
 }
 
 div.header {
@@ -36,6 +37,11 @@ div.header h1 a {
     color: #fff !important;
 }
 
+.nav .right {
+    float: right;
+    text-align: right;
+}
+
 div.topnav {
     background: #eeeeee;
 }
@@ -43,6 +49,37 @@ div.topnav {
 div.topnav,
 div.bottomnav {
     padding: 10px 0;
+}
+
+div.topnav p,
+div.bottomnav p {
+    font-size: 1.0em;
+    margin: 0 40px;
+    text-align: left;
+}
+
+div.header h1 {
+    font-size: 1.8em;
+}
+
+h1 {
+    font-size: 1.5em;
+}
+
+h2 {
+    font-size: 1.4em;
+}
+
+h3 {
+    font-size: 1.3em;
+}
+
+h4 {
+    font-size: 1.2em;
+}
+
+div.content {
+    font-size: 1.0em;
 }
 
 div.content ul > li {
@@ -56,4 +93,21 @@ div.admonition {
 
 div.note {
     background-color: #f5f5ff
+}
+
+tt {
+    font-family: Consolas, 'Liberation Mono', Courier, monospace;
+    font-size: 0.9em;
+}
+
+tt.descname {
+    font-size: 1.1em;
+}
+
+tt.docutils.literal {
+    margin: 0 2px;
+    padding: 0 5px;
+    border: 1px solid #ddd;
+    background-color: #f8f8f8;
+    border-radius: 3px;
 }
