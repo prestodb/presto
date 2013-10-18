@@ -38,7 +38,7 @@ General Aggregate Functions
 
     Returns the minimum value of all input values.
 
-.. function:: sum(x) -> (same as input)
+.. function:: sum(x) -> [same as input]
 
     Returns the sum of all input values.
 
@@ -56,13 +56,13 @@ Approximate Aggregate Functions
     (approximately normal) error distribution over all possible sets. It does
     not guarantee an upper bound on the error for any specific input set.
 
-.. function:: approx_percentile(x, p) -> (same as input)
+.. function:: approx_percentile(x, p) -> [same as input]
 
     Returns the approximate percentile for all input values of ``x`` at the
     percentage ``p``. The value of ``p`` must be between zero and one and
     must be constant for all input rows.
 
-.. function:: approx_percentile(x, w, p) -> (same as input)
+.. function:: approx_percentile(x, w, p) -> [same as input]
 
     Returns the approximate weighed percentile for all input values of ``x``
     using the per-item weight ``w`` at the percentage ``p``. The weight must be

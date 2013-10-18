@@ -18,7 +18,7 @@ Operator Description
 Mathematical Functions
 ----------------------
 
-.. function:: abs(x) -> (same as input)
+.. function:: abs(x) -> [same as input]
 
     Returns the absolute value of ``x``.
 
@@ -26,11 +26,11 @@ Mathematical Functions
 
     Returns the cube root of ``x``.
 
-.. function:: ceil(x) -> (same as input)
+.. function:: ceil(x) -> [same as input]
 
     This is an alias for :func:`ceiling`.
 
-.. function:: ceiling(x) -> (same as input)
+.. function:: ceiling(x) -> [same as input]
 
     Returns ``x`` rounded up to the nearest integer.
 
@@ -42,7 +42,7 @@ Mathematical Functions
 
     Returns Euler's number raised to the power of ``x``.
 
-.. function:: floor(x) -> (same as input)
+.. function:: floor(x) -> [same as input]
 
     Returns ``x`` rounded down to the nearest integer.
 
@@ -62,7 +62,7 @@ Mathematical Functions
 
     Returns the base ``b`` logarithm of ``x``.
 
-.. function:: mod(n, m) -> (same as input)
+.. function:: mod(n, m) -> [same as input]
 
     Returns the modulus (remainder) of ``n`` divided by ``m``.
 
@@ -74,11 +74,11 @@ Mathematical Functions
 
     Returns ``x`` raised to the power of ``p``.
 
-.. function:: round(x) -> (same as input)
+.. function:: round(x) -> [same as input]
 
     Returns ``x`` rounded to the nearest integer.
 
-.. function:: round(x, d) -> (same as input)
+.. function:: round(x, d) -> [same as input]
 
     Returns ``x`` rounded to ``d`` decimal places.
 
