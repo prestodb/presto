@@ -33,11 +33,15 @@ Date and Time Functions
 
     .. note:: This SQL-standard function does not use parenthesis.
 
+    .. note:: This function is not yet supported.
+
 .. function:: current_time -> time
 
     Returns the current time as of the start of the query.
 
     .. note:: This SQL-standard function does not use parenthesis.
+
+    .. note:: This function is not yet supported.
 
 .. function:: current_timestamp -> timestamp
 
