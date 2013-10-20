@@ -154,7 +154,7 @@ public class HashBuilderOperator
             return;
         }
 
-        JoinHash joinHash = new JoinHash(pagesIndex, hashChannels, operatorContext);
+        JoinHash joinHash = pagesIndex.createJoinHash(hashChannels, operatorContext);
         hashSupplier.setHash(joinHash);
         finished = true;
     }
