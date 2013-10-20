@@ -14,31 +14,25 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.block.BlockCursor;
-import com.google.common.primitives.Ints;
 import it.unimi.dsi.fastutil.HashCommon;
 
 import java.util.Arrays;
-import java.util.List;
 
 import static io.airlift.slice.SizeOf.sizeOfIntArray;
 import static it.unimi.dsi.fastutil.HashCommon.murmurHash3;
 
-public class JoinHash
+public abstract class JoinHash
 {
-    private final PagesIndex pagesIndex;
-    private final int[] hashChannels;
-
+    private final int channelCount;
     private final int mask;
     private final int[] key;
     private final int[] positionLinks;
 
-    public JoinHash(PagesIndex pagesIndex, List<Integer> hashChannels, OperatorContext operatorContext)
+    public JoinHash(int channelCount, int positionCount, OperatorContext operatorContext)
     {
-        this.pagesIndex = pagesIndex;
-        this.hashChannels = Ints.toArray(hashChannels);
+        this.channelCount = channelCount;
 
         // reserve memory for the arrays
-        int positionCount = pagesIndex.getPositionCount();
         int hashSize = HashCommon.arraySize(positionCount, 0.75f);
         operatorContext.reserveMemory(sizeOfIntArray(hashSize) + sizeOfIntArray(positionCount));
 
@@ -48,11 +42,19 @@ public class JoinHash
 
         this.positionLinks = new int[positionCount];
         Arrays.fill(positionLinks, -1);
+    }
 
+    protected final void buildHash(int positionCount)
+    {
         // index pages
         for (int position = 0; position < positionCount; position++) {
             add(position);
         }
+    }
+
+    public final int getChannelCount()
+    {
+        return channelCount;
     }
 
     private void add(int position)
@@ -77,12 +79,7 @@ public class JoinHash
         key[pos] = position;
     }
 
-    public int getChannelCount()
-    {
-        return pagesIndex.getTypes().size();
-    }
-
-    public int getJoinPosition(BlockCursor... cursors)
+    public final int getJoinPosition(BlockCursor... cursors)
     {
         int pos = (murmurHash3(hashCursor(cursors) ^ mask)) & mask;
 
@@ -96,39 +93,18 @@ public class JoinHash
         return -1;
     }
 
-    public int getNextJoinPosition(int currentPosition)
+    public final int getNextJoinPosition(int currentPosition)
     {
         return positionLinks[currentPosition];
     }
 
-    public void appendTo(int position, PageBuilder pageBuilder, int outputChannelOffset)
-    {
-        for (int channel = 0; channel < getChannelCount(); channel++) {
-            pagesIndex.appendTo(channel, position, pageBuilder.getBlockBuilder(outputChannelOffset + channel));
-        }
-    }
+    public abstract void appendTo(int position, PageBuilder pageBuilder, int outputChannelOffset);
 
-    private int hashCursor(BlockCursor... cursors)
-    {
-        int result = 0;
-        for (BlockCursor cursor : cursors) {
-            result = 31 * result + cursor.calculateHashCode();
-        }
-        return result;
-    }
+    protected abstract int hashCursor(BlockCursor... cursors);
 
-    private int hashPosition(int position)
-    {
-        return pagesIndex.hashCode(hashChannels, position);
-    }
+    protected abstract int hashPosition(int position);
 
-    private boolean positionEqualsCurrentRow(int position, BlockCursor... cursors)
-    {
-        return pagesIndex.equals(hashChannels, position, cursors);
-    }
+    protected abstract boolean positionEqualsCurrentRow(int position, BlockCursor... cursors);
 
-    private boolean positionEqualsPosition(int leftPosition, int rightPosition)
-    {
-        return pagesIndex.equals(hashChannels, leftPosition, rightPosition);
-    }
+    protected abstract boolean positionEqualsPosition(int leftPosition, int rightPosition);
 }

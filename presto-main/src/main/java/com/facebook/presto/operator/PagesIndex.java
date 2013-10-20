@@ -19,6 +19,7 @@ import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.facebook.presto.type.Type;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import it.unimi.dsi.fastutil.Swapper;
@@ -65,6 +66,7 @@ public class PagesIndex
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         this.valueAddresses = new LongArrayList(expectedPositions);
 
+        //noinspection rawtypes
         channels = (ObjectArrayList<RandomAccessBlock>[]) new ObjectArrayList[types.size()];
         for (int i = 0; i < channels.length; i++) {
             channels[i] = ObjectArrayList.wrap(new RandomAccessBlock[1024], 0);
@@ -240,5 +242,15 @@ public class PagesIndex
                 return comparator.compareTo(PagesIndex.this, leftPosition, rightPosition);
             }
         };
+    }
+
+    public JoinHash createJoinHash(List<Integer> hashChannels, OperatorContext operatorContext)
+    {
+        if (hashChannels.size() == 1) {
+            return new SingleChannelJoinHash(valueAddresses, channels, hashChannels.get(0), operatorContext);
+        }
+        else {
+            return new MultiChannelJoinHash(valueAddresses, channels, Ints.toArray(hashChannels), operatorContext);
+        }
     }
 }
