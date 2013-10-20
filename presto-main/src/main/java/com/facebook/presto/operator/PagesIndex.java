@@ -17,6 +17,7 @@ import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import it.unimi.dsi.fastutil.Arrays;
@@ -27,10 +28,10 @@ import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 import java.util.List;
 
-import static com.facebook.presto.operator.HashStrategyUtils.addToHashCode;
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.slice.SizeOf.sizeOf;
 
 /**
@@ -48,7 +49,7 @@ public class PagesIndex
     private final List<TupleInfo> tupleInfos;
     private final OperatorContext operatorContext;
     private final LongArrayList valueAddresses;
-    private final ObjectArrayList<RandomAccessPage> pages;
+    private final ObjectArrayList<RandomAccessBlock>[] channels;
 
     private int positionCount;
     private long pagesMemorySize;
@@ -56,10 +57,14 @@ public class PagesIndex
 
     public PagesIndex(List<TupleInfo> tupleInfos, int expectedPositions, OperatorContext operatorContext)
     {
-        this.tupleInfos = tupleInfos;
-        this.operatorContext = operatorContext;
+        this.tupleInfos = ImmutableList.copyOf(checkNotNull(tupleInfos, "tupleInfos is null"));
+        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         this.valueAddresses = new LongArrayList(expectedPositions);
-        this.pages = ObjectArrayList.wrap(new RandomAccessPage[1024], 0);
+
+        channels = (ObjectArrayList<RandomAccessBlock>[]) new ObjectArrayList[tupleInfos.size()];
+        for (int i = 0; i < channels.length; i++) {
+            channels[i] = ObjectArrayList.wrap(new RandomAccessBlock[1024], 0);
+        }
     }
 
     public List<TupleInfo> getTupleInfos()
@@ -76,16 +81,19 @@ public class PagesIndex
     {
         positionCount += page.getPositionCount();
 
-        int pageIndex = pages.size();
+        int pageIndex = channels[0].size();
         RandomAccessPage randomAccessPage = page.toRandomAccessPage();
-        pages.add(randomAccessPage);
+        for (int i = 0; i < channels.length; i++) {
+            RandomAccessBlock block = randomAccessPage.getBlock(i);
+            channels[i].add(block);
+            pagesMemorySize += block.getDataSize().toBytes();
+        }
 
         for (int position = 0; position < page.getPositionCount(); position++) {
             long sliceAddress = encodeSyntheticAddress(pageIndex, position);
             valueAddresses.add(sliceAddress);
         }
 
-        pagesMemorySize += randomAccessPage.getDataSize().toBytes();
         estimatedSize = operatorContext.setMemoryReservation(calculateEstimatedSize());
     }
 
@@ -96,10 +104,9 @@ public class PagesIndex
 
     private long calculateEstimatedSize()
     {
-        // assumes 64bit addresses
-        long sliceArraySize = sizeOf(pages.elements());
+        long channelsArraySize = sizeOf(channels[0].elements()) * channels.length;
         long addressesArraySize = sizeOf(valueAddresses.elements());
-        return pagesMemorySize + sliceArraySize + addressesArraySize;
+        return pagesMemorySize + channelsArraySize + addressesArraySize;
     }
 
     public TupleInfo getTupleInfo(int channel)
@@ -119,26 +126,15 @@ public class PagesIndex
     public int buildPage(int position, int[] outputChannels, PageBuilder pageBuilder)
     {
         while (!pageBuilder.isFull() && position < positionCount) {
-            // get slice an offset for the position
-            long sliceAddress = valueAddresses.getLong(position);
-            int pageIndex = decodeSliceIndex(sliceAddress);
-            RandomAccessPage page = pages.get(pageIndex);
-            int blockPosition = decodePosition(sliceAddress);
-
-            // if page has been fully consumed, get next page
-            if (blockPosition >= page.getPositionCount()) {
-                pageIndex++;
-                if (pageIndex >= pages.size()) {
-                    break;
-                }
-                page = pages.get(pageIndex);
-                blockPosition = 0;
-            }
+            long pageAddress = valueAddresses.getLong(position);
+            int blockIndex = decodeSliceIndex(pageAddress);
+            int blockPosition = decodePosition(pageAddress);
 
             // append the row
             for (int i = 0; i < outputChannels.length; i++) {
-                RandomAccessBlock leftBlock = page.getBlock(outputChannels[i]);
-                leftBlock.appendTupleTo(blockPosition, pageBuilder.getBlockBuilder(i));
+                int outputChannel = outputChannels[i];
+                RandomAccessBlock block = this.channels[outputChannel].get(blockIndex);
+                block.appendTupleTo(blockPosition, pageBuilder.getBlockBuilder(i));
             }
 
             position++;
@@ -149,27 +145,25 @@ public class PagesIndex
 
     public void appendTupleTo(int[] outputChannels, int position, PageBuilder pageBuilder)
     {
-        // get slice an offset for the position
-        long sliceAddress = valueAddresses.getLong(position);
-        RandomAccessPage page = getPageForSyntheticAddress(sliceAddress);
-        int blockPosition = decodePosition(sliceAddress);
+        // get block and offset for the position
+        long pageAddress = valueAddresses.getLong(position);
+        int blockIndex = decodeSliceIndex(pageAddress);
+        int blockPosition = decodePosition(pageAddress);
 
         for (int i = 0; i < outputChannels.length; i++) {
-            RandomAccessBlock leftBlock = page.getBlock(outputChannels[i]);
-            leftBlock.appendTupleTo(blockPosition, pageBuilder.getBlockBuilder(i));
+            int outputChannel = outputChannels[i];
+            RandomAccessBlock block = this.channels[outputChannel].get(blockIndex);
+            block.appendTupleTo(blockPosition, pageBuilder.getBlockBuilder(i));
         }
     }
 
     public void appendTupleTo(int channel, int position, BlockBuilder output)
     {
-        // get slice an offset for the position
-        long sliceAddress = valueAddresses.getLong(position);
-        RandomAccessPage page = getPageForSyntheticAddress(sliceAddress);
-        int blockPosition = decodePosition(sliceAddress);
+        long pageAddress = valueAddresses.getLong(position);
 
-        RandomAccessBlock leftBlock = page.getBlock(channel);
-
-        leftBlock.appendTupleTo(blockPosition, output);
+        RandomAccessBlock block = channels[channel].get(decodeSliceIndex(pageAddress));
+        int blockPosition = decodePosition(pageAddress);
+        block.appendTupleTo(blockPosition, output);
     }
 
     public boolean equals(int[] channels, int leftPosition, int rightPosition)
@@ -179,16 +173,16 @@ public class PagesIndex
         }
 
         long leftPageAddress = valueAddresses.getLong(leftPosition);
-        RandomAccessPage leftPage = getPageForSyntheticAddress(leftPageAddress);
+        int leftBlockIndex = decodeSliceIndex(leftPageAddress);
         int leftBlockPosition = decodePosition(leftPageAddress);
 
         long rightPageAddress = valueAddresses.getLong(rightPosition);
-        RandomAccessPage rightPage = getPageForSyntheticAddress(rightPageAddress);
+        int rightBlockIndex = decodeSliceIndex(rightPageAddress);
         int rightBlockPosition = decodePosition(rightPageAddress);
 
         for (int channel : channels) {
-            RandomAccessBlock leftBlock = leftPage.getBlock(channel);
-            RandomAccessBlock rightBlock = rightPage.getBlock(channel);
+            RandomAccessBlock leftBlock = this.channels[channel].get(leftBlockIndex);
+            RandomAccessBlock rightBlock = this.channels[channel].get(rightBlockIndex);
 
             if (!leftBlock.equals(leftBlockPosition, rightBlock, rightBlockPosition)) {
                 return false;
@@ -200,14 +194,14 @@ public class PagesIndex
     public boolean equals(int[] channels, int position, BlockCursor[] cursors)
     {
         long pageAddress = valueAddresses.getLong(position);
-        RandomAccessPage page = getPageForSyntheticAddress(pageAddress);
+        int blockIndex = decodeSliceIndex(pageAddress);
         int blockPosition = decodePosition(pageAddress);
 
         for (int i = 0; i < channels.length; i++) {
             int channel = channels[i];
             BlockCursor cursor = cursors[i];
 
-            RandomAccessBlock block = page.getBlock(channel);
+            RandomAccessBlock block = this.channels[channel].get(blockIndex);
 
             if (!block.equals(blockPosition, cursor)) {
                 return false;
@@ -219,34 +213,33 @@ public class PagesIndex
     public int hashCode(int[] channels, int position)
     {
         long pageAddress = valueAddresses.getLong(position);
-        RandomAccessPage page = getPageForSyntheticAddress(pageAddress);
+        int blockIndex = decodeSliceIndex(pageAddress);
         int blockPosition = decodePosition(pageAddress);
 
         int result = 0;
         for (int channel : channels) {
-            RandomAccessBlock block = page.getBlock(channel);
-
-            result = addToHashCode(result, block.hashCode(blockPosition));
+            RandomAccessBlock block = this.channels[channel].get(blockIndex);
+            result = 31 * result + block.hashCode(blockPosition);
         }
         return result;
     }
 
     private int compareTo(int[] sortChannels, SortOrder[] sortOrders, int leftPosition, int rightPosition)
     {
-        long leftSliceAddress = valueAddresses.getLong(leftPosition);
-        RandomAccessPage leftPage = getPageForSyntheticAddress(leftSliceAddress);
-        int leftBlockPosition = decodePosition(leftSliceAddress);
+        long leftPageAddress = valueAddresses.getLong(leftPosition);
+        int leftBlockIndex = decodeSliceIndex(leftPageAddress);
+        int leftBlockPosition = decodePosition(leftPageAddress);
 
-        long rightSliceAddress = valueAddresses.getLong(rightPosition);
-        RandomAccessPage rightPage = getPageForSyntheticAddress(rightSliceAddress);
-        int rightBlockPosition = decodePosition(rightSliceAddress);
+        long rightPageAddress = valueAddresses.getLong(rightPosition);
+        int rightBlockIndex = decodeSliceIndex(rightPageAddress);
+        int rightBlockPosition = decodePosition(rightPageAddress);
 
         for (int i = 0; i < sortChannels.length; i++) {
             int sortChannel = sortChannels[i];
             SortOrder sortOrder = sortOrders[i];
 
-            RandomAccessBlock leftBlock = leftPage.getBlock(sortChannel);
-            RandomAccessBlock rightBlock = rightPage.getBlock(sortChannel);
+            RandomAccessBlock leftBlock = this.channels[sortChannel].get(leftBlockIndex);
+            RandomAccessBlock rightBlock = this.channels[sortChannel].get(rightBlockIndex);
 
             int compare = leftBlock.compareTo(sortOrder, leftBlockPosition, rightBlock, rightBlockPosition);
             if (compare != 0) {
@@ -260,11 +253,6 @@ public class PagesIndex
     {
         MultiSliceFieldOrderedTupleComparator comparator = new MultiSliceFieldOrderedTupleComparator(this, sortChannels, sortOrders);
         Arrays.quickSort(0, positionCount, comparator, this);
-    }
-
-    private RandomAccessPage getPageForSyntheticAddress(long sliceAddress)
-    {
-        return pages.get(decodeSliceIndex(sliceAddress));
     }
 
     public static class MultiSliceFieldOrderedTupleComparator
