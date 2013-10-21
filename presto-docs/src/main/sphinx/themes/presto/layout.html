@@ -1,5 +1,17 @@
 {%- extends 'basic/layout.html' %}
 
+{% block doctype %}
+<!DOCTYPE html>
+{% endblock %}
+
+{% block extrahead %}
+    <meta name='viewport' content='width=device-width'>
+    <meta property='og:type' content='website' />
+    <meta property='og:title' content='Presto | A Distributed SQL Query Engine for Big Data' />
+    <meta property='og:image' content='http://facebook.github.io/presto/docs/current/_static/presto_og.png' />
+    <meta property='og:description' content='A Distributed SQL Query Engine for Big Data' />
+{% endblock %}
+
 {% block relbar1 %}{% endblock %}
 {% block relbar2 %}{% endblock %}
 
@@ -21,18 +33,30 @@
 {% endmacro %}
 
 {% block content %}
-<div class="header">
-    <h1 class="heading"><a href="{{ pathto('index') }}">
-        <span>{{ shorttitle|e }}</span></a></h1>
-    <h2 class="heading"><span>{{ title|striptags|e }}</span></h2>
-</div>
-<div class="topnav">
+<header class='topbar clearfix'>
+  <nav class='width'>
+    <a href='http://facebook.github.io/presto'><h1>Presto</h1></a>
+    <ul class='nav'>
+      <li><a href='http://facebook.github.io/presto/docs/current'>docs</a></li>
+      <li><a href='http://facebook.github.io/presto/support.html'>support</a></li>
+      <li><a href='http://facebook.github.io/presto/download.html'>download</a></li>
+      <li><a href='http://github.com/facebook/presto'>github</a>
+    </ul>
+  </nav>
+</header>
+
+<header class='hero clearfix'>
+    <div class="width">
+        <h1>{{ shorttitle|e }}</h1>
+    </div>
+</header>
+<div class="topnav width">
     {{ nav() }}
 </div>
-<div class="content">
+<div class="content width">
     {% block body %}{% endblock %}
 </div>
-<div class="bottomnav">
+<div class="bottomnav width">
     {{ nav() }}
 </div>
 {% endblock %}
