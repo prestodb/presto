@@ -150,7 +150,7 @@ body {
     text-transform: uppercase;
     font-weight: bold;
     border: none;
-    background: url(docs/current/_static/chevron.png);
+    background: url(chevron.png);
     background-size: 20px 20px;
     background-repeat: no-repeat;
     background-position: 0 50%;
