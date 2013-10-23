@@ -77,10 +77,11 @@ public abstract class AbstractTestHiveClient
     protected ColumnHandle dsColumn;
     protected ColumnHandle fileFormatColumn;
     protected ColumnHandle dummyColumn;
+    protected ColumnHandle intColumn;
     protected ColumnHandle invalidColumnHandle;
 
-    protected Set<Partition> partitions;
-    protected Set<Partition> unpartitionedPartitions;
+    protected Set<HivePartition> partitions;
+    protected Set<HivePartition> unpartitionedPartitions;
     protected Partition invalidPartition;
 
     protected ConnectorMetadata metadata;
@@ -107,19 +108,20 @@ public abstract class AbstractTestHiveClient
         dsColumn = new HiveColumnHandle(connectorId, "ds", 0, HiveType.STRING, -1, true);
         fileFormatColumn = new HiveColumnHandle(connectorId, "file_format", 1, HiveType.STRING, -1, true);
         dummyColumn = new HiveColumnHandle(connectorId, "dummy", 2, HiveType.INT, -1, true);
+        intColumn = new HiveColumnHandle(connectorId, "t_int", 0, HiveType.INT, -1, true);
         invalidColumnHandle = new HiveColumnHandle(connectorId, INVALID_COLUMN, 0, HiveType.STRING, 0, false);
 
-        partitions = ImmutableSet.<Partition>of(
+        partitions = ImmutableSet.of(
                 new HivePartition(table,
                         "ds=2012-12-29/file_format=rcfile/dummy=1",
-                        ImmutableMap.<ColumnHandle, Object>of(dsColumn, "2012-12-29", fileFormatColumn, "rcfile", dummyColumn, 1L), Optional.<Integer> absent()),
+                        ImmutableMap.<ColumnHandle, Object>of(dsColumn, "2012-12-29", fileFormatColumn, "rcfile", dummyColumn, 1L), Optional.<Integer>absent()),
                 new HivePartition(table,
                         "ds=2012-12-29/file_format=sequencefile/dummy=2",
-                        ImmutableMap.<ColumnHandle, Object>of(dsColumn, "2012-12-29", fileFormatColumn, "sequencefile", dummyColumn, 2L), Optional.<Integer> absent()),
+                        ImmutableMap.<ColumnHandle, Object>of(dsColumn, "2012-12-29", fileFormatColumn, "sequencefile", dummyColumn, 2L), Optional.<Integer>absent()),
                 new HivePartition(table,
                         "ds=2012-12-29/file_format=textfile/dummy=3",
-                        ImmutableMap.<ColumnHandle, Object>of(dsColumn, "2012-12-29", fileFormatColumn, "textfile", dummyColumn, 3L), Optional.<Integer> absent()));
-        unpartitionedPartitions = ImmutableSet.<Partition>of(new HivePartition(tableUnpartitioned));
+                        ImmutableMap.<ColumnHandle, Object>of(dsColumn, "2012-12-29", fileFormatColumn, "textfile", dummyColumn, 3L), Optional.<Integer>absent()));
+        unpartitionedPartitions = ImmutableSet.of(new HivePartition(tableUnpartitioned));
         invalidPartition = new HivePartition(invalidTable, "unknown", ImmutableMap.<ColumnHandle, Object>of(), Optional.<Integer> absent());
     }
 
@@ -164,6 +166,15 @@ public abstract class AbstractTestHiveClient
         assertExpectedPartitions(partitions);
     }
 
+    @Test
+    public void testGetPartitionsWithBindings()
+            throws Exception
+    {
+        TableHandle tableHandle = getTableHandle(table);
+        List<Partition> partitions = splitManager.getPartitions(tableHandle, ImmutableMap.<ColumnHandle, Object>of(intColumn, 5));
+        assertExpectedPartitions(partitions);
+    }
+
     @Test(expectedExceptions = TableNotFoundException.class)
     public void testGetPartitionsException()
             throws Exception
@@ -184,11 +195,13 @@ public abstract class AbstractTestHiveClient
     {
         assertEquals(partitions, this.partitions);
         ImmutableMap<String, Partition> actualPartitions = uniqueIndex(partitions, partitionIdGetter());
-        for (Partition expectedPartition : this.partitions) {
-            Partition actualPartition = actualPartitions.get(expectedPartition.getPartitionId());
+        for (HivePartition expectedPartition : this.partitions) {
+            HivePartition actualPartition = (HivePartition) actualPartitions.get(expectedPartition.getPartitionId());
             assertNotNull(actualPartition, "partition " + expectedPartition.getPartitionId());
             assertEquals(actualPartition.getPartitionId(), expectedPartition.getPartitionId());
             assertEquals(actualPartition.getKeys(), expectedPartition.getKeys());
+            assertEquals(actualPartition.getTableName(), expectedPartition.getTableName());
+            assertEquals(actualPartition.getBucket(), expectedPartition.getBucket());
         }
     }
 
