@@ -67,7 +67,9 @@ final class HiveBucketing
 
     public static Optional<Integer> getBucketNumber(Table table, Map<ColumnHandle, Object> bindings)
     {
-        if (!table.getSd().isSetBucketCols() || bindings.isEmpty()) {
+        if (!table.getSd().isSetBucketCols() || table.getSd().getBucketCols().isEmpty() ||
+                !table.getSd().isSetNumBuckets() || table.getSd().getNumBuckets() <= 0 ||
+                bindings.isEmpty()) {
             return Optional.absent();
         }
 
