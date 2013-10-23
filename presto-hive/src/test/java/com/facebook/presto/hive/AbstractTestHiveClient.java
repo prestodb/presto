@@ -48,6 +48,7 @@ import java.util.Set;
 import static com.facebook.presto.hive.HiveUtil.partitionIdGetter;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Maps.uniqueIndex;
+import static io.airlift.testing.Assertions.assertInstanceOf;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -80,8 +81,8 @@ public abstract class AbstractTestHiveClient
     protected ColumnHandle intColumn;
     protected ColumnHandle invalidColumnHandle;
 
-    protected Set<HivePartition> partitions;
-    protected Set<HivePartition> unpartitionedPartitions;
+    protected Set<Partition> partitions;
+    protected Set<Partition> unpartitionedPartitions;
     protected Partition invalidPartition;
 
     protected ConnectorMetadata metadata;
@@ -111,7 +112,7 @@ public abstract class AbstractTestHiveClient
         intColumn = new HiveColumnHandle(connectorId, "t_int", 0, HiveType.INT, -1, true);
         invalidColumnHandle = new HiveColumnHandle(connectorId, INVALID_COLUMN, 0, HiveType.STRING, 0, false);
 
-        partitions = ImmutableSet.of(
+        partitions = ImmutableSet.<Partition>of(
                 new HivePartition(table,
                         "ds=2012-12-29/file_format=rcfile/dummy=1",
                         ImmutableMap.<ColumnHandle, Object>of(dsColumn, "2012-12-29", fileFormatColumn, "rcfile", dummyColumn, 1L), Optional.<Integer>absent()),
@@ -121,7 +122,7 @@ public abstract class AbstractTestHiveClient
                 new HivePartition(table,
                         "ds=2012-12-29/file_format=textfile/dummy=3",
                         ImmutableMap.<ColumnHandle, Object>of(dsColumn, "2012-12-29", fileFormatColumn, "textfile", dummyColumn, 3L), Optional.<Integer>absent()));
-        unpartitionedPartitions = ImmutableSet.of(new HivePartition(tableUnpartitioned));
+        unpartitionedPartitions = ImmutableSet.<Partition>of(new HivePartition(tableUnpartitioned));
         invalidPartition = new HivePartition(invalidTable, "unknown", ImmutableMap.<ColumnHandle, Object>of(), Optional.<Integer> absent());
     }
 
@@ -191,12 +192,18 @@ public abstract class AbstractTestHiveClient
         assertExpectedPartitions(partitions);
     }
 
-    private void assertExpectedPartitions(List<Partition> partitions)
+    protected void assertExpectedPartitions(List<Partition> actualPartitions)
     {
-        assertEquals(partitions, this.partitions);
-        ImmutableMap<String, Partition> actualPartitions = uniqueIndex(partitions, partitionIdGetter());
-        for (HivePartition expectedPartition : this.partitions) {
-            HivePartition actualPartition = (HivePartition) actualPartitions.get(expectedPartition.getPartitionId());
+        Map<String, Partition> actualById = uniqueIndex(actualPartitions, partitionIdGetter());
+        for (Partition expected : partitions) {
+            assertInstanceOf(expected, HivePartition.class);
+            HivePartition expectedPartition = (HivePartition) expected;
+
+            Partition actual = actualById.get(expectedPartition.getPartitionId());
+            assertEquals(actual, expected);
+            assertInstanceOf(actual, HivePartition.class);
+            HivePartition actualPartition = (HivePartition) actual;
+
             assertNotNull(actualPartition, "partition " + expectedPartition.getPartitionId());
             assertEquals(actualPartition.getPartitionId(), expectedPartition.getPartitionId());
             assertEquals(actualPartition.getKeys(), expectedPartition.getKeys());
