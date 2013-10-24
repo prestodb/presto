@@ -18,6 +18,7 @@ import com.google.common.net.HostAndPort;
 import com.google.common.primitives.Ints;
 import io.airlift.units.Duration;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.net.DNSToSwitchMapping;
 import org.apache.hadoop.net.SocksSocketFactory;
 
@@ -36,6 +37,7 @@ public class HdfsConfiguration
     private final Duration dfsConnectTimeout;
     private final int dfsConnectMaxRetries;
     private final String domainSocketPath;
+    private final List<String> resourcePaths;
 
     @SuppressWarnings("ThreadLocalNotStaticFinal")
     private final ThreadLocal<Configuration> hadoopConfiguration = new ThreadLocal<Configuration>()
@@ -58,6 +60,7 @@ public class HdfsConfiguration
         this.dfsConnectTimeout = hiveClientConfig.getDfsConnectTimeout();
         this.dfsConnectMaxRetries = hiveClientConfig.getDfsConnectMaxRetries();
         this.domainSocketPath = hiveClientConfig.getDomainSocketPath();
+        this.resourcePaths = hiveClientConfig.getResourceConfigFiles();
     }
 
     @SuppressWarnings("UnusedParameters")
@@ -70,6 +73,12 @@ public class HdfsConfiguration
     protected Configuration createConfiguration()
     {
         Configuration config = new Configuration();
+
+        if (resourcePaths != null) {
+            for (String resourcePath : resourcePaths) {
+                config.addResource(new Path(resourcePath));
+            }
+        }
 
         // this is to prevent dfs client from doing reverse DNS lookups to determine whether nodes are rack local
         config.setClass("topology.node.switch.mapping.impl", NoOpDNSToSwitchMapping.class, DNSToSwitchMapping.class);

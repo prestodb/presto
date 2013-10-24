@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 import io.airlift.configuration.testing.ConfigAssertions;
@@ -44,6 +45,7 @@ public class TestHiveClientConfig
                 .setDfsConnectTimeout(new Duration(500, TimeUnit.MILLISECONDS))
                 .setDfsConnectMaxRetries(5)
                 .setFileSystemCacheTtl(new Duration(1, TimeUnit.DAYS))
+                .setResourceConfigFiles((String) null)
                 .setDomainSocketPath(null));
     }
 
@@ -65,6 +67,7 @@ public class TestHiveClientConfig
                 .put("hive.dfs.connect.timeout", "20s")
                 .put("hive.dfs.connect.max-retries", "10")
                 .put("hive.file-system-cache-ttl", "2d")
+                .put("hive.config.resources", "/foo.xml,/bar.xml")
                 .put("dfs.domain-socket-path", "/foo")
                 .build();
 
@@ -83,6 +86,7 @@ public class TestHiveClientConfig
                 .setDfsConnectTimeout(new Duration(20, TimeUnit.SECONDS))
                 .setDfsConnectMaxRetries(10)
                 .setFileSystemCacheTtl(new Duration(2, TimeUnit.DAYS))
+                .setResourceConfigFiles(ImmutableList.of("/foo.xml", "/bar.xml"))
                 .setDomainSocketPath("/foo");
 
         ConfigAssertions.assertFullMapping(properties, expected);
