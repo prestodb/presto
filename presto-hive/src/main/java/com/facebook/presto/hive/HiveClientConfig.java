@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive;
 
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
 import io.airlift.configuration.Config;
 import io.airlift.units.DataSize;
@@ -23,10 +25,13 @@ import io.airlift.units.MinDuration;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 public class HiveClientConfig
 {
+    private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
+
     private DataSize maxSplitSize = new DataSize(64, Unit.MEGABYTE);
     private int maxOutstandingSplits = 10_000;
     private int maxSplitIteratorThreads = 50;
@@ -44,6 +49,8 @@ public class HiveClientConfig
     private int dfsConnectMaxRetries = 5;
 
     private String domainSocketPath;
+
+    private List<String> resourceConfigFiles;
 
     @NotNull
     public DataSize getMaxSplitSize()
@@ -171,6 +178,24 @@ public class HiveClientConfig
     public HiveClientConfig setMaxPartitionBatchSize(int maxPartitionBatchSize)
     {
         this.maxPartitionBatchSize = maxPartitionBatchSize;
+        return this;
+    }
+
+    public List<String> getResourceConfigFiles()
+    {
+        return resourceConfigFiles;
+    }
+
+    @Config("hive.config.resources")
+    public HiveClientConfig setResourceConfigFiles(String files)
+    {
+        this.resourceConfigFiles = (files == null) ? null : SPLITTER.splitToList(files);
+        return this;
+    }
+
+    public HiveClientConfig setResourceConfigFiles(List<String> files)
+    {
+        this.resourceConfigFiles = (files == null) ? null : ImmutableList.copyOf(files);
         return this;
     }
 
