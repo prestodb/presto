@@ -39,9 +39,7 @@ public class HdfsConfiguration
     private final Duration dfsConnectTimeout;
     private final int dfsConnectMaxRetries;
     private final String domainSocketPath;
-    private final String resourcePaths;
-
-    private static final Splitter RESOURCE_CONFIGURATIONS_SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
+    private final List<String> resourcePaths;
 
     @SuppressWarnings("ThreadLocalNotStaticFinal")
     private final ThreadLocal<Configuration> hadoopConfiguration = new ThreadLocal<Configuration>()
@@ -78,9 +76,7 @@ public class HdfsConfiguration
     {
         Configuration config = new Configuration();
 
-        if (this.resourcePaths != null) {
-            List<String> resourcePaths = Lists.newArrayList(
-                    RESOURCE_CONFIGURATIONS_SPLITTER.split(this.resourcePaths));
+        if (resourcePaths != null) {
             for (String resourcePath: resourcePaths) {
                 config.addResource(new Path(resourcePath));
             }

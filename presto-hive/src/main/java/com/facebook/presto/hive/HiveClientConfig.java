@@ -24,7 +24,6 @@ import io.airlift.units.MinDuration;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
-
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -48,7 +47,8 @@ public class HiveClientConfig
 
     private String domainSocketPath;
 
-    private String resourceConfigurationFiles = null;
+    private List<String> resourceConfigurationFiles = null;
+    private static final Splitter RESOURCE_CONFIGURATIONS_SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
     @NotNull
     public DataSize getMaxSplitSize()
@@ -179,12 +179,20 @@ public class HiveClientConfig
         return this;
     }
 
-    public String getResourceConfigurationFiles() {
+    public List<String> getResourceConfigurationFiles() {
         return resourceConfigurationFiles;
     }
 
     @Config("hive.config.resources")
     public HiveClientConfig setResourceConfigurationFiles(String resourceConfigurationFiles) {
+        if (resourceConfigurationFiles != null) {
+            this.resourceConfigurationFiles = Lists.newArrayList(
+                    RESOURCE_CONFIGURATIONS_SPLITTER.split(resourceConfigurationFiles));
+        }
+        return this;
+    }
+
+    public HiveClientConfig setResourceConfigurationFiles(List<String> resourceConfigurationFiles) {
         this.resourceConfigurationFiles = resourceConfigurationFiles;
         return this;
     }

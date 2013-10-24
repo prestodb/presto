@@ -52,6 +52,13 @@ Then add the following to the list of VM options:
 
     -Dhive.metastore.thrift.client.socks-proxy=localhost:1080
 
+### Using HDFS with Federation
+
+If your Hive metastore references files stored on a federated HDFS, then you should provide the federation
+information as a VM option:
+
+    -Dhive.config.resources=/etc/hadoop/conf/core-site.xml,/etc/hadoop/conf/hdfs-site.xml
+
 ### Running CLI
 
 Start the CLI to connect to the server and run SQL queries:
@@ -177,6 +184,11 @@ Create `etc/catalog/hive.properties` with the following contents to mount the `h
 
     connector.name=hive-cdh4
     hive.metastore.uri=thrift://example.net:9083
+
+If you're using HDFS with federation, then you should also include the following line pointing to the configuration
+files, describing your federated setup:
+
+    hive.config.resources=/etc/hadoop/conf/core-site.xml,/etc/hadoop/conf/hdfs-site.xml
 
 You can have as many catalogs as you need, so if you have additional Hive clusters, simply add another properties file to `etc/catalog` with a different name (making sure it ends in `.properties`).
 

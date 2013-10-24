@@ -45,7 +45,7 @@ public class TestHiveClientConfig
                 .setDfsConnectTimeout(new Duration(500, TimeUnit.MILLISECONDS))
                 .setDfsConnectMaxRetries(5)
                 .setFileSystemCacheTtl(new Duration(1, TimeUnit.DAYS))
-                .setResourceConfigurationFiles(null)
+                .setResourceConfigurationFiles((String) null)
                 .setDomainSocketPath(null));
     }
 
