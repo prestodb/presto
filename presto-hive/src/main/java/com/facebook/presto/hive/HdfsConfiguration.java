@@ -13,11 +13,14 @@
  */
 package com.facebook.presto.hive;
 
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.google.common.net.HostAndPort;
 import com.google.common.primitives.Ints;
 import io.airlift.units.Duration;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.net.DNSToSwitchMapping;
 import org.apache.hadoop.net.SocksSocketFactory;
 
@@ -36,6 +39,9 @@ public class HdfsConfiguration
     private final Duration dfsConnectTimeout;
     private final int dfsConnectMaxRetries;
     private final String domainSocketPath;
+    private final String resourcePaths;
+
+    private static final Splitter RESOURCE_CONFIGURATIONS_SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
     @SuppressWarnings("ThreadLocalNotStaticFinal")
     private final ThreadLocal<Configuration> hadoopConfiguration = new ThreadLocal<Configuration>()
@@ -58,6 +64,7 @@ public class HdfsConfiguration
         this.dfsConnectTimeout = hiveClientConfig.getDfsConnectTimeout();
         this.dfsConnectMaxRetries = hiveClientConfig.getDfsConnectMaxRetries();
         this.domainSocketPath = hiveClientConfig.getDomainSocketPath();
+        this.resourcePaths = hiveClientConfig.getResourceConfigurationFiles();
     }
 
     @SuppressWarnings("UnusedParameters")
@@ -70,6 +77,14 @@ public class HdfsConfiguration
     protected Configuration createConfiguration()
     {
         Configuration config = new Configuration();
+
+        if (this.resourcePaths != null) {
+            List<String> resourcePaths = Lists.newArrayList(
+                    RESOURCE_CONFIGURATIONS_SPLITTER.split(this.resourcePaths));
+            for (String resourcePath: resourcePaths) {
+                config.addResource(new Path(resourcePath));
+            }
+        }
 
         // this is to prevent dfs client from doing reverse DNS lookups to determine whether nodes are rack local
         config.setClass("topology.node.switch.mapping.impl", NoOpDNSToSwitchMapping.class, DNSToSwitchMapping.class);

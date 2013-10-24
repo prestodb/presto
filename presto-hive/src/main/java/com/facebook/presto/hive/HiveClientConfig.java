@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive;
 
+import com.google.common.base.Splitter;
+import com.google.common.collect.Lists;
 import com.google.common.net.HostAndPort;
 import io.airlift.configuration.Config;
 import io.airlift.units.DataSize;
@@ -23,6 +25,7 @@ import io.airlift.units.MinDuration;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 public class HiveClientConfig
@@ -44,6 +47,8 @@ public class HiveClientConfig
     private int dfsConnectMaxRetries = 5;
 
     private String domainSocketPath;
+
+    private String resourceConfigurationFiles = null;
 
     @NotNull
     public DataSize getMaxSplitSize()
@@ -171,6 +176,16 @@ public class HiveClientConfig
     public HiveClientConfig setMaxPartitionBatchSize(int maxPartitionBatchSize)
     {
         this.maxPartitionBatchSize = maxPartitionBatchSize;
+        return this;
+    }
+
+    public String getResourceConfigurationFiles() {
+        return resourceConfigurationFiles;
+    }
+
+    @Config("hive.config.resources")
+    public HiveClientConfig setResourceConfigurationFiles(String resourceConfigurationFiles) {
+        this.resourceConfigurationFiles = resourceConfigurationFiles;
         return this;
     }
 
