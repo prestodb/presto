@@ -41,7 +41,7 @@ public class HashJoinBenchmark
 
     public HashJoinBenchmark(LocalQueryRunner localQueryRunner)
     {
-        super(localQueryRunner, "hash_join", 4, 5);
+        super(localQueryRunner, "hash_join", 4, 20);
     }
 
     /*
