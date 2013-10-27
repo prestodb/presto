@@ -16,10 +16,12 @@ package com.facebook.presto.operator;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.RandomAccessBlock;
+import com.facebook.presto.sql.gen.JoinCompiler;
+import com.facebook.presto.sql.gen.JoinCompiler.JoinHashFactory;
 import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.facebook.presto.type.Type;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
+import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import it.unimi.dsi.fastutil.Swapper;
@@ -41,15 +43,20 @@ import static io.airlift.slice.SizeOf.sizeOf;
  * This data structure is not general purpose and is designed for a few specific uses:
  * <ul>
  * <li>Sort via the {@link #sort} method</li>
- * <li>Hash build via the {@link #equals} and {@link #hashCode} methods</li>
+ * <li>Hash build via the {@link #createJoinHash} method</li>
  * <li>Positional output via the {@link #appendTo} method</li>
  * </ul>
  */
 public class PagesIndex
         implements Swapper
 {
+    private static final Logger log = Logger.get(PagesIndex.class);
+
     // todo this should be a services assigned in the constructor
     private static final OrderingCompiler orderingCompiler = new OrderingCompiler();
+
+    // todo this should be a services assigned in the constructor
+    private static final JoinCompiler joinCompiler = new JoinCompiler();
 
     private final List<Type> types;
     private final OperatorContext operatorContext;
@@ -246,11 +253,22 @@ public class PagesIndex
 
     public JoinHash createJoinHash(List<Integer> hashChannels, OperatorContext operatorContext)
     {
-        if (hashChannels.size() == 1) {
-            return new SingleChannelJoinHash(valueAddresses, channels, hashChannels.get(0), operatorContext);
+        try {
+            JoinHashFactory joinHashFactory = joinCompiler.compileJoinHash(types, hashChannels);
+            JoinHash joinHash = joinHashFactory.createJoinHash(
+                    valueAddresses,
+                    ImmutableList.<List<RandomAccessBlock>>copyOf(channels),
+                    operatorContext);
+
+            return joinHash;
         }
-        else {
-            return new MultiChannelJoinHash(valueAddresses, channels, Ints.toArray(hashChannels), operatorContext);
+        catch (Exception e) {
+            log.error(e, "JoinHash compile failed for types=%s error=%s", types, e);
         }
+
+        PagesHashStrategy hashStrategy = new SimplePagesHashStrategy(
+                ImmutableList.<List<RandomAccessBlock>>copyOf(channels),
+                hashChannels);
+        return new InMemoryJoinHash(valueAddresses, hashStrategy, operatorContext);
     }
 }

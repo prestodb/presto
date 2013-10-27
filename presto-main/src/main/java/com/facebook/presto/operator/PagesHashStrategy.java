@@ -15,13 +15,15 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.block.BlockCursor;
 
-public interface JoinHash
+public interface PagesHashStrategy
 {
-    void appendTo(int position, PageBuilder pageBuilder, int outputChannelOffset);
-
     int getChannelCount();
 
-    int getJoinPosition(BlockCursor... cursors);
+    void appendTo(int blockIndex, int blockPosition, PageBuilder pageBuilder, int outputChannelOffset);
 
-    int getNextJoinPosition(int currentPosition);
+    int hashPosition(int blockIndex, int blockPosition);
+
+    boolean positionEqualsCursors(int blockIndex, int blockPosition, BlockCursor[] cursors);
+
+    boolean positionEqualsPosition(int leftBlockIndex, int leftBlockPosition, int rightBlockIndex, int rightBlockPosition);
 }
