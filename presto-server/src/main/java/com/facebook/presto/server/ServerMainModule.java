@@ -116,6 +116,10 @@ public class ServerMainModule
         // TODO: this should only be installed if this is a coordinator
         install(new CoordinatorModule());
 
+        if (serverConfig.isCoordinator()) {
+            discoveryBinder(binder).bindHttpAnnouncement("presto-coordinator");
+        }
+
         bindFailureDetector(binder, serverConfig.isCoordinator());
 
         // task execution
