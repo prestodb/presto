@@ -15,7 +15,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFactory;
-import com.facebook.presto.operator.HashJoinOperator.HashJoinOperatorFactory;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.util.MaterializedResult;
 import com.google.common.collect.ImmutableList;
@@ -78,7 +77,7 @@ public class TestHashJoinOperator
         List<Page> probeInput = rowPagesBuilder(VARCHAR, BIGINT, BIGINT)
                 .addSequencePage(1000, 0, 1000, 2000)
                 .build();
-        HashJoinOperatorFactory joinOperatorFactory = HashJoinOperator.innerJoin(
+        OperatorFactory joinOperatorFactory = HashJoinOperators.innerJoin(
                 0,
                 hashBuilderOperatorFactory.getHashSupplier(),
                 ImmutableList.of(VARCHAR, BIGINT, BIGINT),
@@ -132,7 +131,7 @@ public class TestHashJoinOperator
                 .row("a")
                 .row("b")
                 .build();
-        HashJoinOperatorFactory joinOperatorFactory = HashJoinOperator.innerJoin(
+        OperatorFactory joinOperatorFactory = HashJoinOperators.innerJoin(
                 0,
                 hashBuilderOperatorFactory.getHashSupplier(),
                 ImmutableList.of(VARCHAR),
@@ -178,7 +177,7 @@ public class TestHashJoinOperator
                 .row("b")
                 .row("c")
                 .build();
-        HashJoinOperatorFactory joinOperatorFactory = HashJoinOperator.innerJoin(
+        OperatorFactory joinOperatorFactory = HashJoinOperators.innerJoin(
                 0,
                 hashBuilderOperatorFactory.getHashSupplier(),
                 ImmutableList.of(VARCHAR),
@@ -225,7 +224,7 @@ public class TestHashJoinOperator
                 .row((String) null)
                 .row("c")
                 .build();
-        HashJoinOperatorFactory joinOperatorFactory = HashJoinOperator.innerJoin(
+        OperatorFactory joinOperatorFactory = HashJoinOperators.innerJoin(
                 0,
                 hashBuilderOperatorFactory.getHashSupplier(),
                 ImmutableList.of(VARCHAR),
@@ -266,7 +265,7 @@ public class TestHashJoinOperator
         List<Page> probeInput = rowPagesBuilder(VARCHAR, BIGINT, BIGINT)
                 .addSequencePage(15, 20, 1020, 2020)
                 .build();
-        HashJoinOperatorFactory joinOperatorFactory = HashJoinOperator.outerJoin(
+        OperatorFactory joinOperatorFactory = HashJoinOperators.outerJoin(
                 0,
                 hashBuilderOperatorFactory.getHashSupplier(),
                 ImmutableList.of(VARCHAR, BIGINT, BIGINT),
@@ -325,7 +324,7 @@ public class TestHashJoinOperator
                 .row("a")
                 .row("b")
                 .build();
-        HashJoinOperatorFactory joinOperatorFactory = HashJoinOperator.outerJoin(
+        OperatorFactory joinOperatorFactory = HashJoinOperators.outerJoin(
                 0,
                 hashBuilderOperatorFactory.getHashSupplier(),
                 ImmutableList.of(VARCHAR),
@@ -373,7 +372,7 @@ public class TestHashJoinOperator
                 .row("b")
                 .row("c")
                 .build();
-        HashJoinOperatorFactory joinOperatorFactory = HashJoinOperator.outerJoin(
+        OperatorFactory joinOperatorFactory = HashJoinOperators.outerJoin(
                 0,
                 hashBuilderOperatorFactory.getHashSupplier(),
                 ImmutableList.of(VARCHAR),
@@ -421,7 +420,7 @@ public class TestHashJoinOperator
                 .row((String) null)
                 .row("c")
                 .build();
-        HashJoinOperatorFactory joinOperatorFactory = HashJoinOperator.outerJoin(
+        OperatorFactory joinOperatorFactory = HashJoinOperators.outerJoin(
                 0,
                 hashBuilderOperatorFactory.getHashSupplier(),
                 ImmutableList.of(VARCHAR),
