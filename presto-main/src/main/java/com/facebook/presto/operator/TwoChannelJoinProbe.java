@@ -69,18 +69,18 @@ public class TwoChannelJoinProbe
     }
 
     @Override
+    public void appendTo(PageBuilder pageBuilder)
+    {
+        cursorA.appendTo(pageBuilder.getBlockBuilder(0));
+        cursorA.appendTo(pageBuilder.getBlockBuilder(1));
+    }
+
+    @Override
     public boolean advanceNextPosition()
     {
         boolean advanced = cursorA.advanceNextPosition();
         checkState(advanced == cursorB.advanceNextPosition());
         return advanced;
-    }
-
-    @Override
-    public void appendTo(PageBuilder pageBuilder)
-    {
-        cursorA.appendTo(pageBuilder.getBlockBuilder(0));
-        cursorA.appendTo(pageBuilder.getBlockBuilder(1));
     }
 
     @Override

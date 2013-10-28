@@ -14,7 +14,6 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.operator.HashBuilderOperator.HashSupplier;
-import com.facebook.presto.operator.SimpleJoinProbe.SimpleJoinProbeFactory;
 import com.facebook.presto.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -28,62 +27,6 @@ import static com.google.common.base.Preconditions.checkState;
 public class HashJoinOperator
         implements Operator
 {
-    public static HashJoinOperatorFactory innerJoin(int operatorId, HashSupplier hashSupplier, List<Type> probeTypes, List<Integer> probeJoinChannel)
-    {
-        return new HashJoinOperatorFactory(operatorId, hashSupplier, probeTypes, probeJoinChannel, false);
-    }
-
-    public static HashJoinOperatorFactory outerJoin(int operatorId, HashSupplier hashSupplier, List<Type> probeTypes, List<Integer> probeJoinChannel)
-    {
-        return new HashJoinOperatorFactory(operatorId, hashSupplier, probeTypes, probeJoinChannel, true);
-    }
-
-    public static class HashJoinOperatorFactory
-            implements OperatorFactory
-    {
-        private final int operatorId;
-        private final HashSupplier hashSupplier;
-        private final List<Type> probeTypes;
-        private final List<Integer> probeJoinChannels;
-        private final boolean enableOuterJoin;
-        private final List<Type> types;
-        private boolean closed;
-
-        public HashJoinOperatorFactory(int operatorId, HashSupplier hashSupplier, List<Type> probeTypes, List<Integer> probeJoinChannels, boolean enableOuterJoin)
-        {
-            this.operatorId = operatorId;
-            this.hashSupplier = hashSupplier;
-            this.probeTypes = probeTypes;
-            this.probeJoinChannels = probeJoinChannels;
-            this.enableOuterJoin = enableOuterJoin;
-
-            this.types = ImmutableList.<Type>builder()
-                    .addAll(probeTypes)
-                    .addAll(hashSupplier.getTypes())
-                    .build();
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return types;
-        }
-
-        @Override
-        public Operator createOperator(DriverContext driverContext)
-        {
-            checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, HashJoinOperator.class.getSimpleName());
-            return new HashJoinOperator(operatorContext, hashSupplier, probeTypes, probeJoinChannels, enableOuterJoin);
-        }
-
-        @Override
-        public void close()
-        {
-            closed = true;
-        }
-    }
-
     private final ListenableFuture<JoinHash> hashFuture;
 
     private final OperatorContext operatorContext;
@@ -98,7 +41,12 @@ public class HashJoinOperator
     private boolean finishing;
     private int joinPosition = -1;
 
-    public HashJoinOperator(OperatorContext operatorContext, HashSupplier hashSupplier, List<Type> probeTypes, List<Integer> probeJoinChannels, boolean enableOuterJoin)
+    public HashJoinOperator(
+            OperatorContext operatorContext,
+            HashSupplier hashSupplier,
+            List<Type> probeTypes,
+            boolean enableOuterJoin,
+            JoinProbeFactory joinProbeFactory)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
 
@@ -107,7 +55,7 @@ public class HashJoinOperator
         checkNotNull(probeTypes, "probeTypes is null");
 
         this.hashFuture = hashSupplier.getSourceHash();
-        this.joinProbeFactory = new SimpleJoinProbeFactory(probeJoinChannels);
+        this.joinProbeFactory = joinProbeFactory;
         this.enableOuterJoin = enableOuterJoin;
 
         this.types = ImmutableList.<Type>builder()
