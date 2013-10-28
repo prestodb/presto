@@ -82,9 +82,9 @@ public class CoordinatorModule
     @Override
     protected void setup(Binder binder)
     {
-        httpServerBinder(binder).bindResource("/", "webapp").withWelcomeFile("index.html");
+        // TODO: currently, this module is ALWAYS installed (even for non-coordinators)
 
-        discoveryBinder(binder).bindHttpAnnouncement("presto-coordinator");
+        httpServerBinder(binder).bindResource("/", "webapp").withWelcomeFile("index.html");
 
         discoveryBinder(binder).bindSelector("presto");
 
