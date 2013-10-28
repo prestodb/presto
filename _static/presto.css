@@ -1,0 +1,234 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+@import url("haiku.css");
+
+* {
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+}
+
+html {
+    background: #fff;
+    -webkit-font-smoothing: antialiased;
+    background-color: #fafafa;
+}
+
+body {
+    font-family: 'Helvetica Neue', Helvetica, Arial, 'lucida grande', tahoma, verdana, arial, sans-serif;
+    color: #222222;
+    max-width: inherit;
+}
+
+.width {
+    margin: 0 auto !important;
+    padding: 0 20px !important;
+    width: 960px;
+}
+
+.clearfix:after {
+    clear: both;
+    content: ".";
+    display: block;
+    font-size: 0;
+    height: 0;
+    line-height: 0;
+    visibility: hidden;
+}
+
+.topbar {
+    background: #000;
+    line-height: 80px;
+}
+
+.topbar h1 {
+    background-image: url(presto.png);
+    background-position: 1px 50%;
+    background-repeat: no-repeat;
+    background-size: 155px 55px;
+    border-bottom: none;
+    float: left;
+    margin: 0 20px 0 0;
+    overflow: hidden;
+    text-indent: 100%;
+    white-space: nowrap;
+    width: 155px;
+}
+
+.topbar .nav {
+    float: right;
+    margin: 0 0 0 20px;
+    padding: 0;
+}
+
+.topbar .nav li {
+    display: inline;
+    text-transform: uppercase;
+}
+
+.topbar .nav li a {
+    color: #fff;
+    font-size: 13px;
+    letter-spacing: 0.1em;
+    margin: 0 8px;
+}
+
+.hero {
+    background: #374665;
+}
+
+.hero h1 {
+    border-bottom: none;
+    color: #fff;
+    line-height: 2em;
+    margin: 0;
+}
+
+.leftcol,
+.rightcol {
+    display: inline-block;
+    width: 45%;
+}
+
+.leftcol {
+    float: left;
+}
+
+.rightcol {
+    float: right;
+}
+
+.homehero {
+    padding: 20px 0;
+}
+
+.homehero h1 {
+    margin-top: 30px;
+    font-size: 36px;
+    font-weight: normal;
+}
+
+.homehero .button {
+    background: #102747;
+    color: #fff;
+    display: inline-block;
+    text-transform: uppercase;
+    padding: 10px 20px;
+    margin-top: 15px;
+    border-radius: 5px;
+}
+
+.homehero .video {
+    height: 0;
+    overflow: hidden;
+    padding-bottom: 30%;
+    position: relative;
+}
+
+.homehero .video iframe {
+    height: 100%;
+    left: 0;
+    position: absolute;
+    top: 0;
+    width: 100%;
+}
+
+.homecontent h2 {
+    color: #a8a8a8;
+    text-transform: uppercase;
+    font-weight: bold;
+    border: none;
+    background: url(chevron.png);
+    background-size: 20px 20px;
+    background-repeat: no-repeat;
+    background-position: 0 50%;
+    padding-left: 25px;
+}
+
+.nav .right {
+    float: right;
+    text-align: right;
+}
+
+div.topnav {
+    background: #eeeeee;
+}
+
+div.topnav,
+div.bottomnav {
+    padding: 10px 0;
+}
+
+div.topnav p,
+div.bottomnav p {
+    font-size: 1.0em;
+    margin: 20px 0px;
+    padding: 5px 0px;
+    text-align: left;
+}
+
+div.header h1 {
+    font-size: 1.8em;
+}
+
+h1 {
+    font-size: 1.5em;
+}
+
+h2 {
+    font-size: 1.4em;
+}
+
+h3 {
+    font-size: 1.3em;
+}
+
+h4 {
+    font-size: 1.2em;
+}
+
+div.content {
+    font-size: 1.0em;
+}
+
+div.content ul > li {
+    background-image: url(bullet.png);
+}
+
+div.admonition {
+    border-radius: 3px;
+    border-style: solid;
+}
+
+div.note {
+    background-color: #f5f5ff
+}
+
+tt {
+    font-family: Consolas, 'Liberation Mono', Courier, monospace;
+    font-size: 0.9em;
+}
+
+tt.descname {
+    font-size: 1.1em;
+}
+
+tt.docutils.literal {
+    margin: 0 2px;
+    padding: 0 5px;
+    border: 1px solid #ddd;
+    background-color: #f8f8f8;
+    border-radius: 3px;
+}
