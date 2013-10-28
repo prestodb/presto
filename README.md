@@ -56,7 +56,7 @@ Then add the following to the list of VM options:
 
 Start the CLI to connect to the server and run SQL queries:
 
-    presto-cli/target/presto-cli-*-standalone.jar
+    presto-cli/target/presto-cli-*-executable.jar
 
 Run a query to see the nodes in the cluster:
 
@@ -208,7 +208,7 @@ Discovery is configured and run the same way as Presto. Download [discovery-serv
 
 The Presto CLI is a [self-executing](http://skife.org/java/unix/2011/06/20/really_executable_jars.html) JAR file. Copy it to suitable location:
 
-    cp presto-cli/target/presto-cli-*-standalone.jar presto
+    cp presto-cli/target/presto-cli-*-executable.jar presto
 
 Then run it:
 
