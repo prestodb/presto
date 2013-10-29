@@ -72,7 +72,6 @@ import io.airlift.slice.Slices;
 import org.joni.Regex;
 
 import javax.annotation.Nullable;
-import javax.print.DocFlavor;
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.HashSet;
