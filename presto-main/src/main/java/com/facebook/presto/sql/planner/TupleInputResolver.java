@@ -31,7 +31,6 @@ public class TupleInputResolver
     private TupleReadable[] inputs;
 
     private RecordCursor cursor;
-    private Map<Input, Type> inputTypes;
 
     public void setInputs(TupleReadable[] inputs)
     {
@@ -43,7 +42,6 @@ public class TupleInputResolver
     {
         checkState(inputs == null, "%s already has inputs set", getClass().getName());
         this.cursor = checkNotNull(cursor, "cursor is null");
-        this.inputTypes = checkNotNull(tupleInfo, "tupleInfo is null");
     }
 
     @Override
@@ -78,14 +76,14 @@ public class TupleInputResolver
                 return null;
             }
 
-            switch (inputTypes.get(input)) {
+            switch (cursor.getType(input.getChannel())) {
                 case BOOLEAN:
                     return cursor.getBoolean(channel);
-                case BIGINT:
+                case LONG:
                     return cursor.getLong(channel);
                 case DOUBLE:
                     return cursor.getDouble(channel);
-                case VARCHAR:
+                case STRING:
                     return Slices.wrappedBuffer(cursor.getString(channel));
                 default:
                     throw new UnsupportedOperationException("not yet implemented");

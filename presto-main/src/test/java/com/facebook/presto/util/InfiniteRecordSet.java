@@ -17,9 +17,11 @@ import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.google.common.base.Charsets;
-import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class InfiniteRecordSet
         implements RecordSet
@@ -42,18 +44,19 @@ public class InfiniteRecordSet
     @Override
     public RecordCursor cursor()
     {
-        return new InMemoryRecordCursor(record);
+        return new InMemoryRecordCursor(types, record);
     }
 
     private static class InMemoryRecordCursor
             implements RecordCursor
     {
+        private final List<ColumnType> types;
         private final List<?> record;
 
-        private InMemoryRecordCursor(List<?> record)
+        private InMemoryRecordCursor(List<ColumnType> types, List<?> record)
         {
-            Preconditions.checkNotNull(record, "record is null");
-            this.record = record;
+            this.types = checkNotNull(ImmutableList.copyOf(types), "types is null");
+            this.record = checkNotNull(ImmutableList.copyOf(record), "record is null");
         }
 
         @Override
@@ -75,23 +78,29 @@ public class InfiniteRecordSet
         }
 
         @Override
+        public ColumnType getType(int field)
+        {
+            return types.get(field);
+        }
+
+        @Override
         public boolean getBoolean(int field)
         {
-            Preconditions.checkNotNull(record.get(field), "value is null");
+            checkNotNull(record.get(field), "value is null");
             return (Boolean) record.get(field);
         }
 
         @Override
         public long getLong(int field)
         {
-            Preconditions.checkNotNull(record.get(field), "value is null");
+            checkNotNull(record.get(field), "value is null");
             return (Long) record.get(field);
         }
 
         @Override
         public double getDouble(int field)
         {
-            Preconditions.checkNotNull(record.get(field), "value is null");
+            checkNotNull(record.get(field), "value is null");
             return (Double) record.get(field);
         }
 
@@ -99,7 +108,7 @@ public class InfiniteRecordSet
         public byte[] getString(int field)
         {
             Object value = record.get(field);
-            Preconditions.checkNotNull(value, "value is null");
+            checkNotNull(value, "value is null");
             if (value instanceof byte[]) {
                 return (byte[]) value;
             }

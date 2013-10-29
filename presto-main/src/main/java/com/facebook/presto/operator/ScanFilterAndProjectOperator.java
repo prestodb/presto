@@ -48,18 +48,7 @@ public class ScanFilterAndProjectOperator
                 DataStreamProvider dataStreamProvider,
                 Iterable<ColumnHandle> columns,
                 FilterFunction filterFunction,
-                ProjectionFunction... projections)
-        {
-            this(operatorId, sourceId, dataStreamProvider, columns, filterFunction, ImmutableList.copyOf(checkNotNull(projections, "projections is null")));
-        }
-
-        public ScanFilterAndProjectOperatorFactory(
-                int operatorId,
-                PlanNodeId sourceId,
-                DataStreamProvider dataStreamProvider,
-                Iterable<ColumnHandle> columns,
-                FilterFunction filterFunction,
-                Iterable<ProjectionFunction> projections)
+                Iterable<? extends ProjectionFunction> projections)
         {
             this.operatorId = operatorId;
             this.sourceId = checkNotNull(sourceId, "sourceId is null");
@@ -106,23 +95,7 @@ public class ScanFilterAndProjectOperator
             DataStreamProvider dataStreamProvider,
             Iterable<ColumnHandle> columns,
             FilterFunction filterFunction,
-            ProjectionFunction... projections)
-    {
-        this(operatorContext,
-                sourceId,
-                dataStreamProvider,
-                columns,
-                filterFunction,
-                ImmutableList.copyOf(checkNotNull(projections, "projections is null")));
-    }
-
-    public ScanFilterAndProjectOperator(
-            OperatorContext operatorContext,
-            PlanNodeId sourceId,
-            DataStreamProvider dataStreamProvider,
-            Iterable<ColumnHandle> columns,
-            FilterFunction filterFunction,
-            Iterable<ProjectionFunction> projections)
+            Iterable<? extends ProjectionFunction> projections)
     {
         super(operatorContext,
                 sourceId,
