@@ -26,7 +26,7 @@ body {
 
 div.header {
     background-color: #374665;
-    background-image: url(presto_logo.png);
+    background-image: url(presto.png);
     background-position: 36px 50%;
     background-repeat: no-repeat;
     background-size: 57px 50px;
