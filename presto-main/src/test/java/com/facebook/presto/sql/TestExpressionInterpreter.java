@@ -13,13 +13,12 @@
  */
 package com.facebook.presto.sql;
 
+import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
-import com.facebook.presto.sql.planner.InputResolver;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolResolver;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.StringLiteral;
@@ -781,7 +780,15 @@ public class TestExpressionInterpreter
 
     private static Object optimize(@Language("SQL") String expression)
     {
-        ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(new SymbolResolver()
+
+        Expression parsedExpression = createExpression(expression);
+
+        // verify roundtrip
+        Expression roundtrip = createExpression(ExpressionFormatter.formatExpression(parsedExpression));
+        assertEquals(parsedExpression, roundtrip);
+
+        ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(parsedExpression, DUAL_METADATA_MANAGER, new Session("user", "test", DEFAULT_CATALOG, DEFAULT_SCHEMA, null, null));
+        return interpreter.optimize(new SymbolResolver()
         {
             @Override
             public Object getValue(Symbol symbol)
@@ -802,15 +809,7 @@ public class TestExpressionInterpreter
 
                 return new QualifiedNameReference(symbol.toQualifiedName());
             }
-        }, DUAL_METADATA_MANAGER, new Session("user", "test", DEFAULT_CATALOG, DEFAULT_SCHEMA, null, null));
-
-        Expression parsedExpression = createExpression(expression);
-
-        // verify roundtrip
-        Expression roundtrip = createExpression(ExpressionFormatter.formatExpression(parsedExpression));
-        assertEquals(parsedExpression, roundtrip);
-
-        return interpreter.process(parsedExpression, null);
+        });
     }
 
     private static Object evaluate(String expression)
@@ -826,15 +825,8 @@ public class TestExpressionInterpreter
 
     private static Object evaluate(Expression expression)
     {
-        ExpressionInterpreter interpreter = ExpressionInterpreter.expressionInterpreter(new InputResolver()
-        {
-            @Override
-            public Object getValue(Input input)
-            {
-                throw new UnsupportedOperationException();
-            }
-        }, DUAL_METADATA_MANAGER, new Session("user", "test", DEFAULT_CATALOG, DEFAULT_SCHEMA, null, null));
+        ExpressionInterpreter interpreter = ExpressionInterpreter.expressionInterpreter(expression, DUAL_METADATA_MANAGER, new Session("user", "test", DEFAULT_CATALOG, DEFAULT_SCHEMA, null, null));
 
-        return interpreter.process(expression, null);
+        return interpreter.evaluate((RecordCursor) null);
     }
 }

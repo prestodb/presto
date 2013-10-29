@@ -364,16 +364,16 @@ public final class FunctionAssertions
                 filter,
                 INPUT_MAPPING,
                 new MetadataManager(),
-                session,
-                INPUT_TYPES);
+                session
+        );
 
         ProjectionFunction projectionFunction = new InterpretedProjectionFunction(
                 expressionType,
                 projection,
                 INPUT_MAPPING,
                 new MetadataManager(),
-                session,
-                INPUT_TYPES);
+                session
+        );
 
         OperatorFactory operatorFactory = new FilterAndProjectOperatorFactory(0, filterFunction, ImmutableList.of(projectionFunction));
         return operatorFactory.createOperator(createDriverContext(session));

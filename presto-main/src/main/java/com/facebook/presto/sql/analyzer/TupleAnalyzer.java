@@ -193,16 +193,16 @@ class TupleAnalyzer
         // We use the optimizer to be able to produce a semantic exception if columns are referenced in the expression.
         // We can't do this with the interpreter yet because it's designed for the execution stage and has the wrong shape.
         // So, for now, we punt on supporting non-deterministic functions.
-        ExpressionInterpreter samplePercentageEval = ExpressionInterpreter.expressionOptimizer(new SymbolResolver()
+        ExpressionInterpreter samplePercentageEval = ExpressionInterpreter.expressionOptimizer(relation.getSamplePercentage(), metadata, session);
+
+        Object samplePercentageObject = samplePercentageEval.optimize(new SymbolResolver()
         {
             @Override
             public Object getValue(Symbol symbol)
             {
                 throw new SemanticException(NON_NUMERIC_SAMPLE_PERCENTAGE, relation.getSamplePercentage(), "Sample percentage cannot contain column references");
             }
-        }, metadata, session);
-
-        Object samplePercentageObject = samplePercentageEval.process(relation.getSamplePercentage(), null);
+        });
 
         if (!(samplePercentageObject instanceof Number)) {
             throw new SemanticException(SemanticErrorCode.NON_NUMERIC_SAMPLE_PERCENTAGE, relation.getSamplePercentage(), "Sample percentage should evaluate to a numeric expression");
@@ -349,7 +349,7 @@ class TupleAnalyzer
 
             Analyzer.verifyNoAggregatesOrWindowFunctions(metadata, expression, "JOIN");
 
-            Object optimizedExpression = ExpressionInterpreter.expressionOptimizer(NoOpSymbolResolver.INSTANCE, metadata, session).process(expression, null);
+            Object optimizedExpression = ExpressionInterpreter.expressionOptimizer(expression, metadata, session).optimize(NoOpSymbolResolver.INSTANCE);
 
             if (!(optimizedExpression instanceof Expression)) {
                 throw new SemanticException(NOT_SUPPORTED, node, "Joins on constant expressions (i.e., cross joins) not supported");

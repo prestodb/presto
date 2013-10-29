@@ -148,11 +148,13 @@ public class SplitManager
                 assignments.put(symbol, entry.getValue());
             }
         }
-        ExpressionInterpreter optimizer = ExpressionInterpreter.expressionOptimizer(new LookupSymbolResolver(assignments.build()), metadata, session);
+
+        LookupSymbolResolver inputs = new LookupSymbolResolver(assignments.build());
 
         // If any conjuncts evaluate to FALSE or null, then the whole predicate will never be true and so the partition should be pruned
         for (Expression expression : extractConjuncts(predicate)) {
-            Object optimized = optimizer.process(expression, null);
+            ExpressionInterpreter optimizer = ExpressionInterpreter.expressionOptimizer(expression, metadata, session);
+            Object optimized = optimizer.optimize(inputs);
             if (Boolean.FALSE.equals(optimized) || optimized == null) {
                 return true;
             }

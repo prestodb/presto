@@ -56,19 +56,19 @@ public class SimplifyExpressions
         checkNotNull(symbolAllocator, "symbolAllocator is null");
         checkNotNull(idAllocator, "idAllocator is null");
 
-        ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(NoOpSymbolResolver.INSTANCE, metadata, session);
-
-        return PlanRewriter.rewriteWith(new Rewriter(interpreter), plan);
+        return PlanRewriter.rewriteWith(new Rewriter(metadata, session), plan);
     }
 
     private static class Rewriter
             extends PlanNodeRewriter<Void>
     {
-        private final ExpressionInterpreter interpreter;
+        private final Metadata metadata;
+        private final Session session;
 
-        private Rewriter(ExpressionInterpreter interpreter)
+        public Rewriter(Metadata metadata, Session session)
         {
-            this.interpreter = interpreter;
+            this.metadata = metadata;
+            this.session = session;
         }
 
         @Override
@@ -110,7 +110,8 @@ public class SimplifyExpressions
 
         private Expression simplifyExpression(Expression input)
         {
-            return ExpressionInterpreter.toExpression(interpreter.process(input, null));
+            ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(input, metadata, session);
+            return ExpressionInterpreter.toExpression(interpreter.optimize(NoOpSymbolResolver.INSTANCE));
         }
     }
 }
