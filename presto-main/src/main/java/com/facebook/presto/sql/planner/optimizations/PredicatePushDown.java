@@ -577,8 +577,8 @@ public class PredicatePushDown
                 @Override
                 public Expression apply(Expression expression)
                 {
-                    ExpressionInterpreter optimizer = ExpressionInterpreter.expressionOptimizer(NoOpSymbolResolver.INSTANCE, metadata, session);
-                    return ExpressionInterpreter.toExpression(optimizer.process(expression, null));
+                    ExpressionInterpreter optimizer = ExpressionInterpreter.expressionOptimizer(expression, metadata, session);
+                    return ExpressionInterpreter.toExpression(optimizer.optimize(NoOpSymbolResolver.INSTANCE));
                 }
             };
         }
@@ -588,14 +588,15 @@ public class PredicatePushDown
          */
         private Object nullInputEvaluator(final Collection<Symbol> nullSymbols, Expression expression)
         {
-            return ExpressionInterpreter.expressionOptimizer(new SymbolResolver()
-            {
-                @Override
-                public Object getValue(Symbol symbol)
-                {
-                    return nullSymbols.contains(symbol) ? null : new QualifiedNameReference(symbol.toQualifiedName());
-                }
-            }, metadata, session).process(expression, null);
+            return ExpressionInterpreter.expressionOptimizer(expression, metadata, session)
+                    .optimize(new SymbolResolver()
+                    {
+                        @Override
+                        public Object getValue(Symbol symbol)
+                        {
+                            return nullSymbols.contains(symbol) ? null : new QualifiedNameReference(symbol.toQualifiedName());
+                        }
+                    });
         }
 
         private static Predicate<Expression> joinEqualityExpression(final Collection<Symbol> leftSymbols)

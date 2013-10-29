@@ -593,7 +593,7 @@ public class LocalExecutionPlanner
 
             FilterFunction filterFunction;
             if (filterExpression != BooleanLiteral.TRUE_LITERAL) {
-                filterFunction = new InterpretedFilterFunction(filterExpression, sourceLayout, metadata, context.getSession(), sourceTypes);
+                filterFunction = new InterpretedFilterFunction(filterExpression, sourceLayout, metadata, context.getSession());
             }
             else {
                 filterFunction = FilterFunctions.TRUE_FUNCTION;
@@ -616,8 +616,8 @@ public class LocalExecutionPlanner
                             expression,
                             sourceLayout,
                             metadata,
-                            context.getSession(),
-                            sourceTypes);
+                            context.getSession()
+                    );
                 }
                 projectionFunctions.add(function);
             }

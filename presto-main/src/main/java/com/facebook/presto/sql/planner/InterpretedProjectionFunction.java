@@ -32,22 +32,16 @@ public class InterpretedProjectionFunction
         implements ProjectionFunction
 {
     private final Type type;
-    private final Expression expression;
-    private final TupleInputResolver resolver = new TupleInputResolver();
     private final ExpressionInterpreter evaluator;
 
-    private final Map<Input, Type> inputTypes;
-
-    public InterpretedProjectionFunction(Type type, Expression expression, Map<Symbol, Input> symbolToInputMapping, Metadata metadata, Session session, Map<Input, Type> inputTypes)
+    public InterpretedProjectionFunction(Type type, Expression expression, Map<Symbol, Input> symbolToInputMapping, Metadata metadata, Session session)
     {
         this.type = type;
 
         // pre-compute symbol -> input mappings and replace the corresponding nodes in the tree
-        this.expression = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(symbolToInputMapping), expression);
+        Expression rewritten = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(symbolToInputMapping), expression);
 
-        evaluator = ExpressionInterpreter.expressionInterpreter(resolver, metadata, session);
-
-        this.inputTypes = inputTypes;
+        evaluator = ExpressionInterpreter.expressionInterpreter(rewritten, metadata, session);
     }
 
     @Override
@@ -59,21 +53,19 @@ public class InterpretedProjectionFunction
     @Override
     public void project(TupleReadable[] cursors, BlockBuilder output)
     {
-        resolver.setInputs(cursors);
-        project(output);
+        Object value = evaluator.evaluate(cursors);
+        append(output, value);
     }
 
     @Override
     public void project(RecordCursor cursor, BlockBuilder output)
     {
-        resolver.setCursor(cursor, inputTypes);
-        project(output);
+        Object value = evaluator.evaluate(cursor);
+        append(output, value);
     }
 
-    private void project(BlockBuilder output)
+    private void append(BlockBuilder output, Object value)
     {
-        Object value = evaluator.process(expression, null);
-
         if (value == null) {
             output.appendNull();
         }
