@@ -49,19 +49,22 @@ public class InMemoryRecordSet
     @Override
     public RecordCursor cursor()
     {
-        return new InMemoryRecordCursor(records.iterator(), totalBytes);
+        return new InMemoryRecordCursor(types, records.iterator(), totalBytes);
     }
 
     private static class InMemoryRecordCursor
             implements RecordCursor
     {
+        private final List<ColumnType> types;
         private final Iterator<? extends List<?>> records;
         private final long totalBytes;
         private List<?> record;
         private long completedBytes;
 
-        private InMemoryRecordCursor(Iterator<? extends List<?>> records, long totalBytes)
+        private InMemoryRecordCursor(List<ColumnType> types, Iterator<? extends List<?>> records, long totalBytes)
         {
+            this.types = types;
+
             this.records = records;
 
             this.totalBytes = totalBytes;
@@ -77,6 +80,12 @@ public class InMemoryRecordSet
         public long getCompletedBytes()
         {
             return completedBytes;
+        }
+
+        @Override
+        public ColumnType getType(int field)
+        {
+            return types.get(field);
         }
 
         @Override

@@ -81,6 +81,12 @@ public class MappedRecordSet
         }
 
         @Override
+        public ColumnType getType(int field)
+        {
+            return delegate.getType(field);
+        }
+
+        @Override
         public boolean advanceNextPosition()
         {
             return delegate.advanceNextPosition();

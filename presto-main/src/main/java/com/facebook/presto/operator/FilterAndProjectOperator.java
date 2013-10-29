@@ -35,12 +35,7 @@ public class FilterAndProjectOperator
         private final List<TupleInfo> tupleInfos;
         private boolean closed;
 
-        public FilterAndProjectOperatorFactory(int operatorId, FilterFunction filterFunction, ProjectionFunction... projections)
-        {
-            this(operatorId, filterFunction, ImmutableList.copyOf(checkNotNull(projections, "projections is null")));
-        }
-
-        public FilterAndProjectOperatorFactory(int operatorId, FilterFunction filterFunction, List<ProjectionFunction> projections)
+        public FilterAndProjectOperatorFactory(int operatorId, FilterFunction filterFunction, Iterable<? extends ProjectionFunction> projections)
         {
             this.operatorId = operatorId;
             this.filterFunction = checkNotNull(filterFunction, "filterFunction is null");
@@ -72,12 +67,7 @@ public class FilterAndProjectOperator
     private final FilterFunction filterFunction;
     private final List<ProjectionFunction> projections;
 
-    public FilterAndProjectOperator(OperatorContext operatorContext, FilterFunction filterFunction, ProjectionFunction... projections)
-    {
-        this(operatorContext, filterFunction, ImmutableList.copyOf(checkNotNull(projections, "projections is null")));
-    }
-
-    public FilterAndProjectOperator(OperatorContext operatorContext, FilterFunction filterFunction, List<ProjectionFunction> projections)
+    public FilterAndProjectOperator(OperatorContext operatorContext, FilterFunction filterFunction, Iterable<? extends ProjectionFunction> projections)
     {
         super(operatorContext, toTupleInfos(checkNotNull(projections, "projections is null")));
         this.filterFunction = checkNotNull(filterFunction, "filterFunction is null");
@@ -112,7 +102,7 @@ public class FilterAndProjectOperator
         }
     }
 
-    private static List<TupleInfo> toTupleInfos(List<ProjectionFunction> projections)
+    private static List<TupleInfo> toTupleInfos(Iterable<? extends ProjectionFunction> projections)
     {
         ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
         for (ProjectionFunction projection : projections) {

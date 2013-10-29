@@ -202,6 +202,12 @@ class BytesHiveRecordCursor<K>
     }
 
     @Override
+    public ColumnType getType(int field)
+    {
+        return types[field];
+    }
+
+    @Override
     public boolean advanceNextPosition()
     {
         try {

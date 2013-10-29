@@ -105,6 +105,12 @@ public class DelimitedRecordSet
         }
 
         @Override
+        public ColumnType getType(int field)
+        {
+            return columns.get(field).getType();
+        }
+
+        @Override
         public boolean advanceNextPosition()
         {
             try {
