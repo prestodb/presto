@@ -17,4 +17,5 @@ test-output
 .externalToolBuilders
 *~
 benchmark_outputs
-
+*.pyc
+*.class

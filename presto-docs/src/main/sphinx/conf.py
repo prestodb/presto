@@ -19,7 +19,15 @@
 #
 
 import os
+import sys
 import xml.dom.minidom
+
+try:
+    sys.dont_write_bytecode = True
+except:
+    pass
+
+sys.path.insert(0, os.path.abspath('ext'))
 
 
 def child_node(node, name):
@@ -54,7 +62,7 @@ def get_version():
 
 needs_sphinx = '1.0'
 
-extensions = []
+extensions = ['download']
 
 templates_path = ['_templates']
 
@@ -74,6 +82,10 @@ exclude_patterns = ['_build']
 pygments_style = 'sphinx'
 
 highlight_language = 'sql'
+
+rst_epilog = """
+.. |presto_server_release| replace:: ``presto-server-{release}``
+""".replace('{release}', release)
 
 # -- Options for HTML output ---------------------------------------------------
 
