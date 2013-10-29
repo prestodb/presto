@@ -6,5 +6,6 @@ Presto Documentation
     :maxdepth: 2
     :numbered: 2
 
+    installation
     functions
     sql
