@@ -45,7 +45,10 @@ public class PredicateFilterBenchmark
     {
         BlockIterable blockIterable = getBlockIterable("orders", "totalprice", BlocksFileEncoding.RAW);
         AlignmentOperatorFactory alignmentOperator = new AlignmentOperatorFactory(0, blockIterable);
-        FilterAndProjectOperatorFactory filterAndProjectOperator = new FilterAndProjectOperatorFactory(1, new DoubleFilter(50000.00), singleColumn(Type.DOUBLE, 0, 0));
+        FilterAndProjectOperatorFactory filterAndProjectOperator = new FilterAndProjectOperatorFactory(
+                1,
+                new DoubleFilter(50000.00),
+                ImmutableList.of(singleColumn(Type.DOUBLE, 0, 0)));
 
         return ImmutableList.of(alignmentOperator, filterAndProjectOperator);
     }
