@@ -115,13 +115,16 @@ public abstract class AbstractTestHiveClient
         partitions = ImmutableSet.<Partition>of(
                 new HivePartition(table,
                         "ds=2012-12-29/file_format=rcfile/dummy=1",
-                        ImmutableMap.<ColumnHandle, Object>of(dsColumn, "2012-12-29", fileFormatColumn, "rcfile", dummyColumn, 1L), Optional.<Integer>absent()),
+                        ImmutableMap.<ColumnHandle, Object>of(dsColumn, "2012-12-29", fileFormatColumn, "rcfile", dummyColumn, 1L),
+                        Optional.<Integer>absent()),
                 new HivePartition(table,
                         "ds=2012-12-29/file_format=sequencefile/dummy=2",
-                        ImmutableMap.<ColumnHandle, Object>of(dsColumn, "2012-12-29", fileFormatColumn, "sequencefile", dummyColumn, 2L), Optional.<Integer>absent()),
+                        ImmutableMap.<ColumnHandle, Object>of(dsColumn, "2012-12-29", fileFormatColumn, "sequencefile", dummyColumn, 2L),
+                        Optional.<Integer>absent()),
                 new HivePartition(table,
                         "ds=2012-12-29/file_format=textfile/dummy=3",
-                        ImmutableMap.<ColumnHandle, Object>of(dsColumn, "2012-12-29", fileFormatColumn, "textfile", dummyColumn, 3L), Optional.<Integer>absent()));
+                        ImmutableMap.<ColumnHandle, Object>of(dsColumn, "2012-12-29", fileFormatColumn, "textfile", dummyColumn, 3L),
+                        Optional.<Integer>absent()));
         unpartitionedPartitions = ImmutableSet.<Partition>of(new HivePartition(tableUnpartitioned));
         invalidPartition = new HivePartition(invalidTable, "unknown", ImmutableMap.<ColumnHandle, Object>of(), Optional.<Integer> absent());
     }
