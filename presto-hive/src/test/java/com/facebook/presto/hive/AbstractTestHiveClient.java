@@ -113,8 +113,12 @@ public abstract class AbstractTestHiveClient
 
         partitions = ImmutableSet.<Partition>of(
                 new HivePartition(table,
-                        "ds=2012-12-29/file_format=rcfile/dummy=0",
-                        ImmutableMap.<ColumnHandle, Object>of(dsColumn, "2012-12-29", fileFormatColumn, "rcfile", dummyColumn, 0L),
+                        "ds=2012-12-29/file_format=rcfile-text/dummy=0",
+                        ImmutableMap.<ColumnHandle, Object>of(dsColumn, "2012-12-29", fileFormatColumn, "rcfile-text", dummyColumn, 0L),
+                        Optional.<Integer>absent()),
+                new HivePartition(table,
+                        "ds=2012-12-29/file_format=rcfile-binary/dummy=2",
+                        ImmutableMap.<ColumnHandle, Object>of(dsColumn, "2012-12-29", fileFormatColumn, "rcfile-binary", dummyColumn, 2L),
                         Optional.<Integer>absent()),
                 new HivePartition(table,
                         "ds=2012-12-29/file_format=sequencefile/dummy=4",
@@ -308,7 +312,7 @@ public abstract class AbstractTestHiveClient
         Iterable<Split> iterator = splitManager.getPartitionSplits(tableHandle, partitions);
 
         List<Split> splits = ImmutableList.copyOf(iterator);
-        assertEquals(splits.size(), 3);
+        assertEquals(splits.size(), partitions.size());
     }
 
     @Test
@@ -507,6 +511,7 @@ public abstract class AbstractTestHiveClient
             long rowNumber = 0;
             long completedBytes = 0;
             try (RecordCursor cursor = recordSetProvider.getRecordSet(hiveSplit, columnHandles).cursor()) {
+                assertRecordCursorType(cursor, fileType);
                 assertEquals(cursor.getTotalBytes(), hiveSplit.getLength());
 
                 while (cursor.advanceNextPosition()) {
@@ -624,6 +629,7 @@ public abstract class AbstractTestHiveClient
 
             long rowNumber = 0;
             try (RecordCursor cursor = recordSetProvider.getRecordSet(hiveSplit, columnHandles).cursor()) {
+                assertRecordCursorType(cursor, fileType);
                 while (cursor.advanceNextPosition()) {
                     rowNumber++;
 
@@ -656,6 +662,7 @@ public abstract class AbstractTestHiveClient
 
             long rowNumber = 0;
             try (RecordCursor cursor = recordSetProvider.getRecordSet(split, columnHandles).cursor()) {
+                assertRecordCursorType(cursor, "textfile");
                 assertEquals(cursor.getTotalBytes(), hiveSplit.getLength());
 
                 while (cursor.advanceNextPosition()) {
@@ -709,14 +716,26 @@ public abstract class AbstractTestHiveClient
     private static long getBaseValueForFileType(String fileType)
     {
         switch (fileType) {
-            case "rcfile":
+            case "rcfile-text":
                 return 0;
+            case "rcfile-binary":
+                return 200;
             case "sequencefile":
                 return 400;
             case "textfile":
                 return 600;
             default:
                 throw new IllegalArgumentException("Unexpected fileType key " + fileType);
+        }
+    }
+
+    private static void assertRecordCursorType(RecordCursor cursor, String fileType)
+    {
+        if (fileType.equals("rcfile-text")) {
+            assertInstanceOf(cursor, BytesHiveRecordCursor.class, fileType);
+        }
+        else {
+            assertInstanceOf(cursor, GenericHiveRecordCursor.class, fileType);
         }
     }
 
