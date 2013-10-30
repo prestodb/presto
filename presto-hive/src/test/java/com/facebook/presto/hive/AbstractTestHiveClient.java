@@ -114,16 +114,16 @@ public abstract class AbstractTestHiveClient
 
         partitions = ImmutableSet.<Partition>of(
                 new HivePartition(table,
-                        "ds=2012-12-29/file_format=rcfile/dummy=1",
-                        ImmutableMap.<ColumnHandle, Object>of(dsColumn, "2012-12-29", fileFormatColumn, "rcfile", dummyColumn, 1L),
+                        "ds=2012-12-29/file_format=rcfile/dummy=0",
+                        ImmutableMap.<ColumnHandle, Object>of(dsColumn, "2012-12-29", fileFormatColumn, "rcfile", dummyColumn, 0L),
                         Optional.<Integer>absent()),
                 new HivePartition(table,
-                        "ds=2012-12-29/file_format=sequencefile/dummy=2",
-                        ImmutableMap.<ColumnHandle, Object>of(dsColumn, "2012-12-29", fileFormatColumn, "sequencefile", dummyColumn, 2L),
+                        "ds=2012-12-29/file_format=sequencefile/dummy=4",
+                        ImmutableMap.<ColumnHandle, Object>of(dsColumn, "2012-12-29", fileFormatColumn, "sequencefile", dummyColumn, 4L),
                         Optional.<Integer>absent()),
                 new HivePartition(table,
-                        "ds=2012-12-29/file_format=textfile/dummy=3",
-                        ImmutableMap.<ColumnHandle, Object>of(dsColumn, "2012-12-29", fileFormatColumn, "textfile", dummyColumn, 3L),
+                        "ds=2012-12-29/file_format=textfile/dummy=6",
+                        ImmutableMap.<ColumnHandle, Object>of(dsColumn, "2012-12-29", fileFormatColumn, "textfile", dummyColumn, 6L),
                         Optional.<Integer>absent()));
         unpartitionedPartitions = ImmutableSet.<Partition>of(new HivePartition(tableUnpartitioned));
         invalidPartition = new HivePartition(invalidTable, "unknown", ImmutableMap.<ColumnHandle, Object>of(), Optional.<Integer> absent());
@@ -391,8 +391,8 @@ public abstract class AbstractTestHiveClient
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
         String testString = "sequencefile test";
-        Long testInt = 213L;
-        Long testSmallint = 212L;
+        Long testInt = 413L;
+        Long testSmallint = 412L;
 
         // Reverse the order of bindings as compared to bucketing order
         ImmutableMap<ColumnHandle, Object> bindings = ImmutableMap.<ColumnHandle, Object>builder()
@@ -427,7 +427,7 @@ public abstract class AbstractTestHiveClient
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
         String testString = "textfile test";
-        Long testBigint = 405L;
+        Long testBigint = 605L;
         Boolean testBoolean = true;
 
         ImmutableMap<ColumnHandle, Object> bindings = ImmutableMap.<ColumnHandle, Object>builder()
@@ -503,6 +503,7 @@ public abstract class AbstractTestHiveClient
             long dummy = Long.parseLong(partitionKeys.get(2).getValue());
 
             long baseValue = getBaseValueForFileType(fileType);
+            assertEquals(dummy * 100, baseValue);
 
             long rowNumber = 0;
             long completedBytes = 0;
@@ -712,9 +713,9 @@ public abstract class AbstractTestHiveClient
             case "rcfile":
                 return 0;
             case "sequencefile":
-                return 200;
-            case "textfile":
                 return 400;
+            case "textfile":
+                return 600;
             default:
                 throw new IllegalArgumentException("Unexpected fileType key " + fileType);
         }
