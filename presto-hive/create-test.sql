@@ -133,7 +133,9 @@ SELECT
 , CASE WHEN n % 17 = 0 THEN NULL ELSE '2011-05-06 07:08:09.1234567' END
 , CASE WHEN n % 23 = 0 THEN NULL ELSE CAST('rcfile test' AS BINARY) END
 , CASE WHEN n % 27 = 0 THEN NULL ELSE array('rcfile', 'test', 'data') END
-, CASE WHEN n % 31 = 0 THEN NULL ELSE map(1, array(named_struct('s_string', 'rcfile-a', 's_double', 0.1), named_struct('s_string' , 'rcfile-b', 's_double', 0.2))) END
+, CASE WHEN n % 31 = 0 THEN NULL ELSE
+    map(1, array(named_struct('s_string', 'rcfile-a', 's_double', 0.1),
+                 named_struct('s_string' , 'rcfile-b', 's_double', 0.2))) END
 FROM tmp_presto_test LIMIT 100;
 
 ALTER TABLE presto_test SET FILEFORMAT SEQUENCEFILE;
@@ -153,7 +155,9 @@ SELECT
 , CASE WHEN n % 17 = 0 THEN NULL ELSE '2011-05-06 07:08:09.1234567' END
 , CASE WHEN n % 23 = 0 THEN NULL ELSE CAST('sequencefile test' AS BINARY) END
 , CASE WHEN n % 27 = 0 THEN NULL ELSE array('sequencefile', 'test', 'data') END
-, CASE WHEN n % 31 = 0 THEN NULL ELSE map(1, array(named_struct('s_string', 'sequencefile-a', 's_double', 0.1), named_struct('s_string' , 'sequencefile-b', 's_double', 0.2))) END
+, CASE WHEN n % 31 = 0 THEN NULL ELSE
+    map(1, array(named_struct('s_string', 'sequencefile-a', 's_double', 0.1),
+                 named_struct('s_string' , 'sequencefile-b', 's_double', 0.2))) END
 FROM tmp_presto_test LIMIT 100;
 
 ALTER TABLE presto_test SET FILEFORMAT TEXTFILE;
@@ -173,7 +177,9 @@ SELECT
 , CASE WHEN n % 17 = 0 THEN NULL ELSE '2011-05-06 07:08:09.1234567' END
 , CASE WHEN n % 23 = 0 THEN NULL ELSE CAST('textfile test' AS BINARY) END
 , CASE WHEN n % 27 = 0 THEN NULL ELSE array('textfile', 'test', 'data') END
-, CASE WHEN n % 31 = 0 THEN NULL ELSE map(1, array(named_struct('s_string', 'textfile-a', 's_double', 0.1), named_struct('s_string' , 'textfile-b', 's_double', 0.2))) END
+, CASE WHEN n % 31 = 0 THEN NULL ELSE
+    map(1, array(named_struct('s_string', 'textfile-a', 's_double', 0.1),
+                 named_struct('s_string' , 'textfile-b', 's_double', 0.2))) END
 FROM tmp_presto_test LIMIT 100;
 
 INSERT INTO TABLE presto_test_unpartitioned
