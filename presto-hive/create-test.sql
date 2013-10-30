@@ -118,8 +118,8 @@ DROP TABLE tmp_presto_test_load;
 
 ALTER TABLE presto_test SET FILEFORMAT RCFILE;
 ALTER TABLE presto_test SET SERDE 'org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe';
-ALTER TABLE presto_test ADD PARTITION (ds='2012-12-29', file_format='rcfile', dummy=1);
-INSERT INTO TABLE presto_test PARTITION (ds='2012-12-29', file_format='rcfile', dummy=1)
+ALTER TABLE presto_test ADD PARTITION (ds='2012-12-29', file_format='rcfile', dummy=0);
+INSERT INTO TABLE presto_test PARTITION (ds='2012-12-29', file_format='rcfile', dummy=0)
 SELECT
   CASE WHEN n % 19 = 0 THEN NULL ELSE 'rcfile test' END
 , 1 + n
@@ -140,16 +140,16 @@ FROM tmp_presto_test LIMIT 100;
 
 ALTER TABLE presto_test SET FILEFORMAT SEQUENCEFILE;
 ALTER TABLE presto_test SET SERDE 'org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe';
-ALTER TABLE presto_test ADD PARTITION (ds='2012-12-29', file_format='sequencefile', dummy=2);
-INSERT INTO TABLE presto_test PARTITION (ds='2012-12-29', file_format='sequencefile', dummy=2)
+ALTER TABLE presto_test ADD PARTITION (ds='2012-12-29', file_format='sequencefile', dummy=4);
+INSERT INTO TABLE presto_test PARTITION (ds='2012-12-29', file_format='sequencefile', dummy=4)
 SELECT
   CASE WHEN n % 19 = 0 THEN NULL ELSE 'sequencefile test' END
-, 201 + n
-, 202 + n
-, 203 + n
-, 204 + n + CASE WHEN n % 13 = 0 THEN NULL ELSE 0 END
-, 205.1 + n
-, 206.2 + n
+, 401 + n
+, 402 + n
+, 403 + n
+, 404 + n + CASE WHEN n % 13 = 0 THEN NULL ELSE 0 END
+, 405.1 + n
+, 406.2 + n
 , CASE WHEN n % 29 = 0 THEN NULL ELSE map('format', 'sequencefile') END
 , CASE n % 3 WHEN 0 THEN false WHEN 1 THEN true ELSE NULL END
 , CASE WHEN n % 17 = 0 THEN NULL ELSE '2011-05-06 07:08:09.1234567' END
@@ -162,16 +162,16 @@ FROM tmp_presto_test LIMIT 100;
 
 ALTER TABLE presto_test SET FILEFORMAT TEXTFILE;
 ALTER TABLE presto_test SET SERDE 'org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe';
-ALTER TABLE presto_test ADD PARTITION (ds='2012-12-29', file_format='textfile', dummy=3);
-INSERT INTO TABLE presto_test PARTITION (ds='2012-12-29', file_format='textfile', dummy=3)
+ALTER TABLE presto_test ADD PARTITION (ds='2012-12-29', file_format='textfile', dummy=6);
+INSERT INTO TABLE presto_test PARTITION (ds='2012-12-29', file_format='textfile', dummy=6)
 SELECT
   CASE WHEN n % 19 = 0 THEN NULL ELSE 'textfile test' END
-, 401 + n
-, 402 + n
-, 403 + n
-, 404 + n + CASE WHEN n % 13 = 0 THEN NULL ELSE 0 END
-, 405.1 + n
-, 406.2 + n
+, 601 + n
+, 602 + n
+, 603 + n
+, 604 + n + CASE WHEN n % 13 = 0 THEN NULL ELSE 0 END
+, 605.1 + n
+, 606.2 + n
 , CASE WHEN n % 29 = 0 THEN NULL ELSE map('format', 'textfile') END
 , CASE n % 3 WHEN 0 THEN false WHEN 1 THEN true ELSE NULL END
 , CASE WHEN n % 17 = 0 THEN NULL ELSE '2011-05-06 07:08:09.1234567' END
