@@ -26,6 +26,7 @@ import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.serde2.ColumnProjectionUtils;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.columnar.BytesRefArrayWritable;
+import org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
@@ -54,6 +55,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Lists.transform;
+import static org.apache.hadoop.hive.metastore.MetaStoreUtils.getDeserializer;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_NULL_FORMAT;
 
 public class HiveRecordSet
@@ -108,7 +110,7 @@ public class HiveRecordSet
 
         RecordReader<?, ?> recordReader = createRecordReader(split, configuration, wrappedPath);
 
-        if (recordReader.createValue() instanceof BytesRefArrayWritable) {
+        if (usesColumnarSerDe(split)) {
             return new BytesHiveRecordCursor<>(
                     bytesRecordReader(recordReader),
                     split.getLength(),
@@ -135,6 +137,16 @@ public class HiveRecordSet
     private static RecordReader<?, ? extends Writable> genericRecordReader(RecordReader<?, ?> recordReader)
     {
         return (RecordReader<?, ? extends Writable>) recordReader;
+    }
+
+    private static boolean usesColumnarSerDe(HiveSplit split)
+    {
+        try {
+            return getDeserializer(null, split.getSchema()) instanceof ColumnarSerDe;
+        }
+        catch (MetaException e) {
+            throw Throwables.propagate(e);
+        }
     }
 
     private static HiveColumnHandle getFirstPrimitiveColumn(String clientId, Properties schema)
