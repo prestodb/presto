@@ -25,7 +25,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class JdbcStatement
+public class PrestoStatement
         implements Statement
 {
     private final AtomicInteger maxRows = new AtomicInteger();
@@ -33,9 +33,9 @@ public class JdbcStatement
     private final AtomicInteger fetchSize = new AtomicInteger();
     private final AtomicBoolean escapeProcessing = new AtomicBoolean(true);
     private final AtomicBoolean closeOnCompletion = new AtomicBoolean();
-    private final AtomicReference<JdbcConnection> connection;
+    private final AtomicReference<PrestoConnection> connection;
 
-    JdbcStatement(JdbcConnection connection)
+    PrestoStatement(PrestoConnection connection)
     {
         this.connection = new AtomicReference<>(checkNotNull(connection, "connection is null"));
     }
@@ -45,7 +45,7 @@ public class JdbcStatement
             throws SQLException
     {
         try {
-            return new JdbcResultSet(connection().startQuery(sql));
+            return new PrestoResultSet(connection().startQuery(sql));
         }
         catch (RuntimeException e) {
             throw new SQLException("Error executing query", e);
@@ -402,10 +402,10 @@ public class JdbcStatement
         connection();
     }
 
-    private JdbcConnection connection()
+    private PrestoConnection connection()
             throws SQLException
     {
-        JdbcConnection connection = this.connection.get();
+        PrestoConnection connection = this.connection.get();
         if (connection == null) {
             throw new SQLException("Statement is closed");
         }

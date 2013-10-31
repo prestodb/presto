@@ -57,7 +57,7 @@ import static com.google.common.collect.Iterators.concat;
 import static com.google.common.collect.Iterators.transform;
 import static java.lang.String.format;
 
-public class JdbcResultSet
+public class PrestoResultSet
         implements ResultSet
 {
     private static final int VARIABLE_BINARY_MAX = 1024 * 1024 * 1024;
@@ -70,14 +70,14 @@ public class JdbcResultSet
     private final AtomicReference<List<Object>> row = new AtomicReference<>();
     private final AtomicBoolean wasNull = new AtomicBoolean();
 
-    JdbcResultSet(StatementClient client)
+    PrestoResultSet(StatementClient client)
             throws SQLException
     {
         this.client = checkNotNull(client, "client is null");
 
         List<Column> columns = getColumns(client);
         this.fieldMap = getFieldMap(columns);
-        this.resultSetMetaData = new JdbcResultSetMetaData(getColumnInfo(columns));
+        this.resultSetMetaData = new PrestoResultSetMetaData(getColumnInfo(columns));
 
         this.results = flatten(new ResultsPageIterator(client));
     }

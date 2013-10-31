@@ -47,7 +47,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Maps.fromProperties;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilder;
 
-public class JdbcConnection
+public class PrestoConnection
         implements Connection
 {
     private final AtomicBoolean closed = new AtomicBoolean();
@@ -59,7 +59,7 @@ public class JdbcConnection
     private final Map<String, String> clientInfo = new ConcurrentHashMap<>();
     private final QueryExecutor queryExecutor;
 
-    JdbcConnection(URI uri, String user, QueryExecutor queryExecutor)
+    PrestoConnection(URI uri, String user, QueryExecutor queryExecutor)
     {
         this.uri = checkNotNull(uri, "uri is null");
         this.address = HostAndPort.fromParts(uri.getHost(), uri.getPort());
@@ -74,7 +74,7 @@ public class JdbcConnection
             throws SQLException
     {
         checkOpen();
-        return new JdbcStatement(this);
+        return new PrestoStatement(this);
     }
 
     @Override
@@ -82,7 +82,7 @@ public class JdbcConnection
             throws SQLException
     {
         checkOpen();
-        return new JdbcPreparedStatement(this, sql);
+        return new PrestoPreparedStatement(this, sql);
     }
 
     @Override
@@ -158,7 +158,7 @@ public class JdbcConnection
     public DatabaseMetaData getMetaData()
             throws SQLException
     {
-        return new JdbcDatabaseMetaData(this);
+        return new PrestoDatabaseMetaData(this);
     }
 
     @Override

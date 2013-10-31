@@ -23,12 +23,12 @@ import java.sql.Statement;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class JdbcDatabaseMetaData
+public class PrestoDatabaseMetaData
         implements DatabaseMetaData
 {
-    private final JdbcConnection connection;
+    private final PrestoConnection connection;
 
-    public JdbcDatabaseMetaData(JdbcConnection connection)
+    public PrestoDatabaseMetaData(PrestoConnection connection)
     {
         this.connection = checkNotNull(connection, "connection is null");
     }
@@ -119,26 +119,26 @@ public class JdbcDatabaseMetaData
     public String getDriverName()
             throws SQLException
     {
-        return Driver.DRIVER_NAME;
+        return PrestoDriver.DRIVER_NAME;
     }
 
     @Override
     public String getDriverVersion()
             throws SQLException
     {
-        return Driver.DRIVER_VERSION;
+        return PrestoDriver.DRIVER_VERSION;
     }
 
     @Override
     public int getDriverMajorVersion()
     {
-        return Driver.VERSION_MAJOR;
+        return PrestoDriver.VERSION_MAJOR;
     }
 
     @Override
     public int getDriverMinorVersion()
     {
-        return Driver.VERSION_MINOR;
+        return PrestoDriver.VERSION_MINOR;
     }
 
     @Override
@@ -1179,28 +1179,28 @@ public class JdbcDatabaseMetaData
             throws SQLException
     {
         // TODO: get version from server
-        return Driver.VERSION_MAJOR;
+        return PrestoDriver.VERSION_MAJOR;
     }
 
     @Override
     public int getDatabaseMinorVersion()
             throws SQLException
     {
-        return Driver.VERSION_MINOR;
+        return PrestoDriver.VERSION_MINOR;
     }
 
     @Override
     public int getJDBCMajorVersion()
             throws SQLException
     {
-        return Driver.JDBC_VERSION_MAJOR;
+        return PrestoDriver.JDBC_VERSION_MAJOR;
     }
 
     @Override
     public int getJDBCMinorVersion()
             throws SQLException
     {
-        return Driver.JDBC_VERSION_MINOR;
+        return PrestoDriver.JDBC_VERSION_MINOR;
     }
 
     @Override

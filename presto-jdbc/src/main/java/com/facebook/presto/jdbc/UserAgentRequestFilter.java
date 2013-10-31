@@ -20,7 +20,7 @@ import io.airlift.http.client.Request;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.http.client.Request.Builder.fromRequest;
 
-public class UserAgentRequestFilter
+class UserAgentRequestFilter
         implements HttpRequestFilter
 {
     private final String userAgent;

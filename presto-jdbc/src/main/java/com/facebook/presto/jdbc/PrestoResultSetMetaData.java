@@ -28,12 +28,12 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class JdbcResultSetMetaData
+public class PrestoResultSetMetaData
         implements ResultSetMetaData
 {
     private final List<ColumnInfo> columnInfo;
 
-    public JdbcResultSetMetaData(List<ColumnInfo> columnInfo)
+    public PrestoResultSetMetaData(List<ColumnInfo> columnInfo)
     {
         this.columnInfo = ImmutableList.copyOf(checkNotNull(columnInfo, "columnInfo is null"));
     }
