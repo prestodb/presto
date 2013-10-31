@@ -37,7 +37,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
 import java.util.Collections;
@@ -545,15 +544,15 @@ public abstract class AbstractTestHiveClient
                         assertTrue(cursor.isNull(columnIndex.get("t_boolean")));
                     }
                     else {
-                        assertEquals(cursor.getBoolean(columnIndex.get("t_boolean")), rowNumber % 3 != 0, String.format("row = %s", rowNumber));
+                        assertEquals(cursor.getBoolean(columnIndex.get("t_boolean")), rowNumber % 3 != 0);
                     }
 
                     if (rowNumber % 17 == 0) {
                         assertTrue(cursor.isNull(columnIndex.get("t_timestamp")));
                     }
                     else {
-                        long seconds = MILLISECONDS.toSeconds(new DateTime(2011, 5, 6, 7, 8, 9, 123, DateTimeZone.UTC).getMillis());
-                        assertEquals(cursor.getLong(columnIndex.get("t_timestamp")), seconds, String.format("row = %s", rowNumber));
+                        long seconds = MILLISECONDS.toSeconds(new DateTime(2011, 5, 6, 7, 8, 9, 123).getMillis());
+                        assertEquals(cursor.getLong(columnIndex.get("t_timestamp")), seconds);
                     }
 
                     if (rowNumber % 23 == 0) {
