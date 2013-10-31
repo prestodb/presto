@@ -21,6 +21,7 @@ import org.testng.annotations.Test;
 
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 
 public class TestQueryStats
@@ -73,10 +74,10 @@ public class TestQueryStats
 
     public static void assertExpectedQueryStats(QueryStats actual)
     {
-        assertEquals(actual.getCreateTime(), new DateTime(1));
-        assertEquals(actual.getExecutionStartTime(), new DateTime(2));
-        assertEquals(actual.getLastHeartbeat(), new DateTime(3));
-        assertEquals(actual.getEndTime(), new DateTime(4));
+        assertEquals(actual.getCreateTime(), new DateTime(1, UTC));
+        assertEquals(actual.getExecutionStartTime(), new DateTime(2, UTC));
+        assertEquals(actual.getLastHeartbeat(), new DateTime(3, UTC));
+        assertEquals(actual.getEndTime(), new DateTime(4, UTC));
 
         assertEquals(actual.getElapsedTime(), new Duration(5, NANOSECONDS));
         assertEquals(actual.getQueuedTime(), new Duration(6, NANOSECONDS));

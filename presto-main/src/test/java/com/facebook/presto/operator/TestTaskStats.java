@@ -23,6 +23,7 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.operator.TestPipelineStats.assertExpectedPipelineStats;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 
 public class TestTaskStats
@@ -69,9 +70,9 @@ public class TestTaskStats
 
     public static void assertExpectedTaskStats(TaskStats actual)
     {
-        assertEquals(actual.getCreateTime(), new DateTime(1));
-        assertEquals(actual.getStartTime(), new DateTime(2));
-        assertEquals(actual.getEndTime(), new DateTime(3));
+        assertEquals(actual.getCreateTime(), new DateTime(1, UTC));
+        assertEquals(actual.getStartTime(), new DateTime(2, UTC));
+        assertEquals(actual.getEndTime(), new DateTime(3, UTC));
         assertEquals(actual.getElapsedTime(), new Duration(4, NANOSECONDS));
         assertEquals(actual.getQueuedTime(), new Duration(5, NANOSECONDS));
 
