@@ -19,6 +19,7 @@ import java.io.Closeable;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.sql.Connection;
+import java.sql.Driver;
 import java.sql.DriverManager;
 import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
@@ -29,8 +30,8 @@ import java.util.logging.Logger;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.lang.String.format;
 
-public class Driver
-        implements java.sql.Driver, Closeable
+public class PrestoDriver
+        implements Driver, Closeable
 {
     static final int VERSION_MAJOR = 1;
     static final int VERSION_MINOR = 0;
@@ -52,14 +53,14 @@ public class Driver
 
     static {
         try {
-            DriverManager.registerDriver(new Driver());
+            DriverManager.registerDriver(new PrestoDriver());
         }
         catch (SQLException e) {
             throw Throwables.propagate(e);
         }
     }
 
-    public Driver()
+    public PrestoDriver()
     {
         this.queryExecutor = QueryExecutor.create(DRIVER_NAME + "/" + DRIVER_VERSION);
     }
@@ -83,7 +84,7 @@ public class Driver
             throw new SQLException(format("Username property (%s) must be set", USER_PROPERTY));
         }
 
-        return new JdbcConnection(parseDriverUrl(url), user, queryExecutor);
+        return new PrestoConnection(parseDriverUrl(url), user, queryExecutor);
     }
 
     @Override
