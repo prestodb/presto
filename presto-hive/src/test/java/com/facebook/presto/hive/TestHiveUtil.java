@@ -14,7 +14,6 @@
 package com.facebook.presto.hive;
 
 import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
 import org.testng.annotations.Test;
 
@@ -27,7 +26,7 @@ public class TestHiveUtil
     @Test
     public void testParseHiveTimestamp()
     {
-        DateTime time = new DateTime(2011, 5, 6, 7, 8, 9, 123, DateTimeZone.UTC);
+        DateTime time = new DateTime(2011, 5, 6, 7, 8, 9, 123);
         assertEquals(parse(time, "yyyy-MM-dd HH:mm:ss"), unixTime(time));
         assertEquals(parse(time, "yyyy-MM-dd HH:mm:ss.S"), unixTime(time));
         assertEquals(parse(time, "yyyy-MM-dd HH:mm:ss.SSS"), unixTime(time));

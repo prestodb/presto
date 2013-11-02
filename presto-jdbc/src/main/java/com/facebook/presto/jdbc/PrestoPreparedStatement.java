@@ -34,14 +34,14 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.Calendar;
 
-public class JdbcPreparedStatement
-        extends JdbcStatement
+public class PrestoPreparedStatement
+        extends PrestoStatement
         implements PreparedStatement
 {
-    JdbcPreparedStatement(JdbcConnection connection, String sql)
+    PrestoPreparedStatement(PrestoConnection connection, String sql)
     {
         super(connection);
-        throw new UnsupportedOperationException("JdbcPreparedStatement");
+        throw new UnsupportedOperationException("PreparedStatement");
     }
 
     @Override

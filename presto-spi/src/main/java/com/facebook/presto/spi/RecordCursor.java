@@ -22,6 +22,8 @@ public interface RecordCursor
 
     long getCompletedBytes();
 
+    ColumnType getType(int field);
+
     boolean advanceNextPosition();
 
     boolean getBoolean(int field);

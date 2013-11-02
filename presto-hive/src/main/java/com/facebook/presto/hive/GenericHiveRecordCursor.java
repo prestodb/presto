@@ -200,6 +200,12 @@ class GenericHiveRecordCursor<K, V extends Writable>
     }
 
     @Override
+    public ColumnType getType(int field)
+    {
+        return types[field];
+    }
+
+    @Override
     public boolean advanceNextPosition()
     {
         try {

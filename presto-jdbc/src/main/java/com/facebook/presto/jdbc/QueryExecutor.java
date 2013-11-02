@@ -38,7 +38,7 @@ import java.util.concurrent.TimeUnit;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.json.JsonCodec.jsonCodec;
 
-public class QueryExecutor
+class QueryExecutor
         implements Closeable
 {
     private final JsonCodec<QueryResults> queryInfoCodec;
@@ -78,7 +78,7 @@ public class QueryExecutor
         close();
     }
 
-    public static QueryExecutor create(String userAgent)
+    static QueryExecutor create(String userAgent)
     {
         return new QueryExecutor(userAgent, jsonCodec(QueryResults.class), getSystemSocksProxy());
     }
