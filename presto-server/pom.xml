@@ -208,6 +208,11 @@
             <artifactId>javax.servlet-api</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>io.airlift.discovery</groupId>
+            <artifactId>discovery-server</artifactId>
+        </dependency>
+
         <!-- for testing -->
         <dependency>
             <groupId>org.testng</groupId>
@@ -237,12 +242,6 @@
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main</artifactId>
             <type>test-jar</type>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift.discovery</groupId>
-            <artifactId>discovery-server</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

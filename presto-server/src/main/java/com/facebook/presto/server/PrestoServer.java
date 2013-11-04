@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.discovery.EmbeddedDiscoveryModule;
 import com.facebook.presto.metadata.CatalogManager;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -125,6 +126,7 @@ public class PrestoServer
                 new TraceTokenModule(),
                 new JsonEventModule(),
                 new HttpEventModule(),
+                new EmbeddedDiscoveryModule(),
                 new ServerMainModule());
 
         modules.addAll(getAdditionalModules());
