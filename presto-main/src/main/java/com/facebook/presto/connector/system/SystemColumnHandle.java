@@ -15,7 +15,7 @@ package com.facebook.presto.connector.system;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.TableMetadata;
+import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
@@ -65,7 +65,7 @@ public class SystemColumnHandle
         return "system:" + columnName;
     }
 
-    public static Map<String, ColumnHandle> toSystemColumnHandles(TableMetadata tableMetadata)
+    public static Map<String, ColumnHandle> toSystemColumnHandles(ConnectorTableMetadata tableMetadata)
     {
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {

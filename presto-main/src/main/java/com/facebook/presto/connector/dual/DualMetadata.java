@@ -17,10 +17,10 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.TableMetadata;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -40,7 +40,7 @@ public class DualMetadata
 
     static {
         DUAL_METADATA_MANAGER = new MetadataManager();
-        DUAL_METADATA_MANAGER.addInternalSchemaMetadata(new DualMetadata());
+        DUAL_METADATA_MANAGER.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, new DualMetadata());
     }
 
     public static final String NAME = "dual";
@@ -72,13 +72,13 @@ public class DualMetadata
     }
 
     @Override
-    public TableMetadata getTableMetadata(TableHandle tableHandle)
+    public ConnectorTableMetadata getTableMetadata(TableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         checkArgument(tableHandle instanceof DualTableHandle, "tableHandle is not a dual table handle");
 
         SchemaTableName tableName = new SchemaTableName(((DualTableHandle) tableHandle).getSchemaName(), NAME);
-        return new TableMetadata(tableName, ImmutableList.of(COLUMN_METADATA));
+        return new ConnectorTableMetadata(tableName, ImmutableList.of(COLUMN_METADATA));
     }
 
     @Override
@@ -137,7 +137,7 @@ public class DualMetadata
     }
 
     @Override
-    public TableHandle createTable(TableMetadata tableMetadata)
+    public TableHandle createTable(ConnectorTableMetadata tableMetadata)
     {
         throw new UnsupportedOperationException();
     }

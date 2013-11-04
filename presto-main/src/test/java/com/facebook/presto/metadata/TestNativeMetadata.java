@@ -16,10 +16,10 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.TableMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.skife.jdbi.v2.DBI;
@@ -71,7 +71,7 @@ public class TestNativeMetadata
         assertInstanceOf(tableHandle, NativeTableHandle.class);
         assertEquals(((NativeTableHandle) tableHandle).getTableId(), 1);
 
-        TableMetadata table = metadata.getTableMetadata(tableHandle);
+        ConnectorTableMetadata table = metadata.getTableMetadata(tableHandle);
         assertTableEqual(table, getOrdersTable());
 
         ColumnHandle columnHandle = metadata.getColumnHandle(tableHandle, "orderkey");
@@ -106,7 +106,7 @@ public class TestNativeMetadata
         assertEquals(filterCatalog, filterTable);
     }
 
-    private static TableMetadata getOrdersTable()
+    private static ConnectorTableMetadata getOrdersTable()
     {
         return tableMetadataBuilder(DEFAULT_TEST_ORDERS)
                 .column("orderkey", LONG)
@@ -116,7 +116,7 @@ public class TestNativeMetadata
                 .build();
     }
 
-    private static void assertTableEqual(TableMetadata actual, TableMetadata expected)
+    private static void assertTableEqual(ConnectorTableMetadata actual, ConnectorTableMetadata expected)
     {
         assertEquals(actual.getTable(), expected.getTable());
 

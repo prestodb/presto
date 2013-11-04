@@ -16,12 +16,12 @@ package com.facebook.presto.connector.system;
 import com.facebook.presto.metadata.AliasDao;
 import com.facebook.presto.metadata.TableAlias;
 import com.facebook.presto.spi.ColumnType;
+import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.InMemoryRecordSet.Builder;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
-import com.facebook.presto.spi.TableMetadata;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
@@ -39,7 +39,7 @@ public class AliasSystemTable
 {
     public static final SchemaTableName ALIAS_TABLE_NAME = new SchemaTableName("sys", "alias");
 
-    public static final TableMetadata ALIAS_TABLE = tableMetadataBuilder(ALIAS_TABLE_NAME)
+    public static final ConnectorTableMetadata ALIAS_TABLE = tableMetadataBuilder(ALIAS_TABLE_NAME)
             .column("source_catalog", STRING)
             .column("table", STRING)
             .column("destination_catalog", STRING)
@@ -61,7 +61,7 @@ public class AliasSystemTable
     }
 
     @Override
-    public TableMetadata getTableMetadata()
+    public ConnectorTableMetadata getTableMetadata()
     {
         return ALIAS_TABLE;
     }

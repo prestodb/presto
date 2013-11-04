@@ -15,9 +15,9 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Optional;
@@ -110,7 +110,7 @@ public interface Metadata
      */
     @NotNull
     @Deprecated
-    Optional<String> getConnectorId(TableHandle tableHandle);
+    String getConnectorId(TableHandle tableHandle);
 
     /**
      * HACK: This is here only for table alias support and should be remove when aliases are based on serialized table handles.

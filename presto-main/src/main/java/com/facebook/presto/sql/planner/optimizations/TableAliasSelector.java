@@ -106,13 +106,10 @@ public class TableAliasSelector
         {
             TableHandle tableHandle = node.getTable();
 
-            Optional<String> connectorId = metadata.getConnectorId(tableHandle);
-            if (!connectorId.isPresent()) {
-                return null;
-            }
+            String connectorId = metadata.getConnectorId(tableHandle);
             SchemaTableName tableName = metadata.getTableMetadata(tableHandle).getTable();
 
-            TableAlias tableAlias = aliasDao.getAlias(connectorId.get(), tableName.getSchemaName(), tableName.getTableName());
+            TableAlias tableAlias = aliasDao.getAlias(connectorId, tableName.getSchemaName(), tableName.getTableName());
             if (tableAlias == null) {
                 return node;
             }

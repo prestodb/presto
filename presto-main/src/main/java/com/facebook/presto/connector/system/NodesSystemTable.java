@@ -17,12 +17,12 @@ import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.metadata.Node;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.spi.ColumnType;
+import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.InMemoryRecordSet.Builder;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
-import com.facebook.presto.spi.TableMetadata;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
@@ -41,7 +41,7 @@ public class NodesSystemTable
 {
     public static final SchemaTableName NODES_TABLE_NAME = new SchemaTableName("sys", "node");
 
-    public static final TableMetadata NODES_TABLE = tableMetadataBuilder(NODES_TABLE_NAME)
+    public static final ConnectorTableMetadata NODES_TABLE = tableMetadataBuilder(NODES_TABLE_NAME)
             .column("node_id", STRING)
             .column("http_uri", STRING)
             .column("node_version", STRING)
@@ -63,7 +63,7 @@ public class NodesSystemTable
     }
 
     @Override
-    public TableMetadata getTableMetadata()
+    public ConnectorTableMetadata getTableMetadata()
     {
         return NODES_TABLE;
     }

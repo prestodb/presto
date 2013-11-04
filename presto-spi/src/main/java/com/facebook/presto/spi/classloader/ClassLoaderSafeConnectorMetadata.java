@@ -16,10 +16,10 @@ package com.facebook.presto.spi.classloader;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.TableMetadata;
 
 import java.util.List;
 import java.util.Map;
@@ -62,7 +62,7 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public TableMetadata getTableMetadata(TableHandle table)
+    public ConnectorTableMetadata getTableMetadata(TableHandle table)
     {
         try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
             return delegate.getTableMetadata(table);
@@ -110,7 +110,7 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public TableHandle createTable(TableMetadata tableMetadata)
+    public TableHandle createTable(ConnectorTableMetadata tableMetadata)
     {
         try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
             return delegate.createTable(tableMetadata);

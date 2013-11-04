@@ -18,9 +18,9 @@ import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.facebook.presto.tpch.TpchColumnHandle;
 import com.facebook.presto.tpch.TpchTableHandle;
@@ -184,7 +184,7 @@ public class InMemoryTpchBlocksProvider
         }
     }
 
-    public static RecordSet readTpchRecords(TableMetadata tableMetadata)
+    public static RecordSet readTpchRecords(ConnectorTableMetadata tableMetadata)
     {
         return readTpchRecords(tableMetadata.getTable().getTableName(), tableMetadata.getColumns());
     }

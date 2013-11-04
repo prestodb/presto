@@ -333,7 +333,7 @@ public class LocalQueryRunner
     private static void addSystem(InMemoryNodeManager nodeManager, MetadataManager metadataManager, SplitManager splitManager, DataStreamManager dataStreamManager)
     {
         SystemTablesMetadata systemTablesMetadata = new SystemTablesMetadata();
-        metadataManager.addInternalSchemaMetadata(systemTablesMetadata);
+        metadataManager.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, systemTablesMetadata);
 
         SystemSplitManager systemSplitManager = new SystemSplitManager(nodeManager);
         splitManager.addConnectorSplitManager(systemSplitManager);
@@ -352,7 +352,7 @@ public class LocalQueryRunner
             DataStreamManager dataStreamManager,
             TpchBlocksProvider tpchBlocksProvider)
     {
-        metadataManager.addConnectorMetadata(TPCH_CATALOG_NAME, new TpchMetadata());
+        metadataManager.addConnectorMetadata(TPCH_CATALOG_NAME, TPCH_CATALOG_NAME, new TpchMetadata());
         splitManager.addConnectorSplitManager(new TpchSplitManager("tpch", nodeManager));
         dataStreamManager.addConnectorDataStreamProvider(new TpchDataStreamProvider(tpchBlocksProvider));
     }
@@ -365,7 +365,7 @@ public class LocalQueryRunner
 
     private static void addDual(InMemoryNodeManager nodeManager, MetadataManager metadataManager, SplitManager splitManager, DataStreamManager dataStreamManager)
     {
-        metadataManager.addInternalSchemaMetadata(new DualMetadata());
+        metadataManager.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, new DualMetadata());
         splitManager.addConnectorSplitManager(new DualSplitManager(nodeManager));
         dataStreamManager.addConnectorDataStreamProvider(new DualDataStreamProvider());
     }

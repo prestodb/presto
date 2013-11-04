@@ -17,12 +17,12 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-public class TableMetadata
+public class ConnectorTableMetadata
 {
     private final SchemaTableName table;
     private final List<ColumnMetadata> columns;
 
-    public TableMetadata(SchemaTableName table, List<ColumnMetadata> columns)
+    public ConnectorTableMetadata(SchemaTableName table, List<ColumnMetadata> columns)
     {
         if (table == null) {
             throw new NullPointerException("table is null or empty");

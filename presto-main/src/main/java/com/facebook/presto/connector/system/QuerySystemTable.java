@@ -17,12 +17,12 @@ import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.spi.ColumnType;
+import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.InMemoryRecordSet.Builder;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
-import com.facebook.presto.spi.TableMetadata;
 import com.google.common.collect.ImmutableList;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.Duration;
@@ -44,7 +44,7 @@ public class QuerySystemTable
 {
     public static final SchemaTableName QUERY_TABLE_NAME = new SchemaTableName("sys", "query");
 
-    public static final TableMetadata QUERY_TABLE = tableMetadataBuilder(QUERY_TABLE_NAME)
+    public static final ConnectorTableMetadata QUERY_TABLE = tableMetadataBuilder(QUERY_TABLE_NAME)
             .column("node_id", STRING)
             .column("query_id", STRING)
             .column("state", STRING)
@@ -78,7 +78,7 @@ public class QuerySystemTable
     }
 
     @Override
-    public TableMetadata getTableMetadata()
+    public ConnectorTableMetadata getTableMetadata()
     {
         return QUERY_TABLE;
     }
