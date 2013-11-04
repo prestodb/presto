@@ -104,7 +104,8 @@ public class QueryMonitor
                             failureType,
                             failureMessage,
                             objectMapper.writeValueAsString(queryInfo.getOutputStage()),
-                            objectMapper.writeValueAsString(queryInfo.getFailureInfo())
+                            objectMapper.writeValueAsString(queryInfo.getFailureInfo()),
+                            objectMapper.writeValueAsString(queryInfo.getInputs())
                     )
             );
         }
