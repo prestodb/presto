@@ -153,7 +153,7 @@ public class InMemoryRecordSet
         }
     }
 
-    public static Builder builder(TableMetadata tableMetadata)
+    public static Builder builder(ConnectorTableMetadata tableMetadata)
     {
         return builder(tableMetadata.getColumns());
     }

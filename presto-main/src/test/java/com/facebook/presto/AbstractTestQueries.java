@@ -17,9 +17,9 @@ import com.facebook.presto.connector.dual.DualMetadata;
 import com.facebook.presto.importer.MockPeriodicImportManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -2803,7 +2803,7 @@ public abstract class AbstractTestQueries
         };
     }
 
-    private static void insertRows(TableMetadata tableMetadata, Handle handle, RecordSet data)
+    private static void insertRows(ConnectorTableMetadata tableMetadata, Handle handle, RecordSet data)
     {
         String vars = Joiner.on(',').join(nCopies(tableMetadata.getColumns().size(), "?"));
         String sql = format("INSERT INTO %s VALUES (%s)", tableMetadata.getTable().getTableName(), vars);
@@ -2869,7 +2869,7 @@ public abstract class AbstractTestQueries
     {
         Session session = new Session("user", "test", DEFAULT_CATALOG, DEFAULT_SCHEMA, null, null);
         MetadataManager metadata = new MetadataManager();
-        metadata.addInternalSchemaMetadata(new DualMetadata());
+        metadata.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, new DualMetadata());
         List<PlanOptimizer> optimizers = new PlanOptimizersFactory(metadata).get();
         return new QueryExplainer(session, optimizers, metadata, new MockPeriodicImportManager(), new MockStorageManager());
     }

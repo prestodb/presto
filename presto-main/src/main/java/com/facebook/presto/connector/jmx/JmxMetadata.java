@@ -17,10 +17,10 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.TableMetadata;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
@@ -100,7 +100,7 @@ public class JmxMetadata
     }
 
     @Override
-    public TableMetadata getTableMetadata(TableHandle tableHandle)
+    public ConnectorTableMetadata getTableMetadata(TableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         checkArgument(tableHandle instanceof JmxTableHandle, "tableHandle is not an instance of JmxTableHandle");
@@ -192,7 +192,7 @@ public class JmxMetadata
     }
 
     @Override
-    public TableHandle createTable(TableMetadata tableMetadata)
+    public TableHandle createTable(ConnectorTableMetadata tableMetadata)
     {
         throw new UnsupportedOperationException();
     }

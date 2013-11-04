@@ -16,10 +16,10 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.TableMetadata;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import org.skife.jdbi.v2.Handle;
@@ -81,7 +81,7 @@ public class NativeMetadata
     }
 
     @Override
-    public TableMetadata getTableMetadata(TableHandle tableHandle)
+    public ConnectorTableMetadata getTableMetadata(TableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         checkArgument(tableHandle instanceof NativeTableHandle, "tableHandle is not an instance of NativeTableHandle");
@@ -95,7 +95,7 @@ public class NativeMetadata
             return null;
         }
 
-        return new TableMetadata(tableName, columns);
+        return new ConnectorTableMetadata(tableName, columns);
     }
 
     @Override
@@ -174,7 +174,7 @@ public class NativeMetadata
     }
 
     @Override
-    public TableHandle createTable(final TableMetadata tableMetadata)
+    public TableHandle createTable(final ConnectorTableMetadata tableMetadata)
     {
         Long tableId = dbi.inTransaction(new TransactionCallback<Long>()
         {

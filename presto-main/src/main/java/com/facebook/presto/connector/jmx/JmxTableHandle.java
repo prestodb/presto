@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.connector.jmx;
 
+import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.TableMetadata;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
@@ -91,9 +91,9 @@ public class JmxTableHandle
                 .toString();
     }
 
-    public TableMetadata getTableMetadata()
+    public ConnectorTableMetadata getTableMetadata()
     {
-        return new TableMetadata(new SchemaTableName(JmxMetadata.SCHEMA_NAME, objectName), ImmutableList.copyOf(transform(columns, columnMetadataGetter())));
+        return new ConnectorTableMetadata(new SchemaTableName(JmxMetadata.SCHEMA_NAME, objectName), ImmutableList.copyOf(transform(columns, columnMetadataGetter())));
     }
 }
 

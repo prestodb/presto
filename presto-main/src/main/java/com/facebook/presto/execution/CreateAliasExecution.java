@@ -137,20 +137,18 @@ public class CreateAliasExecution
         Optional<TableHandle> aliasTableHandle = metadataManager.getTableHandle(aliasTableName);
         checkState(aliasTableHandle.isPresent(), "Table %s does not exist", aliasTableHandle);
         checkState(aliasTableHandle.get() instanceof NativeTableHandle, "Can only use a native table as alias");
-        Optional<String> aliasConnectorId = metadataManager.getConnectorId(aliasTableHandle.get());
-        checkArgument(aliasConnectorId.isPresent(), "Table %s can not be aliased", aliasTableName);
+        String aliasConnectorId = metadataManager.getConnectorId(aliasTableHandle.get());
 
         QualifiedTableName remoteTableName = createQualifiedTableName(stateMachine.getSession(), statement.getRemote());
 
         Optional<TableHandle> remoteTableHandle = metadataManager.getTableHandle(remoteTableName);
         checkState(remoteTableHandle.isPresent(), "Table %s does not exist", remoteTableName);
-        Optional<String> remoteConnectorId = metadataManager.getConnectorId(remoteTableHandle.get());
-        checkArgument(remoteConnectorId.isPresent(), "Table %s can not be aliased", remoteTableName);
+        String remoteConnectorId = metadataManager.getConnectorId(remoteTableHandle.get());
 
-        TableAlias tableAlias = new TableAlias(remoteConnectorId.get(),
+        TableAlias tableAlias = new TableAlias(remoteConnectorId,
                 remoteTableName.getSchemaName(),
                 remoteTableName.getTableName(),
-                aliasConnectorId.get(),
+                aliasConnectorId,
                 aliasTableName.getSchemaName(),
                 aliasTableName.getTableName());
 
