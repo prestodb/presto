@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.client.FailureInfo;
+import com.facebook.presto.client.Input;
 import com.facebook.presto.sql.analyzer.Session;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -21,12 +22,14 @@ import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Set;
 
 @Immutable
 public class QueryInfo
@@ -40,9 +43,11 @@ public class QueryInfo
     private final QueryStats queryStats;
     private final StageInfo outputStage;
     private final FailureInfo failureInfo;
+    private final Set<Input> inputs;
 
     @JsonCreator
-    public QueryInfo(@JsonProperty("queryId") QueryId queryId,
+    public QueryInfo(
+            @JsonProperty("queryId") QueryId queryId,
             @JsonProperty("session") Session session,
             @JsonProperty("state") QueryState state,
             @JsonProperty("self") URI self,
@@ -50,7 +55,8 @@ public class QueryInfo
             @JsonProperty("query") String query,
             @JsonProperty("queryStats") QueryStats queryStats,
             @JsonProperty("outputStage") StageInfo outputStage,
-            @JsonProperty("failureInfo") FailureInfo failureInfo)
+            @JsonProperty("failureInfo") FailureInfo failureInfo,
+            @JsonProperty("inputs") Set<Input> inputs)
     {
         Preconditions.checkNotNull(queryId, "queryId is null");
         Preconditions.checkNotNull(session, "session is null");
@@ -59,6 +65,7 @@ public class QueryInfo
         Preconditions.checkNotNull(fieldNames, "fieldNames is null");
         Preconditions.checkNotNull(queryStats, "queryStats is null");
         Preconditions.checkNotNull(query, "query is null");
+        Preconditions.checkNotNull(inputs, "inputs is null");
 
         this.queryId = queryId;
         this.session = session;
@@ -69,6 +76,7 @@ public class QueryInfo
         this.queryStats = queryStats;
         this.outputStage = outputStage;
         this.failureInfo = failureInfo;
+        this.inputs = ImmutableSet.copyOf(inputs);
     }
 
     @JsonProperty
@@ -124,6 +132,12 @@ public class QueryInfo
     public FailureInfo getFailureInfo()
     {
         return failureInfo;
+    }
+
+    @JsonProperty
+    public Set<Input> getInputs()
+    {
+        return inputs;
     }
 
     @Override

@@ -28,6 +28,8 @@ import javax.annotation.concurrent.Immutable;
 import java.net.URI;
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 @Immutable
 @EventType("QueryCompletion")
 public class QueryCompletionEvent
@@ -65,6 +67,8 @@ public class QueryCompletionEvent
     private final String outputStageJson;
     private final String failuresJson;
 
+    private final String inputsJson;
+
     public QueryCompletionEvent(
             QueryId queryId,
             String user,
@@ -92,7 +96,8 @@ public class QueryCompletionEvent
             String failureType,
             String failureMessage,
             String outputStageJson,
-            String failuresJson)
+            String failuresJson,
+            String inputsJson)
     {
         this.queryId = queryId;
         this.user = user;
@@ -121,6 +126,7 @@ public class QueryCompletionEvent
         this.failureMessage = failureMessage;
         this.outputStageJson = outputStageJson;
         this.failuresJson = failuresJson;
+        this.inputsJson = inputsJson;
     }
 
     @Nullable
@@ -348,5 +354,11 @@ public class QueryCompletionEvent
     public String getFailuresJson()
     {
         return failuresJson;
+    }
+
+    @EventField
+    public String getInputsJson()
+    {
+        return inputsJson;
     }
 }

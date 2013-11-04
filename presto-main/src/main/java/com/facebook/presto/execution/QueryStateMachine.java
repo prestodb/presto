@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.client.FailureInfo;
+import com.facebook.presto.client.Input;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.sql.analyzer.Session;
 import com.google.common.base.Preconditions;
@@ -31,6 +32,7 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.Executor;
 
 import static com.facebook.presto.execution.QueryState.CANCELED;
@@ -78,6 +80,9 @@ public class QueryStateMachine
 
     @GuardedBy("this")
     private List<String> outputFieldNames = ImmutableList.of();
+
+    @GuardedBy("this")
+    private Set<Input> inputs = ImmutableSet.of();
 
     public QueryStateMachine(QueryId queryId, String query, Session session, URI self, Executor executor)
     {
@@ -228,13 +233,20 @@ public class QueryStateMachine
                 query,
                 queryStats,
                 rootStage,
-                failureInfo);
+                failureInfo,
+                inputs);
     }
 
     public synchronized void setOutputFieldNames(List<String> outputFieldNames)
     {
         checkNotNull(outputFieldNames, "outputFieldNames is null");
         this.outputFieldNames = ImmutableList.copyOf(outputFieldNames);
+    }
+
+    public synchronized void setInputs(List<Input> inputs)
+    {
+        Preconditions.checkNotNull(inputs, "inputs is null");
+        this.inputs = ImmutableSet.copyOf(inputs);
     }
 
     public synchronized QueryState getQueryState()
