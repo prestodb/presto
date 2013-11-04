@@ -22,14 +22,15 @@ import com.facebook.presto.metadata.NativeMetadata;
 import com.facebook.presto.metadata.Node;
 import com.facebook.presto.metadata.NodeVersion;
 import com.facebook.presto.metadata.ShardManager;
+import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.ConnectorSplitManager;
+import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.PartitionKey;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.BooleanLiteral;
@@ -67,7 +68,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestNativeSplitManager
 {
-    private static final TableMetadata TEST_TABLE = TableMetadataBuilder.tableMetadataBuilder("demo", "test_table")
+    private static final ConnectorTableMetadata TEST_TABLE = TableMetadataBuilder.tableMetadataBuilder("demo", "test_table")
             .partitionKeyColumn("ds", STRING)
             .column("foo", STRING)
             .column("bar", LONG)
@@ -98,9 +99,9 @@ public class TestNativeSplitManager
         nodeManager.addNode("native", new Node(nodeName, new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN));
 
         MetadataManager metadataManager = new MetadataManager();
-        metadataManager.addConnectorMetadata("local", new NativeMetadata("native", dbi));
+        metadataManager.addConnectorMetadata("local", "local", new NativeMetadata("native", dbi));
 
-        tableHandle = metadataManager.createTable("local", TEST_TABLE);
+        tableHandle = metadataManager.createTable("local", new TableMetadata("local", TEST_TABLE));
         dsColumnHandle = metadataManager.getColumnHandle(tableHandle, "ds").get();
         fooColumnHandle = metadataManager.getColumnHandle(tableHandle, "foo").get();
         symbols = ImmutableMap.<Symbol, ColumnHandle>of(new Symbol("foo"), fooColumnHandle, new Symbol("ds"), dsColumnHandle);

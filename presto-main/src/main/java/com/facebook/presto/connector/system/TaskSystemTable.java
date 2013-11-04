@@ -17,12 +17,12 @@ import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spi.ColumnType;
+import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.InMemoryRecordSet.Builder;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
-import com.facebook.presto.spi.TableMetadata;
 import com.google.common.collect.ImmutableList;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.DataSize;
@@ -45,7 +45,7 @@ public class TaskSystemTable
 {
     public static final SchemaTableName TASK_TABLE_NAME = new SchemaTableName("sys", "task");
 
-    public static final TableMetadata TASK_TABLE = tableMetadataBuilder(TASK_TABLE_NAME)
+    public static final ConnectorTableMetadata TASK_TABLE = tableMetadataBuilder(TASK_TABLE_NAME)
             .column("node_id", STRING)
 
             .column("task_id", STRING)
@@ -95,7 +95,7 @@ public class TaskSystemTable
     }
 
     @Override
-    public TableMetadata getTableMetadata()
+    public ConnectorTableMetadata getTableMetadata()
     {
         return TASK_TABLE;
     }

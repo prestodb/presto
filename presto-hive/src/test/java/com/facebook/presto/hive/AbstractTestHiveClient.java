@@ -19,6 +19,7 @@ import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
+import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
@@ -27,7 +28,6 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.base.Charsets;
 import com.google.common.base.Function;
@@ -240,7 +240,7 @@ public abstract class AbstractTestHiveClient
     public void testGetTableSchema()
             throws Exception
     {
-        TableMetadata tableMetadata = metadata.getTableMetadata(getTableHandle(table));
+        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(getTableHandle(table));
         Map<String, ColumnMetadata> map = uniqueIndex(tableMetadata.getColumns(), columnNameGetter());
 
         int i = 0;
@@ -267,7 +267,7 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         TableHandle tableHandle = getTableHandle(tableUnpartitioned);
-        TableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
+        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
         Map<String, ColumnMetadata> map = uniqueIndex(tableMetadata.getColumns(), columnNameGetter());
 
         assertPrimitiveField(map, 0, "t_string", ColumnType.STRING, false);
@@ -279,7 +279,7 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         TableHandle tableHandle = getTableHandle(tableOffline);
-        TableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
+        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
         Map<String, ColumnMetadata> map = uniqueIndex(tableMetadata.getColumns(), columnNameGetter());
 
         assertPrimitiveField(map, 0, "t_string", ColumnType.STRING, false);
@@ -290,7 +290,7 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         TableHandle tableHandle = getTableHandle(tableOfflinePartition);
-        TableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
+        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
         Map<String, ColumnMetadata> map = uniqueIndex(tableMetadata.getColumns(), columnNameGetter());
 
         assertPrimitiveField(map, 0, "t_string", ColumnType.STRING, false);
@@ -490,7 +490,7 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         TableHandle tableHandle = getTableHandle(table);
-        TableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
+        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
         List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
 

@@ -88,7 +88,7 @@ public class TestSqlStageExecution
         SqlStageExecution stageExecution = null;
         try {
             MetadataManager metadata = new MetadataManager();
-            metadata.addInternalSchemaMetadata(new DualMetadata());
+            metadata.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, new DualMetadata());
 
             StageExecutionPlan joinPlan = createJoinPlan("A", metadata);
 

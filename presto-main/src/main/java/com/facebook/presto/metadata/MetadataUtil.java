@@ -15,8 +15,8 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnType;
+import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Function;
@@ -106,7 +106,7 @@ public class MetadataUtil
         return value;
     }
 
-    public static ColumnMetadata findColumnMetadata(TableMetadata tableMetadata, String columnName)
+    public static ColumnMetadata findColumnMetadata(ConnectorTableMetadata tableMetadata, String columnName)
     {
         for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
             if (columnName.equals(columnMetadata.getName())) {
@@ -185,15 +185,15 @@ public class MetadataUtil
             return new SchemaMetadataBuilder();
         }
 
-        private final ImmutableMap.Builder<SchemaTableName, TableMetadata> tables = ImmutableMap.builder();
+        private final ImmutableMap.Builder<SchemaTableName, ConnectorTableMetadata> tables = ImmutableMap.builder();
 
-        public SchemaMetadataBuilder table(TableMetadata tableMetadata)
+        public SchemaMetadataBuilder table(ConnectorTableMetadata tableMetadata)
         {
             tables.put(tableMetadata.getTable(), tableMetadata);
             return this;
         }
 
-        public ImmutableMap<SchemaTableName, TableMetadata> build()
+        public ImmutableMap<SchemaTableName, ConnectorTableMetadata> build()
         {
             return tables.build();
         }
@@ -232,9 +232,9 @@ public class MetadataUtil
             return this;
         }
 
-        public TableMetadata build()
+        public ConnectorTableMetadata build()
         {
-            return new TableMetadata(tableName, columns.build());
+            return new ConnectorTableMetadata(tableName, columns.build());
         }
     }
 }

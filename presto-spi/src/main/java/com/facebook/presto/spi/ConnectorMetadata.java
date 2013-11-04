@@ -38,7 +38,7 @@ public interface ConnectorMetadata
      *
      * @throws RuntimeException if table handle is no longer valid
      */
-    TableMetadata getTableMetadata(TableHandle table);
+    ConnectorTableMetadata getTableMetadata(TableHandle table);
 
     /**
      * Get the names that match the specified table prefix (never null).
@@ -74,7 +74,7 @@ public interface ConnectorMetadata
     /**
      * Creates a table using the specified table metadata.
      */
-    TableHandle createTable(TableMetadata tableMetadata);
+    TableHandle createTable(ConnectorTableMetadata tableMetadata);
 
     /**
      * Drops the specified table
