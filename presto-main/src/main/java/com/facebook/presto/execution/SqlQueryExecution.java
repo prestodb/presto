@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.client.Input;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.importer.PeriodicImportManager;
 import com.facebook.presto.metadata.Metadata;
@@ -24,6 +25,7 @@ import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.DistributedExecutionPlanner;
 import com.facebook.presto.sql.planner.DistributedLogicalPlanner;
+import com.facebook.presto.sql.planner.InputExtractor;
 import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
@@ -36,6 +38,7 @@ import com.facebook.presto.util.SetThreadName;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
@@ -46,6 +49,7 @@ import javax.inject.Inject;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -196,6 +200,9 @@ public class SqlQueryExecution
         // plan query
         LogicalPlanner logicalPlanner = new LogicalPlanner(stateMachine.getSession(), planOptimizers, idAllocator, metadata, periodicImportManager, storageManager);
         Plan plan = logicalPlanner.plan(analysis);
+
+        List<Input> inputs = new InputExtractor(metadata).extract(plan.getRoot());
+        stateMachine.setInputs(inputs);
 
         // fragment the plan
         SubPlan subplan = new DistributedLogicalPlanner(metadata, idAllocator).createSubplans(plan, false);
