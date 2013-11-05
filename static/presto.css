@@ -256,6 +256,10 @@ tt.docutils.literal {
         width: 63%;
     }
 
+    .topbar .nav li a {
+        font-size: 15px;
+    }
+
     .homehero {
         padding: 20px 0;
     }
