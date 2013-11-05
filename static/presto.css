@@ -139,6 +139,10 @@ h4 {
     font-size: 1.2em;
 }
 
+div.content {
+    font-size: 1.0em;
+}
+
 div.admonition {
     border-radius: 3px;
     border-style: solid;
@@ -272,5 +276,4 @@ tt.docutils.literal {
         -ms-transform-origin: 100% 0;
         -moz-transform-origin: 100% 0;
     }
-
 }
