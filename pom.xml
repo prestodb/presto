@@ -33,17 +33,6 @@
         <tag>HEAD</tag>
     </scm>
 
-    <distributionManagement>
-        <repository>
-            <id>facebook-releases</id>
-            <url>http://nexus.vip.facebook.com:8181/nexus/content/repositories/releases</url>
-        </repository>
-        <snapshotRepository>
-            <id>facebook-snapshots</id>
-            <url>http://nexus.vip.facebook.com:8181/nexus/content/repositories/snapshots</url>
-        </snapshotRepository>
-    </distributionManagement>
-
     <properties>
         <air.main.basedir>${project.basedir}</air.main.basedir>
 
