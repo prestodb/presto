@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Presto | Overview</title>
+    <link rel="stylesheet" href="static/presto.css" type="text/css"/>
+
+    <meta name="viewport" content="width=device-width">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Presto | Overview">
+    <meta property="og:description" content="Distributed SQL Query Engine for Big Data">
+    <meta property="og:image" content="static/logo_og.png">
+</head>
+<body>
+
+<header class="topbar clearfix">
+    <nav class="width">
+        <a href="."><h1>Presto</h1></a>
+        <ul class="nav">
+            <li><a href="overview.html">Overview</a></li>
+            <li><a href="docs/current/">Docs</a></li>
+            <li><a href="community.html">Community</a></li>
+            <li><a href="https://github.com/facebook/presto">GitHub</a>
+        </ul>
+    </nav>
+</header>
+
+<header class="hero clearfix">
+    <div class="width">
+        <h1>Overview</h1>
+    </div>
+</header>
+
+<div class="content homecontent width clearfix">
+    <div class="">
+        <h2>Introduction</h2>
+
+        <p>
+            Presto is a distributed system that runs on a cluster of machines.
+            A full installation includes a coordinator and multiple workers.
+            Queries are submitted from a client such as the Presto CLI to the
+            coordinator. The coordinator parses, analyzes and plans the query
+            execution, then distributes the processing to the workers.
+        </p>
+
+        <!--suppress CheckImageSize -- larger file for retina -->
+        <img src="static/presto-overview.png" width="80%" alt="Presto Installation Overview">
+
+        <h2>Requirements</h2>
+
+        <p>
+            Presto has a few basic requirements:
+        </p>
+
+        <ul>
+            <li>Linux or Mac OS X</li>
+            <li>Java 7, 64-bit</li>
+            <li>Python 2.4+</li>
+        </ul>
+
+        <p>
+            Additionally, Presto needs a data source to run queries against.
+            Currently, Presto includes a plugin for querying data from Hive that
+            has the following requirements:
+        </p>
+
+        <ul>
+            <li>Hadoop CDH4</li>
+            <li>Remote Hive metastore service</li>
+        </ul>
+
+        <p>Presto does not use MapReduce and thus only requires HDFS.</p>
+
+        <h2>Deployment</h2>
+
+        <p>
+            See <a href="docs/current/installation/deployment.html">Deploying Presto</a>
+            for complete deployment instructions.
+        </p>
+
+        <h2>Running Queries</h2>
+
+        <p>
+            You can run queries using the
+            <a href="docs/current/installation/cli.html">Command Line Interface</a>
+            after deploying Presto.
+        </p>
+    </div>
+</div>
+
+<div class="footer">&copy; Copyright 2013, Facebook</div>
+
+</body>
+</html>

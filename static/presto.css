@@ -143,6 +143,12 @@ div.content {
     font-size: 1.0em;
 }
 
+div.content img {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+}
+
 div.admonition {
     border-radius: 3px;
     border-style: solid;
