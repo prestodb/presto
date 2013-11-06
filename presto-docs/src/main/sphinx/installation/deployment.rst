@@ -103,8 +103,7 @@ The config properties file, ``etc/config.properties``, contains the
 configuration for the Presto server. Every Presto server can function
 as both a coordinator and a worker, but dedicating a single machine
 to only perform coordination work provides the best performance on
-larger clusters. Also, while the architecture allows for multiple
-coordinators, we have never tested that configuration.
+larger clusters.
 
 The following is a minimal configuration for the coordinator:
 
@@ -116,7 +115,8 @@ The following is a minimal configuration for the coordinator:
     presto-metastore.db.type=h2
     presto-metastore.db.filename=var/db/MetaStore
     task.max-memory=1GB
-    discovery.uri=http://example.net:8411
+    discovery-server.enabled=true
+    discovery.uri=http://example.net:8080
 
 And this is a minimal configuration for the workers:
 
@@ -128,7 +128,7 @@ And this is a minimal configuration for the workers:
     presto-metastore.db.type=h2
     presto-metastore.db.filename=var/db/MetaStore
     task.max-memory=1GB
-    discovery.uri=http://example.net:8411
+    discovery.uri=http://example.net:8080
 
 These properties require some explanation:
 
@@ -162,10 +162,21 @@ These properties require some explanation:
   queries that can be run, while setting it too high will cause the JVM
   to run out of memory.
 
+* ``discovery-server.enabled``:
+  Presto uses the Discovery service to find all the nodes in the cluster.
+  Every Presto instance will register itself with the Discovery service
+  on startup. In order to simplify deployment and avoid running an additional
+  service, the Presto coordinator can run an embedded version of the
+  Discovery service. It shares the HTTP server with Presto and thus uses
+  the same port. For larger clusters, we recommend running Discovery as a
+  dedicated service. See :doc:`discovery` for details.
+
 * ``discovery.uri``:
-  The URI to the Discovery server (see :doc:`discovery` for details).
-  Replace ``example.net:8411`` to match the host and port
-  of your Discovery deployment.
+  The URI to the Discovery server. Because we have enabled the embedded
+  version of Discovery in the Presto coordinator, this should be the
+  URI of the Presto coordinator. Replace ``example.net:8080`` to match
+  the host and port of the Presto coordinator. This URI must not end
+  in a slash.
 
 Log Levels
 ^^^^^^^^^^
