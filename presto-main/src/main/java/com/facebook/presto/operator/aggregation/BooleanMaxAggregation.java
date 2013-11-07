@@ -64,7 +64,7 @@ public class BooleanMaxAggregation
 
         // update current value
         boolean newValue = cursor.getBoolean(field);
-        if (newValue == true) {
+        if (newValue) {
             SINGLE_BOOLEAN.setBoolean(valueSlice, valueOffset, 0, true);
         }
     }
@@ -87,7 +87,7 @@ public class BooleanMaxAggregation
         while (cursor.advanceNextPosition()) {
             if (!cursor.isNull(field)) {
                 hasNonNull = true;
-                if (cursor.getBoolean(field) == true) {
+                if (cursor.getBoolean(field)) {
                     max = true;
                     break;
                 }
