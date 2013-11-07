@@ -187,7 +187,7 @@ Log Levels
 ^^^^^^^^^^
 
 The optional log levels file, ``etc/log.properties``, allows setting the
-miminum log level for named logger hierarchies. Every logger has a name,
+minimum log level for named logger hierarchies. Every logger has a name,
 which is typically the fully qualified name of the class that uses the logger.
 Loggers have a hierarchy based on the dots in the name (like Java packages).
 For example, consider the following log levels file:
