@@ -17,6 +17,6 @@ Run the CLI with the ``--help`` option to see the available options.
 
 By default, the results of queries are paginated using the ``less`` program
 which is configured with a carefully selected set of options. This behavior
-can be overriden by setting the environment variable ``PRESTO_PAGER`` to the
+can be overridden by setting the environment variable ``PRESTO_PAGER`` to the
 name of a different program such as ``more``, or set it to an empty value
 to completely disable pagination.
