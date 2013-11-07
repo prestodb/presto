@@ -35,7 +35,7 @@ public final class PersistentPeriodicImportJob
         }
     };
 
-    public static final Function<PersistentPeriodicImportJob, Long> jobIdGetter()
+    public static Function<PersistentPeriodicImportJob, Long> jobIdGetter()
     {
         return GET_JOB_ID;
     }
