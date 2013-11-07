@@ -550,11 +550,8 @@ public class TupleInfo
 
         TupleInfo tupleInfo = (TupleInfo) o;
 
-        if (!types.equals(tupleInfo.types)) {
-            return false;
-        }
+        return types.equals(tupleInfo.types);
 
-        return true;
     }
 
     @Override
