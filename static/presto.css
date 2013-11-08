@@ -228,6 +228,11 @@ tt.docutils.literal {
     margin: 0 2px;
 }
 
+.fb-like {
+    top: 4px;
+    left: 4px;
+}
+
 /* tabletish */
 
 @media (min-width: 480px) {

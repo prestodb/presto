@@ -21,6 +21,15 @@
     </script>
 </head>
 <body>
+<div id="fb-root"></div>
+<script>(function(d, s, id) {
+    var js, fjs = d.getElementsByTagName(s)[0];
+    if (d.getElementById(id)) return;
+    js = d.createElement(s); js.id = id;
+    js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+    fjs.parentNode.insertBefore(js, fjs);
+}(document, 'script', 'facebook-jssdk'));</script>
+
 
 <header class="topbar clearfix">
     <nav class="width">
@@ -130,6 +139,7 @@
             <li><a href="mailto:presto-users@googlegroups.com">Send a message</a></li>
             <li><a href="https://github.com/facebook/presto/issues">Report an issue</a></li>
             <li><a href="http://freenode.net/"><tt>#prestodb</tt> IRC on freenode</a></li>
+            <li><a href="https://www.facebook.com/prestodb">Facebook</a> <div class="fb-like" data-href="https://www.facebook.com/prestodb" data-layout="button_count" data-action="like" data-show-faces="false" data-share="true"></div></li>
         </ul>
 
         <h3>License</h3>
