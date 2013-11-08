@@ -588,7 +588,13 @@ public class SqlTaskExecution
         @Override
         public synchronized void initialize()
         {
-            driver = driverSupplier.apply(driverContext);
+            try {
+                driver = driverSupplier.apply(driverContext);
+            }
+            catch (Throwable e) {
+                driverContext.failed(e);
+                throw e;
+            }
         }
 
         @Override
