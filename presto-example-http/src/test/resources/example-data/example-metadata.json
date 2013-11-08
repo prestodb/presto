@@ -1,0 +1,128 @@
+{
+    "example": [
+        {
+            "name": "numbers",
+            "columns": [
+                {
+                    "name": "text",
+                    "type": "STRING"
+                },
+                {
+                    "name": "value",
+                    "type": "LONG"
+                }
+            ],
+            "sources": [ "numbers-1.csv", "numbers-2.csv" ]
+        }
+    ],
+    "tpch": [
+        {
+            "name": "orders",
+            "columns": [
+                {
+                    "name": "orderkey",
+                    "type": "LONG"
+                },
+                {
+                    "name": "custkey",
+                    "type": "LONG"
+                },
+                {
+                    "name": "orderstatus",
+                    "type": "STRING"
+                },
+                {
+                    "name": "totalprice",
+                    "type": "DOUBLE"
+                },
+                {
+                    "name": "orderdate",
+                    "type": "STRING"
+                },
+                {
+                    "name": "orderpriority",
+                    "type": "STRING"
+                },
+                {
+                    "name": "clerk",
+                    "type": "STRING"
+                },
+                {
+                    "name": "shippriority",
+                    "type": "LONG"
+                },
+                {
+                    "name": "comment",
+                    "type": "STRING"
+                }
+            ],
+            "sources": [ "orders-1.csv", "orders-2.csv" ]
+        },
+        {
+            "name": "lineitem",
+            "columns": [
+                {
+                    "name": "orderkey",
+                    "type": "LONG"
+                },
+                {
+                    "name": "partkey",
+                    "type": "LONG"
+                },
+                {
+                    "name": "suppkey",
+                    "type": "LONG"
+                },
+                {
+                    "name": "linenumber",
+                    "type": "LONG"
+                },
+                {
+                    "name": "quantity",
+                    "type": "DOUBLE"
+                },
+                {
+                    "name": "discount",
+                    "type": "DOUBLE"
+                },
+                {
+                    "name": "tax",
+                    "type": "DOUBLE"
+                },
+                {
+                    "name": "returnflag",
+                    "type": "STRING"
+                },
+                {
+                    "name": "linestatus",
+                    "type": "STRING"
+                },
+                {
+                    "name": "shipdate",
+                    "type": "STRING"
+                },
+                {
+                    "name": "commitdate",
+                    "type": "STRING"
+                },
+                {
+                    "name": "receiptdate",
+                    "type": "STRING"
+                },
+                {
+                    "name": "shipinstruct",
+                    "type": "STRING"
+                },
+                {
+                    "name": "shipmode",
+                    "type": "STRING"
+                },
+                {
+                    "name": "comment",
+                    "type": "STRING"
+                }
+            ],
+            "sources": [ "lineitem-1.csv", "lineitem-2.csv" ]
+        }
+    ]
+}

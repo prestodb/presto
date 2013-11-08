@@ -275,6 +275,14 @@
                                     <overWrite>false</overWrite>
                                     <outputDirectory>${project.build.directory}/plugin/hive-cdh4</outputDirectory>
                                 </artifactItem>
+                                <artifactItem>
+                                    <groupId>com.facebook.presto</groupId>
+                                    <artifactId>presto-example-http</artifactId>
+                                    <version>${project.version}</version>
+                                    <type>zip</type>
+                                    <overWrite>false</overWrite>
+                                    <outputDirectory>${project.build.directory}/plugin/example-http</outputDirectory>
+                                </artifactItem>
                             </artifactItems>
                         </configuration>
                     </execution>
