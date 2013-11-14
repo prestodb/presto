@@ -17,10 +17,10 @@ import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.NoOpSymbolResolver;
@@ -190,6 +190,11 @@ class TupleAnalyzer
     @Override
     protected TupleDescriptor visitSampledRelation(final SampledRelation relation, AnalysisContext context)
     {
+
+        if (relation.getColumnsToStratifyOn().isPresent()) {
+            throw new SemanticException(NOT_SUPPORTED, relation, "STRATIFY ON is not yet implemented");
+        }
+
         // We use the optimizer to be able to produce a semantic exception if columns are referenced in the expression.
         // We can't do this with the interpreter yet because it's designed for the execution stage and has the wrong shape.
         // So, for now, we punt on supporting non-deterministic functions.

@@ -14,6 +14,10 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -29,12 +33,20 @@ public class SampledRelation
     private final Relation relation;
     private final Type type;
     private final Expression samplePercentage;
+    private final Optional<List<Expression>> columnsToStratifyOn;
 
-    public SampledRelation(Relation relation, Type type, Expression samplePercentage)
+    public SampledRelation(Relation relation, Type type, Expression samplePercentage, Optional<List<Expression>> columnsToStratifyOn)
     {
         this.relation = checkNotNull(relation, "relation is null");
         this.type = checkNotNull(type, "type is null");
         this.samplePercentage = checkNotNull(samplePercentage, "samplePercentage is null");
+
+        if (columnsToStratifyOn.isPresent()) {
+            this.columnsToStratifyOn = Optional.<List<Expression>>of(ImmutableList.copyOf(columnsToStratifyOn.get()));
+        } else {
+            this.columnsToStratifyOn = columnsToStratifyOn;
+        }
+
     }
 
     public Relation getRelation()
@@ -52,6 +64,11 @@ public class SampledRelation
         return samplePercentage;
     }
 
+    public Optional<List<Expression>> getColumnsToStratifyOn()
+    {
+        return columnsToStratifyOn;
+    }
+
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
@@ -65,6 +82,7 @@ public class SampledRelation
                 .add("relation", relation)
                 .add("type", type)
                 .add("samplePercentage", samplePercentage)
+                .add("columnsToStratifyOn", columnsToStratifyOn)
                 .toString();
     }
 
@@ -80,12 +98,13 @@ public class SampledRelation
         SampledRelation that = (SampledRelation) o;
         return Objects.equal(relation, that.relation) &&
                 Objects.equal(type, that.type) &&
-                Objects.equal(samplePercentage, that.samplePercentage);
+                Objects.equal(samplePercentage, that.samplePercentage) &&
+                Objects.equal(columnsToStratifyOn, that.columnsToStratifyOn);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(relation, type, samplePercentage);
+        return Objects.hashCode(relation, type, samplePercentage, columnsToStratifyOn);
     }
 }

@@ -135,10 +135,9 @@ public class DropAliasExecution
 
         Optional<TableHandle> remoteTableHandle = metadataManager.getTableHandle(remoteTableName);
         checkState(remoteTableHandle.isPresent(), "Table %s does not exist", remoteTableName);
-        Optional<String> remoteConnectorId = metadataManager.getConnectorId(remoteTableHandle.get());
-        checkArgument(remoteConnectorId.isPresent(), "Alias table %s does not exist", remoteTableName);
+        String remoteConnectorId = metadataManager.getConnectorId(remoteTableHandle.get());
 
-        TableAlias tableAlias = aliasDao.getAlias(remoteConnectorId.get(), remoteTableName.getSchemaName(), remoteTableName.getTableName());
+        TableAlias tableAlias = aliasDao.getAlias(remoteConnectorId, remoteTableName.getSchemaName(), remoteTableName.getTableName());
 
         checkState(tableAlias != null, "Table %s has no alias assigned", remoteTableName);
 

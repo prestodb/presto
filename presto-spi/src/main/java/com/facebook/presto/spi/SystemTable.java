@@ -21,5 +21,5 @@ public interface SystemTable
      */
     boolean isDistributed();
 
-    TableMetadata getTableMetadata();
+    ConnectorTableMetadata getTableMetadata();
 }

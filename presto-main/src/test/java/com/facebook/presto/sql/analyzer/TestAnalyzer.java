@@ -15,10 +15,11 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.metadata.InMemoryMetadata;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnType;
+import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.base.Optional;
@@ -500,27 +501,27 @@ public class TestAnalyzer
             throws Exception
     {
         MetadataManager metadata = new MetadataManager();
-        metadata.addConnectorMetadata("tpch", new InMemoryMetadata());
+        metadata.addConnectorMetadata("tpch", "tpch", new InMemoryMetadata());
 
         SchemaTableName table1 = new SchemaTableName("default", "t1");
-        metadata.createTable("tpch", new TableMetadata(table1,
+        metadata.createTable("tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table1,
                 ImmutableList.<ColumnMetadata>of(
                         new ColumnMetadata("a", ColumnType.LONG, 0, false),
                         new ColumnMetadata("b", ColumnType.LONG, 1, false),
                         new ColumnMetadata("c", ColumnType.LONG, 2, false),
-                        new ColumnMetadata("d", ColumnType.LONG, 3, false))));
+                        new ColumnMetadata("d", ColumnType.LONG, 3, false)))));
 
         SchemaTableName table2 = new SchemaTableName("default", "t2");
-        metadata.createTable("tpch", new TableMetadata(table2,
+        metadata.createTable("tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table2,
                 ImmutableList.<ColumnMetadata>of(
                         new ColumnMetadata("a", ColumnType.LONG, 0, false),
-                        new ColumnMetadata("b", ColumnType.LONG, 1, false))));
+                        new ColumnMetadata("b", ColumnType.LONG, 1, false)))));
 
         SchemaTableName table3 = new SchemaTableName("default", "t3");
-        metadata.createTable("tpch", new TableMetadata(table3,
+        metadata.createTable("tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table3,
                 ImmutableList.<ColumnMetadata>of(
                         new ColumnMetadata("a", ColumnType.LONG, 0, false),
-                        new ColumnMetadata("b", ColumnType.LONG, 1, false))));
+                        new ColumnMetadata("b", ColumnType.LONG, 1, false)))));
 
         analyzer = new Analyzer(new Session("user", "test", "tpch", "default", null, null), metadata, Optional.<QueryExplainer>absent());
     }

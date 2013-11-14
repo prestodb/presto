@@ -16,10 +16,10 @@ package com.facebook.presto.connector.system;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.TableMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -43,9 +43,9 @@ import static com.google.common.collect.Iterables.transform;
 public class SystemTablesMetadata
         implements ConnectorMetadata
 {
-    private final ConcurrentMap<SchemaTableName, TableMetadata> tables = new ConcurrentHashMap<>();
+    private final ConcurrentMap<SchemaTableName, ConnectorTableMetadata> tables = new ConcurrentHashMap<>();
 
-    public void addTable(TableMetadata tableMetadata)
+    public void addTable(ConnectorTableMetadata tableMetadata)
     {
         checkArgument(tables.putIfAbsent(tableMetadata.getTable(), tableMetadata) == null, "Table %s is already registered", tableMetadata.getTable());
     }
@@ -83,7 +83,7 @@ public class SystemTablesMetadata
     }
 
     @Override
-    public TableMetadata getTableMetadata(TableHandle tableHandle)
+    public ConnectorTableMetadata getTableMetadata(TableHandle tableHandle)
     {
         SystemTableHandle systemTableHandle = checkTableHandle(tableHandle);
         return tables.get(systemTableHandle.getSchemaTableName());
@@ -103,7 +103,7 @@ public class SystemTablesMetadata
     public ColumnHandle getColumnHandle(TableHandle tableHandle, String columnName)
     {
         SystemTableHandle systemTableHandle = checkTableHandle(tableHandle);
-        TableMetadata tableMetadata = tables.get(systemTableHandle.getSchemaTableName());
+        ConnectorTableMetadata tableMetadata = tables.get(systemTableHandle.getSchemaTableName());
 
         if (findColumnMetadata(tableMetadata, columnName) == null) {
             return null;
@@ -115,7 +115,7 @@ public class SystemTablesMetadata
     public ColumnMetadata getColumnMetadata(TableHandle tableHandle, ColumnHandle columnHandle)
     {
         SystemTableHandle systemTableHandle = checkTableHandle(tableHandle);
-        TableMetadata tableMetadata = tables.get(systemTableHandle.getSchemaTableName());
+        ConnectorTableMetadata tableMetadata = tables.get(systemTableHandle.getSchemaTableName());
 
         checkArgument(columnHandle instanceof SystemColumnHandle, "columnHandle is not an instance of SystemColumnHandle");
         String columnName = ((SystemColumnHandle) columnHandle).getColumnName();
@@ -138,7 +138,7 @@ public class SystemTablesMetadata
     {
         checkNotNull(prefix, "prefix is null");
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> builder = ImmutableMap.builder();
-        for (Entry<SchemaTableName, TableMetadata> entry : tables.entrySet()) {
+        for (Entry<SchemaTableName, ConnectorTableMetadata> entry : tables.entrySet()) {
             if (prefix.matches(entry.getKey())) {
                 builder.put(entry.getKey(), entry.getValue().getColumns());
             }
@@ -147,7 +147,7 @@ public class SystemTablesMetadata
     }
 
     @Override
-    public TableHandle createTable(TableMetadata tableMetadata)
+    public TableHandle createTable(ConnectorTableMetadata tableMetadata)
     {
         throw new UnsupportedOperationException();
     }

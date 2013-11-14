@@ -18,10 +18,10 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.TableMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -46,7 +46,7 @@ public class TpchMetadata
 
     public static final String TPCH_ORDERS_NAME = "orders";
 
-    public static final TableMetadata TPCH_ORDERS_METADATA = tableMetadataBuilder(TPCH_SCHEMA_NAME, TPCH_ORDERS_NAME)
+    public static final ConnectorTableMetadata TPCH_ORDERS_METADATA = tableMetadataBuilder(TPCH_SCHEMA_NAME, TPCH_ORDERS_NAME)
             .column("orderkey", LONG) // Mostly increasing IDs
             .column("custkey", LONG) // 15:1
             .column("orderstatus", STRING) // 3 unique
@@ -59,7 +59,7 @@ public class TpchMetadata
             .build(); // Arbitrary strings
 
     public static final String TPCH_LINEITEM_NAME = "lineitem";
-    public static final TableMetadata TPCH_LINEITEM_METADATA = tableMetadataBuilder(TPCH_SCHEMA_NAME, TPCH_LINEITEM_NAME)
+    public static final ConnectorTableMetadata TPCH_LINEITEM_METADATA = tableMetadataBuilder(TPCH_SCHEMA_NAME, TPCH_LINEITEM_NAME)
             .column("orderkey", LONG)
             .column("partkey", LONG)
             .column("suppkey", LONG)
@@ -81,11 +81,11 @@ public class TpchMetadata
     public static Metadata createTpchMetadata()
     {
         MetadataManager metadataManager = new MetadataManager();
-        metadataManager.addConnectorMetadata(TPCH_CATALOG_NAME, new TpchMetadata());
+        metadataManager.addConnectorMetadata(TPCH_CATALOG_NAME, TPCH_CATALOG_NAME, new TpchMetadata());
         return metadataManager;
     }
 
-    private final Map<String, TableMetadata> tables;
+    private final Map<String, ConnectorTableMetadata> tables;
 
     @Inject
     public TpchMetadata()
@@ -118,7 +118,7 @@ public class TpchMetadata
     }
 
     @Override
-    public TableMetadata getTableMetadata(TableHandle tableHandle)
+    public ConnectorTableMetadata getTableMetadata(TableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         String tableName = getTableName(tableHandle);
@@ -197,7 +197,7 @@ public class TpchMetadata
     }
 
     @Override
-    public TableHandle createTable(TableMetadata tableMetadata)
+    public TableHandle createTable(ConnectorTableMetadata tableMetadata)
     {
         throw new UnsupportedOperationException();
     }

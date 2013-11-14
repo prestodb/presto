@@ -623,10 +623,10 @@ public class TestExpressionCompiler
                     if (value == null) {
                         expected = null;
                     }
-                    else if (firstTest != null && value == firstTest) {
+                    else if (firstTest != null && firstTest.equals(value)) {
                         expected = "first";
                     }
-                    else if (secondTest != null && value == secondTest) {
+                    else if (secondTest != null && secondTest.equals(value)) {
                         expected = "second";
                     }
                     else {

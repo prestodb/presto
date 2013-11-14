@@ -16,10 +16,10 @@ package com.facebook.presto.connector.informationSchema;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.TableMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -51,7 +51,7 @@ public class InformationSchemaMetadata
     public static final SchemaTableName TABLE_INTERNAL_FUNCTIONS = new SchemaTableName(INFORMATION_SCHEMA, "__internal_functions__");
     public static final SchemaTableName TABLE_INTERNAL_PARTITIONS = new SchemaTableName(INFORMATION_SCHEMA, "__internal_partitions__");
 
-    public static final Map<SchemaTableName, TableMetadata> TABLES = schemaMetadataBuilder()
+    public static final Map<SchemaTableName, ConnectorTableMetadata> TABLES = schemaMetadataBuilder()
             .table(tableMetadataBuilder(TABLE_COLUMNS)
                     .column("table_catalog", STRING)
                     .column("table_schema", STRING)
@@ -135,7 +135,7 @@ public class InformationSchemaMetadata
     }
 
     @Override
-    public TableMetadata getTableMetadata(TableHandle tableHandle)
+    public ConnectorTableMetadata getTableMetadata(TableHandle tableHandle)
     {
         InformationSchemaTableHandle informationSchemaTableHandle = checkTableHandle(tableHandle);
         return TABLES.get(informationSchemaTableHandle.getSchemaTableName());
@@ -155,7 +155,7 @@ public class InformationSchemaMetadata
     public ColumnHandle getColumnHandle(TableHandle tableHandle, String columnName)
     {
         InformationSchemaTableHandle informationSchemaTableHandle = checkTableHandle(tableHandle);
-        TableMetadata tableMetadata = TABLES.get(informationSchemaTableHandle.getSchemaTableName());
+        ConnectorTableMetadata tableMetadata = TABLES.get(informationSchemaTableHandle.getSchemaTableName());
 
         if (findColumnMetadata(tableMetadata, columnName) == null) {
             return null;
@@ -167,7 +167,7 @@ public class InformationSchemaMetadata
     public ColumnMetadata getColumnMetadata(TableHandle tableHandle, ColumnHandle columnHandle)
     {
         InformationSchemaTableHandle informationSchemaTableHandle = checkTableHandle(tableHandle);
-        TableMetadata tableMetadata = TABLES.get(informationSchemaTableHandle.getSchemaTableName());
+        ConnectorTableMetadata tableMetadata = TABLES.get(informationSchemaTableHandle.getSchemaTableName());
 
         checkArgument(columnHandle instanceof InformationSchemaColumnHandle, "columnHandle is not an instance of InformationSchemaColumnHandle");
         String columnName = ((InformationSchemaColumnHandle) columnHandle).getColumnName();
@@ -182,7 +182,7 @@ public class InformationSchemaMetadata
     {
         InformationSchemaTableHandle informationSchemaTableHandle = checkTableHandle(tableHandle);
 
-        TableMetadata tableMetadata = TABLES.get(informationSchemaTableHandle.getSchemaTableName());
+        ConnectorTableMetadata tableMetadata = TABLES.get(informationSchemaTableHandle.getSchemaTableName());
 
         return toInformationSchemaColumnHandles(tableMetadata);
     }
@@ -192,7 +192,7 @@ public class InformationSchemaMetadata
     {
         checkNotNull(prefix, "prefix is null");
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> builder = ImmutableMap.builder();
-        for (Entry<SchemaTableName, TableMetadata> entry : TABLES.entrySet()) {
+        for (Entry<SchemaTableName, ConnectorTableMetadata> entry : TABLES.entrySet()) {
             if (prefix.matches(entry.getKey())) {
                 builder.put(entry.getKey(), entry.getValue().getColumns());
             }
@@ -201,7 +201,7 @@ public class InformationSchemaMetadata
     }
 
     @Override
-    public TableHandle createTable(TableMetadata tableMetadata)
+    public TableHandle createTable(ConnectorTableMetadata tableMetadata)
     {
         throw new UnsupportedOperationException();
     }

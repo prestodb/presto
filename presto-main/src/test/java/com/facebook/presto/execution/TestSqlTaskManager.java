@@ -92,7 +92,7 @@ public class TestSqlTaskManager
         symbol = new Symbol(DualMetadata.COLUMN_NAME);
 
         MetadataManager metadata = new MetadataManager();
-        metadata.addInternalSchemaMetadata(dualMetadata);
+        metadata.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, dualMetadata);
 
         DualSplitManager dualSplitManager = new DualSplitManager(new InMemoryNodeManager());
         split = Iterables.getOnlyElement(dualSplitManager.getPartitionSplits(tableHandle, dualSplitManager.getPartitions(tableHandle, ImmutableMap.<ColumnHandle, Object>of())));

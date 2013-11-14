@@ -118,10 +118,10 @@ public class ConnectorManager
         ConnectorHandleResolver connectorHandleResolver = connector.getService(ConnectorHandleResolver.class);
 
         if (catalogName != null) {
-            metadataManager.addConnectorMetadata(catalogName, connectorMetadata);
+            metadataManager.addConnectorMetadata(connectorId, catalogName, connectorMetadata);
         }
         else {
-            metadataManager.addInternalSchemaMetadata(connectorMetadata);
+            metadataManager.addInternalSchemaMetadata(connectorId, connectorMetadata);
         }
 
         handleResolver.addHandleResolver(connectorId, connectorHandleResolver);

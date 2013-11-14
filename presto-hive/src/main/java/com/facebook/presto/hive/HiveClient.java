@@ -20,13 +20,13 @@ import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
+import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
@@ -181,19 +181,19 @@ public class HiveClient
     }
 
     @Override
-    public TableMetadata getTableMetadata(TableHandle tableHandle)
+    public ConnectorTableMetadata getTableMetadata(TableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         SchemaTableName tableName = getTableName(tableHandle);
         return getTableMetadata(tableName);
     }
 
-    private TableMetadata getTableMetadata(SchemaTableName tableName)
+    private ConnectorTableMetadata getTableMetadata(SchemaTableName tableName)
     {
         try {
             Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
             List<ColumnMetadata> columns = ImmutableList.copyOf(transform(getColumnHandles(table), columnMetadataGetter()));
-            return new TableMetadata(tableName, columns);
+            return new ConnectorTableMetadata(tableName, columns);
         }
         catch (NoSuchObjectException e) {
             throw new TableNotFoundException(tableName);
@@ -317,7 +317,7 @@ public class HiveClient
     }
 
     @Override
-    public TableHandle createTable(TableMetadata tableMetadata)
+    public TableHandle createTable(ConnectorTableMetadata tableMetadata)
     {
         throw new UnsupportedOperationException();
     }
