@@ -11,11 +11,11 @@ service to find all the nodes in the cluster. Every Presto instance
 will register itself with the Discovery service on startup.
 
 Discovery is configured and run the same way as Presto. Download
-`discovery-server-1.15.tar.gz`_, unpack it to create the *installation*
+`discovery-server-1.16.tar.gz`_, unpack it to create the *installation*
 directory, create the *data* directory, then configure it to run on a
 different port than Presto. The standard port for Discovery is ``8411``.
 
-.. _discovery-server-1.15.tar.gz: http://search.maven.org/remotecontent?filepath=io/airlift/discovery/discovery-server/1.15/discovery-server-1.15.tar.gz
+.. _discovery-server-1.16.tar.gz: http://search.maven.org/remotecontent?filepath=io/airlift/discovery/discovery-server/1.16/discovery-server-1.16.tar.gz
 
 Configuring Discovery
 ---------------------
