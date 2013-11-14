@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Presto | FAQ</title>
+    <link rel="stylesheet" href="static/presto.css" type="text/css"/>
+
+    <meta name="viewport" content="width=device-width">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Presto | FAQ">
+    <meta property="og:description" content="Distributed SQL Query Engine for Big Data">
+    <meta property="og:image" content="static/presto-og.png">
+
+    <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+    ga('create', 'UA-45503728-1', 'prestodb.io');
+    ga('send', 'pageview');
+    </script>
+</head>
+<body>
+
+<header class="topbar clearfix">
+    <nav class="width">
+        <a href="."><h1>Presto</h1></a>
+        <ul class="nav">
+            <li><a href="overview.html">Overview</a></li>
+            <li><a href="docs/current/">Docs</a></li>
+            <li><a href="faq.html">FAQ</a></li>
+            <li><a href="community.html">Community</a></li>
+            <li><a href="https://github.com/facebook/presto">GitHub</a>
+        </ul>
+    </nav>
+</header>
+
+<header class="hero clearfix">
+    <div class="width">
+        <h1>Presto FAQ</h1>
+    </div>
+</header>
+
+<div class="content homecontent width clearfix">
+    <div class="">
+	<h2>Compatibility and Support</h2>
+
+	<h3>Q: Does Presto work with Hadoop 2.2.0?</h3>
+
+	<h3>Q: Does Presto work with Amazon's Elastic MapReduce?</h3>
+
+	<h3>Q: Does Presto with with Hortonworks Sandbox?</h3>
+
+	<p>
+	  At this time, no.  Presto is not compatibile with Hadoop 2.2.0
+	  or distributions such as Hortonworks Sandbox which are build
+	  on Hadoop 2.2.0. Users who are interested in using Presto with
+	  unsupported Hadoop distributions are encouraged to 
+	</p>
+
+	<h3>Does Presto connect to MongoDB?</h3>
+
+	<p></p>
+
+	<h3>Does Presto connect to Cassandra?</h3>
+
+	<p></p>
+
+	<h3>Does Presto connect to HBase?</h3>
+
+	<p></p>
+
+	<h3>Does Presto connect to MySQL?</h3>
+
+	<p></p>
+
+	<h3>Does Presto connect to Postgresql?</h3>
+
+	<p></p>
+
+	<h3>Does Presto connect to Oracle?</h3>
+	
+	<p></p>
+
+
+        <h2>Errors</h2>
+
+	<h3>
+	  Q: I get a "Failed on local exception: java.io.IOException:
+	  Response is null."  exception in Presto Server if I run a
+	  select query?
+	</h3>
+
+	<p>
+	  Even though Hadoop and Hive may be working without any
+	  issues, Presto may not be compatible with the version of
+	  Hadoop you are using.  Presto has been designed to work with
+	  CDH4 (specific version is Cloudera Hadoop version
+	  2.0.0-cdh4.3.0), and if you are running Presto with a
+	  version of Hadoop not compatible with this version you may
+	  experience this "Respose is null" error message.
+	</p>
+
+	<p>
+	  See the
+	  related <a href="https://groups.google.com/forum/#!topic/presto-users/lVLvMGP1sKE">Google
+	  Group</a> thread as well as several questions on
+	  Stackoverflow.
+	</p>
+
+	<h3>Q: Why is Hadoop failing with a "InvalidProtocolBufferException: Message missing required fields" exception message?</h3>
+
+	<p>
+	  You are attempting to use a distribution of Hadoop that is
+	  not currently supported by Presto.  This error message will
+	  occur if you attempt to query a Hadoop 2.2.0 distribution or
+	  a Hortonworks Sandbox distribution of Hadoop.
+	</p>
+
+	<h3>Q: Why is Presto telling me that it "Cannot connect to
+	discovery server for refresh"</h3>
+
+	<p></p>
+
+    </div>
+</div>
+
+<div class="footer">&copy; Copyright 2013, Facebook</div>
+
+
+</body>
+</html>
