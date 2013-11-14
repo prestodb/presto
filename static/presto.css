@@ -172,20 +172,16 @@ div.note {
     background-color: #f5f5ff
 }
 
-tt {
+tt, code {
     font-family: Consolas, 'Liberation Mono', Courier, monospace;
     font-size: 0.9em;
 }
 
-tt.descname {
-    font-size: 1.1em;
-}
-
-tt.docutils.literal {
+code {
     margin: 0 2px;
-    padding: 0 5px;
-    border: 1px solid #ddd;
-    background-color: #f8f8f8;
+    padding: 2px 5px 0 5px;
+    border: 1px solid #d8d8d8;
+    background-color: #f4f4f4;
     border-radius: 3px;
 }
 
