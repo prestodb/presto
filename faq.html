@@ -42,48 +42,91 @@
 </header>
 
 <div class="content homecontent width clearfix">
-    <div class="">
-	<h2>Compatibility and Support</h2>
+    <div class="leftcol widecol">
+        <h2><a name="running"></a>Running Presto</h2>
 
-	<h3>Q: Does Presto work with Hadoop 2.2.0?</h3>
-
-	<h3>Q: Does Presto work with Amazon's Elastic MapReduce?</h3>
-
-	<h3>Q: Does Presto with with Hortonworks Sandbox?</h3>
+	<h3>
+	  <a name="memory-q1"></a>
+	  Q: How much memory should I expect to give a Worker node?
+	</h3>
 
 	<p>
-	  At this time, no.  Presto is not compatibile with Hadoop 2.2.0
-	  or distributions such as Hortonworks Sandbox which are build
-	  on Hadoop 2.2.0. Users who are interested in using Presto with
-	  unsupported Hadoop distributions are encouraged to 
+	  The answer to this question will depend on the size of the
+	  data sets you are working with and the nature of the queries
+	  you are running, but Facebook typically runs Presto with a
+	  16 GB
+	  heap.
+	</p> 
+
+	<p>Source: <a href="https://groups.google.com/forum/#!topic/presto-users/E4JOmdq4Igk">
+	  Presto-user Google Group thread.</a>
 	</p>
 
-	<h3>Does Presto connect to MongoDB?</h3>
+
+	<h2><a name="compatibility"></a>Compatibility and Support</h2>
+
+	<h3>
+	  Q: Does Presto work with Hadoop 2.2.0? Does Presto work with
+	  Amazon's Elastic MapReduce? Does Presto with with
+	  Hortonworks Sandbox?
+	</h3>
+
+	<p>
+	  At this time, no.  The Presto team has using the client
+	  version "2.0.0-cdh4.3.0" which is known to work with
+	  Cloudera's CDH4 distribution.
+	</p>
+
+	<p>
+	  Presto is not compatibile with Hadoop 2.2.0 or distributions
+	  such as Hortonworks Sandbox which are built on Hadoop
+	  2.2.0. Users who are interested in using Presto with
+	  unsupported Hadoop distributions are encouraged to report
+	  errors and contribute to the Presto open source project.
+	</p>
+
+	<h3>
+	  Q: Does Presto connect to HBase?
+	</h3>
+
+	<p>
+	  Not yet. A high-performance HBase connector is currently in
+	  the works.
+	</p>
+
+	<h3>
+	  Q: Does Presto connect to MongoDB? 
+	  Does Presto connect to Cassandra?
+	</h3>
+
+	<p>
+	  No one has developed a MongoDB or Cassandra connector yet.
+	  If you are interested in building a connector for either of
+	  these data sources, please take a look at this
+	  at <a href="https://github.com/facebook/presto/pull/846">simple
+	  example connector</a> as a starting point.
+	</p>
 
 	<p></p>
 
-	<h3>Does Presto connect to Cassandra?</h3>
-
-	<p></p>
-
-	<h3>Does Presto connect to HBase?</h3>
-
-	<p></p>
-
-	<h3>Does Presto connect to MySQL?</h3>
-
-	<p></p>
-
-	<h3>Does Presto connect to Postgresql?</h3>
-
-	<p></p>
-
-	<h3>Does Presto connect to Oracle?</h3>
+	<h3>
+	  Q: Does Presto connect to MySQL?
+	  Does Presto connect to Postgresql?
+	  Does Presto connect to Oracle?
+        </h3>
 	
-	<p></p>
+	<p>
+	  Using Presto to query relational databases has been a
+	  popular request, and the Presto team expects this feature to
+	  be integrated into a future release, but there is currently
+	  no high-performance implementation available. For more
+	  information, please see the following branch
+	  for <a href="https://github.com/dain/presto/tree/jdbc-plugin">an
+	  experimental, unreleased JDBC plugin</a>.
+	</p>
 
 
-        <h2>Errors</h2>
+        <h2><a name="errors"></a>Common Presto Errors</h2>
 
 	<h3>
 	  Q: I get a "Failed on local exception: java.io.IOException:
@@ -120,9 +163,46 @@
 	<h3>Q: Why is Presto telling me that it "Cannot connect to
 	discovery server for refresh"</h3>
 
-	<p></p>
+	<p>
+	  Answer from David Phillips
+	  on <a href="http://stackoverflow.com/questions/19867489/presto-server-on-aws-cannot-connect-to-discovery-server">this
+	  Stackoverflow question</a>: "I was wondering if someone
+	  would notice this in the logs :) It's actually not a
+	  problem. The error appears because the discovery client
+	  starts before the discovery server is ready. You'll see
+	  "succeeded for refresh" shortly after in the logs which
+	  shows that it's working. We will fix the log message
+	  eventually but it's purely a cosmetic issue."
+	</p>
+
+	<h3>
+	  Q: When I try to query data in Presto, I'm getting a
+	  OutOfMemoryError that suggests I'm running out of heap
+	  space. Why?
+	</h3>
+
+	<p>
+	  The amount of heap required by a worker node will vary
+	  depending on the size of the dataset you are querying and
+	  the nature of the SQL queries you are running.  Facebook
+	  usually runs worker nodes with a 16 GB heap.  Please see the
+	  answer to <a href="#memory-q1">a previous question about
+	  heap size</a>.
+	</p>
 
     </div>
+
+    <div class="rightcol">
+        <h3>Presto FAQs</h3>
+        <ul>
+            <li><a href="#running">Running Presto</a></li>
+            <li><a href="#compatibility">Compatibility</a></li>
+            <li><a href="#errors">Common Errors</a></li>
+        </ul>
+    </div>
+
+
+
 </div>
 
 <div class="footer">&copy; Copyright 2013, Facebook</div>
