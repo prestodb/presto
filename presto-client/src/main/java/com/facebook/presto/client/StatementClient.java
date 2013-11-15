@@ -190,7 +190,7 @@ public class StatementClient
                         response.getStatusMessage()));
             }
         }
-        while ((System.nanoTime() - start) < MINUTES.toNanos(2));
+        while ((System.nanoTime() - start) < MINUTES.toNanos(2) && !isClosed());
 
         gone.set(true);
         throw new RuntimeException("Error fetching next", cause);
