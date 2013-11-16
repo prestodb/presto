@@ -15,7 +15,6 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.discovery.EmbeddedDiscoveryModule;
 import com.facebook.presto.metadata.CatalogManager;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
 import com.google.inject.Module;
@@ -36,75 +35,14 @@ import io.airlift.node.NodeModule;
 import io.airlift.tracetoken.TraceTokenModule;
 import org.weakref.jmx.guice.MBeanModule;
 
-import java.lang.management.ManagementFactory;
-import java.lang.management.MemoryPoolMXBean;
-import java.util.concurrent.atomic.AtomicBoolean;
+import static com.facebook.presto.server.CodeCacheGcTrigger.installCodeCacheGcTrigger;
 
 public class PrestoServer
         implements Runnable
 {
-    private static final AtomicBoolean codeCacheTriggerInstalled = new AtomicBoolean();
-
     public static void main(String[] args)
     {
         new PrestoServer().run();
-    }
-
-    private static void installCodeCacheGcTrigger()
-    {
-        if (codeCacheTriggerInstalled.getAndSet(true)) {
-            return;
-        }
-
-        // Hack to work around bugs in java 7 related to code cache management.
-        // See http://mail.openjdk.java.net/pipermail/hotspot-compiler-dev/2013-August/011333.html for more info.
-        final MemoryPoolMXBean codeCacheMbean = findCodeCacheMBean();
-        Preconditions.checkNotNull(codeCacheMbean, "Could not obtain a reference to the 'Code Cache' MemoryPoolMXBean");
-
-        Thread gcThread = new Thread(new Runnable()
-        {
-            @SuppressWarnings("CallToSystemGC")
-            @Override
-            public void run()
-            {
-                Logger log = Logger.get("Code-Cache-GC-Trigger");
-
-                while (!Thread.currentThread().isInterrupted()) {
-                    long used = codeCacheMbean.getUsage().getUsed();
-                    long max = codeCacheMbean.getUsage().getMax();
-                    if (used > 0.7 * max) {
-                        // Due to some obscure bug in hotspot (java 7), once the code cache fills up the JIT stops compiling and never recovers from this condition.
-                        // By forcing classes to unload from the perm gen, we let the code cache evictor make room before the cache fills up.
-                        // For best results, the server should be run with -XX:+UseConcMarkSweepGC -XX:+ExplicitGCInvokesConcurrent -XX:+CMSClassUnloadingEnabled
-                        log.info("Triggering GC to avoid Code Cache eviction bugs");
-                        System.gc();
-                    }
-                    else if (used > 0.95 * max) {
-                        log.error("Code Cache is more than 95% full. JIT may stop working.");
-                    }
-
-                    try {
-                        Thread.sleep(1000);
-                    }
-                    catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                    }
-                }
-            }
-        });
-        gcThread.setDaemon(true);
-        gcThread.setName("Code-Cache-GC-Trigger");
-        gcThread.start();
-    }
-
-    private static MemoryPoolMXBean findCodeCacheMBean()
-    {
-        for (MemoryPoolMXBean bean : ManagementFactory.getMemoryPoolMXBeans()) {
-            if (bean.getName().equals("Code Cache")) {
-                return bean;
-            }
-        }
-        return null;
     }
 
     @Override
