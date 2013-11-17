@@ -13,9 +13,9 @@
  */
 package org.apache.hadoop.hive.ql.io.orc;
 
-public final class OrcUtil
+public final class OrcStructUtil
 {
-    private OrcUtil()
+    private OrcStructUtil()
     {
     }
 
