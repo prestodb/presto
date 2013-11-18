@@ -37,6 +37,8 @@ import org.weakref.jmx.guice.MBeanModule;
 
 import static com.facebook.presto.server.CodeCacheGcTrigger.installCodeCacheGcTrigger;
 
+import static com.facebook.presto.server.PrestoJvmRequirements.verifyJvmRequirements;
+
 public class PrestoServer
         implements Runnable
 {
@@ -48,6 +50,8 @@ public class PrestoServer
     @Override
     public void run()
     {
+        verifyJvmRequirements();
+
         Logger log = Logger.get(PrestoServer.class);
 
         ImmutableList.Builder<Module> modules = ImmutableList.builder();
