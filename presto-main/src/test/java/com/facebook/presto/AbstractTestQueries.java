@@ -2840,7 +2840,7 @@ public abstract class AbstractTestQueries
         }
     }
 
-    private Function<MaterializedTuple, String> onlyColumnGetter()
+    protected Function<MaterializedTuple, String> onlyColumnGetter()
     {
         return new Function<MaterializedTuple, String>()
         {

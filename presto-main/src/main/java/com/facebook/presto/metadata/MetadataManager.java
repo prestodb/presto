@@ -29,6 +29,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import javax.inject.Singleton;
+
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -216,6 +217,16 @@ public class MetadataManager
             return Optional.absent();
         }
         return Optional.fromNullable(entry.getMetadata().getTableHandle(tableName));
+    }
+
+    @Override
+    public Map<String, String> getCatalogNames()
+    {
+        ImmutableMap.Builder<String, String> catalogsMap = ImmutableMap.builder();
+        for(Map.Entry<String, ConnectorMetadataEntry> entry : connectors.entrySet()) {
+            catalogsMap.put(entry.getKey(), entry.getValue().getConnectorId());
+        }
+        return catalogsMap.build();
     }
 
     private List<ConnectorMetadataEntry> allConnectorsFor(String catalogName)
