@@ -142,7 +142,7 @@
             <dependency>
                 <groupId>com.facebook.presto.hadoop</groupId>
                 <artifactId>hadoop-cdh4</artifactId>
-                <version>0.3</version>
+                <version>0.5</version>
             </dependency>
 
             <dependency>
