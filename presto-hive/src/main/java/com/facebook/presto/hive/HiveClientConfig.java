@@ -16,7 +16,9 @@ package com.facebook.presto.hive;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
+
 import io.airlift.configuration.Config;
+import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
@@ -28,6 +30,7 @@ import javax.validation.constraints.NotNull;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+@DefunctConfig({"hive.metastore-timeout"})
 public class HiveClientConfig
 {
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
@@ -40,8 +43,7 @@ public class HiveClientConfig
     private Duration metastoreCacheTtl = new Duration(1, TimeUnit.HOURS);
     private Duration metastoreRefreshInterval = new Duration(2, TimeUnit.MINUTES);
     private int maxMetastoreRefreshThreads = 100;
-    private HostAndPort metastoreSocksProxy;
-    private Duration metastoreTimeout = new Duration(10, TimeUnit.SECONDS);
+    private HostAndPort dfsSocksProxy;
 
     private Duration fileSystemCacheTtl = new Duration(1, TimeUnit.DAYS);
     private Duration dfsTimeout = new Duration(10, TimeUnit.SECONDS);
@@ -130,28 +132,15 @@ public class HiveClientConfig
         return this;
     }
 
-    public HostAndPort getMetastoreSocksProxy()
+    public HostAndPort getDfsSocksProxy()
     {
-        return metastoreSocksProxy;
+        return dfsSocksProxy;
     }
 
-    @Config("hive.metastore.thrift.client.socks-proxy")
-    public HiveClientConfig setMetastoreSocksProxy(HostAndPort metastoreSocksProxy)
+    @Config("hive.dfs.socks-proxy")
+    public HiveClientConfig setDfsSocksProxy(HostAndPort dfsSocksProxy)
     {
-        this.metastoreSocksProxy = metastoreSocksProxy;
-        return this;
-    }
-
-    @NotNull
-    public Duration getMetastoreTimeout()
-    {
-        return metastoreTimeout;
-    }
-
-    @Config("hive.metastore-timeout")
-    public HiveClientConfig setMetastoreTimeout(Duration metastoreTimeout)
-    {
-        this.metastoreTimeout = metastoreTimeout;
+        this.dfsSocksProxy = dfsSocksProxy;
         return this;
     }
 

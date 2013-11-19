@@ -97,7 +97,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
             this.deserializer = MetaStoreUtils.getDeserializer(null, splitSchema);
             this.rowInspector = (StructObjectInspector) deserializer.getObjectInspector();
         }
-        catch (MetaException | SerDeException | RuntimeException e) {
+        catch (SerDeException | RuntimeException e) {
             throw Throwables.propagate(e);
         }
 

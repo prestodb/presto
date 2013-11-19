@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>13</version>
+        <version>14-SNAPSHOT</version>
     </parent>
 
     <groupId>com.facebook.presto</groupId>
@@ -42,6 +42,10 @@
         <dep.antlr.version>3.4</dep.antlr.version>
         <dep.airlift.version>0.84</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
+        <dep.swift.version>0.11.0-SNAPSHOT</dep.swift.version>
+        <dep.nifty.version>0.11.0-SNAPSHOT</dep.nifty.version>
+
+        <dep.hive-apache.version>0.4-SNAPSHOT</dep.hive-apache.version>
 
         <cli.skip-execute>true</cli.skip-execute>
         <cli.main-class>None</cli.main-class>
@@ -141,6 +145,12 @@
             </dependency>
 
             <dependency>
+                <groupId>com.facebook</groupId>
+                <artifactId>swift-hive-metastore</artifactId>
+                <version>2.0</version>
+            </dependency>
+
+            <dependency>
                 <groupId>com.facebook.presto.hadoop</groupId>
                 <artifactId>hadoop-apache1</artifactId>
                 <version>0.1</version>
@@ -155,7 +165,7 @@
             <dependency>
                 <groupId>com.facebook.presto.hive</groupId>
                 <artifactId>hive-apache</artifactId>
-                <version>0.3</version>
+                <version>${dep.hive-apache.version}</version>
             </dependency>
 
             <dependency>
@@ -371,7 +381,7 @@
             <dependency>
                 <groupId>org.apache.thrift</groupId>
                 <artifactId>libthrift</artifactId>
-                <version>0.9.0</version>
+                <version>0.9.1</version>
             </dependency>
 
             <dependency>
@@ -401,19 +411,43 @@
             <dependency>
                 <groupId>io.netty</groupId>
                 <artifactId>netty</artifactId>
-                <version>3.6.2.Final</version>
+                <version>3.7.0.Final</version>
             </dependency>
 
             <dependency>
                 <groupId>org.apache.httpcomponents</groupId>
                 <artifactId>httpclient</artifactId>
-                <version>4.2.3</version>
+                <version>4.2.5</version>
             </dependency>
 
             <dependency>
                 <groupId>org.apache.httpcomponents</groupId>
                 <artifactId>httpcore</artifactId>
-                <version>4.2.3</version>
+                <version>4.2.4</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.nifty</groupId>
+                <artifactId>nifty-client</artifactId>
+                <version>${dep.nifty.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.swift</groupId>
+                <artifactId>swift-annotations</artifactId>
+                <version>${dep.swift.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.swift</groupId>
+                <artifactId>swift-codec</artifactId>
+                <version>${dep.swift.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.swift</groupId>
+                <artifactId>swift-service</artifactId>
+                <version>${dep.swift.version}</version>
             </dependency>
 
             <dependency>

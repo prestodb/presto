@@ -134,7 +134,7 @@ class BytesHiveRecordCursor<K>
                 isPartitionColumn[i] = column.isPartitionKey();
             }
         }
-        catch (MetaException | SerDeException | RuntimeException e) {
+        catch (SerDeException | RuntimeException e) {
             throw Throwables.propagate(e);
         }
 

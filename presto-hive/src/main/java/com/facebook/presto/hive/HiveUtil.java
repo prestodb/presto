@@ -45,7 +45,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.hadoop.hive.metastore.MetaStoreUtils.getDeserializer;
 import static org.apache.hadoop.hive.metastore.MetaStoreUtils.getTableMetadata;
-import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
+import static org.apache.hadoop.hive.metastore.api.Constants.FILE_INPUT_FORMAT;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
 
 final class HiveUtil

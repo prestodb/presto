@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.hive.metastore.api.ThriftHiveMetastore;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -223,15 +224,15 @@ public class TestCachingHiveMetastore
     private static class MockHiveCluster
             implements HiveCluster
     {
-        private final HiveMetastoreClient client;
+        private final ThriftHiveMetastore client;
 
-        private MockHiveCluster(HiveMetastoreClient client)
+        private MockHiveCluster(ThriftHiveMetastore client)
         {
             this.client = client;
         }
 
         @Override
-        public HiveMetastoreClient createMetastoreClient()
+        public ThriftHiveMetastore createMetastoreClient()
         {
             return client;
         }

@@ -13,7 +13,8 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.shaded.org.apache.thrift.TException;
+import com.facebook.hive.metastore.AbstractLegacyMetastore;
+import com.facebook.hive.metastore.api.ThriftHiveMetastore;
 import com.google.common.base.Function;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -25,13 +26,15 @@ import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.Table;
+import org.apache.thrift.TException;
 import org.weakref.jmx.com.google.common.collect.ImmutableSet;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class MockHiveMetastoreClient
-        extends HiveMetastoreClient
+        extends AbstractLegacyMetastore
+        implements ThriftHiveMetastore
 {
     static final String TEST_DATABASE = "testdb";
     static final String BAD_DATABASE = "baddb";
@@ -44,7 +47,6 @@ public class MockHiveMetastoreClient
 
     MockHiveMetastoreClient()
     {
-        super(null);
     }
 
     public void setThrowException(boolean throwException)
@@ -59,7 +61,7 @@ public class MockHiveMetastoreClient
 
     @Override
     public List<String> get_all_databases()
-            throws TException
+            throws MetaException, TException
     {
         accessCount.incrementAndGet();
         if (throwException) {
@@ -70,7 +72,7 @@ public class MockHiveMetastoreClient
 
     @Override
     public List<String> get_all_tables(String db_name)
-            throws TException
+            throws MetaException, TException
     {
         accessCount.incrementAndGet();
         if (throwException) {
@@ -84,7 +86,7 @@ public class MockHiveMetastoreClient
 
     @Override
     public Database get_database(String name)
-            throws TException
+            throws NoSuchObjectException, MetaException, TException
     {
         accessCount.incrementAndGet();
         if (throwException) {
@@ -93,12 +95,12 @@ public class MockHiveMetastoreClient
         if (!name.equals(TEST_DATABASE)) {
             throw new NoSuchObjectException();
         }
-        return new Database(TEST_DATABASE, null, null, null);
+        return new Database(TEST_DATABASE, null, null, null, null);
     }
 
     @Override
     public Table get_table(String dbname, String tbl_name)
-            throws TException
+            throws MetaException, NoSuchObjectException, TException
     {
         accessCount.incrementAndGet();
         if (throwException) {
@@ -107,12 +109,12 @@ public class MockHiveMetastoreClient
         if (!dbname.equals(TEST_DATABASE) || !tbl_name.equals(TEST_TABLE)) {
             throw new NoSuchObjectException();
         }
-        return new Table(TEST_TABLE, TEST_DATABASE, "", 0, 0, 0, null, ImmutableList.of(new FieldSchema("key", "String", null)), null, "", "", "");
+        return new Table(TEST_TABLE, TEST_DATABASE, "", 0, 0, 0, null, ImmutableList.of(new FieldSchema("key", "String", null)), null, "", "", "", null, null, null);
     }
 
     @Override
     public List<String> get_partition_names(String db_name, String tbl_name, short max_parts)
-            throws TException
+            throws MetaException, TException
     {
         accessCount.incrementAndGet();
         if (throwException) {
@@ -126,7 +128,7 @@ public class MockHiveMetastoreClient
 
     @Override
     public List<String> get_partition_names_ps(String db_name, String tbl_name, List<String> part_vals, short max_parts)
-            throws TException
+            throws MetaException, NoSuchObjectException, TException
     {
         accessCount.incrementAndGet();
         if (throwException) {
@@ -140,7 +142,7 @@ public class MockHiveMetastoreClient
 
     @Override
     public Partition get_partition_by_name(String db_name, String tbl_name, String part_name)
-            throws TException
+            throws MetaException, NoSuchObjectException, TException
     {
         accessCount.incrementAndGet();
         if (throwException) {
@@ -149,12 +151,12 @@ public class MockHiveMetastoreClient
         if (!db_name.equals(TEST_DATABASE) || !tbl_name.equals(TEST_TABLE) || !ImmutableSet.of(TEST_PARTITION1, TEST_PARTITION2).contains(part_name)) {
             throw new NoSuchObjectException();
         }
-        return new Partition(null, TEST_DATABASE, TEST_TABLE, 0, 0, null, null);
+        return new Partition(null, TEST_DATABASE, TEST_TABLE, 0, 0, null, null, null, null, null);
     }
 
     @Override
     public List<Partition> get_partitions_by_names(String db_name, String tbl_name, List<String> names)
-            throws TException
+            throws MetaException, NoSuchObjectException, TException
     {
         accessCount.incrementAndGet();
         if (throwException) {
@@ -169,7 +171,7 @@ public class MockHiveMetastoreClient
             public Partition apply(String name)
             {
                 try {
-                    return new Partition(ImmutableList.copyOf(Warehouse.getPartValuesFromPartName(name)), TEST_DATABASE, TEST_TABLE, 0, 0, null, null);
+                    return new Partition(ImmutableList.copyOf(Warehouse.getPartValuesFromPartName(name)), TEST_DATABASE, TEST_TABLE, 0, 0, null, null, null, null, null);
                 }
                 catch (MetaException e) {
                     throw Throwables.propagate(e);
