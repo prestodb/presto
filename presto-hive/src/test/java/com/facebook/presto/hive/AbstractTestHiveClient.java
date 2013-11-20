@@ -36,6 +36,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.net.HostAndPort;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
@@ -43,11 +46,15 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadFactory;
 
 import static com.facebook.presto.hive.HiveUtil.partitionIdGetter;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Maps.uniqueIndex;
+import static com.google.common.util.concurrent.MoreExecutors.sameThreadExecutor;
 import static io.airlift.testing.Assertions.assertInstanceOf;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -88,9 +95,7 @@ public abstract class AbstractTestHiveClient
     protected ConnectorSplitManager splitManager;
     protected ConnectorRecordSetProvider recordSetProvider;
 
-    // this is not a test, but IntelliJ thinks it is
-    @Test(enabled = false)
-    public void setupHive(String connectorId, String databaseName)
+    protected void setupHive(String connectorId, String databaseName)
     {
         database = databaseName;
         table = new SchemaTableName(database, "presto_test");
@@ -130,6 +135,42 @@ public abstract class AbstractTestHiveClient
                         Optional.<Integer>absent()));
         unpartitionedPartitions = ImmutableSet.<Partition>of(new HivePartition(tableUnpartitioned));
         invalidPartition = new HivePartition(invalidTable, "unknown", ImmutableMap.<ColumnHandle, Object>of(), Optional.<Integer> absent());
+    }
+
+    protected void setup(String host, int port, String databaseName)
+    {
+        setup(host, port, databaseName, "hive-test", 100, 50);
+    }
+
+    protected void setup(String host, int port, String databaseName, String connectorName, int maxOutstandingSplits, int maxThreads)
+    {
+        setupHive(connectorName, databaseName);
+
+        HiveClientConfig hiveClientConfig = new HiveClientConfig();
+        String proxy = System.getProperty("hive.metastore.thrift.client.socks-proxy");
+        if (proxy != null) {
+            hiveClientConfig.setMetastoreSocksProxy(HostAndPort.fromString(proxy));
+        }
+
+        FileSystemWrapper fileSystemWrapper = new FileSystemWrapperProvider(new FileSystemCache(hiveClientConfig)).get();
+
+        HiveCluster hiveCluster = new TestingHiveCluster(hiveClientConfig, host, port);
+        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("hive-%s"));
+
+        HiveClient client = new HiveClient(
+                new HiveConnectorId(connectorName),
+                new CachingHiveMetastore(hiveCluster, executor, Duration.valueOf("1m"), Duration.valueOf("15s")),
+                new HdfsEnvironment(new HdfsConfiguration(hiveClientConfig), fileSystemWrapper),
+                sameThreadExecutor(),
+                hiveClientConfig.getMaxSplitSize(),
+                maxOutstandingSplits,
+                maxThreads,
+                hiveClientConfig.getMinPartitionBatchSize(),
+                hiveClientConfig.getMaxPartitionBatchSize());
+
+        metadata = client;
+        splitManager = client;
+        recordSetProvider = client;
     }
 
     @Test
@@ -801,5 +842,10 @@ public abstract class AbstractTestHiveClient
                 return input.getName();
             }
         };
+    }
+
+    private static ThreadFactory daemonThreadsNamed(String nameFormat)
+    {
+        return new ThreadFactoryBuilder().setNameFormat(nameFormat).setDaemon(true).build();
     }
 }
