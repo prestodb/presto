@@ -96,9 +96,9 @@
                         <configuration>
                             <excludedGroups combine.self="override"/>
                             <systemProperties>
-                                <hive.chd4.metastoreHost>localhost</hive.chd4.metastoreHost>
+                                <hive.cdh4.metastoreHost>localhost</hive.cdh4.metastoreHost>
                                 <hive.cdh4.metastorePort>9083</hive.cdh4.metastorePort>
-                                <hive.chd4.databaseName>default</hive.chd4.databaseName>
+                                <hive.cdh4.databaseName>default</hive.cdh4.databaseName>
                             </systemProperties>
                         </configuration>
                     </plugin>
