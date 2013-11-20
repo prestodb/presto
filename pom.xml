@@ -51,6 +51,7 @@
         <module>presto-docs</module>
         <module>presto-spi</module>
         <module>presto-hive</module>
+        <module>presto-hive-apache1</module>
         <module>presto-hive-cdh4</module>
         <module>presto-client</module>
         <module>presto-parser</module>
@@ -137,6 +138,12 @@
                 <artifactId>presto-server</artifactId>
                 <version>${project.version}</version>
                 <type>test-jar</type>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto.hadoop</groupId>
+                <artifactId>hadoop-apache1</artifactId>
+                <version>0.1</version>
             </dependency>
 
             <dependency>
