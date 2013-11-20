@@ -278,6 +278,7 @@ public class ServerMainModule
         // TODO: this is a hack until the coordinator module works correctly
         if (coordinator) {
             binder.install(new FailureDetectorModule());
+            binder.bind(NodeResource.class).in(Scopes.SINGLETON);
         }
         else {
             binder.bind(FailureDetector.class).toInstance(new FailureDetector() {
