@@ -35,6 +35,8 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDINAL
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_COLUMN_ALIASES;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_SET_COLUMN_TYPES;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ATTRIBUTE;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATE_OR_GROUP_BY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_AGGREGATION;
@@ -127,6 +129,8 @@ public class TestAnalyzer
     public void testInvalidTable()
             throws Exception
     {
+        assertFails(MISSING_CATALOG, "SELECT * FROM foo.default.t");
+        assertFails(MISSING_SCHEMA, "SELECT * FROM foo.t");
         assertFails(MISSING_TABLE, "SELECT * FROM foo");
     }
 
