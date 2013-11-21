@@ -78,6 +78,8 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELAT
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDINAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_COLUMN_ALIASES;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_SET_COLUMN_TYPES;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATE_OR_GROUP_BY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_WINDOW_FUNCTION;
@@ -137,6 +139,12 @@ class TupleAnalyzer
 
         Optional<TableHandle> tableHandle = metadata.getTableHandle(name);
         if (!tableHandle.isPresent()) {
+            if (!metadata.getCatalogNames().containsKey(name.getCatalogName())) {
+                throw new SemanticException(MISSING_CATALOG, table, "Catalog %s does not exist", name.getCatalogName());
+            }
+            if (!metadata.listSchemaNames(name.getCatalogName()).contains(name.getSchemaName())) {
+                throw new SemanticException(MISSING_SCHEMA, table, "Schema %s does not exist", name.getSchemaName());
+            }
             throw new SemanticException(MISSING_TABLE, table, "Table %s does not exist", name);
         }
         TableMetadata tableMetadata = metadata.getTableMetadata(tableHandle.get());
