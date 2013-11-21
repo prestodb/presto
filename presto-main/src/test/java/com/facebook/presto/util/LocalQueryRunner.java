@@ -20,6 +20,7 @@ import com.facebook.presto.connector.dual.DualMetadata;
 import com.facebook.presto.connector.dual.DualSplitManager;
 import com.facebook.presto.connector.informationSchema.InformationSchemaDataStreamProvider;
 import com.facebook.presto.connector.informationSchema.InformationSchemaSplitManager;
+import com.facebook.presto.connector.system.CatalogSystemTable;
 import com.facebook.presto.connector.system.NodesSystemTable;
 import com.facebook.presto.connector.system.SystemDataStreamProvider;
 import com.facebook.presto.connector.system.SystemSplitManager;
@@ -344,6 +345,7 @@ public class LocalQueryRunner
         SystemTablesManager systemTablesManager = new SystemTablesManager(systemTablesMetadata, systemSplitManager, systemDataStreamProvider, ImmutableSet.<SystemTable>of());
 
         systemTablesManager.addTable(new NodesSystemTable(nodeManager));
+        systemTablesManager.addTable(new CatalogSystemTable(metadataManager));
     }
 
     private static void addTpch(InMemoryNodeManager nodeManager,
