@@ -13,11 +13,17 @@
  */
 package com.facebook.presto.hive;
 
-public class HiveApache1Plugin
-        extends HivePlugin
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Parameters;
+
+public class TestHiveClient
+        extends AbstractTestHiveClient
 {
-    public HiveApache1Plugin()
+    @Parameters({"hive.hadoop1.metastoreHost", "hive.hadoop1.metastorePort", "hive.hadoop1.databaseName"})
+    @BeforeMethod
+    @Override
+    public void setup(String host, int port, String databaseName)
     {
-        super("hive-apache1");
+        super.setup(host, port, databaseName);
     }
 }

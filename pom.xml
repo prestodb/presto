@@ -51,7 +51,7 @@
         <module>presto-docs</module>
         <module>presto-spi</module>
         <module>presto-hive</module>
-        <module>presto-hive-apache1</module>
+        <module>presto-hive-hadoop1</module>
         <module>presto-hive-cdh4</module>
         <module>presto-client</module>
         <module>presto-parser</module>
