@@ -16,11 +16,16 @@ package com.facebook.presto.example;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Resources;
-import io.airlift.http.server.HttpServerConfig;
-import io.airlift.http.server.HttpServerInfo;
+import com.google.inject.Binder;
+import com.google.inject.Injector;
+import com.google.inject.Module;
+import com.google.inject.TypeLiteral;
+import io.airlift.bootstrap.Bootstrap;
+import io.airlift.bootstrap.LifeCycleManager;
+import io.airlift.http.server.TheServlet;
 import io.airlift.http.server.testing.TestingHttpServer;
-import io.airlift.node.NodeConfig;
-import io.airlift.node.NodeInfo;
+import io.airlift.http.server.testing.TestingHttpServerModule;
+import io.airlift.node.testing.TestingNodeModule;
 
 import javax.servlet.Servlet;
 import javax.servlet.http.HttpServlet;
@@ -28,67 +33,63 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
-import java.net.InetAddress;
 import java.net.URI;
 import java.net.URL;
-import java.net.UnknownHostException;
+import java.util.Map;
 
 public class ExampleHttpServer
 {
-    private final TestingHttpServer httpServer;
+    private final LifeCycleManager lifeCycleManager;
+    private final URI baseUri;
 
     public ExampleHttpServer()
             throws Exception
     {
-        NodeConfig nodeConfig = new NodeConfig()
-                .setEnvironment("test")
-                .setNodeInternalIp(getV4Localhost())
-                .setNodeBindIp(getV4Localhost());
-        NodeInfo nodeInfo = new NodeInfo(nodeConfig);
+        Bootstrap app = new Bootstrap(
+                new TestingNodeModule(),
+                new TestingHttpServerModule(),
+                new ExampleHttpServerModule());
 
-        HttpServerConfig httpServerConfig = new HttpServerConfig();
-        Servlet httpServlet = new HttpServlet()
-        {
-            @Override
-            protected void doGet(HttpServletRequest request, HttpServletResponse response)
-                    throws IOException
-            {
-                String pathInfo = request.getPathInfo();
-                URL dataUrl = Resources.getResource(TestExampleClient.class, pathInfo);
-                ByteStreams.copy(Resources.newInputStreamSupplier(dataUrl), response.getOutputStream());
-            }
-        };
+        Injector injector = app
+                .strictConfig()
+                .doNotInitializeLogging()
+                .initialize();
 
-        httpServer = new TestingHttpServer(
-                new HttpServerInfo(httpServerConfig, nodeInfo),
-                nodeInfo,
-                httpServerConfig,
-                httpServlet,
-                ImmutableMap.<String, String>of());
-        httpServer.start();
+        lifeCycleManager = injector.getInstance(LifeCycleManager.class);
+        baseUri = injector.getInstance(TestingHttpServer.class).getBaseUrl();
     }
 
     public void stop()
             throws Exception
     {
-        httpServer.stop();
+        lifeCycleManager.stop();
     }
 
-    public URI getBaseUrl()
+    public URI resolve(String s)
     {
-        return httpServer.getBaseUrl();
+        return baseUri.resolve(s);
     }
 
-
-    // todo add TestingNodeInfo to airlift
-    @SuppressWarnings("ImplicitNumericConversion")
-    private static InetAddress getV4Localhost()
+    private static class ExampleHttpServerModule
+            implements Module
     {
-        try {
-            return InetAddress.getByAddress("localhost", new byte[]{127, 0, 0, 1});
+        @Override
+        public void configure(Binder binder)
+        {
+            binder.bind(new TypeLiteral<Map<String, String>>() {}).annotatedWith(TheServlet.class).toInstance(ImmutableMap.<String, String>of());
+            binder.bind(Servlet.class).annotatedWith(TheServlet.class).toInstance(new ExampleHttpServlet());
         }
-        catch (UnknownHostException e) {
-            throw new AssertionError("Could not create localhost address");
+    }
+
+    private static class ExampleHttpServlet
+            extends HttpServlet
+    {
+        @Override
+        protected void doGet(HttpServletRequest request, HttpServletResponse response)
+                throws IOException
+        {
+            URL dataUrl = Resources.getResource(TestExampleClient.class, request.getPathInfo());
+            ByteStreams.copy(Resources.newInputStreamSupplier(dataUrl), response.getOutputStream());
         }
     }
 }
