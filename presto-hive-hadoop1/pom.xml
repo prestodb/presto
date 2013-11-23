@@ -8,8 +8,8 @@
         <version>0.54-SNAPSHOT</version>
     </parent>
 
-    <artifactId>presto-hive-apache1</artifactId>
-    <name>presto-hive-apache1</name>
+    <artifactId>presto-hive-hadoop1</artifactId>
+    <name>presto-hive-hadoop1</name>
     <description>Presto - Hive Connector - Apache Hadoop 1.x</description>
 
     <properties>
@@ -87,7 +87,7 @@
 
     <profiles>
         <profile>
-            <id>test-hive-apache1</id>
+            <id>test-hive-hadoop1</id>
             <build>
                 <plugins>
                     <plugin>
@@ -96,9 +96,9 @@
                         <configuration>
                             <excludedGroups combine.self="override"/>
                             <systemProperties>
-                                <hive.apache1.metastoreHost>localhost</hive.apache1.metastoreHost>
-                                <hive.apache1.metastorePort>9083</hive.apache1.metastorePort>
-                                <hive.apache1.databaseName>default</hive.apache1.databaseName>
+                                <hive.hadoop1.metastoreHost>localhost</hive.hadoop1.metastoreHost>
+                                <hive.hadoop1.metastorePort>9083</hive.hadoop1.metastorePort>
+                                <hive.hadoop1.databaseName>default</hive.hadoop1.databaseName>
                             </systemProperties>
                         </configuration>
                     </plugin>
