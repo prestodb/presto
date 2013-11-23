@@ -16,9 +16,10 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.execution.DataSource;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.spi.Partition;
+import com.facebook.presto.spi.PartitionResult;
 import com.facebook.presto.spi.Split;
+import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.split.SplitManager;
-import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -40,6 +41,7 @@ import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -48,6 +50,7 @@ import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -57,16 +60,12 @@ import static com.google.common.base.Preconditions.checkState;
 public class DistributedExecutionPlanner
 {
     private final SplitManager splitManager;
-    private final Session session;
     private final ShardManager shardManager;
 
     @Inject
-    public DistributedExecutionPlanner(SplitManager splitManager,
-            Session session,
-            ShardManager shardManager)
+    public DistributedExecutionPlanner(SplitManager splitManager, ShardManager shardManager)
     {
         this.splitManager = checkNotNull(splitManager, "splitManager is null");
-        this.session = checkNotNull(session, "session is null");
         this.shardManager = checkNotNull(shardManager, "databaseShardManager is null");
     }
 
@@ -108,15 +107,24 @@ public class DistributedExecutionPlanner
         @Override
         public NodeSplits visitTableScan(TableScanNode node, Predicate<Partition> materializedViewPartitionPredicate)
         {
+            List<Partition> partitions = FluentIterable.from(getPartitions(node))
+                    .filter(materializedViewPartitionPredicate)
+                    .toList();
+
             // get dataSource for table
-            DataSource dataSource = splitManager.getSplits(session,
-                    node.getTable(),
-                    node.getPartitionPredicate(),
-                    node.getUpstreamPredicateHint(),
-                    materializedViewPartitionPredicate,
-                    node.getAssignments());
+            DataSource dataSource = splitManager.getPartitionSplits(node.getTable(), partitions);
 
             return new NodeSplits(node.getId(), dataSource);
+        }
+
+        private List<Partition> getPartitions(TableScanNode node)
+        {
+            if (node.getGeneratedPartitions().isPresent()) {
+                return node.getGeneratedPartitions().get().getPartitions();
+            }
+
+            PartitionResult allPartitions = splitManager.getPartitions(node.getTable(), Optional.<TupleDomain>absent());
+            return allPartitions.getPartitions();
         }
 
         @Override
