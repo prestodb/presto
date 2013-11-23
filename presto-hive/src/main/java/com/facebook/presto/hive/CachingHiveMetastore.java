@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.hive.metastore.api.ThriftHiveMetastore;
 import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
@@ -219,7 +220,7 @@ public class CachingHiveMetastore
             public List<String> call()
                     throws Exception
             {
-                try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
+                try (ThriftHiveMetastore client = clientProvider.createMetastoreClient()) {
                     return client.get_all_databases();
                 }
             }
@@ -241,7 +242,7 @@ public class CachingHiveMetastore
             public List<String> call()
                     throws Exception
             {
-                try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
+                try (ThriftHiveMetastore client = clientProvider.createMetastoreClient()) {
                     List<String> tables = client.get_all_tables(databaseName);
                     if (tables.isEmpty()) {
                         // Check to see if the database exists
@@ -268,7 +269,7 @@ public class CachingHiveMetastore
             public Table call()
                     throws Exception
             {
-                try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
+                try (ThriftHiveMetastore client = clientProvider.createMetastoreClient()) {
                     Table table = client.get_table(hiveTableName.getDatabaseName(), hiveTableName.getTableName());
                     if (table.getTableType().equals(TableType.VIRTUAL_VIEW.toString())) {
                         throw new HiveViewNotSupportedException(new SchemaTableName(hiveTableName.getDatabaseName(), hiveTableName.getTableName()));
@@ -294,7 +295,7 @@ public class CachingHiveMetastore
             public List<String> call()
                     throws Exception
             {
-                try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
+                try (ThriftHiveMetastore client = clientProvider.createMetastoreClient()) {
                     return client.get_partition_names(hiveTableName.getDatabaseName(), hiveTableName.getTableName(), (short) 0);
                 }
             }
@@ -316,7 +317,7 @@ public class CachingHiveMetastore
             public List<String> call()
                     throws Exception
             {
-                try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
+                try (ThriftHiveMetastore client = clientProvider.createMetastoreClient()) {
                     return client.get_partition_names_ps(partitionFilter.getHiveTableName().getDatabaseName(),
                             partitionFilter.getHiveTableName().getTableName(),
                             partitionFilter.getParts(),
@@ -346,7 +347,7 @@ public class CachingHiveMetastore
             public Partition call()
                     throws Exception
             {
-                try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
+                try (ThriftHiveMetastore client = clientProvider.createMetastoreClient()) {
                     return client.get_partition_by_name(partitionName.getHiveTableName().getDatabaseName(),
                             partitionName.getHiveTableName().getTableName(),
                             partitionName.getPartitionName());
@@ -381,7 +382,7 @@ public class CachingHiveMetastore
             public Map<HivePartitionName, Partition> call()
                     throws Exception
             {
-                try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
+                try (ThriftHiveMetastore client = clientProvider.createMetastoreClient()) {
                     ImmutableMap.Builder<HivePartitionName, Partition> partitions = ImmutableMap.builder();
                     for (Partition partition : client.get_partitions_by_names(databaseName, tableName, partitionsToFetch)) {
                         String partitionId = FileUtils.makePartName(partitionColumnNames, partition.getValues(), null);

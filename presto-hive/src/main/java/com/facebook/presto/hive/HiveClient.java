@@ -465,7 +465,7 @@ public class HiveClient
                     catch (NoSuchObjectException | NullPointerException | IllegalStateException | IllegalArgumentException e) {
                         throw Throwables.propagate(e);
                     }
-                    catch (MetaException | RuntimeException e) {
+                    catch (RuntimeException e) {
                         exception = e;
                         log.debug("getPartitions attempt %s failed, will retry. Exception: %s", attempt, e.getMessage());
                     }

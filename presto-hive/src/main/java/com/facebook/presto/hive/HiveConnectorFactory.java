@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.hive.metastore.client.HiveMetastoreClientModule;
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorHandleResolver;
@@ -24,6 +25,8 @@ import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorMetadata;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorRecordSetProvider;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorSplitManager;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
+import com.facebook.swift.codec.guice.ThriftCodecModule;
+import com.facebook.swift.service.guice.ThriftClientModule;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.inject.Binder;
@@ -77,6 +80,9 @@ public class HiveConnectorFactory
                     new MBeanModule(),
                     new JsonModule(),
                     new HiveClientModule(connectorId),
+                    new ThriftClientModule(),
+                    new ThriftCodecModule(),
+                    new HiveMetastoreClientModule(),
                     new Module()
                     {
                         @Override

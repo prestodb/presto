@@ -24,6 +24,11 @@
         </dependency>
 
         <dependency>
+            <groupId>com.facebook</groupId>
+            <artifactId>swift-hive-metastore</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.facebook.presto.hadoop</groupId>
             <artifactId>hadoop-cdh4</artifactId>
             <scope>provided</scope>
@@ -120,6 +125,21 @@
         <dependency>
             <groupId>joda-time</groupId>
             <artifactId>joda-time</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.thrift</groupId>
+            <artifactId>libthrift</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.swift</groupId>
+            <artifactId>swift-codec</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.swift</groupId>
+            <artifactId>swift-service</artifactId>
         </dependency>
 
         <!-- for testing -->

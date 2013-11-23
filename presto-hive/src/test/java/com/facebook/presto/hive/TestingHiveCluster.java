@@ -13,35 +13,48 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.shaded.org.apache.thrift.transport.TTransportException;
+import com.facebook.hive.metastore.api.ThriftHiveMetastore;
+import com.facebook.hive.metastore.client.HiveMetastoreClientConfig;
+import com.facebook.hive.metastore.client.HiveMetastoreFactory;
+import com.facebook.hive.metastore.client.SimpleHiveMetastoreFactory;
+import com.facebook.swift.service.ThriftClientConfig;
+import com.facebook.swift.service.ThriftClientManager;
 import com.google.common.base.Objects;
-import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.net.HostAndPort;
+
+import java.io.Closeable;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class TestingHiveCluster
-        implements HiveCluster
+        implements HiveCluster, Closeable
 {
-    private final HiveClientConfig config;
     private final String host;
     private final int port;
 
-    public TestingHiveCluster(HiveClientConfig config, String host, int port)
+    private final HiveMetastoreClientConfig hiveMetastoreClientConfig = new HiveMetastoreClientConfig();
+    private final ThriftClientManager thriftClientManager;
+    private final HiveMetastoreFactory factory;
+
+    public TestingHiveCluster(String host, int port)
     {
-        this.config = checkNotNull(config, "config is null");
         this.host = checkNotNull(host, "host is null");
         this.port = port;
+        this.thriftClientManager = new ThriftClientManager();
+        this.factory = new SimpleHiveMetastoreFactory(thriftClientManager, new ThriftClientConfig(), hiveMetastoreClientConfig);
     }
 
     @Override
-    public HiveMetastoreClient createMetastoreClient()
+    public void close()
     {
-        try {
-            return new HiveMetastoreClientFactory(config).create(host, port);
-        }
-        catch (TTransportException e) {
-            throw Throwables.propagate(e);
-        }
+        thriftClientManager.close();
+    }
+
+    @Override
+    public ThriftHiveMetastore createMetastoreClient()
+    {
+        return new HiveMetastoreClientFactory(factory).create(ImmutableSet.of(HostAndPort.fromParts(host, port)));
     }
 
     @Override

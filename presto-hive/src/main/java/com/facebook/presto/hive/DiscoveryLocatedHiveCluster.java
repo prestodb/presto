@@ -13,20 +13,22 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.shaded.org.apache.thrift.transport.TTransportException;
+import com.facebook.hive.metastore.api.ThriftHiveMetastore;
+import com.google.common.base.Function;
 import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.net.HostAndPort;
 import com.google.inject.Inject;
+
 import io.airlift.discovery.client.DiscoveryException;
 import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.discovery.client.ServiceSelector;
 import io.airlift.discovery.client.ServiceState;
 import io.airlift.discovery.client.ServiceType;
 
-import java.util.Collections;
-import java.util.List;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -45,33 +47,17 @@ public class DiscoveryLocatedHiveCluster
     }
 
     @Override
-    public HiveMetastoreClient createMetastoreClient()
+    public ThriftHiveMetastore createMetastoreClient()
     {
-        List<ServiceDescriptor> descriptors = Lists.newArrayList(Iterables.filter(selector.selectAllServices(), runningPredicate()));
+        Set<ServiceDescriptor> descriptors = ImmutableSet.copyOf(Iterables.filter(selector.selectAllServices(), Predicates.and(runningPredicate(), thriftPredicate())));
+
         if (descriptors.isEmpty()) {
             throw new DiscoveryException("No metastore servers available for pool: " + selector.getPool());
         }
 
-        Collections.shuffle(descriptors);
-        TTransportException lastException = null;
-        for (ServiceDescriptor descriptor : descriptors) {
-            String thrift = descriptor.getProperties().get("thrift");
-            if (thrift != null) {
-                try {
-                    HostAndPort metastore = HostAndPort.fromString(thrift);
-                    checkArgument(metastore.hasPort());
-                    return clientFactory.create(metastore.getHostText(), metastore.getPort());
-                }
-                catch (IllegalArgumentException ignored) {
-                    // Ignore entries with parse issues
-                }
-                catch (TTransportException e) {
-                    lastException = e;
-                }
-            }
-        }
+        Set<HostAndPort> hostAndPorts = ImmutableSet.copyOf(Iterables.transform(descriptors, getHostAndPortFunction()));
 
-        throw new DiscoveryException("Unable to connect to any metastore servers in pool: " + selector.getPool(), lastException);
+        return clientFactory.create(hostAndPorts);
     }
 
     private static Predicate<? super ServiceDescriptor> runningPredicate()
@@ -85,4 +71,44 @@ public class DiscoveryLocatedHiveCluster
             }
         };
     }
+
+    private static Predicate<? super ServiceDescriptor> thriftPredicate()
+    {
+        return new Predicate<ServiceDescriptor>()
+        {
+            @Override
+            public boolean apply(ServiceDescriptor input)
+            {
+                String thrift = input.getProperties().get("thrift");
+                if (thrift == null) {
+                    return false;
+                }
+                try {
+                    HostAndPort hostAndPort = HostAndPort.fromString(thrift);
+                    checkArgument(hostAndPort.hasPort());
+                    return true;
+                }
+                catch (IllegalArgumentException iae) {
+                    return false;
+                }
+            }
+        };
+    }
+
+    private static Function<ServiceDescriptor, HostAndPort> getHostAndPortFunction()
+    {
+        return new Function<ServiceDescriptor, HostAndPort>()
+        {
+            @Override
+            public HostAndPort apply(ServiceDescriptor descriptor)
+            {
+                String thrift = descriptor.getProperties().get("thrift");
+                checkNotNull(thrift, "thrift is null");
+                HostAndPort hostAndPort = HostAndPort.fromString(thrift);
+                checkArgument(hostAndPort.hasPort());
+                return hostAndPort;
+            }
+        };
+    }
+
 }

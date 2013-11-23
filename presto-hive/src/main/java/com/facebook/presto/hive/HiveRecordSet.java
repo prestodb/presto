@@ -162,7 +162,7 @@ public class HiveRecordSet
                 index++;
             }
         }
-        catch (MetaException | SerDeException | RuntimeException e) {
+        catch (SerDeException | RuntimeException e) {
             throw Throwables.propagate(e);
         }
 

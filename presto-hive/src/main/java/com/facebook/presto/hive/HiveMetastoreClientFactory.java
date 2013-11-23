@@ -13,63 +13,28 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.shaded.org.apache.thrift.transport.TSocket;
-import com.facebook.presto.hive.shaded.org.apache.thrift.transport.TTransport;
-import com.facebook.presto.hive.shaded.org.apache.thrift.transport.TTransportException;
+import com.facebook.hive.metastore.api.ThriftHiveMetastore;
+import com.facebook.hive.metastore.api.ThriftHiveMetastore.Client;
+import com.facebook.hive.metastore.client.HiveMetastoreFactory;
 import com.google.common.net.HostAndPort;
-import com.google.common.primitives.Ints;
 import com.google.inject.Inject;
-import io.airlift.units.Duration;
 
-import javax.annotation.Nullable;
-
-import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.net.Proxy;
-import java.net.Socket;
-import java.net.SocketAddress;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class HiveMetastoreClientFactory
 {
-    private final HostAndPort socksProxy;
-    private final Duration timeout;
-
-    public HiveMetastoreClientFactory(@Nullable HostAndPort socksProxy, Duration timeout)
-    {
-        this.socksProxy = socksProxy;
-        this.timeout = checkNotNull(timeout, "timeout is null");
-    }
+    private final HiveMetastoreFactory hiveMetastoreFactory;
 
     @Inject
-    public HiveMetastoreClientFactory(HiveClientConfig config)
+    public HiveMetastoreClientFactory(HiveMetastoreFactory hiveMetastoreFactory)
     {
-        this(config.getMetastoreSocksProxy(), config.getMetastoreTimeout());
+        this.hiveMetastoreFactory = checkNotNull(hiveMetastoreFactory, "hiveMetastoreFactory is null");
     }
 
-    @SuppressWarnings("SocketOpenedButNotSafelyClosed")
-    public HiveMetastoreClient create(String host, int port)
-            throws TTransportException
+    public Client create(Set<HostAndPort> hostAndPorts)
     {
-        TTransport transport;
-        if (socksProxy == null) {
-            transport = new TSocket(host, port, (int) timeout.toMillis());
-            transport.open();
-        }
-        else {
-            SocketAddress address = InetSocketAddress.createUnresolved(socksProxy.getHostText(), socksProxy.getPort());
-            Socket socks = new Socket(new Proxy(Proxy.Type.SOCKS, address));
-            try {
-                socks.connect(InetSocketAddress.createUnresolved(host, port), (int) timeout.toMillis());
-                socks.setSoTimeout(Ints.checkedCast(timeout.toMillis()));
-            }
-            catch (IOException e) {
-                throw new TTransportException(e);
-            }
-            transport = new TSocket(socks);
-        }
-
-        return new HiveMetastoreClient(transport);
+        return ThriftHiveMetastore.Client.forHiveMetastore(hiveMetastoreFactory.getClientForHost(hostAndPorts));
     }
 }

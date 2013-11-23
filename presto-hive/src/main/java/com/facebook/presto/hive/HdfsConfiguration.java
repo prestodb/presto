@@ -16,7 +16,9 @@ package com.facebook.presto.hive;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
 import com.google.common.primitives.Ints;
+
 import io.airlift.units.Duration;
+
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.net.DNSToSwitchMapping;
@@ -55,7 +57,7 @@ public class HdfsConfiguration
         checkNotNull(hiveClientConfig, "hiveClientConfig is null");
         checkArgument(hiveClientConfig.getDfsTimeout().toMillis() >= 1, "dfsTimeout must be at least 1 ms");
 
-        this.socksProxy = hiveClientConfig.getMetastoreSocksProxy();
+        this.socksProxy = hiveClientConfig.getDfsSocksProxy();
         this.dfsTimeout = hiveClientConfig.getDfsTimeout();
         this.dfsConnectTimeout = hiveClientConfig.getDfsConnectTimeout();
         this.dfsConnectMaxRetries = hiveClientConfig.getDfsConnectMaxRetries();

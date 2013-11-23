@@ -149,12 +149,12 @@ public abstract class AbstractTestHiveClient
         HiveClientConfig hiveClientConfig = new HiveClientConfig();
         String proxy = System.getProperty("hive.metastore.thrift.client.socks-proxy");
         if (proxy != null) {
-            hiveClientConfig.setMetastoreSocksProxy(HostAndPort.fromString(proxy));
+            hiveClientConfig.setDfsSocksProxy(HostAndPort.fromString(proxy));
         }
 
         FileSystemWrapper fileSystemWrapper = new FileSystemWrapperProvider(new FileSystemCache(hiveClientConfig)).get();
 
-        HiveCluster hiveCluster = new TestingHiveCluster(hiveClientConfig, host, port);
+        HiveCluster hiveCluster = new TestingHiveCluster(host, port);
         ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("hive-%s"));
 
         HiveClient client = new HiveClient(

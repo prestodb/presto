@@ -13,7 +13,8 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.shaded.org.apache.thrift.transport.TTransportException;
+import com.facebook.hive.metastore.api.ThriftHiveMetastore;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -36,13 +37,8 @@ public class StaticHiveCluster
     }
 
     @Override
-    public HiveMetastoreClient createMetastoreClient()
+    public ThriftHiveMetastore createMetastoreClient()
     {
-        try {
-            return clientFactory.create(address.getHostText(), address.getPort());
-        }
-        catch (TTransportException e) {
-            throw new RuntimeException("Failed connecting to Hive metastore: " + address, e);
-        }
+        return clientFactory.create(ImmutableSet.of(address));
     }
 }
