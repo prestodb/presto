@@ -18,25 +18,24 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.testng.Assert;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
-import java.net.URL;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static com.google.common.base.Charsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 public class TestExampleRecordSetProvider
 {
     private ExampleHttpServer exampleHttpServer;
-    private URL dataUrl;
+    private URI dataUri;
 
     @Test
     public void testCanHandle()
@@ -51,13 +50,13 @@ public class TestExampleRecordSetProvider
             throws Exception
     {
         ExampleRecordSetProvider recordSetProvider = new ExampleRecordSetProvider(new ExampleConnectorId("test"));
-        RecordSet recordSet = recordSetProvider.getRecordSet(new ExampleSplit("test", "schema", "table", dataUrl.toURI()), ImmutableList.of(
+        RecordSet recordSet = recordSetProvider.getRecordSet(new ExampleSplit("test", "schema", "table", dataUri), ImmutableList.of(
                 new ExampleColumnHandle("test", "text", ColumnType.STRING, 0),
                 new ExampleColumnHandle("test", "value", ColumnType.LONG, 1)));
-        Assert.assertNotNull(recordSet, "recordSet is null");
+        assertNotNull(recordSet, "recordSet is null");
 
         RecordCursor cursor = recordSet.cursor();
-        Assert.assertNotNull(cursor, "cursor is null");
+        assertNotNull(cursor, "cursor is null");
 
         Map<String, Long> data = new LinkedHashMap<>();
         while (cursor.advanceNextPosition()) {
@@ -79,7 +78,7 @@ public class TestExampleRecordSetProvider
             throws Exception
     {
         exampleHttpServer = new ExampleHttpServer();
-        dataUrl = exampleHttpServer.getBaseUrl().resolve("/example-data/numbers-2.csv").toURL();
+        dataUri = exampleHttpServer.resolve("/example-data/numbers-2.csv");
     }
 
     @AfterClass

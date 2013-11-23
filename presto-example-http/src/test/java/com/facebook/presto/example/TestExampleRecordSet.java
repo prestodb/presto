@@ -21,7 +21,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.net.URL;
+import java.net.URI;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -34,29 +34,29 @@ import static org.testng.Assert.assertFalse;
 public class TestExampleRecordSet
 {
     private ExampleHttpServer exampleHttpServer;
-    private URL dataUrl;
+    private URI dataUri;
 
     @Test
     public void testGetColumnTypes()
             throws Exception
     {
-        RecordSet recordSet = new ExampleRecordSet(new ExampleSplit("test", "schema", "table", dataUrl.toURI()), ImmutableList.of(
+        RecordSet recordSet = new ExampleRecordSet(new ExampleSplit("test", "schema", "table", dataUri), ImmutableList.of(
                 new ExampleColumnHandle("test", "text", STRING, 0),
                 new ExampleColumnHandle("test", "value", LONG, 1)));
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of(STRING, LONG));
 
-        recordSet = new ExampleRecordSet(new ExampleSplit("test", "schema", "table", dataUrl.toURI()), ImmutableList.of(
+        recordSet = new ExampleRecordSet(new ExampleSplit("test", "schema", "table", dataUri), ImmutableList.of(
                 new ExampleColumnHandle("test", "value", LONG, 1),
                 new ExampleColumnHandle("test", "text", STRING, 0)));
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of(LONG, STRING));
 
-        recordSet = new ExampleRecordSet(new ExampleSplit("test", "schema", "table", dataUrl.toURI()), ImmutableList.of(
+        recordSet = new ExampleRecordSet(new ExampleSplit("test", "schema", "table", dataUri), ImmutableList.of(
                 new ExampleColumnHandle("test", "value", LONG, 1),
                 new ExampleColumnHandle("test", "value", LONG, 1),
                 new ExampleColumnHandle("test", "text", STRING, 0)));
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of(LONG, LONG, STRING));
 
-        recordSet = new ExampleRecordSet(new ExampleSplit("test", "schema", "table", dataUrl.toURI()), ImmutableList.<ExampleColumnHandle>of());
+        recordSet = new ExampleRecordSet(new ExampleSplit("test", "schema", "table", dataUri), ImmutableList.<ExampleColumnHandle>of());
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of());
     }
 
@@ -64,7 +64,7 @@ public class TestExampleRecordSet
     public void testCursorSimple()
             throws Exception
     {
-        RecordSet recordSet = new ExampleRecordSet(new ExampleSplit("test", "schema", "table", dataUrl.toURI()), ImmutableList.of(
+        RecordSet recordSet = new ExampleRecordSet(new ExampleSplit("test", "schema", "table", dataUri), ImmutableList.of(
                 new ExampleColumnHandle("test", "text", STRING, 0),
                 new ExampleColumnHandle("test", "value", LONG, 1)));
         RecordCursor cursor = recordSet.cursor();
@@ -89,7 +89,7 @@ public class TestExampleRecordSet
     public void testCursorMixedOrder()
             throws Exception
     {
-        RecordSet recordSet = new ExampleRecordSet(new ExampleSplit("test", "schema", "table", dataUrl.toURI()), ImmutableList.of(
+        RecordSet recordSet = new ExampleRecordSet(new ExampleSplit("test", "schema", "table", dataUri), ImmutableList.of(
                 new ExampleColumnHandle("test", "value", LONG, 1),
                 new ExampleColumnHandle("test", "value", LONG, 1),
                 new ExampleColumnHandle("test", "text", STRING, 0)));
@@ -121,7 +121,7 @@ public class TestExampleRecordSet
             throws Exception
     {
         exampleHttpServer = new ExampleHttpServer();
-        dataUrl = exampleHttpServer.getBaseUrl().resolve("/example-data/numbers-2.csv").toURL();
+        dataUri = exampleHttpServer.resolve("/example-data/numbers-2.csv");
     }
 
     @AfterClass
