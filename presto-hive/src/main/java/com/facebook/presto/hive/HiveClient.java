@@ -585,7 +585,7 @@ public class HiveClient
                                 break;
                             case DOUBLE:
                                 if (value.isEmpty()) {
-                                    builder.put(columnHandle, 0L);
+                                    builder.put(columnHandle, 0.0);
                                 }
                                 else {
                                     builder.put(columnHandle, parseDouble(value));
