@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.AliasDao;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.ShardManager;
+import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.planner.optimizations.ImplementSampleAsFilter;
 import com.facebook.presto.sql.planner.optimizations.LimitPushDown;
 import com.facebook.presto.sql.planner.optimizations.MergeProjections;
@@ -45,7 +46,7 @@ public class PlanOptimizersFactory
     private List<PlanOptimizer> optimizers;
 
     @Inject
-    public PlanOptimizersFactory(Metadata metadata)
+    public PlanOptimizersFactory(Metadata metadata, SplitManager splitManager)
     {
         this.metadata = checkNotNull(metadata, "metadata is null");
 
@@ -58,7 +59,8 @@ public class PlanOptimizersFactory
                 new PruneRedundantProjections(),
                 new SetFlatteningOptimizer(),
                 new LimitPushDown(), // Run the LimitPushDown after flattening set operators to make it easier to do the set flattening
-                new PredicatePushDown(metadata),
+                new PredicatePushDown(metadata, splitManager),
+                new PredicatePushDown(metadata, splitManager), // Run predicate push down one more time in case we can leverage new information from generated partitions
                 new MergeProjections(),
                 new SimplifyExpressions(metadata), // Re-run the SimplifyExpressions to simplify any recomposed expressions from other optimizations
                 new UnaliasSymbolReferences(), // Run again because predicate pushdown might add more projections

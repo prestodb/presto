@@ -13,12 +13,9 @@
  */
 package com.facebook.presto.example;
 
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Partition;
+import com.facebook.presto.spi.TupleDomain;
 import com.google.common.base.Objects;
-import com.google.common.collect.ImmutableMap;
-
-import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -51,9 +48,9 @@ public class ExamplePartition
     }
 
     @Override
-    public Map<ColumnHandle, Object> getKeys()
+    public TupleDomain getTupleDomain()
     {
-        return ImmutableMap.of();
+        return TupleDomain.all();
     }
 
     @Override

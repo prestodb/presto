@@ -13,11 +13,12 @@
  */
 package com.facebook.presto.example;
 
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.Partition;
+import com.facebook.presto.spi.PartitionResult;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.TupleDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
@@ -26,7 +27,6 @@ import javax.inject.Inject;
 import java.net.URI;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -58,13 +58,15 @@ public class ExampleSplitManager
     }
 
     @Override
-    public List<Partition> getPartitions(TableHandle tableHandle, Map<ColumnHandle, Object> bindings)
+    public PartitionResult getPartitions(TableHandle tableHandle, TupleDomain tupleDomain)
     {
         checkArgument(tableHandle instanceof ExampleTableHandle, "tableHandle is not an instance of ExampleTableHandle");
         ExampleTableHandle exampleTableHandle = (ExampleTableHandle) tableHandle;
 
         // example connector has only one partition
-        return ImmutableList.<Partition>of(new ExamplePartition(exampleTableHandle.getSchemaName(), exampleTableHandle.getTableName()));
+        List<Partition> partitions = ImmutableList.<Partition>of(new ExamplePartition(exampleTableHandle.getSchemaName(), exampleTableHandle.getTableName()));
+        // example connector does not do any additional processing/filtering with the TupleDomain, so just return the whole TupleDomain
+        return new PartitionResult(partitions, tupleDomain);
     }
 
     @Override

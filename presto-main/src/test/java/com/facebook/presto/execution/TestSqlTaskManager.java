@@ -26,9 +26,12 @@ import com.facebook.presto.metadata.MockLocalStorageManager;
 import com.facebook.presto.metadata.Node;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.Domain;
+import com.facebook.presto.spi.PartitionResult;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.split.DataStreamManager;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
@@ -39,6 +42,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.google.common.base.Optional;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -59,7 +63,7 @@ import java.net.URI;
 import java.util.NoSuchElementException;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static com.facebook.presto.sql.planner.plan.TableScanNode.GeneratedPartitions;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
@@ -95,7 +99,8 @@ public class TestSqlTaskManager
         metadata.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, dualMetadata);
 
         DualSplitManager dualSplitManager = new DualSplitManager(new InMemoryNodeManager());
-        split = Iterables.getOnlyElement(dualSplitManager.getPartitionSplits(tableHandle, dualSplitManager.getPartitions(tableHandle, ImmutableMap.<ColumnHandle, Object>of())));
+        PartitionResult partitionResult = dualSplitManager.getPartitions(tableHandle, TupleDomain.all());
+        split = Iterables.getOnlyElement(dualSplitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions()));
 
         planner = new LocalExecutionPlanner(
                 new NodeInfo("test"),
@@ -119,7 +124,7 @@ public class TestSqlTaskManager
         testFragment = new PlanFragment(new PlanFragmentId("fragment"),
                 tableScanNodeId,
                 ImmutableMap.<Symbol, Type>of(symbol, Type.VARCHAR),
-                new TableScanNode(tableScanNodeId, tableHandle, ImmutableList.of(symbol), ImmutableMap.of(symbol, columnHandle), TRUE_LITERAL, TRUE_LITERAL));
+                new TableScanNode(tableScanNodeId, tableHandle, ImmutableList.of(symbol), ImmutableMap.of(symbol, columnHandle), Optional.<GeneratedPartitions>absent()));
 
         taskId = new TaskId("query", "stage", "task");
         session = new Session("user", "test", "default", "default", "test", "test");

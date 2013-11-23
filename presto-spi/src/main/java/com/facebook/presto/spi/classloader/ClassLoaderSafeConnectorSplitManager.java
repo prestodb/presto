@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.spi.classloader;
 
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.Partition;
+import com.facebook.presto.spi.PartitionResult;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.TupleDomain;
 
 import java.util.List;
-import java.util.Map;
 
 @SuppressWarnings("UnusedDeclaration")
 public final class ClassLoaderSafeConnectorSplitManager
@@ -52,10 +52,10 @@ public final class ClassLoaderSafeConnectorSplitManager
     }
 
     @Override
-    public List<Partition> getPartitions(TableHandle table, Map<ColumnHandle, Object> bindings)
+    public PartitionResult getPartitions(TableHandle table, TupleDomain tupleDomain)
     {
         try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getPartitions(table, bindings);
+            return delegate.getPartitions(table, tupleDomain);
         }
     }
 

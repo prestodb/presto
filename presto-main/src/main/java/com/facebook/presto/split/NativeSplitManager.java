@@ -22,12 +22,13 @@ import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.metadata.TablePartition;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplitManager;
-import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.PartitionKey;
+import com.facebook.presto.spi.PartitionResult;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.TupleDomain;
 import com.google.common.base.Objects;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.Collections2;
@@ -85,7 +86,7 @@ public class NativeSplitManager
     }
 
     @Override
-    public List<Partition> getPartitions(TableHandle tableHandle, Map<ColumnHandle, Object> bindings)
+    public PartitionResult getPartitions(TableHandle tableHandle, TupleDomain tupleDomain)
     {
         Stopwatch partitionTimer = new Stopwatch();
         partitionTimer.start();
@@ -109,7 +110,7 @@ public class NativeSplitManager
 
         log.debug("Partition generation, native table %s (%d partitions): %dms", tableHandle, partitions.size(), partitionTimer.elapsed(TimeUnit.MILLISECONDS));
 
-        return partitions;
+        return new PartitionResult(partitions, tupleDomain);
     }
 
     @Override
@@ -165,12 +166,12 @@ public class NativeSplitManager
             implements Partition
     {
         private final long partitionId;
-        private Map<ColumnHandle, Object> keys;
+        private final TupleDomain tupleDomain;
 
-        public NativePartition(long partitionId, Map<ColumnHandle, Object> keys)
+        public NativePartition(long partitionId, TupleDomain tupleDomain)
         {
             this.partitionId = partitionId;
-            this.keys = keys;
+            this.tupleDomain = checkNotNull(tupleDomain, "tupleDomain is null");
         }
 
         @Override
@@ -185,15 +186,15 @@ public class NativeSplitManager
         }
 
         @Override
-        public Map<ColumnHandle, Object> getKeys()
+        public TupleDomain getTupleDomain()
         {
-            return keys;
+            return tupleDomain;
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hashCode(partitionId, keys);
+            return Objects.hashCode(partitionId, tupleDomain);
         }
 
         @Override
@@ -207,7 +208,7 @@ public class NativeSplitManager
             }
             final NativePartition other = (NativePartition) obj;
             return this.partitionId == other.partitionId
-                    && Objects.equal(this.keys, other.keys);
+                    && Objects.equal(this.tupleDomain, other.tupleDomain);
         }
 
         @Override
@@ -215,7 +216,7 @@ public class NativeSplitManager
         {
             return Objects.toStringHelper(this)
                     .add("partitionId", partitionId)
-                    .add("keys", keys)
+                    .add("tupleDomain", tupleDomain)
                     .toString();
         }
     }

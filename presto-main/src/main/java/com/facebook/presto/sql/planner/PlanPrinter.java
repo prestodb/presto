@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
@@ -52,6 +53,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.sql.planner.DomainUtils.printableTupleDomainWithSymbols;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
 
@@ -212,11 +214,14 @@ public class PlanPrinter
         @Override
         public Void visitTableScan(TableScanNode node, Integer indent)
         {
-            print(indent, "- TableScan[%s, partition predicate=%s, upstream predicate=%s] => [%s]", node.getTable(), node.getPartitionPredicate(), node.getUpstreamPredicateHint(), formatOutputs(node.getOutputSymbols()));
+            TupleDomain partitionsDomainSummary = node.getPartitionsDomainSummary();
+            print(indent, "- TableScan[%s, domain=%s] => [%s]", node.getTable(), printableTupleDomainWithSymbols(partitionsDomainSummary, node.getAssignments()), formatOutputs(node.getOutputSymbols()));
             for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
-                print(indent + 2, "%s := %s", entry.getKey(), entry.getValue());
+                if (node.getOutputSymbols().contains(entry.getKey()) ||
+                        (!partitionsDomainSummary.isNone() && partitionsDomainSummary.getDomains().keySet().contains(entry.getValue()))) {
+                    print(indent + 2, "%s := %s", entry.getKey(), entry.getValue());
+                }
             }
-
             return null;
         }
 

@@ -14,15 +14,30 @@
 package com.facebook.presto.spi;
 
 import java.util.List;
-import java.util.Map;
 
 public interface ConnectorSplitManager
 {
+    /**
+     * Get the globally-unique id of this connector instance
+     */
     String getConnectorId();
 
+    /**
+     * Returns true only if this ConnectorSplitManager can operate on the TableHandle
+     */
     boolean canHandle(TableHandle handle);
 
-    List<Partition> getPartitions(TableHandle table, Map<ColumnHandle, Object> bindings);
+    /**
+     * Gets the Partitions for the specified table.
+     *
+     * The TupleDomain indicates the execution filters that will be directly applied to the
+     * data stream produced by this connector. Connectors are encouraged to take advantage of
+     * this information to perform connector-specific optimizations.
+     */
+    PartitionResult getPartitions(TableHandle table, TupleDomain tupleDomain);
 
+    /**
+     * Gets the Splits for the specified Partitions in the indicated table.
+     */
     Iterable<Split> getPartitionSplits(TableHandle table, List<Partition> partitions);
 }

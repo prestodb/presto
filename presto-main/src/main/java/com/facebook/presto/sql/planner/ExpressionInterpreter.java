@@ -28,8 +28,6 @@ import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CurrentTime;
-import com.facebook.presto.sql.tree.DateLiteral;
-import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -38,40 +36,33 @@ import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.sql.tree.InputReference;
-import com.facebook.presto.sql.tree.IntervalLiteral;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
-import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NegativeExpression;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
-import com.facebook.presto.sql.tree.TimeLiteral;
-import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.tuple.TupleReadable;
 import com.google.common.base.Charsets;
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.joni.Regex;
 
 import javax.annotation.Nullable;
+
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -79,7 +70,8 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Set;
 
-import static com.google.common.base.Charsets.UTF_8;
+import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpression;
+import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpressions;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -224,54 +216,9 @@ public class ExpressionInterpreter
         }
 
         @Override
-        protected Long visitLongLiteral(LongLiteral node, Object context)
+        protected Object visitLiteral(Literal node, Object context)
         {
-            return node.getValue();
-        }
-
-        @Override
-        protected Double visitDoubleLiteral(DoubleLiteral node, Object context)
-        {
-            return node.getValue();
-        }
-
-        @Override
-        protected Slice visitStringLiteral(StringLiteral node, Object context)
-        {
-            return node.getSlice();
-        }
-
-        @Override
-        protected Object visitDateLiteral(DateLiteral node, Object context)
-        {
-            return node.getUnixTime();
-        }
-
-        @Override
-        protected Object visitTimeLiteral(TimeLiteral node, Object context)
-        {
-            return node.getUnixTime();
-        }
-
-        @Override
-        protected Long visitTimestampLiteral(TimestampLiteral node, Object context)
-        {
-            return node.getUnixTime();
-        }
-
-        @Override
-        protected Long visitIntervalLiteral(IntervalLiteral node, Object context)
-        {
-            if (node.isYearToMonth()) {
-                throw new UnsupportedOperationException("Month based intervals not supported yet: " + node.getType());
-            }
-            return node.getSeconds();
-        }
-
-        @Override
-        protected Object visitNullLiteral(NullLiteral node, Object context)
-        {
-            return null;
+            return LiteralInterpreter.evaluate(node);
         }
 
         @Override
@@ -1003,58 +950,6 @@ public class ExpressionInterpreter
                 return node;
             }
         }
-    }
-
-    private static List<Expression> toExpressions(List<?> objects)
-    {
-        return ImmutableList.copyOf(Lists.transform(objects, new Function<Object, Expression>()
-        {
-            public Expression apply(@Nullable Object value)
-            {
-                return toExpression(value);
-            }
-        }));
-    }
-
-    public static Expression toExpression(Object object)
-    {
-        if (object instanceof Expression) {
-            return (Expression) object;
-        }
-
-        if (object instanceof Long) {
-            return new LongLiteral(object.toString());
-        }
-
-        if (object instanceof Double) {
-            Double value = (Double) object;
-            if (value.isNaN()) {
-                return new FunctionCall(new QualifiedName("nan"), ImmutableList.<Expression>of());
-            }
-            else if (value == Double.NEGATIVE_INFINITY) {
-                return new NegativeExpression(new FunctionCall(new QualifiedName("infinity"), ImmutableList.<Expression>of()));
-            }
-            else if (value == Double.POSITIVE_INFINITY) {
-                return new FunctionCall(new QualifiedName("infinity"), ImmutableList.<Expression>of());
-            }
-            else {
-                return new DoubleLiteral(object.toString());
-            }
-        }
-
-        if (object instanceof Slice) {
-            return new StringLiteral(((Slice) object).toString(UTF_8));
-        }
-
-        if (object instanceof Boolean) {
-            return new BooleanLiteral(object.toString());
-        }
-
-        if (object == null) {
-            return new NullLiteral();
-        }
-
-        throw new UnsupportedOperationException("not yet implemented: " + object.getClass().getName());
     }
 
     private static Predicate<Expression> isNonNullLiteralPredicate()

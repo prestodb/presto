@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.metadata.FunctionHandle;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.DependencyExtractor;
@@ -39,16 +38,16 @@ import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -188,7 +187,9 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode rewriteTableScan(TableScanNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
         {
-            Set<Symbol> requiredTableScanOutputs = ImmutableSet.copyOf(filter(expectedOutputs, in(node.getOutputSymbols())));
+            Set<Symbol> requiredTableScanOutputs = FluentIterable.from(expectedOutputs)
+                    .filter(in(node.getOutputSymbols()))
+                    .toSet();
             if (requiredTableScanOutputs.isEmpty()) {
                 for (Symbol symbol : node.getOutputSymbols()) {
                     if (Type.isNumeric(types.get(symbol))) {
@@ -202,10 +203,10 @@ public class PruneUnreferencedOutputs
             }
             checkState(!requiredTableScanOutputs.isEmpty());
 
-            Set<Symbol> requiredSymbols = Sets.union(requiredTableScanOutputs, DependencyExtractor.extractUnique(node.getPartitionPredicate()));
-            Map<Symbol, ColumnHandle> newAssignments = Maps.filterKeys(node.getAssignments(), in(requiredSymbols));
-
-            return new TableScanNode(node.getId(), node.getTable(), ImmutableList.copyOf(requiredTableScanOutputs), newAssignments, node.getPartitionPredicate(), node.getUpstreamPredicateHint());
+            List<Symbol> newOutputSymbols = FluentIterable.from(node.getOutputSymbols())
+                    .filter(in(requiredTableScanOutputs))
+                    .toList();
+            return new TableScanNode(node.getId(), node.getTable(), newOutputSymbols, node.getAssignments(), node.getGeneratedPartitions());
         }
 
         @Override

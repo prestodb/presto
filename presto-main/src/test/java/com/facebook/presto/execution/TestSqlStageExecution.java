@@ -41,7 +41,6 @@ import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
-import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.util.Threads;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -70,6 +69,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.facebook.presto.sql.planner.plan.TableScanNode.GeneratedPartitions;
 import static com.facebook.presto.util.Failures.toFailures;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -189,11 +189,7 @@ public class TestSqlStageExecution
         PlanFragment testFragment = new PlanFragment(new PlanFragmentId(planId),
                 tableScanNodeId,
                 ImmutableMap.<Symbol, Type>of(symbol, Type.VARCHAR),
-                new TableScanNode(tableScanNodeId,
-                        tableHandle, ImmutableList.of(symbol),
-                        ImmutableMap.of(symbol, columnHandle),
-                        BooleanLiteral.TRUE_LITERAL,
-                        BooleanLiteral.TRUE_LITERAL));
+                new TableScanNode(tableScanNodeId, tableHandle, ImmutableList.of(symbol), ImmutableMap.of(symbol, columnHandle), Optional.<GeneratedPartitions>absent()));
         DataSource dataSource = new DataSource(null, ImmutableList.copyOf(Collections.nCopies(splitCount, split)));
 
         return new StageExecutionPlan(testFragment,

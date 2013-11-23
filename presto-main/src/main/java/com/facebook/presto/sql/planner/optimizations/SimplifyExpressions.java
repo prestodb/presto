@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
+import com.facebook.presto.sql.planner.LiteralInterpreter;
 import com.facebook.presto.sql.planner.NoOpSymbolResolver;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
@@ -26,7 +27,6 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
 import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.base.Function;
@@ -90,12 +90,6 @@ public class SimplifyExpressions
             return new FilterNode(node.getId(), source, simplified);
         }
 
-        @Override
-        public PlanNode rewriteTableScan(TableScanNode node, Void context, PlanRewriter<Void> planRewriter)
-        {
-            return new TableScanNode(node.getId(), node.getTable(), node.getOutputSymbols(), node.getAssignments(), simplifyExpression(node.getPartitionPredicate()), simplifyExpression(node.getUpstreamPredicateHint()));
-        }
-
         private Function<Expression, Expression> simplifyExpressionFunction()
         {
             return new Function<Expression, Expression>()
@@ -111,7 +105,7 @@ public class SimplifyExpressions
         private Expression simplifyExpression(Expression input)
         {
             ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(input, metadata, session);
-            return ExpressionInterpreter.toExpression(interpreter.optimize(NoOpSymbolResolver.INSTANCE));
+            return LiteralInterpreter.toExpression(interpreter.optimize(NoOpSymbolResolver.INSTANCE));
         }
     }
 }

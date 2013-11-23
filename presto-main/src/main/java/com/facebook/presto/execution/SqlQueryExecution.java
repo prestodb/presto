@@ -38,7 +38,6 @@ import com.facebook.presto.util.SetThreadName;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableList;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
@@ -49,7 +48,6 @@ import javax.inject.Inject;
 
 import java.net.URI;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -217,7 +215,7 @@ public class SqlQueryExecution
         long distributedPlanningStart = System.nanoTime();
 
         // plan the execution on the active nodes
-        DistributedExecutionPlanner distributedPlanner = new DistributedExecutionPlanner(splitManager, stateMachine.getSession(), shardManager);
+        DistributedExecutionPlanner distributedPlanner = new DistributedExecutionPlanner(splitManager, shardManager);
         StageExecutionPlan outputStageExecutionPlan = distributedPlanner.plan(subplan);
 
         if (stateMachine.isDone()) {

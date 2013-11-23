@@ -232,8 +232,6 @@ public class PlanSanityChecker
             verifyUniqueId(node);
 
             Preconditions.checkArgument(node.getAssignments().keySet().containsAll(node.getOutputSymbols()), "Assignments must contain mappings for output symbols");
-            Set<Symbol> predicateSymbols = DependencyExtractor.extractUnique(node.getPartitionPredicate());
-            Preconditions.checkArgument(node.getAssignments().keySet().containsAll(predicateSymbols), "Assignments must contain mappings for all partition predicate symbols");
 
             return null;
         }

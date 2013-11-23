@@ -14,12 +14,16 @@
 package com.facebook.presto;
 
 import com.facebook.presto.connector.dual.DualMetadata;
+import com.facebook.presto.connector.dual.DualSplitManager;
 import com.facebook.presto.importer.MockPeriodicImportManager;
+import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
+import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -2870,7 +2874,8 @@ public abstract class AbstractTestQueries
         Session session = new Session("user", "test", DEFAULT_CATALOG, DEFAULT_SCHEMA, null, null);
         MetadataManager metadata = new MetadataManager();
         metadata.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, new DualMetadata());
-        List<PlanOptimizer> optimizers = new PlanOptimizersFactory(metadata).get();
+        SplitManager splitManager = new SplitManager(ImmutableSet.<ConnectorSplitManager>of(new DualSplitManager(new InMemoryNodeManager())));
+        List<PlanOptimizer> optimizers = new PlanOptimizersFactory(metadata, splitManager).get();
         return new QueryExplainer(session, optimizers, metadata, new MockPeriodicImportManager(), new MockStorageManager());
     }
 }
