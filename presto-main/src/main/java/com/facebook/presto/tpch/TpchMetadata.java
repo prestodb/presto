@@ -17,8 +17,8 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.ReadOnlyConnectorMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableHandle;
@@ -39,7 +39,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class TpchMetadata
-        implements ConnectorMetadata
+        extends ReadOnlyConnectorMetadata
 {
     public static final String TPCH_CATALOG_NAME = "tpch";
     public static final String TPCH_SCHEMA_NAME = "default";
@@ -194,18 +194,6 @@ public class TpchMetadata
             return builder.build();
         }
         return ImmutableList.of();
-    }
-
-    @Override
-    public TableHandle createTable(ConnectorTableMetadata tableMetadata)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void dropTable(TableHandle tableHandle)
-    {
-        throw new UnsupportedOperationException();
     }
 
     private String getTableName(TableHandle tableHandle)
