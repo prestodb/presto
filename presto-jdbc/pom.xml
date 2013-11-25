@@ -13,6 +13,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <shadeBase>com.facebook.presto.jdbc.internal</shadeBase>
     </properties>
 
     <dependencies>
@@ -24,16 +25,81 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>http-client</artifactId>
+            <exclusions>
+                <!-- airlift configuration annotations are needed, but bval and cglib are not -->
+                <exclusion>
+                    <groupId>org.apache.bval</groupId>
+                    <artifactId>bval-jsr303</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>cglib</groupId>
+                    <artifactId>cglib-nodep</artifactId>
+                </exclusion>
+                <!-- trace-token is not used -->
+                <exclusion>
+                    <groupId>io.airlift</groupId>
+                    <artifactId>trace-token</artifactId>
+                </exclusion>
+                <!-- guice is not used -->
+                <exclusion>
+                    <groupId>javax.inject</groupId>
+                    <artifactId>javax.inject</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.google.inject</groupId>
+                    <artifactId>guice</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.google.inject.extensions</groupId>
+                    <artifactId>guice-multibindings</artifactId>
+                </exclusion>
+                <!-- the apache http client is not used -->
+                <exclusion>
+                    <groupId>org.apache.httpcomponents</groupId>
+                    <artifactId>httpclient</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.httpcomponents</groupId>
+                    <artifactId>httpcore</artifactId>
+                </exclusion>
+                <!-- jmxutils is not used -->
+                <exclusion>
+                    <groupId>org.weakref</groupId>
+                    <artifactId>jmxutils</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>units</artifactId>
+            <exclusions>
+                <exclusion>
+                    <!-- TODO: fix in airlift to be a test dependency -->
+                    <groupId>org.apache.bval</groupId>
+                    <artifactId>bval-jsr303</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>json</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>javax.inject</groupId>
+                    <artifactId>javax.inject</artifactId>
+                </exclusion>
+                <!-- TODO: fix in airlift to use TypeToken -->
+                <!--<exclusion>-->
+                    <!--<groupId>com.google.inject</groupId>-->
+                    <!--<artifactId>guice</artifactId>-->
+                <!--</exclusion>-->
+                <exclusion>
+                    <groupId>com.google.inject.extensions</groupId>
+                    <artifactId>guice-multibindings</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -79,6 +145,12 @@
             <artifactId>testing</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpclient</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -95,11 +167,58 @@
                         <configuration>
                             <shadedArtifactAttached>true</shadedArtifactAttached>
                             <shadedClassifierName>standalone</shadedClassifierName>
+                            <createSourcesJar>true</createSourcesJar>
+                            <keepDependenciesWithProvidedScope>false</keepDependenciesWithProvidedScope>
                             <artifactSet>
                                 <excludes>
-                                    <exclude>io.airlift:launcher</exclude>
+                                    <exclude>com.google.code.findbugs:annotations</exclude>
+                                    <!-- TODO: remove aopalliance and guice excludes here when excluded above -->
+                                    <exclude>aopalliance:aopalliance</exclude>
+                                    <exclude>com.google.inject:guice</exclude>
+                                    <exclude>javax.validation:validation-api</exclude>
                                 </excludes>
                             </artifactSet>
+                            <relocations>
+                                <relocation>
+                                    <pattern>com.facebook.presto.client</pattern>
+                                    <shadedPattern>${shadeBase}.client</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>com.fasterxml.jackson</pattern>
+                                    <shadedPattern>${shadeBase}.jackson</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>com.google.common</pattern>
+                                    <shadedPattern>${shadeBase}.guava</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>io.airlift</pattern>
+                                    <shadedPattern>${shadeBase}.airlift</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.jboss.netty</pattern>
+                                    <shadedPattern>${shadeBase}.netty</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.joda.time</pattern>
+                                    <shadedPattern>${shadeBase}.joda.time</shadedPattern>
+                                </relocation>
+                            </relocations>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/maven/**</exclude>
+                                        <exclude>META-INF/*.xml</exclude>
+                                    </excludes>
+                                </filter>
+                                <filter>
+                                    <artifact>com.fasterxml.jackson.core:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/services/**</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
                         </configuration>
                     </execution>
                 </executions>
