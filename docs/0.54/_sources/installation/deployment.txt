@@ -1,0 +1,282 @@
+================
+Deploying Presto
+================
+
+Installing Presto
+-----------------
+
+Download the Presto server tarball, :download:`server`, and unpack it.
+The tarball will contain a single top-level directory,
+|presto_server_release|, which we will call the *installation* directory.
+
+Presto needs a *data* directory for storing logs, local metadata, etc.
+We recommend creating a data directory outside of the installation directory,
+which allows it to be easily preserved when upgrading Presto.
+
+Configuring Presto
+------------------
+
+Create an ``etc`` directory inside the installation directory.
+This will hold the following configuration:
+
+* Node Properties: environmental configuration specific to each node
+* JVM Config: command line options for the Java Virtual Machine
+* Config Properties: configuration for the Presto server
+* Catalog Properties: configuration for connectors (data sources)
+
+.. _presto_node_properties:
+
+Node Properties
+^^^^^^^^^^^^^^^
+
+The node properties file, ``etc/node.properties``, contains configuration
+specific to each node. A *node* is a single installed instance of Presto
+on a machine. This file is typically created by the deployment system when
+Presto is first installed. The following is a minimal ``etc/node.properties``:
+
+.. code-block:: none
+
+    node.environment=production
+    node.id=ffffffff-ffff-ffff-ffff-ffffffffffff
+    node.data-dir=/var/presto/data
+
+The above properties are described below:
+
+* ``node.environment``:
+  The name of the environment. All Presto nodes in a cluster must
+  have the same environment name.
+
+* ``node.id``:
+  The unique identifier for this installation of Presto. This must be
+  unique for every node. This identifier should remain consistent across
+  reboots or upgrades of Presto. If running multiple installations of
+  Presto on a single machine (i.e. multiple nodes on the same machine),
+  each installation must have a unique identifier.
+
+* ``node.data-dir``:
+  The location (filesystem path) of the data directory. Presto will store
+  logs and other data here.
+
+.. _presto_jvm_config:
+
+JVM Config
+^^^^^^^^^^
+
+The JVM config file, ``etc/jvm.config``, contains a list of command line
+options used for launching the Java Virtual Machine. The format of the file
+is a list of options, one per line. These options are not interpreted by
+the shell, so options containing spaces or other special characters should
+not be quoted (as demonstrated by the ``OnOutOfMemoryError`` option in the
+example below).
+
+The following provides a good starting point for creating ``etc/jvm.config``:
+
+.. code-block:: none
+
+    -server
+    -Xmx16G
+    -XX:+UseConcMarkSweepGC
+    -XX:+ExplicitGCInvokesConcurrent
+    -XX:+CMSClassUnloadingEnabled
+    -XX:+AggressiveOpts
+    -XX:+HeapDumpOnOutOfMemoryError
+    -XX:OnOutOfMemoryError=kill -9 %p
+    -XX:PermSize=150M
+    -XX:MaxPermSize=150M
+    -XX:ReservedCodeCacheSize=150M
+    -Xbootclasspath/p:/var/presto/installation/lib/floatingdecimal-0.1.jar
+
+Because an ``OutOfMemoryError`` will typically leave the JVM in an
+inconsistent state, we write a heap dump (for debugging) and forcibly
+terminate the process when this occurs.
+
+Presto compiles queries to bytecode at runtime and thus produces many classes,
+so we increase the permanent generation size (the garbage collector region
+where classes are stored) and enable class unloading.
+
+The last option in the above configuration loads the
+`floatingdecimal <https://github.com/airlift/floatingdecimal>`_
+patch for the JDK that substantially improves performance when parsing
+floating point numbers. This is important because many Hive file formats
+store floating point values as text. Change the path
+``/var/presto/installation`` to match the Presto installation directory.
+
+Config Properties
+^^^^^^^^^^^^^^^^^
+
+The config properties file, ``etc/config.properties``, contains the
+configuration for the Presto server. Every Presto server can function
+as both a coordinator and a worker, but dedicating a single machine
+to only perform coordination work provides the best performance on
+larger clusters.
+
+The following is a minimal configuration for the coordinator:
+
+.. code-block:: none
+
+    coordinator=true
+    datasources=jmx
+    http-server.http.port=8080
+    presto-metastore.db.type=h2
+    presto-metastore.db.filename=var/db/MetaStore
+    task.max-memory=1GB
+    discovery-server.enabled=true
+    discovery.uri=http://example.net:8080
+
+And this is a minimal configuration for the workers:
+
+.. code-block:: none
+
+    coordinator=false
+    datasources=jmx,hive
+    http-server.http.port=8080
+    presto-metastore.db.type=h2
+    presto-metastore.db.filename=var/db/MetaStore
+    task.max-memory=1GB
+    discovery.uri=http://example.net:8080
+
+These properties require some explanation:
+
+* ``datasources``:
+  Specifies the list of catalog names that may have splits processed
+  on this node. Both the coordinator and workers have ``jmx`` enabled
+  because the JMX catalog enables querying JMX properties from all nodes.
+  However, only the workers have ``hive`` enabled, because we do not want
+  to process Hive splits on the coordinator, as this can interfere with
+  query coordination and slow down everything.
+
+* ``http-server.http.port``:
+  Specifies the port for the HTTP server. Presto uses HTTP for all
+  communication, internal and external.
+
+* ``presto-metastore.db.filename``:
+  The location of the local H2 database used for storing metadata.
+  Currently, this is mainly used by features that are still in
+  development and thus a local database suffices.
+  Also, this should only be needed by the coordinator, but currently
+  it is also required for workers.
+
+* ``task.max-memory=1GB``:
+  The maximum amount of memory used by a single task
+  (a fragment of a query plan running on a specific node).
+  In particular, this limits the number of groups in a ``GROUP BY``,
+  the size of the right-hand table in a ``JOIN``, the number of rows
+  in an ``ORDER BY`` or the number of rows processed by a window function.
+  This value should be tuned based on the number of concurrent queries and
+  the size and complexity of queries.  Setting it too low will limit the
+  queries that can be run, while setting it too high will cause the JVM
+  to run out of memory.
+
+* ``discovery-server.enabled``:
+  Presto uses the Discovery service to find all the nodes in the cluster.
+  Every Presto instance will register itself with the Discovery service
+  on startup. In order to simplify deployment and avoid running an additional
+  service, the Presto coordinator can run an embedded version of the
+  Discovery service. It shares the HTTP server with Presto and thus uses
+  the same port. For larger clusters, we recommend running Discovery as a
+  dedicated service. See :doc:`discovery` for details.
+
+* ``discovery.uri``:
+  The URI to the Discovery server. Because we have enabled the embedded
+  version of Discovery in the Presto coordinator, this should be the
+  URI of the Presto coordinator. Replace ``example.net:8080`` to match
+  the host and port of the Presto coordinator. This URI must not end
+  in a slash.
+
+Log Levels
+^^^^^^^^^^
+
+The optional log levels file, ``etc/log.properties``, allows setting the
+minimum log level for named logger hierarchies. Every logger has a name,
+which is typically the fully qualified name of the class that uses the logger.
+Loggers have a hierarchy based on the dots in the name (like Java packages).
+For example, consider the following log levels file:
+
+.. code-block:: none
+
+    com.facebook.presto=DEBUG
+
+This would set the minimum level to ``DEBUG`` for both
+``com.facebook.presto.server`` and ``com.facebook.presto.hive``.
+The default minimum level is ``INFO``.
+There are four levels: ``DEBUG``, ``INFO``, ``WARN`` and ``ERROR``.
+
+Catalog Properties
+^^^^^^^^^^^^^^^^^^
+
+Presto accesses data via *connectors*, which are mounted in catalogs.
+The connector provides all of the schemas and tables inside of the catalog.
+For example, the Hive connector maps each Hive database to a schema,
+so if the Hive connector is mounted as the ``hive`` catalog, and Hive
+contains a table ``bar`` in database ``foo``, that table would be accessed
+in Presto as ``hive.foo.bar``.
+
+Catalogs are registered by creating a catalog properties file
+in the ``etc/catalog`` directory.
+For example, create ``etc/catalog/jmx.properties`` with the following
+contents to mount the ``jmx`` connector as the ``jmx`` catalog:
+
+.. code-block:: none
+
+    connector.name=jmx
+
+Presto includes Hive connectors for multiple versions of Hadoop:
+
+* ``hive-hadoop1``: Apache Hadoop 1.x
+* ``hive-cdh4``: Cloudera CDH4
+
+Create ``etc/catalog/hive.properties`` with the following contents
+to mount the ``hive-cdh4`` connector as the ``hive`` catalog,
+replacing ``hive-cdh4`` with the proper connector for your version
+of Hadoop and ``example.net:9083`` with the correct host and port
+for your Hive metastore Thrift service:
+
+.. code-block:: none
+
+    connector.name=hive-cdh4
+    hive.metastore.uri=thrift://example.net:9083
+
+You can have as many catalogs as you need, so if you have additional
+Hive clusters, simply add another properties file to ``etc/catalog``
+with a different name (making sure it ends in ``.properties``).
+
+.. _running_presto:
+
+Running Presto
+--------------
+
+The installation directory contains the launcher script in ``bin/launcher``.
+Presto can be started as a daemon by running running the following:
+
+.. code-block:: none
+
+    bin/launcher start
+
+Alternatively, it can be run in the foreground, with the logs and other
+output being written to stdout/stderr (both streams should be captured
+if using a supervision system like daemontools):
+
+.. code-block:: none
+
+    bin/launcher run
+
+Run the launcher with ``--help`` to see the supported commands and
+command line options. In particular, the ``--verbose`` option is
+very useful for debugging the installation.
+
+After launching, you can find the log files in ``var/log``:
+
+* ``launcher.log``:
+  This log is created by the launcher and is connected to the stdout
+  and stderr streams of the server. It will contain a few log messages
+  that occur while the server logging is being initialized and any
+  errors or diagnostics produced by the JVM.
+
+* ``server.log``:
+  This is the main log file used by Presto. It will typically contain
+  the relevant information if the server fails during initialization.
+  It is automatically rotated and compressed.
+
+* ``http-request.log``:
+  This is the HTTP request log which contains every HTTP request
+  received by the server. It is automatically rotated and compressed.
