@@ -1,0 +1,104 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>3.5. SHOW PARTITIONS &mdash; Presto 0.54 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.54',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.54 Documentation" href="../index.html" />
+    <link rel="up" title="3. SQL Statement Syntax" href="../sql.html" />
+    <link rel="next" title="3.6. SHOW TABLES" href="show-tables.html" />
+    <link rel="prev" title="3.4. SHOW COLUMNS" href="show-columns.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.54 Documentation</span></a></h1>
+    <h2 class="heading"><span>3.5. SHOW PARTITIONS</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="show-columns.html">3.4. SHOW COLUMNS</a>
+    </span>
+    <span class="right">
+        <a href="show-tables.html">3.6. SHOW TABLES</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="show-partitions">
+<h1>3.5. SHOW PARTITIONS</h1>
+<div class="section" id="synopsis">
+<h2>Synopsis</h2>
+<div class="highlight-none"><div class="highlight"><pre>SHOW PARTITIONS FROM table [ WHERE ... ] [ ORDER BY ... ] [ LIMIT ... ]
+</pre></div>
+</div>
+</div>
+<div class="section" id="description">
+<h2>Description</h2>
+<p>List the partitions in <tt class="docutils literal"><span class="pre">table</span></tt>, optionally filtered using the <tt class="docutils literal"><span class="pre">WHERE</span></tt> clause,
+ordered using the <tt class="docutils literal"><span class="pre">ORDER</span> <span class="pre">BY</span></tt> clause and limited using the <tt class="docutils literal"><span class="pre">LIMIT</span></tt> clause.
+These clauses work the same way that they do in a <a class="reference internal" href="select.html"><em>SELECT</em></a> statement.</p>
+</div>
+<div class="section" id="examples">
+<h2>Examples</h2>
+<p>List all partitions in the table <tt class="docutils literal"><span class="pre">orders</span></tt>:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SHOW</span> <span class="n">PARTITIONS</span> <span class="k">FROM</span> <span class="n">orders</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>List all partitions in the table <tt class="docutils literal"><span class="pre">orders</span></tt> starting from the year <tt class="docutils literal"><span class="pre">2013</span></tt>
+and sort them in reverse date order:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SHOW</span> <span class="n">PARTITIONS</span> <span class="k">FROM</span> <span class="n">orders</span> <span class="k">WHERE</span> <span class="n">ds</span> <span class="o">&gt;=</span> <span class="s1">&#39;2013-01-01&#39;</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">ds</span> <span class="k">DESC</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>List the most recent partitions in the table <tt class="docutils literal"><span class="pre">orders</span></tt>:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SHOW</span> <span class="n">PARTITIONS</span> <span class="k">FROM</span> <span class="n">orders</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">ds</span> <span class="k">DESC</span> <span class="k">LIMIT</span> <span class="mi">10</span><span class="p">;</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="show-columns.html">3.4. SHOW COLUMNS</a>
+    </span>
+    <span class="right">
+        <a href="show-tables.html">3.6. SHOW TABLES</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+        &copy; Copyright 2013, Facebook.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>
