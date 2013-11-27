@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Objects;
 
 public class ColumnMetadata
@@ -22,7 +24,12 @@ public class ColumnMetadata
     private final int ordinalPosition;
     private final boolean partitionKey;
 
-    public ColumnMetadata(String name, ColumnType type, int ordinalPosition, boolean partitionKey)
+    @JsonCreator
+    public ColumnMetadata(
+            @JsonProperty("name") String name,
+            @JsonProperty("type") ColumnType type,
+            @JsonProperty("ordinalPosition") int ordinalPosition,
+            @JsonProperty("partitionKey") boolean partitionKey)
     {
         if (name == null || name.isEmpty()) {
             throw new NullPointerException("name is null or empty");
@@ -40,21 +47,25 @@ public class ColumnMetadata
         this.partitionKey = partitionKey;
     }
 
+    @JsonProperty
     public String getName()
     {
         return name;
     }
 
+    @JsonProperty
     public ColumnType getType()
     {
         return type;
     }
 
+    @JsonProperty
     public int getOrdinalPosition()
     {
         return ordinalPosition;
     }
 
+    @JsonProperty
     public boolean isPartitionKey()
     {
         return partitionKey;
