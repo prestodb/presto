@@ -17,8 +17,10 @@ import com.facebook.presto.execution.DataSource;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplitManager;
+import com.facebook.presto.spi.ConnectorSplitManagerWithPushdown;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.InConstantRangePredicate;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.LookupSymbolResolver;
@@ -85,6 +87,13 @@ public class SplitManager
         partitionTimer.start();
 
         BiMap<Symbol, ColumnHandle> symbolToColumn = ImmutableBiMap.copyOf(mappings);
+
+        ConnectorSplitManager manager = getConnectorSplitManager(table);
+        if (manager instanceof ConnectorSplitManagerWithPushdown) {
+            // ConnectorSplitManager implements index pushdown -- leave the manager to pushdown
+            Map<ColumnHandle, InConstantRangePredicate> ranges = ExpressionUtil.extractConstantRanges(predicate, symbolToColumn);
+            return ((ConnectorSplitManagerWithPushdown) manager).getPartitionsWithPushdown(table, ranges);
+        }
 
         // First find candidate partitions -- try to push down the predicate to the underlying API
         List<Partition> partitions = getCandidatePartitions(table, predicate, symbolToColumn);
