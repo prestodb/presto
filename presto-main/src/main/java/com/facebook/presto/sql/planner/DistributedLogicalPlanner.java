@@ -22,6 +22,7 @@ import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
+import com.facebook.presto.sql.planner.plan.MaterializedViewWriterNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -32,7 +33,6 @@ import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
-import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
@@ -272,12 +272,12 @@ public class DistributedLogicalPlanner
         }
 
         @Override
-        public SubPlanBuilder visitTableWriter(TableWriterNode node, Void context)
+        public SubPlanBuilder visitMaterializedViewWriter(MaterializedViewWriterNode node, Void context)
         {
             SubPlanBuilder subPlanBuilder = node.getSource().accept(this, context);
 
             if (createSingleNodePlan) {
-                subPlanBuilder.setRoot(new TableWriterNode(node.getId(),
+                subPlanBuilder.setRoot(new MaterializedViewWriterNode(node.getId(),
                         subPlanBuilder.getRoot(),
                         node.getTable(),
                         node.getColumns(),
@@ -289,7 +289,7 @@ public class DistributedLogicalPlanner
 
                 Symbol intermediateOutput = allocator.newSymbol(node.getOutput().toString(), sum.getReturnType());
 
-                TableWriterNode writer = new TableWriterNode(node.getId(),
+                MaterializedViewWriterNode writer = new MaterializedViewWriterNode(node.getId(),
                         subPlanBuilder.getRoot(),
                         node.getTable(),
                         node.getColumns(),
