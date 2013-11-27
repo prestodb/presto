@@ -152,6 +152,21 @@ class RelationPlanner
         PlanBuilder leftPlanBuilder = initializePlanBuilder(leftPlan);
         PlanBuilder rightPlanBuilder = initializePlanBuilder(rightPlan);
 
+        List<Symbol> outputSymbols = ImmutableList.<Symbol>builder()
+                .addAll(leftPlan.getOutputSymbols())
+                .addAll(rightPlan.getOutputSymbols())
+                .build();
+
+        if (node.getType() == Join.Type.CROSS) {
+            return new RelationPlan(
+                    new JoinNode(idAllocator.getNextId(),
+                            JoinNode.Type.typeConvert(node.getType()),
+                            leftPlanBuilder.getRoot(),
+                            rightPlanBuilder.getRoot(),
+                            ImmutableList.<JoinNode.EquiJoinClause>of()),
+                    analysis.getOutputDescriptor(node), outputSymbols);
+        }
+
         List<EquiJoinClause> criteria = analysis.getJoinCriteria(node);
         Analysis.JoinInPredicates joinInPredicates = analysis.getJoinInPredicates(node);
 
@@ -172,11 +187,6 @@ class RelationPlanner
 
             clauses.add(new JoinNode.EquiJoinClause(leftSymbol, rightSymbol));
         }
-
-        List<Symbol> outputSymbols = ImmutableList.<Symbol>builder()
-                .addAll(leftPlan.getOutputSymbols())
-                .addAll(rightPlan.getOutputSymbols())
-                .build();
 
         return new RelationPlan(new JoinNode(idAllocator.getNextId(), JoinNode.Type.typeConvert(node.getType()), leftPlanBuilder.getRoot(), rightPlanBuilder.getRoot(), clauses.build()), analysis.getOutputDescriptor(node), outputSymbols);
     }
