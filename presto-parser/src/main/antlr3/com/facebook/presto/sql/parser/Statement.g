@@ -221,7 +221,14 @@ selectClause
     ;
 
 fromClause
-    : FROM tableRef (',' tableRef)* -> ^(FROM tableRef+)
+    // TODO: support implicit cross joins properly in the engine
+    //: FROM tableRef (',' tableRef)* -> ^(FROM tableRef+)
+    : FROM fromList -> ^(FROM fromList)
+    ;
+
+fromList
+    : ( tableRef -> tableRef )
+      ( ',' tableRef -> ^(CROSS_JOIN $fromList tableRef) )*
     ;
 
 whereClause

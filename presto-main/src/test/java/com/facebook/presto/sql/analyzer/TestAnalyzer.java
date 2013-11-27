@@ -215,7 +215,14 @@ public class TestAnalyzer
     public void testJoinOnConstantExpression()
             throws Exception
     {
-        assertFails(NOT_SUPPORTED, "SELECT * FROM t1 JOIN t2 ON 1 = 1");
+        analyze("SELECT * FROM t1 JOIN t2 ON 1 = 1");
+    }
+
+    @Test
+    public void testJoinOnNonBooleanExpression()
+            throws Exception
+    {
+        assertFails(TYPE_MISMATCH, "SELECT * FROM t1 JOIN t2 ON 5");
     }
 
     @Test
