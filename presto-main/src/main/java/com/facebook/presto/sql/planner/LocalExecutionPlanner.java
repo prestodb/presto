@@ -43,7 +43,6 @@ import com.facebook.presto.operator.SetBuilderOperator.SetBuilderOperatorFactory
 import com.facebook.presto.operator.SetBuilderOperator.SetSupplier;
 import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.operator.TableScanOperator.TableScanOperatorFactory;
-import com.facebook.presto.operator.TableWriterOperator.TableWriterOperatorFactory;
 import com.facebook.presto.operator.TopNOperator.TopNOperatorFactory;
 import com.facebook.presto.operator.WindowOperator.InMemoryWindowOperatorFactory;
 import com.facebook.presto.operator.window.WindowFunction;
@@ -57,6 +56,7 @@ import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
+import com.facebook.presto.sql.planner.plan.MaterializedViewWriterNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
@@ -66,7 +66,6 @@ import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
-import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
@@ -109,6 +108,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.facebook.presto.operator.MaterializedViewWriterOperator.MaterializedViewWriterOperatorFactory;
 import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.leftGetter;
 import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.rightGetter;
 import static com.facebook.presto.sql.tree.Input.fieldGetter;
@@ -835,7 +835,7 @@ public class LocalExecutionPlanner
         }
 
         @Override
-        public PhysicalOperation visitTableWriter(TableWriterNode node, LocalExecutionPlanContext context)
+        public PhysicalOperation visitMaterializedViewWriter(MaterializedViewWriterNode node, LocalExecutionPlanContext context)
         {
             PhysicalOperation query = node.getSource().accept(this, context);
 
@@ -852,7 +852,7 @@ public class LocalExecutionPlanner
             PhysicalOperation source = new PhysicalOperation(sourceOperator, mappings.getOutputLayout(), query);
 
             Symbol outputSymbol = Iterables.getOnlyElement(node.getOutputSymbols());
-            TableWriterOperatorFactory operator = new TableWriterOperatorFactory(
+            MaterializedViewWriterOperatorFactory operator = new MaterializedViewWriterOperatorFactory(
                     context.getNextOperatorId(),
                     node.getId(),
                     storageManager,

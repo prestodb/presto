@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.metadata.ShardManager;
-import com.facebook.presto.operator.TableWriterResult;
+import com.facebook.presto.operator.MaterializedViewWriterResult;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.PartitionKey;
@@ -23,7 +23,7 @@ import com.facebook.presto.spi.Split;
 import com.facebook.presto.split.CollocatedSplit;
 import com.facebook.presto.split.NativeSplit;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.sql.planner.plan.TableWriterNode;
+import com.facebook.presto.sql.planner.plan.MaterializedViewWriterNode;
 import com.google.common.base.Objects;
 import com.google.common.base.Predicate;
 import com.google.common.collect.AbstractIterator;
@@ -45,9 +45,9 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Collections2.transform;
 
-public class TableWriter
+public class MaterializedViewWriter
 {
-    private final TableWriterNode tableWriterNode;
+    private final MaterializedViewWriterNode writerNode;
     private final ShardManager shardManager;
 
     // Which shards are part of which partition
@@ -62,19 +62,18 @@ public class TableWriter
 
     private final AtomicInteger shardsInFlight = new AtomicInteger();
 
-    private AtomicBoolean predicateHandedOut = new AtomicBoolean();
+    private final AtomicBoolean predicateHandedOut = new AtomicBoolean();
 
     // After finishing iteration over all source partitions, this set contains all the partitions that are present
     // in the destination table but not in the source table.
     private final Set<String> remainingPartitions = Sets.newSetFromMap(new ConcurrentHashMap<String, Boolean>());
 
-    TableWriter(TableWriterNode tableWriterNode,
-            ShardManager shardManager)
+    MaterializedViewWriter(MaterializedViewWriterNode writerNode, ShardManager shardManager)
     {
-        this.tableWriterNode = checkNotNull(tableWriterNode, "tableWriterNode is null");
+        this.writerNode = checkNotNull(writerNode, "writerNode is null");
         this.shardManager = checkNotNull(shardManager, "shardManager is null");
 
-        this.remainingPartitions.addAll(transform(shardManager.getPartitions(tableWriterNode.getTable()), partitionNameGetter()));
+        this.remainingPartitions.addAll(transform(shardManager.getPartitions(writerNode.getTable()), partitionNameGetter()));
     }
 
     public OutputReceiver getOutputReceiver()
@@ -85,10 +84,10 @@ public class TableWriter
             public void updateOutput(Object result)
             {
                 @SuppressWarnings("unchecked")
-                TableWriterResult tableWriterResult = TableWriterResult.forMap((Map<String, Object>) result);
-                String oldValue = shardsDone.put(tableWriterResult.getShardId(), tableWriterResult.getNodeIdentifier());
-                checkState(oldValue == null || oldValue.equals(tableWriterResult.getNodeIdentifier()),
-                        "Seen a different node committing a shard (%s vs %s)", oldValue, tableWriterResult.getNodeIdentifier());
+                MaterializedViewWriterResult writerResult = MaterializedViewWriterResult.forMap((Map<String, Object>) result);
+                String oldValue = shardsDone.put(writerResult.getShardId(), writerResult.getNodeIdentifier());
+                checkState(oldValue == null || oldValue.equals(writerResult.getNodeIdentifier()),
+                        "Seen a different node committing a shard (%s vs %s)", oldValue, writerResult.getNodeIdentifier());
 
                 for (Map.Entry<String, PartitionInfo> entry : finishedPartitions.entrySet()) {
                     if (!partitionsDone.contains(entry.getKey())) {
@@ -112,7 +111,7 @@ public class TableWriter
             for (Long shardId : shardIds) {
                 builder.put(shardId, shardsDone.get(shardId));
             }
-            shardManager.commitPartition(tableWriterNode.getTable(), partitionName, partitionInfo.getPartitionKeys(), builder.build());
+            shardManager.commitPartition(writerNode.getTable(), partitionName, partitionInfo.getPartitionKeys(), builder.build());
             checkState(shardsInFlight.addAndGet(-shardIds.size()) >= 0, "shards in flight crashed into the ground");
             partitionsDone.add(partitionName);
         }
@@ -120,7 +119,7 @@ public class TableWriter
 
     public Iterable<Split> wrapSplits(PlanNodeId planNodeId, Iterable<Split> splits)
     {
-        return new TableWriterIterable(planNodeId, splits);
+        return new WriterIterable(planNodeId, splits);
     }
 
     private void addPartitionShard(String partition, boolean lastSplit, List<? extends PartitionKey> partitionKeys, Long shardId)
@@ -143,7 +142,7 @@ public class TableWriter
         // This can only happen if the method gets called with a partition name, and no shard id and the last split
         // is set. As this only happens to close out the partitions that we saw before (a loop over openPartitions),
         // so any partition showing up here must have at least one split.
-        checkState(shardIds.size() > 0, "Never saw a split for partition %s", partition);
+        checkState(!shardIds.isEmpty(), "Never saw a split for partition %s", partition);
 
         PartitionInfo newPartitionInfo = new PartitionInfo(shardIds, partitionKeys);
         if (lastSplit) {
@@ -162,7 +161,7 @@ public class TableWriter
             addPartitionShard(partition, true, ImmutableList.<PartitionKey>of(), null);
         }
 
-        checkState(openPartitions.size() == 0, "Still open partitions: %s", openPartitions);
+        checkState(openPartitions.isEmpty(), "Still open partitions: %s", openPartitions);
     }
 
     private void dropAdditionalPartitions()
@@ -170,7 +169,7 @@ public class TableWriter
         // drop all the partitions that were not found when scanning through the partitions
         // from the source.
         for (String partition : remainingPartitions) {
-            shardManager.dropPartition(tableWriterNode.getTable(), partition);
+            shardManager.dropPartition(writerNode.getTable(), partition);
         }
     }
 
@@ -182,6 +181,7 @@ public class TableWriter
 
         return new Predicate<Partition>()
         {
+            @Override
             public boolean apply(Partition input)
             {
                 remainingPartitions.remove(input.getPartitionId());
@@ -190,14 +190,14 @@ public class TableWriter
         };
     }
 
-    private class TableWriterIterable
+    private class WriterIterable
             implements Iterable<Split>
     {
         private final AtomicBoolean used = new AtomicBoolean();
         private final Iterable<Split> splits;
         private final PlanNodeId planNodeId;
 
-        private TableWriterIterable(PlanNodeId planNodeId, Iterable<Split> splits)
+        private WriterIterable(PlanNodeId planNodeId, Iterable<Split> splits)
         {
             this.planNodeId = checkNotNull(planNodeId, "planNodeId is null");
             this.splits = checkNotNull(splits, "splits is null");
@@ -207,17 +207,17 @@ public class TableWriter
         public Iterator<Split> iterator()
         {
             checkState(!used.getAndSet(true), "The table writer can hand out only a single iterator");
-            return new TableWriterIterator(planNodeId, splits.iterator());
+            return new WriterIterator(planNodeId, splits.iterator());
         }
     }
 
-    private class TableWriterIterator
+    private class WriterIterator
             extends AbstractIterator<Split>
     {
         private final PlanNodeId planNodeId;
         private final Iterator<Split> sourceIterator;
 
-        private TableWriterIterator(PlanNodeId planNodeId, Iterator<Split> sourceIterator)
+        private WriterIterator(PlanNodeId planNodeId, Iterator<Split> sourceIterator)
         {
             this.planNodeId = planNodeId;
             this.sourceIterator = sourceIterator;
@@ -229,7 +229,7 @@ public class TableWriter
             if (sourceIterator.hasNext()) {
                 Split sourceSplit = sourceIterator.next();
 
-                NativeSplit writingSplit = new NativeSplit(shardManager.allocateShard(tableWriterNode.getTable()), ImmutableList.<HostAddress>of());
+                NativeSplit writingSplit = new NativeSplit(shardManager.allocateShard(writerNode.getTable()), ImmutableList.<HostAddress>of());
 
                 String partition = "unpartitioned";
                 boolean lastSplit = false;
@@ -246,7 +246,7 @@ public class TableWriter
                 CollocatedSplit collocatedSplit = new CollocatedSplit(
                         ImmutableMap.of(
                                 planNodeId, sourceSplit,
-                                tableWriterNode.getId(), writingSplit),
+                                writerNode.getId(), writingSplit),
                         sourceSplit.getAddresses(),
                         sourceSplit.isRemotelyAccessible());
 
@@ -254,15 +254,13 @@ public class TableWriter
 
                 return collocatedSplit;
             }
-            else {
-                finishOpenPartitions();
-                dropAdditionalPartitions();
-                return endOfData();
-            }
+            finishOpenPartitions();
+            dropAdditionalPartitions();
+            return endOfData();
         }
     }
 
-    private static class PartitionInfo
+    private static final class PartitionInfo
     {
         private final Set<Long> shardIds;
         private final List<? extends PartitionKey> partitionKeys;
@@ -307,7 +305,7 @@ public class TableWriter
             if (obj == null || getClass() != obj.getClass()) {
                 return false;
             }
-            final PartitionInfo other = (PartitionInfo) obj;
+            PartitionInfo other = (PartitionInfo) obj;
             return Objects.equal(this.shardIds, other.shardIds) &&
                     Objects.equal(this.partitionKeys, other.partitionKeys);
         }

@@ -28,7 +28,7 @@ import java.util.Map;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 @Immutable
-public class TableWriterNode
+public class MaterializedViewWriterNode
         extends PlanNode
 {
     private final PlanNode source;
@@ -37,7 +37,8 @@ public class TableWriterNode
     private final Map<Symbol, ColumnHandle> columns;
 
     @JsonCreator
-    public TableWriterNode(@JsonProperty("id") PlanNodeId id,
+    public MaterializedViewWriterNode(
+            @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("table") TableHandle table,
             @JsonProperty("columns") Map<Symbol, ColumnHandle> columns,
@@ -81,13 +82,15 @@ public class TableWriterNode
         return output;
     }
 
+    @Override
     public List<Symbol> getOutputSymbols()
     {
         return ImmutableList.of(output);
     }
 
+    @Override
     public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
     {
-        return visitor.visitTableWriter(this, context);
+        return visitor.visitMaterializedViewWriter(this, context);
     }
 }

@@ -23,6 +23,7 @@ import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.MaterializedViewWriterNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
@@ -31,7 +32,6 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
-import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
@@ -96,7 +96,7 @@ public class UnaliasSymbolReferences
         }
 
         @Override
-        public PlanNode rewriteTableWriter(TableWriterNode node, Void context, PlanRewriter<Void> planRewriter)
+        public PlanNode rewriteMaterializedViewWriter(MaterializedViewWriterNode node, Void context, PlanRewriter<Void> planRewriter)
         {
             PlanNode source = planRewriter.rewrite(node.getSource(), context);
 
@@ -106,7 +106,7 @@ public class UnaliasSymbolReferences
                 columns.put(canonicalize(entry.getKey()), entry.getValue());
             }
 
-            return new TableWriterNode(node.getId(), source, node.getTable(), columns.build(), canonicalize(node.getOutput()));
+            return new MaterializedViewWriterNode(node.getId(), source, node.getTable(), columns.build(), canonicalize(node.getOutput()));
         }
 
         @Override

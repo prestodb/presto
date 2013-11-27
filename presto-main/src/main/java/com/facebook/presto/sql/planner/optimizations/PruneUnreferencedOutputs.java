@@ -25,6 +25,7 @@ import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
+import com.facebook.presto.sql.planner.plan.MaterializedViewWriterNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
@@ -33,7 +34,6 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
-import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
@@ -278,12 +278,12 @@ public class PruneUnreferencedOutputs
         }
 
         @Override
-        public PlanNode rewriteTableWriter(TableWriterNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
+        public PlanNode rewriteMaterializedViewWriter(MaterializedViewWriterNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
         {
             // Rewrite Query subtree in terms of the symbols expected by the writer.
             Set<Symbol> expectedInputs = ImmutableSet.copyOf(node.getColumns().keySet());
             PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs);
-            return new TableWriterNode(node.getId(),
+            return new MaterializedViewWriterNode(node.getId(),
                     source,
                     node.getTable(),
                     node.getColumns(),

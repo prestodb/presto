@@ -30,10 +30,10 @@ import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.TupleDescriptor;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
+import com.facebook.presto.sql.planner.plan.MaterializedViewWriterNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
-import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.tree.QueryBody;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
@@ -90,7 +90,7 @@ public class LogicalPlanner
     {
         RelationPlan plan;
         if (analysis.getDestination() != null) {
-            plan = createTableWriterPlan(analysis);
+            plan = createMaterializedViewWriterPlan(analysis);
         }
         else {
             RelationPlanner planner = new RelationPlanner(analysis, symbolAllocator, idAllocator, metadata, session);
@@ -112,7 +112,7 @@ public class LogicalPlanner
         return new Plan(root, symbolAllocator);
     }
 
-    private RelationPlan createTableWriterPlan(Analysis analysis)
+    private RelationPlan createMaterializedViewWriterPlan(Analysis analysis)
     {
         QualifiedTableName destination = analysis.getDestination();
 
@@ -208,7 +208,7 @@ public class LogicalPlanner
         // create writer node
         Symbol output = symbolAllocator.newSymbol("imported_rows", Type.BIGINT);
 
-        TableWriterNode writerNode = new TableWriterNode(idAllocator.getNextId(),
+        MaterializedViewWriterNode writerNode = new MaterializedViewWriterNode(idAllocator.getNextId(),
                 plan.getRoot(),
                 targetTable,
                 mappings.build(),

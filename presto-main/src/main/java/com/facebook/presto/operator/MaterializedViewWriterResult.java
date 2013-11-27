@@ -21,20 +21,21 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class TableWriterResult
+public class MaterializedViewWriterResult
 {
     private final long shardId;
     private final String nodeIdentifier;
 
-    public static TableWriterResult forMap(Map<String, Object> map)
+    public static MaterializedViewWriterResult forMap(Map<String, Object> map)
     {
-        return new TableWriterResult(
+        return new MaterializedViewWriterResult(
                 ((Number) map.get("shardId")).longValue(),
                 (String) map.get("nodeIdentifier"));
     }
 
     @JsonCreator
-    public TableWriterResult(@JsonProperty("shardId") long shardId,
+    public MaterializedViewWriterResult(
+            @JsonProperty("shardId") long shardId,
             @JsonProperty("nodeIdentifier") String nodeIdentifier)
     {
         this.shardId = shardId;
@@ -62,4 +63,3 @@ public class TableWriterResult
                 .toString();
     }
 }
-

@@ -36,10 +36,10 @@ import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-public class TableWriterOperator
+public class MaterializedViewWriterOperator
         implements SourceOperator
 {
-    public static class TableWriterOperatorFactory
+    public static class MaterializedViewWriterOperatorFactory
             implements SourceOperatorFactory
     {
         private final int operatorId;
@@ -48,7 +48,7 @@ public class TableWriterOperator
         private final String nodeIdentifier;
         private final List<ColumnHandle> columnHandles;
 
-        public TableWriterOperatorFactory(
+        public MaterializedViewWriterOperatorFactory(
                 int operatorId,
                 PlanNodeId sourceId,
                 LocalStorageManager storageManager,
@@ -78,8 +78,8 @@ public class TableWriterOperator
         public SourceOperator createOperator(DriverContext driverContext)
         {
             try {
-                OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, TableWriterOperator.class.getSimpleName());
-                return new TableWriterOperator(
+                OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, MaterializedViewWriterOperator.class.getSimpleName());
+                return new MaterializedViewWriterOperator(
                         operatorContext,
                         sourceId,
                         storageManager,
@@ -115,7 +115,7 @@ public class TableWriterOperator
     private State state = State.RUNNING;
     private long rowCount;
 
-    public TableWriterOperator(
+    public MaterializedViewWriterOperator(
             OperatorContext operatorContext,
             PlanNodeId sourceId,
             LocalStorageManager storageManager,
@@ -143,7 +143,7 @@ public class TableWriterOperator
     }
 
     @Override
-    public void addSplit(final Split split)
+    public void addSplit(Split split)
     {
         checkNotNull(split, "split is null");
         checkState(split instanceof NativeSplit, "Non-native split added!");
@@ -227,7 +227,7 @@ public class TableWriterOperator
                 throw Throwables.propagate(e);
             }
 
-            operatorContext.addOutputItems(sourceId, ImmutableSet.of(new TableWriterResult(input.get().getShardId(), nodeIdentifier)));
+            operatorContext.addOutputItems(sourceId, ImmutableSet.of(new MaterializedViewWriterResult(input.get().getShardId(), nodeIdentifier)));
         }
 
         Block block = new BlockBuilder(SINGLE_LONG).append(rowCount).build();
