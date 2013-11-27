@@ -30,10 +30,10 @@ import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.TupleDescriptor;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
+import com.facebook.presto.sql.planner.plan.MaterializedViewWriterNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
-import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.tree.QueryBody;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
@@ -89,8 +89,8 @@ public class LogicalPlanner
     public Plan plan(Analysis analysis)
     {
         RelationPlan plan;
-        if (analysis.getDestination() != null) {
-            plan = createTableWriterPlan(analysis);
+        if (analysis.getMaterializedViewDestination().isPresent()) {
+            plan = createMaterializedViewWriterPlan(analysis);
         }
         else {
             RelationPlanner planner = new RelationPlanner(analysis, symbolAllocator, idAllocator, metadata, session);
@@ -112,9 +112,9 @@ public class LogicalPlanner
         return new Plan(root, symbolAllocator);
     }
 
-    private RelationPlan createTableWriterPlan(Analysis analysis)
+    private RelationPlan createMaterializedViewWriterPlan(Analysis analysis)
     {
-        QualifiedTableName destination = analysis.getDestination();
+        QualifiedTableName destination = analysis.getMaterializedViewDestination().get();
 
         TableHandle targetTable;
         List<ColumnHandle> targetColumnHandles;
@@ -165,8 +165,7 @@ public class LogicalPlanner
                 columns.add(columnMetadata);
             }
 
-            // TODO: first argument should actually be connectorId
-            TableMetadata tableMetadata = new TableMetadata(destination.getCatalogName(), new ConnectorTableMetadata(destination.asSchemaTableName(), columns.build()));
+            TableMetadata tableMetadata = createTableMetadata(destination, columns.build());
             targetTable = metadata.createTable(destination.getCatalogName(), tableMetadata);
 
             // get the column handles for the destination table
@@ -208,7 +207,7 @@ public class LogicalPlanner
         // create writer node
         Symbol output = symbolAllocator.newSymbol("imported_rows", Type.BIGINT);
 
-        TableWriterNode writerNode = new TableWriterNode(idAllocator.getNextId(),
+        MaterializedViewWriterNode writerNode = new MaterializedViewWriterNode(idAllocator.getNextId(),
                 plan.getRoot(),
                 targetTable,
                 mappings.build(),
@@ -231,5 +230,12 @@ public class LogicalPlanner
         }
 
         return new OutputNode(idAllocator.getNextId(), plan.getRoot(), names.build(), outputs.build());
+    }
+
+    private static TableMetadata createTableMetadata(QualifiedTableName destination, List<ColumnMetadata> columns)
+    {
+        ConnectorTableMetadata metadata = new ConnectorTableMetadata(destination.asSchemaTableName(), columns);
+        // TODO: first argument should actually be connectorId
+        return new TableMetadata(destination.getCatalogName(), metadata);
     }
 }

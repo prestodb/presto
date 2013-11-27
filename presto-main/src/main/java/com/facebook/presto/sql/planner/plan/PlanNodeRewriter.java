@@ -85,7 +85,7 @@ public class PlanNodeRewriter<C>
         return rewriteNode(node, context, planRewriter);
     }
 
-    public PlanNode rewriteTableWriter(TableWriterNode node, C context, PlanRewriter<C> planRewriter)
+    public PlanNode rewriteMaterializedViewWriter(MaterializedViewWriterNode node, C context, PlanRewriter<C> planRewriter)
     {
         return rewriteNode(node, context, planRewriter);
     }
