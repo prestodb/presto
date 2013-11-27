@@ -333,7 +333,7 @@ class StatementAnalyzer
     {
         // Turn this into a query that has a new table writer node on top.
         QualifiedTableName targetTable = MetadataUtil.createQualifiedTableName(session, node.getName());
-        analysis.setDestination(targetTable);
+        analysis.setMaterializedViewDestination(targetTable);
 
         Optional<TableHandle> targetTableHandle = metadata.getTableHandle(targetTable);
         if (targetTableHandle.isPresent()) {
@@ -368,7 +368,7 @@ class StatementAnalyzer
         }
 
         checkState(tableHandle.get() instanceof NativeTableHandle, "Cannot import into non-native table %s", targetTable);
-        analysis.setDestination(targetTable);
+        analysis.setMaterializedViewDestination(targetTable);
         analysis.setDoRefresh(true);
 
         return new TupleDescriptor(Field.newUnqualified("imported_rows", Type.BIGINT));

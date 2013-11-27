@@ -89,7 +89,7 @@ public class LogicalPlanner
     public Plan plan(Analysis analysis)
     {
         RelationPlan plan;
-        if (analysis.getDestination() != null) {
+        if (analysis.getMaterializedViewDestination().isPresent()) {
             plan = createMaterializedViewWriterPlan(analysis);
         }
         else {
@@ -114,7 +114,7 @@ public class LogicalPlanner
 
     private RelationPlan createMaterializedViewWriterPlan(Analysis analysis)
     {
-        QualifiedTableName destination = analysis.getDestination();
+        QualifiedTableName destination = analysis.getMaterializedViewDestination().get();
 
         TableHandle targetTable;
         List<ColumnHandle> targetColumnHandles;
@@ -165,8 +165,7 @@ public class LogicalPlanner
                 columns.add(columnMetadata);
             }
 
-            // TODO: first argument should actually be connectorId
-            TableMetadata tableMetadata = new TableMetadata(destination.getCatalogName(), new ConnectorTableMetadata(destination.asSchemaTableName(), columns.build()));
+            TableMetadata tableMetadata = createTableMetadata(destination, columns.build());
             targetTable = metadata.createTable(destination.getCatalogName(), tableMetadata);
 
             // get the column handles for the destination table
@@ -231,5 +230,12 @@ public class LogicalPlanner
         }
 
         return new OutputNode(idAllocator.getNextId(), plan.getRoot(), names.build(), outputs.build());
+    }
+
+    private static TableMetadata createTableMetadata(QualifiedTableName destination, List<ColumnMetadata> columns)
+    {
+        ConnectorTableMetadata metadata = new ConnectorTableMetadata(destination.asSchemaTableName(), columns);
+        // TODO: first argument should actually be connectorId
+        return new TableMetadata(destination.getCatalogName(), metadata);
     }
 }
