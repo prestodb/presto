@@ -517,7 +517,7 @@ public class HiveClient
         checkArgument(split instanceof HiveSplit, "expected instance of %s: %s", HiveSplit.class, split.getClass());
 
         List<HiveColumnHandle> hiveColumns = ImmutableList.copyOf(transform(columns, hiveColumnHandle()));
-        return new HiveRecordSet(hdfsEnvironment, (HiveSplit) split, hiveColumns);
+        return new HiveRecordSet(hdfsEnvironment, (HiveSplit) split, hiveColumns, HiveRecordCursorProviders.getDefaultProviders());
     }
 
     @Override
