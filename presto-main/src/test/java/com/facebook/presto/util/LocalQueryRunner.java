@@ -45,8 +45,10 @@ import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.Partition;
+import com.facebook.presto.spi.PartitionResult;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.split.DataStreamManager;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.split.SplitManager;
@@ -76,7 +78,6 @@ import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tpch.TpchSplitManager;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Optional;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.node.NodeConfig;
@@ -206,7 +207,7 @@ public class LocalQueryRunner
         }
 
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
-        PlanOptimizersFactory planOptimizersFactory = new PlanOptimizersFactory(metadata);
+        PlanOptimizersFactory planOptimizersFactory = new PlanOptimizersFactory(metadata, splitManager);
 
         QueryExplainer queryExplainer = new QueryExplainer(session, planOptimizersFactory.get(), metadata, new MockPeriodicImportManager(), new MockStorageManager());
         Analyzer analyzer = new Analyzer(session, metadata, Optional.of(queryExplainer));
@@ -243,12 +244,7 @@ public class LocalQueryRunner
         for (PlanNode sourceNode : subplan.getFragment().getSources()) {
             TableScanNode tableScan = (TableScanNode) sourceNode;
 
-            DataSource dataSource = splitManager.getSplits(session,
-                    tableScan.getTable(),
-                    tableScan.getPartitionPredicate(),
-                    tableScan.getUpstreamPredicateHint(),
-                    Predicates.<Partition>alwaysTrue(),
-                    tableScan.getAssignments());
+            DataSource dataSource = splitManager.getPartitionSplits(tableScan.getTable(), getPartitions(tableScan));
 
             ImmutableSet.Builder<ScheduledSplit> scheduledSplits = ImmutableSet.builder();
             for (Split split : dataSource.getSplits()) {
@@ -281,6 +277,17 @@ public class LocalQueryRunner
         return ImmutableList.copyOf(drivers);
     }
 
+    private List<Partition> getPartitions(TableScanNode node)
+    {
+        if (node.getGeneratedPartitions().isPresent()) {
+            return node.getGeneratedPartitions().get().getPartitions();
+        }
+
+        // Otherwise return all partitions
+        PartitionResult matchingPartitions = splitManager.getPartitions(node.getTable(), Optional.<TupleDomain>absent());
+        return matchingPartitions.getPartitions();
+    }
+
     public static LocalQueryRunner createDualLocalQueryRunner(ExecutorService executor)
     {
         return createDualLocalQueryRunner(new Session("user", "test", DEFAULT_CATALOG, DEFAULT_SCHEMA, null, null), executor);
@@ -291,7 +298,7 @@ public class LocalQueryRunner
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
 
         MetadataManager metadataManager = new MetadataManager();
-        SplitManager splitManager = new SplitManager(metadataManager, ImmutableSet.<ConnectorSplitManager>of());
+        SplitManager splitManager = new SplitManager(ImmutableSet.<ConnectorSplitManager>of());
         DataStreamManager dataStreamManager = new DataStreamManager();
 
         addDual(nodeManager, metadataManager, splitManager, dataStreamManager);
@@ -320,7 +327,7 @@ public class LocalQueryRunner
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
 
         MetadataManager metadataManager = new MetadataManager();
-        SplitManager splitManager = new SplitManager(metadataManager, ImmutableSet.<ConnectorSplitManager>of());
+        SplitManager splitManager = new SplitManager(ImmutableSet.<ConnectorSplitManager>of());
         DataStreamManager dataStreamManager = new DataStreamManager();
 
         addDual(nodeManager, metadataManager, splitManager, dataStreamManager);

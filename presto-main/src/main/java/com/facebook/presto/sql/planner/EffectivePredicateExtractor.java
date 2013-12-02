@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -33,6 +34,7 @@ import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -48,7 +50,6 @@ import static com.facebook.presto.sql.ExpressionUtils.expressionOrNullSymbols;
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.stripNonDeterministicConjuncts;
 import static com.facebook.presto.sql.planner.EqualityInference.createEqualityInference;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
@@ -148,10 +149,16 @@ public class EffectivePredicateExtractor
     @Override
     public Expression visitTableScan(TableScanNode node, Void context)
     {
-        // TODO: we can provide even better predicates if the metadata system is able to provide us with accurate bounds on the data sets
-        Expression partitionPredicate = node.getPartitionPredicate();
-        checkState(DeterminismEvaluator.isDeterministic(partitionPredicate));
+        if (!node.getGeneratedPartitions().isPresent()) {
+            return BooleanLiteral.TRUE_LITERAL;
+        }
 
+        // The effective predicate can be computed from the intersection of the aggregate partition TupleDomain summary (generated from Partitions)
+        // and the TupleDomain that was initially used to generate those Partitions. We do this because we need to select the more restrictive of the two.
+        // Note: the TupleDomain used to generate the partitions may contain columns/predicates that are unknown to the partition TupleDomain summary,
+        // but those are guaranteed to be part of a FilterNode directly above this table scan, so it's ok to include.
+        TupleDomain tupleDomain = node.getPartitionsDomainSummary().intersect(node.getGeneratedPartitions().get().getTupleDomainInput());
+        Expression partitionPredicate = DomainTranslator.toPredicate(tupleDomain, ImmutableBiMap.copyOf(node.getAssignments()).inverse());
         return pullExpressionThroughSymbols(partitionPredicate, node.getOutputSymbols());
     }
 
