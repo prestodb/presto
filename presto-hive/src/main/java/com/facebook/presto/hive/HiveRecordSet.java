@@ -110,8 +110,8 @@ public class HiveRecordSet
 
         RecordReader<?, ?> recordReader = createRecordReader(split, configuration, wrappedPath);
 
-        if (usesColumnarSerDe(split)) {
-            return new BytesHiveRecordCursor<>(
+        if (usesColumnarTextSerDe(split)) {
+            return new ColumnarTextHiveRecordCursor<>(
                     bytesRecordReader(recordReader),
                     split.getLength(),
                     split.getSchema(),
@@ -139,7 +139,7 @@ public class HiveRecordSet
         return (RecordReader<?, ? extends Writable>) recordReader;
     }
 
-    private static boolean usesColumnarSerDe(HiveSplit split)
+    private static boolean usesColumnarTextSerDe(HiveSplit split)
     {
         try {
             return getDeserializer(null, split.getSchema()) instanceof ColumnarSerDe;

@@ -777,7 +777,7 @@ public abstract class AbstractTestHiveClient
     private static void assertRecordCursorType(RecordCursor cursor, String fileType)
     {
         if (fileType.equals("rcfile-text")) {
-            assertInstanceOf(cursor, BytesHiveRecordCursor.class, fileType);
+            assertInstanceOf(cursor, ColumnarTextHiveRecordCursor.class, fileType);
         }
         else {
             assertInstanceOf(cursor, GenericHiveRecordCursor.class, fileType);
