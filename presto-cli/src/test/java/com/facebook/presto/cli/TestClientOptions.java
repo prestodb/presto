@@ -25,6 +25,16 @@ public class TestClientOptions
     {
         ClientSession session = new ClientOptions().toClientSession();
         assertEquals(session.getServer().toString(), "http://localhost:8080");
+        assertEquals(session.getSource(), "presto-cli");
+    }
+
+    @Test
+    public void testSource()
+    {
+        ClientOptions options = new ClientOptions();
+        options.source = "test";
+        ClientSession session = options.toClientSession();
+        assertEquals(session.getSource(), "test");
     }
 
     @Test
