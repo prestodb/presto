@@ -488,7 +488,11 @@ showTablesLike returns [String value]
     ;
 
 showSchemas returns [Statement value]
-    : SHOW_SCHEMAS { $value = new ShowSchemas(); }
+    : ^(SHOW_SCHEMAS from=showSchemasFrom?) { $value = new ShowSchemas(Optional.fromNullable($from.value)); }
+    ;
+
+showSchemasFrom returns [String value]
+    : ^(FROM ident) { $value = $ident.value; }
     ;
 
 showCatalogs returns [Statement value]

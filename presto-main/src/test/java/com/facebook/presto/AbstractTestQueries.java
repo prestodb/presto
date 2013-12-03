@@ -1966,6 +1966,15 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testShowSchemasFrom()
+            throws Exception
+    {
+        MaterializedResult result = computeActual(String.format("SHOW SCHEMAS FROM %s", TpchMetadata.TPCH_CATALOG_NAME));
+        ImmutableSet<String> schemaNames = ImmutableSet.copyOf(transform(result.getMaterializedTuples(), onlyColumnGetter()));
+        assertEquals(schemaNames, ImmutableSet.of(TPCH_SCHEMA_NAME, INFORMATION_SCHEMA, "sys"));
+    }
+
+    @Test
     public void testShowTables()
             throws Exception
     {
