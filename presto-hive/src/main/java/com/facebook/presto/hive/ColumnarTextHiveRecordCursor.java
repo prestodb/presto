@@ -49,7 +49,7 @@ import static com.google.common.collect.Maps.uniqueIndex;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
-class BytesHiveRecordCursor<K>
+class ColumnarTextHiveRecordCursor<K>
         implements RecordCursor
 {
     private final RecordReader<K, BytesRefArrayWritable> recordReader;
@@ -78,7 +78,7 @@ class BytesHiveRecordCursor<K>
     private long completedBytes;
     private boolean closed;
 
-    public BytesHiveRecordCursor(RecordReader<K, BytesRefArrayWritable> recordReader,
+    public ColumnarTextHiveRecordCursor(RecordReader<K, BytesRefArrayWritable> recordReader,
             long totalBytes,
             Properties splitSchema,
             List<HivePartitionKey> partitionKeys,
