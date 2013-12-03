@@ -788,6 +788,9 @@ public abstract class AbstractTestHiveClient
         if (fileType.equals("rcfile-text")) {
             assertInstanceOf(cursor, ColumnarTextHiveRecordCursor.class, fileType);
         }
+        else if (fileType.equals("rcfile-binary")) {
+            assertInstanceOf(cursor, ColumnarBinaryHiveRecordCursor.class, fileType);
+        }
         else {
             assertInstanceOf(cursor, GenericHiveRecordCursor.class, fileType);
         }
