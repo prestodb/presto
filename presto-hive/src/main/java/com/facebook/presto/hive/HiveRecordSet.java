@@ -27,6 +27,7 @@ import org.apache.hadoop.hive.serde2.ColumnProjectionUtils;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.columnar.BytesRefArrayWritable;
 import org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe;
+import org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
@@ -118,6 +119,14 @@ public class HiveRecordSet
                     split.getPartitionKeys(),
                     columns);
         }
+        else if (usesColumnarBinarySerDe(split)) {
+            return new ColumnarBinaryHiveRecordCursor<>(
+                    bytesRecordReader(recordReader),
+                    split.getLength(),
+                    split.getSchema(),
+                    split.getPartitionKeys(),
+                    columns);
+        }
 
         return new GenericHiveRecordCursor<>(
                 genericRecordReader(recordReader),
@@ -137,6 +146,16 @@ public class HiveRecordSet
     private static RecordReader<?, ? extends Writable> genericRecordReader(RecordReader<?, ?> recordReader)
     {
         return (RecordReader<?, ? extends Writable>) recordReader;
+    }
+
+    private static boolean usesColumnarBinarySerDe(HiveSplit split)
+    {
+        try {
+            return getDeserializer(null, split.getSchema()) instanceof LazyBinaryColumnarSerDe;
+        }
+        catch (MetaException e) {
+            throw Throwables.propagate(e);
+        }
     }
 
     private static boolean usesColumnarTextSerDe(HiveSplit split)
