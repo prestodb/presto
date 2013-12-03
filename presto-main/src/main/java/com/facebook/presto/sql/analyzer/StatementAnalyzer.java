@@ -151,7 +151,7 @@ class StatementAnalyzer
                 Optional.<With>absent(),
                 new QuerySpecification(
                         selectList(aliasedName("schema_name", "Schema")),
-                        table(QualifiedName.of(session.getCatalog(), TABLE_SCHEMATA.getSchemaName(), TABLE_SCHEMATA.getTableName())),
+                        table(QualifiedName.of(node.getCatalog().or(session.getCatalog()), TABLE_SCHEMATA.getSchemaName(), TABLE_SCHEMATA.getTableName())),
                         Optional.<Expression>absent(),
                         ImmutableList.<Expression>of(),
                         Optional.<Expression>absent(),
