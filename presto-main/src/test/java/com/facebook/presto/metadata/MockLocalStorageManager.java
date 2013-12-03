@@ -22,6 +22,7 @@ import com.google.common.io.Files;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import java.util.UUID;
 
 public class MockLocalStorageManager
         implements LocalStorageManager
@@ -53,33 +54,33 @@ public class MockLocalStorageManager
     }
 
     @Override
-    public BlockIterable getBlocks(long shardId, ColumnHandle columnHandle)
+    public BlockIterable getBlocks(UUID shardUuid, ColumnHandle columnHandle)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public boolean shardExists(long shardId)
+    public boolean shardExists(UUID shardUuid)
     {
         return false;
     }
 
     @Override
-    public void dropShard(long shardId)
+    public void dropShard(UUID shardUuid)
     {
     }
 
     @Override
-    public boolean isShardActive(long shardId)
+    public boolean isShardActive(UUID shardUuid)
     {
         return false;
     }
 
     @Override
-    public ColumnFileHandle createStagingFileHandles(long shardId, List<? extends ColumnHandle> columnHandles)
+    public ColumnFileHandle createStagingFileHandles(UUID shardUuid, List<? extends ColumnHandle> columnHandles)
             throws IOException
     {
-        Builder builder = ColumnFileHandle.builder(shardId);
+        Builder builder = ColumnFileHandle.builder(shardUuid);
         for (ColumnHandle handle : columnHandles) {
             File tmpfile = File.createTempFile("mock-storage", "mock", storageFolder);
             tmpfile.deleteOnExit();

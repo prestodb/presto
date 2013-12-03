@@ -23,6 +23,8 @@ import javax.ws.rs.PathParam;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 
+import java.util.UUID;
+
 import static com.google.common.base.Preconditions.checkNotNull;
 
 @Path("/v1/shard")
@@ -37,22 +39,22 @@ public class ShardResource
     }
 
     @DELETE
-    @Path("{shardId: \\d+}")
-    public Response dropShard(@PathParam("shardId") long shardId)
+    @Path("{shardUuid}")
+    public Response dropShard(@PathParam("shardUuid") UUID shardUuid)
     {
-        storageManager.dropShard(shardId);
+        storageManager.dropShard(shardUuid);
         return Response.status(Status.ACCEPTED).build();
     }
 
     @GET
-    @Path("{shardId: \\d+}")
-    public Response shardStatus(@PathParam("shardId") long shardId)
+    @Path("{shardUuid}")
+    public Response shardStatus(@PathParam("shardUuid") UUID shardUuid)
     {
-        if (storageManager.isShardActive(shardId)) {
+        if (storageManager.isShardActive(shardUuid)) {
             return Response.status(Status.ACCEPTED).build();
         }
 
-        if (storageManager.shardExists(shardId)) {
+        if (storageManager.shardExists(shardUuid)) {
             return Response.ok().build();
         }
 

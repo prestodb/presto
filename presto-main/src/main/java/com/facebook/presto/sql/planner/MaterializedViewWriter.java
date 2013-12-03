@@ -22,8 +22,8 @@ import com.facebook.presto.spi.PartitionedSplit;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.split.CollocatedSplit;
 import com.facebook.presto.split.NativeSplit;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.MaterializedViewWriterNode;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Objects;
 import com.google.common.base.Predicate;
 import com.google.common.collect.AbstractIterator;
@@ -36,6 +36,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -55,7 +56,7 @@ public class MaterializedViewWriter
     private final Map<String, PartitionInfo> finishedPartitions = new ConcurrentHashMap<>();
 
     // Which shards have already been written to disk and where.
-    private final Map<Long, String> shardsDone = new ConcurrentHashMap<>();
+    private final Map<UUID, String> shardsDone = new ConcurrentHashMap<>();
 
     // Which partitions have already been committed.
     private final Set<String> partitionsDone = Sets.newSetFromMap(new ConcurrentHashMap<String, Boolean>());
@@ -85,7 +86,7 @@ public class MaterializedViewWriter
             {
                 @SuppressWarnings("unchecked")
                 MaterializedViewWriterResult writerResult = MaterializedViewWriterResult.forMap((Map<String, Object>) result);
-                String oldValue = shardsDone.put(writerResult.getShardId(), writerResult.getNodeIdentifier());
+                String oldValue = shardsDone.put(writerResult.getShardUuid(), writerResult.getNodeIdentifier());
                 checkState(oldValue == null || oldValue.equals(writerResult.getNodeIdentifier()),
                         "Seen a different node committing a shard (%s vs %s)", oldValue, writerResult.getNodeIdentifier());
 
@@ -104,15 +105,17 @@ public class MaterializedViewWriter
             return; // some other thread raced us here and won. No harm done.
         }
 
-        Set<Long> shardIds = partitionInfo.getShardIds();
-        if (shardsDone.keySet().containsAll(shardIds)) {
+        Set<UUID> shardUuids = partitionInfo.getShardUuids();
+        if (shardsDone.keySet().containsAll(shardUuids)) {
             // All shards for this partition have been written. Commit the whole thing.
-            ImmutableMap.Builder<Long, String> builder = ImmutableMap.builder();
-            for (Long shardId : shardIds) {
-                builder.put(shardId, shardsDone.get(shardId));
+            ImmutableMap.Builder<UUID, String> builder = ImmutableMap.builder();
+            for (UUID shardUuid : shardUuids) {
+                builder.put(shardUuid, shardsDone.get(shardUuid));
             }
-            shardManager.commitPartition(writerNode.getTable(), partitionName, partitionInfo.getPartitionKeys(), builder.build());
-            checkState(shardsInFlight.addAndGet(-shardIds.size()) >= 0, "shards in flight crashed into the ground");
+            Map<UUID, String> shards = builder.build();
+
+            shardManager.commitPartition(writerNode.getTable(), partitionName, partitionInfo.getPartitionKeys(), shards);
+            checkState(shardsInFlight.addAndGet(-shardUuids.size()) >= 0, "shards in flight crashed into the ground");
             partitionsDone.add(partitionName);
         }
     }
@@ -122,29 +125,29 @@ public class MaterializedViewWriter
         return new WriterIterable(planNodeId, splits);
     }
 
-    private void addPartitionShard(String partition, boolean lastSplit, List<? extends PartitionKey> partitionKeys, Long shardId)
+    private void addPartitionShard(String partition, boolean lastSplit, List<? extends PartitionKey> partitionKeys, UUID shardUuid)
     {
         PartitionInfo partitionInfo = openPartitions.get(partition);
 
-        ImmutableSet.Builder<Long> builder = ImmutableSet.builder();
+        ImmutableSet.Builder<UUID> builder = ImmutableSet.builder();
         if (partitionInfo != null) {
-            Set<Long> partitionSplits = partitionInfo.getShardIds();
+            Set<UUID> partitionSplits = partitionInfo.getShardUuids();
             builder.addAll(partitionSplits);
         }
-        if (shardId != null) {
-            builder.add(shardId);
+        if (shardUuid != null) {
+            builder.add(shardUuid);
         }
         else {
-            checkState(lastSplit, "shardId == null and lastSplit unset!");
+            checkState(lastSplit, "shardUuid == null and lastSplit unset!");
         }
-        Set<Long> shardIds = builder.build();
+        Set<UUID> shardUuids = builder.build();
 
         // This can only happen if the method gets called with a partition name, and no shard id and the last split
         // is set. As this only happens to close out the partitions that we saw before (a loop over openPartitions),
         // so any partition showing up here must have at least one split.
-        checkState(!shardIds.isEmpty(), "Never saw a split for partition %s", partition);
+        checkState(!shardUuids.isEmpty(), "Never saw a split for partition %s", partition);
 
-        PartitionInfo newPartitionInfo = new PartitionInfo(shardIds, partitionKeys);
+        PartitionInfo newPartitionInfo = new PartitionInfo(shardUuids, partitionKeys);
         if (lastSplit) {
             checkState(null == finishedPartitions.put(partition, newPartitionInfo), "Partition %s finished multiple times", partition);
             openPartitions.remove(partition);
@@ -229,7 +232,7 @@ public class MaterializedViewWriter
             if (sourceIterator.hasNext()) {
                 Split sourceSplit = sourceIterator.next();
 
-                NativeSplit writingSplit = new NativeSplit(shardManager.allocateShard(writerNode.getTable()), ImmutableList.<HostAddress>of());
+                NativeSplit writingSplit = new NativeSplit(UUID.randomUUID(), ImmutableList.<HostAddress>of());
 
                 String partition = "unpartitioned";
                 boolean lastSplit = false;
@@ -242,7 +245,7 @@ public class MaterializedViewWriter
                     partitionKeys = partitionedSplit.getPartitionKeys();
                 }
 
-                addPartitionShard(partition, lastSplit, partitionKeys, writingSplit.getShardId());
+                addPartitionShard(partition, lastSplit, partitionKeys, writingSplit.getShardUuid());
                 CollocatedSplit collocatedSplit = new CollocatedSplit(
                         ImmutableMap.of(
                                 planNodeId, sourceSplit,
@@ -262,18 +265,18 @@ public class MaterializedViewWriter
 
     private static final class PartitionInfo
     {
-        private final Set<Long> shardIds;
+        private final Set<UUID> shardUuids;
         private final List<? extends PartitionKey> partitionKeys;
 
-        private PartitionInfo(Set<Long> shardIds, List<? extends PartitionKey> partitionKeys)
+        private PartitionInfo(Set<UUID> shardUuids, List<? extends PartitionKey> partitionKeys)
         {
-            this.shardIds = shardIds;
-            this.partitionKeys = partitionKeys;
+            this.shardUuids = ImmutableSet.copyOf(checkNotNull(shardUuids, "shardUuids is null"));
+            this.partitionKeys = ImmutableList.copyOf(checkNotNull(partitionKeys, "partitionKeys is null"));
         }
 
-        public Set<Long> getShardIds()
+        public Set<UUID> getShardUuids()
         {
-            return shardIds;
+            return shardUuids;
         }
 
         public List<? extends PartitionKey> getPartitionKeys()
@@ -285,7 +288,7 @@ public class MaterializedViewWriter
         public String toString()
         {
             return Objects.toStringHelper(this)
-                    .add("shardIds", shardIds)
+                    .add("shardUuids", shardUuids)
                     .add("partitionKeys", partitionKeys)
                     .toString();
         }
@@ -293,7 +296,7 @@ public class MaterializedViewWriter
         @Override
         public int hashCode()
         {
-            return Objects.hashCode(shardIds, partitionKeys);
+            return Objects.hashCode(shardUuids, partitionKeys);
         }
 
         @Override
@@ -306,7 +309,7 @@ public class MaterializedViewWriter
                 return false;
             }
             PartitionInfo other = (PartitionInfo) obj;
-            return Objects.equal(this.shardIds, other.shardIds) &&
+            return Objects.equal(this.shardUuids, other.shardUuids) &&
                     Objects.equal(this.partitionKeys, other.partitionKeys);
         }
     }

@@ -18,18 +18,19 @@ import com.facebook.presto.spi.ColumnHandle;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.UUID;
 
 public interface LocalStorageManager
 {
-    BlockIterable getBlocks(long shardId, ColumnHandle columnHandle);
+    BlockIterable getBlocks(UUID shardUuid, ColumnHandle columnHandle);
 
-    boolean shardExists(long shardId);
+    boolean shardExists(UUID shardUuid);
 
-    void dropShard(long shardId);
+    void dropShard(UUID shardUuid);
 
-    boolean isShardActive(long shardId);
+    boolean isShardActive(UUID shardUuid);
 
-    ColumnFileHandle createStagingFileHandles(long shardId, List<? extends ColumnHandle> columnHandles)
+    ColumnFileHandle createStagingFileHandles(UUID shardUuid, List<? extends ColumnHandle> columnHandles)
             throws IOException;
 
     void commit(ColumnFileHandle columnFileHandle)

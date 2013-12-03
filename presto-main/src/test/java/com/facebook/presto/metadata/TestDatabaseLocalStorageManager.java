@@ -37,8 +37,10 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 
+import static com.facebook.presto.metadata.DatabaseLocalStorageManager.getShardPath;
 import static com.facebook.presto.operator.OperatorAssertion.toMaterializedResult;
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
@@ -85,8 +87,8 @@ public class TestDatabaseLocalStorageManager
     public void testImportFlow()
             throws IOException
     {
-        long shardId = 123;
-        assertFalse(storageManager.shardExists(shardId));
+        UUID shardUuid = UUID.randomUUID();
+        assertFalse(storageManager.shardExists(shardUuid));
 
         List<ColumnHandle> columnHandles = ImmutableList.<ColumnHandle>of(new NativeColumnHandle("column_7", 7L), new NativeColumnHandle("column_11", 11L));
 
@@ -107,17 +109,17 @@ public class TestDatabaseLocalStorageManager
                 .row("dave", 11)
                 .build();
 
-        ColumnFileHandle fileHandles = storageManager.createStagingFileHandles(shardId, columnHandles);
+        ColumnFileHandle fileHandles = storageManager.createStagingFileHandles(shardUuid, columnHandles);
         for (Page page : pages) {
             fileHandles.append(page);
         }
         storageManager.commit(fileHandles);
 
-        assertTrue(storageManager.shardExists(shardId));
+        assertTrue(storageManager.shardExists(shardUuid));
 
         AlignmentOperatorFactory factory = new AlignmentOperatorFactory(0,
-                storageManager.getBlocks(shardId, columnHandles.get(0)),
-                storageManager.getBlocks(shardId, columnHandles.get(1)));
+                storageManager.getBlocks(shardUuid, columnHandles.get(0)),
+                storageManager.getBlocks(shardUuid, columnHandles.get(1)));
         Operator operator = factory.createOperator(driverContext);
 
         // materialize pages to force comparision only on contents and not page boundaries
@@ -130,37 +132,23 @@ public class TestDatabaseLocalStorageManager
     public void testImportEmptySource()
             throws IOException
     {
-        long shardId = 456;
+        UUID shardUuid = UUID.randomUUID();
         List<ColumnHandle> columnHandles = ImmutableList.<ColumnHandle>of(new NativeColumnHandle("column_13", 13L));
 
-        ColumnFileHandle fileHandles = storageManager.createStagingFileHandles(shardId, columnHandles);
+        ColumnFileHandle fileHandles = storageManager.createStagingFileHandles(shardUuid, columnHandles);
         storageManager.commit(fileHandles);
 
-        assertTrue(storageManager.shardExists(shardId));
+        assertTrue(storageManager.shardExists(shardUuid));
 
-        assertTrue(Iterables.isEmpty(storageManager.getBlocks(shardId, columnHandles.get(0))));
+        assertTrue(Iterables.isEmpty(storageManager.getBlocks(shardUuid, columnHandles.get(0))));
     }
 
     @Test
     public void testShardPath()
     {
-        File result = DatabaseLocalStorageManager.getShardPath(new File("/"), 0);
-        assertEquals(result.getAbsolutePath(), "/00/00/00/00");
-        result = DatabaseLocalStorageManager.getShardPath(new File("/"), 1);
-        assertEquals(result.getAbsolutePath(), "/01/00/00/00");
-        result = DatabaseLocalStorageManager.getShardPath(new File("/"), 100);
-        assertEquals(result.getAbsolutePath(), "/00/01/00/00");
-        result = DatabaseLocalStorageManager.getShardPath(new File("/"), 10_000);
-        assertEquals(result.getAbsolutePath(), "/00/00/01/00");
-        result = DatabaseLocalStorageManager.getShardPath(new File("/"), 1_000_000);
-        assertEquals(result.getAbsolutePath(), "/00/00/00/01");
-        result = DatabaseLocalStorageManager.getShardPath(new File("/"), 99_999_999);
-        assertEquals(result.getAbsolutePath(), "/99/99/99/99");
-        result = DatabaseLocalStorageManager.getShardPath(new File("/"), 100_000_000);
-        assertEquals(result.getAbsolutePath(), "/00/00/00/100");
-        result = DatabaseLocalStorageManager.getShardPath(new File("/"), 12345);
-        assertEquals(result.getAbsolutePath(), "/45/23/01/00");
-        result = DatabaseLocalStorageManager.getShardPath(new File("/"), 4815162342L);
-        assertEquals(result.getAbsolutePath(), "/42/23/16/4815");
+        UUID uuid = UUID.fromString("db298a0c-e968-4d5a-8e58-b1021c7eab2c");
+        File expected = getShardPath(new File("/data/test"), uuid);
+        File actual = new File("/data/test/db/29/8a/db298a0c-e968-4d5a-8e58-b1021c7eab2c");
+        assertEquals(expected, actual);
     }
 }

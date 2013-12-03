@@ -21,21 +21,22 @@ import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.UUID;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class NativeSplit
         implements Split
 {
-    private final long shardId;
+    private final UUID shardUuid;
     private final List<HostAddress> addresses;
 
     @JsonCreator
-    public NativeSplit(@JsonProperty("shardId") long shardId, @JsonProperty("addresses") List<HostAddress> addresses)
+    public NativeSplit(
+            @JsonProperty("shardUuid") UUID shardUuid,
+            @JsonProperty("addresses") List<HostAddress> addresses)
     {
-        checkArgument(shardId >= 0, "shard id must be at least zero");
-        this.shardId = shardId;
+        this.shardUuid = checkNotNull(shardUuid, "shardUuid is null");
 
         checkNotNull(addresses, "addresses is null");
         this.addresses = ImmutableList.copyOf(addresses);
@@ -56,9 +57,9 @@ public class NativeSplit
     }
 
     @JsonProperty
-    public long getShardId()
+    public UUID getShardUuid()
     {
-        return shardId;
+        return shardUuid;
     }
 
     @Override
@@ -71,7 +72,7 @@ public class NativeSplit
     public String toString()
     {
         return Objects.toStringHelper(this)
-                .add("shardId", shardId)
+                .add("shardUuid", shardUuid)
                 .add("hosts", addresses)
                 .toString();
     }

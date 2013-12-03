@@ -35,6 +35,7 @@ import com.google.common.io.Resources;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.jar.JarFile;
@@ -172,7 +173,7 @@ public class GeneratingTpchDataFileLoader
 
             RecordProjectOperator source = new RecordProjectOperator(operatorContext, records);
 
-            ColumnFileHandle columnFileHandle = ColumnFileHandle.builder(0)
+            ColumnFileHandle columnFileHandle = ColumnFileHandle.builder(UUID.randomUUID())
                     .addColumn(columnHandle, cachedFile, encoding)
                     .build();
 
