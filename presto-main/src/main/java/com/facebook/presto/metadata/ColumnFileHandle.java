@@ -29,6 +29,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.block.BlockUtils.toTupleIterable;
@@ -42,20 +43,20 @@ public class ColumnFileHandle
 {
     private static final DataSize OUTPUT_BUFFER_SIZE = new DataSize(64, KILOBYTE);
 
-    private final long shardId;
+    private final UUID shardUuid;
     private final Map<ColumnHandle, File> files;
     private final Map<ColumnHandle, BlocksFileWriter> writers;
 
     private final AtomicBoolean committed = new AtomicBoolean();
 
-    public static Builder builder(long shardId)
+    public static Builder builder(UUID shardUuid)
     {
-        return new Builder(shardId);
+        return new Builder(shardUuid);
     }
 
     private ColumnFileHandle(Builder builder)
     {
-        this.shardId = builder.getShardId();
+        this.shardUuid = builder.getShardUuid();
         this.files = new LinkedHashMap<>(builder.getFiles());
         this.writers = new LinkedHashMap<>(builder.getWriters());
     }
@@ -65,9 +66,9 @@ public class ColumnFileHandle
         return files;
     }
 
-    public long getShardId()
+    public UUID getShardUuid()
     {
-        return shardId;
+        return shardUuid;
     }
 
     public int append(Page page)
@@ -117,15 +118,15 @@ public class ColumnFileHandle
 
     public static class Builder
     {
-        private final long shardId;
+        private final UUID shardUuid;
         // both of these Maps are ordered by the column handles. The writer map
         // may contain less writers than files.
         private final Map<ColumnHandle, File> files = new LinkedHashMap<>();
         private final Map<ColumnHandle, BlocksFileWriter> writers = new LinkedHashMap<>();
 
-        public Builder(long shardId)
+        public Builder(UUID shardUuid)
         {
-            this.shardId = shardId;
+            this.shardUuid = checkNotNull(shardUuid, "shardUuid is null");
         }
 
         /**
@@ -167,9 +168,9 @@ public class ColumnFileHandle
             return new ColumnFileHandle(this);
         }
 
-        private long getShardId()
+        private UUID getShardUuid()
         {
-            return shardId;
+            return shardUuid;
         }
 
         private Map<ColumnHandle, File> getFiles()

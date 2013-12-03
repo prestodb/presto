@@ -23,7 +23,6 @@ import com.facebook.presto.metadata.NodeVersion;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.Partition;
@@ -89,15 +88,28 @@ public class TestNativeSplitManager
         tableHandle = metadataManager.createTable("local", new TableMetadata("local", TEST_TABLE));
         dsColumnHandle = metadataManager.getColumnHandle(tableHandle, "ds").get();
 
-        long shardId1 = shardManager.allocateShard(tableHandle);
-        long shardId2 = shardManager.allocateShard(tableHandle);
-        long shardId3 = shardManager.allocateShard(tableHandle);
-        long shardId4 = shardManager.allocateShard(tableHandle);
+        UUID shardUuid1 = UUID.randomUUID();
+        UUID shardUuid2 = UUID.randomUUID();
+        UUID shardUuid3 = UUID.randomUUID();
+        UUID shardUuid4 = UUID.randomUUID();
 
-        shardManager.commitPartition(tableHandle, "ds=1", ImmutableList.<PartitionKey>of(new NativePartitionKey("ds=1", "ds", ColumnType.STRING, "1")), ImmutableMap.of(shardId1, nodeName,
-                shardId2, nodeName,
-                shardId3, nodeName));
-        shardManager.commitPartition(tableHandle, "ds=2", ImmutableList.<PartitionKey>of(new NativePartitionKey("ds=2", "ds", ColumnType.STRING, "2")), ImmutableMap.of(shardId4, nodeName));
+        shardManager.commitPartition(
+                tableHandle,
+                "ds=1",
+                ImmutableList.<PartitionKey>of(new NativePartitionKey("ds=1", "ds", STRING, "1")),
+                ImmutableMap.<UUID, String>builder()
+                        .put(shardUuid1, nodeName)
+                        .put(shardUuid2, nodeName)
+                        .put(shardUuid3, nodeName)
+                        .build());
+
+        shardManager.commitPartition(
+                tableHandle,
+                "ds=2",
+                ImmutableList.<PartitionKey>of(new NativePartitionKey("ds=2", "ds", STRING, "2")),
+                ImmutableMap.<UUID, String>builder()
+                        .put(shardUuid4, nodeName)
+                        .build());
 
         nativeSplitManager = new NativeSplitManager(nodeManager, shardManager, metadataManager);
     }

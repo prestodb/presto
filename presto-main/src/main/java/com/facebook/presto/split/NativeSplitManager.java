@@ -46,6 +46,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.metadata.Node.hostAndPortGetter;
@@ -128,18 +129,18 @@ public class NativeSplitManager
 
         List<Split> splits = new ArrayList<>();
 
-        Multimap<Long, Entry<Long, String>> partitionShardNodes = shardManager.getCommittedPartitionShardNodes(tableHandle);
+        Multimap<Long, Entry<UUID, String>> partitionShardNodes = shardManager.getShardNodesByPartition(tableHandle);
 
         for (Partition partition : partitions) {
             checkArgument(partition instanceof NativePartition, "Partition must be a native partition");
             NativePartition nativePartition = (NativePartition) partition;
 
-            ImmutableMultimap.Builder<Long, String> shardNodes = ImmutableMultimap.builder();
-            for (Entry<Long, String> partitionShardNode : partitionShardNodes.get(nativePartition.getNativePartitionId())) {
-                shardNodes.put(partitionShardNode.getKey(), partitionShardNode.getValue());
+            ImmutableMultimap.Builder<UUID, String> shardNodes = ImmutableMultimap.builder();
+            for (Entry<UUID, String> shardNode : partitionShardNodes.get(nativePartition.getNativePartitionId())) {
+                shardNodes.put(shardNode.getKey(), shardNode.getValue());
             }
 
-            for (Map.Entry<Long, Collection<String>> entry : shardNodes.build().asMap().entrySet()) {
+            for (Map.Entry<UUID, Collection<String>> entry : shardNodes.build().asMap().entrySet()) {
                 List<HostAddress> addresses = getAddressesForNodes(nodesById, entry.getValue());
                 checkState(addresses.size() > 0, "no host for shard %s found", entry.getKey());
                 Split split = new NativeSplit(entry.getKey(), addresses);

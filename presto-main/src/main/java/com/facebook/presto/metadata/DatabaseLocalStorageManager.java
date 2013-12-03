@@ -29,18 +29,15 @@ import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.util.KeyBoundedExecutor;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
-import com.google.common.base.Joiner;
-import com.google.common.base.Preconditions;
-import com.google.common.base.Splitter;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.io.Files;
 import com.google.inject.Inject;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.skife.jdbi.v2.Handle;
@@ -56,6 +53,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 
@@ -77,9 +75,11 @@ public class DatabaseLocalStorageManager
     private static final int RUN_LENGTH_AVERAGE_CUTOFF = 3;
     private static final int DICTIONARY_CARDINALITY_CUTOFF = 1000;
 
+    private static final Logger log = Logger.get(DatabaseLocalStorageManager.class);
+
     private final ExecutorService executor;
     private final ThreadPoolExecutorMBean executorMBean;
-    private final KeyBoundedExecutor<Long> shardBoundedExecutor;
+    private final KeyBoundedExecutor<UUID> shardBoundedExecutor;
 
     private final IDBI dbi;
     private final File baseStorageDir;
@@ -93,12 +93,11 @@ public class DatabaseLocalStorageManager
                 throws Exception
         {
             checkArgument(file.isAbsolute(), "file is not absolute");
+            // TODO: distinguish between missing and empty files
             if (file.exists() && file.length() > 0) {
                 return Slices.mapFileReadOnly(file);
             }
-            else {
-                return Slices.EMPTY_SLICE;
-            }
+            return Slices.EMPTY_SLICE;
         }
     });
 
@@ -134,12 +133,12 @@ public class DatabaseLocalStorageManager
     }
 
     @Override
-    public ColumnFileHandle createStagingFileHandles(long shardId, List<? extends ColumnHandle> columnHandles)
+    public ColumnFileHandle createStagingFileHandles(UUID shardUuid, List<? extends ColumnHandle> columnHandles)
             throws IOException
     {
-        File shardPath = getShardPath(baseStagingDir, shardId);
+        File shardPath = getShardPath(baseStagingDir, shardUuid);
 
-        ColumnFileHandle.Builder builder = ColumnFileHandle.builder(shardId);
+        ColumnFileHandle.Builder builder = ColumnFileHandle.builder(shardUuid);
 
         for (ColumnHandle columnHandle : columnHandles) {
             File file = getColumnFile(shardPath, columnHandle, DEFAULT_ENCODING);
@@ -171,11 +170,11 @@ public class DatabaseLocalStorageManager
     private ColumnFileHandle optimizeEncodings(ColumnFileHandle columnFileHandle)
             throws IOException
     {
-        long shardId = columnFileHandle.getShardId();
-        File shardPath = getShardPath(baseStorageDir, shardId);
+        UUID shardUuid = columnFileHandle.getShardUuid();
+        File shardPath = getShardPath(baseStorageDir, shardUuid);
 
         ImmutableList.Builder<BlockIterable> sourcesBuilder = ImmutableList.builder();
-        ColumnFileHandle.Builder builder = ColumnFileHandle.builder(shardId);
+        ColumnFileHandle.Builder builder = ColumnFileHandle.builder(shardUuid);
 
         for (Map.Entry<ColumnHandle, File> entry : columnFileHandle.getFiles().entrySet()) {
             File file = entry.getValue();
@@ -251,14 +250,14 @@ public class DatabaseLocalStorageManager
     @SuppressWarnings("ResultOfMethodCallIgnored")
     private void deleteStagingDirectory(ColumnFileHandle columnFileHandle)
     {
-        File path = getShardPath(baseStagingDir, columnFileHandle.getShardId());
+        File path = getShardPath(baseStagingDir, columnFileHandle.getShardUuid());
 
         while (path.delete() && !path.getParentFile().equals(baseStagingDir)) {
             path = path.getParentFile();
         }
     }
 
-    private void importData(AlignmentOperator source, ColumnFileHandle fileHandle)
+    private static void importData(AlignmentOperator source, ColumnFileHandle fileHandle)
     {
         while (!source.isFinished()) {
             Page page = source.getOutput();
@@ -270,30 +269,31 @@ public class DatabaseLocalStorageManager
     }
 
     /**
-     * Generate a file system path for a shard id. This creates a four level deep, two digit directory
-     * where the least significant digits are the first level, the next significant digits are the second
-     * and so on. Numbers that have more than eight digits are lumped together in the last level.
+     * Generate a file system path for a shard UUID.
+     * <p/>
+     * This creates a four level deep directory structure where the first
+     * three levels each contain two hex digits (lowercase) of the UUID
+     * and the final level contains the full UUID.
+     * Example:
      * <p/>
      * <pre>
-     *   1 --> 01/00/00/00
-     *   1000 -> 00/10/00/00
-     *   123456 -> 56/34/12/00
-     *   4815162342 -> 42/23/16/4815
+     * UUID: db298a0c-e968-4d5a-8e58-b1021c7eab2c
+     * Path: db/29/8a/db298a0c-e968-4d5a-8e58-b1021c7eab2c
      * </pre>
      * <p/>
-     * This ensures that files are spread out evenly through the tree while a path can still be easily navigated
-     * by a human being.
+     * This ensures that files are spread out evenly through the tree
+     * while a path can still be easily navigated by a human being.
      */
     @VisibleForTesting
-    static File getShardPath(File baseDir, long shardId)
+    static File getShardPath(File baseDir, UUID shardUuid)
     {
-        Preconditions.checkArgument(shardId >= 0, "shardId must be >= 0");
-
-        String value = format("%08d", shardId);
-        int split = value.length() - 6;
-        List<String> pathElements = ImmutableList.copyOf(Splitter.fixedLength(2).limit(3).split(value.substring(split)));
-        String path = Joiner.on('/').join(Lists.reverse(pathElements)) + "/" + value.substring(0, split);
-        return new File(baseDir, path);
+        String uuid = shardUuid.toString().toLowerCase();
+        return baseDir.toPath()
+                .resolve(uuid.substring(0, 2))
+                .resolve(uuid.substring(2, 4))
+                .resolve(uuid.substring(4, 6))
+                .resolve(uuid)
+                .toFile();
     }
 
     private static File getColumnFile(File shardPath, ColumnHandle columnHandle, BlocksFileEncoding encoding)
@@ -320,22 +320,22 @@ public class DatabaseLocalStorageManager
                     checkState(columnHandle instanceof NativeColumnHandle, "Can only import in a native column");
                     long columnId = ((NativeColumnHandle) columnHandle).getColumnId();
                     String filename = file.getName();
-                    dao.insertColumn(columnFileHandle.getShardId(), columnId, filename);
+                    dao.insertColumn(columnFileHandle.getShardUuid(), columnId, filename);
                 }
             }
         });
     }
 
     @Override
-    public BlockIterable getBlocks(long shardId, ColumnHandle columnHandle)
+    public BlockIterable getBlocks(UUID shardUuid, ColumnHandle columnHandle)
     {
         checkNotNull(columnHandle);
         checkState(columnHandle instanceof NativeColumnHandle, "Can only load blocks from a native column");
         long columnId = ((NativeColumnHandle) columnHandle).getColumnId();
 
-        checkState(shardExists(shardId), "shard %s has not yet been imported", shardId);
-        String filename = dao.getColumnFilename(shardId, columnId);
-        File file = new File(getShardPath(baseStorageDir, shardId), filename);
+        checkState(shardExists(shardUuid), "shard %s does not exist in local database", shardUuid);
+        String filename = dao.getColumnFilename(shardUuid, columnId);
+        File file = new File(getShardPath(baseStorageDir, shardUuid), filename);
 
         // TODO: remove this hack when empty blocks are allowed
         if (!file.exists()) {
@@ -363,21 +363,21 @@ public class DatabaseLocalStorageManager
     }
 
     @Override
-    public boolean shardExists(long shardId)
+    public boolean shardExists(UUID shardUuid)
     {
-        return dao.shardExists(shardId);
+        return dao.shardExists(shardUuid);
     }
 
     @Override
-    public void dropShard(long shardId)
+    public void dropShard(UUID shardUuid)
     {
-        shardBoundedExecutor.execute(shardId, new DropJob(shardId));
+        shardBoundedExecutor.execute(shardUuid, new DropJob(shardUuid));
     }
 
     @Override
-    public boolean isShardActive(long shardId)
+    public boolean isShardActive(UUID shardUuid)
     {
-        return shardBoundedExecutor.isActive(shardId);
+        return shardBoundedExecutor.isActive(shardUuid);
     }
 
     private static File createDirectory(File dir)
@@ -390,23 +390,25 @@ public class DatabaseLocalStorageManager
     private class DropJob
             implements Runnable
     {
-        private final long shardId;
+        private final UUID shardUuid;
 
-        private DropJob(long shardId)
+        private DropJob(UUID shardUuid)
         {
-            this.shardId = shardId;
+            this.shardUuid = checkNotNull(shardUuid, "shardUuid is null");
         }
 
         @Override
         public void run()
         {
             // TODO: dropping needs to be globally coordinated with read queries
-            List<String> shardFiles = dao.getShardFiles(shardId);
+            List<String> shardFiles = dao.getShardFiles(shardUuid);
             for (String shardFile : shardFiles) {
-                File file = new File(getShardPath(baseStorageDir, shardId), shardFile);
-                file.delete();
+                File file = new File(getShardPath(baseStorageDir, shardUuid), shardFile);
+                if (!file.delete()) {
+                    log.warn("failed to delete file: %s", file.getAbsolutePath());
+                }
             }
-            dao.dropShard(shardId);
+            dao.dropShard(shardUuid);
         }
     }
 }
