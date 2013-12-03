@@ -64,7 +64,7 @@ public class NativeDataStreamProvider
         ImmutableList.Builder<BlockIterable> builder = ImmutableList.builder();
         for (ColumnHandle column : columns) {
             checkArgument(column instanceof NativeColumnHandle, "column must be native, not %s", column);
-            builder.add(storageManager.getBlocks(nativeSplit.getShardId(), column));
+            builder.add(storageManager.getBlocks(nativeSplit.getShardUuid(), column));
         }
         return builder.build();
     }

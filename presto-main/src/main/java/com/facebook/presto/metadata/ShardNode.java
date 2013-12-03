@@ -19,27 +19,29 @@ import org.skife.jdbi.v2.tweak.ResultSetMapper;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.UUID;
 
+import static com.facebook.presto.metadata.UuidArguments.uuidFromBytes;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ShardNode
 {
-    private final long shardId;
+    private final UUID shardUuid;
     private final String nodeIdentifier;
     private final long tableId;
     private final long partitionId;
 
-    public ShardNode(long shardId, String nodeIdentifier, long tableId, long partitionId)
+    public ShardNode(UUID shardUuid, String nodeIdentifier, long tableId, long partitionId)
     {
-        this.shardId = shardId;
+        this.shardUuid = checkNotNull(shardUuid, "shardUuid is null");
         this.nodeIdentifier = checkNotNull(nodeIdentifier, "nodeIdentifier is null");
         this.tableId = tableId;
         this.partitionId = partitionId;
     }
 
-    public long getShardId()
+    public UUID getShardUuid()
     {
-        return shardId;
+        return shardUuid;
     }
 
     public String getNodeIdentifier()
@@ -61,7 +63,7 @@ public class ShardNode
     public String toString()
     {
         return Objects.toStringHelper(this)
-                .add("shardId", shardId)
+                .add("shardUuid", shardUuid)
                 .add("nodeIdentifier", nodeIdentifier)
                 .add("tableId", tableId)
                 .add("partitionId", partitionId)
@@ -75,7 +77,8 @@ public class ShardNode
         public ShardNode map(int index, ResultSet r, StatementContext ctx)
                 throws SQLException
         {
-            return new ShardNode(r.getLong("shard_id"),
+            return new ShardNode(
+                    uuidFromBytes(r.getBytes("shard_uuid")),
                     r.getString("node_identifier"),
                     r.getLong("table_id"),
                     r.getLong("partition_id"));

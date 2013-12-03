@@ -16,45 +16,50 @@ package com.facebook.presto.metadata;
 import org.skife.jdbi.v2.sqlobject.Bind;
 import org.skife.jdbi.v2.sqlobject.SqlQuery;
 import org.skife.jdbi.v2.sqlobject.SqlUpdate;
+import org.skife.jdbi.v2.sqlobject.customizers.RegisterArgumentFactory;
 
 import java.util.List;
+import java.util.UUID;
 
+import static com.facebook.presto.metadata.UuidArguments.UuidArgumentFactory;
+
+@RegisterArgumentFactory(UuidArgumentFactory.class)
 public interface StorageManagerDao
 {
     @SqlUpdate("CREATE TABLE IF NOT EXISTS columns (\n" +
-            "  shard_id BIGINT NOT NULL,\n" +
+            "  shard_uuid BINARY(16) NOT NULL,\n" +
             "  column_id BIGINT NOT NULL,\n" +
             "  filename VARCHAR(255) NOT NULL,\n" +
-            "  PRIMARY KEY (shard_id, column_id)\n" +
+            "  PRIMARY KEY (shard_uuid, column_id)\n" +
             ")")
     void createTableColumns();
 
-    @SqlUpdate("INSERT INTO columns (shard_id, column_id, filename)\n" +
-            "VALUES (:shardId, :columnId, :filename)")
+    @SqlUpdate("INSERT INTO columns (shard_uuid, column_id, filename)\n" +
+            "VALUES (:shardUuid, :columnId, :filename)")
     void insertColumn(
-            @Bind("shardId") long shardId,
+            @Bind("shardUuid") UUID shardUuid,
             @Bind("columnId") long columnId,
             @Bind("filename") String filename);
 
     @SqlQuery("SELECT filename\n" +
             "FROM columns\n" +
-            "WHERE shard_id = :shardId\n" +
-            "  AND column_id = :columnId\n")
+            "WHERE shard_uuid = :shardUuid\n" +
+            "  AND column_id = :columnId")
     String getColumnFilename(
-            @Bind("shardId") long shardId,
+            @Bind("shardUuid") UUID shardUuid,
             @Bind("columnId") long columnId);
 
     @SqlQuery("SELECT filename\n" +
             "FROM columns\n" +
-            "WHERE shard_id = :shardId\n")
-    List<String> getShardFiles(@Bind("shardId") long shardId);
+            "WHERE shard_uuid = :shardUuid")
+    List<String> getShardFiles(@Bind("shardUuid") UUID shardUuid);
 
     @SqlQuery("SELECT COUNT(*) > 0\n" +
             "FROM columns\n" +
-            "WHERE shard_id = :shardId")
-    boolean shardExists(@Bind("shardId") long shardId);
+            "WHERE shard_uuid = :shardUuid")
+    boolean shardExists(@Bind("shardUuid") UUID shardUuid);
 
     @SqlUpdate("DELETE FROM columns\n" +
-            "WHERE shard_id = :shardId")
-    void dropShard(@Bind("shardId") long shardId);
+            "WHERE shard_uuid = :shardUuid")
+    void dropShard(@Bind("shardUuid") UUID shardUuid);
 }

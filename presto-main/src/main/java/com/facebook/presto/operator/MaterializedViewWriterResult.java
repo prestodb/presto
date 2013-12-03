@@ -18,34 +18,35 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
 
 import java.util.Map;
+import java.util.UUID;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class MaterializedViewWriterResult
 {
-    private final long shardId;
+    private final UUID shardUuid;
     private final String nodeIdentifier;
 
     public static MaterializedViewWriterResult forMap(Map<String, Object> map)
     {
         return new MaterializedViewWriterResult(
-                ((Number) map.get("shardId")).longValue(),
+                UUID.fromString((String) map.get("shardUuid")),
                 (String) map.get("nodeIdentifier"));
     }
 
     @JsonCreator
     public MaterializedViewWriterResult(
-            @JsonProperty("shardId") long shardId,
+            @JsonProperty("shardUuid") UUID shardUuid,
             @JsonProperty("nodeIdentifier") String nodeIdentifier)
     {
-        this.shardId = shardId;
+        this.shardUuid = checkNotNull(shardUuid, "shardUuid is null");
         this.nodeIdentifier = checkNotNull(nodeIdentifier, "nodeIdentifier is null");
     }
 
     @JsonProperty
-    public long getShardId()
+    public UUID getShardUuid()
     {
-        return shardId;
+        return shardUuid;
     }
 
     @JsonProperty
@@ -58,7 +59,7 @@ public class MaterializedViewWriterResult
     public String toString()
     {
         return Objects.toStringHelper(this)
-                .add("shardId", shardId)
+                .add("shardUuid", shardUuid)
                 .add("nodeIdentifier", nodeIdentifier)
                 .toString();
     }

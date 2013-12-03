@@ -201,7 +201,7 @@ public class MaterializedViewWriterOperator
         checkState(state == State.RUNNING, "Operator is finishing");
         if (columnFileHandle == null) {
             try {
-                columnFileHandle = storageManager.createStagingFileHandles(input.get().getShardId(), columnHandles);
+                columnFileHandle = storageManager.createStagingFileHandles(input.get().getShardUuid(), columnHandles);
             }
             catch (IOException e) {
                 throw Throwables.propagate(e);
@@ -227,7 +227,7 @@ public class MaterializedViewWriterOperator
                 throw Throwables.propagate(e);
             }
 
-            operatorContext.addOutputItems(sourceId, ImmutableSet.of(new MaterializedViewWriterResult(input.get().getShardId(), nodeIdentifier)));
+            operatorContext.addOutputItems(sourceId, ImmutableSet.of(new MaterializedViewWriterResult(input.get().getShardUuid(), nodeIdentifier)));
         }
 
         Block block = new BlockBuilder(SINGLE_LONG).append(rowCount).build();
