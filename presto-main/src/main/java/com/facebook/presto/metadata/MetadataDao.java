@@ -17,7 +17,6 @@ import com.facebook.presto.metadata.Table.TableMapper;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import org.skife.jdbi.v2.sqlobject.Bind;
-import org.skife.jdbi.v2.sqlobject.BindBean;
 import org.skife.jdbi.v2.sqlobject.GetGeneratedKeys;
 import org.skife.jdbi.v2.sqlobject.SqlQuery;
 import org.skife.jdbi.v2.sqlobject.SqlUpdate;
@@ -117,12 +116,6 @@ public interface MetadataDao
             "WHERE t.table_id = :tableId")
     @Mapper(TableColumnMapper.class)
     List<TableColumn> listTableColumns(@Bind("tableId") long tableId);
-
-    @SqlQuery("SELECT COUNT(*) > 0 FROM tables\n" +
-            "WHERE catalog_name = :catalogName\n" +
-            "  AND schema_name = :schemaName\n" +
-            "  AND table_name = :tableName")
-    boolean tableExists(@BindBean QualifiedTableName table);
 
     @SqlUpdate("INSERT INTO tables (catalog_name, schema_name, table_name)\n" +
             "VALUES (:catalogName, :schemaName, :tableName)")

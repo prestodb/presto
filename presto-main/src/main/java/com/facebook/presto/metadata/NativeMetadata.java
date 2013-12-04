@@ -22,6 +22,7 @@ import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableHandle;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Multimaps;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.TransactionCallback;
@@ -157,8 +158,7 @@ public class NativeMetadata
             ColumnMetadata columnMetadata = new ColumnMetadata(tableColumn.getColumnName(), tableColumn.getDataType().toColumnType(), tableColumn.getOrdinalPosition(), false);
             columns.put(tableColumn.getTable().asSchemaTableName(), columnMetadata);
         }
-        // This is safe for a list multimap
-        return (Map<SchemaTableName, List<ColumnMetadata>>) (Object) columns.build().asMap();
+        return Multimaps.asMap(columns.build());
     }
 
     private SchemaTableName getTableName(TableHandle tableHandle)
@@ -214,7 +214,7 @@ public class NativeMetadata
         dbi.inTransaction(new VoidTransactionCallback()
         {
             @Override
-            protected void execute(final Handle handle, TransactionStatus status)
+            protected void execute(Handle handle, TransactionStatus status)
                     throws Exception
             {
                 MetadataDaoUtils.dropTable(dao, tableId);
