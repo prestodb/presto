@@ -165,6 +165,13 @@ public class TestDistributedQueries
         long startTime = System.nanoTime();
         distributeData(catalog, schema);
         log.info("Loading complete in %.2fs", nanosSince(startTime).getValue(SECONDS));
+
+        // There is a race condition between writing data to the native store and
+        // when that data is visible to be queried.  This is a brain dead work around
+        // for this race condition that doesn't really fix the problem, but makes
+        // it very unlikely.
+        // todo remove this when import flow is fixed
+        Thread.sleep(1000);
     }
 
     private boolean allNodesGloballyVisible()
@@ -204,7 +211,15 @@ public class TestDistributedQueries
             MaterializedResult importResult = computeActual(format("CREATE MATERIALIZED VIEW default.default.%s AS SELECT * FROM %s",
                     qualifiedTableName.getTableName(),
                     qualifiedTableName));
-            log.info("Imported %s rows for %s", importResult.getMaterializedTuples().get(0).getField(0), qualifiedTableName.getTableName());
+
+            Object rowsImported;
+            if (importResult.getMaterializedTuples().isEmpty()) {
+                rowsImported = 0;
+            }
+            else {
+                rowsImported = importResult.getMaterializedTuples().get(0).getField(0);
+            }
+            log.info("Imported %s rows for %s", rowsImported, qualifiedTableName.getTableName());
         }
     }
 

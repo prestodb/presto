@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.analyzer.Type;
+import com.facebook.presto.sql.planner.PlanFragment.Partitioning;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -26,6 +27,7 @@ import com.facebook.presto.sql.planner.plan.MaterializedViewWriterNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
@@ -66,7 +68,7 @@ public class DistributedLogicalPlanner
         this.idAllocator = idAllocator;
     }
 
-    public SubPlan createSubplans(Plan plan, boolean createSingleNodePlan)
+    public SubPlan createSubPlans(Plan plan, boolean createSingleNodePlan)
     {
         Visitor visitor = new Visitor(plan.getSymbolAllocator(), createSingleNodePlan);
         SubPlanBuilder builder = plan.getRoot().accept(visitor, null);
@@ -127,15 +129,23 @@ public class DistributedLogicalPlanner
                 finalCalls.put(entry.getKey(), new FunctionCall(function.getName(), ImmutableList.<Expression>of(new QualifiedNameReference(intermediateSymbol.toQualifiedName()))));
             }
 
-            AggregationNode aggregation = new AggregationNode(idAllocator.getNextId(), plan.getRoot(), groupBy, intermediateCalls, intermediateFunctions, PARTIAL);
-            plan.setRoot(new SinkNode(idAllocator.getNextId(), aggregation, aggregation.getOutputSymbols()));
+            // create partial aggregation plan
+            AggregationNode partialAggregation = new AggregationNode(idAllocator.getNextId(), plan.getRoot(), groupBy, intermediateCalls, intermediateFunctions, PARTIAL);
+            plan.setRoot(new SinkNode(idAllocator.getNextId(), partialAggregation, partialAggregation.getOutputSymbols()));
 
-            // create merge + aggregation plan
+            // create final aggregation plan
             ExchangeNode source = new ExchangeNode(idAllocator.getNextId(), plan.getId(), plan.getRoot().getOutputSymbols());
-            AggregationNode merged = new AggregationNode(idAllocator.getNextId(), source, groupBy, finalCalls, functions, FINAL);
+            AggregationNode finalAggregation = new AggregationNode(idAllocator.getNextId(), source, groupBy, finalCalls, functions, FINAL);
 
-            return newSubPlan(merged)
-                    .addChild(plan.build());
+            if (groupBy.isEmpty()) {
+                plan = unpartitionedSubPlan(finalAggregation)
+                        .addChild(plan.build());
+            }
+            else {
+                plan = hashPartitionedSubPlan(finalAggregation)
+                        .addChild(plan.build());
+            }
+            return plan;
         }
 
         @Override
@@ -147,8 +157,7 @@ public class DistributedLogicalPlanner
                 current.setRoot(new SinkNode(idAllocator.getNextId(), current.getRoot(), current.getRoot().getOutputSymbols()));
 
                 // create a new non-partitioned fragment
-                current = newSubPlan(new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols()))
-                        .setUnpartitionedSource()
+                current = unpartitionedSubPlan(new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols()))
                         .addChild(current.build());
             }
 
@@ -194,8 +203,7 @@ public class DistributedLogicalPlanner
                 // create merge plan fragment
                 PlanNode source = new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols());
                 TopNNode merge = new TopNNode(idAllocator.getNextId(), source, node.getCount(), node.getOrderBy(), node.getOrderings(), true);
-                current = newSubPlan(merge)
-                        .setUnpartitionedSource()
+                current = unpartitionedSubPlan(merge)
                         .addChild(current.build());
             }
 
@@ -211,8 +219,7 @@ public class DistributedLogicalPlanner
                 current.setRoot(new SinkNode(idAllocator.getNextId(), current.getRoot(), current.getRoot().getOutputSymbols()));
 
                 // create a new non-partitioned fragment
-                current = newSubPlan(new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols()))
-                        .setUnpartitionedSource()
+                current = unpartitionedSubPlan(new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols()))
                         .addChild(current.build());
             }
 
@@ -230,8 +237,7 @@ public class DistributedLogicalPlanner
                 current.setRoot(new SinkNode(idAllocator.getNextId(), current.getRoot(), current.getRoot().getOutputSymbols()));
 
                 // create a new non-partitioned fragment
-                current = newSubPlan(new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols()))
-                        .setUnpartitionedSource()
+                current = unpartitionedSubPlan(new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols()))
                         .addChild(current.build());
             }
 
@@ -253,8 +259,7 @@ public class DistributedLogicalPlanner
                 // create merge plan fragment
                 PlanNode source = new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols());
                 LimitNode merge = new LimitNode(idAllocator.getNextId(), source, node.getCount());
-                current = newSubPlan(merge)
-                        .setUnpartitionedSource()
+                current = unpartitionedSubPlan(merge)
                         .addChild(current.build());
             }
 
@@ -264,11 +269,7 @@ public class DistributedLogicalPlanner
         @Override
         public SubPlanBuilder visitTableScan(TableScanNode node, Void context)
         {
-            SubPlanBuilder subPlanBuilder = newSubPlan(node);
-            if (!createSingleNodePlan) {
-                subPlanBuilder.setPartitionedSource(node.getId());
-            }
-            return subPlanBuilder;
+            return sourcePartitionedSubPlan(node, node.getId());
         }
 
         @Override
@@ -284,6 +285,9 @@ public class DistributedLogicalPlanner
                         node.getOutput()));
             }
             else {
+                // rewrite the sub-plan builder to use the source id of the table writer node
+                subPlanBuilder = new SubPlanBuilder(subPlanBuilder.getId(), allocator, subPlanBuilder.getPartitioning(), subPlanBuilder.getRoot(), node.getId());
+
                 // Put a simple SUM(<output symbol>) on top of the table writer node
                 FunctionInfo sum = metadata.getFunction(QualifiedName.of("sum"), ImmutableList.of(Type.BIGINT));
 
@@ -294,9 +298,7 @@ public class DistributedLogicalPlanner
                         node.getTable(),
                         node.getColumns(),
                         intermediateOutput);
-
-                subPlanBuilder.setRoot(writer)
-                        .setPartitionedSource(node.getId());
+                subPlanBuilder.setRoot(writer);
 
                 FunctionCall aggregate = new FunctionCall(sum.getName(),
                         ImmutableList.<Expression>of(new QualifiedNameReference(intermediateOutput.toQualifiedName())));
@@ -345,8 +347,7 @@ public class DistributedLogicalPlanner
             }
             else {
                 JoinNode join = new JoinNode(node.getId(), node.getType(), left.getRoot(), right.getRoot(), node.getCriteria());
-                return newSubPlan(join)
-                        .setUnpartitionedSource()
+                return unpartitionedSubPlan(join)
                         .setChildren(Iterables.concat(left.getChildren(), right.getChildren()));
             }
         }
@@ -371,8 +372,7 @@ public class DistributedLogicalPlanner
             }
             else {
                 SemiJoinNode semiJoinNode = new SemiJoinNode(node.getId(), source.getRoot(), filteringSource.getRoot(), node.getSourceJoinSymbol(), node.getFilteringSourceJoinSymbol(), node.getSemiJoinOutput());
-                return newSubPlan(semiJoinNode)
-                        .setUnpartitionedSource()
+                return unpartitionedSubPlan(semiJoinNode)
                         .setChildren(Iterables.concat(source.getChildren(), filteringSource.getChildren()));
             }
         }
@@ -385,20 +385,21 @@ public class DistributedLogicalPlanner
                 for (PlanNode source : node.getSources()) {
                     sourceBuilder.add(source.accept(this, context).getRoot());
                 }
-                return newSubPlan(new UnionNode(node.getId(), sourceBuilder.build(), node.getSymbolMapping()));
+                UnionNode unionNode = new UnionNode(node.getId(), sourceBuilder.build(), node.getSymbolMapping());
+                return unpartitionedSubPlan(unionNode);
             }
             else {
                 ImmutableList.Builder<SubPlan> sourceBuilder = ImmutableList.builder();
                 ImmutableList.Builder<PlanFragmentId> fragmentIdBuilder = ImmutableList.builder();
                 for (int i = 0; i < node.getSources().size(); i++) {
-                    PlanNode subplan = node.getSources().get(i);
-                    SubPlanBuilder current = subplan.accept(this, context);
+                    PlanNode subPlan = node.getSources().get(i);
+                    SubPlanBuilder current = subPlan.accept(this, context);
                     current.setRoot(new SinkNode(idAllocator.getNextId(), current.getRoot(), node.sourceOutputLayout(i)));
                     fragmentIdBuilder.add(current.getId());
                     sourceBuilder.add(current.build());
                 }
-                return newSubPlan(new ExchangeNode(idAllocator.getNextId(), fragmentIdBuilder.build(), node.getOutputSymbols()))
-                        .setUnpartitionedSource()
+                ExchangeNode exchangeNode = new ExchangeNode(idAllocator.getNextId(), fragmentIdBuilder.build(), node.getOutputSymbols());
+                return unpartitionedSubPlan(exchangeNode)
                         .setChildren(sourceBuilder.build());
             }
         }
@@ -409,9 +410,31 @@ public class DistributedLogicalPlanner
             throw new UnsupportedOperationException("not yet implemented");
         }
 
-        private SubPlanBuilder newSubPlan(PlanNode root)
+        public SubPlanBuilder unpartitionedSubPlan(PlanNode root)
         {
-            return new SubPlanBuilder(new PlanFragmentId(String.valueOf(nextFragmentId++)), allocator, root);
+            return new SubPlanBuilder(new PlanFragmentId(nextSubPlanId()), allocator, Partitioning.NONE, root, null);
+        }
+
+        public SubPlanBuilder sourcePartitionedSubPlan(PlanNode root, PlanNodeId partitionedSource)
+        {
+            if (createSingleNodePlan) {
+                // when creating a single node plan, we tell the planner that the table is not partitioned,
+                // but we still need to set the source id for the execution engine
+                return new SubPlanBuilder(new PlanFragmentId(nextSubPlanId()), allocator, Partitioning.NONE, root, partitionedSource);
+            }
+            else {
+                return new SubPlanBuilder(new PlanFragmentId(nextSubPlanId()), allocator, Partitioning.SOURCE, root, partitionedSource);
+            }
+        }
+
+        public SubPlanBuilder hashPartitionedSubPlan(PlanNode root)
+        {
+            return new SubPlanBuilder(new PlanFragmentId(nextSubPlanId()), allocator, Partitioning.HASH, root, null);
+        }
+
+        private String nextSubPlanId()
+        {
+            return String.valueOf(nextFragmentId++);
         }
     }
 }

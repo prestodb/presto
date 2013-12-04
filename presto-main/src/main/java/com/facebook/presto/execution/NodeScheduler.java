@@ -149,6 +149,20 @@ public class NodeScheduler
             return ImmutableList.copyOf(nodeMap.get().get().getNodesByHostAndPort().values());
         }
 
+        public List<Node> selectRandomNodes(int limit)
+        {
+            Preconditions.checkArgument(limit > 0, "limit must be at least 1");
+
+            List<Node> nodes = new ArrayList<>(nodeMap.get().get().getNodesByHostAndPort().values());
+
+            if (nodes.size() > limit) {
+                Collections.shuffle(nodes, ThreadLocalRandom.current());
+                nodes = nodes.subList(0, limit);
+            }
+
+            return ImmutableList.copyOf(nodes);
+        }
+
         public Node selectRandomNode()
         {
             // create a single partition on a random node for this fragment

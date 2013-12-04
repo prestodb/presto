@@ -51,7 +51,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_SEQUENCE_ID;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.operator.SequencePageBuilder.createSequencePage;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
@@ -314,23 +315,26 @@ public class TestExchangeOperator
             ImmutableList<String> parts = ImmutableList.copyOf(Splitter.on("/").omitEmptyStrings().split(request.getUri().getPath()));
             assertEquals(parts.size(), 2);
             String taskId = parts.get(0);
-            int pageSequenceId = Integer.parseInt(parts.get(1));
+            int pageToken = Integer.parseInt(parts.get(1));
 
             Builder<String, String> headers = ImmutableListMultimap.builder();
-            headers.put(PRESTO_PAGE_SEQUENCE_ID, String.valueOf(pageSequenceId));
+            headers.put(PRESTO_PAGE_TOKEN, String.valueOf(pageToken));
 
             TaskBuffer taskBuffer = taskBuffers.getUnchecked(taskId);
-            Page page = taskBuffer.getPage(pageSequenceId);
+            Page page = taskBuffer.getPage(pageToken);
             if (page != null) {
                 headers.put(CONTENT_TYPE, PRESTO_PAGES);
+                headers.put(PRESTO_PAGE_NEXT_TOKEN, String.valueOf(pageToken + 1));
                 DynamicSliceOutput output = new DynamicSliceOutput(256);
                 PagesSerde.writePages(output, page);
                 return new TestingResponse(HttpStatus.OK, headers.build(), output.slice().getInput());
             }
             else if (taskBuffer.isClosed()) {
+                headers.put(PRESTO_PAGE_NEXT_TOKEN, String.valueOf(pageToken));
                 return new TestingResponse(HttpStatus.GONE, headers.build(), new byte[0]);
             }
             else {
+                headers.put(PRESTO_PAGE_NEXT_TOKEN, String.valueOf(pageToken));
                 return new TestingResponse(HttpStatus.NO_CONTENT, headers.build(), new byte[0]);
             }
         }
