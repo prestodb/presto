@@ -36,11 +36,12 @@ public interface MetadataDao
     void createTablesTable();
 
     @SqlUpdate("CREATE TABLE IF NOT EXISTS columns (\n" +
-            "  column_id BIGINT PRIMARY KEY AUTO_INCREMENT,\n" +
             "  table_id BIGINT NOT NULL,\n" +
+            "  column_id BIGINT NOT NULL,\n" +
             "  column_name VARCHAR(255) NOT NULL,\n" +
             "  ordinal_position INT NOT NULL,\n" +
             "  data_type VARCHAR(255) NOT NULL,\n" +
+            "  PRIMARY KEY (table_id, column_id),\n" +
             "  UNIQUE (table_id, column_name),\n" +
             "  UNIQUE (table_id, ordinal_position),\n" +
             "  FOREIGN KEY (table_id) REFERENCES tables (table_id)\n" +
@@ -63,12 +64,14 @@ public interface MetadataDao
     @Mapper(QualifiedTableNameMapper.class)
     QualifiedTableName getTableName(@Bind("tableId") long tableId);
 
-    @SqlQuery("SELECT c.column_name, c.data_type, c.ordinal_position\n" +
-            "FROM tables t\n" +
-            "JOIN columns c ON (t.table_id = c.table_id)\n" +
-            "WHERE (c.column_id = :columnId)")
+    @SqlQuery("SELECT column_name, data_type, ordinal_position\n" +
+            "FROM columns\n" +
+            "WHERE table_id = :tableId\n" +
+            "  AND column_id = :columnId")
     @Mapper(ColumnMetadataMapper.class)
-    ColumnMetadata getColumnMetadata(@Bind("columnId") long columnId);
+    ColumnMetadata getColumnMetadata(
+            @Bind("tableId") long tableId,
+            @Bind("columnId") long columnId);
 
     @SqlQuery("SELECT column_name, data_type, ordinal_position\n" +
             "FROM columns\n" +
@@ -125,10 +128,11 @@ public interface MetadataDao
             @Bind("schemaName") String schemaName,
             @Bind("tableName") String tableName);
 
-    @SqlUpdate("INSERT INTO columns (table_id, column_name, ordinal_position, data_type)\n" +
-            "VALUES (:tableId, :columnName, :ordinalPosition, :dataType)")
+    @SqlUpdate("INSERT INTO columns (table_id, column_id, column_name, ordinal_position, data_type)\n" +
+            "VALUES (:tableId, :columnId, :columnName, :ordinalPosition, :dataType)")
     void insertColumn(
             @Bind("tableId") long tableId,
+            @Bind("columnId") long columnId,
             @Bind("columnName") String columnName,
             @Bind("ordinalPosition") int ordinalPosition,
             @Bind("dataType") String dataType);
