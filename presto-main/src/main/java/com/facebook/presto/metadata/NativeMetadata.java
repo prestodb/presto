@@ -141,9 +141,10 @@ public class NativeMetadata
         checkArgument(tableHandle instanceof NativeTableHandle, "tableHandle is not an instance of NativeTableHandle");
         checkArgument(columnHandle instanceof NativeColumnHandle, "columnHandle is not an instance of NativeColumnHandle");
 
+        long tableId = ((NativeTableHandle) tableHandle).getTableId();
         long columnId = ((NativeColumnHandle) columnHandle).getColumnId();
 
-        ColumnMetadata columnMetadata = dao.getColumnMetadata(columnId);
+        ColumnMetadata columnMetadata = dao.getColumnMetadata(tableId, columnId);
         checkState(columnMetadata != null, "no column with id %s exists", columnId);
         return columnMetadata;
     }
@@ -193,7 +194,8 @@ public class NativeMetadata
                         long tableId = dao.insertTable(catalogName, tableMetadata.getTable().getSchemaName(), tableMetadata.getTable().getTableName());
                         int ordinalPosition = 0;
                         for (ColumnMetadata column : tableMetadata.getColumns()) {
-                            dao.insertColumn(tableId, column.getName(), ordinalPosition, fromColumnType(column.getType()).getName());
+                            long columnId = ordinalPosition + 1;
+                            dao.insertColumn(tableId, columnId, column.getName(), ordinalPosition, fromColumnType(column.getType()).getName());
                             ordinalPosition++;
                         }
                         return tableId;
