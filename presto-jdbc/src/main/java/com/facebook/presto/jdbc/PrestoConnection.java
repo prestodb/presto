@@ -16,6 +16,7 @@ package com.facebook.presto.jdbc;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.StatementClient;
 import com.google.common.base.Objects;
+import com.google.common.base.Splitter;
 import com.google.common.net.HostAndPort;
 
 import java.net.URI;
@@ -36,6 +37,7 @@ import java.sql.SQLXML;
 import java.sql.Savepoint;
 import java.sql.Statement;
 import java.sql.Struct;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
@@ -44,6 +46,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Maps.fromProperties;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilder;
 
@@ -60,6 +63,7 @@ public class PrestoConnection
     private final QueryExecutor queryExecutor;
 
     PrestoConnection(URI uri, String user, QueryExecutor queryExecutor)
+            throws SQLException
     {
         this.uri = checkNotNull(uri, "uri is null");
         this.address = HostAndPort.fromParts(uri.getHost(), uri.getPort());
@@ -67,6 +71,10 @@ public class PrestoConnection
         this.queryExecutor = checkNotNull(queryExecutor, "queryExecutor is null");
         catalog.set("default");
         schema.set("default");
+
+        if (!isNullOrEmpty(uri.getPath())) {
+            setCatalogAndSchema();
+        }
     }
 
     @Override
@@ -511,6 +519,44 @@ public class PrestoConnection
     {
         if (isClosed()) {
             throw new SQLException("Connection is closed");
+        }
+    }
+
+    private void setCatalogAndSchema()
+            throws SQLException
+    {
+        String path = uri.getPath();
+        if (path.equals("/")) {
+            return;
+        }
+
+        // remove first slash
+        if (!path.startsWith("/")) {
+            throw new SQLException("Path does not start with a slash: " + uri);
+        }
+        path = path.substring(1);
+
+        List<String> parts = Splitter.on("/").splitToList(path);
+
+        // remove last item due to a trailing slash
+        if (parts.get(parts.size() - 1).isEmpty()) {
+            parts = parts.subList(0, parts.size() - 1);
+        }
+
+        if (parts.size() > 2) {
+            throw new SQLException("Invalid path segments in URL: " + uri);
+        }
+
+        if (parts.get(0).isEmpty()) {
+            throw new SQLException("Catalog name is empty: " + uri);
+        }
+        catalog.set(parts.get(0));
+
+        if (parts.size() > 1) {
+            if (parts.get(1).isEmpty()) {
+                throw new SQLException("Schema name is empty: " + uri);
+            }
+            schema.set(parts.get(1));
         }
     }
 

@@ -203,6 +203,82 @@ public class TestDriver
     }
 
     @Test
+    public void testConnectionStringWithCatalogAndSchema()
+            throws Exception
+    {
+        String prefix = format("jdbc:presto://%s", server.getAddress());
+
+        Connection connection;
+        connection = DriverManager.getConnection(prefix + "/a/b/", "test", null);
+        assertEquals(connection.getCatalog(), "a");
+        assertEquals(connection.getSchema(), "b");
+
+        connection = DriverManager.getConnection(prefix + "/a/b", "test", null);
+        assertEquals(connection.getCatalog(), "a");
+        assertEquals(connection.getSchema(), "b");
+
+        connection = DriverManager.getConnection(prefix + "/a/", "test", null);
+        assertEquals(connection.getCatalog(), "a");
+        assertEquals(connection.getSchema(), "default");
+
+        connection = DriverManager.getConnection(prefix + "/a", "test", null);
+        assertEquals(connection.getCatalog(), "a");
+        assertEquals(connection.getSchema(), "default");
+
+        connection = DriverManager.getConnection(prefix + "/", "test", null);
+        assertEquals(connection.getCatalog(), "default");
+        assertEquals(connection.getSchema(), "default");
+
+        connection = DriverManager.getConnection(prefix + "", "test", null);
+        assertEquals(connection.getCatalog(), "default");
+        assertEquals(connection.getSchema(), "default");
+    }
+
+    @Test
+    public void testConnectionWithCatalogAndSchema()
+            throws Exception
+    {
+        try (Connection connection = createConnection("default", "information_schema")) {
+            try (Statement statement = connection.createStatement()) {
+                try (ResultSet rs = statement.executeQuery("" +
+                        "SELECT table_catalog, table_schema " +
+                        "FROM tables " +
+                        "WHERE table_schema = 'sys' AND table_name = 'node'")) {
+
+                    ResultSetMetaData metadata = rs.getMetaData();
+                    assertEquals(metadata.getColumnCount(), 2);
+                    assertEquals(metadata.getColumnLabel(1), "table_catalog");
+                    assertEquals(metadata.getColumnLabel(2), "table_schema");
+                    assertTrue(rs.next());
+                    assertEquals(rs.getString("table_catalog"), "default");
+                }
+            }
+        }
+    }
+
+    @Test
+    public void testConnectionWithCatalog()
+            throws Exception
+    {
+        try (Connection connection = createConnection("default")) {
+            try (Statement statement = connection.createStatement()) {
+                try (ResultSet rs = statement.executeQuery("" +
+                        "SELECT table_catalog, table_schema " +
+                        "FROM information_schema.tables " +
+                        "WHERE table_schema = 'sys' AND table_name = 'node'")) {
+
+                    ResultSetMetaData metadata = rs.getMetaData();
+                    assertEquals(metadata.getColumnCount(), 2);
+                    assertEquals(metadata.getColumnLabel(1), "table_catalog");
+                    assertEquals(metadata.getColumnLabel(2), "table_schema");
+                    assertTrue(rs.next());
+                    assertEquals(rs.getString("table_catalog"), "default");
+                }
+            }
+        }
+    }
+
+    @Test
     public void testConnectionResourceHandling()
             throws Exception
     {
@@ -245,10 +321,64 @@ public class TestDriver
         }
     }
 
+    @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Invalid path segments in URL: .*")
+    public void testBadUrlExtraPathSegments()
+            throws Exception
+    {
+        String url = format("jdbc:presto://%s/hive/default/bad_string", server.getAddress());
+        try (Connection ignored = DriverManager.getConnection(url, "test", null)) {
+            fail("expected exception");
+        }
+    }
+
+    @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Catalog name is empty: .*")
+    public void testBadUrlMissingCatalog()
+            throws Exception
+    {
+        String url = format("jdbc:presto://%s//default", server.getAddress());
+        try (Connection ignored = DriverManager.getConnection(url, "test", null)) {
+            fail("expected exception");
+        }
+    }
+
+    @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Catalog name is empty: .*")
+    public void testBadUrlEndsInSlashes()
+            throws Exception
+    {
+        String url = format("jdbc:presto://%s//", server.getAddress());
+        try (Connection ignored = DriverManager.getConnection(url, "test", null)) {
+            fail("expected exception");
+        }
+    }
+
+    @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Schema name is empty: .*")
+    public void testBadUrlMissingSchema()
+            throws Exception
+    {
+        String url = format("jdbc:presto://%s/a//", server.getAddress());
+        try (Connection ignored = DriverManager.getConnection(url, "test", null)) {
+            fail("expected exception");
+        }
+    }
+
     private Connection createConnection()
             throws SQLException
     {
-        String url = format("jdbc:presto://%s/", server.getAddress());
+        String url = format("jdbc:presto://%s", server.getAddress());
+        return DriverManager.getConnection(url, "test", null);
+    }
+
+    private Connection createConnection(String catalog)
+            throws SQLException
+    {
+        String url = format("jdbc:presto://%s/%s", server.getAddress(), catalog);
+        return DriverManager.getConnection(url, "test", null);
+    }
+
+    private Connection createConnection(String catalog, String schema)
+            throws SQLException
+    {
+        String url = format("jdbc:presto://%s/%s/%s", server.getAddress(), catalog, schema);
         return DriverManager.getConnection(url, "test", null);
     }
 
