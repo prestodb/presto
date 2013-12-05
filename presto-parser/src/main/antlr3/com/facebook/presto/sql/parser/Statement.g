@@ -554,7 +554,11 @@ showTablesLike
     ;
 
 showSchemasStmt
-    : SHOW SCHEMAS -> SHOW_SCHEMAS
+    : SHOW SCHEMAS from=showSchemasFrom? -> ^(SHOW_SCHEMAS $from?)
+    ;
+
+showSchemasFrom
+    : (FROM | IN) ident -> ^(FROM ident)
     ;
 
 showCatalogsStmt
