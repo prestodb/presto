@@ -69,6 +69,7 @@ public abstract class AbstractTestHiveClient
 {
     public static final String INVALID_DATABASE = "totally_invalid_database";
     public static final String INVALID_COLUMN = "totally_invalid_column_name";
+    public static final byte[] EMPTY_STRING = new byte[0];
 
     protected String database;
     protected SchemaTableName table;
@@ -475,7 +476,9 @@ public abstract class AbstractTestHiveClient
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
         String testString = "textfile test";
-        Long testBigint = 605L;
+        // This needs to match one of the rows where t_string is not empty or null, and where t_bigint is not null
+        // (i.e. (testBigint - 604) % 19 > 1 and (testBigint - 604) % 13 != 0)
+        Long testBigint = 608L;
         Boolean testBoolean = true;
 
         ImmutableMap<ColumnHandle, Comparable<?>> bindings = ImmutableMap.<ColumnHandle, Comparable<?>>builder()
@@ -571,6 +574,9 @@ public abstract class AbstractTestHiveClient
 
                     if (rowNumber % 19 == 0) {
                         assertTrue(cursor.isNull(columnIndex.get("t_string")));
+                    }
+                    else if (rowNumber % 19 == 1) {
+                        assertEquals(cursor.getString(columnIndex.get("t_string")), EMPTY_STRING);
                     }
                     else {
                         assertEquals(cursor.getString(columnIndex.get("t_string")), (fileType + " test").getBytes(Charsets.UTF_8));
@@ -715,6 +721,9 @@ public abstract class AbstractTestHiveClient
 
                     if (rowNumber % 19 == 0) {
                         assertTrue(cursor.isNull(columnIndex.get("t_string")));
+                    }
+                    else if (rowNumber % 19 == 1) {
+                        assertEquals(cursor.getString(columnIndex.get("t_string")), EMPTY_STRING);
                     }
                     else {
                         assertEquals(cursor.getString(columnIndex.get("t_string")), "unpartitioned".getBytes(Charsets.UTF_8));
