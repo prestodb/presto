@@ -122,7 +122,7 @@ ALTER TABLE presto_test SET SERDE 'org.apache.hadoop.hive.serde2.columnar.Column
 ALTER TABLE presto_test ADD PARTITION (ds='2012-12-29', file_format='rcfile-text', dummy=0);
 INSERT INTO TABLE presto_test PARTITION (ds='2012-12-29', file_format='rcfile-text', dummy=0)
 SELECT
-  CASE WHEN n % 19 = 0 THEN NULL ELSE 'rcfile-text test' END
+  CASE n % 19 WHEN 0 THEN NULL WHEN 1 THEN '' ELSE 'rcfile-text test' END
 , 1 + n
 , 2 + n
 , 3 + n
@@ -144,7 +144,7 @@ ALTER TABLE presto_test SET SERDE 'org.apache.hadoop.hive.serde2.columnar.LazyBi
 ALTER TABLE presto_test ADD PARTITION (ds='2012-12-29', file_format='rcfile-binary', dummy=2);
 INSERT INTO TABLE presto_test PARTITION (ds='2012-12-29', file_format='rcfile-binary', dummy=2)
 SELECT
-  CASE WHEN n % 19 = 0 THEN NULL ELSE 'rcfile-binary test' END
+  CASE n % 19 WHEN 0 THEN NULL WHEN 1 THEN '' ELSE 'rcfile-binary test' END
 , 201 + n
 , 202 + n
 , 203 + n
@@ -166,7 +166,7 @@ ALTER TABLE presto_test SET SERDE 'org.apache.hadoop.hive.serde2.lazy.LazySimple
 ALTER TABLE presto_test ADD PARTITION (ds='2012-12-29', file_format='sequencefile', dummy=4);
 INSERT INTO TABLE presto_test PARTITION (ds='2012-12-29', file_format='sequencefile', dummy=4)
 SELECT
-  CASE WHEN n % 19 = 0 THEN NULL ELSE 'sequencefile test' END
+  CASE n % 19 WHEN 0 THEN NULL WHEN 1 THEN '' ELSE 'sequencefile test' END
 , 401 + n
 , 402 + n
 , 403 + n
@@ -188,7 +188,7 @@ ALTER TABLE presto_test SET SERDE 'org.apache.hadoop.hive.serde2.lazy.LazySimple
 ALTER TABLE presto_test ADD PARTITION (ds='2012-12-29', file_format='textfile', dummy=6);
 INSERT INTO TABLE presto_test PARTITION (ds='2012-12-29', file_format='textfile', dummy=6)
 SELECT
-  CASE WHEN n % 19 = 0 THEN NULL ELSE 'textfile test' END
+  CASE n % 19 WHEN 0 THEN NULL WHEN 1 THEN '' ELSE 'textfile test' END
 , 601 + n
 , 602 + n
 , 603 + n
@@ -207,7 +207,7 @@ FROM tmp_presto_test LIMIT 100;
 
 INSERT INTO TABLE presto_test_unpartitioned
 SELECT
-  CASE WHEN n % 19 = 0 THEN NULL ELSE 'unpartitioned' END
+  CASE n % 19 WHEN 0 THEN NULL WHEN 1 THEN '' ELSE 'unpartitioned' END
 , 1 + n
 FROM tmp_presto_test LIMIT 100;
 
