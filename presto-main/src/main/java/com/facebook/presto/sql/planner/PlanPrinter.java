@@ -343,7 +343,7 @@ public class PlanPrinter
         @Override
         protected Void visitPlan(PlanNode node, Integer context)
         {
-            throw new UnsupportedOperationException("not yet implemented");
+            throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
         }
 
         private Void processChildren(PlanNode node, int indent)
