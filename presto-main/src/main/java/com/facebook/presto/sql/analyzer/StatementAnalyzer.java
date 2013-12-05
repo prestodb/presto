@@ -421,9 +421,9 @@ class StatementAnalyzer
     {
         switch (planFormat) {
             case GRAPHVIZ:
-                return queryExplainer.get().getGraphvizPlan(node.getQuery(), planType);
+                return queryExplainer.get().getGraphvizPlan(node.getStatement(), planType);
             case TEXT:
-                return queryExplainer.get().getPlan(node.getQuery(), planType);
+                return queryExplainer.get().getPlan(node.getStatement(), planType);
         }
         throw new IllegalArgumentException("Invalid Explain Format: " + planFormat.toString());
     }

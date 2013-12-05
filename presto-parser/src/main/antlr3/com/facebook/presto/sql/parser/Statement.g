@@ -527,7 +527,7 @@ frameBound
     ;
 
 explainStmt
-    : EXPLAIN explainOptions? query -> ^(EXPLAIN explainOptions? query)
+    : EXPLAIN explainOptions? statement -> ^(EXPLAIN explainOptions? statement)
     ;
 
 explainOptions

@@ -461,7 +461,7 @@ whenList returns [List<WhenClause> value = new ArrayList<>()]
     ;
 
 explain returns [Statement value]
-    : ^(EXPLAIN explainOptions? query) { $value = new Explain($query.value, $explainOptions.value); }
+    : ^(EXPLAIN explainOptions? statement) { $value = new Explain($statement.value, $explainOptions.value); }
     ;
 
 explainOptions returns [List<ExplainOption> value = new ArrayList<>()]
