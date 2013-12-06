@@ -14,14 +14,9 @@
 package com.facebook.presto.tuple;
 
 import com.facebook.presto.tuple.TupleInfo.Type;
-import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 
 import static com.google.common.base.Charsets.UTF_8;
 
@@ -95,36 +90,29 @@ public class Tuple
     }
 
     /**
-     * Materializes the tuple values as Java Object.
+     * Materializes the tuple value as Java Object.
      * This method is mainly for diagnostics and should not be called in normal query processing.
      */
-    public List<Object> toValues()
+    public Object getObjectValue()
     {
-        ArrayList<Object> values = new ArrayList<>();
         if (isNull()) {
-            values.add(null);
+            return null;
         }
-        else {
-            Type type = tupleInfo.getType();
-            switch (type) {
-                case BOOLEAN:
-                    values.add(getBoolean());
-                    break;
-                case FIXED_INT_64:
-                    values.add(getLong());
-                    break;
-                case DOUBLE:
-                    values.add(getDouble());
-                    break;
-                case VARIABLE_BINARY:
-                    Slice slice = getSlice();
-                    values.add(slice.toString(UTF_8));
-                    break;
-                default:
-                    throw new IllegalStateException("Unsupported type: " + type);
-            }
+
+        Type type = tupleInfo.getType();
+        switch (type) {
+            case BOOLEAN:
+                return getBoolean();
+            case FIXED_INT_64:
+                return getLong();
+            case DOUBLE:
+                return getDouble();
+            case VARIABLE_BINARY:
+                Slice slice = getSlice();
+                return slice.toString(UTF_8);
+            default:
+                throw new IllegalStateException("Unsupported type: " + type);
         }
-        return Collections.unmodifiableList(values);
     }
 
     @Override
@@ -156,11 +144,10 @@ public class Tuple
     @Override
     public String toString()
     {
-        String value = Joiner.on(",").useForNull("NULL").join(toValues()).replace("\n", "\\n");
         return Objects.toStringHelper(this)
                 .add("slice", slice)
                 .add("tupleInfo", tupleInfo)
-                .add("value", "{" + value + "}")
+                .add("value", getObjectValue())
                 .toString();
     }
 }

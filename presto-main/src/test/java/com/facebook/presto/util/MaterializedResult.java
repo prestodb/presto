@@ -20,7 +20,6 @@ import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -130,7 +129,7 @@ public class MaterializedResult
                 List<Object> values = new ArrayList<>(tupleInfos.size());
                 for (BlockCursor cursor : cursors) {
                     if (cursor.advanceNextPosition()) {
-                        values.add(Iterables.getOnlyElement(cursor.getTuple().toValues()));
+                        values.add(cursor.getTuple().getObjectValue());
                     }
                     else {
                         checkState(values.isEmpty(), "unaligned cursors");

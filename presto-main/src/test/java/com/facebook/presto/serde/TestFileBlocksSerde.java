@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.serde;
 
+import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.google.common.collect.ImmutableList;
@@ -23,7 +24,6 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.block.BlockAssertions.toValues;
 import static com.facebook.presto.serde.BlocksFileReader.readBlocks;
 import static com.facebook.presto.serde.BlocksFileWriter.writeBlocks;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
@@ -31,19 +31,19 @@ import static org.testng.Assert.assertEquals;
 
 public class TestFileBlocksSerde
 {
-    private final List<ImmutableList<String>> expectedValues = ImmutableList.of(
-            ImmutableList.of("alice"),
-            ImmutableList.of("bob"),
-            ImmutableList.of("charlie"),
-            ImmutableList.of("dave"),
-            ImmutableList.of("alice"),
-            ImmutableList.of("bob"),
-            ImmutableList.of("charlie"),
-            ImmutableList.of("dave"),
-            ImmutableList.of("alice"),
-            ImmutableList.of("bob"),
-            ImmutableList.of("charlie"),
-            ImmutableList.of("dave"));
+    private final List<String> expectedValues = ImmutableList.of(
+            "alice",
+            "bob",
+            "charlie",
+            "dave",
+            "alice",
+            "bob",
+            "charlie",
+            "dave",
+            "alice",
+            "bob",
+            "charlie",
+            "dave");
 
     private final UncompressedBlock expectedBlock = new BlockBuilder(SINGLE_VARBINARY)
             .append("alice")
@@ -73,7 +73,7 @@ public class TestFileBlocksSerde
         Slice slice = sliceOutput.getLastSlice();
         BlocksFileReader actualBlocks = readBlocks(slice);
 
-        List<List<Object>> actualValues = toValues(actualBlocks);
+        List<Object> actualValues = BlockAssertions.toValues(actualBlocks);
 
         assertEquals(actualValues, expectedValues);
 

@@ -84,7 +84,7 @@ public final class AggregationTestUtils
         }
 
         Block block = aggregation.evaluateFinal();
-        return BlockAssertions.toValues(block).get(0).get(0);
+        return BlockAssertions.getOnlyValue(block);
     }
 
     public static Object partialAggregation(AggregationFunction function, Page... pages)
@@ -120,7 +120,7 @@ public final class AggregationTestUtils
         finalAggregation.addIntermediate(partialBlock);
 
         Block finalBlock = finalAggregation.evaluateFinal();
-        return BlockAssertions.toValues(finalBlock).get(0).get(0);
+        return BlockAssertions.getOnlyValue(finalBlock);
     }
 
     public static Object groupedAggregation(AggregationFunction function, Page... pages)
@@ -274,6 +274,6 @@ public final class AggregationTestUtils
     {
         BlockBuilder out = new BlockBuilder(groupedAggregation.getFinalTupleInfo());
         groupedAggregation.evaluateFinal(groupId, out);
-        return BlockAssertions.toValues(out.build()).get(0).get(0);
+        return BlockAssertions.getOnlyValue(out.build());
     }
 }
