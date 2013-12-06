@@ -30,7 +30,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class TaskStats
 {
     private final DateTime createTime;
-    private final DateTime startTime;
+    private final DateTime firstStartTime;
+    private final DateTime lastStartTime;
     private final DateTime endTime;
 
     private final Duration elapsedTime;
@@ -62,7 +63,8 @@ public class TaskStats
     @JsonCreator
     public TaskStats(
             @JsonProperty("createTime") DateTime createTime,
-            @JsonProperty("startTime") DateTime startTime,
+            @JsonProperty("firstStartTime") DateTime firstStartTime,
+            @JsonProperty("lastStartTime") DateTime lastStartTime,
             @JsonProperty("endTime") DateTime endTime,
             @JsonProperty("elapsedTime") Duration elapsedTime,
             @JsonProperty("queuedTime") Duration queuedTime,
@@ -91,7 +93,8 @@ public class TaskStats
             @JsonProperty("pipelines") List<PipelineStats> pipelines)
     {
         this.createTime = checkNotNull(createTime, "createTime is null");
-        this.startTime = startTime;
+        this.firstStartTime = firstStartTime;
+        this.lastStartTime = lastStartTime;
         this.endTime = endTime;
         this.elapsedTime = checkNotNull(elapsedTime, "elapsedTime is null");
         this.queuedTime = checkNotNull(queuedTime, "queuedTime is null");
@@ -135,9 +138,16 @@ public class TaskStats
 
     @Nullable
     @JsonProperty
-    public DateTime getStartTime()
+    public DateTime getFirstStartTime()
     {
-        return startTime;
+        return firstStartTime;
+    }
+
+    @Nullable
+    @JsonProperty
+    public DateTime getLastStartTime()
+    {
+        return lastStartTime;
     }
 
     @Nullable

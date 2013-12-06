@@ -18,6 +18,7 @@ import io.airlift.stats.Distribution;
 import io.airlift.stats.Distribution.DistributionSnapshot;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -27,6 +28,8 @@ import static org.testng.Assert.assertEquals;
 public class TestStageStats
 {
     public static final StageStats EXPECTED = new StageStats(
+            new DateTime(0),
+
             getTestDistribution(1),
             getTestDistribution(2),
             getTestDistribution(3),
@@ -69,6 +72,8 @@ public class TestStageStats
 
     public static void assertExpectedStageStats(StageStats actual)
     {
+        assertEquals(actual.getSchedulingComplete().getMillis(), 0);
+
         assertEquals(actual.getGetSplitDistribution().getCount(), 1.0);
         assertEquals(actual.getScheduleTaskDistribution().getCount(), 2.0);
         assertEquals(actual.getAddSplitDistribution().getCount(), 3.0);

@@ -16,8 +16,11 @@ package com.facebook.presto.event.query;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryStats;
+import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.operator.DriverStats;
+import com.facebook.presto.operator.TaskStats;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Throwables;
@@ -26,8 +29,11 @@ import io.airlift.event.client.EventClient;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.Duration;
+import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
+
+import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -108,9 +114,84 @@ public class QueryMonitor
                             objectMapper.writeValueAsString(queryInfo.getInputs())
                     )
             );
+
+            logQueryTimeline(queryInfo);
         }
         catch (JsonProcessingException e) {
             throw Throwables.propagate(e);
+        }
+    }
+
+    private void logQueryTimeline(QueryInfo queryInfo)
+    {
+        try {
+            QueryStats queryStats = queryInfo.getQueryStats();
+            DateTime queryStartTime = queryStats.getCreateTime();
+            DateTime queryEndTime = queryStats.getEndTime();
+
+            // query didn't finish cleanly
+            if (queryStartTime == null || queryEndTime == null) {
+                return;
+            }
+
+            // planning duration -- start to end of planning
+            Duration planning = queryStats.getTotalPlanningTime();
+            if (planning == null) {
+                planning = new Duration(0, MILLISECONDS);
+            }
+
+            List<StageInfo> stages = StageInfo.getAllStages(queryInfo.getOutputStage());
+            // long lastSchedulingCompletion = 0;
+            long firstTaskStartTime = queryEndTime.getMillis();
+            long lastTaskStartTime = queryStartTime.getMillis() + planning.toMillis();
+            long lastTaskEndTime = queryStartTime.getMillis() + planning.toMillis();
+            for (StageInfo stage : stages) {
+                // only consider leaf stages
+                if (!stage.getSubStages().isEmpty()) {
+                    continue;
+                }
+
+                for (TaskInfo taskInfo : stage.getTasks()) {
+                    TaskStats taskStats = taskInfo.getStats();
+
+                    DateTime firstStartTime = taskStats.getFirstStartTime();
+                    if (firstStartTime != null) {
+                        firstTaskStartTime = Math.min(firstStartTime.getMillis(), firstTaskStartTime);
+                    }
+
+                    DateTime lastStartTime = taskStats.getLastStartTime();
+                    if (lastStartTime != null) {
+                        lastTaskStartTime = Math.max(lastStartTime.getMillis(), lastTaskStartTime);
+                    }
+
+                    DateTime endTime = taskStats.getEndTime();
+                    if (endTime != null) {
+                        lastTaskEndTime = Math.max(endTime.getMillis(), lastTaskEndTime);
+                    }
+                }
+            }
+
+            Duration elapsed = millis(queryEndTime.getMillis() - queryStartTime.getMillis());
+
+            Duration scheduling = millis(firstTaskStartTime - queryStartTime.getMillis() - planning.toMillis());
+
+            Duration running = millis(lastTaskEndTime - firstTaskStartTime);
+
+            Duration finishing = millis(queryEndTime.getMillis() - lastTaskEndTime);
+
+            log.info("TIMELINE: Query %s :: elapsed %s :: planning %s :: scheduling %s :: running %s :: finishing %s :: begin %s :: end %s",
+                    queryInfo.getQueryId(),
+                    elapsed,
+                    planning,
+                    scheduling,
+                    running,
+                    finishing,
+                    queryStartTime,
+                    queryEndTime
+            );
+        }
+        catch (Exception e) {
+            log.error(e, "Error logging query timeline");
         }
     }
 
@@ -128,11 +209,11 @@ public class QueryMonitor
     {
         Duration timeToStart = null;
         if (driverStats.getStartTime() != null) {
-            timeToStart = new Duration(driverStats.getStartTime().getMillis() - driverStats.getCreateTime().getMillis(), MILLISECONDS);
+            timeToStart = millis(driverStats.getStartTime().getMillis() - driverStats.getCreateTime().getMillis());
         }
         Duration timeToEnd = null;
         if (driverStats.getEndTime() != null) {
-            timeToEnd = new Duration(driverStats.getEndTime().getMillis() - driverStats.getCreateTime().getMillis(), MILLISECONDS);
+            timeToEnd = millis(driverStats.getEndTime().getMillis() - driverStats.getCreateTime().getMillis());
         }
 
         try {
@@ -160,5 +241,13 @@ public class QueryMonitor
         catch (JsonProcessingException e) {
             log.error(e, "Error posting split completion event for task %s", taskId);
         }
+    }
+
+    private static Duration millis(long millis)
+    {
+        if (millis < 0) {
+            millis = 0;
+        }
+        return new Duration(millis, MILLISECONDS);
     }
 }

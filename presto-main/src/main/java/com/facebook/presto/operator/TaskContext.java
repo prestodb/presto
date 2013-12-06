@@ -67,6 +67,7 @@ public class TaskContext
     private final AtomicLong endNanos = new AtomicLong();
 
     private final AtomicReference<DateTime> executionStartTime = new AtomicReference<>();
+    private final AtomicReference<DateTime> lastExecutionStartTime = new AtomicReference<>();
     private final AtomicReference<DateTime> executionEndTime = new AtomicReference<>();
 
     private final SetMultimap<PlanNodeId, Object> outputItems = Multimaps.synchronizedSetMultimap(HashMultimap.<PlanNodeId, Object>create());
@@ -146,7 +147,9 @@ public class TaskContext
             // already started
             return;
         }
-        executionStartTime.set(DateTime.now());
+        DateTime now = DateTime.now();
+        executionStartTime.compareAndSet(null, now);
+        lastExecutionStartTime.set(now);
     }
 
     public void failed(Throwable cause)
@@ -249,7 +252,9 @@ public class TaskContext
     {
         // check for end state to avoid callback ordering problems
         if (taskStateMachine.getState().isDone()) {
-            if (executionEndTime.compareAndSet(null, DateTime.now())) {
+            DateTime now = DateTime.now();
+            if (executionEndTime.compareAndSet(null, now)) {
+                lastExecutionStartTime.set(now);
                 endNanos.set(System.nanoTime());
             }
         }
@@ -318,6 +323,7 @@ public class TaskContext
         return new TaskStats(
                 createdTime,
                 executionStartTime.get(),
+                lastExecutionStartTime.get(),
                 executionEndTime.get(),
                 elapsedTime.convertToMostSuccinctTimeUnit(),
                 queuedTime.convertToMostSuccinctTimeUnit(),

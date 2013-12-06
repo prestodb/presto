@@ -504,7 +504,7 @@ public class SqlTaskExecution
     private Driver createDriver(DriverFactory driverFactory, DriverContext driverContext, ScheduledSplit partitionedSplit)
     {
         checkState(!Thread.holdsLock(this), "Can not crete a driver while holding a lock on the %s", getClass().getSimpleName());
-
+        // record split started
         Driver driver = driverFactory.createDriver(driverContext);
 
         if (partitionedSplit != null) {
