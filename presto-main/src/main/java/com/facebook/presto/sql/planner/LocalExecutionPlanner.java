@@ -781,12 +781,10 @@ public class LocalExecutionPlanner
         {
             // introduce a projection to put all fields from the probe side into a single channel if necessary
             PhysicalOperation probeSource = node.getSource().accept(this, context);
-            probeSource = packIfNecessary(ImmutableList.of(node.getSourceJoinSymbol()), probeSource, context.getTypes(), context);
 
             // do the same on the build side
             LocalExecutionPlanContext buildContext = context.createSubContext();
             PhysicalOperation buildSource = node.getFilteringSource().accept(this, buildContext);
-            buildSource = packIfNecessary(ImmutableList.of(node.getFilteringSourceJoinSymbol()), buildSource, buildContext.getTypes(), buildContext);
 
             int probeChannel = Iterables.getOnlyElement(getChannelSetForSymbols(ImmutableList.of(node.getSourceJoinSymbol()), probeSource.getLayout()));
             int buildChannel = Iterables.getOnlyElement(getChannelSetForSymbols(ImmutableList.of(node.getFilteringSourceJoinSymbol()), buildSource.getLayout()));
