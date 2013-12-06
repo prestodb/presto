@@ -75,7 +75,7 @@ public class HandTpchQuery6
                 2,
                 Step.SINGLE,
                 ImmutableList.of(
-                        aggregation(DOUBLE_SUM, new Input(0, 0))
+                        aggregation(DOUBLE_SUM, new Input(0))
                 ));
 
         return ImmutableList.of(alignmentOperator, tpchQuery6Operator, aggregationOperator);

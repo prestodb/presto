@@ -107,13 +107,13 @@ public class HandTpchQuery1
                 Ints.asList(0, 1),
                 Step.SINGLE,
                 ImmutableList.of(
-                        aggregation(DOUBLE_SUM, new Input(2, 0)),
-                        aggregation(DOUBLE_SUM, new Input(3, 0)),
-                        aggregation(DOUBLE_SUM, new Input(4, 0)),
-                        aggregation(DOUBLE_AVERAGE, new Input(2, 0)),
-                        aggregation(DOUBLE_AVERAGE, new Input(5, 0)),
-                        aggregation(DOUBLE_AVERAGE, new Input(6, 0)),
-                        aggregation(COUNT, new Input(2, 0))
+                        aggregation(DOUBLE_SUM, new Input(2)),
+                        aggregation(DOUBLE_SUM, new Input(3)),
+                        aggregation(DOUBLE_SUM, new Input(4)),
+                        aggregation(DOUBLE_AVERAGE, new Input(2)),
+                        aggregation(DOUBLE_AVERAGE, new Input(5)),
+                        aggregation(DOUBLE_AVERAGE, new Input(6)),
+                        aggregation(COUNT, new Input(2))
                 ),
                 10_000);
 

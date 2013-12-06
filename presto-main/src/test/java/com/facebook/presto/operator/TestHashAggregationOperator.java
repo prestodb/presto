@@ -88,12 +88,12 @@ public class TestHashAggregationOperator
                 ImmutableList.of(SINGLE_VARBINARY),
                 Ints.asList(1),
                 Step.SINGLE,
-                ImmutableList.of(aggregation(COUNT, new Input(0, 0)),
-                        aggregation(LONG_SUM, new Input(3, 0)),
-                        aggregation(LONG_AVERAGE, new Input(3, 0)),
-                        aggregation(VAR_BINARY_MAX, new Input(2, 0)),
-                        aggregation(COUNT_STRING_COLUMN, new Input(0, 0)),
-                        aggregation(COUNT_BOOLEAN_COLUMN, new Input(4, 0))),
+                ImmutableList.of(aggregation(COUNT, new Input(0)),
+                        aggregation(LONG_SUM, new Input(3)),
+                        aggregation(LONG_AVERAGE, new Input(3)),
+                        aggregation(VAR_BINARY_MAX, new Input(2)),
+                        aggregation(COUNT_STRING_COLUMN, new Input(0)),
+                        aggregation(COUNT_BOOLEAN_COLUMN, new Input(4))),
                 100_000);
 
         Operator operator = operatorFactory.createOperator(driverContext);
@@ -133,10 +133,10 @@ public class TestHashAggregationOperator
                 ImmutableList.of(SINGLE_VARBINARY),
                 Ints.asList(1),
                 Step.SINGLE,
-                ImmutableList.of(aggregation(COUNT, new Input(0, 0)),
-                        aggregation(LONG_SUM, new Input(3, 0)),
-                        aggregation(LONG_AVERAGE, new Input(3, 0)),
-                        aggregation(VAR_BINARY_MAX, new Input(2, 0))),
+                ImmutableList.of(aggregation(COUNT, new Input(0)),
+                        aggregation(LONG_SUM, new Input(3)),
+                        aggregation(LONG_AVERAGE, new Input(3)),
+                        aggregation(VAR_BINARY_MAX, new Input(2))),
                 100_000);
 
         Operator operator = operatorFactory.createOperator(driverContext);
@@ -159,8 +159,8 @@ public class TestHashAggregationOperator
                 ImmutableList.of(SINGLE_LONG),
                 Ints.asList(1),
                 Step.SINGLE,
-                ImmutableList.of(aggregation(COUNT, new Input(0, 0)),
-                        aggregation(LONG_AVERAGE, new Input(1, 0))),
+                ImmutableList.of(aggregation(COUNT, new Input(0)),
+                        aggregation(LONG_AVERAGE, new Input(1))),
                 100_000);
 
         Operator operator = operatorFactory.createOperator(driverContext);

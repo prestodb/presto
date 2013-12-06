@@ -44,7 +44,7 @@ public class CountAggregationBenchmark
     {
         BlockIterable blockIterable = getBlockIterable("orders", "orderkey", BlocksFileEncoding.RAW);
         AlignmentOperatorFactory alignmentOperator = new AlignmentOperatorFactory(0, blockIterable);
-        AggregationOperatorFactory aggregationOperator = new AggregationOperatorFactory(1, Step.SINGLE, ImmutableList.of(aggregation(COUNT, new Input(0, 0))));
+        AggregationOperatorFactory aggregationOperator = new AggregationOperatorFactory(1, Step.SINGLE, ImmutableList.of(aggregation(COUNT, new Input(0))));
         return ImmutableList.of(alignmentOperator, aggregationOperator);
     }
 

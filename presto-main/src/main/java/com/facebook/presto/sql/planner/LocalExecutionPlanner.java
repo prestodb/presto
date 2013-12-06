@@ -118,10 +118,7 @@ import static com.facebook.presto.operator.TableCommitOperator.TableCommitter;
 import static com.facebook.presto.operator.TableWriterOperator.TableWriterOperatorFactory;
 import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.leftGetter;
 import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.rightGetter;
-import static com.facebook.presto.sql.tree.Input.fieldGetter;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Predicates.equalTo;
-import static com.google.common.base.Predicates.not;
 
 public class LocalExecutionPlanner
 {
@@ -266,7 +263,7 @@ public class LocalExecutionPlanner
             ImmutableMultimap.Builder<Symbol, Input> outputMappings = ImmutableMultimap.builder();
             int channel = 0;
             for (Symbol symbol : node.getOutputSymbols()) {
-                outputMappings.put(symbol, new Input(channel, 0)); // one symbol per channel
+                outputMappings.put(symbol, new Input(channel)); // one symbol per channel
                 channel++;
             }
 
@@ -347,7 +344,7 @@ public class LocalExecutionPlanner
             // window functions go in remaining channels starting after the last channel from the source operator, one per channel
             int channel = source.getTupleInfos().size();
             for (Symbol symbol : windowFunctionOutputSymbols) {
-                outputMappings.put(symbol, new Input(channel, 0));
+                outputMappings.put(symbol, new Input(channel));
                 channel++;
             }
 
@@ -518,7 +515,7 @@ public class LocalExecutionPlanner
                 for (Symbol symbol : tableScanNode.getOutputSymbols()) {
                     columns.add(tableScanNode.getAssignments().get(symbol));
 
-                    Input input = new Input(channel, 0);
+                    Input input = new Input(channel);
                     sourceLayout.put(symbol, input);
 
                     Type type = checkNotNull(context.getTypes().get(symbol), "No type for symbol %s", symbol);
@@ -538,7 +535,7 @@ public class LocalExecutionPlanner
             ImmutableMultimap.Builder<Symbol, Input> outputMappingsBuilder = ImmutableMultimap.builder();
             for (int i = 0; i < outputSymbols.size(); i++) {
                 Symbol symbol = outputSymbols.get(i);
-                outputMappingsBuilder.put(symbol, new Input(i, 0)); // one field per channel
+                outputMappingsBuilder.put(symbol, new Input(i)); // one field per channel
             }
             Multimap<Symbol, Input> outputMappings = outputMappingsBuilder.build();
 
@@ -656,7 +653,7 @@ public class LocalExecutionPlanner
             for (Symbol symbol : node.getOutputSymbols()) {
                 columns.add(node.getAssignments().get(symbol));
 
-                outputMappings.put(symbol, new Input(channel, 0)); // one column per channel
+                outputMappings.put(symbol, new Input(channel)); // one column per channel
                 channel++;
             }
 
@@ -723,7 +720,7 @@ public class LocalExecutionPlanner
             int offset = probeSource.getTupleInfos().size();
             for (Map.Entry<Symbol, Input> entry : buildSource.getLayout().entries()) {
                 Input input = entry.getValue();
-                outputMappings.put(entry.getKey(), new Input(offset + input.getChannel(), input.getField()));
+                outputMappings.put(entry.getKey(), new Input(offset + input.getChannel()));
             }
 
             OperatorFactory operator = createJoinOperator(node.getType(), hashSupplier, probeSource.getTupleInfos(), probeChannels, context);
@@ -775,7 +772,7 @@ public class LocalExecutionPlanner
             // Source channels are always laid out first, followed by the boolean output symbol
             ImmutableMultimap<Symbol, Input> outputMappings = ImmutableMultimap.<Symbol, Input>builder()
                     .putAll(probeSource.getLayout())
-                    .put(node.getSemiJoinOutput(), new Input(probeSource.getLayout().size(), 0))
+                    .put(node.getSemiJoinOutput(), new Input(probeSource.getLayout().size()))
                     .build();
 
             HashSemiJoinOperatorFactory operator = new HashSemiJoinOperatorFactory(context.getNextOperatorId(), setProvider, probeSource.getTupleInfos(), probeChannel);
@@ -787,20 +784,14 @@ public class LocalExecutionPlanner
         {
             PhysicalOperation source = node.getSource().accept(this, context);
 
+            // are the symbols of the source in the same order as the sink expects?
             boolean projectionMatchesOutput = IterableTransformer.on(source.getLayout().entries())
                     .orderBy(inputOrdering().onResultOf(MoreFunctions.<Symbol, Input>valueGetter()))
                     .transform(MoreFunctions.<Symbol, Input>keyGetter())
                     .list()
                     .equals(node.getOutputSymbols());
 
-            // if any symbols are mapped to a non-zero field, re-map to one field per channel
-            // TODO: this is currently what the exchange operator expects -- figure out how to remove this assumption
-            // to avoid unnecessary projections
-            boolean hasMultiFieldChannels = IterableTransformer.on(source.getLayout().values())
-                    .transform(fieldGetter())
-                    .any(not(equalTo(0)));
-
-            if (hasMultiFieldChannels || !projectionMatchesOutput) {
+            if (!projectionMatchesOutput) {
                 IdentityProjectionInfo mappings = computeIdentityMapping(node.getOutputSymbols(), source.getLayout(), context.getTypes());
                 OperatorFactory operatorFactory = new FilterAndProjectOperatorFactory(context.getNextOperatorId(), FilterFunctions.TRUE_FUNCTION, mappings.getProjections());
                 // NOTE: the generated output layout may not be completely accurate if the same field was projected as multiple inputs.
@@ -822,8 +813,8 @@ public class LocalExecutionPlanner
             OperatorFactory operatorFactory = new TableWriterOperatorFactory(context.getNextOperatorId(), recordSink);
 
             Multimap<Symbol, Input> layout = ImmutableMultimap.<Symbol, Input>builder()
-                    .put(node.getOutputSymbols().get(0), new Input(0, 0))
-                    .put(node.getOutputSymbols().get(1), new Input(1, 0))
+                    .put(node.getOutputSymbols().get(0), new Input(0))
+                    .put(node.getOutputSymbols().get(1), new Input(1))
                     .build();
 
             return new PhysicalOperation(operatorFactory, layout, source);
@@ -834,12 +825,7 @@ public class LocalExecutionPlanner
             LocalExecutionPlanContext subContext = context.createSubContext();
             PhysicalOperation source = node.getSource().accept(this, subContext);
 
-            // introduce a project to unpack everything into separate channels
-            source = unpack(source, node.getColumns(), subContext);
-
-            List<TupleInfo> tupleInfos = getSourceOperatorTupleInfos(node, context.getTypes());
-
-            InMemoryExchange exchange = new InMemoryExchange(tupleInfos);
+            InMemoryExchange exchange = new InMemoryExchange(getSourceOperatorTupleInfos(node, context.getTypes()));
 
             // create exchange sink
             List<OperatorFactory> factories = ImmutableList.<OperatorFactory>builder()
@@ -859,19 +845,12 @@ public class LocalExecutionPlanner
             List<Symbol> layout = node.getOutputSymbols();
             ImmutableMultimap.Builder<Symbol, Input> outputMappings = ImmutableMultimap.builder();
             for (int i = 0; i < layout.size(); i++) {
-                outputMappings.put(layout.get(i), new Input(i, 0));
+                outputMappings.put(layout.get(i), new Input(i));
             }
 
             // add exchange source as first operator in the current context
             OperatorFactory factory = new InMemoryExchangeSourceOperatorFactory(context.getNextOperatorId(), exchange);
             return new PhysicalOperation(factory, outputMappings.build());
-        }
-
-        private PhysicalOperation unpack(PhysicalOperation source, List<Symbol> columns, LocalExecutionPlanContext context)
-        {
-            IdentityProjectionInfo mappings = computeIdentityMapping(columns, source.getLayout(), context.getTypes());
-            OperatorFactory operatorFactory = new FilterAndProjectOperatorFactory(context.getNextOperatorId(), FilterFunctions.TRUE_FUNCTION, mappings.getProjections());
-            return new PhysicalOperation(operatorFactory, mappings.getOutputLayout(), source);
         }
 
         @Override
@@ -880,7 +859,7 @@ public class LocalExecutionPlanner
             PhysicalOperation source = node.getSource().accept(this, context);
 
             OperatorFactory operatorFactory = new TableCommitOperatorFactory(context.getNextOperatorId(), createTableCommitter(node, metadata));
-            Multimap<Symbol, Input> layout = ImmutableMultimap.of(getFirst(node.getOutputSymbols()), new Input(0, 0));
+            Multimap<Symbol, Input> layout = ImmutableMultimap.of(getFirst(node.getOutputSymbols()), new Input(0));
 
             return new PhysicalOperation(operatorFactory, layout, source);
         }
@@ -910,7 +889,7 @@ public class LocalExecutionPlanner
                     nodeInfo.getNodeId(),
                     columns.build());
 
-            return new PhysicalOperation(operator, ImmutableMultimap.of(outputSymbol, new Input(0, 0)), source);
+            return new PhysicalOperation(operator, ImmutableMultimap.of(outputSymbol, new Input(0)), source);
         }
 
         @Override
@@ -952,7 +931,7 @@ public class LocalExecutionPlanner
             ImmutableMultimap.Builder<Symbol, Input> outputMappings = ImmutableMultimap.builder();
             int channel = 0;
             for (Symbol symbol : node.getOutputSymbols()) {
-                outputMappings.put(symbol, new Input(channel, 0)); // one symbol per channel
+                outputMappings.put(symbol, new Input(channel)); // one symbol per channel
                 channel++;
             }
 
@@ -1002,7 +981,7 @@ public class LocalExecutionPlanner
                 Symbol symbol = entry.getKey();
 
                 functionDefinitions.add(buildFunctionDefinition(source, node.getFunctions().get(symbol), entry.getValue()));
-                outputMappings.put(symbol, new Input(outputChannel, 0)); // one aggregation per channel
+                outputMappings.put(symbol, new Input(outputChannel)); // one aggregation per channel
                 outputChannel++;
             }
 
@@ -1027,13 +1006,13 @@ public class LocalExecutionPlanner
             // add group-by key fields each in a separate channel
             int channel = 0;
             for (Symbol symbol : groupBySymbols) {
-                outputMappings.put(symbol, new Input(channel, 0));
+                outputMappings.put(symbol, new Input(channel));
                 channel++;
             }
 
             // aggregations go in following channels
             for (Symbol symbol : aggregationOutputSymbols) {
-                outputMappings.put(symbol, new Input(channel, 0));
+                outputMappings.put(symbol, new Input(channel));
                 channel++;
             }
 
@@ -1080,7 +1059,7 @@ public class LocalExecutionPlanner
         for (Symbol symbol : symbols) {
             ProjectionFunction function = ProjectionFunctions.singleColumn(types.get(symbol).getRawType(), getFirst(inputLayout.get(symbol)));
             projections.add(function);
-            outputMappings.put(symbol, new Input(channel, 0)); // one field per channel
+            outputMappings.put(symbol, new Input(channel)); // one field per channel
             channel++;
         }
 
@@ -1192,7 +1171,6 @@ public class LocalExecutionPlanner
             {
                 return ComparisonChain.start()
                         .compare(o1.getChannel(), o2.getChannel())
-                        .compare(o1.getField(), o2.getField())
                         .result();
             }
         });
