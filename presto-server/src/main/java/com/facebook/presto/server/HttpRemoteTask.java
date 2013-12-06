@@ -235,16 +235,18 @@ public class HttpRemoteTask
     }
 
     @Override
-    public synchronized void addSplit(PlanNodeId sourceId, Split split)
+    public synchronized void addSplits(PlanNodeId sourceId, Iterable<? extends Split> splits)
     {
         try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             checkNotNull(sourceId, "sourceId is null");
-            checkNotNull(split, "split is null");
+            checkNotNull(splits, "splits is null");
             checkState(!noMoreSplits.contains(sourceId), "noMoreSplits has already been set for %s", sourceId);
 
             // only add pending split if not done
             if (!getTaskInfo().getState().isDone()) {
-                pendingSplits.put(sourceId, new ScheduledSplit(nextSplitId.getAndIncrement(), split));
+                for (Split split : splits) {
+                    pendingSplits.put(sourceId, new ScheduledSplit(nextSplitId.getAndIncrement(), split));
+                }
                 needsUpdate.set(true);
             }
 

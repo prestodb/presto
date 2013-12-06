@@ -77,6 +77,7 @@ public class SqlQueryExecution
     private final List<PlanOptimizer> planOptimizers;
     private final RemoteTaskFactory remoteTaskFactory;
     private final LocationFactory locationFactory;
+    private final int scheduleSplitBatchSize;
     private final int maxPendingSplitsPerNode;
     private final int initialHashPartitions;
     private final ExecutorService queryExecutor;
@@ -99,6 +100,7 @@ public class SqlQueryExecution
             List<PlanOptimizer> planOptimizers,
             RemoteTaskFactory remoteTaskFactory,
             LocationFactory locationFactory,
+            int scheduleSplitBatchSize,
             int maxPendingSplitsPerNode,
             int initialHashPartitions,
             ExecutorService queryExecutor,
@@ -118,6 +120,9 @@ public class SqlQueryExecution
             this.shardManager = checkNotNull(shardManager, "shardManager is null");
             this.storageManager = checkNotNull(storageManager, "storageManager is null");
             this.periodicImportManager = checkNotNull(periodicImportManager, "periodicImportManager is null");
+
+            checkArgument(maxPendingSplitsPerNode > 0, "scheduleSplitBatchSize must be greater than 0");
+            this.scheduleSplitBatchSize = scheduleSplitBatchSize;
 
             checkArgument(maxPendingSplitsPerNode > 0, "maxPendingSplitsPerNode must be greater than 0");
             this.maxPendingSplitsPerNode = maxPendingSplitsPerNode;
@@ -240,6 +245,7 @@ public class SqlQueryExecution
                 nodeScheduler,
                 remoteTaskFactory,
                 stateMachine.getSession(),
+                scheduleSplitBatchSize,
                 maxPendingSplitsPerNode,
                 initialHashPartitions,
                 queryExecutor,
@@ -385,6 +391,7 @@ public class SqlQueryExecution
     public static class SqlQueryExecutionFactory
             implements QueryExecutionFactory<SqlQueryExecution>
     {
+        private final int scheduleSplitBatchSize;
         private final int maxPendingSplitsPerNode;
         private final int initialHashPartitions;
         private final Metadata metadata;
@@ -412,7 +419,8 @@ public class SqlQueryExecution
                 StorageManager storageManager,
                 PeriodicImportManager periodicImportManager)
         {
-            Preconditions.checkNotNull(config, "config is null");
+            checkNotNull(config, "config is null");
+            this.scheduleSplitBatchSize = config.getScheduleSplitBatchSize();
             this.maxPendingSplitsPerNode = config.getMaxPendingSplitsPerNode();
             this.initialHashPartitions = config.getInitialHashPartitions();
             this.metadata = checkNotNull(metadata, "metadata is null");
@@ -450,6 +458,7 @@ public class SqlQueryExecution
                     planOptimizers,
                     remoteTaskFactory,
                     locationFactory,
+                    scheduleSplitBatchSize,
                     maxPendingSplitsPerNode,
                     initialHashPartitions,
                     executor,

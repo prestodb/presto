@@ -20,19 +20,22 @@ import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.PartitionKey;
 import com.facebook.presto.spi.PartitionedSplit;
 import com.facebook.presto.spi.Split;
+import com.facebook.presto.spi.SplitSource;
 import com.facebook.presto.split.CollocatedSplit;
 import com.facebook.presto.split.NativeSplit;
 import com.facebook.presto.sql.planner.plan.MaterializedViewWriterNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Predicate;
-import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
-import java.util.Iterator;
+import javax.annotation.Nullable;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -120,9 +123,9 @@ public class MaterializedViewWriter
         }
     }
 
-    public Iterable<Split> wrapSplits(PlanNodeId planNodeId, Iterable<Split> splits)
+    public SplitSource wrapSplitSource(PlanNodeId planNodeId, SplitSource splitSource)
     {
-        return new WriterIterable(planNodeId, splits);
+        return new TableWriterSplitSource(planNodeId, splitSource);
     }
 
     private void addPartitionShard(String partition, boolean lastSplit, List<? extends PartitionKey> partitionKeys, UUID shardUuid)
@@ -193,73 +196,73 @@ public class MaterializedViewWriter
         };
     }
 
-    private class WriterIterable
-            implements Iterable<Split>
+    private class TableWriterSplitSource
+            implements SplitSource
     {
-        private final AtomicBoolean used = new AtomicBoolean();
-        private final Iterable<Split> splits;
         private final PlanNodeId planNodeId;
+        private final SplitSource splitSource;
 
-        private WriterIterable(PlanNodeId planNodeId, Iterable<Split> splits)
+        public TableWriterSplitSource(PlanNodeId planNodeId, SplitSource splitSource)
         {
             this.planNodeId = checkNotNull(planNodeId, "planNodeId is null");
-            this.splits = checkNotNull(splits, "splits is null");
+            this.splitSource = checkNotNull(splitSource, "dataSource is null");
+        }
+
+        @Nullable
+        @Override
+        public String getDataSourceName()
+        {
+            return splitSource.getDataSourceName();
         }
 
         @Override
-        public Iterator<Split> iterator()
+        public List<Split> getNextBatch(int maxSize)
+                throws InterruptedException
         {
-            checkState(!used.getAndSet(true), "The table writer can hand out only a single iterator");
-            return new WriterIterator(planNodeId, splits.iterator());
-        }
-    }
+            List<Split> nextBatch = splitSource.getNextBatch(maxSize);
+            Iterable<Split> sampleIterable = Iterables.transform(nextBatch, new Function<Split, Split>()
+            {
+                @Override
+                public Split apply(Split sourceSplit)
+                {
+                    NativeSplit writingSplit = new NativeSplit(UUID.randomUUID(), ImmutableList.<HostAddress>of());
 
-    private class WriterIterator
-            extends AbstractIterator<Split>
-    {
-        private final PlanNodeId planNodeId;
-        private final Iterator<Split> sourceIterator;
+                    String partition = "unpartitioned";
+                    boolean lastSplit = false;
+                    List<? extends PartitionKey> partitionKeys = ImmutableList.of();
 
-        private WriterIterator(PlanNodeId planNodeId, Iterator<Split> sourceIterator)
-        {
-            this.planNodeId = planNodeId;
-            this.sourceIterator = sourceIterator;
-        }
+                    if (sourceSplit instanceof PartitionedSplit) {
+                        PartitionedSplit partitionedSplit = (PartitionedSplit) sourceSplit;
+                        partition = partitionedSplit.getPartitionId();
+                        lastSplit = partitionedSplit.isLastSplit();
+                        partitionKeys = partitionedSplit.getPartitionKeys();
+                    }
 
-        @Override
-        protected Split computeNext()
-        {
-            if (sourceIterator.hasNext()) {
-                Split sourceSplit = sourceIterator.next();
+                    addPartitionShard(partition, lastSplit, partitionKeys, writingSplit.getShardUuid());
+                    CollocatedSplit collocatedSplit = new CollocatedSplit(
+                            ImmutableMap.of(
+                                    planNodeId, sourceSplit,
+                                    writerNode.getId(), writingSplit),
+                            sourceSplit.getAddresses(),
+                            sourceSplit.isRemotelyAccessible());
 
-                NativeSplit writingSplit = new NativeSplit(UUID.randomUUID(), ImmutableList.<HostAddress>of());
+                    shardsInFlight.incrementAndGet();
 
-                String partition = "unpartitioned";
-                boolean lastSplit = false;
-                List<? extends PartitionKey> partitionKeys = ImmutableList.of();
-
-                if (sourceSplit instanceof PartitionedSplit) {
-                    PartitionedSplit partitionedSplit = (PartitionedSplit) sourceSplit;
-                    partition = partitionedSplit.getPartitionId();
-                    lastSplit = partitionedSplit.isLastSplit();
-                    partitionKeys = partitionedSplit.getPartitionKeys();
+                    return collocatedSplit;
                 }
-
-                addPartitionShard(partition, lastSplit, partitionKeys, writingSplit.getShardUuid());
-                CollocatedSplit collocatedSplit = new CollocatedSplit(
-                        ImmutableMap.of(
-                                planNodeId, sourceSplit,
-                                writerNode.getId(), writingSplit),
-                        sourceSplit.getAddresses(),
-                        sourceSplit.isRemotelyAccessible());
-
-                shardsInFlight.incrementAndGet();
-
-                return collocatedSplit;
+            });
+            if (splitSource.isFinished()) {
+                finishOpenPartitions();
+                dropAdditionalPartitions();
             }
-            finishOpenPartitions();
-            dropAdditionalPartitions();
-            return endOfData();
+
+            return ImmutableList.copyOf(sampleIterable);
+        }
+
+        @Override
+        public boolean isFinished()
+        {
+            return splitSource.isFinished();
         }
     }
 

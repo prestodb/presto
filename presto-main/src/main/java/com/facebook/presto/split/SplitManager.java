@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.split;
 
-import com.facebook.presto.execution.DataSource;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.PartitionResult;
+import com.facebook.presto.spi.SplitSource;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TupleDomain;
 import com.google.common.base.Optional;
@@ -51,11 +51,10 @@ public class SplitManager
         return getConnectorSplitManager(table).getPartitions(table, tupleDomain.or(TupleDomain.all()));
     }
 
-    public DataSource getPartitionSplits(TableHandle handle, List<Partition> partitions)
+    public SplitSource getPartitionSplits(TableHandle handle, List<Partition> partitions)
     {
         ConnectorSplitManager connectorSplitManager = getConnectorSplitManager(handle);
-        String connectorId = connectorSplitManager.getConnectorId();
-        return new DataSource(connectorId, connectorSplitManager.getPartitionSplits(handle, partitions));
+        return connectorSplitManager.getPartitionSplits(handle, partitions);
     }
 
     private ConnectorSplitManager getConnectorSplitManager(TableHandle handle)
