@@ -14,11 +14,10 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.operator.WindowOperator.InMemoryWindowOperatorFactory;
+import com.facebook.presto.operator.WindowOperator.WindowOperatorFactory;
 import com.facebook.presto.operator.window.RowNumberFunction;
 import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.util.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
@@ -33,8 +32,10 @@ import java.util.concurrent.ExecutorService;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
 import static com.facebook.presto.operator.OperatorAssertion.toPages;
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
+import static com.facebook.presto.tuple.TupleInfo.SINGLE_BOOLEAN;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
+import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 import static com.facebook.presto.tuple.TupleInfo.Type.BOOLEAN;
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
@@ -79,15 +80,14 @@ public class TestWindowOperator
                 .row(5, 0.4)
                 .build();
 
-        InMemoryWindowOperatorFactory operatorFactory = new InMemoryWindowOperatorFactory(
+        WindowOperatorFactory operatorFactory = new WindowOperatorFactory(
                 0,
                 ImmutableList.of(SINGLE_LONG, SINGLE_DOUBLE),
-                0,
                 ints(1, 0),
                 ROW_NUMBER,
                 ints(),
                 ints(0),
-                bools(true),
+                sortOrder(SortOrder.ASC_NULLS_LAST),
                 10);
 
         Operator operator = operatorFactory.createOperator(driverContext);
@@ -107,9 +107,7 @@ public class TestWindowOperator
     public void testRowNumberPartition()
             throws Exception
     {
-        TupleInfo sourceTupleInfo = new TupleInfo(VARIABLE_BINARY, FIXED_INT_64, DOUBLE, BOOLEAN);
-
-        List<Page> input = rowPagesBuilder(sourceTupleInfo)
+        List<Page> input = rowPagesBuilder(SINGLE_VARBINARY, SINGLE_LONG, SINGLE_DOUBLE, SINGLE_BOOLEAN)
                 .row("b", -1, -0.1, true)
                 .row("a", 2, 0.3, false)
                 .row("a", 4, 0.2, true)
@@ -118,15 +116,14 @@ public class TestWindowOperator
                 .row("a", 6, 0.1, true)
                 .build();
 
-        InMemoryWindowOperatorFactory operatorFactory = new InMemoryWindowOperatorFactory(
+        WindowOperatorFactory operatorFactory = new WindowOperatorFactory(
                 0,
-                ImmutableList.of(sourceTupleInfo),
-                0,
-                ints(0),
+                ImmutableList.of(SINGLE_VARBINARY, SINGLE_LONG, SINGLE_DOUBLE, SINGLE_BOOLEAN),
+                ints(0, 1, 2, 3),
                 ROW_NUMBER,
                 ints(0),
                 ints(1),
-                bools(true),
+                sortOrder(SortOrder.ASC_NULLS_LAST),
                 10);
 
         Operator operator = operatorFactory.createOperator(driverContext);
@@ -158,15 +155,14 @@ public class TestWindowOperator
                 .row(8)
                 .build();
 
-        InMemoryWindowOperatorFactory operatorFactory = new InMemoryWindowOperatorFactory(
+        WindowOperatorFactory operatorFactory = new WindowOperatorFactory(
                 0,
                 ImmutableList.of(SINGLE_LONG),
-                0,
                 ints(0),
                 ROW_NUMBER,
                 ints(),
                 ints(),
-                bools(),
+                sortOrder(),
                 10);
         Operator operator = operatorFactory.createOperator(driverContext);
 
@@ -201,15 +197,14 @@ public class TestWindowOperator
                 .addPipelineContext(true, true)
                 .addDriverContext();
 
-        InMemoryWindowOperatorFactory operatorFactory = new InMemoryWindowOperatorFactory(
+        WindowOperatorFactory operatorFactory = new WindowOperatorFactory(
                 0,
                 ImmutableList.of(SINGLE_LONG, SINGLE_DOUBLE),
-                0,
                 ints(1),
                 ROW_NUMBER,
                 ints(),
                 ints(0),
-                bools(true),
+                sortOrder(SortOrder.ASC_NULLS_LAST),
                 10);
 
         Operator operator = operatorFactory.createOperator(driverContext);
@@ -222,7 +217,7 @@ public class TestWindowOperator
         return array;
     }
 
-    private static boolean[] bools(boolean... array)
+    private static SortOrder[] sortOrder(SortOrder... array)
     {
         return array;
     }

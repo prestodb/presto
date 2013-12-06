@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.operator.SortOrder;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.tree.SortItem;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
@@ -29,13 +29,13 @@ public class SortNode
 {
     private final PlanNode source;
     private final List<Symbol> orderBy;
-    private final Map<Symbol, SortItem.Ordering> orderings;
+    private final Map<Symbol, SortOrder> orderings;
 
     @JsonCreator
     public SortNode(@JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("orderBy") List<Symbol> orderBy,
-            @JsonProperty("orderings") Map<Symbol, SortItem.Ordering> orderings)
+            @JsonProperty("orderings") Map<Symbol, SortOrder> orderings)
     {
         super(id);
 
@@ -74,7 +74,7 @@ public class SortNode
     }
 
     @JsonProperty("orderings")
-    public Map<Symbol, SortItem.Ordering> getOrderings()
+    public Map<Symbol, SortOrder> getOrderings()
     {
         return orderings;
     }

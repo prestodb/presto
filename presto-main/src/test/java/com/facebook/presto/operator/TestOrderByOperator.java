@@ -14,7 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.operator.OrderByOperator.InMemoryOrderByOperatorFactory;
+import com.facebook.presto.operator.OrderByOperator.OrderByOperatorFactory;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.util.MaterializedResult;
@@ -73,10 +73,10 @@ public class TestOrderByOperator
                 .row(4, 0.4)
                 .build();
 
-        InMemoryOrderByOperatorFactory operatorFactory = new InMemoryOrderByOperatorFactory(
+        OrderByOperatorFactory operatorFactory = new OrderByOperatorFactory(
                 0,
                 ImmutableList.of(SINGLE_LONG, SINGLE_DOUBLE),
-                0,
+                new int[] {0},
                 new int[] {1},
                 10);
 
@@ -105,10 +105,10 @@ public class TestOrderByOperator
                 .row("a", 4)
                 .build();
 
-        InMemoryOrderByOperatorFactory operatorFactory = new InMemoryOrderByOperatorFactory(
+        OrderByOperatorFactory operatorFactory = new OrderByOperatorFactory(
                 0,
                 ImmutableList.of(tupleInfo),
-                0,
+                new int[] {0},
                 new int[] {0},
                 10);
 
@@ -136,14 +136,13 @@ public class TestOrderByOperator
                 .row(4, 0.4)
                 .build();
 
-        InMemoryOrderByOperatorFactory operatorFactory = new InMemoryOrderByOperatorFactory(
+        OrderByOperatorFactory operatorFactory = new OrderByOperatorFactory(
                 0,
                 ImmutableList.of(SINGLE_LONG, SINGLE_DOUBLE),
-                0,
                 new int[] {0},
                 10,
                 new int[] {0},
-                new boolean[] {false});
+                new SortOrder[] {SortOrder.DESC_NULLS_LAST});
 
         Operator operator = operatorFactory.createOperator(driverContext);
 
@@ -174,10 +173,10 @@ public class TestOrderByOperator
                 .addPipelineContext(true, true)
                 .addDriverContext();
 
-        InMemoryOrderByOperatorFactory operatorFactory = new InMemoryOrderByOperatorFactory(
+        OrderByOperatorFactory operatorFactory = new OrderByOperatorFactory(
                 0,
                 ImmutableList.of(SINGLE_LONG, SINGLE_DOUBLE),
-                0,
+                new int[] {0},
                 new int[] {1},
                 10);
 

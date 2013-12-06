@@ -17,7 +17,7 @@ import com.facebook.presto.operator.PagesIndex.MultiSliceFieldOrderedTupleCompar
 import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Booleans;
+import com.google.common.collect.ObjectArrays;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import it.unimi.dsi.fastutil.ints.IntComparator;
@@ -25,45 +25,43 @@ import it.unimi.dsi.fastutil.ints.IntComparator;
 import java.util.Arrays;
 import java.util.List;
 
+import static com.facebook.presto.operator.SortOrder.ASC_NULLS_LAST;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 public class WindowOperator
         implements Operator
 {
-    public static class InMemoryWindowOperatorFactory
+    public static class WindowOperatorFactory
             implements OperatorFactory
     {
         private final int operatorId;
         private final List<TupleInfo> sourceTupleInfos;
-        private final int orderingChannel;
         private final int[] outputChannels;
         private final List<WindowFunction> windowFunctions;
-        private final int[] partitionFields;
-        private final int[] sortFields;
-        private final boolean[] sortOrder;
+        private final int[] partitionChannels;
+        private final int[] sortChannels;
+        private final SortOrder[] sortOrder;
         private final int expectedPositions;
         private final List<TupleInfo> tupleInfos;
         private boolean closed;
 
-        public InMemoryWindowOperatorFactory(
+        public WindowOperatorFactory(
                 int operatorId,
                 List<TupleInfo> sourceTupleInfos,
-                int orderingChannel,
                 int[] outputChannels,
                 List<WindowFunction> windowFunctions,
-                int[] partitionFields,
-                int[] sortFields,
-                boolean[] sortOrder,
+                int[] partitionChannels,
+                int[] sortChannels,
+                SortOrder[] sortOrder,
                 int expectedPositions)
         {
             this.operatorId = operatorId;
             this.sourceTupleInfos = sourceTupleInfos;
-            this.orderingChannel = orderingChannel;
             this.outputChannels = outputChannels;
             this.windowFunctions = windowFunctions;
-            this.partitionFields = partitionFields;
-            this.sortFields = sortFields;
+            this.partitionChannels = partitionChannels;
+            this.sortChannels = sortChannels;
             this.sortOrder = sortOrder;
             this.expectedPositions = expectedPositions;
 
@@ -85,11 +83,10 @@ public class WindowOperator
             return new WindowOperator(
                     operatorContext,
                     sourceTupleInfos,
-                    orderingChannel,
                     outputChannels,
                     windowFunctions,
-                    partitionFields,
-                    sortFields,
+                    partitionChannels,
+                    sortChannels,
                     sortOrder,
                     expectedPositions);
         }
@@ -109,12 +106,11 @@ public class WindowOperator
     }
 
     private final OperatorContext operatorContext;
-    private final int orderingChannel;
     private final int[] outputChannels;
     private final List<WindowFunction> windowFunctions;
-    private final int[] partitionFields;
-    private final int[] sortFields;
-    private final boolean[] sortOrder;
+    private final int[] partitionChannels;
+    private final int[] sortChannels;
+    private final SortOrder[] sortOrder;
     private final List<TupleInfo> tupleInfos;
 
     private final PagesIndex pageIndex;
@@ -135,20 +131,18 @@ public class WindowOperator
     public WindowOperator(
             OperatorContext operatorContext,
             List<TupleInfo> sourceTupleInfos,
-            int orderingChannel,
             int[] outputChannels,
             List<WindowFunction> windowFunctions,
-            int[] partitionFields,
-            int[] sortFields,
-            boolean[] sortOrder,
+            int[] partitionChannels,
+            int[] sortChannels,
+            SortOrder[] sortOrder,
             int expectedPositions)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.orderingChannel = orderingChannel;
         this.outputChannels = checkNotNull(outputChannels, "outputChannels is null").clone();
         this.windowFunctions = checkNotNull(windowFunctions, "windowFunctions is null");
-        this.partitionFields = checkNotNull(partitionFields, "partitionFields is null").clone();
-        this.sortFields = checkNotNull(sortFields, "sortFields is null").clone();
+        this.partitionChannels = checkNotNull(partitionChannels, "partitionChannels is null").clone();
+        this.sortChannels = checkNotNull(sortChannels, "sortChannels is null");
         this.sortOrder = checkNotNull(sortOrder, "sortOrder is null").clone();
 
         this.tupleInfos = toTupleInfos(sourceTupleInfos, outputChannels, windowFunctions);
@@ -175,23 +169,22 @@ public class WindowOperator
         if (state == State.NEEDS_INPUT) {
             state = State.HAS_OUTPUT;
 
-            // sort by partition fields, then sort fields
-            int[] orderFields = Ints.concat(partitionFields, sortFields);
+            // sort by partition channels, then sort channels
+            int[] orderChannels = Ints.concat(partitionChannels, sortChannels);
 
-            boolean[] partitionOrder = new boolean[partitionFields.length];
-            Arrays.fill(partitionOrder, true);
-            boolean[] ordering = Booleans.concat(partitionOrder, sortOrder);
+            SortOrder[] partitionOrder = new SortOrder[partitionChannels.length];
+            Arrays.fill(partitionOrder, ASC_NULLS_LAST);
+
+            SortOrder[] ordering = ObjectArrays.concat(partitionOrder, sortOrder, SortOrder.class);
 
             // sort the index
-            pageIndex.sort(orderingChannel, orderFields, ordering);
+            pageIndex.sort(orderChannels, ordering);
 
             // create partition comparator
-            ChannelIndex index = pageIndex.getIndex(orderingChannel);
-            partitionComparator = new MultiSliceFieldOrderedTupleComparator(partitionFields, partitionOrder, index);
+            partitionComparator = new MultiSliceFieldOrderedTupleComparator(pageIndex, partitionChannels, partitionOrder);
 
             // create order comparator
-            index = pageIndex.getIndex(orderingChannel);
-            orderComparator = new MultiSliceFieldOrderedTupleComparator(sortFields, sortOrder, index);
+            orderComparator = new MultiSliceFieldOrderedTupleComparator(pageIndex, sortChannels, sortOrder);
         }
     }
 

@@ -1247,6 +1247,24 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testOrderByWithNulls()
+            throws Exception
+    {
+        // nulls first
+        assertQueryOrdered("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY nullif(orderkey, 3) ASC NULLS FIRST, custkey ASC");
+        assertQueryOrdered("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY nullif(orderkey, 3) DESC NULLS FIRST, custkey ASC");
+
+        // nulls last
+        assertQueryOrdered("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY nullif(orderkey, 3) ASC NULLS LAST, custkey ASC");
+        assertQueryOrdered("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY nullif(orderkey, 3) DESC NULLS LAST, custkey ASC");
+
+        // assure that default is nulls last
+        assertQueryOrdered(
+                "SELECT orderkey, custkey, orderstatus FROM orders ORDER BY nullif(orderkey, 3) ASC, custkey ASC",
+                "SELECT orderkey, custkey, orderstatus FROM orders ORDER BY nullif(orderkey, 3) ASC NULLS LAST, custkey ASC");
+    }
+
+    @Test
     public void testOrderByAlias()
             throws Exception
     {
@@ -1596,6 +1614,57 @@ public abstract class AbstractTestQueries
                 .row(7, 7)
                 .row(6, 6)
                 .build();
+
+        assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testOrderByWindowFunctionWithNulls()
+            throws Exception
+    {
+        MaterializedResult actual;
+        MaterializedResult expected;
+
+        // Nulls first
+        actual = computeActual("" +
+                "SELECT orderkey, row_number() OVER (ORDER BY nullif(orderkey, 3) NULLS FIRST)\n" +
+                "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10)\n" +
+                "ORDER BY 2 ASC\n" +
+                "LIMIT 5");
+
+        expected = resultBuilder(FIXED_INT_64, FIXED_INT_64)
+                .row(3, 1)
+                .row(1, 2)
+                .row(2, 3)
+                .row(4, 4)
+                .row(5, 5)
+                .build();
+
+        assertEquals(actual, expected);
+
+        // Nulls last
+        actual = computeActual("" +
+                "SELECT orderkey, row_number() OVER (ORDER BY nullif(orderkey, 3) NULLS LAST)\n" +
+                "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10)\n" +
+                "ORDER BY 2 DESC\n" +
+                "LIMIT 5");
+
+        expected = resultBuilder(FIXED_INT_64, FIXED_INT_64)
+                .row(3, 10)
+                .row(34, 9)
+                .row(33, 8)
+                .row(32, 7)
+                .row(7, 6)
+                .build();
+
+        assertEquals(actual, expected);
+
+        // and nulls last should be the default
+        actual = computeActual("" +
+                "SELECT orderkey, row_number() OVER (ORDER BY nullif(orderkey, 3))\n" +
+                "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10)\n" +
+                "ORDER BY 2 DESC\n" +
+                "LIMIT 5");
 
         assertEquals(actual, expected);
     }
@@ -2140,6 +2209,19 @@ public abstract class AbstractTestQueries
         assertQueryOrdered("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY custkey ASC, orderkey DESC LIMIT 10");
         assertQueryOrdered("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY custkey DESC, orderkey ASC LIMIT 10");
         assertQueryOrdered("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY custkey DESC, orderkey DESC LIMIT 10");
+
+        // nulls first
+        assertQueryOrdered("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY nullif(orderkey, 3) ASC NULLS FIRST, custkey ASC LIMIT 10");
+        assertQueryOrdered("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY nullif(orderkey, 3) DESC NULLS FIRST, custkey ASC LIMIT 10");
+
+        // nulls last
+        assertQueryOrdered("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY nullif(orderkey, 3) ASC NULLS LAST, custkey ASC LIMIT 10");
+        assertQueryOrdered("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY nullif(orderkey, 3) DESC NULLS LAST, custkey ASC LIMIT 10");
+
+        // assure that default is nulls last
+        assertQueryOrdered(
+                "SELECT orderkey, custkey, orderstatus FROM orders ORDER BY nullif(orderkey, 3) ASC, custkey ASC LIMIT 10",
+                "SELECT orderkey, custkey, orderstatus FROM orders ORDER BY nullif(orderkey, 3) ASC NULLS LAST, custkey ASC LIMIT 10");
     }
 
     @Test
@@ -2167,7 +2249,8 @@ public abstract class AbstractTestQueries
     public void testChainedUnionsWithOrder()
             throws Exception
     {
-        assertQueryOrdered("SELECT orderkey FROM orders UNION (SELECT custkey FROM orders UNION SELECT linenumber FROM lineitem) UNION ALL SELECT orderkey FROM lineitem ORDER BY orderkey");
+        assertQueryOrdered(
+                "SELECT orderkey FROM orders UNION (SELECT custkey FROM orders UNION SELECT linenumber FROM lineitem) UNION ALL SELECT orderkey FROM lineitem ORDER BY orderkey");
     }
 
     @Test
@@ -2801,6 +2884,12 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         assertQuery(actual, expected, false);
+    }
+
+    protected void assertQueryOrdered(@Language("SQL") String actual, @Language("SQL") String expected)
+            throws Exception
+    {
+        assertQuery(actual, expected, true);
     }
 
     private static final Logger log = Logger.get(AbstractTestQueries.class);

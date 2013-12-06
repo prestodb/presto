@@ -16,8 +16,8 @@ package com.facebook.presto.operator;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
-import it.unimi.dsi.fastutil.booleans.BooleanArrays;
 
+import java.util.Arrays;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -26,51 +26,47 @@ import static com.google.common.base.Preconditions.checkState;
 public class OrderByOperator
         implements Operator
 {
-    public static class InMemoryOrderByOperatorFactory
+    public static class OrderByOperatorFactory
             implements OperatorFactory
     {
         private final int operatorId;
         private final List<TupleInfo> sourceTupleInfos;
-        private final int orderByChannel;
         private final int[] outputChannels;
         private final int expectedPositions;
-        private final int[] sortFields;
-        private final boolean[] sortOrder;
+        private final int[] sortChannels;
+        private final SortOrder[] sortOrder;
         private final List<TupleInfo> tupleInfos;
         private boolean closed;
 
-        public InMemoryOrderByOperatorFactory(
+        public OrderByOperatorFactory(
                 int operatorId,
                 List<TupleInfo> sourceTupleInfos,
-                int orderByChannel,
+                int[] sortChannels,
                 int[] outputChannels,
                 int expectedPositions)
         {
             this(
                     operatorId,
                     sourceTupleInfos,
-                    orderByChannel,
                     outputChannels,
                     expectedPositions,
-                    defaultSortFields(sourceTupleInfos, orderByChannel),
-                    defaultSortOrder(sourceTupleInfos, orderByChannel));
+                    sortChannels,
+                    defaultSortOrder(sortChannels));
         }
 
-        public InMemoryOrderByOperatorFactory(
+        public OrderByOperatorFactory(
                 int operatorId,
                 List<TupleInfo> sourceTupleInfos,
-                int orderByChannel,
                 int[] outputChannels,
                 int expectedPositions,
-                int[] sortFields,
-                boolean[] sortOrder)
+                int[] sortChannels,
+                SortOrder[] sortOrder)
         {
             this.operatorId = operatorId;
             this.sourceTupleInfos = ImmutableList.copyOf(checkNotNull(sourceTupleInfos, "sourceTupleInfos is null"));
-            this.orderByChannel = orderByChannel;
             this.outputChannels = checkNotNull(outputChannels, "outputChannels is null");
             this.expectedPositions = expectedPositions;
-            this.sortFields = checkNotNull(sortFields, "sortFields is null");
+            this.sortChannels = checkNotNull(sortChannels, "sortChannels is null");
             this.sortOrder = checkNotNull(sortOrder, "sortOrder is null");
 
             this.tupleInfos = toTupleInfos(sourceTupleInfos, outputChannels);
@@ -91,10 +87,9 @@ public class OrderByOperator
             return new OrderByOperator(
                     operatorContext,
                     sourceTupleInfos,
-                    orderByChannel,
                     outputChannels,
                     expectedPositions,
-                    sortFields,
+                    sortChannels,
                     sortOrder);
         }
 
@@ -113,9 +108,8 @@ public class OrderByOperator
     }
 
     private final OperatorContext operatorContext;
-    private final int orderByChannel;
-    private final int[] sortFields;
-    private final boolean[] sortOrder;
+    private final int[] sortChannels;
+    private final SortOrder[] sortOrder;
     private final int[] outputChannels;
     private final List<TupleInfo> tupleInfos;
 
@@ -129,17 +123,15 @@ public class OrderByOperator
     public OrderByOperator(
             OperatorContext operatorContext,
             List<TupleInfo> sourceTupleInfos,
-            int orderByChannel,
             int[] outputChannels,
             int expectedPositions,
-            int[] sortFields,
-            boolean[] sortOrder)
+            int[] sortChannels,
+            SortOrder[] sortOrder)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.orderByChannel = orderByChannel;
         this.outputChannels = checkNotNull(outputChannels, "outputChannels is null");
         this.tupleInfos = toTupleInfos(sourceTupleInfos, outputChannels);
-        this.sortFields = checkNotNull(sortFields, "sortFields is null");
+        this.sortChannels = checkNotNull(sortChannels, "sortChannels is null");
         this.sortOrder = checkNotNull(sortOrder, "sortOrder is null");
 
         this.pageIndex = new PagesIndex(sourceTupleInfos, expectedPositions, operatorContext);
@@ -166,7 +158,7 @@ public class OrderByOperator
             state = State.HAS_OUTPUT;
 
             // sort the index
-            pageIndex.sort(orderByChannel, sortFields, sortOrder);
+            pageIndex.sort(sortChannels, sortOrder);
         }
     }
 
@@ -228,22 +220,11 @@ public class OrderByOperator
         return page;
     }
 
-    private static boolean[] defaultSortOrder(List<TupleInfo> sourceTupleInfos, int orderByChannel)
+    private static SortOrder[] defaultSortOrder(int[] orderByChannels)
     {
-        TupleInfo orderByTupleInfo = sourceTupleInfos.get(orderByChannel);
-        boolean[] sortOrder = new boolean[orderByTupleInfo.getFieldCount()];
-        BooleanArrays.fill(sortOrder, true);
+        SortOrder[] sortOrder = new SortOrder[orderByChannels.length];
+        Arrays.fill(sortOrder, SortOrder.ASC_NULLS_LAST);
         return sortOrder;
-    }
-
-    private static int[] defaultSortFields(List<TupleInfo> sourceTupleInfos, int orderByChannel)
-    {
-        TupleInfo orderByTupleInfo = sourceTupleInfos.get(orderByChannel);
-        int[] sortFields = new int[orderByTupleInfo.getFieldCount()];
-        for (int i = 0; i < sortFields.length; i++) {
-            sortFields[i] = i;
-        }
-        return sortFields;
     }
 
     private static List<TupleInfo> toTupleInfos(List<TupleInfo> sourceTupleInfos, int[] outputChannels)

@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.connector.dual.DualColumnHandle;
 import com.facebook.presto.connector.dual.DualTableHandle;
 import com.facebook.presto.metadata.FunctionHandle;
+import com.facebook.presto.operator.SortOrder;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.Partition;
@@ -42,7 +43,6 @@ import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.facebook.presto.sql.tree.SortItem;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
@@ -192,7 +192,7 @@ public class TestEffectivePredicateExtractor
                                 equals(AE, BE),
                                 equals(BE, CE),
                                 lessThan(CE, number(10)))),
-                1, ImmutableList.of(A), ImmutableMap.of(A, SortItem.Ordering.ASCENDING), true);
+                1, ImmutableList.of(A), ImmutableMap.of(A, SortOrder.ASC_NULLS_LAST), true);
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node);
 
@@ -236,7 +236,7 @@ public class TestEffectivePredicateExtractor
                                 equals(AE, BE),
                                 equals(BE, CE),
                                 lessThan(CE, number(10)))),
-                ImmutableList.of(A), ImmutableMap.of(A, SortItem.Ordering.ASCENDING));
+                ImmutableList.of(A), ImmutableMap.of(A, SortOrder.ASC_NULLS_LAST));
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node);
 
@@ -260,7 +260,7 @@ public class TestEffectivePredicateExtractor
                                 lessThan(CE, number(10)))),
                 ImmutableList.of(A),
                 ImmutableList.of(A),
-                ImmutableMap.of(A, SortItem.Ordering.ASCENDING),
+                ImmutableMap.of(A, SortOrder.ASC_NULLS_LAST),
                 ImmutableMap.<Symbol, FunctionCall>of(),
                 ImmutableMap.<Symbol, FunctionHandle>of());
 
