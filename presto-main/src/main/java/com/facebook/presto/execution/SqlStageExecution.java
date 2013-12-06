@@ -53,6 +53,7 @@ import io.airlift.log.Logger;
 import io.airlift.stats.Distribution;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -129,7 +130,10 @@ public class SqlStageExecution
     @GuardedBy("this")
     private OutputBuffers nextOutputBuffers;
 
+
     private final ExecutorService executor;
+
+    private final AtomicReference<DateTime> schedulingComplete = new AtomicReference<>();
 
     private final Distribution getSplitDistribution = new Distribution();
     private final Distribution scheduleTaskDistribution = new Distribution();
@@ -348,6 +352,7 @@ public class SqlStageExecution
             }
 
             StageStats stageStats = new StageStats(
+                    schedulingComplete.get(),
                     getSplitDistribution.snapshot(),
                     scheduleTaskDistribution.snapshot(),
                     addSplitDistribution.snapshot(),
@@ -558,6 +563,7 @@ public class SqlStageExecution
                     throw new IllegalStateException("Unsupported partitioning: " + fragment.getDistribution());
                 }
 
+                schedulingComplete.set(DateTime.now());
                 stageState.set(StageState.SCHEDULED);
 
                 // add the missing exchanges output buffers
