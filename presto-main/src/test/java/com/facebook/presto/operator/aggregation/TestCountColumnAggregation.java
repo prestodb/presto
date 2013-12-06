@@ -16,7 +16,7 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 
-import static com.facebook.presto.operator.aggregation.CountColumnAggregation.COUNT_COLUMN;
+import static com.facebook.presto.operator.aggregation.CountColumnAggregation.COUNT_LONG_COLUMN;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 
 public class TestCountColumnAggregation
@@ -35,7 +35,7 @@ public class TestCountColumnAggregation
     @Override
     public AggregationFunction getFunction()
     {
-        return COUNT_COLUMN;
+        return COUNT_LONG_COLUMN;
     }
 
     @Override

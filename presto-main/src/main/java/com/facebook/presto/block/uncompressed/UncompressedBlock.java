@@ -24,6 +24,9 @@ import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 public class UncompressedBlock
         implements Block
 {
@@ -33,13 +36,21 @@ public class UncompressedBlock
 
     public UncompressedBlock(int positionCount, TupleInfo tupleInfo, Slice slice)
     {
-        Preconditions.checkArgument(positionCount >= 0, "positionCount is negative");
-        Preconditions.checkNotNull(tupleInfo, "tupleInfo is null");
-        Preconditions.checkNotNull(slice, "data is null");
+        checkArgument(positionCount >= 0, "positionCount is negative");
+        checkNotNull(tupleInfo, "tupleInfo is null");
+        checkNotNull(slice, "data is null");
 
         this.tupleInfo = tupleInfo;
         this.slice = slice;
         this.positionCount = positionCount;
+    }
+
+    public UncompressedBlock(UncompressedBlock block)
+    {
+        checkNotNull(block, "block is null");
+        this.positionCount = block.positionCount;
+        this.tupleInfo = block.tupleInfo;
+        this.slice = block.slice;
     }
 
     public TupleInfo getTupleInfo()

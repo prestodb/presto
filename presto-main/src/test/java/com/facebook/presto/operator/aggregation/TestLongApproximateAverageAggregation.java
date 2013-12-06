@@ -16,7 +16,7 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 
-import static com.facebook.presto.operator.aggregation.LongApproximateAverageAggregation.LONG_APPROX_AVERAGE;
+import static com.facebook.presto.operator.aggregation.ApproximateAverageAggregation.LONG_APPROXIMATE_AVERAGE_AGGREGATION;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 
 public class TestLongApproximateAverageAggregation
@@ -35,7 +35,7 @@ public class TestLongApproximateAverageAggregation
     @Override
     public AggregationFunction getFunction()
     {
-        return LONG_APPROX_AVERAGE;
+        return LONG_APPROXIMATE_AVERAGE_AGGREGATION;
     }
 
     @Override

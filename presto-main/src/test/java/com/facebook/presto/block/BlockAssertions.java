@@ -293,6 +293,17 @@ public class BlockAssertions
         return builder.build();
     }
 
+    public static Block createBooleanSequenceBlock(int start, int end)
+    {
+        BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_BOOLEAN);
+
+        for (int i = start; i < end; i++) {
+            builder.append(i % 2 == 0);
+        }
+
+        return builder.build();
+    }
+
     public static Block createCompositeTupleSequenceBlock(int start, int end)
     {
         BlockBuilder builder = new BlockBuilder(COMPOSITE_SEQUENCE_TUPLE_INFO);

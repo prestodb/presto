@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
+import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
@@ -139,5 +140,14 @@ public final class OperatorAssertion
         List<Page> pages = toPages(operator, input);
         MaterializedResult actual = toMaterializedResult(operator.getTupleInfos(), pages);
         assertEquals(actual, expected);
+    }
+
+    public static void assertOperatorEqualsIgnoreOrder(Operator operator, List<Page> input, MaterializedResult expected)
+    {
+        List<Page> pages = toPages(operator, input);
+        MaterializedResult actual = toMaterializedResult(operator.getTupleInfos(), pages);
+
+        assertEquals(actual.getTupleInfo(), expected.getTupleInfo());
+        assertEqualsIgnoreOrder(actual.getMaterializedTuples(), expected.getMaterializedTuples());
     }
 }

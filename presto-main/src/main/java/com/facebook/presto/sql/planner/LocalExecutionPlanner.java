@@ -1043,12 +1043,9 @@ public class LocalExecutionPlanner
             return new PhysicalOperation(operatorFactory, outputMappings.build(), source);
         }
 
-        private PhysicalOperation planGroupByAggregation(AggregationNode node, PhysicalOperation source, LocalExecutionPlanContext context)
+        private PhysicalOperation planGroupByAggregation(AggregationNode node, final PhysicalOperation source, LocalExecutionPlanContext context)
         {
             List<Symbol> groupBySymbols = node.getGroupBy();
-
-            // introduce a projection to put all group by fields from the source into a single channel if necessary
-            source = packIfNecessary(groupBySymbols, source, context.getTypes(), context);
 
             List<Symbol> aggregationOutputSymbols = new ArrayList<>();
             List<AggregationFunctionDefinition> functionDefinitions = new ArrayList<>();
@@ -1060,28 +1057,38 @@ public class LocalExecutionPlanner
             }
 
             ImmutableMultimap.Builder<Symbol, Input> outputMappings = ImmutableMultimap.builder();
-            // add group-by key fields. They all go in channel 0 in the same order produced by the source operator
+            // add group-by key fields each in a separate channel
+            int channel = 0;
             for (Symbol symbol : groupBySymbols) {
-                outputMappings.put(symbol, new Input(0, getFirst(source.getLayout().get(symbol)).getField()));
+                outputMappings.put(symbol, new Input(channel, 0));
+                channel++;
             }
 
-            // aggregations go in remaining channels starting at 1, one per channel
-            int channel = 1;
+            // aggregations go in following channels
             for (Symbol symbol : aggregationOutputSymbols) {
                 outputMappings.put(symbol, new Input(channel, 0));
                 channel++;
             }
 
-            Integer groupByChannel = Iterables.getOnlyElement(getChannelSetForSymbols(groupBySymbols, source.getLayout()));
+            List<Integer> groupByChannels = ImmutableList.copyOf(getChannelSetForSymbols(groupBySymbols, source.getLayout()));
+            List<TupleInfo> groupByTupleInfos = ImmutableList.copyOf(Iterables.transform(groupByChannels, new Function<Integer, TupleInfo>()
+            {
+                public TupleInfo apply(Integer input)
+                {
+                    return source.getTupleInfos().get(input);
+                }
+            }));
+
             OperatorFactory operatorFactory = new HashAggregationOperatorFactory(
                     context.getNextOperatorId(),
-                    source.getTupleInfos().get(groupByChannel),
-                    groupByChannel,
+                    groupByTupleInfos,
+                    groupByChannels,
                     node.getStep(),
                     functionDefinitions,
                     10_000);
 
-            return new PhysicalOperation(operatorFactory, outputMappings.build(), source);
+            ImmutableMultimap<Symbol, Input> layout = outputMappings.build();
+            return new PhysicalOperation(operatorFactory, layout, source);
         }
     }
 

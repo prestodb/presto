@@ -16,97 +16,140 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.tuple.TupleInfo;
-import io.airlift.slice.Slice;
+import com.facebook.presto.operator.GroupByIdBlock;
+import com.facebook.presto.util.array.LongBigArray;
 
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
+import static com.facebook.presto.tuple.TupleInfo.Type.BOOLEAN;
+import static com.google.common.base.Preconditions.checkState;
 
 public class CountIfAggregation
-        implements FixedWidthAggregationFunction
+        extends SimpleAggregationFunction
 {
     public static final CountIfAggregation COUNT_IF = new CountIfAggregation();
 
-    @Override
-    public int getFixedSize()
+    public CountIfAggregation()
     {
-        return SINGLE_LONG.getFixedSize();
+        super(SINGLE_LONG, SINGLE_LONG, BOOLEAN);
     }
 
     @Override
-    public TupleInfo getFinalTupleInfo()
+    protected GroupedAccumulator createGroupedAccumulator(int valueChannel)
     {
-        return SINGLE_LONG;
+        return new CountIfGroupedAccumulator(valueChannel);
     }
 
-    @Override
-    public TupleInfo getIntermediateTupleInfo()
+    public static class CountIfGroupedAccumulator
+            extends SimpleGroupedAccumulator
     {
-        return SINGLE_LONG;
-    }
+        private final LongBigArray counts;
 
-    @Override
-    public void initialize(Slice valueSlice, int valueOffset)
-    {
-        SINGLE_LONG.setLong(valueSlice, valueOffset, 0, 0);
-    }
-
-    @Override
-    public void addInput(BlockCursor cursor, int field, Slice valueSlice, int valueOffset)
-    {
-        if (cursor.isNull(field)) {
-            return;
+        public CountIfGroupedAccumulator(int valueChannel)
+        {
+            super(valueChannel, SINGLE_LONG, SINGLE_LONG);
+            this.counts = new LongBigArray();
         }
 
-        // if true increment value
-        if (cursor.getBoolean(field)) {
-            long currentValue = SINGLE_LONG.getLong(valueSlice, valueOffset, 0);
-            SINGLE_LONG.setLong(valueSlice, valueOffset, 0, currentValue + 1);
+        @Override
+        public long getEstimatedSize()
+        {
+            return counts.sizeOf();
+        }
+
+        @Override
+        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock)
+        {
+            counts.ensureCapacity(groupIdsBlock.getGroupCount());
+
+            BlockCursor values = valuesBlock.cursor();
+
+            for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
+                checkState(values.advanceNextPosition());
+
+                if (!values.isNull(0) && values.getBoolean(0)) {
+                    long groupId = groupIdsBlock.getGroupId(position);
+                    counts.increment(groupId);
+                }
+            }
+            checkState(!values.advanceNextPosition());
+        }
+
+        @Override
+        protected void processIntermediate(GroupByIdBlock groupIdsBlock, Block valuesBlock)
+        {
+            counts.ensureCapacity(groupIdsBlock.getGroupCount());
+
+            BlockCursor values = valuesBlock.cursor();
+
+            for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
+                checkState(values.advanceNextPosition());
+
+                if (!values.isNull(0)) {
+                    long groupId = groupIdsBlock.getGroupId(position);
+                    counts.add(groupId, values.getLong(0));
+                }
+            }
+            checkState(!values.advanceNextPosition());
+        }
+
+        @Override
+        public void evaluateFinal(int groupId, BlockBuilder output)
+        {
+            long value = counts.get((long) groupId);
+            output.append(value);
         }
     }
 
     @Override
-    public void addInput(int positionCount, Block block, int field, Slice valueSlice, int valueOffset)
+    protected Accumulator createAccumulator(int valueChannel)
     {
-        // initialize with current value
-        long count = SINGLE_LONG.getLong(valueSlice, valueOffset, 0);
+        return new CountIfAccumulator(valueChannel);
+    }
 
-        // process block
-        BlockCursor cursor = block.cursor();
-        while (cursor.advanceNextPosition()) {
-            if (!cursor.isNull(field)) {
-                if (cursor.getBoolean(field)) {
+    public static class CountIfAccumulator
+            extends SimpleAccumulator
+    {
+        private long count;
+
+        public CountIfAccumulator(int valueChannel)
+        {
+            super(valueChannel, SINGLE_LONG, SINGLE_LONG);
+        }
+
+        @Override
+        protected void processInput(Block block)
+        {
+            BlockCursor values = block.cursor();
+
+            for (int position = 0; position < block.getPositionCount(); position++) {
+                checkState(values.advanceNextPosition());
+                if (!values.isNull(0) && values.getBoolean(0)) {
                     count++;
                 }
             }
         }
 
-        // write new value
-        SINGLE_LONG.setLong(valueSlice, valueOffset, 0, count);
-    }
+        @Override
+        protected void processIntermediate(Block block)
+        {
+            BlockCursor intermediates = block.cursor();
 
-    @Override
-    public void addIntermediate(BlockCursor cursor, int field, Slice valueSlice, int valueOffset)
-    {
-        if (cursor.isNull(field)) {
-            return;
+            for (int position = 0; position < block.getPositionCount(); position++) {
+                checkState(intermediates.advanceNextPosition());
+                count += intermediates.getLong(0);
+            }
         }
 
-        // update current value
-        long currentValue = SINGLE_LONG.getLong(valueSlice, valueOffset, 0);
-        long newValue = cursor.getLong(field);
-        SINGLE_LONG.setLong(valueSlice, valueOffset, 0, currentValue + newValue);
-    }
+        @Override
+        public void evaluateIntermediate(BlockBuilder out)
+        {
+            evaluateFinal(out);
+        }
 
-    @Override
-    public void evaluateIntermediate(Slice valueSlice, int valueOffset, BlockBuilder output)
-    {
-        evaluateFinal(valueSlice, valueOffset, output);
-    }
-
-    @Override
-    public void evaluateFinal(Slice valueSlice, int valueOffset, BlockBuilder output)
-    {
-        long currentValue = SINGLE_LONG.getLong(valueSlice, valueOffset, 0);
-        output.append(currentValue);
+        @Override
+        public void evaluateFinal(BlockBuilder out)
+        {
+            out.append(count);
+        }
     }
 }

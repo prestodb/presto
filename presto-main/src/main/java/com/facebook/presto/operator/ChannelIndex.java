@@ -28,7 +28,7 @@ import it.unimi.dsi.fastutil.longs.LongListIterator;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
-import static com.facebook.presto.operator.SyntheticAddress.decodeSliceOffset;
+import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -126,7 +126,7 @@ public class ChannelIndex
         // get slice an offset for the position
         long sliceAddress = valueAddresses.getLong(position);
         Slice slice = getSliceForSyntheticAddress(sliceAddress);
-        int offset = decodeSliceOffset(sliceAddress);
+        int offset = decodePosition(sliceAddress);
 
         // append the tuple
         output.appendTuple(slice, offset);

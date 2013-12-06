@@ -16,7 +16,7 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 
-import static com.facebook.presto.operator.aggregation.DoubleApproximateAverageAggregation.DOUBLE_APPROX_AVERAGE;
+import static com.facebook.presto.operator.aggregation.ApproximateAverageAggregation.DOUBLE_APPROXIMATE_AVERAGE_AGGREGATION;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
 
 public class TestDoubleApproximateAverageAggregation
@@ -35,7 +35,7 @@ public class TestDoubleApproximateAverageAggregation
     @Override
     public AggregationFunction getFunction()
     {
-        return DOUBLE_APPROX_AVERAGE;
+        return DOUBLE_APPROXIMATE_AVERAGE_AGGREGATION;
     }
 
     @Override

@@ -13,30 +13,42 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.block.BlockBuilder;
-import io.airlift.slice.Slice;
+import static com.facebook.presto.operator.aggregation.AbstractVarianceAggregation.VarianceAccumulator.doubleStandardDeviation;
+import static com.facebook.presto.operator.aggregation.AbstractVarianceAggregation.VarianceAccumulator.doubleStandardDeviationPopulation;
+import static com.facebook.presto.operator.aggregation.AbstractVarianceAggregation.VarianceGroupedAccumulator.doubleStandardDeviationGrouped;
+import static com.facebook.presto.operator.aggregation.AbstractVarianceAggregation.VarianceGroupedAccumulator.doubleStandardDeviationPopulationGrouped;
+import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 
 public class DoubleStdDevAggregation
-        extends DoubleVarianceAggregation
+        extends AbstractVarianceAggregation
 {
     public static final DoubleStdDevAggregation STDDEV_INSTANCE = new DoubleStdDevAggregation(false);
     public static final DoubleStdDevAggregation STDDEV_POP_INSTANCE = new DoubleStdDevAggregation(true);
 
     DoubleStdDevAggregation(boolean population)
     {
-        super(population);
+        super(population, DOUBLE);
     }
 
     @Override
-    public void evaluateFinal(Slice valueSlice, int valueOffset, BlockBuilder output)
+    protected GroupedAccumulator createGroupedAccumulator(int valueChannel)
     {
-        Double result = AbstractVarianceAggregation.buildFinalStdDev(population, valueSlice, valueOffset);
-
-        if (result == null) {
-            output.appendNull();
+        if (population) {
+            return doubleStandardDeviationPopulationGrouped(valueChannel);
         }
         else {
-            output.append(result.doubleValue());
+            return doubleStandardDeviationGrouped(valueChannel);
+        }
+    }
+
+    @Override
+    protected Accumulator createAccumulator(int valueChannel)
+    {
+        if (population) {
+            return doubleStandardDeviationPopulation(valueChannel);
+        }
+        else {
+            return doubleStandardDeviation(valueChannel);
         }
     }
 }

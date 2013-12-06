@@ -13,30 +13,42 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.block.BlockBuilder;
-import io.airlift.slice.Slice;
+import static com.facebook.presto.operator.aggregation.AbstractVarianceAggregation.VarianceAccumulator.longStandardDeviation;
+import static com.facebook.presto.operator.aggregation.AbstractVarianceAggregation.VarianceAccumulator.longStandardDeviationPopulation;
+import static com.facebook.presto.operator.aggregation.AbstractVarianceAggregation.VarianceGroupedAccumulator.longStandardDeviationGrouped;
+import static com.facebook.presto.operator.aggregation.AbstractVarianceAggregation.VarianceGroupedAccumulator.longStandardDeviationPopulationGrouped;
+import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 
 public class LongStdDevAggregation
-        extends LongVarianceAggregation
+        extends AbstractVarianceAggregation
 {
     public static final LongStdDevAggregation STDDEV_INSTANCE = new LongStdDevAggregation(false);
     public static final LongStdDevAggregation STDDEV_POP_INSTANCE = new LongStdDevAggregation(true);
 
     LongStdDevAggregation(boolean population)
     {
-        super(population);
+        super(population, FIXED_INT_64);
     }
 
     @Override
-    public void evaluateFinal(Slice valueSlice, int valueOffset, BlockBuilder output)
+    protected GroupedAccumulator createGroupedAccumulator(int valueChannel)
     {
-        Double result = AbstractVarianceAggregation.buildFinalStdDev(population, valueSlice, valueOffset);
-
-        if (result == null) {
-            output.appendNull();
+        if (population) {
+            return longStandardDeviationPopulationGrouped(valueChannel);
         }
         else {
-            output.append(result.doubleValue());
+            return longStandardDeviationGrouped(valueChannel);
+        }
+    }
+
+    @Override
+    protected Accumulator createAccumulator(int valueChannel)
+    {
+        if (population) {
+            return longStandardDeviationPopulation(valueChannel);
+        }
+        else {
+            return longStandardDeviation(valueChannel);
         }
     }
 }

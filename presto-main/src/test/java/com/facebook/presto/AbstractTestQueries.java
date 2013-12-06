@@ -1487,6 +1487,8 @@ public abstract class AbstractTestQueries
     public void testHaving3()
             throws Exception
     {
+        assertQuery("SELECT custkey, sum(totalprice) * 2 FROM orders GROUP BY custkey");
+        assertQuery("SELECT custkey, avg(totalprice + 5) FROM orders GROUP BY custkey");
         assertQuery("SELECT custkey, sum(totalprice) * 2 FROM orders GROUP BY custkey HAVING avg(totalprice + 5) > 10");
     }
 
