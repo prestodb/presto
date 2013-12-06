@@ -19,41 +19,53 @@ import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.util.array.DoubleBigArray;
 import com.facebook.presto.util.array.LongBigArray;
+import com.facebook.presto.tuple.TupleInfo.Type;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
-import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 
-public class DoubleAverageAggregation
+public class AverageAggregation
         extends SimpleAggregationFunction
 {
-    public static final DoubleAverageAggregation DOUBLE_AVERAGE = new DoubleAverageAggregation();
+    private final boolean inputIsLong;
 
-    public DoubleAverageAggregation()
+    public AverageAggregation(Type parameterType)
     {
-        super(SINGLE_DOUBLE, SINGLE_VARBINARY, DOUBLE);
+        super(SINGLE_DOUBLE, SINGLE_VARBINARY, parameterType);
+
+        if (parameterType == Type.FIXED_INT_64) {
+            this.inputIsLong = true;
+        }
+        else if (parameterType == Type.DOUBLE) {
+            this.inputIsLong = false;
+        } else {
+            throw new IllegalArgumentException("Expected parameter type to be FIXED_INT_64 or DOUBLE, but was " + parameterType);
+        }
     }
 
     @Override
     protected GroupedAccumulator createGroupedAccumulator(int valueChannel)
     {
-        return new DoubleSumGroupedAccumulator(valueChannel);
+        return new AverageGroupedAccumulator(valueChannel, inputIsLong);
     }
 
-    public static class DoubleSumGroupedAccumulator
+    public static class AverageGroupedAccumulator
             extends SimpleGroupedAccumulator
     {
+        private final boolean inputIsLong;
+
         private final LongBigArray counts;
         private final DoubleBigArray sums;
 
-        public DoubleSumGroupedAccumulator(int valueChannel)
+        public AverageGroupedAccumulator(int valueChannel, boolean inputIsLong)
         {
             super(valueChannel, SINGLE_DOUBLE, SINGLE_VARBINARY);
+            this.inputIsLong = inputIsLong;
             this.counts = new LongBigArray();
             this.sums = new DoubleBigArray();
         }
@@ -80,7 +92,13 @@ public class DoubleAverageAggregation
                 if (!values.isNull(0)) {
                     counts.increment(groupId);
 
-                    double value = values.getDouble(0);
+                    double value;
+                    if (inputIsLong) {
+                        value = values.getLong(0);
+                    }
+                    else {
+                        value = values.getDouble(0);
+                    }
                     sums.add(groupId, value);
                 }
             }
@@ -140,18 +158,21 @@ public class DoubleAverageAggregation
     @Override
     protected Accumulator createAccumulator(int valueChannel)
     {
-        return new DoubleAverageAccumulator(valueChannel);
+        return new AverageAccumulator(valueChannel, inputIsLong);
     }
 
-    public static class DoubleAverageAccumulator
+    public static class AverageAccumulator
             extends SimpleAccumulator
     {
+        private final boolean inputIsLong;
+
         private long count;
         private double sum;
 
-        public DoubleAverageAccumulator(int valueChannel)
+        public AverageAccumulator(int valueChannel, boolean inputIsLong)
         {
             super(valueChannel, SINGLE_DOUBLE, SINGLE_VARBINARY);
+            this.inputIsLong = inputIsLong;
         }
 
         @Override
@@ -163,7 +184,12 @@ public class DoubleAverageAggregation
                 checkState(values.advanceNextPosition());
                 if (!values.isNull(0)) {
                     count++;
-                    sum += values.getDouble(0);
+                    if (inputIsLong) {
+                        sum += values.getLong(0);
+                    }
+                    else {
+                        sum += values.getDouble(0);
+                    }
                 }
             }
         }

@@ -17,6 +17,7 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import org.apache.commons.math.stat.descriptive.moment.Variance;
 
+import static com.facebook.presto.operator.aggregation.VarianceAggregations.DOUBLE_VARIANCE_POP_INSTANCE;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
 
 public class TestDoubleVariancePopAggregation
@@ -35,7 +36,7 @@ public class TestDoubleVariancePopAggregation
     @Override
     public AggregationFunction getFunction()
     {
-        return DoubleVarianceAggregation.VARIANCE_POP_INSTANCE;
+        return DOUBLE_VARIANCE_POP_INSTANCE;
     }
 
     @Override

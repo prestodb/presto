@@ -17,19 +17,22 @@ import com.facebook.presto.tuple.TupleInfo;
 
 import java.util.concurrent.ThreadLocalRandom;
 
+import static com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregations.DOUBLE_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS;
+import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
+
 public class TestApproximateCountDistinctDouble
         extends AbstractTestApproximateCountDistinct
 {
     @Override
-    public ApproximateCountDistinctAggregation getAggregationFunction()
+    public AggregationFunction getAggregationFunction()
     {
-        return ApproximateCountDistinctAggregation.DOUBLE_INSTANCE;
+        return DOUBLE_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS;
     }
 
     @Override
     public TupleInfo.Type getValueType()
     {
-        return TupleInfo.Type.DOUBLE;
+        return DOUBLE;
     }
 
     @Override

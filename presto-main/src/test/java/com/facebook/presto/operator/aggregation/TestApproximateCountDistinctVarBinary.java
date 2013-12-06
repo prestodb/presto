@@ -18,19 +18,22 @@ import io.airlift.slice.Slices;
 
 import java.util.concurrent.ThreadLocalRandom;
 
+import static com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregations.VARBINARY_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS;
+import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
+
 public class TestApproximateCountDistinctVarBinary
         extends AbstractTestApproximateCountDistinct
 {
     @Override
-    public ApproximateCountDistinctAggregation getAggregationFunction()
+    public AggregationFunction getAggregationFunction()
     {
-        return ApproximateCountDistinctAggregation.VARBINARY_INSTANCE;
+        return VARBINARY_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS;
     }
 
     @Override
     public TupleInfo.Type getValueType()
     {
-        return TupleInfo.Type.VARIABLE_BINARY;
+        return VARIABLE_BINARY;
     }
 
     @Override

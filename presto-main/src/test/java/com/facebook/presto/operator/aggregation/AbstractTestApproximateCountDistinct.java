@@ -37,7 +37,7 @@ import static org.testng.Assert.assertEquals;
 
 public abstract class AbstractTestApproximateCountDistinct
 {
-    public abstract ApproximateCountDistinctAggregation getAggregationFunction();
+    public abstract AggregationFunction getAggregationFunction();
 
     public abstract TupleInfo.Type getValueType();
 
@@ -95,7 +95,7 @@ public abstract class AbstractTestApproximateCountDistinct
         }
 
         assertLessThan(stats.getMean(), 1.0e-2);
-        assertLessThan(Math.abs(stats.getStandardDeviation() - getAggregationFunction().getStandardError()), 1.0e-2);
+        assertLessThan(Math.abs(stats.getStandardDeviation() - ApproximateCountDistinctAggregation.getStandardError()), 1.0e-2);
     }
 
     @Test

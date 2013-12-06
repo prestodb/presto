@@ -31,18 +31,12 @@ import java.util.List;
 import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
-import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
-import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
-import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
 public class ApproximateCountDistinctAggregation
         extends SimpleAggregationFunction
 {
-    public static final ApproximateCountDistinctAggregation LONG_INSTANCE = new ApproximateCountDistinctAggregation(new LongHasher());
-    public static final ApproximateCountDistinctAggregation DOUBLE_INSTANCE = new ApproximateCountDistinctAggregation(new DoubleHasher());
-    public static final ApproximateCountDistinctAggregation VARBINARY_INSTANCE = new ApproximateCountDistinctAggregation(new SliceHasher());
-
     private static final HyperLogLog ESTIMATOR = new HyperLogLog(2048);
     // 1 byte for null flag. We use the null flag to propagate a "null" field as intermediate
     // and thereby avoid sending a full list of buckets when no value has been added (just an optimization)
@@ -50,31 +44,37 @@ public class ApproximateCountDistinctAggregation
     private static final int SLICE_SIZE = Math.max(ENTRY_SIZE, Ints.checkedCast((DEFAULT_MAX_BLOCK_SIZE.toBytes() / ENTRY_SIZE) * ENTRY_SIZE));
     private static final int ENTRIES_PER_SLICE = SLICE_SIZE / ENTRY_SIZE;
 
-    private final CursorHasher hasher;
+    private static final HashFunction HASH = Hashing.murmur3_128();
 
-    public ApproximateCountDistinctAggregation(CursorHasher hasher)
+    private final Type parameterType;
+
+    public ApproximateCountDistinctAggregation(Type parameterType)
     {
-        super(SINGLE_LONG, SINGLE_VARBINARY, hasher.getType());
-        this.hasher = hasher;
+        super(SINGLE_LONG, SINGLE_VARBINARY, parameterType);
+
+        checkArgument(parameterType == Type.FIXED_INT_64 || parameterType == Type.DOUBLE || parameterType == Type.VARIABLE_BINARY,
+                "Expected parameter type to be FIXED_INT_64, DOUBLE, or VARIABLE_BINARY, but was %s",
+                parameterType);
+
+        this.parameterType = parameterType;
     }
 
     @Override
     protected GroupedAccumulator createGroupedAccumulator(int valueChannel)
     {
-        return new ApproximateCountDistinctGroupedAccumulator(hasher, valueChannel);
+        return new ApproximateCountDistinctGroupedAccumulator(parameterType, valueChannel);
     }
 
     public static class ApproximateCountDistinctGroupedAccumulator
             extends SimpleGroupedAccumulator
     {
-        private final CursorHasher hasher;
-
+        private final Type parameterType;
         private final List<Slice> slices = new ArrayList<>();
 
-        public ApproximateCountDistinctGroupedAccumulator(CursorHasher hasher, int valueChannel)
+        public ApproximateCountDistinctGroupedAccumulator(Type parameterType, int valueChannel)
         {
             super(valueChannel, SINGLE_LONG, SINGLE_VARBINARY);
-            this.hasher = hasher;
+            this.parameterType = parameterType;
         }
 
         @Override
@@ -103,7 +103,7 @@ public class ApproximateCountDistinctAggregation
                     Slice slice = slices.get(sliceIndex);
                     int sliceOffset = Ints.checkedCast(globalOffset - (sliceIndex * SLICE_SIZE));
 
-                    long hash = hasher.hash(values, 0);
+                    long hash = hash(values, parameterType);
 
                     ESTIMATOR.update(hash, slice, sliceOffset + 1);
                     setNotNull(slice, sliceOffset);
@@ -189,22 +189,22 @@ public class ApproximateCountDistinctAggregation
     @Override
     protected Accumulator createAccumulator(int valueChannel)
     {
-        return new ApproximateCountDistinctAccumulator(hasher, valueChannel);
+        return new ApproximateCountDistinctAccumulator(parameterType, valueChannel);
     }
 
     public static class ApproximateCountDistinctAccumulator
             extends SimpleAccumulator
     {
-        private final CursorHasher hasher;
+        private final Type parameterType;
 
         private final Slice slice = Slices.allocate(ENTRY_SIZE);
         private boolean notNull;
 
-        public ApproximateCountDistinctAccumulator(CursorHasher hasher, int valueChannel)
+        public ApproximateCountDistinctAccumulator(Type parameterType, int valueChannel)
         {
             super(valueChannel, SINGLE_LONG, SINGLE_VARBINARY);
 
-            this.hasher = hasher;
+            this.parameterType = parameterType;
         }
 
         @Override
@@ -217,7 +217,7 @@ public class ApproximateCountDistinctAggregation
                 if (!values.isNull(0)) {
                     notNull = true;
 
-                    long hash = hasher.hash(values, 0);
+                    long hash = hash(values, parameterType);
                     ESTIMATOR.update(hash, slice, 0);
                 }
             }
@@ -262,7 +262,7 @@ public class ApproximateCountDistinctAggregation
         }
     }
 
-    public double getStandardError()
+    public static double getStandardError()
     {
         return ESTIMATOR.getStandardError();
     }
@@ -278,68 +278,22 @@ public class ApproximateCountDistinctAggregation
         valueSlice.setByte(offset, 1);
     }
 
-    public interface CursorHasher
+    private static long hash(BlockCursor values, Type parameterType)
     {
-        Type getType();
-
-        long hash(BlockCursor cursor, int field);
-    }
-
-    public static class DoubleHasher
-            implements CursorHasher
-    {
-        private static final HashFunction HASH = Hashing.murmur3_128();
-
-        @Override
-        public Type getType()
-        {
-            return DOUBLE;
-        }
-
-        @Override
-        public long hash(BlockCursor cursor, int field)
-        {
-            double value = cursor.getDouble(field);
-            return HASH.hashLong(Double.doubleToLongBits(value)).asLong();
-        }
-    }
-
-    public static class LongHasher
-            implements CursorHasher
-    {
-        private static final HashFunction HASH = Hashing.murmur3_128();
-
-        @Override
-        public Type getType()
-        {
-            return FIXED_INT_64;
-        }
-
-        @Override
-        public long hash(BlockCursor cursor, int field)
-        {
-            long value = cursor.getLong(field);
+        if (parameterType == Type.FIXED_INT_64) {
+            long value = values.getLong(0);
             return HASH.hashLong(value).asLong();
         }
-    }
-
-    public static class SliceHasher
-            implements CursorHasher
-    {
-        private static final HashFunction HASH = Hashing.murmur3_128();
-
-        @Override
-        public Type getType()
-        {
-            return VARIABLE_BINARY;
+        else if (parameterType == Type.DOUBLE) {
+            double value = values.getDouble(0);
+            return HASH.hashLong(Double.doubleToLongBits(value)).asLong();
         }
-
-        @Override
-        public long hash(BlockCursor cursor, int field)
-        {
-            Slice value = cursor.getSlice(field);
-
+        else if (parameterType == Type.VARIABLE_BINARY) {
+            Slice value = values.getSlice(0);
             return HASH.hashBytes(value.getBytes()).asLong();
+        }
+        else {
+            throw new IllegalArgumentException("Expected parameter type to be FIXED_INT_64, DOUBLE, or VARIABLE_BINARY");
         }
     }
 }

@@ -17,15 +17,20 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.operator.Page;
-import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
-import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
+import static com.facebook.presto.operator.aggregation.ApproximatePercentileAggregations.DOUBLE_APPROXIMATE_PERCENTILE_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.ApproximatePercentileAggregations.LONG_APPROXIMATE_PERCENTILE_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.ApproximatePercentileWeightedAggregations.DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.ApproximatePercentileWeightedAggregations.LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION;
+import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
+import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 import static com.facebook.presto.tuple.Tuples.createTuple;
+import static io.airlift.slice.Slices.EMPTY_SLICE;
 
 public class TestApproximatePercentileAggregation
 {
@@ -35,7 +40,7 @@ public class TestApproximatePercentileAggregation
     {
         // regular approx_percentile
         assertAggregation(
-                LongApproximatePercentileAggregation.INSTANCE,
+                LONG_APPROXIMATE_PERCENTILE_AGGREGATION,
                 null,
                 createPage(
                         new Long[] {null},
@@ -44,7 +49,7 @@ public class TestApproximatePercentileAggregation
                         new Long[] {null},
                         0.5));
 
-        assertAggregation(LongApproximatePercentileAggregation.INSTANCE,
+        assertAggregation(LONG_APPROXIMATE_PERCENTILE_AGGREGATION,
                 1L,
                 createPage(
                         new Long[] {null},
@@ -54,7 +59,7 @@ public class TestApproximatePercentileAggregation
                         0.5));
 
         assertAggregation(
-                LongApproximatePercentileAggregation.INSTANCE,
+                LONG_APPROXIMATE_PERCENTILE_AGGREGATION,
                 2L,
                 createPage(
                         new Long[] {null},
@@ -64,7 +69,7 @@ public class TestApproximatePercentileAggregation
                         0.5));
 
         assertAggregation(
-                LongApproximatePercentileAggregation.INSTANCE,
+                LONG_APPROXIMATE_PERCENTILE_AGGREGATION,
                 2L,
                 createPage(
                         new Long[] {1L},
@@ -74,7 +79,7 @@ public class TestApproximatePercentileAggregation
                         0.5));
 
         assertAggregation(
-                LongApproximatePercentileAggregation.INSTANCE,
+                LONG_APPROXIMATE_PERCENTILE_AGGREGATION,
                 3L,
                 createPage(
                         new Long[] {1L, null, 2L, 2L, null, 2L, 2L, null},
@@ -85,7 +90,7 @@ public class TestApproximatePercentileAggregation
 
         // weighted approx_percentile
         assertAggregation(
-                LongApproximatePercentileWeightedAggregation.INSTANCE,
+                LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION,
                 null,
                 createPage(
                         new Long[] {null},
@@ -97,7 +102,7 @@ public class TestApproximatePercentileAggregation
                         0.5));
 
         assertAggregation(
-                LongApproximatePercentileWeightedAggregation.INSTANCE,
+                LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION,
                 1L,
                 createPage(
                         new Long[] {null},
@@ -109,7 +114,7 @@ public class TestApproximatePercentileAggregation
                         0.5));
 
         assertAggregation(
-                LongApproximatePercentileWeightedAggregation.INSTANCE,
+                LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION,
                 2L,
                 createPage(
                         new Long[] {null},
@@ -120,7 +125,7 @@ public class TestApproximatePercentileAggregation
                         0.5));
 
         assertAggregation(
-                LongApproximatePercentileWeightedAggregation.INSTANCE,
+                LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION,
                 2L,
                 createPage(
                         new Long[] {1L},
@@ -132,7 +137,7 @@ public class TestApproximatePercentileAggregation
                         0.5));
 
         assertAggregation(
-                LongApproximatePercentileWeightedAggregation.INSTANCE,
+                LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION,
                 3L,
                 createPage(
                         new Long[] {1L, null, 2L, null, 2L, null},
@@ -150,7 +155,7 @@ public class TestApproximatePercentileAggregation
     {
         // regular approx_percentile
         assertAggregation(
-                DoubleApproximatePercentileAggregation.INSTANCE,
+                DOUBLE_APPROXIMATE_PERCENTILE_AGGREGATION,
                 null,
                 createPage(
                         new Double[] {null},
@@ -160,7 +165,7 @@ public class TestApproximatePercentileAggregation
                         0.5));
 
         assertAggregation(
-                DoubleApproximatePercentileAggregation.INSTANCE,
+                DOUBLE_APPROXIMATE_PERCENTILE_AGGREGATION,
                 1.0,
                 createPage(
                         new Double[] {null},
@@ -170,7 +175,7 @@ public class TestApproximatePercentileAggregation
                         0.5));
 
         assertAggregation(
-                DoubleApproximatePercentileAggregation.INSTANCE,
+                DOUBLE_APPROXIMATE_PERCENTILE_AGGREGATION,
                 2.0,
                 createPage(
                         new Double[] {null},
@@ -180,7 +185,7 @@ public class TestApproximatePercentileAggregation
                         0.5));
 
         assertAggregation(
-                DoubleApproximatePercentileAggregation.INSTANCE,
+                DOUBLE_APPROXIMATE_PERCENTILE_AGGREGATION,
                 2.0,
                 createPage(
                         new Double[] {1.0},
@@ -190,7 +195,7 @@ public class TestApproximatePercentileAggregation
                         0.5));
 
         assertAggregation(
-                DoubleApproximatePercentileAggregation.INSTANCE,
+                DOUBLE_APPROXIMATE_PERCENTILE_AGGREGATION,
                 3.0,
                 createPage(
                         new Double[] {1.0, null, 2.0, 2.0, null, 2.0, 2.0, null},
@@ -201,7 +206,7 @@ public class TestApproximatePercentileAggregation
 
         // weighted approx_percentile
         assertAggregation(
-                DoubleApproximatePercentileWeightedAggregation.INSTANCE,
+                DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION,
                 null,
                 createPage(
                         new Double[] {null},
@@ -213,7 +218,7 @@ public class TestApproximatePercentileAggregation
                         0.5));
 
         assertAggregation(
-                DoubleApproximatePercentileWeightedAggregation.INSTANCE,
+                DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION,
                 1.0,
                 createPage(
                         new Double[] {null},
@@ -225,7 +230,7 @@ public class TestApproximatePercentileAggregation
                         0.5));
 
         assertAggregation(
-                DoubleApproximatePercentileWeightedAggregation.INSTANCE,
+                DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION,
                 2.0,
                 createPage(
                         new Double[] {null},
@@ -237,7 +242,7 @@ public class TestApproximatePercentileAggregation
                         0.5));
 
         assertAggregation(
-                DoubleApproximatePercentileWeightedAggregation.INSTANCE,
+                DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION,
                 2.0,
                 createPage(
                         new Double[] {1.0},
@@ -249,7 +254,7 @@ public class TestApproximatePercentileAggregation
                         0.5));
 
         assertAggregation(
-                DoubleApproximatePercentileWeightedAggregation.INSTANCE,
+                DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION,
                 3.0,
                 createPage(
                         new Double[] {1.0, null, 2.0, null, 2.0, null},
@@ -267,8 +272,8 @@ public class TestApproximatePercentileAggregation
         Block percentilesBlock;
 
         if (values.length == 0) {
-            valuesBlock = new UncompressedBlock(0, TupleInfo.SINGLE_DOUBLE, Slices.EMPTY_SLICE);
-            percentilesBlock = new UncompressedBlock(0, TupleInfo.SINGLE_DOUBLE, Slices.EMPTY_SLICE);
+            valuesBlock = new UncompressedBlock(0, SINGLE_DOUBLE, EMPTY_SLICE);
+            percentilesBlock = new UncompressedBlock(0, SINGLE_DOUBLE, EMPTY_SLICE);
         }
         else {
             valuesBlock = createDoublesBlock(values);
@@ -284,8 +289,8 @@ public class TestApproximatePercentileAggregation
         Block percentilesBlock;
 
         if (values.length == 0) {
-            valuesBlock = new UncompressedBlock(0, TupleInfo.SINGLE_LONG, Slices.EMPTY_SLICE);
-            percentilesBlock = new UncompressedBlock(0, TupleInfo.SINGLE_DOUBLE, Slices.EMPTY_SLICE);
+            valuesBlock = new UncompressedBlock(0, SINGLE_LONG, EMPTY_SLICE);
+            percentilesBlock = new UncompressedBlock(0, SINGLE_DOUBLE, EMPTY_SLICE);
         }
         else {
             valuesBlock = createLongsBlock(values);
@@ -304,9 +309,9 @@ public class TestApproximatePercentileAggregation
         Block percentilesBlock;
 
         if (values.length == 0) {
-            valuesBlock = new UncompressedBlock(0, TupleInfo.SINGLE_LONG, Slices.EMPTY_SLICE);
-            weightsBlock = new UncompressedBlock(0, TupleInfo.SINGLE_LONG, Slices.EMPTY_SLICE);
-            percentilesBlock = new UncompressedBlock(0, TupleInfo.SINGLE_DOUBLE, Slices.EMPTY_SLICE);
+            valuesBlock = new UncompressedBlock(0, SINGLE_LONG, EMPTY_SLICE);
+            weightsBlock = new UncompressedBlock(0, SINGLE_LONG, EMPTY_SLICE);
+            percentilesBlock = new UncompressedBlock(0, SINGLE_DOUBLE, EMPTY_SLICE);
         }
         else {
             valuesBlock = createLongsBlock(values);
@@ -326,9 +331,9 @@ public class TestApproximatePercentileAggregation
         Block percentilesBlock;
 
         if (values.length == 0) {
-            valuesBlock = new UncompressedBlock(0, TupleInfo.SINGLE_DOUBLE, Slices.EMPTY_SLICE);
-            weightsBlock = new UncompressedBlock(0, TupleInfo.SINGLE_LONG, Slices.EMPTY_SLICE);
-            percentilesBlock = new UncompressedBlock(0, TupleInfo.SINGLE_DOUBLE, Slices.EMPTY_SLICE);
+            valuesBlock = new UncompressedBlock(0, SINGLE_DOUBLE, EMPTY_SLICE);
+            weightsBlock = new UncompressedBlock(0, SINGLE_LONG, EMPTY_SLICE);
+            percentilesBlock = new UncompressedBlock(0, SINGLE_DOUBLE, EMPTY_SLICE);
         }
         else {
             valuesBlock = createDoublesBlock(values);

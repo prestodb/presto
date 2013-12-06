@@ -17,6 +17,7 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import org.apache.commons.math.stat.descriptive.moment.StandardDeviation;
 
+import static com.facebook.presto.operator.aggregation.VarianceAggregations.LONG_STDDEV_INSTANCE;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 
 public class TestLongStdDevAggregation
@@ -35,7 +36,7 @@ public class TestLongStdDevAggregation
     @Override
     public AggregationFunction getFunction()
     {
-        return LongStdDevAggregation.STDDEV_INSTANCE;
+        return LONG_STDDEV_INSTANCE;
     }
 
     @Override

@@ -844,7 +844,7 @@ public class ExpressionCompiler
             }
         }
 
-        Map<ParameterizedType, byte[]> byteCodes = new LinkedHashMap<>();
+        Map<String, byte[]> byteCodes = new LinkedHashMap<>();
         for (ClassDefinition classDefinition : classDefinitions) {
             ClassWriter cw = new SmartClassWriter(classInfoLoader);
             classDefinition.visit(cw);
@@ -853,13 +853,13 @@ public class ExpressionCompiler
                 ClassReader reader = new ClassReader(byteCode);
                 CheckClassAdapter.verify(reader, classLoader, true, new PrintWriter(System.out));
             }
-            byteCodes.put(classDefinition.getType(), byteCode);
+            byteCodes.put(classDefinition.getType().getJavaClassName(), byteCode);
         }
 
         String dumpClassPath = DUMP_CLASS_FILES_TO.get();
         if (dumpClassPath != null) {
-            for (Entry<ParameterizedType, byte[]> entry : byteCodes.entrySet()) {
-                File file = new File(dumpClassPath, entry.getKey().getClassName() + ".class");
+            for (Entry<String, byte[]> entry : byteCodes.entrySet()) {
+                File file = new File(dumpClassPath, ParameterizedType.typeFromJavaClassName(entry.getKey()).getClassName() + ".class");
                 try {
                     log.debug("ClassFile: " + file.getAbsolutePath());
                     Files.createParentDirs(file);
