@@ -21,8 +21,6 @@ import java.io.Closeable;
 public interface SplitRunner
         extends Closeable
 {
-    void initialize();
-
     boolean isFinished();
 
     ListenableFuture<?> processFor(Duration duration)

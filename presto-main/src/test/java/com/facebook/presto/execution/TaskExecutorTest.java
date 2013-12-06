@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.execution.TaskExecutor.TaskHandle;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
@@ -23,6 +24,7 @@ import java.util.concurrent.Phaser;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static org.testng.Assert.assertEquals;
 
 public class TaskExecutorTest
@@ -44,9 +46,9 @@ public class TaskExecutorTest
 
             // add two jobs
             TestingJob driver1 = new TestingJob(beginPhase, verificationComplete, 10);
-            ListenableFuture<?> future1 = taskExecutor.forceRunSplit(taskHandle, driver1);
+            ListenableFuture<?> future1 = getOnlyElement(taskExecutor.enqueueSplits(taskHandle, true, ImmutableList.of(driver1)));
             TestingJob driver2 = new TestingJob(beginPhase, verificationComplete, 10);
-            ListenableFuture<?> future2 = taskExecutor.forceRunSplit(taskHandle, driver2);
+            ListenableFuture<?> future2 = getOnlyElement(taskExecutor.enqueueSplits(taskHandle, true, ImmutableList.of(driver2)));
             assertEquals(driver1.getCompletedPhases(), 0);
             assertEquals(driver2.getCompletedPhases(), 0);
 
@@ -65,7 +67,7 @@ public class TaskExecutorTest
 
             // add one more job
             TestingJob driver3 = new TestingJob(beginPhase, verificationComplete, 10);
-            ListenableFuture<?> future3 = taskExecutor.enqueueSplit(taskHandle, driver3);
+            ListenableFuture<?> future3 = getOnlyElement(taskExecutor.enqueueSplits(taskHandle, false, ImmutableList.of(driver3)));
 
             // advance one phase and verify
             beginPhase.arriveAndAwaitAdvance();
@@ -144,11 +146,6 @@ public class TaskExecutorTest
         private int getCompletedPhases()
         {
             return completedPhases.get();
-        }
-
-        @Override
-        public void initialize()
-        {
         }
 
         @Override
