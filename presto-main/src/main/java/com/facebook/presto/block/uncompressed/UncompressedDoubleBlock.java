@@ -11,12 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.block.rle;
+package com.facebook.presto.block.uncompressed;
 
 import com.facebook.presto.block.Block;
+import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.RandomAccessBlock;
-import com.facebook.presto.serde.RunLengthBlockEncoding;
-import com.facebook.presto.tuple.Tuple;
+import com.facebook.presto.serde.BlockEncoding;
+import com.facebook.presto.serde.UncompressedBlockEncoding;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
@@ -24,26 +25,30 @@ import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 
-public class RunLengthEncodedBlock
+import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
+import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
+
+public class UncompressedDoubleBlock
         implements RandomAccessBlock
 {
-    private final Tuple value;
+    private static final int ENTRY_SIZE = SIZE_OF_DOUBLE + SIZE_OF_BYTE;
+    private final Slice slice;
     private final int positionCount;
 
-    public RunLengthEncodedBlock(Tuple value, int positionCount)
+    public UncompressedDoubleBlock(int positionCount, Slice slice)
     {
-        this.value = value;
+        Preconditions.checkArgument(positionCount >= 0, "positionCount is negative");
+        Preconditions.checkNotNull(positionCount, "positionCount is null");
+
         this.positionCount = positionCount;
+
+        this.slice = slice;
     }
 
-    public Tuple getValue()
+    @Override
+    public TupleInfo getTupleInfo()
     {
-        return value;
-    }
-
-    public Tuple getSingleValue()
-    {
-        return value;
+        return TupleInfo.SINGLE_DOUBLE;
     }
 
     @Override
@@ -55,20 +60,26 @@ public class RunLengthEncodedBlock
     @Override
     public DataSize getDataSize()
     {
-        return new DataSize(value.getTupleSlice().length(), Unit.BYTE);
+        return new DataSize(slice.length(), Unit.BYTE);
     }
 
     @Override
-    public RunLengthBlockEncoding getEncoding()
+    public BlockCursor cursor()
     {
-        return new RunLengthBlockEncoding(value.getTupleInfo());
+        return new UncompressedDoubleBlockCursor(positionCount, slice);
+    }
+
+    @Override
+    public BlockEncoding getEncoding()
+    {
+        return new UncompressedBlockEncoding(TupleInfo.SINGLE_DOUBLE);
     }
 
     @Override
     public Block getRegion(int positionOffset, int length)
     {
         Preconditions.checkPositionIndexes(positionOffset, positionOffset + length, positionCount);
-        return new RunLengthEncodedBlock(value, length);
+        return cursor().getRegionAndAdvance(length);
     }
 
     @Override
@@ -78,56 +89,44 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public TupleInfo getTupleInfo()
-    {
-        return value.getTupleInfo();
-    }
-
-    @Override
     public boolean getBoolean(int position)
     {
-        checkReadablePosition(position);
-        return value.getBoolean();
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public long getLong(int position)
     {
-        return value.getLong();
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public double getDouble(int position)
     {
-        return value.getDouble();
+        checkReadablePosition(position);
+        return slice.getDouble((position * ENTRY_SIZE) + SIZE_OF_BYTE);
     }
 
     @Override
     public Slice getSlice(int position)
     {
-        return value.getSlice();
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public boolean isNull(int position)
     {
         checkReadablePosition(position);
-        return value.isNull();
+        return slice.getByte((position * ENTRY_SIZE)) != 0;
     }
 
     @Override
     public String toString()
     {
         return Objects.toStringHelper(this)
-                .add("value", value)
                 .add("positionCount", positionCount)
+                .add("slice", slice)
                 .toString();
-    }
-
-    @Override
-    public RunLengthEncodedBlockCursor cursor()
-    {
-        return new RunLengthEncodedBlockCursor(value, positionCount);
     }
 
     private void checkReadablePosition(int position)

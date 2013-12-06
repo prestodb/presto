@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.block;
 
-import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Optional;
 import com.google.common.collect.AbstractIterator;
@@ -193,8 +192,7 @@ public final class BlockIterables
                     if (blocks == null || !blocks.hasNext()) {
                         return endOfData();
                     }
-                    UncompressedBlock block = (UncompressedBlock) blocks.next();
-                    return block;
+                    return blocks.next();
                 }
             };
         }

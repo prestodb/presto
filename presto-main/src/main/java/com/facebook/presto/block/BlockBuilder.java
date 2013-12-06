@@ -68,6 +68,11 @@ public class BlockBuilder
         return tupleInfo;
     }
 
+    public int getPositionCount()
+    {
+        return positionCount;
+    }
+
     public boolean isEmpty()
     {
         return positionCount == 0;

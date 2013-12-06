@@ -50,4 +50,6 @@ public interface Block
      * within this block.
      */
     Block getRegion(int positionOffset, int length);
+
+    RandomAccessBlock toRandomAccessBlock();
 }
