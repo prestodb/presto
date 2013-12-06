@@ -21,21 +21,12 @@ import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.util.array.LongBigArray;
 
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
-import static com.facebook.presto.tuple.TupleInfo.Type.BOOLEAN;
-import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
-import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
-import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 import static com.google.common.base.Preconditions.checkState;
 
 public class CountColumnAggregation
         extends SimpleAggregationFunction
 {
-    public static final CountColumnAggregation COUNT_BOOLEAN_COLUMN = new CountColumnAggregation(BOOLEAN);
-    public static final CountColumnAggregation COUNT_LONG_COLUMN = new CountColumnAggregation(FIXED_INT_64);
-    public static final CountColumnAggregation COUNT_DOUBLE_COLUMN = new CountColumnAggregation(DOUBLE);
-    public static final CountColumnAggregation COUNT_STRING_COLUMN = new CountColumnAggregation(VARIABLE_BINARY);
-
-    private CountColumnAggregation(Type parameterType)
+    public CountColumnAggregation(Type parameterType)
     {
         super(SINGLE_LONG, SINGLE_LONG, parameterType);
     }

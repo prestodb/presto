@@ -29,6 +29,7 @@ import io.airlift.stats.QuantileDigest;
 
 import java.util.List;
 
+import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
@@ -37,21 +38,26 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 
-public class LongApproximatePercentileAggregation
+public class ApproximatePercentileAggregation
         implements AggregationFunction
 {
-    public static final LongApproximatePercentileAggregation INSTANCE = new LongApproximatePercentileAggregation();
+    private final Type parameterType;
+
+    public ApproximatePercentileAggregation(Type parameterType)
+    {
+        this.parameterType = parameterType;
+    }
 
     @Override
     public List<Type> getParameterTypes()
     {
-        return ImmutableList.of(FIXED_INT_64, DOUBLE);
+        return ImmutableList.of(parameterType, DOUBLE);
     }
 
     @Override
     public TupleInfo getFinalTupleInfo()
     {
-        return SINGLE_LONG;
+        return getOutputTupleInfo(parameterType);
     }
 
     @Override
@@ -61,48 +67,44 @@ public class LongApproximatePercentileAggregation
     }
 
     @Override
-    public LongApproximatePercentileGroupedAccumulator createGroupedAggregation(int[] argumentChannels)
+    public ApproximatePercentileGroupedAccumulator createGroupedAggregation(int[] argumentChannels)
     {
-        return new LongApproximatePercentileGroupedAccumulator(argumentChannels[0], argumentChannels[1]);
+        return new ApproximatePercentileGroupedAccumulator(argumentChannels[0], argumentChannels[1], parameterType);
     }
 
     @Override
     public GroupedAccumulator createGroupedIntermediateAggregation()
     {
-        return new LongApproximatePercentileGroupedAccumulator(-1);
+        return new ApproximatePercentileGroupedAccumulator(-1, -1, parameterType);
     }
 
-    public static class LongApproximatePercentileGroupedAccumulator
+    public static class ApproximatePercentileGroupedAccumulator
             implements GroupedAccumulator
     {
         private final int valueChannel;
         private final int percentileChannel;
+        private final Type parameterType;
         private final ObjectBigArray<DigestAndPercentile> digests;
+        private long sizeOfValues;
 
-        public LongApproximatePercentileGroupedAccumulator(int valueChannel, int percentileChannel)
+        public ApproximatePercentileGroupedAccumulator(int valueChannel, int percentileChannel, Type parameterType)
         {
             this.digests = new ObjectBigArray<>();
             this.valueChannel = valueChannel;
             this.percentileChannel = percentileChannel;
-        }
-
-        public LongApproximatePercentileGroupedAccumulator(int intermediateChannel)
-        {
-            this.digests = new ObjectBigArray<>();
-            this.valueChannel = intermediateChannel;
-            this.percentileChannel = -1;
+            this.parameterType = parameterType;
         }
 
         @Override
         public long getEstimatedSize()
         {
-            return 0;
+            return digests.sizeOf() + sizeOfValues;
         }
 
         @Override
         public TupleInfo getFinalTupleInfo()
         {
-            return SINGLE_LONG;
+            return getOutputTupleInfo(parameterType);
         }
 
         @Override
@@ -134,11 +136,12 @@ public class LongApproximatePercentileAggregation
                     if (currentValue == null) {
                         currentValue = new DigestAndPercentile(new QuantileDigest(0.01));
                         digests.set(groupId, currentValue);
+                        sizeOfValues += currentValue.getDigest().estimatedInMemorySizeInBytes();
                     }
 
-                    long value = values.getLong(0);
-                    currentValue.getDigest().add(value);
-
+                    sizeOfValues -= currentValue.getDigest().estimatedInMemorySizeInBytes();
+                    addValue(currentValue.getDigest(), values, parameterType);
+                    sizeOfValues += currentValue.getDigest().estimatedInMemorySizeInBytes();
 
                     // use last non-null percentile
                     if (!percentiles.isNull(0)) {
@@ -169,10 +172,17 @@ public class LongApproximatePercentileAggregation
                     if (currentValue == null) {
                         currentValue = new DigestAndPercentile(new QuantileDigest(0.01));
                         digests.set(groupId, currentValue);
+                        sizeOfValues += currentValue.getDigest().estimatedInMemorySizeInBytes();
                     }
 
                     SliceInput input = intermediates.getSlice(0).getInput();
+
+                    // read digest
+                    sizeOfValues -= currentValue.getDigest().estimatedInMemorySizeInBytes();
                     currentValue.getDigest().merge(QuantileDigest.deserialize(input));
+                    sizeOfValues += currentValue.getDigest().estimatedInMemorySizeInBytes();
+
+                    // read percentile
                     currentValue.setPercentile(input.readDouble());
                 }
             }
@@ -186,11 +196,14 @@ public class LongApproximatePercentileAggregation
                 output.appendNull();
             }
             else {
-                DynamicSliceOutput sliceOutput = new DynamicSliceOutput(currentValue.getDigest().estimatedSerializedSizeInBytes());
+                DynamicSliceOutput sliceOutput = new DynamicSliceOutput(currentValue.getDigest().estimatedSerializedSizeInBytes() + SIZE_OF_DOUBLE);
+                // write digest
                 currentValue.getDigest().serialize(sliceOutput);
+                // write percentile
                 sliceOutput.appendDouble(currentValue.getPercentile());
 
-                output.append(sliceOutput.slice());
+                Slice slice = sliceOutput.slice();
+                output.append(slice);
             }
         }
 
@@ -202,43 +215,44 @@ public class LongApproximatePercentileAggregation
                 output.appendNull();
             }
             else {
-                checkState(currentValue.getPercentile() != -1.0, "Percentile is missing");
-                output.append(currentValue.getDigest().getQuantile(currentValue.getPercentile()));
+                evaluate(output, parameterType, currentValue.getDigest(), currentValue.getPercentile());
             }
         }
     }
 
     @Override
-    public LongApproximatePercentileAccumulator createAggregation(int... argumentChannels)
+    public ApproximatePercentileAccumulator createAggregation(int... argumentChannels)
     {
-        return new LongApproximatePercentileAccumulator(argumentChannels[0], argumentChannels[1]);
+        return new ApproximatePercentileAccumulator(argumentChannels[0], argumentChannels[1], parameterType);
     }
 
     @Override
-    public LongApproximatePercentileAccumulator createIntermediateAggregation()
+    public ApproximatePercentileAccumulator createIntermediateAggregation()
     {
-        return new LongApproximatePercentileAccumulator(-1, -1);
+        return new ApproximatePercentileAccumulator(-1, -1, parameterType);
     }
 
-    public static class LongApproximatePercentileAccumulator
+    public static class ApproximatePercentileAccumulator
             implements Accumulator
     {
         private final int valueChannel;
         private final int percentileChannel;
+        private final Type parameterType;
 
         private final QuantileDigest digest = new QuantileDigest(0.01);
         private double percentile = -1;
 
-        public LongApproximatePercentileAccumulator(int valueChannel, int percentileChannel)
+        public ApproximatePercentileAccumulator(int valueChannel, int percentileChannel, Type parameterType)
         {
             this.valueChannel = valueChannel;
             this.percentileChannel = percentileChannel;
+            this.parameterType = parameterType;
         }
 
         @Override
         public TupleInfo getFinalTupleInfo()
         {
-            return SINGLE_LONG;
+            return getOutputTupleInfo(parameterType);
         }
 
         @Override
@@ -260,9 +274,7 @@ public class LongApproximatePercentileAggregation
                 checkState(percentiles.advanceNextPosition());
 
                 if (!values.isNull(0)) {
-                    long value = values.getLong(0);
-                    digest.add(value);
-
+                    addValue(digest, values, parameterType);
 
                     // use last non-null percentile
                     if (!percentiles.isNull(0)) {
@@ -295,6 +307,7 @@ public class LongApproximatePercentileAggregation
         public final Block evaluateIntermediate()
         {
             BlockBuilder out = new BlockBuilder(getIntermediateTupleInfo());
+
             if (digest.getCount() == 0.0) {
                 out.appendNull();
             }
@@ -308,6 +321,7 @@ public class LongApproximatePercentileAggregation
                 Slice slice = sliceOutput.slice();
                 out.append(slice);
             }
+
             return out.build();
         }
 
@@ -315,23 +329,86 @@ public class LongApproximatePercentileAggregation
         public final Block evaluateFinal()
         {
             BlockBuilder out = new BlockBuilder(getFinalTupleInfo());
-
-            if (digest.getCount() == 0.0) {
-                out.appendNull();
-            }
-            else {
-                checkState(percentile != -1.0, "Percentile is missing");
-                out.append(digest.getQuantile(percentile));
-            }
-
+            evaluate(out, parameterType, digest, percentile);
             return out.build();
         }
+    }
+
+    private static TupleInfo getOutputTupleInfo(Type parameterType)
+    {
+        if (parameterType == FIXED_INT_64) {
+            return SINGLE_LONG;
+        }
+        else if (parameterType == DOUBLE) {
+            return SINGLE_DOUBLE;
+        }
+        else {
+            throw new IllegalArgumentException("Expected parameter type to be FIXED_INT_64 or DOUBLE");
+        }
+    }
+
+    private static void addValue(QuantileDigest digest, BlockCursor values, Type parameterType)
+    {
+        long value;
+        if (parameterType == FIXED_INT_64) {
+            value = values.getLong(0);
+        }
+        else if (parameterType == DOUBLE) {
+            value = doubleToSortableLong(values.getDouble(0));
+        }
+        else {
+            throw new IllegalArgumentException("Expected parameter type to be FIXED_INT_64 or DOUBLE");
+        }
+
+        digest.add(value);
+    }
+
+    public static void evaluate(BlockBuilder out, Type parameterType, QuantileDigest digest, double percentile)
+    {
+        if (digest.getCount() == 0.0) {
+            out.appendNull();
+        }
+        else {
+            checkState(percentile != -1.0, "Percentile is missing");
+
+            long value = digest.getQuantile(percentile);
+
+            if (parameterType == FIXED_INT_64) {
+                out.append(value);
+            }
+            else if (parameterType == DOUBLE) {
+                out.append(longToDouble(value));
+            }
+            else {
+                throw new IllegalArgumentException("Expected parameter type to be FIXED_INT_64 or DOUBLE");
+            }
+        }
+    }
+
+    private static double longToDouble(long value)
+    {
+        if (value < 0) {
+            value ^= 0x7fffffffffffffffL;
+        }
+
+        return Double.longBitsToDouble(value);
+    }
+
+    private static long doubleToSortableLong(double value)
+    {
+        long result = Double.doubleToRawLongBits(value);
+
+        if (result < 0) {
+            result ^= 0x7fffffffffffffffL;
+        }
+
+        return result;
     }
 
     public static final class DigestAndPercentile
     {
         private final QuantileDigest digest;
-        private double percentile = -1;
+        private double percentile = -1.0;
 
         public DigestAndPercentile(QuantileDigest digest)
         {

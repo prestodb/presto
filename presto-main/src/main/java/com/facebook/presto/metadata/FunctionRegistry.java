@@ -15,15 +15,6 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.operator.Description;
 import com.facebook.presto.operator.aggregation.AggregationFunction;
-import com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregation;
-import com.facebook.presto.operator.aggregation.DoubleApproximatePercentileAggregation;
-import com.facebook.presto.operator.aggregation.DoubleApproximatePercentileWeightedAggregation;
-import com.facebook.presto.operator.aggregation.DoubleStdDevAggregation;
-import com.facebook.presto.operator.aggregation.DoubleVarianceAggregation;
-import com.facebook.presto.operator.aggregation.LongApproximatePercentileAggregation;
-import com.facebook.presto.operator.aggregation.LongApproximatePercentileWeightedAggregation;
-import com.facebook.presto.operator.aggregation.LongStdDevAggregation;
-import com.facebook.presto.operator.aggregation.LongVarianceAggregation;
 import com.facebook.presto.operator.scalar.ColorFunctions;
 import com.facebook.presto.operator.scalar.JsonFunctions;
 import com.facebook.presto.operator.scalar.MathFunctions;
@@ -70,26 +61,41 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.metadata.FunctionInfo.isAggregationPredicate;
-import static com.facebook.presto.operator.aggregation.ApproximateAverageAggregation.DOUBLE_APPROXIMATE_AVERAGE_AGGREGATION;
-import static com.facebook.presto.operator.aggregation.ApproximateAverageAggregation.LONG_APPROXIMATE_AVERAGE_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.ApproximateAverageAggregations.DOUBLE_APPROXIMATE_AVERAGE_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.ApproximateAverageAggregations.LONG_APPROXIMATE_AVERAGE_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregations.DOUBLE_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS;
+import static com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregations.LONG_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS;
+import static com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregations.VARBINARY_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS;
+import static com.facebook.presto.operator.aggregation.ApproximatePercentileAggregations.DOUBLE_APPROXIMATE_PERCENTILE_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.ApproximatePercentileAggregations.LONG_APPROXIMATE_PERCENTILE_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.ApproximatePercentileWeightedAggregations.DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.ApproximatePercentileWeightedAggregations.LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.AverageAggregations.DOUBLE_AVERAGE;
+import static com.facebook.presto.operator.aggregation.AverageAggregations.LONG_AVERAGE;
 import static com.facebook.presto.operator.aggregation.BooleanMaxAggregation.BOOLEAN_MAX;
 import static com.facebook.presto.operator.aggregation.BooleanMinAggregation.BOOLEAN_MIN;
 import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
-import static com.facebook.presto.operator.aggregation.CountColumnAggregation.COUNT_BOOLEAN_COLUMN;
-import static com.facebook.presto.operator.aggregation.CountColumnAggregation.COUNT_DOUBLE_COLUMN;
-import static com.facebook.presto.operator.aggregation.CountColumnAggregation.COUNT_LONG_COLUMN;
-import static com.facebook.presto.operator.aggregation.CountColumnAggregation.COUNT_STRING_COLUMN;
+import static com.facebook.presto.operator.aggregation.CountColumnAggregations.COUNT_BOOLEAN_COLUMN;
+import static com.facebook.presto.operator.aggregation.CountColumnAggregations.COUNT_DOUBLE_COLUMN;
+import static com.facebook.presto.operator.aggregation.CountColumnAggregations.COUNT_LONG_COLUMN;
+import static com.facebook.presto.operator.aggregation.CountColumnAggregations.COUNT_STRING_COLUMN;
 import static com.facebook.presto.operator.aggregation.CountIfAggregation.COUNT_IF;
-import static com.facebook.presto.operator.aggregation.DoubleAverageAggregation.DOUBLE_AVERAGE;
 import static com.facebook.presto.operator.aggregation.DoubleMaxAggregation.DOUBLE_MAX;
 import static com.facebook.presto.operator.aggregation.DoubleMinAggregation.DOUBLE_MIN;
 import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUBLE_SUM;
-import static com.facebook.presto.operator.aggregation.LongAverageAggregation.LONG_AVERAGE;
 import static com.facebook.presto.operator.aggregation.LongMaxAggregation.LONG_MAX;
 import static com.facebook.presto.operator.aggregation.LongMinAggregation.LONG_MIN;
 import static com.facebook.presto.operator.aggregation.LongSumAggregation.LONG_SUM;
 import static com.facebook.presto.operator.aggregation.VarBinaryMaxAggregation.VAR_BINARY_MAX;
 import static com.facebook.presto.operator.aggregation.VarBinaryMinAggregation.VAR_BINARY_MIN;
+import static com.facebook.presto.operator.aggregation.VarianceAggregations.DOUBLE_STDDEV_INSTANCE;
+import static com.facebook.presto.operator.aggregation.VarianceAggregations.DOUBLE_STDDEV_POP_INSTANCE;
+import static com.facebook.presto.operator.aggregation.VarianceAggregations.DOUBLE_VARIANCE_INSTANCE;
+import static com.facebook.presto.operator.aggregation.VarianceAggregations.DOUBLE_VARIANCE_POP_INSTANCE;
+import static com.facebook.presto.operator.aggregation.VarianceAggregations.LONG_STDDEV_INSTANCE;
+import static com.facebook.presto.operator.aggregation.VarianceAggregations.LONG_STDDEV_POP_INSTANCE;
+import static com.facebook.presto.operator.aggregation.VarianceAggregations.LONG_VARIANCE_INSTANCE;
+import static com.facebook.presto.operator.aggregation.VarianceAggregations.LONG_VARIANCE_POP_INSTANCE;
 import static com.facebook.presto.sql.analyzer.Type.BIGINT;
 import static com.facebook.presto.sql.analyzer.Type.BOOLEAN;
 import static com.facebook.presto.sql.analyzer.Type.DOUBLE;
@@ -131,26 +137,26 @@ public class FunctionRegistry
                 .aggregate("min", BIGINT, ImmutableList.of(BIGINT), BIGINT, LONG_MIN)
                 .aggregate("min", DOUBLE, ImmutableList.of(DOUBLE), DOUBLE, DOUBLE_MIN)
                 .aggregate("min", VARCHAR, ImmutableList.of(VARCHAR), VARCHAR, VAR_BINARY_MIN)
-                .aggregate("var_pop", DOUBLE, ImmutableList.of(DOUBLE), VARCHAR, DoubleVarianceAggregation.VARIANCE_POP_INSTANCE)
-                .aggregate("var_pop", DOUBLE, ImmutableList.of(BIGINT), VARCHAR, LongVarianceAggregation.VARIANCE_POP_INSTANCE)
-                .aggregate("var_samp", DOUBLE, ImmutableList.of(DOUBLE), VARCHAR, DoubleVarianceAggregation.VARIANCE_INSTANCE)
-                .aggregate("var_samp", DOUBLE, ImmutableList.of(BIGINT), VARCHAR, LongVarianceAggregation.VARIANCE_INSTANCE)
-                .aggregate("variance", DOUBLE, ImmutableList.of(DOUBLE), VARCHAR, DoubleVarianceAggregation.VARIANCE_INSTANCE)
-                .aggregate("variance", DOUBLE, ImmutableList.of(BIGINT), VARCHAR, LongVarianceAggregation.VARIANCE_INSTANCE)
-                .aggregate("stddev_pop", DOUBLE, ImmutableList.of(DOUBLE), VARCHAR, DoubleStdDevAggregation.STDDEV_POP_INSTANCE)
-                .aggregate("stddev_pop", DOUBLE, ImmutableList.of(BIGINT), VARCHAR, LongStdDevAggregation.STDDEV_POP_INSTANCE)
-                .aggregate("stddev_samp", DOUBLE, ImmutableList.of(DOUBLE), VARCHAR, DoubleStdDevAggregation.STDDEV_INSTANCE)
-                .aggregate("stddev_samp", DOUBLE, ImmutableList.of(BIGINT), VARCHAR, LongStdDevAggregation.STDDEV_INSTANCE)
-                .aggregate("stddev", DOUBLE, ImmutableList.of(DOUBLE), VARCHAR, DoubleStdDevAggregation.STDDEV_INSTANCE)
-                .aggregate("stddev", DOUBLE, ImmutableList.of(BIGINT), VARCHAR, LongStdDevAggregation.STDDEV_INSTANCE)
-                .aggregate("approx_distinct", BIGINT, ImmutableList.of(BOOLEAN), VARCHAR, ApproximateCountDistinctAggregation.LONG_INSTANCE)
-                .aggregate("approx_distinct", BIGINT, ImmutableList.of(BIGINT), VARCHAR, ApproximateCountDistinctAggregation.LONG_INSTANCE)
-                .aggregate("approx_distinct", BIGINT, ImmutableList.of(DOUBLE), VARCHAR, ApproximateCountDistinctAggregation.DOUBLE_INSTANCE)
-                .aggregate("approx_distinct", BIGINT, ImmutableList.of(VARCHAR), VARCHAR, ApproximateCountDistinctAggregation.VARBINARY_INSTANCE)
-                .aggregate("approx_percentile", BIGINT, ImmutableList.of(BIGINT, DOUBLE), VARCHAR, LongApproximatePercentileAggregation.INSTANCE)
-                .aggregate("approx_percentile", BIGINT, ImmutableList.of(BIGINT, BIGINT, DOUBLE), VARCHAR, LongApproximatePercentileWeightedAggregation.INSTANCE)
-                .aggregate("approx_percentile", DOUBLE, ImmutableList.of(DOUBLE, DOUBLE), VARCHAR, DoubleApproximatePercentileAggregation.INSTANCE)
-                .aggregate("approx_percentile", DOUBLE, ImmutableList.of(DOUBLE, BIGINT, DOUBLE), VARCHAR, DoubleApproximatePercentileWeightedAggregation.INSTANCE)
+                .aggregate("var_pop", DOUBLE, ImmutableList.of(DOUBLE), VARCHAR, DOUBLE_VARIANCE_POP_INSTANCE)
+                .aggregate("var_pop", DOUBLE, ImmutableList.of(BIGINT), VARCHAR, LONG_VARIANCE_POP_INSTANCE)
+                .aggregate("var_samp", DOUBLE, ImmutableList.of(DOUBLE), VARCHAR, DOUBLE_VARIANCE_INSTANCE)
+                .aggregate("var_samp", DOUBLE, ImmutableList.of(BIGINT), VARCHAR, LONG_VARIANCE_INSTANCE)
+                .aggregate("variance", DOUBLE, ImmutableList.of(DOUBLE), VARCHAR, DOUBLE_VARIANCE_INSTANCE)
+                .aggregate("variance", DOUBLE, ImmutableList.of(BIGINT), VARCHAR, LONG_VARIANCE_INSTANCE)
+                .aggregate("stddev_pop", DOUBLE, ImmutableList.of(DOUBLE), VARCHAR, DOUBLE_STDDEV_POP_INSTANCE)
+                .aggregate("stddev_pop", DOUBLE, ImmutableList.of(BIGINT), VARCHAR, LONG_STDDEV_POP_INSTANCE)
+                .aggregate("stddev_samp", DOUBLE, ImmutableList.of(DOUBLE), VARCHAR, DOUBLE_STDDEV_INSTANCE)
+                .aggregate("stddev_samp", DOUBLE, ImmutableList.of(BIGINT), VARCHAR, LONG_STDDEV_INSTANCE)
+                .aggregate("stddev", DOUBLE, ImmutableList.of(DOUBLE), VARCHAR, DOUBLE_STDDEV_INSTANCE)
+                .aggregate("stddev", DOUBLE, ImmutableList.of(BIGINT), VARCHAR, LONG_STDDEV_INSTANCE)
+                .aggregate("approx_distinct", BIGINT, ImmutableList.of(BOOLEAN), VARCHAR, LONG_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS)
+                .aggregate("approx_distinct", BIGINT, ImmutableList.of(BIGINT), VARCHAR, LONG_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS)
+                .aggregate("approx_distinct", BIGINT, ImmutableList.of(DOUBLE), VARCHAR, DOUBLE_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS)
+                .aggregate("approx_distinct", BIGINT, ImmutableList.of(VARCHAR), VARCHAR, VARBINARY_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS)
+                .aggregate("approx_percentile", BIGINT, ImmutableList.of(BIGINT, DOUBLE), VARCHAR, LONG_APPROXIMATE_PERCENTILE_AGGREGATION)
+                .aggregate("approx_percentile", BIGINT, ImmutableList.of(BIGINT, BIGINT, DOUBLE), VARCHAR, LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION)
+                .aggregate("approx_percentile", DOUBLE, ImmutableList.of(DOUBLE, DOUBLE), VARCHAR, DOUBLE_APPROXIMATE_PERCENTILE_AGGREGATION)
+                .aggregate("approx_percentile", DOUBLE, ImmutableList.of(DOUBLE, BIGINT, DOUBLE), VARCHAR, DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION)
                 .aggregate("approx_avg", VARCHAR, ImmutableList.of(BIGINT), VARCHAR, LONG_APPROXIMATE_AVERAGE_AGGREGATION)
                 .aggregate("approx_avg", VARCHAR, ImmutableList.of(DOUBLE), VARCHAR, DOUBLE_APPROXIMATE_AVERAGE_AGGREGATION)
                 .scalar(StringFunctions.class)

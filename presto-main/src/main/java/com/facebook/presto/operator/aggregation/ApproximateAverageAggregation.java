@@ -32,9 +32,6 @@ import static com.google.common.base.Preconditions.checkState;
 public class ApproximateAverageAggregation
         extends SimpleAggregationFunction
 {
-    public static final AggregationFunction LONG_APPROXIMATE_AVERAGE_AGGREGATION = new ApproximateAverageAggregation(FIXED_INT_64);
-    public static final AggregationFunction DOUBLE_APPROXIMATE_AVERAGE_AGGREGATION = new ApproximateAverageAggregation(DOUBLE);
-
     /**
      * Describes the tuple used by to calculate the variance.
      */
