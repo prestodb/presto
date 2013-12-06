@@ -71,11 +71,11 @@ public class BooleanMaxAggregation
                 checkState(values.advanceNextPosition());
 
                 // skip null values
-                if (!values.isNull(0)) {
+                if (!values.isNull()) {
                     long groupId = groupIdsBlock.getGroupId(position);
 
                     // if value is true, update the max to true
-                    if (values.getBoolean(0)) {
+                    if (values.getBoolean()) {
                         maxValues.set(groupId, TRUE_VALUE);
                     }
                     else {
@@ -125,11 +125,11 @@ public class BooleanMaxAggregation
 
             for (int position = 0; position < block.getPositionCount(); position++) {
                 checkState(values.advanceNextPosition());
-                if (!values.isNull(0)) {
+                if (!values.isNull()) {
                     notNull = true;
 
                     // if value is true, update the max to true
-                    if (values.getBoolean(0)) {
+                    if (values.getBoolean()) {
                         max = true;
                     }
                 }

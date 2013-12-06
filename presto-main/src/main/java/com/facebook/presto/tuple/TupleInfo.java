@@ -206,99 +206,99 @@ public class TupleInfo
         return tupleSize;
     }
 
-    public boolean getBoolean(Slice slice, int field)
+    public boolean getBoolean(Slice slice)
     {
-        return getBoolean(slice, 0, field);
+        return getBoolean(slice, 0);
     }
 
-    public boolean getBoolean(Slice slice, int offset, int field)
+    public boolean getBoolean(Slice slice, int offset)
     {
         checkState(type == BOOLEAN, "Expected BOOLEAN, but is %s", type);
 
         return slice.getByte(offset + SIZE_OF_BYTE) != 0;
     }
 
-    public void setBoolean(Slice slice, int field, boolean value)
+    public void setBoolean(Slice slice, boolean value)
     {
-        setBoolean(slice, 0, field, value);
+        setBoolean(slice, 0, value);
     }
 
     /**
-     * Sets the specified field to the specified boolean value.
+     * Sets the tuple at the specified offset to the specified boolean value.
      * <p/>
-     * Note: this DOES NOT modify the null flag of this field.
+     * Note: this DOES NOT modify the null flag of this tuple.
      */
-    public void setBoolean(Slice slice, int offset, int field, boolean value)
+    public void setBoolean(Slice slice, int offset, boolean value)
     {
         checkState(type == BOOLEAN, "Expected BOOLEAN, but is %s", type);
 
         slice.setByte(offset + SIZE_OF_BYTE, value ? 1 : 0);
     }
 
-    public long getLong(Slice slice, int field)
+    public long getLong(Slice slice)
     {
-        return getLong(slice, 0, field);
+        return getLong(slice, 0);
     }
 
-    public long getLong(Slice slice, int offset, int field)
+    public long getLong(Slice slice, int offset)
     {
         checkState(type == FIXED_INT_64, "Expected FIXED_INT_64, but is %s", type);
 
         return slice.getLong(offset + SIZE_OF_BYTE);
     }
 
-    public void setLong(Slice slice, int field, long value)
+    public void setLong(Slice slice, long value)
     {
-        setLong(slice, 0, field, value);
+        setLong(slice, 0, value);
     }
 
     /**
-     * Sets the specified field to the specified long value.
+     * Sets the tuple at the specified offset to the specified long value.
      * <p/>
-     * Note: this DOES NOT modify the null flag fo this field.
+     * Note: this DOES NOT modify the null flag fo this tuple.
      */
-    public void setLong(Slice slice, int offset, int field, long value)
+    public void setLong(Slice slice, int offset, long value)
     {
         checkState(type == FIXED_INT_64, "Expected FIXED_INT_64, but is %s", type);
 
         slice.setLong(offset + SIZE_OF_BYTE, value);
     }
 
-    public double getDouble(Slice slice, int field)
+    public double getDouble(Slice slice)
     {
-        return getDouble(slice, 0, field);
+        return getDouble(slice, 0);
     }
 
-    public double getDouble(Slice slice, int offset, int field)
+    public double getDouble(Slice slice, int offset)
     {
         checkState(type == DOUBLE, "Expected DOUBLE, but is %s", type);
 
         return slice.getDouble(offset + SIZE_OF_BYTE);
     }
 
-    public void setDouble(Slice slice, int field, double value)
+    public void setDouble(Slice slice, double value)
     {
-        setDouble(slice, 0, field, value);
+        setDouble(slice, 0, value);
     }
 
     /**
-     * Sets the specified field to the specified double value.
+     * Sets the tuple at the specified offset to the specified double value.
      * <p/>
-     * Note: this DOES NOT modify the null flag fo this field.
+     * Note: this DOES NOT modify the null flag fo this tuple.
      */
-    public void setDouble(Slice slice, int offset, int field, double value)
+    public void setDouble(Slice slice, int offset, double value)
     {
         checkState(type == DOUBLE, "Expected DOUBLE, but is %s", type);
 
         slice.setDouble(offset + SIZE_OF_BYTE, value);
     }
 
-    public Slice getSlice(Slice slice, int field)
+    public Slice getSlice(Slice slice)
     {
-        return getSlice(slice, 0, field);
+        return getSlice(slice, 0);
     }
 
-    public Slice getSlice(Slice slice, int offset, int field)
+    public Slice getSlice(Slice slice, int offset)
     {
         checkState(type == VARIABLE_BINARY, "Expected VARIABLE_BINARY, but is %s", type);
 
@@ -306,37 +306,37 @@ public class TupleInfo
         return slice.slice(offset + SIZE_OF_INT + SIZE_OF_BYTE, size - SIZE_OF_INT - SIZE_OF_BYTE);
     }
 
-    public boolean isNull(Slice slice, int field)
+    public boolean isNull(Slice slice)
     {
-        return isNull(slice, 0, field);
+        return isNull(slice, 0);
     }
 
-    public boolean isNull(Slice slice, int offset, int field)
+    public boolean isNull(Slice slice, int offset)
     {
         return slice.getByte(offset) != 0;
     }
 
     /**
-     * Marks the specified field as null.
+     * Marks the tuple at the specified offset as null.
      * <p/>
-     * Note: this DOES NOT clear the current value of the field.
+     * Note: this DOES NOT clear the current value of the tuple.
      */
-    public void setNull(Slice slice, int offset, int field)
+    public void setNull(Slice slice, int offset)
     {
         slice.setByte(offset, 1);
     }
 
-    public void setNotNull(Slice slice, int field)
+    public void setNotNull(Slice slice)
     {
-        setNotNull(slice, 0, field);
+        setNotNull(slice, 0);
     }
 
     /**
-     * Marks the specified field as not null.
+     * Marks the tuple at the specified offset as not null.
      * <p/>
-     * Note this DOES NOT clear the current value of the field.
+     * Note this DOES NOT clear the current value of the tuple.
      */
-    public void setNotNull(Slice slice, int offset, int field)
+    public void setNotNull(Slice slice, int offset)
     {
         slice.setByte(offset, 0);
     }
@@ -467,30 +467,24 @@ public class TupleInfo
 
         public Builder append(TupleReadable tuple)
         {
-            append(tuple, 0);
-            return this;
-        }
-
-        public Builder append(TupleReadable tuple, int index)
-        {
             checkArgument(type == tuple.getTupleInfo().getType(), "Type (%s) does not match tuple type (%s)", type, tuple.getTupleInfo().getType());
 
-            if (tuple.isNull(index)) {
+            if (tuple.isNull()) {
                 appendNull();
             }
             else {
                 switch (type) {
                     case BOOLEAN:
-                        append(tuple.getBoolean(index));
+                        append(tuple.getBoolean());
                         break;
                     case FIXED_INT_64:
-                        append(tuple.getLong(index));
+                        append(tuple.getLong());
                         break;
                     case DOUBLE:
-                        append(tuple.getDouble(index));
+                        append(tuple.getDouble());
                         break;
                     case VARIABLE_BINARY:
-                        append(tuple.getSlice(index));
+                        append(tuple.getSlice());
                         break;
                     default:
                         throw new IllegalStateException("Type not yet supported: " + type);

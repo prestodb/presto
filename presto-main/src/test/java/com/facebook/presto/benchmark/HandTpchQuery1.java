@@ -266,11 +266,11 @@ public class HandTpchQuery1
                 checkState(taxCursor.advanceNextPosition());
                 checkState(shipDateCursor.advanceNextPosition());
 
-                if (shipDateCursor.isNull(0)) {
+                if (shipDateCursor.isNull()) {
                     continue;
                 }
 
-                Slice shipDate = shipDateCursor.getSlice(0);
+                Slice shipDate = shipDateCursor.getSlice();
 
                 // where
                 //     shipdate <= '1998-09-02'
@@ -282,28 +282,28 @@ public class HandTpchQuery1
                     //     extendedprice * (1 - discount) * (1 + tax)
                     //     discount
 
-                    if (returnFlagCursor.isNull(0)) {
+                    if (returnFlagCursor.isNull()) {
                         pageBuilder.getBlockBuilder(0).appendNull();
                     }
                     else {
-                        pageBuilder.getBlockBuilder(0).append(returnFlagCursor.getSlice(0));
+                        pageBuilder.getBlockBuilder(0).append(returnFlagCursor.getSlice());
                     }
-                    if (lineStatusCursor.isNull(0)) {
+                    if (lineStatusCursor.isNull()) {
                         pageBuilder.getBlockBuilder(1).appendNull();
                     }
                     else {
-                        pageBuilder.getBlockBuilder(1).append(lineStatusCursor.getSlice(0));
+                        pageBuilder.getBlockBuilder(1).append(lineStatusCursor.getSlice());
                     }
 
-                    double quantity = quantityCursor.getDouble(0);
-                    double extendedPrice = extendedPriceCursor.getDouble(0);
-                    double discount = discountCursor.getDouble(0);
-                    double tax = taxCursor.getDouble(0);
+                    double quantity = quantityCursor.getDouble();
+                    double extendedPrice = extendedPriceCursor.getDouble();
+                    double discount = discountCursor.getDouble();
+                    double tax = taxCursor.getDouble();
 
-                    boolean quantityIsNull = quantityCursor.isNull(0);
-                    boolean extendedPriceIsNull = extendedPriceCursor.isNull(0);
-                    boolean discountIsNull = discountCursor.isNull(0);
-                    boolean taxIsNull = taxCursor.isNull(0);
+                    boolean quantityIsNull = quantityCursor.isNull();
+                    boolean extendedPriceIsNull = extendedPriceCursor.isNull();
+                    boolean discountIsNull = discountCursor.isNull();
+                    boolean taxIsNull = taxCursor.isNull();
 
                     if (quantityIsNull) {
                         pageBuilder.getBlockBuilder(2).appendNull();

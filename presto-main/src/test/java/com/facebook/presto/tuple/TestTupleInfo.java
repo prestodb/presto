@@ -41,15 +41,15 @@ public class TestTupleInfo
                 .append(true)
                 .build();
 
-        assertEquals(tuple.getBoolean(0), true);
+        assertEquals(tuple.getBoolean(), true);
         assertEquals(tuple.size(), SIZE_OF_BYTE + SIZE_OF_BYTE);
 
         tuple = info.builder()
                 .append(false)
                 .build();
 
-        assertFalse(tuple.isNull(0));
-        assertEquals(tuple.getBoolean(0), false);
+        assertFalse(tuple.isNull());
+        assertEquals(tuple.getBoolean(), false);
         assertEquals(tuple.size(), SIZE_OF_BYTE + SIZE_OF_BYTE);
     }
 
@@ -92,9 +92,9 @@ public class TestTupleInfo
                 .appendNull()
                 .build();
 
-        assertTrue(tuple.isNull(0));
+        assertTrue(tuple.isNull());
         // value of a null boolean is false
-        assertEquals(tuple.getBoolean(0), false);
+        assertEquals(tuple.getBoolean(), false);
         assertEquals(tuple.size(), SIZE_OF_BYTE + SIZE_OF_BYTE);
     }
 
@@ -128,7 +128,7 @@ public class TestTupleInfo
                 .append(42)
                 .build();
 
-        assertEquals(tuple.getLong(0), 42L);
+        assertEquals(tuple.getLong(), 42L);
         assertEquals(tuple.size(), SIZE_OF_LONG + SIZE_OF_BYTE);
     }
 
@@ -161,9 +161,9 @@ public class TestTupleInfo
                 .appendNull()
                 .build();
 
-        assertTrue(tuple.isNull(0));
+        assertTrue(tuple.isNull());
         // value of a null long is 0
-        assertEquals(tuple.getLong(0), 0L);
+        assertEquals(tuple.getLong(), 0L);
         assertEquals(tuple.size(), SIZE_OF_LONG + SIZE_OF_BYTE);
     }
 
@@ -171,7 +171,7 @@ public class TestTupleInfo
     public void testAppendWithNull()
     {
         Builder builder = TupleInfo.SINGLE_LONG.builder();
-        assertTrue(builder.append(NULL_LONG_TUPLE).build().isNull(0));
+        assertTrue(builder.append(NULL_LONG_TUPLE).build().isNull());
     }
 
     /**
@@ -204,7 +204,7 @@ public class TestTupleInfo
                 .append(42.42)
                 .build();
 
-        assertEquals(tuple.getDouble(0), 42.42);
+        assertEquals(tuple.getDouble(), 42.42);
         assertEquals(tuple.size(), SIZE_OF_DOUBLE + SIZE_OF_BYTE);
     }
 
@@ -237,9 +237,9 @@ public class TestTupleInfo
                 .appendNull()
                 .build();
 
-        assertTrue(tuple.isNull(0));
+        assertTrue(tuple.isNull());
         // value of a null double is 0
-        assertEquals(tuple.getDouble(0), 0.0);
+        assertEquals(tuple.getDouble(), 0.0);
         assertEquals(tuple.size(), SIZE_OF_DOUBLE + SIZE_OF_BYTE);
     }
 
@@ -274,7 +274,7 @@ public class TestTupleInfo
                 .build();
 
         assertEquals(tuple.size(), binary.length() + SIZE_OF_INT + SIZE_OF_BYTE);
-        assertEquals(tuple.getSlice(0), binary);
+        assertEquals(tuple.getSlice(), binary);
     }
 
     /**
@@ -307,8 +307,8 @@ public class TestTupleInfo
                 .appendNull()
                 .build();
 
-        assertTrue(tuple.isNull(0));
-        assertEquals(tuple.getSlice(0), Slices.EMPTY_SLICE);
+        assertTrue(tuple.isNull());
+        assertEquals(tuple.getSlice(), Slices.EMPTY_SLICE);
         assertEquals(tuple.size(), SIZE_OF_INT + SIZE_OF_BYTE);
     }
 
@@ -340,8 +340,8 @@ public class TestTupleInfo
         TupleInfo info = new TupleInfo(FIXED_INT_64);
         Slice slice = Slices.allocate(info.getFixedSize() * 2);
 
-        info.setNull(slice, FIXED_INT_64.getSize(), 0);
-        assertTrue(info.isNull(slice, FIXED_INT_64.getSize(), 0));
+        info.setNull(slice, FIXED_INT_64.getSize());
+        assertTrue(info.isNull(slice, FIXED_INT_64.getSize()));
     }
 
     @Test
@@ -352,14 +352,14 @@ public class TestTupleInfo
         Slice slice = Slices.allocate(info.getFixedSize() * 2);
 
         // initialize to nulls
-        info.setNull(slice, 0, 0);
-        assertTrue(info.isNull(slice, 0, 0));
+        info.setNull(slice, 0);
+        assertTrue(info.isNull(slice, 0));
 
-        info.setNull(slice, info.getFixedSize(), 0);
-        assertTrue(info.isNull(slice, info.getFixedSize(), 0));
+        info.setNull(slice, info.getFixedSize());
+        assertTrue(info.isNull(slice, info.getFixedSize()));
 
         // now test setNotNull
-        info.setNotNull(slice, info.getFixedSize(), 0);
-        assertFalse(info.isNull(slice, info.getFixedSize(), 0));
+        info.setNotNull(slice, info.getFixedSize());
+        assertFalse(info.isNull(slice, info.getFixedSize()));
     }
 }

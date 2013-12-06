@@ -81,7 +81,7 @@ public class TestTopNOperator
         TopNOperatorFactory factory = new TopNOperatorFactory(
                 0,
                 2,
-                ImmutableList.of(singleColumn(FIXED_INT_64, 0, 0), singleColumn(DOUBLE, 1, 0)),
+                ImmutableList.of(singleColumn(FIXED_INT_64, 0), singleColumn(DOUBLE, 1)),
                 Ordering.from(new FieldOrderedTupleComparator(ImmutableList.of(0), ImmutableList.of(SortOrder.DESC_NULLS_LAST))),
                 false);
 
@@ -115,7 +115,7 @@ public class TestTopNOperator
         TopNOperatorFactory operatorFactory = new TopNOperatorFactory(
                 0,
                 3,
-                ImmutableList.of(singleColumn(VARIABLE_BINARY, 0, 0), singleColumn(FIXED_INT_64, 1, 0)),
+                ImmutableList.of(singleColumn(VARIABLE_BINARY, 0), singleColumn(FIXED_INT_64, 1)),
                 Ordering.from(comparator),
                 false);
 
@@ -150,7 +150,7 @@ public class TestTopNOperator
         TopNOperatorFactory operatorFactory = new TopNOperatorFactory(
                 0,
                 2,
-                ImmutableList.of(singleColumn(FIXED_INT_64, 0, 0), singleColumn(DOUBLE, 1, 0)),
+                ImmutableList.of(singleColumn(FIXED_INT_64, 0), singleColumn(DOUBLE, 1)),
                 Ordering.from(new FieldOrderedTupleComparator(ImmutableList.of(0), ImmutableList.of(SortOrder.ASC_NULLS_LAST))),
                 false);
 

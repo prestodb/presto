@@ -138,7 +138,7 @@ public class ChannelSet
                 checkState(sourceCursor.advanceNextPosition());
 
                 // Record whether we have seen a null
-                containsNull |= sourceCursor.isNull(0); // There should only be one field in this channel!
+                containsNull |= sourceCursor.isNull();
 
                 long sourceAddress = encodeSyntheticAddress(LOOKUP_SLICE_INDEX, sourceCursor.getRawOffset());
 

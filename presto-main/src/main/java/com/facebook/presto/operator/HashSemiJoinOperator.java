@@ -169,7 +169,7 @@ public class HashSemiJoinOperator
         BlockCursor probeJoinCursor = probeJoinBlock.cursor();
         for (int position = 0; position < page.getPositionCount(); position++) {
             checkState(probeJoinCursor.advanceNextPosition());
-            if (probeJoinCursor.isNull(0)) {
+            if (probeJoinCursor.isNull()) {
                 blockBuilder.appendNull();
             }
             else {

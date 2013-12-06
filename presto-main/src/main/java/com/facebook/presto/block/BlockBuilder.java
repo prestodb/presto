@@ -171,13 +171,6 @@ public class BlockBuilder
         return this;
     }
 
-    public BlockBuilder append(TupleReadable tuple, int index)
-    {
-        tupleBuilder.append(tuple, index);
-        positionCount++;
-        return this;
-    }
-
     public BlockBuilder appendTuple(Slice slice, int offset)
     {
         // read the tuple length

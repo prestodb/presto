@@ -94,7 +94,7 @@ public class ApproximateCountDistinctAggregation
                 checkState(values.advanceNextPosition());
 
                 // skip null values
-                if (!values.isNull(0)) {
+                if (!values.isNull()) {
                     long groupId = groupIdsBlock.getGroupId(position);
 
                     // todo do all of this with shifts and masks
@@ -123,7 +123,7 @@ public class ApproximateCountDistinctAggregation
                 checkState(intermediates.advanceNextPosition());
 
                 // skip null values
-                if (!intermediates.isNull(0)) {
+                if (!intermediates.isNull()) {
                     long groupId = groupIdsBlock.getGroupId(position);
 
                     // todo do all of this with shifts and masks
@@ -133,7 +133,7 @@ public class ApproximateCountDistinctAggregation
                     int sliceOffset = Ints.checkedCast(globalOffset - (sliceIndex * SLICE_SIZE));
 
 
-                    Slice input = intermediates.getSlice(0);
+                    Slice input = intermediates.getSlice();
 
                     ESTIMATOR.mergeInto(slice, sliceOffset + 1, input, 0);
                     setNotNull(slice, sliceOffset);
@@ -214,7 +214,7 @@ public class ApproximateCountDistinctAggregation
 
             for (int position = 0; position < block.getPositionCount(); position++) {
                 checkState(values.advanceNextPosition());
-                if (!values.isNull(0)) {
+                if (!values.isNull()) {
                     notNull = true;
 
                     long hash = hash(values, parameterType);
@@ -230,10 +230,10 @@ public class ApproximateCountDistinctAggregation
 
             for (int position = 0; position < block.getPositionCount(); position++) {
                 checkState(intermediates.advanceNextPosition());
-                if (!intermediates.isNull(0)) {
+                if (!intermediates.isNull()) {
                     notNull = true;
 
-                    Slice input = intermediates.getSlice(0);
+                    Slice input = intermediates.getSlice();
                     ESTIMATOR.mergeInto(slice, 0, input, 0);
                 }
             }
@@ -281,15 +281,15 @@ public class ApproximateCountDistinctAggregation
     private static long hash(BlockCursor values, Type parameterType)
     {
         if (parameterType == Type.FIXED_INT_64) {
-            long value = values.getLong(0);
+            long value = values.getLong();
             return HASH.hashLong(value).asLong();
         }
         else if (parameterType == Type.DOUBLE) {
-            double value = values.getDouble(0);
+            double value = values.getDouble();
             return HASH.hashLong(Double.doubleToLongBits(value)).asLong();
         }
         else if (parameterType == Type.VARIABLE_BINARY) {
-            Slice value = values.getSlice(0);
+            Slice value = values.getSlice();
             return HASH.hashBytes(value.getBytes()).asLong();
         }
         else {

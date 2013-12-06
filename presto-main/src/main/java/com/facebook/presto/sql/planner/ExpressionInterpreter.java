@@ -72,7 +72,6 @@ import java.util.Set;
 
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpression;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpressions;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -160,29 +159,26 @@ public class ExpressionInterpreter
             if (context instanceof TupleReadable[]) {
                 TupleReadable[] inputs = (TupleReadable[]) context;
                 TupleReadable tuple = inputs[channel];
-                int field = input.getField();
 
-                if (tuple.isNull(field)) {
+                if (tuple.isNull()) {
                     return null;
                 }
 
                 switch (tuple.getTupleInfo().getType()) {
                     case BOOLEAN:
-                        return tuple.getBoolean(field);
+                        return tuple.getBoolean();
                     case FIXED_INT_64:
-                        return tuple.getLong(field);
+                        return tuple.getLong();
                     case DOUBLE:
-                        return tuple.getDouble(field);
+                        return tuple.getDouble();
                     case VARIABLE_BINARY:
-                        return tuple.getSlice(field);
+                        return tuple.getSlice();
                     default:
                         throw new UnsupportedOperationException("not yet implemented");
                 }
             }
             else if (context instanceof RecordCursor) {
                 RecordCursor cursor = (RecordCursor) context;
-                checkArgument(input.getField() == 0, "Field for cursor must be 0 but is %s", input.getField());
-
                 if (cursor.isNull(channel)) {
                     return null;
                 }

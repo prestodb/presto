@@ -69,10 +69,10 @@ public class VarBinaryMinAggregation
                 checkState(values.advanceNextPosition());
 
                 // skip null values
-                if (!values.isNull(0)) {
+                if (!values.isNull()) {
                     long groupId = groupIdsBlock.getGroupId(position);
 
-                    Slice value = values.getSlice(0);
+                    Slice value = values.getSlice();
                     Slice currentValue = minValues.get(groupId);
                     if (currentValue == null || value.compareTo(currentValue) < 0) {
                         minValues.set(groupId, value);
@@ -124,8 +124,8 @@ public class VarBinaryMinAggregation
 
             for (int position = 0; position < block.getPositionCount(); position++) {
                 checkState(values.advanceNextPosition());
-                if (!values.isNull(0)) {
-                    min = min(min, values.getSlice(0));
+                if (!values.isNull()) {
+                    min = min(min, values.getSlice());
                 }
             }
         }

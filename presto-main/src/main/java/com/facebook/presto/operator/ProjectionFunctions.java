@@ -23,14 +23,14 @@ import com.google.common.base.Preconditions;
 
 public class ProjectionFunctions
 {
-    public static ProjectionFunction singleColumn(Type columnType, int channelIndex, int fieldIndex)
+    public static ProjectionFunction singleColumn(Type columnType, int channelIndex)
     {
-        return new SingleColumnProjection(columnType, channelIndex, fieldIndex);
+        return new SingleColumnProjection(columnType, channelIndex);
     }
 
     public static ProjectionFunction singleColumn(Type columnType, Input input)
     {
-        return new SingleColumnProjection(columnType, input.getChannel(), input.getField());
+        return new SingleColumnProjection(columnType, input.getChannel());
     }
 
     private static class SingleColumnProjection
@@ -38,18 +38,15 @@ public class ProjectionFunctions
     {
         private final Type columnType;
         private final int channelIndex;
-        private final int fieldIndex;
         private final TupleInfo info;
 
-        public SingleColumnProjection(Type columnType, int channelIndex, int fieldIndex)
+        public SingleColumnProjection(Type columnType, int channelIndex)
         {
             Preconditions.checkNotNull(columnType, "columnType is null");
             Preconditions.checkArgument(channelIndex >= 0, "channelIndex is negative");
-            Preconditions.checkArgument(fieldIndex >= 0, "fieldIndex is negative");
 
             this.columnType = columnType;
             this.channelIndex = channelIndex;
-            this.fieldIndex = fieldIndex;
             this.info = new TupleInfo(columnType);
         }
 
@@ -62,22 +59,22 @@ public class ProjectionFunctions
         @Override
         public void project(TupleReadable[] cursors, BlockBuilder output)
         {
-            if (cursors[channelIndex].isNull(fieldIndex)) {
+            if (cursors[channelIndex].isNull()) {
                 output.appendNull();
             }
             else {
                 switch (columnType) {
                     case BOOLEAN:
-                        output.append(cursors[channelIndex].getBoolean(fieldIndex));
+                        output.append(cursors[channelIndex].getBoolean());
                         return;
                     case FIXED_INT_64:
-                        output.append(cursors[channelIndex].getLong(fieldIndex));
+                        output.append(cursors[channelIndex].getLong());
                         return;
                     case VARIABLE_BINARY:
-                        output.append(cursors[channelIndex].getSlice(fieldIndex));
+                        output.append(cursors[channelIndex].getSlice());
                         return;
                     case DOUBLE:
-                        output.append(cursors[channelIndex].getDouble(fieldIndex));
+                        output.append(cursors[channelIndex].getDouble());
                         return;
                 }
                 throw new IllegalStateException("Unsupported type info " + info);
@@ -88,7 +85,6 @@ public class ProjectionFunctions
         public void project(RecordCursor cursor, BlockBuilder output)
         {
             // record cursors have each value in a separate field
-            Preconditions.checkArgument(fieldIndex == 0, "field must be 0 for a record cursor projection");
             if (cursor.isNull(channelIndex)) {
                 output.appendNull();
             }

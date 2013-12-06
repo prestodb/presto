@@ -64,7 +64,7 @@ public class CountColumnAggregation
             for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
                 checkState(values.advanceNextPosition());
 
-                if (!values.isNull(0)) {
+                if (!values.isNull()) {
                     long groupId = groupIdsBlock.getGroupId(position);
                     counts.increment(groupId);
                 }
@@ -82,9 +82,9 @@ public class CountColumnAggregation
             for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
                 checkState(values.advanceNextPosition());
 
-                if (!values.isNull(0)) {
+                if (!values.isNull()) {
                     long groupId = groupIdsBlock.getGroupId(position);
-                    counts.add(groupId, values.getLong(0));
+                    counts.add(groupId, values.getLong());
                 }
             }
             checkState(!values.advanceNextPosition());
@@ -121,7 +121,7 @@ public class CountColumnAggregation
 
             for (int position = 0; position < block.getPositionCount(); position++) {
                 checkState(values.advanceNextPosition());
-                if (!values.isNull(0)) {
+                if (!values.isNull()) {
                     count++;
                 }
             }
@@ -134,7 +134,7 @@ public class CountColumnAggregation
 
             for (int position = 0; position < block.getPositionCount(); position++) {
                 checkState(intermediates.advanceNextPosition());
-                count += intermediates.getLong(0);
+                count += intermediates.getLong();
             }
         }
 

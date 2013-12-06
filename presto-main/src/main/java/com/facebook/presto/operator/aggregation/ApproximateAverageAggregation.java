@@ -96,15 +96,15 @@ public class ApproximateAverageAggregation
             for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
                 checkState(values.advanceNextPosition());
 
-                if (!values.isNull(0)) {
+                if (!values.isNull()) {
 
                     long groupId = groupIdsBlock.getGroupId(position);
                     double inputValue;
                     if (inputIsLong) {
-                        inputValue = values.getLong(0);
+                        inputValue = values.getLong();
                     }
                     else {
-                        inputValue = values.getDouble(0);
+                        inputValue = values.getDouble();
                     }
 
                     long currentCount = counts.get(groupId);
@@ -137,10 +137,10 @@ public class ApproximateAverageAggregation
             for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
                 checkState(values.advanceNextPosition());
 
-                if (!values.isNull(0)) {
+                if (!values.isNull()) {
                     long groupId = groupIdsBlock.getGroupId(position);
 
-                    Slice slice = values.getSlice(0);
+                    Slice slice = values.getSlice();
                     long inputCount = getCount(slice);
                     double inputMean = getMean(slice);
                     double inputM2 = getM2(slice);
@@ -222,13 +222,13 @@ public class ApproximateAverageAggregation
             for (int position = 0; position < block.getPositionCount(); position++) {
                 checkState(values.advanceNextPosition());
 
-                if (!values.isNull(0)) {
+                if (!values.isNull()) {
                     double inputValue;
                     if (inputIsLong) {
-                        inputValue = values.getLong(0);
+                        inputValue = values.getLong();
                     }
                     else {
-                        inputValue = values.getDouble(0);
+                        inputValue = values.getDouble();
                     }
 
                     // Use numerically stable variant
@@ -250,8 +250,8 @@ public class ApproximateAverageAggregation
             for (int position = 0; position < block.getPositionCount(); position++) {
                 checkState(values.advanceNextPosition());
 
-                if (!values.isNull(0)) {
-                    Slice slice = values.getSlice(0);
+                if (!values.isNull()) {
+                    Slice slice = values.getSlice();
                     long inputCount = getCount(slice);
                     double inputMean = getMean(slice);
                     double inputM2 = getM2(slice);

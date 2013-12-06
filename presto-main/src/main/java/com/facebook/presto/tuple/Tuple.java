@@ -55,33 +55,33 @@ public class Tuple
     }
 
     @Override
-    public boolean getBoolean(int index)
+    public boolean getBoolean()
     {
-        return tupleInfo.getBoolean(slice, index);
+        return tupleInfo.getBoolean(slice);
     }
 
     @Override
-    public long getLong(int index)
+    public long getLong()
     {
-        return tupleInfo.getLong(slice, index);
+        return tupleInfo.getLong(slice);
     }
 
     @Override
-    public double getDouble(int index)
+    public double getDouble()
     {
-        return tupleInfo.getDouble(slice, index);
+        return tupleInfo.getDouble(slice);
     }
 
     @Override
-    public Slice getSlice(int index)
+    public Slice getSlice()
     {
-        return tupleInfo.getSlice(slice, index);
+        return tupleInfo.getSlice(slice);
     }
 
     @Override
-    public boolean isNull(int index)
+    public boolean isNull()
     {
-        return tupleInfo.isNull(slice, index);
+        return tupleInfo.isNull(slice);
     }
 
     public int size()
@@ -101,23 +101,23 @@ public class Tuple
     public List<Object> toValues()
     {
         ArrayList<Object> values = new ArrayList<>();
-        if (isNull(0)) {
+        if (isNull()) {
             values.add(null);
         }
         else {
             Type type = tupleInfo.getType();
             switch (type) {
                 case BOOLEAN:
-                    values.add(getBoolean(0));
+                    values.add(getBoolean());
                     break;
                 case FIXED_INT_64:
-                    values.add(getLong(0));
+                    values.add(getLong());
                     break;
                 case DOUBLE:
-                    values.add(getDouble(0));
+                    values.add(getDouble());
                     break;
                 case VARIABLE_BINARY:
-                    Slice slice = getSlice(0);
+                    Slice slice = getSlice();
                     values.add(slice.toString(UTF_8));
                     break;
                 default:
