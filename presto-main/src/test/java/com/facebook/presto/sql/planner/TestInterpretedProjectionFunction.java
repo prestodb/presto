@@ -140,17 +140,17 @@ public class TestInterpretedProjectionFunction
     @Test
     public void testSymbolReference()
     {
-        assertProjection(BOOLEAN, createExpression("symbol"), true, ImmutableMap.of(new Symbol("symbol"), new Input(0, 0)), createTuple(true));
-        assertProjection(BOOLEAN, createExpression("symbol"), null, ImmutableMap.of(new Symbol("symbol"), new Input(0, 0)), NULL_BOOLEAN_TUPLE);
+        assertProjection(BOOLEAN, createExpression("symbol"), true, ImmutableMap.of(new Symbol("symbol"), new Input(0)), createTuple(true));
+        assertProjection(BOOLEAN, createExpression("symbol"), null, ImmutableMap.of(new Symbol("symbol"), new Input(0)), NULL_BOOLEAN_TUPLE);
 
-        assertProjection(BIGINT, createExpression("symbol"), 42L, ImmutableMap.of(new Symbol("symbol"), new Input(0, 0)), createTuple(42L));
-        assertProjection(BIGINT, createExpression("symbol"), null, ImmutableMap.of(new Symbol("symbol"), new Input(0, 0)), NULL_LONG_TUPLE);
+        assertProjection(BIGINT, createExpression("symbol"), 42L, ImmutableMap.of(new Symbol("symbol"), new Input(0)), createTuple(42L));
+        assertProjection(BIGINT, createExpression("symbol"), null, ImmutableMap.of(new Symbol("symbol"), new Input(0)), NULL_LONG_TUPLE);
 
-        assertProjection(DOUBLE, createExpression("symbol"), 11.1, ImmutableMap.of(new Symbol("symbol"), new Input(0, 0)), createTuple(11.1));
-        assertProjection(DOUBLE, createExpression("symbol"), null, ImmutableMap.of(new Symbol("symbol"), new Input(0, 0)), NULL_DOUBLE_TUPLE);
+        assertProjection(DOUBLE, createExpression("symbol"), 11.1, ImmutableMap.of(new Symbol("symbol"), new Input(0)), createTuple(11.1));
+        assertProjection(DOUBLE, createExpression("symbol"), null, ImmutableMap.of(new Symbol("symbol"), new Input(0)), NULL_DOUBLE_TUPLE);
 
-        assertProjection(VARCHAR, createExpression("symbol"), "foo", ImmutableMap.of(new Symbol("symbol"), new Input(0, 0)), createTuple("foo"));
-        assertProjection(VARCHAR, createExpression("symbol"), null, ImmutableMap.of(new Symbol("symbol"), new Input(0, 0)), NULL_STRING_TUPLE);
+        assertProjection(VARCHAR, createExpression("symbol"), "foo", ImmutableMap.of(new Symbol("symbol"), new Input(0)), createTuple("foo"));
+        assertProjection(VARCHAR, createExpression("symbol"), null, ImmutableMap.of(new Symbol("symbol"), new Input(0)), NULL_STRING_TUPLE);
     }
 
     public static void assertProjection(Type outputType, String expression, @Nullable Object expectedValue)

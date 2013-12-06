@@ -51,7 +51,7 @@ public class HashAggregationBenchmark
                 ImmutableList.of(alignmentOperator.getTupleInfos().get(0)),
                 Ints.asList(0),
                 Step.SINGLE,
-                ImmutableList.of(aggregation(DOUBLE_SUM, new Input(1, 0))),
+                ImmutableList.of(aggregation(DOUBLE_SUM, new Input(1))),
                 100_000);
         return ImmutableList.of(alignmentOperator, aggregationOperator);
     }

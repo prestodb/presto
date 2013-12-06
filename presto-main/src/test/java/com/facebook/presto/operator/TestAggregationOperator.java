@@ -78,14 +78,14 @@ public class TestAggregationOperator
         OperatorFactory operatorFactory = new AggregationOperatorFactory(
                 0,
                 Step.SINGLE,
-                ImmutableList.of(aggregation(COUNT, new Input(0, 0)),
-                        aggregation(LONG_SUM, new Input(1, 0)),
-                        aggregation(LONG_AVERAGE, new Input(1, 0)),
-                        aggregation(VAR_BINARY_MAX, new Input(2, 0)),
-                        aggregation(COUNT_STRING_COLUMN, new Input(0, 0)),
-                        aggregation(LONG_SUM, new Input(3, 0)),
-                        aggregation(DOUBLE_SUM, new Input(4, 0)),
-                        aggregation(VAR_BINARY_MAX, new Input(5, 0))));
+                ImmutableList.of(aggregation(COUNT, new Input(0)),
+                        aggregation(LONG_SUM, new Input(1)),
+                        aggregation(LONG_AVERAGE, new Input(1)),
+                        aggregation(VAR_BINARY_MAX, new Input(2)),
+                        aggregation(COUNT_STRING_COLUMN, new Input(0)),
+                        aggregation(LONG_SUM, new Input(3)),
+                        aggregation(DOUBLE_SUM, new Input(4)),
+                        aggregation(VAR_BINARY_MAX, new Input(5))));
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(FIXED_INT_64, FIXED_INT_64, DOUBLE, VARIABLE_BINARY, FIXED_INT_64, FIXED_INT_64, DOUBLE, VARIABLE_BINARY)

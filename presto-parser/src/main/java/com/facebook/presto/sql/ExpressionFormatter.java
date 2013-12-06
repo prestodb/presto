@@ -215,7 +215,7 @@ public final class ExpressionFormatter
         public String visitInputReference(InputReference node, Void context)
         {
             // add colon so this won't parse
-            return ":input(" + node.getInput().getChannel() + ", " + node.getInput().getField() + ")";
+            return ":input(" + node.getInput().getChannel() + ")";
         }
 
         @Override
