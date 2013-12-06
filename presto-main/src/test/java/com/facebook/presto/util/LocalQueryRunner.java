@@ -89,6 +89,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.metadata.MockLocalStorageManager.createMockLocalStorageManager;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
@@ -139,12 +140,13 @@ public class LocalQueryRunner
     private static class MaterializedOutputFactory
             implements OutputFactory
     {
-        private MaterializingOperator materializingOperator;
+        private final AtomicReference<MaterializingOperator> materializingOperator = new AtomicReference<>();
 
         private MaterializingOperator getMaterializingOperator()
         {
-            checkState(materializingOperator != null, "Output not created");
-            return materializingOperator;
+            MaterializingOperator operator = materializingOperator.get();
+            checkState(operator != null, "Output not created");
+            return operator;
         }
 
         @Override
@@ -163,10 +165,13 @@ public class LocalQueryRunner
                 @Override
                 public Operator createOperator(DriverContext driverContext)
                 {
-                    checkState(materializingOperator == null, "Output already created");
                     OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, MaterializingOperator.class.getSimpleName());
-                    materializingOperator = new MaterializingOperator(operatorContext, sourceTupleInfo);
-                    return materializingOperator;
+                    MaterializingOperator operator = new MaterializingOperator(operatorContext, sourceTupleInfo);
+
+                    if (!materializingOperator.compareAndSet(null, operator)) {
+                        throw new IllegalArgumentException("Output already created");
+                    }
+                    return operator;
                 }
 
                 @Override
