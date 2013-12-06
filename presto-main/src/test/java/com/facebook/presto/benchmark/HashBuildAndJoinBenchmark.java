@@ -25,6 +25,7 @@ import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -52,7 +53,7 @@ public class HashBuildAndJoinBenchmark
         BlockIterable totalPrice = getBlockIterable("orders", "totalprice", BlocksFileEncoding.RAW);
 
         AlignmentOperatorFactory ordersTableScan = new AlignmentOperatorFactory(0, orderOrderKey, totalPrice);
-        HashBuilderOperatorFactory hashBuilder = new HashBuilderOperatorFactory(1, ordersTableScan.getTupleInfos(), 0, 1_500_000);
+        HashBuilderOperatorFactory hashBuilder = new HashBuilderOperatorFactory(1, ordersTableScan.getTupleInfos(), Ints.asList(0), 1_500_000);
 
         DriverFactory hashBuildDriverFactory = new DriverFactory(true, false, ordersTableScan, hashBuilder);
         Driver hashBuildDriver = hashBuildDriverFactory.createDriver(taskContext.addPipelineContext(true, false).addDriverContext());
@@ -62,7 +63,7 @@ public class HashBuildAndJoinBenchmark
         BlockIterable lineNumber = getBlockIterable("lineitem", "quantity", BlocksFileEncoding.RAW);
         AlignmentOperatorFactory lineItemTableScan = new AlignmentOperatorFactory(0, lineItemOrderKey, lineNumber);
 
-        HashJoinOperatorFactory joinOperator = HashJoinOperator.innerJoin(1, hashBuilder.getHashSupplier(), lineItemTableScan.getTupleInfos(), 0);
+        HashJoinOperatorFactory joinOperator = HashJoinOperator.innerJoin(1, hashBuilder.getHashSupplier(), lineItemTableScan.getTupleInfos(), Ints.asList(0));
 
         NullOutputOperatorFactory output = new NullOutputOperatorFactory(2, joinOperator.getTupleInfos());
 

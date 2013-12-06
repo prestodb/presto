@@ -721,20 +721,17 @@ public class LocalExecutionPlanner
         {
             // Plan probe and introduce a projection to put all fields from the probe side into a single channel if necessary
             PhysicalOperation probeSource = probeNode.accept(this, context);
-            probeSource = packIfNecessary(probeSymbols, probeSource, context.getTypes(), context);
+            List<Integer> probeChannels = ImmutableList.copyOf(getChannelsForSymbols(probeSymbols, probeSource.getLayout()));
 
             // do the same on the build side
             LocalExecutionPlanContext buildContext = context.createSubContext();
             PhysicalOperation buildSource = buildNode.accept(this, buildContext);
-            buildSource = packIfNecessary(buildSymbols, buildSource, buildContext.getTypes(), buildContext);
-
-            int probeChannel = Iterables.getOnlyElement(getChannelSetForSymbols(probeSymbols, probeSource.getLayout()));
-            int buildChannel = Iterables.getOnlyElement(getChannelSetForSymbols(buildSymbols, buildSource.getLayout()));
+            List<Integer> buildChannels = ImmutableList.copyOf(getChannelsForSymbols(buildSymbols, buildSource.getLayout()));
 
             HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(
                     buildContext.getNextOperatorId(),
                     buildSource.getTupleInfos(),
-                    buildChannel,
+                    buildChannels,
                     100_000);
             HashSupplier hashSupplier = hashBuilderOperatorFactory.getHashSupplier();
             DriverFactory buildDriverFactory = new DriverFactory(
@@ -757,7 +754,7 @@ public class LocalExecutionPlanner
                 outputMappings.put(entry.getKey(), new Input(offset + input.getChannel(), input.getField()));
             }
 
-            OperatorFactory operator = createJoinOperator(node.getType(), hashSupplier, probeSource.getTupleInfos(), probeChannel, context);
+            OperatorFactory operator = createJoinOperator(node.getType(), hashSupplier, probeSource.getTupleInfos(), probeChannels, context);
             return new PhysicalOperation(operator, outputMappings.build(), probeSource);
         }
 
@@ -765,15 +762,15 @@ public class LocalExecutionPlanner
                 JoinNode.Type type,
                 HashSupplier hashSupplier,
                 List<TupleInfo> probeTupleInfos,
-                int probeJoinChannel,
+                List<Integer> probeJoinChannels,
                 LocalExecutionPlanContext context)
         {
             switch (type) {
                 case INNER:
-                    return HashJoinOperator.innerJoin(context.getNextOperatorId(), hashSupplier, probeTupleInfos, probeJoinChannel);
+                    return HashJoinOperator.innerJoin(context.getNextOperatorId(), hashSupplier, probeTupleInfos, probeJoinChannels);
                 case LEFT:
                 case RIGHT:
-                    return HashJoinOperator.outerJoin(context.getNextOperatorId(), hashSupplier, probeTupleInfos, probeJoinChannel);
+                    return HashJoinOperator.outerJoin(context.getNextOperatorId(), hashSupplier, probeTupleInfos, probeJoinChannels);
                 default:
                     throw new UnsupportedOperationException("Unsupported join type: " + type);
             }
