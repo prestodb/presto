@@ -15,9 +15,15 @@ package com.facebook.presto.block.snappy;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.block.RandomAccessBlock;
+import com.facebook.presto.block.uncompressed.UncompressedBlock;
+import com.facebook.presto.block.uncompressed.UncompressedBooleanBlock;
 import com.facebook.presto.block.uncompressed.UncompressedBooleanBlockCursor;
+import com.facebook.presto.block.uncompressed.UncompressedDoubleBlock;
 import com.facebook.presto.block.uncompressed.UncompressedDoubleBlockCursor;
+import com.facebook.presto.block.uncompressed.UncompressedLongBlock;
 import com.facebook.presto.block.uncompressed.UncompressedLongBlockCursor;
+import com.facebook.presto.block.uncompressed.UncompressedSliceBlock;
 import com.facebook.presto.block.uncompressed.UncompressedSliceBlockCursor;
 import com.facebook.presto.serde.SnappyBlockEncoding;
 import com.facebook.presto.tuple.TupleInfo;
@@ -125,6 +131,25 @@ public class SnappyBlock
     {
         Preconditions.checkPositionIndexes(positionOffset, positionOffset + length, positionCount);
         return cursor().getRegionAndAdvance(length);
+    }
+
+    @Override
+    public RandomAccessBlock toRandomAccessBlock()
+    {
+        Type type = tupleInfo.getType();
+        if (type == Type.BOOLEAN) {
+            return new UncompressedBooleanBlock(positionCount, getUncompressedSlice());
+        }
+        if (type == Type.FIXED_INT_64) {
+            return new UncompressedLongBlock(getUncompressedSlice());
+        }
+        if (type == Type.DOUBLE) {
+            return new UncompressedDoubleBlock(positionCount, getUncompressedSlice());
+        }
+        if (type == Type.VARIABLE_BINARY) {
+            return new UncompressedSliceBlock(new UncompressedBlock(positionCount, tupleInfo, getUncompressedSlice()));
+        }
+        throw new IllegalStateException("Unsupported type " + tupleInfo.getType());
     }
 
     @Override

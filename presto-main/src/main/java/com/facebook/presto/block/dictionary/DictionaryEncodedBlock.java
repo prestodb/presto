@@ -14,6 +14,7 @@
 package com.facebook.presto.block.dictionary;
 
 import com.facebook.presto.block.Block;
+import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.serde.BlockEncoding;
 import com.facebook.presto.serde.DictionaryBlockEncoding;
 import com.facebook.presto.tuple.TupleInfo;
@@ -77,6 +78,13 @@ public class DictionaryEncodedBlock
     public Block getRegion(int positionOffset, int length)
     {
         return new DictionaryEncodedBlock(dictionary, idBlock.getRegion(positionOffset, length));
+    }
+
+    @Override
+    public RandomAccessBlock toRandomAccessBlock()
+    {
+        // todo add a RandomAccessDictionaryEncodedBlock that contains a RandomAccessBlock for the ids
+        throw new UnsupportedOperationException();
     }
 
     @Override
