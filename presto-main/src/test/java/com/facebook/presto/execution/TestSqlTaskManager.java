@@ -30,6 +30,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.PartitionResult;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.Split;
+import com.facebook.presto.spi.SplitSource;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.split.DataStreamManager;
@@ -62,6 +63,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.net.URI;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.TimeUnit;
 
@@ -103,7 +105,17 @@ public class TestSqlTaskManager
 
         DualSplitManager dualSplitManager = new DualSplitManager(new InMemoryNodeManager());
         PartitionResult partitionResult = dualSplitManager.getPartitions(tableHandle, TupleDomain.all());
-        split = Iterables.getOnlyElement(dualSplitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions()));
+
+        split = null;
+        SplitSource splitSource = dualSplitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions());
+        while (!splitSource.isFinished()) {
+            List<Split> nextBatch = splitSource.getNextBatch(1000);
+            if (!nextBatch.isEmpty()) {
+                assertNull(split);
+                split = Iterables.getOnlyElement(nextBatch);
+            }
+        }
+        assertNotNull(split);
 
         planner = new LocalExecutionPlanner(
                 new NodeInfo("test"),

@@ -24,6 +24,8 @@ import java.util.concurrent.TimeUnit;
 
 public class QueryManagerConfig
 {
+    private int scheduleSplitBatchSize = 1000;
+
     private int maxPendingSplitsPerNode = 100;
 
     private int initialHashPartitions = 8;
@@ -35,6 +37,19 @@ public class QueryManagerConfig
 
     private int remoteTaskMaxConsecutiveErrorCount = 10;
     private Duration remoteTaskMinErrorDuration = new Duration(2, TimeUnit.MINUTES);
+
+    @Min(1)
+    public int getScheduleSplitBatchSize()
+    {
+        return scheduleSplitBatchSize;
+    }
+
+    @Config("query.schedule-split-batch-size")
+    public QueryManagerConfig setScheduleSplitBatchSize(int scheduleSplitBatchSize)
+    {
+        this.scheduleSplitBatchSize = scheduleSplitBatchSize;
+        return this;
+    }
 
     @Min(1)
     public int getMaxPendingSplitsPerNode()

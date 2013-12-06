@@ -15,9 +15,11 @@ package com.facebook.presto.connector.dual;
 
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.spi.ConnectorSplitManager;
+import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.PartitionResult;
 import com.facebook.presto.spi.Split;
+import com.facebook.presto.spi.SplitSource;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TupleDomain;
 import com.google.common.base.Objects;
@@ -68,11 +70,11 @@ public class DualSplitManager
     }
 
     @Override
-    public Iterable<Split> getPartitionSplits(TableHandle table, List<Partition> partitions)
+    public SplitSource getPartitionSplits(TableHandle table, List<Partition> partitions)
     {
         checkNotNull(partitions, "partitions is null");
         if (partitions.isEmpty()) {
-            return ImmutableList.of();
+            return new FixedSplitSource(null, ImmutableList.<Split>of());
         }
 
         Partition partition = Iterables.getOnlyElement(partitions);
@@ -80,7 +82,7 @@ public class DualSplitManager
 
         Split split = new DualSplit(nodeManager.getCurrentNode().getHostAndPort());
 
-        return ImmutableList.of(split);
+        return new FixedSplitSource(null, ImmutableList.of(split));
     }
 
     public static class DualPartition

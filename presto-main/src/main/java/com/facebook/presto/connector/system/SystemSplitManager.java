@@ -17,11 +17,13 @@ import com.facebook.presto.metadata.Node;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplitManager;
+import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.PartitionResult;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.Split;
+import com.facebook.presto.spi.SplitSource;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TupleDomain;
@@ -97,11 +99,11 @@ public class SystemSplitManager
     }
 
     @Override
-    public Iterable<Split> getPartitionSplits(TableHandle table, List<Partition> partitions)
+    public SplitSource getPartitionSplits(TableHandle table, List<Partition> partitions)
     {
         checkNotNull(partitions, "partitions is null");
         if (partitions.isEmpty()) {
-            return ImmutableList.of();
+            return new FixedSplitSource(null, ImmutableList.<Split>of());
         }
 
         Partition partition = Iterables.getOnlyElement(partitions);
@@ -122,12 +124,12 @@ public class SystemSplitManager
             for (Node node : nodeManager.getAllNodes().getActiveNodes()) {
                 splits.add(new SystemSplit(systemPartition.tableHandle, filters.build(), node.getHostAndPort()));
             }
-            return splits.build();
+            return new FixedSplitSource(null, splits.build());
         }
 
         HostAddress address = nodeManager.getCurrentNode().getHostAndPort();
         Split split = new SystemSplit(systemPartition.tableHandle, filters.build(), address);
-        return ImmutableList.of(split);
+        return new FixedSplitSource(null, ImmutableList.of(split));
     }
 
     public static class SystemPartition

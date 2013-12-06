@@ -27,7 +27,7 @@ public interface RemoteTask
 
     void start();
 
-    void addSplit(PlanNodeId sourceId, Split split);
+    void addSplits(PlanNodeId sourceId, Iterable<? extends Split> split);
 
     void noMoreSplits(PlanNodeId sourceId);
 

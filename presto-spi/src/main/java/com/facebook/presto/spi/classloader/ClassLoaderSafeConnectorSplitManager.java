@@ -16,7 +16,7 @@ package com.facebook.presto.spi.classloader;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.PartitionResult;
-import com.facebook.presto.spi.Split;
+import com.facebook.presto.spi.SplitSource;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TupleDomain;
 
@@ -61,7 +61,7 @@ public final class ClassLoaderSafeConnectorSplitManager
     }
 
     @Override
-    public Iterable<Split> getPartitionSplits(TableHandle table, List<Partition> partitions)
+    public SplitSource getPartitionSplits(TableHandle table, List<Partition> partitions)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.getPartitionSplits(table, partitions);
