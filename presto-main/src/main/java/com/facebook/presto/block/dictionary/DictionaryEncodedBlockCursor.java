@@ -88,33 +88,33 @@ public class DictionaryEncodedBlockCursor
     }
 
     @Override
-    public boolean getBoolean(int field)
+    public boolean getBoolean()
     {
-        return dictionary.getBoolean(getDictionaryKey(), field);
+        return dictionary.getBoolean(getDictionaryKey());
     }
 
     @Override
-    public long getLong(int field)
+    public long getLong()
     {
-        return dictionary.getLong(getDictionaryKey(), field);
+        return dictionary.getLong(getDictionaryKey());
     }
 
     @Override
-    public double getDouble(int field)
+    public double getDouble()
     {
-        return dictionary.getDouble(getDictionaryKey(), field);
+        return dictionary.getDouble(getDictionaryKey());
     }
 
     @Override
-    public Slice getSlice(int field)
+    public Slice getSlice()
     {
-        return dictionary.getSlice(getDictionaryKey(), field);
+        return dictionary.getSlice(getDictionaryKey());
     }
 
     @Override
-    public boolean isNull(int field)
+    public boolean isNull()
     {
-        return dictionary.isNull(getDictionaryKey(), field);
+        return dictionary.isNull(getDictionaryKey());
     }
 
     @Override
@@ -149,7 +149,7 @@ public class DictionaryEncodedBlockCursor
 
     public int getDictionaryKey()
     {
-        int dictionaryKey = Ints.checkedCast(sourceCursor.getLong(0));
+        int dictionaryKey = Ints.checkedCast(sourceCursor.getLong());
         checkPositionIndex(dictionaryKey, dictionary.size(), "dictionaryKey does not exist");
         return dictionaryKey;
     }

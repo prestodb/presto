@@ -186,8 +186,8 @@ public class ChannelIndex
         Slice rightSlice = getSliceForSyntheticAddress(rightSliceAddress);
         int rightOffset = decodePosition(rightSliceAddress);
 
-        boolean leftIsNull = tupleInfo.isNull(leftSlice, leftOffset, 0);
-        boolean rightIsNull = tupleInfo.isNull(rightSlice, rightOffset, 0);
+        boolean leftIsNull = tupleInfo.isNull(leftSlice, leftOffset);
+        boolean rightIsNull = tupleInfo.isNull(rightSlice, rightOffset);
 
         if (leftIsNull && rightIsNull) {
             return 0;
@@ -205,22 +205,22 @@ public class ChannelIndex
         switch (type) {
             case BOOLEAN:
                 comparison = Boolean.compare(
-                        tupleInfo.getBoolean(leftSlice, leftOffset, 0),
-                        tupleInfo.getBoolean(rightSlice, rightOffset, 0));
+                        tupleInfo.getBoolean(leftSlice, leftOffset),
+                        tupleInfo.getBoolean(rightSlice, rightOffset));
                 break;
             case FIXED_INT_64:
                 comparison = Long.compare(
-                        tupleInfo.getLong(leftSlice, leftOffset, 0),
-                        tupleInfo.getLong(rightSlice, rightOffset, 0));
+                        tupleInfo.getLong(leftSlice, leftOffset),
+                        tupleInfo.getLong(rightSlice, rightOffset));
                 break;
             case DOUBLE:
                 comparison = Double.compare(
-                        tupleInfo.getDouble(leftSlice, leftOffset, 0),
-                        tupleInfo.getDouble(rightSlice, rightOffset, 0));
+                        tupleInfo.getDouble(leftSlice, leftOffset),
+                        tupleInfo.getDouble(rightSlice, rightOffset));
                 break;
             case VARIABLE_BINARY:
-                comparison = tupleInfo.getSlice(leftSlice, leftOffset, 0)
-                        .compareTo(tupleInfo.getSlice(rightSlice, rightOffset, 0));
+                comparison = tupleInfo.getSlice(leftSlice, leftOffset)
+                        .compareTo(tupleInfo.getSlice(rightSlice, rightOffset));
                 break;
             default:
                 throw new AssertionError("unimplemented type: " + type);

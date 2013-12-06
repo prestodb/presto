@@ -50,63 +50,63 @@ public class BlockCursorAssertions
         assertEquals(cursor.getPosition(), position);
         assertTrue(cursor.currentTupleEquals(tuple));
 
-        assertEquals(cursor.isNull(0), tuple.isNull(0));
+        assertEquals(cursor.isNull(), tuple.isNull());
         switch (tupleInfo.getType()) {
             case BOOLEAN:
-                assertEquals(cursor.getBoolean(0), tuple.getBoolean(0));
+                assertEquals(cursor.getBoolean(), tuple.getBoolean());
                 try {
-                    cursor.getSlice(0);
+                    cursor.getSlice();
                     fail("Expected IllegalStateException or UnsupportedOperationException");
                 }
                 catch (IllegalStateException | UnsupportedOperationException expected) {
                 }
                 try {
-                    cursor.getSlice(0);
+                    cursor.getSlice();
                     fail("Expected IllegalStateException or UnsupportedOperationException");
                 }
                 catch (IllegalStateException | UnsupportedOperationException expected) {
                 }
                 break;
             case FIXED_INT_64:
-                assertEquals(cursor.getLong(0), tuple.getLong(0));
+                assertEquals(cursor.getLong(), tuple.getLong());
                 try {
-                    cursor.getDouble(0);
+                    cursor.getDouble();
                     fail("Expected IllegalStateException or UnsupportedOperationException");
                 }
                 catch (IllegalStateException | UnsupportedOperationException expected) {
                 }
                 try {
-                    cursor.getSlice(0);
+                    cursor.getSlice();
                     fail("Expected IllegalStateException or UnsupportedOperationException");
                 }
                 catch (IllegalStateException | UnsupportedOperationException expected) {
                 }
                 break;
             case VARIABLE_BINARY:
-                assertEquals(cursor.getSlice(0), tuple.getSlice(0));
+                assertEquals(cursor.getSlice(), tuple.getSlice());
                 try {
-                    cursor.getDouble(0);
+                    cursor.getDouble();
                     fail("Expected IllegalStateException or UnsupportedOperationException");
                 }
                 catch (IllegalStateException | UnsupportedOperationException expected) {
                 }
                 try {
-                    cursor.getLong(0);
+                    cursor.getLong();
                     fail("Expected IllegalStateException or UnsupportedOperationException");
                 }
                 catch (IllegalStateException | UnsupportedOperationException expected) {
                 }
                 break;
             case DOUBLE:
-                assertEquals(cursor.getDouble(0), tuple.getDouble(0));
+                assertEquals(cursor.getDouble(), tuple.getDouble());
                 try {
-                    cursor.getSlice(0);
+                    cursor.getSlice();
                     fail("Expected IllegalStateException or UnsupportedOperationException");
                 }
                 catch (IllegalStateException | UnsupportedOperationException expected) {
                 }
                 try {
-                    cursor.getSlice(0);
+                    cursor.getSlice();
                     fail("Expected IllegalStateException or UnsupportedOperationException");
                 }
                 catch (IllegalStateException | UnsupportedOperationException expected) {

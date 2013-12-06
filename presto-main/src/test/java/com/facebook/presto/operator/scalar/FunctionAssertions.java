@@ -238,7 +238,7 @@ public final class FunctionAssertions
 
         BlockCursor cursor = block.cursor();
         assertTrue(cursor.advanceNextPosition());
-        if (cursor.isNull(0)) {
+        if (cursor.isNull()) {
             return null;
         }
         else {
@@ -333,7 +333,7 @@ public final class FunctionAssertions
 
             BlockCursor cursor = page.getBlock(0).cursor();
             assertTrue(cursor.advanceNextPosition());
-            assertTrue(cursor.getBoolean(0));
+            assertTrue(cursor.getBoolean());
             value = true;
         }
         else {

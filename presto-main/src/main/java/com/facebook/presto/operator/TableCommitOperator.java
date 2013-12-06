@@ -132,8 +132,8 @@ public class TableCommitOperator
         for (int i = 0; i < page.getPositionCount(); i++) {
             checkArgument(rowCountCursor.advanceNextPosition());
             checkArgument(fragmentCursor.advanceNextPosition());
-            rowCount += rowCountCursor.getLong(0);
-            fragmentBuilder.add(fragmentCursor.getSlice(0).toStringUtf8());
+            rowCount += rowCountCursor.getLong();
+            fragmentBuilder.add(fragmentCursor.getSlice().toStringUtf8());
         }
     }
 

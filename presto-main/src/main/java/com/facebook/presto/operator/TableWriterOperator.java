@@ -155,23 +155,23 @@ public class TableWriterOperator
 
     private void writeField(BlockCursor cursor, Type type)
     {
-        if (cursor.isNull(0)) {
+        if (cursor.isNull()) {
             recordSink.appendNull();
             return;
         }
 
         switch (type) {
             case BOOLEAN:
-                recordSink.appendBoolean(cursor.getBoolean(0));
+                recordSink.appendBoolean(cursor.getBoolean());
                 break;
             case FIXED_INT_64:
-                recordSink.appendLong(cursor.getLong(0));
+                recordSink.appendLong(cursor.getLong());
                 break;
             case DOUBLE:
-                recordSink.appendDouble(cursor.getDouble(0));
+                recordSink.appendDouble(cursor.getDouble());
                 break;
             case VARIABLE_BINARY:
-                recordSink.appendString(cursor.getSlice(0).getBytes());
+                recordSink.appendString(cursor.getSlice().getBytes());
                 break;
             default:
                 throw new AssertionError("unimplemented type: " + type);

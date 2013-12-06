@@ -100,44 +100,44 @@ public interface BlockCursor
     Tuple getTuple();
 
     /**
-     * Gets a field from the current tuple.
+     * Gets a boolean at the current position.
      *
      * @throws IllegalStateException if this cursor is not at a valid position
      */
     @Override
-    boolean getBoolean(int field);
+    boolean getBoolean();
 
     /**
-     * Gets a field from the current tuple.
+     * Gets a long at the current position.
      *
      * @throws IllegalStateException if this cursor is not at a valid position
      */
     @Override
-    long getLong(int field);
+    long getLong();
 
     /**
-     * Gets a field from the current tuple.
+     * Gets a double at the current position.
      *
      * @throws IllegalStateException if this cursor is not at a valid position
      */
     @Override
-    double getDouble(int field);
+    double getDouble();
 
     /**
-     * Gets a field from the current tuple.
+     * Gets a slice at the current position.
      *
      * @throws IllegalStateException if this cursor is not at a valid position
      */
     @Override
-    Slice getSlice(int field);
+    Slice getSlice();
 
     /**
-     * Is the specified field null.
+     * Is the current position null?
      *
      * @throws IllegalStateException if this cursor is not at a valid position
      */
     @Override
-    boolean isNull(int field);
+    boolean isNull();
 
     /**
      * Returns the current position of this cursor

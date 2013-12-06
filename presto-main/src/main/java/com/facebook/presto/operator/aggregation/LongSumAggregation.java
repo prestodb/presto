@@ -74,10 +74,10 @@ public class LongSumAggregation
 
                 long groupId = groupIdsBlock.getGroupId(position);
 
-                if (!values.isNull(0)) {
+                if (!values.isNull()) {
                     notNull.set(groupId, true);
 
-                    long value = values.getLong(0);
+                    long value = values.getLong();
                     sums.add(groupId, value);
                 }
             }
@@ -121,9 +121,9 @@ public class LongSumAggregation
 
             for (int position = 0; position < block.getPositionCount(); position++) {
                 checkState(values.advanceNextPosition());
-                if (!values.isNull(0)) {
+                if (!values.isNull()) {
                     notNull = true;
-                    sum += values.getLong(0);
+                    sum += values.getLong();
                 }
             }
         }

@@ -89,15 +89,15 @@ public class AverageAggregation
 
                 long groupId = groupIdsBlock.getGroupId(position);
 
-                if (!values.isNull(0)) {
+                if (!values.isNull()) {
                     counts.increment(groupId);
 
                     double value;
                     if (inputIsLong) {
-                        value = values.getLong(0);
+                        value = values.getLong();
                     }
                     else {
-                        value = values.getDouble(0);
+                        value = values.getDouble();
                     }
                     sums.add(groupId, value);
                 }
@@ -118,7 +118,7 @@ public class AverageAggregation
 
                 long groupId = groupIdsBlock.getGroupId(position);
 
-                Slice value = intermediateValues.getSlice(0);
+                Slice value = intermediateValues.getSlice();
                 long count = value.getLong(0);
                 counts.add(groupId, count);
 
@@ -182,13 +182,13 @@ public class AverageAggregation
 
             for (int position = 0; position < block.getPositionCount(); position++) {
                 checkState(values.advanceNextPosition());
-                if (!values.isNull(0)) {
+                if (!values.isNull()) {
                     count++;
                     if (inputIsLong) {
-                        sum += values.getLong(0);
+                        sum += values.getLong();
                     }
                     else {
-                        sum += values.getDouble(0);
+                        sum += values.getDouble();
                     }
                 }
             }
@@ -201,7 +201,7 @@ public class AverageAggregation
 
             for (int position = 0; position < block.getPositionCount(); position++) {
                 checkState(intermediates.advanceNextPosition());
-                Slice value = intermediates.getSlice(0);
+                Slice value = intermediates.getSlice();
                 count += value.getLong(0);
                 sum += value.getDouble(SIZE_OF_LONG);
             }

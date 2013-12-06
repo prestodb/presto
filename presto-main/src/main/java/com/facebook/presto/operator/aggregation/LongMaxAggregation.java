@@ -73,10 +73,10 @@ public class LongMaxAggregation
 
                 long groupId = groupIdsBlock.getGroupId(position);
 
-                if (!values.isNull(0)) {
+                if (!values.isNull()) {
                     notNull.set(groupId, true);
 
-                    long value = values.getLong(0);
+                    long value = values.getLong();
                     value = Math.max(value, maxValues.get(groupId));
                     maxValues.set(groupId, value);
                 }
@@ -121,9 +121,9 @@ public class LongMaxAggregation
 
             for (int position = 0; position < block.getPositionCount(); position++) {
                 checkState(values.advanceNextPosition());
-                if (!values.isNull(0)) {
+                if (!values.isNull()) {
                     notNull = true;
-                    max = Math.max(max, values.getLong(0));
+                    max = Math.max(max, values.getLong());
                 }
             }
         }

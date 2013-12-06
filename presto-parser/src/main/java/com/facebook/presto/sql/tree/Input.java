@@ -16,6 +16,8 @@ package com.facebook.presto.sql.tree;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 /**
  * Represents a reference to a field in a physical execution plan
  * <p/>
@@ -28,6 +30,7 @@ public class Input
 
     public Input(int channel, int field)
     {
+        checkArgument(field == 0);
         this.channel = channel;
         this.field = field;
     }

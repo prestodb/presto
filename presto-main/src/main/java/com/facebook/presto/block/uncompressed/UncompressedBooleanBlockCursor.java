@@ -143,36 +143,34 @@ public class UncompressedBooleanBlockCursor
     }
 
     @Override
-    public boolean getBoolean(int index)
+    public boolean getBoolean()
     {
         checkReadablePosition();
-        Preconditions.checkElementIndex(0, 1, "field");
         return slice.getByte(offset + SIZE_OF_BYTE) != 0;
     }
 
     @Override
-    public long getLong(int field)
+    public long getLong()
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public double getDouble(int field)
+    public double getDouble()
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public Slice getSlice(int field)
+    public Slice getSlice()
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public boolean isNull(int field)
+    public boolean isNull()
     {
         checkReadablePosition();
-        Preconditions.checkElementIndex(0, 1, "field");
         return slice.getByte(offset) != 0;
     }
 

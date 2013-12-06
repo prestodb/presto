@@ -52,8 +52,8 @@ public class FieldOrderedTupleComparator
             TupleReadable left = leftRow[channel];
             TupleReadable right = rightRow[channel];
 
-            boolean leftIsNull = left.isNull(0);
-            boolean rightIsNull = right.isNull(0);
+            boolean leftIsNull = left.isNull();
+            boolean rightIsNull = right.isNull();
 
             if (leftIsNull && rightIsNull) {
                 return 0;
@@ -71,16 +71,16 @@ public class FieldOrderedTupleComparator
             int comparison;
             switch (type) {
                 case BOOLEAN:
-                    comparison = Boolean.compare(left.getBoolean(0), right.getBoolean(0));
+                    comparison = Boolean.compare(left.getBoolean(), right.getBoolean());
                     break;
                 case FIXED_INT_64:
-                    comparison = Long.compare(left.getLong(0), right.getLong(0));
+                    comparison = Long.compare(left.getLong(), right.getLong());
                     break;
                 case DOUBLE:
-                    comparison = Double.compare(left.getDouble(0), right.getDouble(0));
+                    comparison = Double.compare(left.getDouble(), right.getDouble());
                     break;
                 case VARIABLE_BINARY:
-                    comparison = left.getSlice(0).compareTo(right.getSlice(0));
+                    comparison = left.getSlice().compareTo(right.getSlice());
                     break;
                 default:
                     throw new AssertionError("unimplemented type: " + type);

@@ -48,7 +48,7 @@ public class Top100Benchmark
         TopNOperatorFactory topNOperator = new TopNOperatorFactory(
                 1,
                 100,
-                ImmutableList.of(singleColumn(Type.DOUBLE, 0, 0)),
+                ImmutableList.of(singleColumn(Type.DOUBLE, 0)),
                 Ordering.from(new FieldOrderedTupleComparator(ImmutableList.of(0), ImmutableList.of(SortOrder.DESC_NULLS_LAST))),
                 false);
         return ImmutableList.of(alignmentOperator, topNOperator);

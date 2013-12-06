@@ -160,21 +160,21 @@ public class HandTpchQuery6
 
         private void project(PageBuilder pageBuilder, BlockCursor extendedPriceCursor, BlockCursor discountCursor)
         {
-            if (discountCursor.isNull(0) || extendedPriceCursor.isNull(0)) {
+            if (discountCursor.isNull() || extendedPriceCursor.isNull()) {
                 pageBuilder.getBlockBuilder(0).appendNull();
             }
             else {
-                pageBuilder.getBlockBuilder(0).append(extendedPriceCursor.getDouble(0) * discountCursor.getDouble(0));
+                pageBuilder.getBlockBuilder(0).append(extendedPriceCursor.getDouble() * discountCursor.getDouble());
             }
         }
 
         private boolean filter(BlockCursor discountCursor, BlockCursor shipDateCursor, BlockCursor quantityCursor)
         {
-            return !shipDateCursor.isNull(0) && shipDateCursor.getSlice(0).compareTo(MIN_SHIP_DATE) >= 0 &&
-                    !shipDateCursor.isNull(0) && shipDateCursor.getSlice(0).compareTo(MAX_SHIP_DATE) < 0 &&
-                    !discountCursor.isNull(0) && discountCursor.getDouble(0) >= 0.05 &&
-                    !discountCursor.isNull(0) && discountCursor.getDouble(0) <= 0.07 &&
-                    !quantityCursor.isNull(0) && quantityCursor.getDouble(0) < 24;
+            return !shipDateCursor.isNull() && shipDateCursor.getSlice().compareTo(MIN_SHIP_DATE) >= 0 &&
+                    !shipDateCursor.isNull() && shipDateCursor.getSlice().compareTo(MAX_SHIP_DATE) < 0 &&
+                    !discountCursor.isNull() && discountCursor.getDouble() >= 0.05 &&
+                    !discountCursor.isNull() && discountCursor.getDouble() <= 0.07 &&
+                    !quantityCursor.isNull() && quantityCursor.getDouble() < 24;
         }
     }
 

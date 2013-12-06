@@ -32,15 +32,15 @@ public class TestBlockBuilder
                 .cursor();
 
         assertTrue(cursor.advanceNextPosition());
-        assertTrue(cursor.isNull(0));
+        assertTrue(cursor.isNull());
 
         assertTrue(cursor.advanceNextPosition());
-        assertEquals(cursor.getLong(0), 42L);
+        assertEquals(cursor.getLong(), 42L);
 
         assertTrue(cursor.advanceNextPosition());
-        assertTrue(cursor.isNull(0));
+        assertTrue(cursor.isNull());
 
         assertTrue(cursor.advanceNextPosition());
-        assertEquals(cursor.getLong(0), 42L);
+        assertEquals(cursor.getLong(), 42L);
     }
 }

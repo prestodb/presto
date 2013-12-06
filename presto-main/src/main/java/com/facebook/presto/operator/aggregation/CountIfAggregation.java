@@ -66,7 +66,7 @@ public class CountIfAggregation
             for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
                 checkState(values.advanceNextPosition());
 
-                if (!values.isNull(0) && values.getBoolean(0)) {
+                if (!values.isNull() && values.getBoolean()) {
                     long groupId = groupIdsBlock.getGroupId(position);
                     counts.increment(groupId);
                 }
@@ -84,9 +84,9 @@ public class CountIfAggregation
             for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
                 checkState(values.advanceNextPosition());
 
-                if (!values.isNull(0)) {
+                if (!values.isNull()) {
                     long groupId = groupIdsBlock.getGroupId(position);
-                    counts.add(groupId, values.getLong(0));
+                    counts.add(groupId, values.getLong());
                 }
             }
             checkState(!values.advanceNextPosition());
@@ -123,7 +123,7 @@ public class CountIfAggregation
 
             for (int position = 0; position < block.getPositionCount(); position++) {
                 checkState(values.advanceNextPosition());
-                if (!values.isNull(0) && values.getBoolean(0)) {
+                if (!values.isNull() && values.getBoolean()) {
                     count++;
                 }
             }
@@ -136,7 +136,7 @@ public class CountIfAggregation
 
             for (int position = 0; position < block.getPositionCount(); position++) {
                 checkState(intermediates.advanceNextPosition());
-                count += intermediates.getLong(0);
+                count += intermediates.getLong();
             }
         }
 

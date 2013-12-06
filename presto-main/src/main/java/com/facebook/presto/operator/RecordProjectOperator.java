@@ -50,7 +50,6 @@ public class RecordProjectOperator
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         this.cursor = checkNotNull(cursor, "cursor is null");
 
-        // project each field into a separate channel
         ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
         for (ColumnType columnType : columnTypes) {
             tupleInfos.add(new TupleInfo(Type.fromColumnType(columnType)));

@@ -406,7 +406,7 @@ public class GroupByHash
             // the extra BYTE here is for the null flag
             int writableBytes = sliceOutput.writableBytes() - SIZE_OF_BYTE;
 
-            boolean isNull = cursor.isNull(0);
+            boolean isNull = cursor.isNull();
 
             if (type == Type.FIXED_INT_64) {
                 if (writableBytes < SIZE_OF_LONG) {
@@ -415,7 +415,7 @@ public class GroupByHash
 
                 positionOffsets.add(sliceOutput.size());
                 sliceOutput.writeByte(isNull ? 1 : 0);
-                sliceOutput.appendLong(isNull ? 0 : cursor.getLong(0));
+                sliceOutput.appendLong(isNull ? 0 : cursor.getLong());
             }
             else if (type == Type.DOUBLE) {
                 if (writableBytes < SIZE_OF_DOUBLE) {
@@ -424,7 +424,7 @@ public class GroupByHash
 
                 positionOffsets.add(sliceOutput.size());
                 sliceOutput.writeByte(isNull ? 1 : 0);
-                sliceOutput.appendDouble(isNull ? 0 : cursor.getDouble(0));
+                sliceOutput.appendDouble(isNull ? 0 : cursor.getDouble());
             }
             else if (type == Type.BOOLEAN) {
                 if (writableBytes < SIZE_OF_BYTE) {
@@ -433,7 +433,7 @@ public class GroupByHash
 
                 positionOffsets.add(sliceOutput.size());
                 sliceOutput.writeByte(isNull ? 1 : 0);
-                sliceOutput.writeByte(!isNull && cursor.getBoolean(0) ? 1 : 0);
+                sliceOutput.writeByte(!isNull && cursor.getBoolean() ? 1 : 0);
             }
             else if (type == Type.VARIABLE_BINARY) {
                 int sliceLength = isNull ? 0 : getVariableBinaryLength(cursor.getRawSlice(), cursor.getRawOffset());
