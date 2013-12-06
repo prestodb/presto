@@ -35,7 +35,7 @@ public class BlockBuilder
     private final TupleInfo tupleInfo;
     private final int maxBlockSize;
     private final SliceOutput sliceOutput;
-    private int count;
+    private int positionCount;
 
     private TupleInfo.Builder tupleBuilder;
 
@@ -71,13 +71,11 @@ public class BlockBuilder
 
     public boolean isEmpty()
     {
-        checkState(!tupleBuilder.isPartial(), "Tuple is not complete");
-        return count == 0;
+        return positionCount == 0;
     }
 
     public boolean isFull()
     {
-        checkState(!tupleBuilder.isPartial(), "Tuple is not complete");
         return sliceOutput.size() > maxBlockSize;
     }
 
@@ -91,24 +89,54 @@ public class BlockBuilder
         return maxBlockSize - sliceOutput.size();
     }
 
+    public BlockBuilder appendObject(Object value)
+    {
+        if (value == null) {
+            tupleBuilder.appendNull();
+        }
+        else if (value instanceof Boolean) {
+            tupleBuilder.append((Boolean) value);
+        }
+        else if (value instanceof Double || value instanceof Float) {
+            tupleBuilder.append(((Number) value).doubleValue());
+        }
+        else if (value instanceof Number) {
+            tupleBuilder.append(((Number) value).longValue());
+        }
+        else if (value instanceof byte[]) {
+            tupleBuilder.append(Slices.wrappedBuffer((byte[]) value));
+        }
+        else if (value instanceof String) {
+            tupleBuilder.append((String) value);
+        }
+        else if (value instanceof Slice) {
+            tupleBuilder.append((Slice) value);
+        }
+        else {
+            throw new IllegalArgumentException("Unsupported type: " + value.getClass());
+        }
+        positionCount++;
+        return this;
+    }
+
     public BlockBuilder append(boolean value)
     {
         tupleBuilder.append(value);
-        flushTupleIfNecessary();
+        positionCount++;
         return this;
     }
 
     public BlockBuilder append(long value)
     {
         tupleBuilder.append(value);
-        flushTupleIfNecessary();
+        positionCount++;
         return this;
     }
 
     public BlockBuilder append(double value)
     {
         tupleBuilder.append(value);
-        flushTupleIfNecessary();
+        positionCount++;
         return this;
     }
 
@@ -125,35 +153,33 @@ public class BlockBuilder
     public BlockBuilder append(Slice value)
     {
         tupleBuilder.append(value);
-        flushTupleIfNecessary();
+        positionCount++;
         return this;
     }
 
     public BlockBuilder appendNull()
     {
         tupleBuilder.appendNull();
-        flushTupleIfNecessary();
+        positionCount++;
         return this;
     }
 
     public BlockBuilder append(TupleReadable tuple)
     {
         tupleBuilder.append(tuple);
-        flushTupleIfNecessary();
+        positionCount++;
         return this;
     }
 
     public BlockBuilder append(TupleReadable tuple, int index)
     {
         tupleBuilder.append(tuple, index);
-        flushTupleIfNecessary();
+        positionCount++;
         return this;
     }
 
     public BlockBuilder appendTuple(Slice slice, int offset)
     {
-        checkState(!tupleBuilder.isPartial(), "Tuple is not complete");
-
         // read the tuple length
         int length = tupleInfo.size(slice, offset);
         return appendTuple(slice, offset, length);
@@ -161,29 +187,18 @@ public class BlockBuilder
 
     public BlockBuilder appendTuple(Slice slice, int offset, int length)
     {
-        checkState(!tupleBuilder.isPartial(), "Tuple is not complete");
-
         // copy tuple to output
         sliceOutput.writeBytes(slice, offset, length);
-        count++;
+        positionCount++;
 
         return this;
     }
 
-    private void flushTupleIfNecessary()
-    {
-        if (tupleBuilder.isComplete()) {
-            tupleBuilder.finish();
-            count++;
-        }
-    }
-
     public UncompressedBlock build()
     {
-        checkState(!tupleBuilder.isPartial(), "Tuple is not complete");
         checkState(!isEmpty(), "Cannot build an empty block");
 
-        return new UncompressedBlock(count, tupleInfo, sliceOutput.slice());
+        return new UncompressedBlock(positionCount, tupleInfo, sliceOutput.slice());
     }
 
     @Override
@@ -191,7 +206,7 @@ public class BlockBuilder
     {
         final StringBuilder sb = new StringBuilder();
         sb.append("BlockBuilder");
-        sb.append("{count=").append(count);
+        sb.append("{count=").append(positionCount);
         sb.append(", size=").append(sliceOutput.size());
         sb.append(", maxSize=").append(maxBlockSize);
         sb.append(", tupleInfo=").append(tupleInfo);

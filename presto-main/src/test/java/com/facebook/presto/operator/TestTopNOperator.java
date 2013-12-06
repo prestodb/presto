@@ -121,7 +121,7 @@ public class TestTopNOperator
 
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        MaterializedResult expected = resultBuilder(SINGLE_VARBINARY, SINGLE_LONG)
+        MaterializedResult expected = MaterializedResult.resultBuilder(VARIABLE_BINARY, FIXED_INT_64)
                 .row("f", 3)
                 .row("e", 6)
                 .row("d", 7)

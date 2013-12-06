@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory;
 import com.facebook.presto.spi.RecordCursor;
@@ -29,14 +30,12 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
-import static com.facebook.presto.operator.ProjectionFunctions.concat;
 import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
-import static com.facebook.presto.util.MaterializedResult.resultBuilder;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
@@ -62,7 +61,7 @@ public class TestFilterAndProjectOperator
     }
 
     @Test
-    public void testAlignment()
+    public void test()
             throws Exception
     {
         List<Page> input = rowPagesBuilder(SINGLE_VARBINARY, SINGLE_LONG)
@@ -86,24 +85,62 @@ public class TestFilterAndProjectOperator
                         long value = cursor.getLong(0);
                         return 10 <= value && value < 20;
                     }
-                },
-                ImmutableList.of(concat(singleColumn(VARIABLE_BINARY, 0, 0), singleColumn(FIXED_INT_64, 1, 0))));
+                }, ImmutableList.of(singleColumn(VARIABLE_BINARY, 0, 0), new Add5Projection(1)));
 
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        MaterializedResult expected = resultBuilder(new TupleInfo(VARIABLE_BINARY, FIXED_INT_64))
-                .row("10", 10)
-                .row("11", 11)
-                .row("12", 12)
-                .row("13", 13)
-                .row("14", 14)
-                .row("15", 15)
-                .row("16", 16)
-                .row("17", 17)
-                .row("18", 18)
-                .row("19", 19)
+        MaterializedResult expected = MaterializedResult.resultBuilder(VARIABLE_BINARY, FIXED_INT_64)
+                .row("10", 15)
+                .row("11", 16)
+                .row("12", 17)
+                .row("13", 18)
+                .row("14", 19)
+                .row("15", 20)
+                .row("16", 21)
+                .row("17", 22)
+                .row("18", 23)
+                .row("19", 24)
                 .build();
 
         assertOperatorEquals(operator, input, expected);
+    }
+
+    private static class Add5Projection
+            implements ProjectionFunction
+    {
+        private final int channelIndex;
+
+        public Add5Projection(int channelIndex)
+        {
+            this.channelIndex = channelIndex;
+        }
+
+        @Override
+        public TupleInfo getTupleInfo()
+        {
+            return SINGLE_LONG;
+        }
+
+        @Override
+        public void project(TupleReadable[] cursors, BlockBuilder output)
+        {
+            if (cursors[channelIndex].isNull(0)) {
+                output.appendNull();
+            }
+            else {
+                output.append(cursors[channelIndex].getLong(0) + 5);
+            }
+        }
+
+        @Override
+        public void project(RecordCursor cursor, BlockBuilder output)
+        {
+            if (cursor.isNull(channelIndex)) {
+                output.appendNull();
+            }
+            else {
+                output.append(cursor.getLong(channelIndex) + 5);
+            }
+        }
     }
 }

@@ -55,8 +55,14 @@ public class TestFileBlocksSerde
     @Test
     public void testRoundTrip()
     {
+        testRoundTrip(BlocksFileEncoding.DIC_RAW);
         for (BlocksFileEncoding encoding : BlocksFileEncoding.values()) {
-            testRoundTrip(encoding);
+            try {
+                testRoundTrip(encoding);
+            }
+            catch (Exception e) {
+                throw new RuntimeException("Round trip failed for encoding: " + encoding, e);
+            }
         }
     }
 

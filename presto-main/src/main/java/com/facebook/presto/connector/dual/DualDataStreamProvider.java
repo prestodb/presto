@@ -27,15 +27,14 @@ import javax.inject.Inject;
 
 import java.util.List;
 
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class DualDataStreamProvider
         implements ConnectorDataStreamProvider
 {
-    private static final InternalTable DATA = InternalTable.builder(ImmutableList.of(DualMetadata.COLUMN_METADATA))
-            .add(SINGLE_VARBINARY.builder().append("X").build())
+    private static final InternalTable DATA = InternalTable.builder(DualMetadata.COLUMN_METADATA)
+            .add("X")
             .build();
 
     @Inject

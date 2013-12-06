@@ -198,7 +198,7 @@ public final class FunctionAssertions
             try {
                 LocalQueryRunner runner = createDualLocalQueryRunner(session, EXECUTOR);
                 MaterializedResult result = runner.execute("SELECT " + projection + " FROM dual");
-                assertEquals(result.getTupleInfo().getFieldCount(), 1);
+                assertEquals(result.getTupleInfos().size(), 1);
                 assertEquals(result.getMaterializedTuples().size(), 1);
                 Object queryResult = Iterables.getOnlyElement(result.getMaterializedTuples()).getField(0);
                 results.add(queryResult);
@@ -290,7 +290,7 @@ public final class FunctionAssertions
             try {
                 LocalQueryRunner runner = createDualLocalQueryRunner(session, EXECUTOR);
                 MaterializedResult result = runner.execute("SELECT TRUE FROM dual WHERE " + filter);
-                assertEquals(result.getTupleInfo().getFieldCount(), 1);
+                assertEquals(result.getTupleInfos().size(), 1);
 
                 Boolean queryResult;
                 if (result.getMaterializedTuples().isEmpty()) {

@@ -128,17 +128,16 @@ public class InformationSchemaDataStreamProvider
         for (Entry<QualifiedTableName, List<ColumnMetadata>> entry : getColumnsList(catalogName, filters).entrySet()) {
             QualifiedTableName tableName = entry.getKey();
             for (ColumnMetadata column : entry.getValue()) {
-                table.add(table.getTupleInfo().builder()
-                        .append(tableName.getCatalogName())
-                        .append(tableName.getSchemaName())
-                        .append(tableName.getTableName())
-                        .append(column.getName())
-                        .append(column.getOrdinalPosition() + 1)
-                        .appendNull()
-                        .append("YES")
-                        .append(fromColumnType(column.getType()).getName())
-                        .append(column.isPartitionKey() ? "YES" : "NO")
-                        .build());
+                table.add(
+                        tableName.getCatalogName(),
+                        tableName.getSchemaName(),
+                        tableName.getTableName(),
+                        column.getName(),
+                        column.getOrdinalPosition() + 1,
+                        null,
+                        "YES",
+                        fromColumnType(column.getType()).getName(),
+                        column.isPartitionKey() ? "YES" : "NO");
             }
         }
         return table.build();
@@ -153,12 +152,11 @@ public class InformationSchemaDataStreamProvider
     {
         InternalTable.Builder table = InternalTable.builder(InformationSchemaMetadata.informationSchemaTableColumns(InformationSchemaMetadata.TABLE_TABLES));
         for (QualifiedTableName name : getTablesList(catalogName, filters)) {
-            table.add(table.getTupleInfo().builder()
-                    .append(name.getCatalogName())
-                    .append(name.getSchemaName())
-                    .append(name.getTableName())
-                    .append("BASE TABLE")
-                    .build());
+            table.add(
+                    name.getCatalogName(),
+                    name.getSchemaName(),
+                    name.getTableName(),
+                    "BASE TABLE");
         }
         return table.build();
     }
@@ -188,13 +186,12 @@ public class InformationSchemaDataStreamProvider
                 functionType = "scalar (non-deterministic)";
             }
 
-            table.add(table.getTupleInfo().builder()
-                    .append(function.getName().toString())
-                    .append(Joiner.on(", ").join(arguments))
-                    .append(function.getReturnType().getName())
-                    .append(functionType)
-                    .append(nullToEmpty(function.getDescription()))
-                    .build());
+            table.add(
+                    function.getName().toString(),
+                    Joiner.on(", ").join(arguments),
+                    function.getReturnType().getName(),
+                    functionType,
+                    nullToEmpty(function.getDescription()));
         }
         return table.build();
     }
@@ -203,10 +200,7 @@ public class InformationSchemaDataStreamProvider
     {
         InternalTable.Builder table = InternalTable.builder(InformationSchemaMetadata.informationSchemaTableColumns(InformationSchemaMetadata.TABLE_SCHEMATA));
         for (String schema : metadata.listSchemaNames(catalogName)) {
-            table.add(table.getTupleInfo().builder()
-                    .append(catalogName)
-                    .append(schema)
-                    .build());
+            table.add(catalogName, schema);
         }
         return table.build();
     }
@@ -228,14 +222,13 @@ public class InformationSchemaDataStreamProvider
                 ColumnHandle columnHandle = entry.getKey();
                 String columnName = columnHandles.get(columnHandle);
                 String value = entry.getValue() != null ? String.valueOf(entry.getValue()) : null;
-                table.add(table.getTupleInfo().builder()
-                        .append(catalogName)
-                        .append(tableName.getSchemaName())
-                        .append(tableName.getTableName())
-                        .append(partitionNumber)
-                        .append(columnName)
-                        .append(value)
-                        .build());
+                table.add(
+                        catalogName,
+                        tableName.getSchemaName(),
+                        tableName.getTableName(),
+                        partitionNumber,
+                        columnName,
+                        value);
             }
             partitionNumber++;
         }

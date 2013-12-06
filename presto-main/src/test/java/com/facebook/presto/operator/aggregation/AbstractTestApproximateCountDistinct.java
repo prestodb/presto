@@ -24,7 +24,6 @@ import org.apache.commons.math.stat.descriptive.DescriptiveStatistics;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -143,27 +142,19 @@ public abstract class AbstractTestApproximateCountDistinct
             page = new Page(0);
         }
         else {
-            page = new Page(values.size(), createBlock(values, 1));
+            page = new Page(values.size(), createBlock(values));
         }
         return page;
     }
 
     /**
-     * Produce a block with the given number of fields and the values in the last field. All other fields are set to null.
+     * Produce a block with the given values in the last field.
      */
-    private Block createBlock(List<Object> values, int numberOfFields)
+    private Block createBlock(List<Object> values)
     {
-        TupleInfo.Type[] types = new TupleInfo.Type[numberOfFields];
-        Arrays.fill(types, getValueType());
-        types[numberOfFields - 1] = getValueType();
-
-        BlockBuilder blockBuilder = new BlockBuilder(new TupleInfo(types));
+        BlockBuilder blockBuilder = new BlockBuilder(new TupleInfo(getValueType()));
 
         for (Object value : values) {
-            for (int i = 0; i < numberOfFields - 1; i++) {
-                blockBuilder.appendNull();
-            }
-
             if (value == null) {
                 blockBuilder.appendNull();
             }

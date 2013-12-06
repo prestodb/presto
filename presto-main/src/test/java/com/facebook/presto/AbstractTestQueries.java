@@ -32,13 +32,13 @@ import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.storage.MockStorageManager;
 import com.facebook.presto.tpch.TpchMetadata;
-import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.util.MaterializedResult;
 import com.facebook.presto.util.MaterializedTuple;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.ImmutableSet;
@@ -48,7 +48,6 @@ import com.google.common.collect.Multimaps;
 import com.google.common.collect.Ordering;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
-import io.airlift.slice.Slices;
 import io.airlift.units.Duration;
 import org.apache.commons.math.stat.descriptive.DescriptiveStatistics;
 import org.intellij.lang.annotations.Language;
@@ -67,6 +66,7 @@ import org.testng.annotations.Test;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -80,6 +80,7 @@ import static com.facebook.presto.tpch.TpchMetadata.TPCH_LINEITEM_NAME;
 import static com.facebook.presto.tpch.TpchMetadata.TPCH_ORDERS_METADATA;
 import static com.facebook.presto.tpch.TpchMetadata.TPCH_ORDERS_NAME;
 import static com.facebook.presto.tpch.TpchMetadata.TPCH_SCHEMA_NAME;
+import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 import static com.facebook.presto.tuple.TupleInfo.Type.BOOLEAN;
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
@@ -177,7 +178,7 @@ public abstract class AbstractTestQueries
                 "ORDER BY orderkey DESC\n" +
                 "LIMIT 3");
 
-        MaterializedResult expected = resultBuilder(FIXED_INT_64, FIXED_INT_64)
+        MaterializedResult expected = resultBuilder(SINGLE_LONG, SINGLE_LONG)
                 .row(7, 5)
                 .row(6, 4)
                 .row(5, 3)
@@ -221,7 +222,7 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         MaterializedResult actual = computeActual("SELECT orderstatus, approx_distinct(custkey) FROM orders GROUP BY orderstatus");
-        MaterializedResult expected = resultBuilder(actual.getTupleInfo())
+        MaterializedResult expected = resultBuilder(actual.getTupleInfos())
                 .row("O", 969)
                 .row("F", 964)
                 .row("P", 301)
@@ -383,7 +384,7 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         MaterializedResult actual = computeActual("SELECT orderkey FROM ORDERS LIMIT 10");
-        MaterializedResult all = computeExpected("SELECT orderkey FROM ORDERS", actual.getTupleInfo());
+        MaterializedResult all = computeExpected("SELECT orderkey FROM ORDERS", actual.getTupleInfos());
 
         assertEquals(actual.getMaterializedTuples().size(), 10);
         assertTrue(all.getMaterializedTuples().containsAll(actual.getMaterializedTuples()));
@@ -394,7 +395,7 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         MaterializedResult actual = computeActual("SELECT custkey, SUM(totalprice) FROM ORDERS GROUP BY custkey LIMIT 10");
-        MaterializedResult all = computeExpected("SELECT custkey, SUM(totalprice) FROM ORDERS GROUP BY custkey", actual.getTupleInfo());
+        MaterializedResult all = computeExpected("SELECT custkey, SUM(totalprice) FROM ORDERS GROUP BY custkey", actual.getTupleInfos());
 
         assertEquals(actual.getMaterializedTuples().size(), 10);
         assertTrue(all.getMaterializedTuples().containsAll(actual.getMaterializedTuples()));
@@ -405,7 +406,7 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         MaterializedResult actual = computeActual("SELECT orderkey FROM (SELECT orderkey FROM ORDERS LIMIT 100) T LIMIT 10");
-        MaterializedResult all = computeExpected("SELECT orderkey FROM ORDERS", actual.getTupleInfo());
+        MaterializedResult all = computeExpected("SELECT orderkey FROM ORDERS", actual.getTupleInfos());
 
         assertEquals(actual.getMaterializedTuples().size(), 10);
         assertTrue(all.getMaterializedTuples().containsAll(actual.getMaterializedTuples()));
@@ -2312,7 +2313,7 @@ public abstract class AbstractTestQueries
                         "(TABLE orders ORDER BY orderkey LIMIT 20) UNION ALL " +
                         "(TABLE orders LIMIT 5) UNION ALL " +
                         "TABLE orders LIMIT 10");
-        MaterializedResult all = computeExpected("SELECT * FROM ORDERS", actual.getTupleInfo());
+        MaterializedResult all = computeExpected("SELECT * FROM ORDERS", actual.getTupleInfos());
 
         assertEquals(actual.getMaterializedTuples().size(), 10);
         assertTrue(all.getMaterializedTuples().containsAll(actual.getMaterializedTuples()));
@@ -2742,7 +2743,7 @@ public abstract class AbstractTestQueries
 
         MaterializedResult fullSample = computeActual("SELECT orderkey FROM orders TABLESAMPLE BERNOULLI (100)");
         MaterializedResult emptySample = computeActual("SELECT orderkey FROM orders TABLESAMPLE BERNOULLI (0)");
-        MaterializedResult all = computeExpected("SELECT orderkey FROM orders", fullSample.getTupleInfo());
+        MaterializedResult all = computeExpected("SELECT orderkey FROM orders", fullSample.getTupleInfos());
 
         assertTrue(all.getMaterializedTuples().containsAll(fullSample.getMaterializedTuples()));
         assertEquals(emptySample.getMaterializedTuples().size(), 0);
@@ -2754,7 +2755,7 @@ public abstract class AbstractTestQueries
     {
         DescriptiveStatistics stats = new DescriptiveStatistics();
 
-        int total = computeExpected("SELECT orderkey FROM orders", TupleInfo.SINGLE_LONG).getMaterializedTuples().size();
+        int total = computeExpected("SELECT orderkey FROM orders", ImmutableList.of(SINGLE_LONG)).getMaterializedTuples().size();
 
         for (int i = 0; i < 100; i++) {
             List<MaterializedTuple> values = computeActual("SELECT orderkey FROM ORDERS TABLESAMPLE BERNOULLI (50)").getMaterializedTuples();
@@ -2901,7 +2902,7 @@ public abstract class AbstractTestQueries
         MaterializedResult actualResults = computeActual(actual);
         log.info("FINISHED in %s", Duration.nanosSince(start));
 
-        MaterializedResult expectedResults = computeExpected(expected, actualResults.getTupleInfo());
+        MaterializedResult expectedResults = computeExpected(expected, actualResults.getTupleInfos());
 
         if (ensureOrdering) {
             assertEquals(actualResults.getMaterializedTuples(), expectedResults.getMaterializedTuples());
@@ -2927,72 +2928,71 @@ public abstract class AbstractTestQueries
         }
     }
 
-    private MaterializedResult computeExpected(@Language("SQL") final String sql, TupleInfo resultTupleInfo)
+    private MaterializedResult computeExpected(@Language("SQL") final String sql, List<TupleInfo> resultTupleInfos)
     {
         return new MaterializedResult(
                 handle.createQuery(sql)
-                        .map(tupleMapper(resultTupleInfo))
+                        .map(tupleMapper(resultTupleInfos))
                         .list(),
-                resultTupleInfo
+                resultTupleInfos
         );
     }
 
-    private static ResultSetMapper<Tuple> tupleMapper(final TupleInfo tupleInfo)
+    private static ResultSetMapper<MaterializedTuple> tupleMapper(final List<TupleInfo> tupleInfos)
     {
-        return new ResultSetMapper<Tuple>()
+        return new ResultSetMapper<MaterializedTuple>()
         {
             @Override
-            public Tuple map(int index, ResultSet resultSet, StatementContext ctx)
+            public MaterializedTuple map(int index, ResultSet resultSet, StatementContext ctx)
                     throws SQLException
             {
-                List<TupleInfo.Type> types = tupleInfo.getTypes();
                 int count = resultSet.getMetaData().getColumnCount();
-                checkArgument(types.size() == count, "tuple info does not match result");
-                TupleInfo.Builder builder = tupleInfo.builder();
+                checkArgument(tupleInfos.size() == count, "tuple info does not match result");
+                List<Object> row = new ArrayList<>(count);
                 for (int i = 1; i <= count; i++) {
-                    TupleInfo.Type type = types.get(i - 1);
+                    TupleInfo.Type type = tupleInfos.get(i - 1).getType();
                     switch (type) {
                         case BOOLEAN:
                             boolean booleanValue = resultSet.getBoolean(i);
                             if (resultSet.wasNull()) {
-                                builder.appendNull();
+                                row.add(null);
                             }
                             else {
-                                builder.append(booleanValue);
+                                row.add(booleanValue);
                             }
                             break;
                         case FIXED_INT_64:
                             long longValue = resultSet.getLong(i);
                             if (resultSet.wasNull()) {
-                                builder.appendNull();
+                                row.add(null);
                             }
                             else {
-                                builder.append(longValue);
+                                row.add(longValue);
                             }
                             break;
                         case DOUBLE:
                             double doubleValue = resultSet.getDouble(i);
                             if (resultSet.wasNull()) {
-                                builder.appendNull();
+                                row.add(null);
                             }
                             else {
-                                builder.append(doubleValue);
+                                row.add(doubleValue);
                             }
                             break;
                         case VARIABLE_BINARY:
                             String value = resultSet.getString(i);
                             if (resultSet.wasNull()) {
-                                builder.appendNull();
+                                row.add(null);
                             }
                             else {
-                                builder.append(Slices.wrappedBuffer(value.getBytes(UTF_8)));
+                                row.add(value);
                             }
                             break;
                         default:
                             throw new AssertionError("unhandled type: " + type);
                     }
                 }
-                return builder.build();
+                return new MaterializedTuple(MaterializedResult.DEFAULT_PRECISION, row);
             }
         };
     }

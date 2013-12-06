@@ -27,6 +27,8 @@ import static com.facebook.presto.operator.aggregation.VarianceAggregation.getCo
 import static com.facebook.presto.operator.aggregation.VarianceAggregation.getM2;
 import static com.facebook.presto.operator.aggregation.VarianceAggregation.getMean;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
+import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
+import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.google.common.base.Preconditions.checkState;
 
 public class ApproximateAverageAggregation
