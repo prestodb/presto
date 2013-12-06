@@ -64,14 +64,14 @@ public class ClientOptions
         return new ClientSession(parseServer(server), user, source, catalog, schema, debug);
     }
 
-    private static URI parseServer(String s)
+    public static URI parseServer(String server)
     {
-        s = s.toLowerCase();
-        if (s.startsWith("http://") || s.startsWith("https://")) {
-            return URI.create(s);
+        server = server.toLowerCase();
+        if (server.startsWith("http://") || server.startsWith("https://")) {
+            return URI.create(server);
         }
 
-        HostAndPort host = HostAndPort.fromString(s);
+        HostAndPort host = HostAndPort.fromString(server);
         try {
             return new URI("http", null, host.getHostText(), host.getPortOrDefault(80), null, null, null);
         }
