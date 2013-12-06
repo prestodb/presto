@@ -67,7 +67,7 @@ public class FieldOrderedTupleComparator
                 return sortOrder.isNullsFirst() ? 1 : -1;
             }
 
-            Type type = left.getTupleInfo().getTypes().get(0);
+            Type type = left.getTupleInfo().getType();
             int comparison;
             switch (type) {
                 case BOOLEAN:

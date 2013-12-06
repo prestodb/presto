@@ -15,7 +15,6 @@ package com.facebook.presto.block.snappy;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.block.uncompressed.UncompressedBlockCursor;
 import com.facebook.presto.block.uncompressed.UncompressedBooleanBlockCursor;
 import com.facebook.presto.block.uncompressed.UncompressedDoubleBlockCursor;
 import com.facebook.presto.block.uncompressed.UncompressedLongBlockCursor;
@@ -99,22 +98,20 @@ public class SnappyBlock
     @Override
     public BlockCursor cursor()
     {
-        if (tupleInfo.getFieldCount() == 1) {
-            Type type = tupleInfo.getTypes().get(0);
-            if (type == Type.BOOLEAN) {
-                return new UncompressedBooleanBlockCursor(positionCount, getUncompressedSlice());
-            }
-            if (type == Type.FIXED_INT_64) {
-                return new UncompressedLongBlockCursor(positionCount, getUncompressedSlice());
-            }
-            if (type == Type.DOUBLE) {
-                return new UncompressedDoubleBlockCursor(positionCount, getUncompressedSlice());
-            }
-            if (type == Type.VARIABLE_BINARY) {
-                return new UncompressedSliceBlockCursor(positionCount, getUncompressedSlice());
-            }
+        Type type = tupleInfo.getType();
+        if (type == Type.BOOLEAN) {
+            return new UncompressedBooleanBlockCursor(positionCount, getUncompressedSlice());
         }
-        return new UncompressedBlockCursor(tupleInfo, positionCount, getUncompressedSlice());
+        else if (type == Type.FIXED_INT_64) {
+            return new UncompressedLongBlockCursor(positionCount, getUncompressedSlice());
+        }
+        else if (type == Type.DOUBLE) {
+            return new UncompressedDoubleBlockCursor(positionCount, getUncompressedSlice());
+        }
+        else if (type == Type.VARIABLE_BINARY) {
+            return new UncompressedSliceBlockCursor(positionCount, getUncompressedSlice());
+        }
+        throw new IllegalStateException("Unsupported type " + type);
     }
 
     @Override

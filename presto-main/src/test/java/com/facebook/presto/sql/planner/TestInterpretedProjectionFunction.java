@@ -166,7 +166,7 @@ public class TestInterpretedProjectionFunction
     {
         Builder<Input, Type> inputTypes = ImmutableMap.builder();
         for (Input input : symbolToInputMappings.values()) {
-            TupleInfo.Type type = channels[input.getChannel()].getTupleInfo().getTypes().get(input.getField());
+            TupleInfo.Type type = channels[input.getChannel()].getTupleInfo().getType();
             switch (type) {
                 case BOOLEAN:
                     inputTypes.put(input, BOOLEAN);

@@ -82,22 +82,20 @@ public class UncompressedBlock
     @Override
     public BlockCursor cursor()
     {
-        if (tupleInfo.getFieldCount() == 1) {
-            Type type = tupleInfo.getTypes().get(0);
-            if (type == Type.BOOLEAN) {
-                return new UncompressedBooleanBlockCursor(positionCount, slice);
-            }
-            if (type == Type.FIXED_INT_64) {
-                return new UncompressedLongBlockCursor(positionCount, slice);
-            }
-            if (type == Type.DOUBLE) {
-                return new UncompressedDoubleBlockCursor(positionCount, slice);
-            }
-            if (type == Type.VARIABLE_BINARY) {
-                return new UncompressedSliceBlockCursor(positionCount, slice);
-            }
+        Type type = tupleInfo.getType();
+        if (type == Type.BOOLEAN) {
+            return new UncompressedBooleanBlockCursor(positionCount, slice);
         }
-        return new UncompressedBlockCursor(tupleInfo, positionCount, slice);
+        else if (type == Type.FIXED_INT_64) {
+            return new UncompressedLongBlockCursor(positionCount, slice);
+        }
+        else if (type == Type.DOUBLE) {
+            return new UncompressedDoubleBlockCursor(positionCount, slice);
+        }
+        else if (type == Type.VARIABLE_BINARY) {
+            return new UncompressedSliceBlockCursor(positionCount, slice);
+        }
+        throw new IllegalStateException("Unsupported type " + type);
     }
 
     @Override

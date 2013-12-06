@@ -115,7 +115,7 @@ public class JoinHash
             ImmutableList.Builder<Type> types = ImmutableList.builder();
             ImmutableList.Builder<ChannelIndex> channels = ImmutableList.builder();
             for (int channel : hashChannels) {
-                types.add(pagesIndex.getTupleInfo(channel).getTypes().get(0));
+                types.add(pagesIndex.getTupleInfo(channel).getType());
                 channels.add(pagesIndex.getIndex(channel));
             }
             this.types = types.build();

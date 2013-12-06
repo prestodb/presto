@@ -134,8 +134,7 @@ public class TableWriterOperator
         for (int channel = 0; channel < cursors.length; channel++) {
             cursors[channel] = page.getBlock(channel).cursor();
             TupleInfo tupleInfo = cursors[channel].getTupleInfo();
-            checkArgument(tupleInfo.getFieldCount() == 1, "expected block to have exactly one field");
-            types[channel] = tupleInfo.getTypes().get(0);
+            types[channel] = tupleInfo.getType();
         }
 
         int rows = page.getPositionCount();

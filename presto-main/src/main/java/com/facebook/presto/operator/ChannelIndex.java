@@ -59,7 +59,7 @@ public class ChannelIndex
         this.tupleInfo = tupleInfo;
         valueAddresses = new LongArrayList(expectedPositions);
         slices = ObjectArrayList.wrap(new Slice[1024], 0);
-        type = tupleInfo.getTypes().get(0);
+        type = tupleInfo.getType();
     }
 
     public DataSize getEstimatedSize()

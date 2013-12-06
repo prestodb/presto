@@ -254,8 +254,7 @@ public class HashAggregationOperator
             {
                 public Type apply(TupleInfo tupleInfo)
                 {
-                    checkArgument(tupleInfo.getFieldCount() == 1);
-                    return tupleInfo.getTypes().get(0);
+                    return tupleInfo.getType();
                 }
             }));
 

@@ -421,7 +421,7 @@ public class StatementResource
             List<String> names = queryInfo.getFieldNames();
             ArrayList<Type> types = new ArrayList<>();
             for (TupleInfo tupleInfo : outputStage.getTupleInfos()) {
-                types.addAll(tupleInfo.getTypes());
+                types.add(tupleInfo.getType());
             }
 
             checkArgument(names.size() == types.size(), "names and types size mismatch");
@@ -616,23 +616,19 @@ public class StatementResource
                 extends AbstractIterator<List<Object>>
         {
             private final BlockCursor[] cursors;
-            private final int columnCount;
 
             private RowIterator(Page page)
             {
-                int columnCount = 0;
                 cursors = new BlockCursor[page.getChannelCount()];
                 for (int channel = 0; channel < cursors.length; channel++) {
                     cursors[channel] = page.getBlock(channel).cursor();
-                    columnCount = cursors[channel].getTupleInfo().getFieldCount();
                 }
-                this.columnCount = columnCount;
             }
 
             @Override
             protected List<Object> computeNext()
             {
-                List<Object> row = new ArrayList<>(columnCount);
+                List<Object> row = new ArrayList<>(cursors.length);
                 for (BlockCursor cursor : cursors) {
                     if (!cursor.advanceNextPosition()) {
                         Preconditions.checkState(row.isEmpty(), "Page is unaligned");
