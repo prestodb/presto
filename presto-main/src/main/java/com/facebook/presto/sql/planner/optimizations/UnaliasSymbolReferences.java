@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.metadata.FunctionHandle;
+import com.facebook.presto.operator.SortOrder;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
@@ -41,7 +42,6 @@ import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.facebook.presto.sql.tree.SortItem;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -142,8 +142,8 @@ public class UnaliasSymbolReferences
                 functionInfos.put(canonical, node.getFunctionHandles().get(symbol));
             }
 
-            ImmutableMap.Builder<Symbol, SortItem.Ordering> orderings = ImmutableMap.builder();
-            for (Map.Entry<Symbol, SortItem.Ordering> entry : node.getOrderings().entrySet()) {
+            ImmutableMap.Builder<Symbol, SortOrder> orderings = ImmutableMap.builder();
+            for (Map.Entry<Symbol, SortOrder> entry : node.getOrderings().entrySet()) {
                 orderings.put(canonicalize(entry.getKey()), entry.getValue());
             }
 
@@ -214,7 +214,7 @@ public class UnaliasSymbolReferences
             PlanNode source = planRewriter.rewrite(node.getSource(), context);
 
             ImmutableList.Builder<Symbol> symbols = ImmutableList.builder();
-            ImmutableMap.Builder<Symbol, SortItem.Ordering> orderings = ImmutableMap.builder();
+            ImmutableMap.Builder<Symbol, SortOrder> orderings = ImmutableMap.builder();
             for (Symbol symbol : node.getOrderBy()) {
                 Symbol canonical = canonicalize(symbol);
                 symbols.add(canonical);
@@ -230,7 +230,7 @@ public class UnaliasSymbolReferences
             PlanNode source = planRewriter.rewrite(node.getSource(), context);
 
             ImmutableList.Builder<Symbol> symbols = ImmutableList.builder();
-            ImmutableMap.Builder<Symbol, SortItem.Ordering> orderings = ImmutableMap.builder();
+            ImmutableMap.Builder<Symbol, SortOrder> orderings = ImmutableMap.builder();
             for (Symbol symbol : node.getOrderBy()) {
                 Symbol canonical = canonicalize(symbol);
                 symbols.add(canonical);

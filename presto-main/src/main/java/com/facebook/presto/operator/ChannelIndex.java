@@ -17,7 +17,7 @@ import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.base.Preconditions;
+import com.facebook.presto.tuple.TupleInfo.Type;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
@@ -52,12 +52,14 @@ public class ChannelIndex
     private final ObjectArrayList<Slice> slices;
     private final TupleInfo tupleInfo;
     private long slicesMemorySize;
+    private Type type;
 
     public ChannelIndex(int expectedPositions, TupleInfo tupleInfo)
     {
         this.tupleInfo = tupleInfo;
         valueAddresses = new LongArrayList(expectedPositions);
         slices = ObjectArrayList.wrap(new Slice[1024], 0);
+        type = tupleInfo.getTypes().get(0);
     }
 
     public DataSize getEstimatedSize()
@@ -116,8 +118,8 @@ public class ChannelIndex
 
             long sliceAddress = encodeSyntheticAddress(blockIndex, offset);
 
-            Preconditions.checkState((int) (sliceAddress >> 32) == blockIndex);
-            Preconditions.checkState((int) sliceAddress == offset);
+            checkState((int) (sliceAddress >> 32) == blockIndex);
+            checkState((int) sliceAddress == offset);
 
             valueAddresses.add(sliceAddress);
         }
@@ -149,7 +151,7 @@ public class ChannelIndex
         Slice rightSlice = getSliceForSyntheticAddress(rightSliceAddress);
         int rightOffset = decodePosition(rightSliceAddress);
 
-        return valueEquals(tupleInfo.getTypes().get(0), leftSlice, leftOffset, rightSlice, rightOffset);
+        return valueEquals(type, leftSlice, leftOffset, rightSlice, rightOffset);
     }
 
     public boolean equals(int position, BlockCursor cursor)
@@ -161,7 +163,7 @@ public class ChannelIndex
 
         Slice rightSlice = cursor.getRawSlice();
         int rightOffset = cursor.getRawOffset();
-        return valueEquals(tupleInfo.getTypes().get(0), slice, offset, rightSlice, rightOffset);
+        return valueEquals(type, slice, offset, rightSlice, rightOffset);
     }
 
     public int hashCode(int position)
@@ -171,6 +173,58 @@ public class ChannelIndex
         Slice slice = getSliceForSyntheticAddress(sliceAddress);
         int offset = decodePosition(sliceAddress);
 
-        return valueHashCode(tupleInfo.getTypes().get(0), slice, offset);
+        return valueHashCode(type, slice, offset);
+    }
+
+    public int compare(SortOrder sortOrder, int leftPosition, int rightPosition)
+    {
+        long leftSliceAddress = valueAddresses.getLong(leftPosition);
+        Slice leftSlice = getSliceForSyntheticAddress(leftSliceAddress);
+        int leftOffset = decodePosition(leftSliceAddress);
+
+        long rightSliceAddress = valueAddresses.getLong(rightPosition);
+        Slice rightSlice = getSliceForSyntheticAddress(rightSliceAddress);
+        int rightOffset = decodePosition(rightSliceAddress);
+
+        boolean leftIsNull = tupleInfo.isNull(leftSlice, leftOffset, 0);
+        boolean rightIsNull = tupleInfo.isNull(rightSlice, rightOffset, 0);
+
+        if (leftIsNull && rightIsNull) {
+            return 0;
+        }
+
+        if (leftIsNull) {
+            return sortOrder.isNullsFirst() ? -1 : 1;
+        }
+
+        if (rightIsNull) {
+            return sortOrder.isNullsFirst() ? 1 : -1;
+        }
+
+        int comparison;
+        switch (type) {
+            case BOOLEAN:
+                comparison = Boolean.compare(
+                        tupleInfo.getBoolean(leftSlice, leftOffset, 0),
+                        tupleInfo.getBoolean(rightSlice, rightOffset, 0));
+                break;
+            case FIXED_INT_64:
+                comparison = Long.compare(
+                        tupleInfo.getLong(leftSlice, leftOffset, 0),
+                        tupleInfo.getLong(rightSlice, rightOffset, 0));
+                break;
+            case DOUBLE:
+                comparison = Double.compare(
+                        tupleInfo.getDouble(leftSlice, leftOffset, 0),
+                        tupleInfo.getDouble(rightSlice, rightOffset, 0));
+                break;
+            case VARIABLE_BINARY:
+                comparison = tupleInfo.getSlice(leftSlice, leftOffset, 0)
+                        .compareTo(tupleInfo.getSlice(rightSlice, rightOffset, 0));
+                break;
+            default:
+                throw new AssertionError("unimplemented type: " + type);
+        }
+        return sortOrder.isAscending() ? comparison : -comparison;
     }
 }

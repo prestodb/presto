@@ -16,9 +16,9 @@ package com.facebook.presto.benchmark;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.operator.AlignmentOperator.AlignmentOperatorFactory;
 import com.facebook.presto.operator.OperatorFactory;
+import com.facebook.presto.operator.SortOrder;
 import com.facebook.presto.operator.TopNOperator.TopNOperatorFactory;
 import com.facebook.presto.serde.BlocksFileEncoding;
-import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.facebook.presto.tuple.FieldOrderedTupleComparator;
 import com.facebook.presto.tuple.TupleInfo.Type;
@@ -48,9 +48,8 @@ public class Top100Benchmark
         TopNOperatorFactory topNOperator = new TopNOperatorFactory(
                 1,
                 100,
-                0,
                 ImmutableList.of(singleColumn(Type.DOUBLE, 0, 0)),
-                Ordering.from(new FieldOrderedTupleComparator(ImmutableList.of(0), ImmutableList.of(SortItem.Ordering.DESCENDING))),
+                Ordering.from(new FieldOrderedTupleComparator(ImmutableList.of(0), ImmutableList.of(SortOrder.DESC_NULLS_LAST))),
                 false);
         return ImmutableList.of(alignmentOperator, topNOperator);
     }

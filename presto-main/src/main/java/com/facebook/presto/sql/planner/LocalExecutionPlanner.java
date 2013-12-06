@@ -34,7 +34,7 @@ import com.facebook.presto.operator.InMemoryExchange;
 import com.facebook.presto.operator.InMemoryExchangeSourceOperator.InMemoryExchangeSourceOperatorFactory;
 import com.facebook.presto.operator.LimitOperator.LimitOperatorFactory;
 import com.facebook.presto.operator.OperatorFactory;
-import com.facebook.presto.operator.OrderByOperator.InMemoryOrderByOperatorFactory;
+import com.facebook.presto.operator.OrderByOperator.OrderByOperatorFactory;
 import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.operator.ProjectionFunctions;
@@ -42,10 +42,11 @@ import com.facebook.presto.operator.RecordSinkManager;
 import com.facebook.presto.operator.ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory;
 import com.facebook.presto.operator.SetBuilderOperator.SetBuilderOperatorFactory;
 import com.facebook.presto.operator.SetBuilderOperator.SetSupplier;
+import com.facebook.presto.operator.SortOrder;
 import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.operator.TableScanOperator.TableScanOperatorFactory;
 import com.facebook.presto.operator.TopNOperator.TopNOperatorFactory;
-import com.facebook.presto.operator.WindowOperator.InMemoryWindowOperatorFactory;
+import com.facebook.presto.operator.WindowOperator.WindowOperatorFactory;
 import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.RecordSink;
@@ -79,7 +80,6 @@ import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.tuple.FieldOrderedTupleComparator;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleReadable;
@@ -98,7 +98,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Ordering;
-import com.google.common.collect.Sets;
+import com.google.common.primitives.Ints;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 
@@ -119,7 +119,6 @@ import static com.facebook.presto.operator.TableWriterOperator.TableWriterOperat
 import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.leftGetter;
 import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.rightGetter;
 import static com.facebook.presto.sql.tree.Input.fieldGetter;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.not;
@@ -311,31 +310,18 @@ public class LocalExecutionPlanner
             List<Symbol> orderBySymbols = node.getOrderBy();
 
             // sort by PARTITION BY, then by ORDER BY
-            List<Symbol> orderingSymbols = ImmutableList.copyOf(Iterables.concat(partitionBySymbols, orderBySymbols));
-
-            // insert a projection to put all the sort fields in a single channel if necessary
-            if (!orderingSymbols.isEmpty()) {
-                source = packIfNecessary(orderingSymbols, source, context.getTypes(), context);
-            }
-
-            // find channel that fields were packed into if there is an ordering
-            int orderByChannel = 0;
-            if (!orderingSymbols.isEmpty()) {
-                orderByChannel = Iterables.getOnlyElement(getChannelSetForSymbols(orderingSymbols, source.getLayout()));
-            }
-
-            int[] partitionFields = new int[partitionBySymbols.size()];
-            for (int i = 0; i < partitionFields.length; i++) {
+            int[] partitionChannels = new int[partitionBySymbols.size()];
+            for (int i = 0; i < partitionChannels.length; i++) {
                 Symbol symbol = partitionBySymbols.get(i);
-                partitionFields[i] = getFirst(source.getLayout().get(symbol)).getField();
+                partitionChannels[i] = getFirst(source.getLayout().get(symbol)).getChannel();
             }
 
-            int[] sortFields = new int[orderBySymbols.size()];
-            boolean[] sortOrder = new boolean[orderBySymbols.size()];
-            for (int i = 0; i < sortFields.length; i++) {
+            int[] sortChannels = new int[orderBySymbols.size()];
+            SortOrder[] sortOrder = new SortOrder[orderBySymbols.size()];
+            for (int i = 0; i < sortChannels.length; i++) {
                 Symbol symbol = orderBySymbols.get(i);
-                sortFields[i] = getFirst(source.getLayout().get(symbol)).getField();
-                sortOrder[i] = (node.getOrderings().get(symbol) == SortItem.Ordering.ASCENDING);
+                sortChannels[i] = getFirst(source.getLayout().get(symbol)).getChannel();
+                sortOrder[i] = node.getOrderings().get(symbol);
             }
 
             int[] outputChannels = new int[source.getTupleInfos().size()];
@@ -365,14 +351,13 @@ public class LocalExecutionPlanner
                 channel++;
             }
 
-            OperatorFactory operatorFactory = new InMemoryWindowOperatorFactory(
+            OperatorFactory operatorFactory = new WindowOperatorFactory(
                     context.getNextOperatorId(),
                     source.getTupleInfos(),
-                    orderByChannel,
                     outputChannels,
                     windowFunctions.build(),
-                    partitionFields,
-                    sortFields,
+                    partitionChannels,
+                    sortChannels,
                     sortOrder,
                     1_000_000);
 
@@ -386,26 +371,20 @@ public class LocalExecutionPlanner
 
             List<Symbol> orderBySymbols = node.getOrderBy();
 
-            // insert a projection to put all the sort fields in a single channel if necessary
-            source = packIfNecessary(orderBySymbols, source, context.getTypes(), context);
-
-            int orderByChannel = Iterables.getOnlyElement(getChannelSetForSymbols(orderBySymbols, source.getLayout()));
-
-            List<Integer> sortFields = new ArrayList<>();
-            List<SortItem.Ordering> sortOrders = new ArrayList<>();
+            List<Integer> sortChannels = new ArrayList<>();
+            List<SortOrder> sortOrders = new ArrayList<>();
             for (Symbol symbol : orderBySymbols) {
-                sortFields.add(getFirst(source.getLayout().get(symbol)).getField());
+                sortChannels.add(getFirst(source.getLayout().get(symbol)).getChannel());
                 sortOrders.add(node.getOrderings().get(symbol));
             }
 
-            Ordering<TupleReadable> ordering = Ordering.from(new FieldOrderedTupleComparator(sortFields, sortOrders));
+            Ordering<TupleReadable[]> ordering = Ordering.from(new FieldOrderedTupleComparator(sortChannels, sortOrders));
 
             IdentityProjectionInfo mappings = computeIdentityMapping(node.getOutputSymbols(), source.getLayout(), context.getTypes());
 
             OperatorFactory operator = new TopNOperatorFactory(
                     context.getNextOperatorId(),
                     (int) node.getCount(),
-                    orderByChannel,
                     mappings.getProjections(),
                     ordering,
                     node.isPartial());
@@ -420,18 +399,12 @@ public class LocalExecutionPlanner
 
             List<Symbol> orderBySymbols = node.getOrderBy();
 
-            // insert a projection to put all the sort fields in a single channel if necessary
-            source = packIfNecessary(orderBySymbols, source, context.getTypes(), context);
+            int[] orderByChannels = Ints.toArray(getChannelsForSymbols(orderBySymbols, source.getLayout()));
 
-            int orderByChannel = Iterables.getOnlyElement(getChannelSetForSymbols(orderBySymbols, source.getLayout()));
-
-            int[] sortFields = new int[orderBySymbols.size()];
-            boolean[] sortOrder = new boolean[orderBySymbols.size()];
-            for (int i = 0; i < sortFields.length; i++) {
+            SortOrder[] sortOrder = new SortOrder[orderBySymbols.size()];
+            for (int i = 0; i < orderBySymbols.size(); i++) {
                 Symbol symbol = orderBySymbols.get(i);
-
-                sortFields[i] = getFirst(source.getLayout().get(symbol)).getField();
-                sortOrder[i] = (node.getOrderings().get(symbol) == SortItem.Ordering.ASCENDING);
+                sortOrder[i] = node.getOrderings().get(symbol);
             }
 
             int[] outputChannels = new int[source.getTupleInfos().size()];
@@ -439,13 +412,12 @@ public class LocalExecutionPlanner
                 outputChannels[i] = i;
             }
 
-            OperatorFactory operator = new InMemoryOrderByOperatorFactory(
+            OperatorFactory operator = new OrderByOperatorFactory(
                     context.getNextOperatorId(),
                     source.getTupleInfos(),
-                    orderByChannel,
                     outputChannels,
                     10_000,
-                    sortFields,
+                    orderByChannels,
                     sortOrder);
 
             return new PhysicalOperation(operator, source.getLayout(), source);
@@ -1113,52 +1085,6 @@ public class LocalExecutionPlanner
         }
 
         return new IdentityProjectionInfo(outputMappings.build(), projections);
-    }
-
-    /**
-     * Inserts a projection if the provided symbols are not in a single channel by themselves
-     */
-    private PhysicalOperation packIfNecessary(List<Symbol> symbols, PhysicalOperation source, Map<Symbol, Type> types, LocalExecutionPlanContext context)
-    {
-        List<Integer> channels = getChannelsForSymbols(symbols, source.getLayout());
-        List<TupleInfo> tupleInfos = source.getTupleInfos();
-        if (channels.size() > 1 || tupleInfos.get(Iterables.getOnlyElement(channels)).getFieldCount() > 1) {
-            source = pack(source, symbols, types, context);
-        }
-        return source;
-    }
-
-    /**
-     * Inserts a Projection that places the requested symbols into the same channel in the order specified
-     */
-    private static PhysicalOperation pack(PhysicalOperation source, List<Symbol> symbols, Map<Symbol, Type> types, LocalExecutionPlanContext context)
-    {
-        checkArgument(!symbols.isEmpty(), "symbols is empty");
-
-        List<Symbol> otherSymbols = ImmutableList.copyOf(Sets.difference(source.getLayout().keySet(), ImmutableSet.copyOf(symbols)));
-
-        // split composite channels into one field per channel. TODO: Fix it so that it preserves the layout of channels for "otherSymbols"
-        IdentityProjectionInfo mappings = computeIdentityMapping(otherSymbols, source.getLayout(), types);
-
-        ImmutableMultimap.Builder<Symbol, Input> outputMappings = ImmutableMultimap.builder();
-        ImmutableList.Builder<ProjectionFunction> projections = ImmutableList.builder();
-
-        outputMappings.putAll(mappings.getOutputLayout());
-        projections.addAll(mappings.getProjections());
-
-        // append a projection that packs all the input symbols into a single channel (it goes in the last channel)
-        List<ProjectionFunction> packedProjections = new ArrayList<>();
-        int channel = mappings.getProjections().size();
-        int field = 0;
-        for (Symbol symbol : symbols) {
-            packedProjections.add(ProjectionFunctions.singleColumn(types.get(symbol).getRawType(), getFirst(source.getLayout().get(symbol))));
-            outputMappings.put(symbol, new Input(channel, field));
-            field++;
-        }
-        projections.add(ProjectionFunctions.concat(packedProjections));
-
-        OperatorFactory operatorFactory = new FilterAndProjectOperatorFactory(context.getNextOperatorId(), FilterFunctions.TRUE_FUNCTION, projections.build());
-        return new PhysicalOperation(operatorFactory, outputMappings.build(), source);
     }
 
     private static List<Integer> getChannelsForSymbols(List<Symbol> symbols, Multimap<Symbol, Input> layout)
