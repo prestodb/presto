@@ -24,7 +24,6 @@ import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleReadable;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMap.Builder;
-import com.google.common.collect.Iterables;
 import org.testng.annotations.Test;
 
 import javax.annotation.Nullable;
@@ -198,7 +197,7 @@ public class TestInterpretedProjectionFunction
         projectionFunction.project(channels, builder);
 
         // extract single value
-        Object actualValue = Iterables.getOnlyElement(Iterables.concat(BlockAssertions.toValues(builder.build())));
+        Object actualValue = BlockAssertions.getOnlyValue(builder.build());
         assertEquals(actualValue, expectedValue);
     }
 }

@@ -42,6 +42,18 @@ import static org.testng.Assert.assertTrue;
 
 public class BlockAssertions
 {
+    public static Object getOnlyValue(Block block)
+    {
+        assertEquals(block.getPositionCount(), 1, "Block positions");
+
+        BlockCursor cursor = block.cursor();
+        Assert.assertTrue(cursor.advanceNextPosition());
+        Object value = cursor.getTuple().getObjectValue();
+        Assert.assertFalse(cursor.advanceNextPosition());
+
+        return value;
+    }
+
     public static void assertBlocksEquals(BlockIterable actual, BlockIterable expected)
     {
         Iterator<Block> expectedIterator = expected.iterator();
@@ -53,31 +65,31 @@ public class BlockAssertions
         assertFalse(expectedIterator.hasNext());
     }
 
-    public static List<List<Object>> toValues(BlockIterable blocks)
+    public static List<Object> toValues(BlockIterable blocks)
     {
-        ImmutableList.Builder<List<Object>> values = ImmutableList.builder();
+        List<Object> values = new ArrayList<>();
         for (Block block : blocks) {
             BlockCursor cursor = block.cursor();
             while (cursor.advanceNextPosition()) {
-                values.add(cursor.getTuple().toValues());
+                values.add(cursor.getTuple().getObjectValue());
             }
         }
-        return values.build();
+        return Collections.unmodifiableList(values);
     }
 
-    public static List<List<Object>> toValues(Block block)
+    public static List<Object> toValues(Block block)
     {
         BlockCursor cursor = block.cursor();
         return toValues(cursor);
     }
 
-    public static List<List<Object>> toValues(BlockCursor cursor)
+    public static List<Object> toValues(BlockCursor cursor)
     {
-        ImmutableList.Builder<List<Object>> values = ImmutableList.builder();
+        List<Object> values = new ArrayList<>();
         while (cursor.advanceNextPosition()) {
-            values.add(cursor.getTuple().toValues());
+            values.add(cursor.getTuple().getObjectValue());
         }
-        return values.build();
+        return Collections.unmodifiableList(values);
     }
 
     public static void assertBlockEquals(Block actual, Block expected)
