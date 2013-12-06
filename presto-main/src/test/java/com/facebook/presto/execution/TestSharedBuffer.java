@@ -24,6 +24,8 @@ import com.google.common.util.concurrent.Uninterruptibles;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Collections;
@@ -51,6 +53,7 @@ public class TestSharedBuffer
     private static final Duration NO_WAIT = new Duration(0, TimeUnit.MILLISECONDS);
     private static final Duration MAX_WAIT = new Duration(1, TimeUnit.SECONDS);
     private static final DataSize PAGE_SIZE = createPage(42).getDataSize();
+    private static final TaskId TASK_ID = new TaskId("query", "stage", "task");
 
     private static final OutputBuffers CLOSED_OUTPUT_BUFFERS = INITIAL_EMPTY_OUTPUT_BUFFERS.withNoMoreBufferIds();
 
@@ -64,12 +67,31 @@ public class TestSharedBuffer
         return new DataSize(PAGE_SIZE.toBytes() * count, Unit.BYTE);
     }
 
+    private ExecutorService executor;
+
+    @BeforeClass
+    public void setUp()
+            throws Exception
+    {
+        executor = Executors.newCachedThreadPool();
+    }
+
+    @AfterClass
+    public void tearDown()
+            throws Exception
+    {
+        if (executor != null) {
+            executor.shutdownNow();
+            executor = null;
+        }
+    }
+
     @Test
     public void testInvalidConstructorArg()
             throws Exception
     {
         try {
-            new SharedBuffer(new DataSize(0, Unit.BYTE), CLOSED_OUTPUT_BUFFERS);
+            new SharedBuffer(TASK_ID, executor, new DataSize(0, Unit.BYTE), CLOSED_OUTPUT_BUFFERS);
             fail("Expected IllegalStateException");
         }
         catch (IllegalArgumentException e) {
@@ -80,7 +102,7 @@ public class TestSharedBuffer
     public void testSimple()
             throws Exception
     {
-        SharedBuffer sharedBuffer = new SharedBuffer(sizeOfPages(10), INITIAL_EMPTY_OUTPUT_BUFFERS);
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, executor, sizeOfPages(10), INITIAL_EMPTY_OUTPUT_BUFFERS);
 
         // add three items
         for (int i = 0; i < 3; i++) {
@@ -217,7 +239,7 @@ public class TestSharedBuffer
             throws Exception
     {
         OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS;
-        SharedBuffer sharedBuffer = new SharedBuffer(sizeOfPages(10), outputBuffers);
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, executor, sizeOfPages(10), outputBuffers);
         // add three items
         for (int i = 0; i < 3; i++) {
             addPage(sharedBuffer, createPage(i));
@@ -253,7 +275,7 @@ public class TestSharedBuffer
             throws Exception
     {
         OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS;
-        SharedBuffer sharedBuffer = new SharedBuffer(sizeOfPages(10), outputBuffers);
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, executor, sizeOfPages(10), outputBuffers);
         assertFalse(sharedBuffer.isFinished());
 
         // tell buffer no more queues will be added
@@ -285,7 +307,7 @@ public class TestSharedBuffer
     public void testAddQueueAfterDestroy()
             throws Exception
     {
-        SharedBuffer sharedBuffer = new SharedBuffer(sizeOfPages(10), INITIAL_EMPTY_OUTPUT_BUFFERS);
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, executor, sizeOfPages(10), INITIAL_EMPTY_OUTPUT_BUFFERS);
         assertFalse(sharedBuffer.isFinished());
 
         // destroy buffer
@@ -309,7 +331,7 @@ public class TestSharedBuffer
             throws Exception
     {
         OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS;
-        SharedBuffer sharedBuffer = new SharedBuffer(sizeOfPages(10), outputBuffers);
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, executor, sizeOfPages(10), outputBuffers);
         assertFalse(sharedBuffer.isFinished());
 
         // verify operations on unknown queue throw an exception
@@ -366,14 +388,14 @@ public class TestSharedBuffer
             throws Exception
     {
         // add after finish
-        SharedBuffer sharedBuffer = new SharedBuffer(sizeOfPages(10), INITIAL_EMPTY_OUTPUT_BUFFERS);
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, executor, sizeOfPages(10), INITIAL_EMPTY_OUTPUT_BUFFERS);
         sharedBuffer.finish();
         addPage(sharedBuffer, createPage(0));
         addPage(sharedBuffer, createPage(0));
         assertEquals(sharedBuffer.getInfo().getPagesAdded(), 0);
 
         // add after destroy
-        sharedBuffer = new SharedBuffer(sizeOfPages(10), INITIAL_EMPTY_OUTPUT_BUFFERS);
+        sharedBuffer = new SharedBuffer(TASK_ID, executor, sizeOfPages(10), INITIAL_EMPTY_OUTPUT_BUFFERS);
         sharedBuffer.destroy();
         addPage(sharedBuffer, createPage(0));
         addPage(sharedBuffer, createPage(0));
@@ -385,7 +407,7 @@ public class TestSharedBuffer
             throws Exception
     {
         OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS;
-        SharedBuffer sharedBuffer = new SharedBuffer(sizeOfPages(10), outputBuffers);
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, executor, sizeOfPages(10), outputBuffers);
 
         // fill the buffer
         for (int i = 0; i < 10; i++) {
@@ -417,7 +439,7 @@ public class TestSharedBuffer
         OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS
                 .withBuffer("first", new UnpartitionedPagePartitionFunction())
                 .withBuffer("second", new UnpartitionedPagePartitionFunction());
-        SharedBuffer sharedBuffer = new SharedBuffer(sizeOfPages(10), outputBuffers);
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, executor, sizeOfPages(10), outputBuffers);
 
         // finish while queues are empty
         sharedBuffer.finish();
@@ -432,7 +454,7 @@ public class TestSharedBuffer
     {
         OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS
                 .withBuffer("queue", new UnpartitionedPagePartitionFunction());
-        SharedBuffer sharedBuffer = new SharedBuffer(sizeOfPages(5), outputBuffers);
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, executor, sizeOfPages(5), outputBuffers);
         assertFalse(sharedBuffer.isFinished());
 
         ExecutorService executor = Executors.newCachedThreadPool();
@@ -468,7 +490,7 @@ public class TestSharedBuffer
     {
         OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS
                 .withBuffer("queue", new UnpartitionedPagePartitionFunction());
-        SharedBuffer sharedBuffer = new SharedBuffer(sizeOfPages(5), outputBuffers);
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, executor, sizeOfPages(5), outputBuffers);
         assertFalse(sharedBuffer.isFinished());
 
         ExecutorService executor = Executors.newCachedThreadPool();
@@ -505,7 +527,7 @@ public class TestSharedBuffer
         OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS
                 .withBuffer("queue", new UnpartitionedPagePartitionFunction())
                 .withNoMoreBufferIds();
-        SharedBuffer sharedBuffer = new SharedBuffer(sizeOfPages(5), outputBuffers);
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, executor, sizeOfPages(5), outputBuffers);
         assertFalse(sharedBuffer.isFinished());
 
         ExecutorService executor = Executors.newCachedThreadPool();
@@ -552,7 +574,7 @@ public class TestSharedBuffer
         OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS
                 .withBuffer("queue", new UnpartitionedPagePartitionFunction())
                 .withNoMoreBufferIds();
-        SharedBuffer sharedBuffer = new SharedBuffer(sizeOfPages(5), outputBuffers);
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, executor, sizeOfPages(5), outputBuffers);
         assertFalse(sharedBuffer.isFinished());
 
         ExecutorService executor = Executors.newCachedThreadPool();
@@ -589,7 +611,7 @@ public class TestSharedBuffer
         OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS
                 .withBuffer("queue", new UnpartitionedPagePartitionFunction())
                 .withNoMoreBufferIds();
-        SharedBuffer sharedBuffer = new SharedBuffer(sizeOfPages(5), outputBuffers);
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, executor, sizeOfPages(5), outputBuffers);
         assertFalse(sharedBuffer.isFinished());
 
         ExecutorService executor = Executors.newCachedThreadPool();
