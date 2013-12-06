@@ -207,19 +207,22 @@ public class TaskExecutor
         return finishedFutures;
     }
 
-    private synchronized void splitFinished(PrioritizedSplitRunner split)
+    private void splitFinished(PrioritizedSplitRunner split)
     {
-        allSplits.remove(split);
-        pendingSplits.remove(split);
+        synchronized (this) {
+            allSplits.remove(split);
 
-        TaskHandle taskHandle = split.getTaskHandle();
-        taskHandle.splitComplete(split);
+            TaskHandle taskHandle = split.getTaskHandle();
+            taskHandle.splitComplete(split);
 
-        wallTime.add(System.nanoTime() - split.createdNanos);
+            wallTime.add(System.nanoTime() - split.createdNanos);
 
-        scheduleTaskIfNecessary(taskHandle);
+            scheduleTaskIfNecessary(taskHandle);
 
-        addNewEntrants();
+            addNewEntrants();
+        }
+        // call destroy outside of synchronized block as it is expensive and doesn't need a lock on the task executor
+        split.destroy();
     }
 
     private synchronized void scheduleTaskIfNecessary(TaskHandle taskHandle)
@@ -343,7 +346,6 @@ public class TaskExecutor
         private void splitComplete(PrioritizedSplitRunner split)
         {
             runningSplits.remove(split);
-            split.destroy();
         }
 
         private int getNextSplitId()
