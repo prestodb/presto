@@ -18,6 +18,7 @@ import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.event.query.QueryMonitor;
+import com.facebook.presto.execution.SharedBuffer.QueueState;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.TaskExecutor.TaskHandle;
 import com.facebook.presto.operator.Driver;
@@ -190,8 +191,20 @@ public class SqlTaskExecution
                     cpuTimerEnabled);
 
             this.sharedBuffer = new SharedBuffer(
+                    taskId,
+                    notificationExecutor,
                     checkNotNull(maxBufferSize, "maxBufferSize is null"),
                     outputBuffers);
+            sharedBuffer.addStateChangeListener(new StateChangeListener<QueueState>()
+            {
+                @Override
+                public void stateChanged(QueueState taskState)
+                {
+                    if (taskState == QueueState.FINISHED) {
+                        checkTaskCompletion();
+                    }
+                }
+            });
 
             this.queryMonitor = checkNotNull(queryMonitor, "queryMonitor is null");
 
@@ -527,6 +540,10 @@ public class SqlTaskExecution
 
     private synchronized void checkTaskCompletion()
     {
+        if (taskStateMachine.getState().isDone()) {
+            return;
+        }
+
         // are there more partition splits expected?
         if (partitionedSourceId != null && !noMorePartitionedSplits.get()) {
             return;
