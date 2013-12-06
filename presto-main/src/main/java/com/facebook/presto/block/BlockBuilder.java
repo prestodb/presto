@@ -25,7 +25,6 @@ import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 
 public class BlockBuilder
 {
@@ -189,8 +188,6 @@ public class BlockBuilder
 
     public UncompressedBlock build()
     {
-        checkState(!isEmpty(), "Cannot build an empty block");
-
         return new UncompressedBlock(positionCount, tupleInfo, sliceOutput.slice());
     }
 
