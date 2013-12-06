@@ -73,7 +73,6 @@ public class GroupByHash
         this.activePage = new GroupByPageBuilder(types);
         this.allPages.add(activePage);
 
-
         this.hashStrategy = new PageBuilderHashStrategy();
         this.pagePositionToGroupId = new PagePositionToGroupId(expectedSize, hashStrategy);
         this.pagePositionToGroupId.defaultReturnValue(-1);

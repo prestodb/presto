@@ -35,7 +35,7 @@ public class HashBuilderOperator
     public static class HashSupplier
     {
         private final List<TupleInfo> tupleInfos;
-        private final SettableFuture<HashData> hashFuture = SettableFuture.create();
+        private final SettableFuture<JoinHash> hashFuture = SettableFuture.create();
 
         public HashSupplier(List<TupleInfo> tupleInfos)
         {
@@ -47,38 +47,22 @@ public class HashBuilderOperator
             return tupleInfos;
         }
 
-        public ListenableFuture<SourceHash> getSourceHash()
+        public ListenableFuture<JoinHash> getSourceHash()
         {
-            return Futures.transform(hashFuture, new Function<HashData, SourceHash>()
+            return Futures.transform(hashFuture, new Function<JoinHash, JoinHash>()
             {
                 @Override
-                public SourceHash apply(HashData hashData)
+                public JoinHash apply(JoinHash joinHash)
                 {
-                    return new SourceHash(new ChannelHash(hashData.channelHash), hashData.pagesIndex);
+                    return new JoinHash(joinHash);
                 }
             });
         }
 
-        void setHash(ChannelHash channelHash, PagesIndex pagesIndex)
+        void setHash(JoinHash joinHash)
         {
-            HashData hashData = new HashData(
-                    checkNotNull(channelHash, "channelHash is null"),
-                    checkNotNull(pagesIndex, "pagesIndex is null"));
-
-            boolean wasSet = hashFuture.set(hashData);
+            boolean wasSet = hashFuture.set(joinHash);
             checkState(wasSet, "Hash already set");
-        }
-
-        private static class HashData
-        {
-            private final ChannelHash channelHash;
-            private final PagesIndex pagesIndex;
-
-            private HashData(ChannelHash channelHash, PagesIndex pagesIndex)
-            {
-                this.channelHash = channelHash;
-                this.pagesIndex = pagesIndex;
-            }
         }
     }
 
@@ -87,20 +71,22 @@ public class HashBuilderOperator
     {
         private final int operatorId;
         private final HashSupplier hashSupplier;
-        private final int hashChannel;
+        private final List<Integer> hashChannels;
         private final int expectedPositions;
         private boolean closed;
 
         public HashBuilderOperatorFactory(
                 int operatorId,
                 List<TupleInfo> tupleInfos,
-                int hashChannel,
+                List<Integer> hashChannels,
                 int expectedPositions)
         {
             this.operatorId = operatorId;
             this.hashSupplier = new HashSupplier(checkNotNull(tupleInfos, "tupleInfos is null"));
-            Preconditions.checkArgument(hashChannel >= 0, "hashChannel is negative");
-            this.hashChannel = hashChannel;
+
+            Preconditions.checkArgument(!hashChannels.isEmpty(), "hashChannels is empty");
+            this.hashChannels = ImmutableList.copyOf(checkNotNull(hashChannels, "hashChannels is null"));
+
             this.expectedPositions = checkNotNull(expectedPositions, "expectedPositions is null");
         }
 
@@ -123,7 +109,7 @@ public class HashBuilderOperator
             return new HashBuilderOperator(
                     operatorContext,
                     hashSupplier,
-                    hashChannel,
+                    hashChannels,
                     expectedPositions);
         }
 
@@ -136,7 +122,7 @@ public class HashBuilderOperator
 
     private final OperatorContext operatorContext;
     private final HashSupplier hashSupplier;
-    private final int hashChannel;
+    private final List<Integer> hashChannels;
 
     private final PagesIndex pagesIndex;
 
@@ -145,12 +131,16 @@ public class HashBuilderOperator
     public HashBuilderOperator(
             OperatorContext operatorContext,
             HashSupplier hashSupplier,
-            int hashChannel,
+            List<Integer> hashChannels,
             int expectedPositions)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
+
         this.hashSupplier = checkNotNull(hashSupplier, "hashSupplier is null");
-        this.hashChannel = hashChannel;
+
+        Preconditions.checkArgument(!hashChannels.isEmpty(), "hashChannels is empty");
+        this.hashChannels = ImmutableList.copyOf(checkNotNull(hashChannels, "hashChannels is null"));
+
         this.pagesIndex = new PagesIndex(hashSupplier.getTupleInfos(), expectedPositions, operatorContext);
     }
 
@@ -173,8 +163,8 @@ public class HashBuilderOperator
             return;
         }
 
-        ChannelHash channelHash = new ChannelHash(pagesIndex.getIndex(hashChannel), operatorContext);
-        hashSupplier.setHash(channelHash, pagesIndex);
+        JoinHash joinHash = new JoinHash(pagesIndex, hashChannels, operatorContext);
+        hashSupplier.setHash(joinHash);
         finished = true;
     }
 

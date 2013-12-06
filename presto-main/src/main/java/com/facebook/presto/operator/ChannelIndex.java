@@ -27,8 +27,10 @@ import it.unimi.dsi.fastutil.longs.LongIterable;
 import it.unimi.dsi.fastutil.longs.LongListIterator;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
-import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
+import static com.facebook.presto.operator.HashStrategyUtils.valueEquals;
+import static com.facebook.presto.operator.HashStrategyUtils.valueHashCode;
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
+import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -135,5 +137,40 @@ public class ChannelIndex
     public Slice getSliceForSyntheticAddress(long sliceAddress)
     {
         return slices.get(decodeSliceIndex(sliceAddress));
+    }
+
+    public boolean equals(int leftPosition, int rightPosition)
+    {
+        long leftSliceAddress = valueAddresses.getLong(leftPosition);
+        Slice leftSlice = getSliceForSyntheticAddress(leftSliceAddress);
+        int leftOffset = decodePosition(leftSliceAddress);
+
+        long rightSliceAddress = valueAddresses.getLong(rightPosition);
+        Slice rightSlice = getSliceForSyntheticAddress(rightSliceAddress);
+        int rightOffset = decodePosition(rightSliceAddress);
+
+        return valueEquals(tupleInfo.getTypes().get(0), leftSlice, leftOffset, rightSlice, rightOffset);
+    }
+
+    public boolean equals(int position, BlockCursor cursor)
+    {
+        // get slice an offset for the position
+        long sliceAddress = valueAddresses.getLong(position);
+        Slice slice = getSliceForSyntheticAddress(sliceAddress);
+        int offset = decodePosition(sliceAddress);
+
+        Slice rightSlice = cursor.getRawSlice();
+        int rightOffset = cursor.getRawOffset();
+        return valueEquals(tupleInfo.getTypes().get(0), slice, offset, rightSlice, rightOffset);
+    }
+
+    public int hashCode(int position)
+    {
+        // get slice an offset for the position
+        long sliceAddress = valueAddresses.getLong(position);
+        Slice slice = getSliceForSyntheticAddress(sliceAddress);
+        int offset = decodePosition(sliceAddress);
+
+        return valueHashCode(tupleInfo.getTypes().get(0), slice, offset);
     }
 }
