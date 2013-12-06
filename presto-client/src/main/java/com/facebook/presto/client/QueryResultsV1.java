@@ -31,41 +31,72 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.unmodifiableIterable;
 import static java.util.Collections.unmodifiableList;
 
+@Deprecated
 @Immutable
-public class QueryResults
+public class QueryResultsV1
 {
-    private final QueryStats queryStats;
+    private final String id;
+    private final URI infoUri;
+    private final URI partialCancelUri;
     private final URI nextUri;
     private final List<Column> columns;
     private final Iterable<List<Object>> data;
+    private final StatementStats stats;
+    private final QueryError error;
 
     @JsonCreator
-    public QueryResults(
-            @JsonProperty("queryStats") QueryStats queryStats,
+    public QueryResultsV1(
+            @JsonProperty("id") String id,
+            @JsonProperty("infoUri") URI infoUri,
+            @JsonProperty("partialCancelUri") URI partialCancelUri,
             @JsonProperty("nextUri") URI nextUri,
             @JsonProperty("columns") List<Column> columns,
-            @JsonProperty("data") List<List<Object>> data)
+            @JsonProperty("data") List<List<Object>> data,
+            @JsonProperty("stats") StatementStats stats,
+            @JsonProperty("error") QueryError error)
     {
-        this(queryStats, nextUri, columns, fixData(columns, data));
+        this(id, infoUri, partialCancelUri, nextUri, columns, fixData(columns, data), stats, error);
     }
 
-    public QueryResults(
-            QueryStats queryStats,
+    public QueryResultsV1(
+            String id,
+            URI infoUri,
+            URI partialCancelUri,
             URI nextUri,
             List<Column> columns,
-            Iterable<List<Object>> data)
+            Iterable<List<Object>> data,
+            StatementStats stats,
+            QueryError error)
     {
-        this.queryStats = checkNotNull(queryStats, "queryStats is null");
+        this.id = checkNotNull(id, "id is null");
+        this.infoUri = checkNotNull(infoUri, "infoUri is null");
+        this.partialCancelUri = partialCancelUri;
         this.nextUri = nextUri;
         this.columns = (columns != null) ? ImmutableList.copyOf(columns) : null;
         this.data = (data != null) ? unmodifiableIterable(data) : null;
+        this.stats = checkNotNull(stats, "stats is null");
+        this.error = error;
     }
 
     @NotNull
     @JsonProperty
-    public QueryStats getQueryStats()
+    public String getId()
     {
-        return queryStats;
+        return id;
+    }
+
+    @NotNull
+    @JsonProperty
+    public URI getInfoUri()
+    {
+        return infoUri;
+    }
+
+    @Nullable
+    @JsonProperty
+    public URI getPartialCancelUri()
+    {
+        return partialCancelUri;
     }
 
     @Nullable
@@ -89,14 +120,32 @@ public class QueryResults
         return data;
     }
 
+    @NotNull
+    @JsonProperty
+    public StatementStats getStats()
+    {
+        return stats;
+    }
+
+    @Nullable
+    @JsonProperty
+    public QueryError getError()
+    {
+        return error;
+    }
+
     @Override
     public String toString()
     {
         return Objects.toStringHelper(this)
-                .add("queryStats", queryStats)
+                .add("id", id)
+                .add("infoUri", infoUri)
+                .add("partialCancelUri", partialCancelUri)
                 .add("nextUri", nextUri)
                 .add("columns", columns)
                 .add("hasData", data != null)
+                .add("stats", stats)
+                .add("error", error)
                 .toString();
     }
 

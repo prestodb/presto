@@ -103,7 +103,7 @@ public class Query
         if ((!client.isFailed()) && (!client.isGone()) && (!client.isClosed())) {
             QueryResults results = client.isValid() ? client.current() : client.finalResults();
             if (results.getColumns() == null) {
-                errorChannel.printf("Query %s has no columns\n", results.getId());
+                errorChannel.printf("Query %s has no columns\n", results.getQueryStats().getId());
                 return;
             }
 
@@ -210,7 +210,7 @@ public class Query
 
     public void renderFailure(QueryResults results, PrintStream out)
     {
-        out.printf("Query %s failed: %s%n", results.getId(), results.getError().getMessage());
+        out.printf("Query %s failed: %s%n", results.getQueryStats().getId(), results.getQueryStats().getError().getMessage());
         if (client.isDebug()) {
             renderStack(results, out);
         }
@@ -219,8 +219,8 @@ public class Query
 
     private static void renderErrorLocation(String query, QueryResults results, PrintStream out)
     {
-        if (results.getError().getErrorLocation() != null) {
-            renderErrorLocation(query, results.getError().getErrorLocation(), out);
+        if (results.getQueryStats().getError().getErrorLocation() != null) {
+            renderErrorLocation(query, results.getQueryStats().getError().getErrorLocation(), out);
         }
     }
 
@@ -264,8 +264,8 @@ public class Query
 
     private static void renderStack(QueryResults results, PrintStream out)
     {
-        if (results.getError().getFailureInfo() != null) {
-            results.getError().getFailureInfo().toException().printStackTrace(out);
+        if (results.getQueryStats().getError().getFailureInfo() != null) {
+            results.getQueryStats().getError().getFailureInfo().toException().printStackTrace(out);
         }
     }
 }

@@ -219,6 +219,7 @@ public class ServerMainModule
         jsonCodecBinder(binder).bindJsonCodec(QueryInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(QueryResults.class);
+        binder.bind(StatementResourceV1.class).in(Scopes.SINGLETON);
         binder.bind(StatementResource.class).in(Scopes.SINGLETON);
 
         // execute resource

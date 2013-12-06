@@ -1514,7 +1514,7 @@ public class PrestoResultSet
 
         QueryResults results = client.finalResults();
         if (!client.isFailed()) {
-            throw new SQLException(format("Query has no columns (#%s)", results.getId()));
+            throw new SQLException(format("Query has no columns (#%s)", results.getQueryStats().getId()));
         }
         throw resultsException(results);
     }
@@ -1562,8 +1562,8 @@ public class PrestoResultSet
 
     private static SQLException resultsException(QueryResults results)
     {
-        QueryError error = results.getError();
-        String message = format("Query failed (#%s): %s", results.getId(), error.getMessage());
+        QueryError error = results.getQueryStats().getError();
+        String message = format("Query failed (#%s): %s", results.getQueryStats().getId(), error.getMessage());
         Throwable cause = (error.getFailureInfo() == null) ? null : error.getFailureInfo().toException();
         return new SQLException(message, error.getSqlState(), error.getErrorCode(), cause);
     }

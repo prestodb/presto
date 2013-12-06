@@ -221,7 +221,7 @@ public class TestDistributedQueries
             while (client.isValid()) {
                 QueryResults results = client.current();
                 if (!loggedUri.getAndSet(true)) {
-                    log.info("Query %s: %s?pretty", results.getId(), results.getInfoUri());
+                    log.info("Query %s: %s?pretty", results.getQueryStats().getId(), results.getQueryStats().getInfoUri());
                 }
 
                 if ((tupleInfo == null) && (results.getColumns() != null)) {
@@ -238,7 +238,7 @@ public class TestDistributedQueries
                 return new MaterializedResult(rows.build(), tupleInfo);
             }
 
-            QueryError error = client.finalResults().getError();
+            QueryError error = client.finalResults().getQueryStats().getError();
             assert error != null;
             if (error.getFailureInfo() != null) {
                 throw error.getFailureInfo().toException();

@@ -19,6 +19,7 @@ public final class PrestoHeaders
     public static final String PRESTO_SOURCE = "X-Presto-Source";
     public static final String PRESTO_CATALOG = "X-Presto-Catalog";
     public static final String PRESTO_SCHEMA = "X-Presto-Schema";
+    public static final String PRESTO_CREATE_AND_FETCH = "X-Presto-Create-And-Fetch";
 
     public static final String PRESTO_CURRENT_STATE = "X-Presto-Current-State";
     public static final String PRESTO_MAX_WAIT = "X-Presto-Max-Wait";

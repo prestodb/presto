@@ -15,10 +15,9 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.client.Column;
+import com.facebook.presto.client.QueryResultsV1;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.client.QueryError;
-import com.facebook.presto.client.QueryResults;
-import com.facebook.presto.client.QueryStats;
 import com.facebook.presto.client.StageStats;
 import com.facebook.presto.client.StatementStats;
 import com.facebook.presto.execution.BufferInfo;
@@ -26,6 +25,7 @@ import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryState;
+import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.StageState;
 import com.facebook.presto.execution.TaskInfo;
@@ -55,7 +55,6 @@ import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.DELETE;
-import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
@@ -84,12 +83,11 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_CREATE_AND_FETCH;
-import static com.facebook.presto.execution.QueryInfo.queryIdGetter;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
+import static com.facebook.presto.execution.QueryInfo.queryIdGetter;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.execution.StageInfo.stageStateGetter;
 import static com.facebook.presto.util.Failures.toFailure;
@@ -103,10 +101,11 @@ import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.String.format;
 
-@Path("/v2/statement")
-public class StatementResource
+@Deprecated
+@Path("/v1/statement")
+public class StatementResourceV1
 {
-    private static final Logger log = Logger.get(StatementResource.class);
+    private static final Logger log = Logger.get(StatementResourceV1.class);
 
     private static final Duration MAX_WAIT_TIME = new Duration(1, TimeUnit.SECONDS);
     private static final Ordering<Comparable<Duration>> WAIT_ORDERING = Ordering.natural().nullsLast();
@@ -119,7 +118,7 @@ public class StatementResource
     private final ScheduledExecutorService queryPurger = Executors.newSingleThreadScheduledExecutor(threadsNamed("query-purger-%d"));
 
     @Inject
-    public StatementResource(QueryManager queryManager, Supplier<ExchangeClient> exchangeClientSupplier)
+    public StatementResourceV1(QueryManager queryManager, Supplier<ExchangeClient> exchangeClientSupplier)
     {
         this.queryManager = checkNotNull(queryManager, "queryManager is null");
         this.exchangeClientSupplier = checkNotNull(exchangeClientSupplier, "exchangeClientSupplier is null");
@@ -142,7 +141,6 @@ public class StatementResource
             @HeaderParam(PRESTO_CATALOG) String catalog,
             @HeaderParam(PRESTO_SCHEMA) String schema,
             @HeaderParam(USER_AGENT) String userAgent,
-            @HeaderParam(PRESTO_CREATE_AND_FETCH) @DefaultValue("true") boolean createAndFetch,
             @Context HttpServletRequest requestContext,
             @Context UriInfo uriInfo)
             throws InterruptedException
@@ -158,8 +156,7 @@ public class StatementResource
         ExchangeClient exchangeClient = exchangeClientSupplier.get();
         Query query = new Query(session, statement, queryManager, exchangeClient);
         queries.put(query.getQueryId(), query);
-
-        return Response.ok(query.getNextResults(uriInfo, new Duration(1, TimeUnit.MILLISECONDS), createAndFetch)).build();
+        return Response.ok(query.getNextResults(uriInfo, new Duration(1, TimeUnit.MILLISECONDS))).build();
     }
 
     static void assertRequest(boolean expression, String format, Object... args)
@@ -172,24 +169,6 @@ public class StatementResource
                     .build();
             throw new WebApplicationException(request);
         }
-    }
-
-    @GET
-    @Path("{queryId}")
-    @Produces(MediaType.APPLICATION_JSON)
-    public Response getQueryStats(
-            @PathParam("queryId") QueryId queryId,
-            @QueryParam("maxWait") Duration maxWait,
-            @Context UriInfo uriInfo)
-            throws InterruptedException
-    {
-        Query query = queries.get(queryId);
-        if (query == null) {
-            return Response.status(Status.NOT_FOUND).build();
-        }
-
-        Duration wait = WAIT_ORDERING.min(MAX_WAIT_TIME, maxWait);
-        return Response.ok(query.getStats(uriInfo, wait)).build();
     }
 
     @GET
@@ -236,7 +215,7 @@ public class StatementResource
         private final AtomicLong resultId = new AtomicLong();
 
         @GuardedBy("this")
-        private QueryResults lastResult;
+        private QueryResultsV1 lastResult;
 
         @GuardedBy("this")
         private String lastResultPath;
@@ -272,7 +251,7 @@ public class StatementResource
             return queryId;
         }
 
-        public synchronized QueryResults getResults(long token, UriInfo uriInfo, Duration maxWaitTime)
+        public synchronized QueryResultsV1 getResults(long token, UriInfo uriInfo, Duration maxWaitTime)
                 throws InterruptedException
         {
             // is the a repeated request for the last results?
@@ -293,20 +272,23 @@ public class StatementResource
                 throw new WebApplicationException(Status.NOT_FOUND);
             }
 
-            return getNextResults(uriInfo, maxWaitTime, true);
+            return getNextResults(uriInfo, maxWaitTime);
         }
 
-        public synchronized QueryResults getNextResults(UriInfo uriInfo, Duration maxWaitTime, boolean fetchData)
+        public synchronized QueryResultsV1 getNextResults(UriInfo uriInfo, Duration maxWaitTime)
                 throws InterruptedException
         {
-            Iterable <List<Object>> data = null;
-            if (fetchData) {
-                data = getData(maxWaitTime);
-            }
+            Iterable<List<Object>> data = getData(maxWaitTime);
 
             // get the query info before returning
             // force update if query manager is closed
-            QueryInfo queryInfo = getQueryInfo(maxWaitTime);
+            QueryInfo queryInfo = queryManager.getQueryInfo(queryId);
+
+            // if we have received all of the output data and the query is not marked as done, wait for the query to finish
+            if (exchangeClient.isClosed() && !queryInfo.getState().isDone()) {
+                queryManager.waitForStateChange(queryId, queryInfo.getState(), maxWaitTime);
+                queryInfo = queryManager.getQueryInfo(queryId);
+            }
 
             // close exchange client if the query has failed
             if (queryInfo.getState().isDone()) {
@@ -335,16 +317,15 @@ public class StatementResource
             }
 
             // first time through, self is null
-            QueryResults queryResults = new QueryResults(
-                    new QueryStats(
-                            queryId.toString(),
-                            uriInfo.getRequestUriBuilder().replaceQuery("").replacePath(queryInfo.getSelf().getPath()).build(),
-                            findCancelableLeafStage(queryInfo),
-                            toStatementStats(queryInfo),
-                            toQueryError(queryInfo)),
+            QueryResultsV1 queryResults = new QueryResultsV1(
+                    queryId.toString(),
+                    uriInfo.getRequestUriBuilder().replaceQuery("").replacePath(queryInfo.getSelf().getPath()).build(),
+                    findCancelableLeafStage(queryInfo),
                     nextResultsUri,
                     columns,
-                    data);
+                    data,
+                    toStatementStats(queryInfo),
+                    toQueryError(queryInfo));
 
             // cache the last results
             if (lastResult != null) {
@@ -355,34 +336,6 @@ public class StatementResource
             }
             lastResult = queryResults;
             return queryResults;
-        }
-
-        public synchronized QueryStats getStats(UriInfo uriInfo, Duration maxWaitTime)
-                throws InterruptedException
-        {
-            QueryInfo queryInfo = getQueryInfo(maxWaitTime);
-            return new QueryStats(
-                    queryId.toString(),
-                    uriInfo.getRequestUriBuilder().replaceQuery("").replacePath(queryInfo.getSelf().getPath()).build(),
-                    findCancelableLeafStage(queryInfo),
-                    toStatementStats(queryInfo),
-                    toQueryError(queryInfo));
-        }
-
-        private synchronized QueryInfo getQueryInfo(Duration maxWaitTime)
-                throws InterruptedException
-        {
-            // get the query info before returning
-            // force update if query manager is closed
-            QueryInfo queryInfo = queryManager.getQueryInfo(queryId);
-
-            // if we have received all of the output data and the query is not marked as done, wait for the query to finish
-            if (exchangeClient.isClosed() && !queryInfo.getState().isDone()) {
-                queryManager.waitForStateChange(queryId, queryInfo.getState(), maxWaitTime);
-                queryInfo = queryManager.getQueryInfo(queryId);
-            }
-
-            return queryInfo;
         }
 
         private synchronized Iterable<List<Object>> getData(Duration maxWait)
@@ -455,7 +408,7 @@ public class StatementResource
 
         private synchronized URI createNextResultsUri(UriInfo uriInfo)
         {
-            return uriInfo.getBaseUriBuilder().replacePath("/v2/statement").path(queryId.toString()).path(String.valueOf(resultId.incrementAndGet())).replaceQuery("").build();
+            return uriInfo.getBaseUriBuilder().replacePath("/v1/statement").path(queryId.toString()).path(String.valueOf(resultId.incrementAndGet())).replaceQuery("").build();
         }
 
         private static List<Column> createColumnsList(QueryInfo queryInfo)
@@ -500,7 +453,7 @@ public class StatementResource
 
         private static StatementStats toStatementStats(QueryInfo queryInfo)
         {
-            com.facebook.presto.execution.QueryStats queryStats = queryInfo.getQueryStats();
+            QueryStats queryStats = queryInfo.getQueryStats();
 
             return StatementStats.builder()
                     .setState(queryInfo.getState().toString())
