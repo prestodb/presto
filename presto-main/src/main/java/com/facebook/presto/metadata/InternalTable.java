@@ -18,7 +18,6 @@ import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.collect.ImmutableList;
@@ -104,21 +103,6 @@ public class InternalTable
         public List<TupleInfo> getTupleInfos()
         {
             return tupleInfos;
-        }
-
-        public Builder add(Tuple tuple)
-        {
-            checkArgument(tuple.getTupleInfo().getTypes().equals(tupleInfos), "tuple schema does not match builder");
-
-            for (int i = 0; i < tupleInfos.size(); i++) {
-                pageBuilder.getBlockBuilder(i).append(tuple, i);
-            }
-
-            if (pageBuilder.isFull()) {
-                flushPage();
-                pageBuilder.reset();
-            }
-            return this;
         }
 
         public Builder add(Object... values)

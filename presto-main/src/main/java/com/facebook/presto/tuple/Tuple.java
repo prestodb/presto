@@ -101,29 +101,28 @@ public class Tuple
     public List<Object> toValues()
     {
         ArrayList<Object> values = new ArrayList<>();
-        int index = 0;
-        for (Type type : tupleInfo.getTypes()) {
-            if (isNull(index)) {
-                values.add(null);
+        if (isNull(0)) {
+            values.add(null);
+        }
+        else {
+            Type type = tupleInfo.getType();
+            switch (type) {
+                case BOOLEAN:
+                    values.add(getBoolean(0));
+                    break;
+                case FIXED_INT_64:
+                    values.add(getLong(0));
+                    break;
+                case DOUBLE:
+                    values.add(getDouble(0));
+                    break;
+                case VARIABLE_BINARY:
+                    Slice slice = getSlice(0);
+                    values.add(slice.toString(UTF_8));
+                    break;
+                default:
+                    throw new IllegalStateException("Unsupported type: " + type);
             }
-            else {
-                switch (type) {
-                    case BOOLEAN:
-                        values.add(getBoolean(index));
-                        break;
-                    case FIXED_INT_64:
-                        values.add(getLong(index));
-                        break;
-                    case DOUBLE:
-                        values.add(getDouble(index));
-                        break;
-                    case VARIABLE_BINARY:
-                        Slice slice = getSlice(index);
-                        values.add(slice.toString(UTF_8));
-                        break;
-                }
-            }
-            index++;
         }
         return Collections.unmodifiableList(values);
     }

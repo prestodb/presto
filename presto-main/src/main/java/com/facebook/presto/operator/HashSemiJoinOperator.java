@@ -96,7 +96,6 @@ public class HashSemiJoinOperator
         checkNotNull(channelSetFuture, "hashProvider is null");
         checkNotNull(probeTupleInfos, "probeTupleInfos is null");
         checkArgument(probeJoinChannel >= 0, "probeJoinChannel is negative");
-        checkArgument(probeTupleInfos.get(probeJoinChannel).getFieldCount() == 1, "Semi join currently only support simple types");
 
         this.channelSetFuture = channelSetFuture.getChannelSet();
         this.probeJoinChannel = probeJoinChannel;

@@ -272,9 +272,7 @@ public class HashJoinOperator
 
             // write nulls into build columns
             for (int buildChannel = 0; buildChannel < hash.getChannelCount(); buildChannel++) {
-                for (int i = 0; i < getTupleInfos().get(outputIndex).getTypes().size(); i++) {
-                    pageBuilder.getBlockBuilder(outputIndex).appendNull();
-                }
+                pageBuilder.getBlockBuilder(outputIndex).appendNull();
                 outputIndex++;
             }
             if (pageBuilder.isFull()) {

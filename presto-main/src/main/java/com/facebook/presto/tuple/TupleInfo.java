@@ -18,14 +18,12 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import com.google.common.base.Charsets;
 import com.google.common.base.Function;
-import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 
-import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.tuple.TupleInfo.Type.BOOLEAN;
@@ -164,20 +162,10 @@ public class TupleInfo
         this.type = tupleType;
     }
 
-    public List<Type> getTypes()
-    {
-        return ImmutableList.of(type);
-    }
-
     @JsonValue
     public Type getType()
     {
         return type;
-    }
-
-    public int getFieldCount()
-    {
-        return 1;
     }
 
     public int getFixedSize()
@@ -485,7 +473,7 @@ public class TupleInfo
 
         public Builder append(TupleReadable tuple, int index)
         {
-            checkArgument(type == tuple.getTupleInfo().getType(), "Type (%s) does not match tuple type (%s)", type, tuple.getTupleInfo().getTypes().get(index));
+            checkArgument(type == tuple.getTupleInfo().getType(), "Type (%s) does not match tuple type (%s)", type, tuple.getTupleInfo().getType());
 
             if (tuple.isNull(index)) {
                 appendNull();

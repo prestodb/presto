@@ -56,18 +56,10 @@ public class RowPageBuilder
 
     public RowPageBuilder row(Object... values)
     {
-        int channel = 0;
-        int field = 0;
+        checkArgument(values.length == builders.size(), "Expected %s values, but got %s", builders.size(), values.length);
 
-        for (Object value : values) {
-            BlockBuilder builder = builders.get(channel);
-            append(builder, value);
-
-            field++;
-            if (field >= builder.getTupleInfo().getFieldCount()) {
-                channel++;
-                field = 0;
-            }
+        for (int channel = 0; channel < values.length; channel++) {
+            append(builders.get(channel), values[channel]);
         }
         rowCount++;
         return this;

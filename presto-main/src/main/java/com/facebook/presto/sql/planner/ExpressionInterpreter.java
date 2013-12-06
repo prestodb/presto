@@ -166,7 +166,7 @@ public class ExpressionInterpreter
                     return null;
                 }
 
-                switch (tuple.getTupleInfo().getTypes().get(field)) {
+                switch (tuple.getTupleInfo().getType()) {
                     case BOOLEAN:
                         return tuple.getBoolean(field);
                     case FIXED_INT_64:

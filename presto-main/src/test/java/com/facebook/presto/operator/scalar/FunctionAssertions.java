@@ -175,7 +175,7 @@ public final class FunctionAssertions
 
         // execute as standalone operator
         OperatorFactory operatorFactory = compileFilterProject(TRUE_LITERAL, projectionExpression);
-        Type expressionType = Type.fromRaw(operatorFactory.getTupleInfos().get(0).getTypes().get(0));
+        Type expressionType = Type.fromRaw(operatorFactory.getTupleInfos().get(0).getType());
         Object directOperatorValue = selectSingleValue(operatorFactory, session);
         results.add(directOperatorValue);
 
@@ -235,7 +235,6 @@ public final class FunctionAssertions
 
         Block block = output.getBlock(0);
         assertEquals(block.getPositionCount(), 1);
-        assertEquals(block.getTupleInfo().getFieldCount(), 1);
 
         BlockCursor cursor = block.cursor();
         assertTrue(cursor.advanceNextPosition());
@@ -268,7 +267,7 @@ public final class FunctionAssertions
 
         // execute as standalone operator
         OperatorFactory operatorFactory = compileFilterProject(filterExpression, TRUE_LITERAL);
-        Type expressionType = Type.fromRaw(operatorFactory.getTupleInfos().get(0).getTypes().get(0));
+        Type expressionType = Type.fromRaw(operatorFactory.getTupleInfos().get(0).getType());
         results.add(executeFilter(operatorFactory, session));
 
         // interpret
