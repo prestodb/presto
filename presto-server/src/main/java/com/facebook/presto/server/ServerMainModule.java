@@ -135,6 +135,7 @@ public class ServerMainModule
         newExporter(binder).export(TaskExecutor.class).withGeneratedName();
         binder.bind(LocalExecutionPlanner.class).in(Scopes.SINGLETON);
         binder.bind(ExpressionCompiler.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(ExpressionCompiler.class).withGeneratedName();
         bindConfig(binder).to(TaskManagerConfig.class);
 
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);

@@ -68,6 +68,7 @@ import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.util.CheckClassAdapter;
 import org.objectweb.asm.util.TraceClassVisitor;
+import org.weakref.jmx.Managed;
 
 import javax.inject.Inject;
 
@@ -140,6 +141,8 @@ public class ExpressionCompiler
                 }
             });
 
+    private final AtomicLong generatedClasses = new AtomicLong();
+
     @Inject
     public ExpressionCompiler(Metadata metadata)
     {
@@ -190,6 +193,24 @@ public class ExpressionCompiler
         catch (ReflectiveOperationException e) {
             throw Throwables.propagate(e);
         }
+    }
+
+    @Managed
+    public long getGeneratedClasses()
+    {
+        return generatedClasses.get();
+    }
+
+    @Managed
+    public long getCachedFilterAndProjectOperators()
+    {
+        return operatorFactories.size();
+    }
+
+    @Managed
+    public long getCachedScanFilterAndProjectOperators()
+    {
+        return sourceOperatorFactories.size();
     }
 
     public OperatorFactory compileFilterAndProjectOperator(int operatorId, Expression filter, List<Expression> projections, Map<Input, Type> inputTypes)
@@ -827,13 +848,13 @@ public class ExpressionCompiler
         return parameters.build();
     }
 
-    private static <T> Class<? extends T> defineClass(ClassDefinition classDefinition, Class<T> superType, DynamicClassLoader classLoader)
+    private <T> Class<? extends T> defineClass(ClassDefinition classDefinition, Class<T> superType, DynamicClassLoader classLoader)
     {
         Class<?> clazz = defineClasses(ImmutableList.of(classDefinition), classLoader).values().iterator().next();
         return clazz.asSubclass(superType);
     }
 
-    private static Map<String, Class<?>> defineClasses(List<ClassDefinition> classDefinitions, DynamicClassLoader classLoader)
+    private Map<String, Class<?>> defineClasses(List<ClassDefinition> classDefinitions, DynamicClassLoader classLoader)
     {
         ClassInfoLoader classInfoLoader = ClassInfoLoader.createClassInfoLoader(classDefinitions, classLoader);
 
@@ -876,7 +897,9 @@ public class ExpressionCompiler
                 classReader.accept(new TraceClassVisitor(new PrintWriter(System.err)), ClassReader.SKIP_FRAMES);
             }
         }
-        return classLoader.defineClasses(byteCodes);
+        Map<String, Class<?>> classes = classLoader.defineClasses(byteCodes);
+        generatedClasses.addAndGet(classes.size());
+        return classes;
     }
 
     private static final class OperatorCacheKey
