@@ -30,8 +30,8 @@ import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -103,17 +103,17 @@ public class HandTpchQuery1
         TpchQuery1OperatorFactory tpchQuery1Operator = new TpchQuery1OperatorFactory(1);
         HashAggregationOperatorFactory aggregationOperator = new HashAggregationOperatorFactory(
                 2,
-                tpchQuery1Operator.getTupleInfos().get(0),
-                0,
+                ImmutableList.of(tpchQuery1Operator.getTupleInfos().get(0), tpchQuery1Operator.getTupleInfos().get(1)),
+                Ints.asList(0, 1),
                 Step.SINGLE,
                 ImmutableList.of(
-                        aggregation(DOUBLE_SUM, new Input(1, 0)),
                         aggregation(DOUBLE_SUM, new Input(2, 0)),
                         aggregation(DOUBLE_SUM, new Input(3, 0)),
-                        aggregation(DOUBLE_AVERAGE, new Input(1, 0)),
-                        aggregation(DOUBLE_AVERAGE, new Input(4, 0)),
+                        aggregation(DOUBLE_SUM, new Input(4, 0)),
+                        aggregation(DOUBLE_AVERAGE, new Input(2, 0)),
                         aggregation(DOUBLE_AVERAGE, new Input(5, 0)),
-                        aggregation(COUNT, new Input(1, 0))
+                        aggregation(DOUBLE_AVERAGE, new Input(6, 0)),
+                        aggregation(COUNT, new Input(2, 0))
                 ),
                 10_000);
 
@@ -123,7 +123,9 @@ public class HandTpchQuery1
     public static class TpchQuery1Operator
             implements com.facebook.presto.operator.Operator
     {
-        private static final ImmutableList<TupleInfo> TUPLE_INFOS = ImmutableList.of(new TupleInfo(Type.VARIABLE_BINARY, Type.VARIABLE_BINARY),
+        private static final ImmutableList<TupleInfo> TUPLE_INFOS = ImmutableList.of(
+                TupleInfo.SINGLE_VARBINARY,
+                TupleInfo.SINGLE_VARBINARY,
                 TupleInfo.SINGLE_DOUBLE,
                 TupleInfo.SINGLE_DOUBLE,
                 TupleInfo.SINGLE_DOUBLE,
@@ -287,10 +289,10 @@ public class HandTpchQuery1
                         pageBuilder.getBlockBuilder(0).append(returnFlagCursor.getSlice(0));
                     }
                     if (lineStatusCursor.isNull(0)) {
-                        pageBuilder.getBlockBuilder(0).appendNull();
+                        pageBuilder.getBlockBuilder(1).appendNull();
                     }
                     else {
-                        pageBuilder.getBlockBuilder(0).append(lineStatusCursor.getSlice(0));
+                        pageBuilder.getBlockBuilder(1).append(lineStatusCursor.getSlice(0));
                     }
 
                     double quantity = quantityCursor.getDouble(0);
@@ -304,38 +306,38 @@ public class HandTpchQuery1
                     boolean taxIsNull = taxCursor.isNull(0);
 
                     if (quantityIsNull) {
-                        pageBuilder.getBlockBuilder(1).appendNull();
-                    }
-                    else {
-                        pageBuilder.getBlockBuilder(1).append(quantity);
-                    }
-
-                    if (extendedPriceIsNull) {
                         pageBuilder.getBlockBuilder(2).appendNull();
                     }
                     else {
-                        pageBuilder.getBlockBuilder(2).append(extendedPrice);
+                        pageBuilder.getBlockBuilder(2).append(quantity);
                     }
 
-                    if (extendedPriceIsNull || discountIsNull) {
+                    if (extendedPriceIsNull) {
                         pageBuilder.getBlockBuilder(3).appendNull();
                     }
                     else {
-                        pageBuilder.getBlockBuilder(3).append(extendedPrice * (1 - discount));
+                        pageBuilder.getBlockBuilder(3).append(extendedPrice);
                     }
 
-                    if (extendedPriceIsNull || discountIsNull || taxIsNull) {
+                    if (extendedPriceIsNull || discountIsNull) {
                         pageBuilder.getBlockBuilder(4).appendNull();
                     }
                     else {
-                        pageBuilder.getBlockBuilder(4).append(extendedPrice * (1 - discount) * (1 + tax));
+                        pageBuilder.getBlockBuilder(4).append(extendedPrice * (1 - discount));
                     }
 
-                    if (discountIsNull) {
+                    if (extendedPriceIsNull || discountIsNull || taxIsNull) {
                         pageBuilder.getBlockBuilder(5).appendNull();
                     }
                     else {
-                        pageBuilder.getBlockBuilder(5).append(discount);
+                        pageBuilder.getBlockBuilder(5).append(extendedPrice * (1 - discount) * (1 + tax));
+                    }
+
+                    if (discountIsNull) {
+                        pageBuilder.getBlockBuilder(6).appendNull();
+                    }
+                    else {
+                        pageBuilder.getBlockBuilder(6).append(discount);
                     }
                 }
             }

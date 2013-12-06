@@ -22,7 +22,7 @@ import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import java.util.List;
 
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
-import static com.facebook.presto.operator.SyntheticAddress.decodeSliceOffset;
+import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class SliceHashStrategy
@@ -90,11 +90,11 @@ public class SliceHashStrategy
     public boolean equals(long leftSliceAddress, long rightSliceAddress)
     {
         Slice leftSlice = getSliceForSyntheticAddress(leftSliceAddress);
-        int leftOffset = decodeSliceOffset(leftSliceAddress);
+        int leftOffset = decodePosition(leftSliceAddress);
         int leftLength = tupleInfo.size(leftSlice, leftOffset);
 
         Slice rightSlice = getSliceForSyntheticAddress(rightSliceAddress);
-        int rightOffset = decodeSliceOffset(rightSliceAddress);
+        int rightOffset = decodePosition(rightSliceAddress);
         int rightLength = tupleInfo.size(rightSlice, rightOffset);
 
         return leftSlice.equals(leftOffset, leftLength, rightSlice, rightOffset, rightLength);

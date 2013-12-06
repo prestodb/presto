@@ -20,6 +20,7 @@ import com.facebook.presto.tuple.TupleInfo;
 import java.util.List;
 
 import static com.facebook.presto.block.BlockAssertions.COMPOSITE_SEQUENCE_TUPLE_INFO;
+import static com.facebook.presto.tuple.TupleInfo.SINGLE_BOOLEAN;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
@@ -45,6 +46,9 @@ public final class SequencePageBuilder
             }
             else if (tupleInfo.equals(SINGLE_VARBINARY)) {
                 blocks[i] = BlockAssertions.createStringSequenceBlock(initialValue, initialValue + length);
+            }
+            else if (tupleInfo.equals(SINGLE_BOOLEAN)) {
+                blocks[i] = BlockAssertions.createBooleanSequenceBlock(initialValue, initialValue + length);
             }
             else if (tupleInfo.equals(COMPOSITE_SEQUENCE_TUPLE_INFO)) {
                 blocks[i] = BlockAssertions.createCompositeTupleSequenceBlock(initialValue, initialValue + length);

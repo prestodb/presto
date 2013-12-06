@@ -35,7 +35,7 @@ public final class SyntheticAddress
         return ((int) (sliceAddress >> 32));
     }
 
-    public static int decodeSliceOffset(long sliceAddress)
+    public static int decodePosition(long sliceAddress)
     {
         // low order bits contain the raw offset, so a simple cast here will suffice
         return (int) sliceAddress;

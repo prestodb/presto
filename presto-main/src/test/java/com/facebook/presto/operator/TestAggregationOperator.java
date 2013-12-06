@@ -27,16 +27,16 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 
-import static com.facebook.presto.block.BlockAssertions.COMPOSITE_SEQUENCE_TUPLE_INFO;
 import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
-import static com.facebook.presto.operator.aggregation.CountColumnAggregation.COUNT_COLUMN;
+import static com.facebook.presto.operator.aggregation.CountColumnAggregation.COUNT_STRING_COLUMN;
 import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUBLE_SUM;
 import static com.facebook.presto.operator.aggregation.LongAverageAggregation.LONG_AVERAGE;
 import static com.facebook.presto.operator.aggregation.LongSumAggregation.LONG_SUM;
 import static com.facebook.presto.operator.aggregation.VarBinaryMaxAggregation.VAR_BINARY_MAX;
+import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
@@ -71,8 +71,8 @@ public class TestAggregationOperator
     public void testAggregation()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(SINGLE_VARBINARY, SINGLE_LONG, SINGLE_VARBINARY, COMPOSITE_SEQUENCE_TUPLE_INFO)
-                .addSequencePage(100, 0, 0, 300, 500)
+        List<Page> input = rowPagesBuilder(SINGLE_VARBINARY, SINGLE_LONG, SINGLE_VARBINARY, SINGLE_LONG, SINGLE_DOUBLE, SINGLE_VARBINARY)
+                .addSequencePage(100, 0, 0, 300, 500, 500, 500)
                 .build();
 
         OperatorFactory operatorFactory = new AggregationOperatorFactory(
@@ -82,10 +82,10 @@ public class TestAggregationOperator
                         aggregation(LONG_SUM, new Input(1, 0)),
                         aggregation(LONG_AVERAGE, new Input(1, 0)),
                         aggregation(VAR_BINARY_MAX, new Input(2, 0)),
-                        aggregation(COUNT_COLUMN, new Input(0, 0)),
-                        aggregation(LONG_SUM, new Input(3, 1)),
-                        aggregation(DOUBLE_SUM, new Input(3, 2)),
-                        aggregation(VAR_BINARY_MAX, new Input(3, 3))));
+                        aggregation(COUNT_STRING_COLUMN, new Input(0, 0)),
+                        aggregation(LONG_SUM, new Input(3, 0)),
+                        aggregation(DOUBLE_SUM, new Input(4, 0)),
+                        aggregation(VAR_BINARY_MAX, new Input(5, 0))));
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(FIXED_INT_64, FIXED_INT_64, DOUBLE, VARIABLE_BINARY, FIXED_INT_64, FIXED_INT_64, DOUBLE, VARIABLE_BINARY)

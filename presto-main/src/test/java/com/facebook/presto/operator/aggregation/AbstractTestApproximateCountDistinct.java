@@ -14,13 +14,8 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.operator.AggregationOperator.Aggregator;
 import com.facebook.presto.operator.Page;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -37,8 +32,6 @@ import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
-import static com.facebook.presto.operator.AggregationOperator.createAggregator;
 import static io.airlift.testing.Assertions.assertLessThan;
 import static org.testng.Assert.assertEquals;
 
@@ -81,7 +74,7 @@ public abstract class AbstractTestApproximateCountDistinct
         mixed.addAll(Collections.<Long>nCopies(baseline.size(), null));
         Collections.shuffle(mixed);
 
-        assertCount(mixed, estimateCount(baseline, 0));
+        assertCount(mixed, estimateGroupByCount(baseline));
     }
 
     @Test
@@ -95,14 +88,14 @@ public abstract class AbstractTestApproximateCountDistinct
 
             List<Object> values = createRandomSample(uniques, (int) (uniques * 1.5));
 
-            long actual = estimateCount(values, 0);
+            long actual = estimateGroupByCount(values);
             double error = (actual - uniques) * 1.0 / uniques;
 
             stats.addValue(error);
         }
 
-        assertLessThan(stats.getMean(), 1e-2);
-        assertLessThan(Math.abs(stats.getStandardDeviation() - getAggregationFunction().getStandardError()), 1e-2);
+        assertLessThan(stats.getMean(), 1.0e-2);
+        assertLessThan(Math.abs(stats.getStandardDeviation() - getAggregationFunction().getStandardError()), 1.0e-2);
     }
 
     @Test
@@ -112,82 +105,47 @@ public abstract class AbstractTestApproximateCountDistinct
         for (int i = 0; i < 100; ++i) {
             int uniques = ThreadLocalRandom.current().nextInt(20000) + 1;
             List<Object> values = createRandomSample(uniques, (int) (uniques * 1.5));
-            assertEquals(estimateCountPartial(values, 0), estimateCount(values, 0));
+            assertEquals(estimateCountPartial(values), estimateGroupByCount(values));
         }
     }
 
     private void assertCount(List<Object> values, long expectedCount)
     {
-        assertCount(values, expectedCount, 0);
-        assertCount(values, expectedCount, 1);
-    }
-
-    private void assertCount(List<Object> values, long expectedCount, int field)
-    {
-        assertEquals(estimateCount(values, field), expectedCount);
-        assertEquals(estimateCountVectorized(values, field), expectedCount);
-        assertEquals(estimateCountPartial(values, field), expectedCount);
-    }
-
-    private long estimateCount(List<Object> values, int field)
-    {
-        Aggregator aggregator = createAggregator(aggregation(getAggregationFunction(), new Input(0, field)), AggregationNode.Step.SINGLE);
-
         if (!values.isEmpty()) {
-            BlockCursor cursor = createBlock(values, field + 1).cursor();
-            while (cursor.advanceNextPosition()) {
-                aggregator.addValue(cursor);
-            }
+            assertEquals(estimateGroupByCount(values), expectedCount);
         }
-
-        return (long) BlockAssertions.toValues(aggregator.getResult()).get(0).get(0);
+        assertEquals(estimateCount(values), expectedCount);
+        assertEquals(estimateCountPartial(values), expectedCount);
     }
 
-    private long estimateCountVectorized(List<Object> values, int field)
+    private long estimateGroupByCount(List<Object> values)
     {
-        Aggregator aggregator = createAggregator(aggregation(getAggregationFunction(), new Input(0, field)), AggregationNode.Step.SINGLE);
-
-        if (!values.isEmpty()) {
-            aggregator.addValue(new Page(createBlock(values, field + 1)));
-        }
-
-        return (long) BlockAssertions.toValues(aggregator.getResult()).get(0).get(0);
+        Object result = AggregationTestUtils.groupedAggregation(getAggregationFunction(), createPage(values));
+        return (long) result;
     }
 
-    private long estimateCountPartial(List<Object> values, int field)
+    private long estimateCount(List<Object> values)
     {
-        int size = Math.min(values.size(), Math.max(values.size() / 2, 1));
-
-        Block first = aggregatePartial(values.subList(0, size), field);
-        Block second = aggregatePartial(values.subList(size, values.size()), field);
-
-        Aggregator aggregator = createAggregator(aggregation(getAggregationFunction(), new Input(0, field)), AggregationNode.Step.FINAL);
-
-        BlockCursor cursor = first.cursor();
-        while (cursor.advanceNextPosition()) {
-            aggregator.addValue(cursor);
-        }
-
-        cursor = second.cursor();
-        while (cursor.advanceNextPosition()) {
-            aggregator.addValue(cursor);
-        }
-
-        return (long) BlockAssertions.toValues(aggregator.getResult()).get(0).get(0);
+        Object result = AggregationTestUtils.aggregation(getAggregationFunction(), createPage(values));
+        return (long) result;
     }
 
-    private Block aggregatePartial(List<Object> values, int field)
+    private long estimateCountPartial(List<Object> values)
     {
-        Aggregator aggregator = createAggregator(aggregation(getAggregationFunction(), new Input(0, field)), AggregationNode.Step.PARTIAL);
+        Object result = AggregationTestUtils.partialAggregation(getAggregationFunction(), createPage(values));
+        return (long) result;
+    }
 
-        if (!values.isEmpty()) {
-            BlockCursor cursor = createBlock(values, field + 1).cursor();
-            while (cursor.advanceNextPosition()) {
-                aggregator.addValue(cursor);
-            }
+    private Page createPage(List<Object> values)
+    {
+        Page page;
+        if (values.isEmpty()) {
+            page = new Page(0);
         }
-
-        return aggregator.getResult();
+        else {
+            page = new Page(values.size(), createBlock(values, 1));
+        }
+        return page;
     }
 
     /**

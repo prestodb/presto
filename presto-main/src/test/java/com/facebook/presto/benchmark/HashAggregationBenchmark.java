@@ -22,6 +22,7 @@ import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -47,8 +48,8 @@ public class HashAggregationBenchmark
 
         AlignmentOperatorFactory alignmentOperator = new AlignmentOperatorFactory(0, orderStatusBlockIterable, totalPriceBlockIterable);
         HashAggregationOperatorFactory aggregationOperator = new HashAggregationOperatorFactory(1,
-                alignmentOperator.getTupleInfos().get(0),
-                0,
+                ImmutableList.of(alignmentOperator.getTupleInfos().get(0)),
+                Ints.asList(0),
                 Step.SINGLE,
                 ImmutableList.of(aggregation(DOUBLE_SUM, new Input(1, 0))),
                 100_000);
