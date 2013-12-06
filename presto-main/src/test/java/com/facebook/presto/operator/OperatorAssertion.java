@@ -147,7 +147,7 @@ public final class OperatorAssertion
         List<Page> pages = toPages(operator, input);
         MaterializedResult actual = toMaterializedResult(operator.getTupleInfos(), pages);
 
-        assertEquals(actual.getTupleInfo(), expected.getTupleInfo());
+        assertEquals(actual.getTupleInfos(), expected.getTupleInfos());
         assertEqualsIgnoreOrder(actual.getMaterializedTuples(), expected.getMaterializedTuples());
     }
 }

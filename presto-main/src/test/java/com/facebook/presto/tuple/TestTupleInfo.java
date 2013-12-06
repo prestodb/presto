@@ -21,7 +21,6 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.tuple.TupleInfo.Type.BOOLEAN;
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
-import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 import static com.facebook.presto.tuple.Tuples.NULL_LONG_TUPLE;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
@@ -332,69 +331,6 @@ public class TestTupleInfo
         assertEquals(tupleSlice.getByte(0), 0b0000_0001);
         // the size of the tuple is stored as an int starting at the second byte
         assertEquals(tupleSlice.getInt(SIZE_OF_BYTE), SIZE_OF_INT + SIZE_OF_BYTE);
-    }
-
-    //
-    // Tuples with multiple tuples with multiple types do not have a declared memory layout.
-    //
-
-    @Test
-    public void testMultipleVariableLength()
-    {
-        TupleInfo info = new TupleInfo(VARIABLE_BINARY, VARIABLE_BINARY);
-
-        Slice binary1 = Slices.wrappedBuffer(new byte[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
-        Slice binary2 = Slices.wrappedBuffer(new byte[] {10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24});
-
-        Tuple tuple = info.builder()
-                .append(binary1)
-                .append(binary2)
-                .build();
-
-        assertEquals(tuple.getSlice(0), binary1);
-        assertEquals(tuple.getSlice(1), binary2);
-        assertEquals(tuple.size(), binary1.length() + binary2.length() + SIZE_OF_INT + SIZE_OF_INT + SIZE_OF_BYTE);
-    }
-
-    @Test
-    public void testMultipleFixedLength()
-    {
-        TupleInfo info = new TupleInfo(FIXED_INT_64, FIXED_INT_64);
-
-        Tuple tuple = info.builder()
-                .append(42)
-                .append(67)
-                .build();
-
-        assertEquals(tuple.getLong(0), 42L);
-        assertEquals(tuple.getLong(1), 67L);
-        assertEquals(tuple.size(), SIZE_OF_LONG + SIZE_OF_LONG + SIZE_OF_BYTE);
-    }
-
-    @Test
-    public void testMixed()
-    {
-        TupleInfo info = new TupleInfo(FIXED_INT_64, VARIABLE_BINARY, FIXED_INT_64, VARIABLE_BINARY, FIXED_INT_64, VARIABLE_BINARY);
-
-        Slice binary1 = Slices.wrappedBuffer(new byte[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
-        Slice binary2 = Slices.wrappedBuffer(new byte[] {10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24});
-        Slice binary3 = Slices.wrappedBuffer(new byte[] {30, 31, 32, 33, 34, 35});
-
-        Tuple tuple = info.builder()
-                .append(42)
-                .append(binary1)
-                .append(67)
-                .append(binary2)
-                .append(90)
-                .append(binary3)
-                .build();
-
-        assertEquals(tuple.getLong(0), 42L);
-        assertEquals(tuple.getSlice(1), binary1);
-        assertEquals(tuple.getLong(2), 67L);
-        assertEquals(tuple.getSlice(3), binary2);
-        assertEquals(tuple.getLong(4), 90L);
-        assertEquals(tuple.getSlice(5), binary3);
     }
 
     @Test

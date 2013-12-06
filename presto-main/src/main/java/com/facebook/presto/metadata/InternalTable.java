@@ -62,67 +62,74 @@ public class InternalTable
         return columns.build();
     }
 
-    public static Builder builder(TupleInfo tupleInfo, String firstColumnName, String... otherColumnNames)
+    public static Builder builder(ColumnMetadata... columns)
     {
-        return new Builder(tupleInfo, ImmutableList.<String>builder().add(firstColumnName).add(otherColumnNames).build());
-    }
-
-    public static Builder builder(TupleInfo tupleInfo, List<String> columnNames)
-    {
-        return new Builder(tupleInfo, columnNames);
+        return builder(ImmutableList.copyOf(columns));
     }
 
     public static Builder builder(List<ColumnMetadata> columns)
     {
         ImmutableList.Builder<String> names = ImmutableList.builder();
-        ImmutableList.Builder<Type> types = ImmutableList.builder();
+        ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
         for (ColumnMetadata column : columns) {
             names.add(column.getName());
-            types.add(Type.fromColumnType(column.getType()));
+            Type type = Type.fromColumnType(column.getType());
+            tupleInfos.add(new TupleInfo(type));
         }
-        return new Builder(new TupleInfo(types.build()), names.build());
+        return new Builder(tupleInfos.build(), names.build());
     }
 
     public static class Builder
     {
-        private final TupleInfo tupleInfo;
         private final List<TupleInfo> tupleInfos;
         private final List<String> columnNames;
         private final List<List<Block>> columns;
         private PageBuilder pageBuilder;
 
-        public Builder(TupleInfo tupleInfo, List<String> columnNames)
+        public Builder(List<TupleInfo> tupleInfos, List<String> columnNames)
         {
-            this.tupleInfo = checkNotNull(tupleInfo, "tupleInfo is null");
-            tupleInfos = getTupleInfos(tupleInfo);
+            this.tupleInfos = ImmutableList.copyOf(checkNotNull(tupleInfos, "tupleInfos is null"));
             this.columnNames = ImmutableList.copyOf(checkNotNull(columnNames, "columnNames is null"));
-            checkArgument(columnNames.size() == tupleInfo.getFieldCount(),
-                    "Column name count does not match tuple field count: columnNames=%s, tupleInfo=%s", columnNames, tupleInfo);
+            checkArgument(columnNames.size() == tupleInfos.size(),
+                    "Column name count does not match tuple type count: columnNames=%s, tupleInfos=%s", columnNames, tupleInfos.size());
 
             columns = new ArrayList<>();
-            for (int i = 0; i < tupleInfo.getFieldCount(); i++) {
+            for (int i = 0; i < tupleInfos.size(); i++) {
                 columns.add(new ArrayList<Block>());
             }
 
             pageBuilder = new PageBuilder(tupleInfos);
         }
 
-        public TupleInfo getTupleInfo()
+        public List<TupleInfo> getTupleInfos()
         {
-            return tupleInfo;
+            return tupleInfos;
         }
 
         public Builder add(Tuple tuple)
         {
-            checkArgument(tuple.getTupleInfo().equals(tupleInfo), "tuple schema does not match builder");
+            checkArgument(tuple.getTupleInfo().getTypes().equals(tupleInfos), "tuple schema does not match builder");
 
-            for (int i = 0; i < tupleInfo.getFieldCount(); i++) {
+            for (int i = 0; i < tupleInfos.size(); i++) {
                 pageBuilder.getBlockBuilder(i).append(tuple, i);
             }
 
             if (pageBuilder.isFull()) {
                 flushPage();
-                pageBuilder = new PageBuilder(tupleInfos);
+                pageBuilder.reset();
+            }
+            return this;
+        }
+
+        public Builder add(Object... values)
+        {
+            for (int i = 0; i < tupleInfos.size(); i++) {
+                pageBuilder.getBlockBuilder(i).appendObject(values[i]);
+            }
+
+            if (pageBuilder.isFull()) {
+                flushPage();
+                pageBuilder.reset();
             }
             return this;
         }
@@ -142,19 +149,10 @@ public class InternalTable
         {
             if (!pageBuilder.isEmpty()) {
                 Page page = pageBuilder.build();
-                for (int i = 0; i < tupleInfo.getFieldCount(); i++) {
+                for (int i = 0; i < tupleInfos.size(); i++) {
                     columns.get(i).add(page.getBlock(i));
                 }
             }
-        }
-
-        private static List<TupleInfo> getTupleInfos(TupleInfo tupleInfo)
-        {
-            ImmutableList.Builder<TupleInfo> list = ImmutableList.builder();
-            for (TupleInfo.Type type : tupleInfo.getTypes()) {
-                list.add(new TupleInfo(type));
-            }
-            return list.build();
         }
     }
 }

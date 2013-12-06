@@ -16,7 +16,6 @@ package com.facebook.presto.operator;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.OrderByOperator.OrderByOperatorFactory;
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.util.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
@@ -33,6 +32,7 @@ import static com.facebook.presto.operator.OperatorAssertion.toPages;
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
+import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
@@ -96,8 +96,7 @@ public class TestOrderByOperator
     public void testMultiFieldKey()
             throws Exception
     {
-        TupleInfo tupleInfo = new TupleInfo(VARIABLE_BINARY, FIXED_INT_64);
-        List<Page> input = rowPagesBuilder(tupleInfo)
+        List<Page> input = rowPagesBuilder(SINGLE_VARBINARY, SINGLE_LONG)
                 .row("a", 1)
                 .row("b", 2)
                 .pageBreak()
@@ -107,18 +106,19 @@ public class TestOrderByOperator
 
         OrderByOperatorFactory operatorFactory = new OrderByOperatorFactory(
                 0,
-                ImmutableList.of(tupleInfo),
-                new int[] {0},
-                new int[] {0},
-                10);
+                ImmutableList.of(SINGLE_VARBINARY, SINGLE_LONG),
+                new int[] {0, 1},
+                10,
+                new int[] {0, 1},
+                new SortOrder[] {SortOrder.ASC_NULLS_LAST, SortOrder.DESC_NULLS_LAST});
 
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        MaterializedResult expected = resultBuilder(tupleInfo)
-                .row("a", 1)
+        MaterializedResult expected = MaterializedResult.resultBuilder(VARIABLE_BINARY, FIXED_INT_64)
                 .row("a", 4)
-                .row("b", 2)
+                .row("a", 1)
                 .row("b", 3)
+                .row("b", 2)
                 .build();
 
         assertOperatorEquals(operator, input, expected);

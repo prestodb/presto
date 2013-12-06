@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.util;
 
-import com.facebook.presto.tuple.TupleReadable;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -33,20 +33,24 @@ public class MaterializedTuple
 {
     private final List<Object> values;
 
-    public MaterializedTuple(TupleReadable tupleReadable, int precision)
+    public MaterializedTuple(int precision, Object... values)
     {
-        checkNotNull(tupleReadable, "tupleReadable is null");
+        this(precision, Arrays.asList(checkNotNull(values, "values is null")));
+    }
+    public MaterializedTuple(int precision, List<Object> values)
+    {
         checkArgument(precision > 0, "Need at least one digit of precision");
 
-        List<Object> source = tupleReadable.getTuple().toValues();
-
-        values = new ArrayList<>(source.size());
-        for (Object object : source) {
-            if (object instanceof Double) {
-                values.add(new ApproximateDouble((Double) object, precision));
+        this.values = new ArrayList<>(values.size());
+        for (Object object : values) {
+            if (object instanceof Double || object instanceof Float) {
+                this.values.add(new ApproximateDouble(((Number) object).doubleValue(), precision));
+            }
+            else if (object instanceof Number) {
+                this.values.add(((Number) object).longValue());
             }
             else {
-                values.add(object);
+                this.values.add(object);
             }
         }
     }

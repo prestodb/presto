@@ -20,9 +20,6 @@ import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.tuple.TupleReadable;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
-
-import java.util.List;
 
 public class ProjectionFunctions
 {
@@ -34,15 +31,6 @@ public class ProjectionFunctions
     public static ProjectionFunction singleColumn(Type columnType, Input input)
     {
         return new SingleColumnProjection(columnType, input.getChannel(), input.getField());
-    }
-
-    public static List<TupleInfo> toTupleInfos(List<ProjectionFunction> projections)
-    {
-        ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
-        for (ProjectionFunction projection : projections) {
-            tupleInfos.add(projection.getTupleInfo());
-        }
-        return tupleInfos.build();
     }
 
     private static class SingleColumnProjection
@@ -119,56 +107,6 @@ public class ProjectionFunctions
                         output.append(cursor.getDouble(channelIndex));
                         break;
                 }
-            }
-        }
-    }
-
-    public static ProjectionFunction concat(ProjectionFunction... projectionFunctions)
-    {
-        return concat(ImmutableList.copyOf(projectionFunctions));
-    }
-
-    public static ProjectionFunction concat(Iterable<ProjectionFunction> projections)
-    {
-        return new ConcatProjection(projections);
-    }
-
-    private static class ConcatProjection
-            implements ProjectionFunction
-    {
-        private final List<ProjectionFunction> projections;
-        private final TupleInfo tupleInfo;
-
-        private ConcatProjection(Iterable<ProjectionFunction> projections)
-        {
-            this.projections = ImmutableList.copyOf(projections);
-
-            ImmutableList.Builder<Type> builder = ImmutableList.builder();
-            for (ProjectionFunction projection : projections) {
-                builder.addAll(projection.getTupleInfo().getTypes());
-            }
-            this.tupleInfo = new TupleInfo(builder.build());
-        }
-
-        @Override
-        public TupleInfo getTupleInfo()
-        {
-            return tupleInfo;
-        }
-
-        @Override
-        public void project(TupleReadable[] cursors, BlockBuilder output)
-        {
-            for (ProjectionFunction projection : projections) {
-                projection.project(cursors, output);
-            }
-        }
-
-        @Override
-        public void project(RecordCursor cursor, BlockBuilder output)
-        {
-            for (ProjectionFunction projection : projections) {
-                projection.project(cursor, output);
             }
         }
     }

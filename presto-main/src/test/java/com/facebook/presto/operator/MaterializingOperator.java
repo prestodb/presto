@@ -14,7 +14,6 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.util.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -68,12 +67,7 @@ public class MaterializingOperator
     public MaterializingOperator(OperatorContext operatorContext, List<TupleInfo> sourceTupleInfos)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-
-        ImmutableList.Builder<Type> types = ImmutableList.builder();
-        for (TupleInfo sourceTupleInfo : checkNotNull(sourceTupleInfos, "sourceTupleInfos is null")) {
-            types.addAll(sourceTupleInfo.getTypes());
-        }
-        resultBuilder = MaterializedResult.resultBuilder(new TupleInfo(types.build()));
+        resultBuilder = MaterializedResult.resultBuilder(sourceTupleInfos);
     }
 
     public MaterializedResult getMaterializedResult()
