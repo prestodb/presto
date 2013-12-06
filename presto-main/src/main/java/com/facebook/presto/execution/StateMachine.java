@@ -20,6 +20,7 @@ import io.airlift.units.Duration;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -33,6 +34,7 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
  * Simple state machine which holds a single value.  Callers can register for
  * state change events, and can wait for the state to change.
  */
+@ThreadSafe
 public class StateMachine<T>
 {
     private static final Logger log = Logger.get(StateMachine.class);
@@ -42,7 +44,7 @@ public class StateMachine<T>
 
     @Nullable
     @GuardedBy("this")
-    private T state;
+    private volatile T state;
 
     @GuardedBy("this")
     private final List<StateChangeListener<T>> stateChangeListeners = new ArrayList<>();
@@ -62,7 +64,7 @@ public class StateMachine<T>
     }
 
     @Nullable
-    public synchronized T get()
+    public T get()
     {
         return state;
     }
