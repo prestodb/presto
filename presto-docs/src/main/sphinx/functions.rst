@@ -13,3 +13,4 @@ Functions and Operators
     functions/url
     functions/aggregate
     functions/window
+    functions/color
