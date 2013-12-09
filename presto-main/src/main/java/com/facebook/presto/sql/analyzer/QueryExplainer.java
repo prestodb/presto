@@ -103,6 +103,6 @@ public class QueryExplainer
         LogicalPlanner logicalPlanner = new LogicalPlanner(session, planOptimizers, idAllocator, metadata, periodicImportManager, storageManager);
         Plan plan = logicalPlanner.plan(analysis);
 
-        return new DistributedLogicalPlanner(metadata, idAllocator).createSubplans(plan, false);
+        return new DistributedLogicalPlanner(metadata, idAllocator).createSubPlans(plan, false);
     }
 }

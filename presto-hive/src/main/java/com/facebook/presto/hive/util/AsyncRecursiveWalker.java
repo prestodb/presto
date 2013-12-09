@@ -15,17 +15,15 @@ package com.facebook.presto.hive.util;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.RemoteIterator;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.facebook.presto.hive.util.DirectoryLister.listDirectory;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class AsyncRecursiveWalker
@@ -55,14 +53,12 @@ public class AsyncRecursiveWalker
             public void run()
             {
                 try {
-                    RemoteIterator<LocatedFileStatus> iter = fileSystem.listLocatedStatus(path);
-                    while (iter.hasNext()) {
-                        LocatedFileStatus status = iter.next();
-                        if (isDirectory(status)) {
-                            recursiveWalk(status.getPath(), callback, taskCount, settableFuture);
+                    for (DirectoryEntry entry : listDirectory(fileSystem, path)) {
+                        if (entry.isDirectory()) {
+                            recursiveWalk(entry.getFileStatus().getPath(), callback, taskCount, settableFuture);
                         }
                         else {
-                            callback.process(status, status.getBlockLocations());
+                            callback.process(entry.getFileStatus(), entry.getBlockLocations());
                         }
                     }
                 }
@@ -79,12 +75,5 @@ public class AsyncRecursiveWalker
                 }
             }
         });
-    }
-
-    @SuppressWarnings("deprecation")
-    private static boolean isDirectory(FileStatus status)
-    {
-        // older versions of Hadoop only have this method
-        return status.isDir();
     }
 }

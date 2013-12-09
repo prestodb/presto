@@ -63,6 +63,7 @@ tokens {
     QNAME;
     SHOW_TABLES;
     SHOW_SCHEMAS;
+    SHOW_CATALOGS;
     SHOW_COLUMNS;
     SHOW_PARTITIONS;
     SHOW_FUNCTIONS;
@@ -149,6 +150,7 @@ statement
     | explainStmt
     | showTablesStmt
     | showSchemasStmt
+    | showCatalogsStmt
     | showColumnsStmt
     | showPartitionsStmt
     | showFunctionsStmt
@@ -552,7 +554,15 @@ showTablesLike
     ;
 
 showSchemasStmt
-    : SHOW SCHEMAS -> SHOW_SCHEMAS
+    : SHOW SCHEMAS from=showSchemasFrom? -> ^(SHOW_SCHEMAS $from?)
+    ;
+
+showSchemasFrom
+    : (FROM | IN) ident -> ^(FROM ident)
+    ;
+
+showCatalogsStmt
+    : SHOW CATALOGS -> SHOW_CATALOGS
     ;
 
 showColumnsStmt
@@ -680,7 +690,7 @@ integer
     ;
 
 nonReserved
-    : SHOW | TABLES | COLUMNS | PARTITIONS | FUNCTIONS | SCHEMAS
+    : SHOW | TABLES | COLUMNS | PARTITIONS | FUNCTIONS | SCHEMAS | CATALOGS
     | OVER | PARTITION | RANGE | ROWS | PRECEDING | FOLLOWING | CURRENT | ROW
     | REFRESH | MATERIALIZED | VIEW | ALIAS
     | YEAR | MONTH | DAY | HOUR | MINUTE | SECOND
@@ -789,6 +799,7 @@ CAST: 'CAST';
 SHOW: 'SHOW';
 TABLES: 'TABLES';
 SCHEMAS: 'SCHEMAS';
+CATALOGS: 'CATALOGS';
 COLUMNS: 'COLUMNS';
 PARTITIONS: 'PARTITIONS';
 FUNCTIONS: 'FUNCTIONS';

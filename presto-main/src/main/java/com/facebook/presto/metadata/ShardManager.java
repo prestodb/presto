@@ -24,19 +24,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.UUID;
 
 public interface ShardManager
 {
-    /**
-     * Allocate a new shard id for a table.
-     */
-    long allocateShard(TableHandle tableHandle);
-
-    /**
-     * Mark shard as complete with data residing on given node
-     */
-    void commitShard(long shardId, String nodeIdentifier);
-
     /**
      * Remove a shard from a node. When this method returns successfully, the shard will be no longer retrieved
      * from that node.
@@ -51,7 +42,7 @@ public interface ShardManager
     /**
      * Commit a partition for a table.
      */
-    void commitPartition(TableHandle tableHandle, String partition, List<? extends PartitionKey> partitionKeys, Map<Long, String> shards);
+    void commitPartition(TableHandle tableHandle, String partition, List<? extends PartitionKey> partitionKeys, Map<UUID, String> shards);
 
     /**
      * Get the names of all partitions that have been successfully imported.
@@ -66,28 +57,23 @@ public interface ShardManager
     Multimap<String, ? extends PartitionKey> getAllPartitionKeys(TableHandle tableHandle);
 
     /**
-     * Return a map with all partition names to committed shard nodes for a given table.
+     * Return a map of shard nodes by partition for a given table.
+     *
+     * @return partitionId -> (shardUuid -> nodeIdentifier)
      */
-    Multimap<Long, Entry<Long, String>> getCommittedPartitionShardNodes(TableHandle tableHandle);
+    Multimap<Long, Entry<UUID, String>> getShardNodesByPartition(TableHandle tableHandle);
 
     /**
-     * Get all complete shards in a table
+     * Return list of nodes used by table shards.
      *
-     * @return mapping of shard ID to node identifier
+     * @return shardUuid -> nodeIdentifier
      */
-    Multimap<Long, String> getCommittedShardNodesByTableId(TableHandle tableHandle);
-
-    /**
-     * Get all complete shards in table partition
-     *
-     * @return mapping of shard ID to node identifier
-     */
-    Multimap<Long, String> getShardNodes(long tableId, String partitionName);
+    Set<String> getTableNodes(TableHandle tableHandle);
 
     /**
      * Return a collection of all nodes that were used in this shard manager.
      */
-    public Iterable<String> getAllNodesInUse();
+    Iterable<String> getAllNodesInUse();
 
     /**
      * Drop all record of the specified partition

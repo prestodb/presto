@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.TaskSource;
+import com.facebook.presto.UnpartitionedPagePartitionFunction;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryId;
@@ -34,7 +34,6 @@ import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -47,6 +46,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
@@ -119,7 +119,7 @@ public class MockQueryManager
                 outputTaskId,
                 null,
                 ImmutableList.<TaskSource>of(),
-                new OutputBuffers(ImmutableSet.<String>of("out"), true));
+                INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer("out", new UnpartitionedPagePartitionFunction()).withNoMoreBufferIds());
 
         SimpleQuery simpleQuery = new SimpleQuery(outputTaskId, locationFactory.createQueryLocation(outputTaskId.getQueryId()), mockTaskManager, locationFactory);
         queries.put(outputTaskId.getQueryId(), simpleQuery);

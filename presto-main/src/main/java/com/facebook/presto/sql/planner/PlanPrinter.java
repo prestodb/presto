@@ -14,12 +14,15 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.sql.analyzer.Type;
+import com.facebook.presto.sql.planner.PlanFragment.Partitioning;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
+import com.facebook.presto.sql.planner.plan.MaterializedViewWriterNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -29,7 +32,6 @@ import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
-import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
@@ -52,6 +54,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.sql.planner.DomainUtils.printableTupleDomainWithSymbols;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
 
@@ -89,7 +92,7 @@ public class PlanPrinter
 
     public static String graphvizLogicalPlan(PlanNode plan, Map<Symbol, Type> types)
     {
-        PlanFragment fragment = new PlanFragment(new PlanFragmentId("graphviz_plan"), plan.getId(), types, plan);
+        PlanFragment fragment = new PlanFragment(new PlanFragmentId("graphviz_plan"), plan, types, Partitioning.NONE, plan.getId());
         return GraphvizPrinter.printLogical(ImmutableList.of(fragment));
     }
 
@@ -212,11 +215,14 @@ public class PlanPrinter
         @Override
         public Void visitTableScan(TableScanNode node, Integer indent)
         {
-            print(indent, "- TableScan[%s, partition predicate=%s, upstream predicate=%s] => [%s]", node.getTable(), node.getPartitionPredicate(), node.getUpstreamPredicateHint(), formatOutputs(node.getOutputSymbols()));
+            TupleDomain partitionsDomainSummary = node.getPartitionsDomainSummary();
+            print(indent, "- TableScan[%s, domain=%s] => [%s]", node.getTable(), printableTupleDomainWithSymbols(partitionsDomainSummary, node.getAssignments()), formatOutputs(node.getOutputSymbols()));
             for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
-                print(indent + 2, "%s := %s", entry.getKey(), entry.getValue());
+                if (node.getOutputSymbols().contains(entry.getKey()) ||
+                        (!partitionsDomainSummary.isNone() && partitionsDomainSummary.getDomains().keySet().contains(entry.getValue()))) {
+                    print(indent + 2, "%s := %s", entry.getKey(), entry.getValue());
+                }
             }
-
             return null;
         }
 
@@ -290,9 +296,9 @@ public class PlanPrinter
         }
 
         @Override
-        public Void visitTableWriter(TableWriterNode node, Integer indent)
+        public Void visitMaterializedViewWriter(MaterializedViewWriterNode node, Integer indent)
         {
-            print(indent, "- TableWrite[%s] => [%s]", node.getTable(), formatOutputs(node.getOutputSymbols()));
+            print(indent, "- MaterializedViewWriter[%s] => [%s]", node.getTable(), formatOutputs(node.getOutputSymbols()));
             for (Map.Entry<Symbol, ColumnHandle> entry : node.getColumns().entrySet()) {
                 print(indent + 2, "%s := %s", entry.getValue(), entry.getKey());
             }

@@ -25,9 +25,11 @@ import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.Partition;
+import com.facebook.presto.spi.PartitionResult;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.split.ConnectorDataStreamProvider;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.Type;
@@ -219,10 +221,10 @@ public class InformationSchemaDataStreamProvider
         Optional<TableHandle> tableHandle = metadata.getTableHandle(tableName);
         checkArgument(tableHandle.isPresent(), "Table %s does not exist", tableName);
         Map<ColumnHandle, String> columnHandles = ImmutableBiMap.copyOf(metadata.getColumnHandles(tableHandle.get())).inverse();
-        List<Partition> partitions = splitManager.getPartitions(tableHandle.get(), Optional.<Map<ColumnHandle, Object>>absent());
+        PartitionResult partitionResult = splitManager.getPartitions(tableHandle.get(), Optional.<TupleDomain>absent());
 
-        for (Partition partition : partitions) {
-            for (Map.Entry<ColumnHandle, Object> entry : partition.getKeys().entrySet()) {
+        for (Partition partition : partitionResult.getPartitions()) {
+            for (Entry<ColumnHandle, Comparable<?>> entry : partition.getTupleDomain().extractFixedValues().entrySet()) {
                 ColumnHandle columnHandle = entry.getKey();
                 String columnName = columnHandles.get(columnHandle);
                 String value = entry.getValue() != null ? String.valueOf(entry.getValue()) : null;

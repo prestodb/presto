@@ -30,6 +30,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Closeables;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.client.HttpClientConfig;
@@ -43,9 +44,12 @@ import org.testng.annotations.Test;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
+import static com.facebook.presto.tpch.TpchMetadata.TPCH_CATALOG_NAME;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.json.JsonCodec.jsonCodec;
@@ -113,6 +117,15 @@ public class TestDistributedQueries
         assertEquals(emptySample.getMaterializedTuples().size(), 0);
     }
 
+    @Test
+    public void testShowCatalogs()
+            throws Exception
+    {
+        MaterializedResult result = computeActual("SHOW CATALOGS");
+        Set<String> catalogNames = ImmutableSet.copyOf(transform(result.getMaterializedTuples(), onlyColumnGetter()));
+        assertEquals(catalogNames, ImmutableSet.of(TPCH_CATALOG_NAME, DEFAULT_CATALOG));
+    }
+
     @Override
     protected int getNodeCount()
     {
@@ -152,6 +165,13 @@ public class TestDistributedQueries
         long startTime = System.nanoTime();
         distributeData(catalog, schema);
         log.info("Loading complete in %.2fs", nanosSince(startTime).getValue(SECONDS));
+
+        // There is a race condition between writing data to the native store and
+        // when that data is visible to be queried.  This is a brain dead work around
+        // for this race condition that doesn't really fix the problem, but makes
+        // it very unlikely.
+        // todo remove this when import flow is fixed
+        Thread.sleep(1000);
     }
 
     private boolean allNodesGloballyVisible()
@@ -191,7 +211,15 @@ public class TestDistributedQueries
             MaterializedResult importResult = computeActual(format("CREATE MATERIALIZED VIEW default.default.%s AS SELECT * FROM %s",
                     qualifiedTableName.getTableName(),
                     qualifiedTableName));
-            log.info("Imported %s rows for %s", importResult.getMaterializedTuples().get(0).getField(0), qualifiedTableName.getTableName());
+
+            Object rowsImported;
+            if (importResult.getMaterializedTuples().isEmpty()) {
+                rowsImported = 0;
+            }
+            else {
+                rowsImported = importResult.getMaterializedTuples().get(0).getField(0);
+            }
+            log.info("Imported %s rows for %s", rowsImported, qualifiedTableName.getTableName());
         }
     }
 

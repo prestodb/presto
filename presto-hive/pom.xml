@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.54-SNAPSHOT</version>
+        <version>0.55-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-hive</artifactId>
@@ -135,38 +135,4 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <configuration>
-                    <excludedGroups>hive</excludedGroups>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
-
-    <profiles>
-        <profile>
-            <id>hive-test</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-surefire-plugin</artifactId>
-                        <configuration>
-                            <excludedGroups combine.self="override" />
-                            <systemProperties>
-                                <hiveMetastoreHost>localhost</hiveMetastoreHost>
-                                <hiveMetastorePort>9083</hiveMetastorePort>
-                                <hiveDatabaseName>default</hiveDatabaseName>
-                            </systemProperties>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-    </profiles>
 </project>

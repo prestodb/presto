@@ -15,7 +15,6 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.analyzer.Type;
@@ -118,4 +117,11 @@ public interface Metadata
     @NotNull
     @Deprecated
     Optional<TableHandle> getTableHandle(String connectorId, SchemaTableName tableName);
+
+    /**
+     * Gets all the loaded catalogs
+     * @return Map of catalog name to connector id
+     */
+    @NotNull
+    Map<String, String> getCatalogNames();
 }

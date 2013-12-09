@@ -30,6 +30,7 @@ import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.sql.planner.PlanFragment.Partitioning;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.util.SetThreadName;
 import com.google.common.base.Function;
@@ -112,6 +113,8 @@ public class SqlTaskExecution
             TaskId taskId,
             URI location,
             PlanFragment fragment,
+            List<TaskSource> sources,
+            OutputBuffers outputBuffers,
             LocalExecutionPlanner planner,
             DataSize maxBufferSize,
             TaskExecutor taskExecutor,
@@ -125,6 +128,7 @@ public class SqlTaskExecution
                 taskId,
                 location,
                 fragment,
+                outputBuffers,
                 planner,
                 maxBufferSize,
                 taskExecutor,
@@ -137,6 +141,8 @@ public class SqlTaskExecution
 
         try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)) {
             task.start();
+            task.addSources(sources);
+            task.recordHeartbeat();
             return task;
         }
     }
@@ -145,6 +151,7 @@ public class SqlTaskExecution
             TaskId taskId,
             URI location,
             PlanFragment fragment,
+            OutputBuffers outputBuffers,
             LocalExecutionPlanner planner,
             DataSize maxBufferSize,
             TaskExecutor taskExecutor,
@@ -180,7 +187,9 @@ public class SqlTaskExecution
                     checkNotNull(operatorPreAllocatedMemory, "operatorPreAllocatedMemory is null"),
                     cpuTimerEnabled);
 
-            this.sharedBuffer = new SharedBuffer(checkNotNull(maxBufferSize, "maxBufferSize is null"));
+            this.sharedBuffer = new SharedBuffer(
+                    checkNotNull(maxBufferSize, "maxBufferSize is null"),
+                    outputBuffers);
 
             this.queryMonitor = checkNotNull(queryMonitor, "queryMonitor is null");
 
@@ -204,9 +213,8 @@ public class SqlTaskExecution
             }
             this.unpartitionedDrivers = ImmutableList.copyOf(unpartitionedDrivers);
 
-            checkArgument(!fragment.isPartitioned() || partitionedDriverFactory != null, "Fragment is partitioned, but no partitioned driver found");
-
-            if (partitionedDriverFactory != null) {
+            if (fragment.getPartitioning() == Partitioning.SOURCE) {
+                checkArgument(partitionedDriverFactory != null, "Fragment is partitioned, but no partitioned driver found");
                 this.partitionedSourceId = fragment.getPartitionedSource();
                 this.partitionedDriverFactory = partitionedDriverFactory;
                 this.partitionedPipelineContext = taskContext.addPipelineContext(partitionedDriverFactory.isInputDriver(), partitionedDriverFactory.isOutputDriver());
@@ -374,17 +382,12 @@ public class SqlTaskExecution
     }
 
     @Override
-    public synchronized void addResultQueue(OutputBuffers outputIds)
+    public synchronized void addResultQueue(OutputBuffers outputBuffers)
     {
-        checkNotNull(outputIds, "outputIds is null");
+        checkNotNull(outputBuffers, "outputBuffers is null");
 
         try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)) {
-            for (String bufferId : outputIds.getBufferIds()) {
-                sharedBuffer.addQueue(bufferId);
-            }
-            if (outputIds.isNoMoreBufferIds()) {
-                sharedBuffer.noMoreQueues();
-            }
+            sharedBuffer.setOutputBuffers(outputBuffers);
         }
     }
 
@@ -588,7 +591,13 @@ public class SqlTaskExecution
         @Override
         public synchronized void initialize()
         {
-            driver = driverSupplier.apply(driverContext);
+            try {
+                driver = driverSupplier.apply(driverContext);
+            }
+            catch (Throwable e) {
+                driverContext.failed(e);
+                throw e;
+            }
         }
 
         @Override

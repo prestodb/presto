@@ -17,6 +17,7 @@ import com.facebook.presto.spi.PartitionKey;
 import com.facebook.presto.spi.TableHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.io.Files;
 import io.airlift.testing.FileUtils;
@@ -31,10 +32,12 @@ import java.io.File;
 import java.util.Collection;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.UUID;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 
 public class TestDatabaseShardManager
 {
@@ -65,34 +68,29 @@ public class TestDatabaseShardManager
     {
         long tableId = 1;
         TableHandle tableHandle = new NativeTableHandle("demo", "test", tableId);
-        long shardId1 = shardManager.allocateShard(tableHandle);
-        long shardId2 = shardManager.allocateShard(tableHandle);
+        UUID shardId1 = UUID.randomUUID();
+        UUID shardId2 = UUID.randomUUID();
 
         assertNotEquals(shardId2, shardId1);
 
-        Multimap<Long, String> shardNodes = shardManager.getCommittedShardNodesByTableId(tableHandle);
-        assertNotNull(shardNodes);
-        assertEquals(shardNodes.size(), 0);
+        Set<String> nodes = shardManager.getTableNodes(tableHandle);
+        assertTrue(nodes.isEmpty());
 
         shardManager.commitPartition(tableHandle, "some-partition", ImmutableList.<PartitionKey>of(), ImmutableMap.of(shardId1, "some-node"));
         shardManager.commitPartition(tableHandle, "some-other-partition", ImmutableList.<PartitionKey>of(), ImmutableMap.of(shardId2, "some-node"));
 
-        shardNodes = shardManager.getCommittedShardNodesByTableId(tableHandle);
-        assertNotNull(shardNodes);
-        assertEquals(shardNodes.size(), 2);
-        assertNotNull(shardNodes.get(shardId1));
-        assertNotNull(shardNodes.get(shardId2));
+        nodes = shardManager.getTableNodes(tableHandle);
+        assertEquals(nodes, ImmutableSet.of("some-node"));
 
         Set<TablePartition> partitions = shardManager.getPartitions(tableHandle);
-        assertNotNull(partitions);
         assertEquals(partitions.size(), 2);
 
         long partitionId = partitions.iterator().next().getPartitionId();
 
-        Multimap<Long, Entry<Long, String>> allShardNodes = shardManager.getCommittedPartitionShardNodes(tableHandle);
+        Multimap<Long, Entry<UUID, String>> allShardNodes = shardManager.getShardNodesByPartition(tableHandle);
         assertNotNull(allShardNodes);
         assertEquals(allShardNodes.size(), 2);
-        Collection<Entry<Long, String>> partitionShards = allShardNodes.get(partitionId);
+        Collection<Entry<UUID, String>> partitionShards = allShardNodes.get(partitionId);
         assertEquals(partitionShards.size(), 1);
     }
 }

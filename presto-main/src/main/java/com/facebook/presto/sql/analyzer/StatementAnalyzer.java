@@ -36,6 +36,7 @@ import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.RefreshMaterializedView;
 import com.facebook.presto.sql.tree.SelectItem;
+import com.facebook.presto.sql.tree.ShowCatalogs;
 import com.facebook.presto.sql.tree.ShowColumns;
 import com.facebook.presto.sql.tree.ShowFunctions;
 import com.facebook.presto.sql.tree.ShowPartitions;
@@ -56,6 +57,7 @@ import static com.facebook.presto.connector.informationSchema.InformationSchemaM
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_INTERNAL_PARTITIONS;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_SCHEMATA;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLES;
+import static com.facebook.presto.connector.system.CatalogSystemTable.CATALOG_TABLE_NAME;
 import static com.facebook.presto.sql.analyzer.Analyzer.ExpressionAnalysis;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_MATERIALIZED_VIEW_REFRESH_INTERVAL;
@@ -149,11 +151,31 @@ class StatementAnalyzer
                 Optional.<With>absent(),
                 new QuerySpecification(
                         selectList(aliasedName("schema_name", "Schema")),
-                        table(QualifiedName.of(session.getCatalog(), TABLE_SCHEMATA.getSchemaName(), TABLE_SCHEMATA.getTableName())),
+                        table(QualifiedName.of(node.getCatalog().or(session.getCatalog()), TABLE_SCHEMATA.getSchemaName(), TABLE_SCHEMATA.getTableName())),
                         Optional.<Expression>absent(),
                         ImmutableList.<Expression>of(),
                         Optional.<Expression>absent(),
                         ImmutableList.of(ascending("schema_name")),
+                        Optional.<String>absent()
+                ),
+                ImmutableList.<SortItem>of(),
+                Optional.<String>absent());
+
+        return process(query, context);
+    }
+
+    @Override
+    protected TupleDescriptor visitShowCatalogs(ShowCatalogs node, AnalysisContext context)
+    {
+        Query query = new Query(
+                Optional.<With>absent(),
+                new QuerySpecification(
+                        selectList(aliasedName("catalog_name", "Catalog")),
+                        table(QualifiedName.of(session.getCatalog(), CATALOG_TABLE_NAME.getSchemaName(), CATALOG_TABLE_NAME.getTableName())),
+                        Optional.<Expression>absent(),
+                        ImmutableList.<Expression>of(),
+                        Optional.<Expression>absent(),
+                        ImmutableList.of(ascending("catalog_name")),
                         Optional.<String>absent()
                 ),
                 ImmutableList.<SortItem>of(),
@@ -311,7 +333,7 @@ class StatementAnalyzer
     {
         // Turn this into a query that has a new table writer node on top.
         QualifiedTableName targetTable = MetadataUtil.createQualifiedTableName(session, node.getName());
-        analysis.setDestination(targetTable);
+        analysis.setMaterializedViewDestination(targetTable);
 
         Optional<TableHandle> targetTableHandle = metadata.getTableHandle(targetTable);
         if (targetTableHandle.isPresent()) {
@@ -346,7 +368,7 @@ class StatementAnalyzer
         }
 
         checkState(tableHandle.get() instanceof NativeTableHandle, "Cannot import into non-native table %s", targetTable);
-        analysis.setDestination(targetTable);
+        analysis.setMaterializedViewDestination(targetTable);
         analysis.setDoRefresh(true);
 
         return new TupleDescriptor(Field.newUnqualified("imported_rows", Type.BIGINT));

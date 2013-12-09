@@ -105,7 +105,7 @@ public class TestDriver
         }
     }
 
-    @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = ".* Table .* does not exist")
+    @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = ".* does not exist")
     public void testBadQuery()
             throws Exception
     {
