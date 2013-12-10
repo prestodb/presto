@@ -18,7 +18,7 @@ Color Functions
 
 .. function:: color(value, low, high, low_color, high_color) -> bigint
 
-    Returns a bigint color interpolated between log_color and
+    Returns a bigint color interpolated between low_color and
     high_color.
 
 .. function:: color(fraction, low_color, high_color) -> bigint
