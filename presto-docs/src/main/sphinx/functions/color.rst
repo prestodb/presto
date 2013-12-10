@@ -9,24 +9,6 @@ Color Functions
     "#CDE" is converted to a bigint with the hexadecimal value
     0xCCDDEE.
 
-.. function:: get_red(color) -> int
-
-    Returns the red component of the bigint color parameter. For
-    example the bigint color 0x778899 is converted to an integer with
-    the hexidecimal value 0x77.
-
-.. function:: get_green(color) -> int
-
-    Returns the green component of the bigint color parameter. For
-    example the bigint color 0x778899 is converted to an integer with
-    the hexidecimal value 0x88.
-
-.. function:: get_blue(color) -> int
-
-    Returns the blue component of the bigint color parameter. For
-    example the bigint color 0x778899 is converted to an integer with
-    the hexidecimal value 0x99.
-
 .. function:: rgb(red, green, blue) -> bigint
 
     Returns a bigint capturing the RGB value of three component color
