@@ -53,6 +53,8 @@ import io.airlift.slice.Slices;
 import io.airlift.units.Duration;
 import org.apache.commons.math.stat.descriptive.DescriptiveStatistics;
 import org.intellij.lang.annotations.Language;
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.PreparedBatch;
@@ -67,6 +69,7 @@ import org.testng.annotations.Test;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.INFORMATION_SCHEMA;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
@@ -89,6 +92,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.transform;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
@@ -2624,6 +2628,28 @@ public abstract class AbstractTestQueries
     public void testTypeMismatch()
     {
         computeActual("SELECT 1 <> 'x'");
+    }
+
+    @Test
+    public void testTimeLiterals()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT TIME '3:04', TIMESTAMP '1960-01-22 3:04', DATE '2013-03-22', INTERVAL '123' DAY\n",
+                "SELECT " +
+                        MILLISECONDS.toSeconds(new DateTime(1970, 1, 1, 3, 4, 0, 0, DateTimeZone.UTC).getMillis()) + ",  " +
+                        MILLISECONDS.toSeconds(new DateTime(1960, 1, 22, 3, 4, 0, 0, DateTimeZone.UTC).getMillis()) + ",  " +
+                        MILLISECONDS.toSeconds(new DateTime(2013, 3, 22, 0, 0, 0, 0, DateTimeZone.UTC).getMillis()) + ",  " +
+                        String.valueOf(TimeUnit.DAYS.toSeconds(123)));
+    }
+
+    @Test
+    public void testNonReservedTimeWords()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT TIME, TIMESTAMP, DATE, INTERVAL\n" +
+                "FROM (SELECT 1 TIME, 2 TIMESTAMP, 3 DATE, 4 INTERVAL)");
     }
 
     @BeforeClass(alwaysRun = true)
