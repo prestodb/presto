@@ -48,7 +48,6 @@
     </properties>
 
     <modules>
-        <module>presto-docs</module>
         <module>presto-spi</module>
         <module>presto-hive</module>
         <module>presto-hive-hadoop1</module>
@@ -60,6 +59,7 @@
         <module>presto-jdbc</module>
         <module>presto-cli</module>
         <module>presto-server</module>
+        <module>presto-docs</module>
     </modules>
 
     <dependencyManagement>
