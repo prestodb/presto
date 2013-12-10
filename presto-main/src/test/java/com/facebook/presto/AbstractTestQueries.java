@@ -389,6 +389,18 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testDistinctLimit()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT DISTINCT orderstatus, custkey " +
+                "FROM (SELECT orderstatus, custkey FROM orders ORDER BY orderkey LIMIT 10) " +
+                "LIMIT 10");
+        assertQuery("SELECT COUNT(*) FROM (SELECT DISTINCT orderstatus, custkey FROM orders LIMIT 10)");
+        assertQuery("SELECT DISTINCT custkey, orderstatus FROM orders WHERE custkey = 1268 LIMIT 2");
+    }
+
+    @Test
     public void testCountDistinct()
             throws Exception
     {

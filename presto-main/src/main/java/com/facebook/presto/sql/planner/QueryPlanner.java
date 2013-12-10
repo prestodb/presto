@@ -513,8 +513,7 @@ class QueryPlanner
     private PlanBuilder limit(PlanBuilder subPlan, List<SortItem> orderBy, Optional<String> limit)
     {
         if (orderBy.isEmpty() && limit.isPresent()) {
-            long limitValue = Long.valueOf(limit.get());
-            return new PlanBuilder(subPlan.getTranslations(), new LimitNode(idAllocator.getNextId(), subPlan.getRoot(), limitValue));
+            return new PlanBuilder(subPlan.getTranslations(), new LimitNode(idAllocator.getNextId(), subPlan.getRoot(), Long.valueOf(limit.get())));
         }
 
         return subPlan;

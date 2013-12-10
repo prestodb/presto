@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -209,6 +210,16 @@ public final class PlanSanityChecker
 
             verifyUniqueId(node);
 
+            return null;
+        }
+
+        @Override
+        public Void visitDistinctLimit(DistinctLimitNode node, Void context)
+        {
+            PlanNode source = node.getSource();
+            source.accept(this, context); // visit child
+
+            verifyUniqueId(node);
             return null;
         }
 

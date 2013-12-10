@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -150,6 +151,14 @@ public final class SymbolExtractor
 
         @Override
         public Void visitLimit(LimitNode node, Void context)
+        {
+            node.getSource().accept(this, context);
+
+            return null;
+        }
+
+        @Override
+        public Void visitDistinctLimit(DistinctLimitNode node, Void context)
         {
             node.getSource().accept(this, context);
 

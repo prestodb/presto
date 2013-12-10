@@ -18,6 +18,8 @@ import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -74,6 +76,24 @@ public class LimitPushDown
         public PlanNode rewriteLimit(LimitNode node, Long limit, PlanRewriter<Long> planRewriter)
         {
             return planRewriter.rewrite(node.getSource(), Math.min(node.getCount(), limit));
+        }
+
+        @Override
+        public PlanNode rewriteAggregation(AggregationNode node, Long limit, PlanRewriter<Long> planRewriter)
+        {
+            if (limit != Long.MAX_VALUE &&
+                    node.getAggregations().isEmpty() &&
+                    node.getOutputSymbols().size() == node.getGroupBy().size() &&
+                    node.getOutputSymbols().containsAll(node.getGroupBy())) {
+                PlanNode rewrittenSource = planRewriter.rewrite(node.getSource(), Long.MAX_VALUE);
+                return new DistinctLimitNode(idAllocator.getNextId(), rewrittenSource, limit);
+            }
+            PlanNode rewrittenNode = planRewriter.defaultRewrite(node, Long.MAX_VALUE);
+            if (limit != Long.MAX_VALUE) {
+                // Drop in a LimitNode b/c limits cannot be pushed through aggregations
+                rewrittenNode = new LimitNode(idAllocator.getNextId(), rewrittenNode, limit);
+            }
+            return rewrittenNode;
         }
 
         @Override
