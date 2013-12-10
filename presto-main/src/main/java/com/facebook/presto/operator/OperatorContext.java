@@ -93,6 +93,11 @@ public class OperatorContext
         return operatorType;
     }
 
+    public DriverContext getDriverContext()
+    {
+        return driverContext;
+    }
+
     public Session getSession()
     {
         return driverContext.getSession();

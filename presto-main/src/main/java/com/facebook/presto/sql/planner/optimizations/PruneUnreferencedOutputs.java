@@ -23,6 +23,8 @@ import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.IndexJoinNode;
+import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
@@ -138,6 +140,46 @@ public class PruneUnreferencedOutputs
             PlanNode filteringSource = planRewriter.rewrite(node.getFilteringSource(), filteringSourceInputs);
 
             return new SemiJoinNode(node.getId(), source, filteringSource, node.getSourceJoinSymbol(), node.getFilteringSourceJoinSymbol(), node.getSemiJoinOutput());
+        }
+
+        @Override
+        public PlanNode rewriteIndexJoin(IndexJoinNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
+        {
+            Set<Symbol> probeInputs = ImmutableSet.<Symbol>builder()
+                    .addAll(expectedOutputs)
+                    .addAll(Iterables.transform(node.getCriteria(), IndexJoinNode.EquiJoinClause.probeGetter()))
+                    .build();
+
+            Set<Symbol> indexInputs = ImmutableSet.<Symbol>builder()
+                    .addAll(expectedOutputs)
+                    .addAll(Iterables.transform(node.getCriteria(), IndexJoinNode.EquiJoinClause.indexGetter()))
+                    .build();
+
+            PlanNode probeSource = planRewriter.rewrite(node.getProbeSource(), probeInputs);
+            PlanNode indexSource = planRewriter.rewrite(node.getIndexSource(), indexInputs);
+
+            return new IndexJoinNode(node.getId(), node.getType(), probeSource, indexSource, node.getCriteria());
+        }
+
+        @Override
+        public PlanNode rewriteIndexSource(IndexSourceNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
+        {
+            List<Symbol> newOutputSymbols = FluentIterable.from(node.getOutputSymbols())
+                    .filter(in(expectedOutputs))
+                    .toList();
+
+            Set<Symbol> newLookupSymbols = FluentIterable.from(node.getLookupSymbols())
+                    .filter(in(expectedOutputs))
+                    .toSet();
+
+            Set<Symbol> requiredAssignmentSymbols = expectedOutputs;
+            if (!node.getEffectiveTupleDomain().isNone()) {
+                Set<Symbol> requiredSymbols = Maps.filterValues(node.getAssignments(), Predicates.in(node.getEffectiveTupleDomain().getDomains().keySet())).keySet();
+                requiredAssignmentSymbols = Sets.union(expectedOutputs, requiredSymbols);
+            }
+            Map<Symbol, ColumnHandle> newAssignments = Maps.filterKeys(node.getAssignments(), in(requiredAssignmentSymbols));
+
+            return new IndexSourceNode(node.getId(), node.getIndexHandle(), node.getTableHandle(), newLookupSymbols, newOutputSymbols, newAssignments, node.getEffectiveTupleDomain());
         }
 
         @Override

@@ -92,6 +92,11 @@ public class DriverContext
         return ImmutableList.copyOf(operatorContexts);
     }
 
+    public PipelineContext getPipelineContext()
+    {
+        return pipelineContext;
+    }
+
     public Session getSession()
     {
         return pipelineContext.getSession();

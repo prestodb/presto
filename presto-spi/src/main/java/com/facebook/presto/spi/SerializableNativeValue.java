@@ -23,9 +23,13 @@ import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 import java.io.IOException;
 import java.util.Objects;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 @JsonSerialize(using = SerializableNativeValue.Serializer.class)
 @JsonDeserialize(using = SerializableNativeValue.Deserializer.class)
@@ -79,6 +83,9 @@ public class SerializableNativeValue
             if (type == String.class) {
                 jsonGenerator.writeString((String) value.getValue());
             }
+            else if (type == Slice.class) {
+                jsonGenerator.writeString(((Slice) value.getValue()).toStringUtf8());
+            }
             else if (type == Boolean.class) {
                 jsonGenerator.writeBoolean((Boolean) value.getValue());
             }
@@ -122,6 +129,11 @@ public class SerializableNativeValue
                 String value = jsonParser.getValueAsString();
                 checkJson(value != null);
                 return value;
+            }
+            else if (type == Slice.class) {
+                String value = jsonParser.getValueAsString();
+                checkJson(value != null);
+                return Slices.copiedBuffer(value, UTF_8);
             }
             else if (type == Boolean.class) {
                 return jsonParser.getBooleanValue();

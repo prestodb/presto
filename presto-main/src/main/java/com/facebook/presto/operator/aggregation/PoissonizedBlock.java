@@ -97,6 +97,12 @@ class PoissonizedBlock
         }
 
         @Override
+        public BlockCursor duplicate()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public Type getType()
         {
             return BIGINT;

@@ -252,7 +252,7 @@ public class PagesIndex
         };
     }
 
-    public LookupSource createLookupSource(List<Integer> joinChannels, OperatorContext operatorContext)
+    public LookupSource createLookupSource(List<Integer> joinChannels)
     {
         try {
             LookupSourceFactory lookupSourceFactory = joinCompiler.compileLookupSourceFactory(types, joinChannels);

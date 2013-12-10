@@ -26,6 +26,8 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.IndexJoinNode;
+import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
@@ -103,6 +105,15 @@ public final class JsonPlanPrinter
         }
 
         @Override
+        public Void visitIndexJoin(IndexJoinNode node, Void context)
+        {
+            node.getProbeSource().accept(this, null);
+            node.getIndexSource().accept(this, null);
+
+            return null;
+        }
+
+        @Override
         public Void visitLimit(LimitNode node, Void context)
         {
             return processChildren(node);
@@ -137,10 +148,41 @@ public final class JsonPlanPrinter
             for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
                 ColumnMetadata columnMetadata = metadata.getColumnMetadata(node.getTable(), entry.getValue());
                 Domain domain = null;
-                if (!partitionsDomainSummary.isNone() && partitionsDomainSummary.getDomains().keySet().contains(entry.getValue())) {
+                if (!partitionsDomainSummary.isNone() && partitionsDomainSummary.getDomains().containsKey(entry.getValue())) {
                     domain = partitionsDomainSummary.getDomains().get(entry.getValue());
                 }
                 else if (partitionsDomainSummary.isNone()) {
+                    domain = Domain.none(columnMetadata.getType().getJavaType());
+                }
+                Column column = new Column(
+                        columnMetadata.getName(),
+                        columnMetadata.getType().toString(),
+                        Optional.fromNullable(SimpleDomain.fromDomain(domain)));
+                columnBuilder.add(column);
+            }
+            Input input = new Input(
+                    tableMetadata.getConnectorId(),
+                    tableMetadata.getTable().getSchemaName(),
+                    tableMetadata.getTable().getTableName(),
+                    columnBuilder.build());
+            inputBuilder.add(input);
+            return null;
+        }
+
+        @Override
+        public Void visitIndexSource(IndexSourceNode node, Void context)
+        {
+            TableMetadata tableMetadata = metadata.getTableMetadata(node.getTableHandle());
+
+            ImmutableList.Builder<Column> columnBuilder = ImmutableList.builder();
+
+            for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
+                ColumnMetadata columnMetadata = metadata.getColumnMetadata(node.getTableHandle(), entry.getValue());
+                Domain domain = null;
+                if (!node.getEffectiveTupleDomain().isNone() && node.getEffectiveTupleDomain().getDomains().containsKey(entry.getValue())) {
+                    domain = node.getEffectiveTupleDomain().getDomains().get(entry.getValue());
+                }
+                else if (node.getEffectiveTupleDomain().isNone()) {
                     domain = Domain.none(columnMetadata.getType().getJavaType());
                 }
                 Column column = new Column(

@@ -15,6 +15,7 @@ package com.facebook.presto;
 
 import com.facebook.presto.connector.dual.DualMetadata;
 import com.facebook.presto.connector.dual.DualSplitManager;
+import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.InMemoryNodeManager;
@@ -3350,8 +3351,9 @@ public abstract class AbstractTestQueries
         MetadataManager metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true), new TypeRegistry());
         metadata.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, new DualMetadata());
         SplitManager splitManager = new SplitManager(ImmutableSet.<ConnectorSplitManager>of(new DualSplitManager(new InMemoryNodeManager())));
+        IndexManager indexManager = new IndexManager();
         FeaturesConfig featuresConfig = new FeaturesConfig().setExperimentalSyntaxEnabled(true);
-        List<PlanOptimizer> optimizers = new PlanOptimizersFactory(metadata, splitManager, featuresConfig).get();
+        List<PlanOptimizer> optimizers = new PlanOptimizersFactory(metadata, splitManager, indexManager, featuresConfig).get();
         return new QueryExplainer(session, optimizers, metadata, featuresConfig.isExperimentalSyntaxEnabled());
     }
 }

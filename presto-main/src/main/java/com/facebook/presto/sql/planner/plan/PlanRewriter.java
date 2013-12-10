@@ -365,6 +365,19 @@ public final class PlanRewriter<C>
         }
 
         @Override
+        public PlanNode visitIndexSource(IndexSourceNode node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                PlanNode result = nodeRewriter.rewriteIndexSource(node, context.get(), PlanRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            return node;
+        }
+
+        @Override
         public PlanNode visitJoin(JoinNode node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {
@@ -399,6 +412,26 @@ public final class PlanRewriter<C>
 
             if (source != node.getSource() || filteringSource != node.getFilteringSource()) {
                 return new SemiJoinNode(node.getId(), source, filteringSource, node.getSourceJoinSymbol(), node.getFilteringSourceJoinSymbol(), node.getSemiJoinOutput());
+            }
+
+            return node;
+        }
+
+        @Override
+        public PlanNode visitIndexJoin(IndexJoinNode node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                PlanNode result = nodeRewriter.rewriteIndexJoin(node, context.get(), PlanRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            PlanNode probeSource = rewrite(node.getProbeSource(), context.get());
+            PlanNode indexSource = rewrite(node.getIndexSource(), context.get());
+
+            if (probeSource != node.getProbeSource() || indexSource != node.getIndexSource()) {
+                return new IndexJoinNode(node.getId(), node.getType(), probeSource, indexSource, node.getCriteria());
             }
 
             return node;

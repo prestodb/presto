@@ -41,7 +41,7 @@ public final class SettableLookupSourceSupplier
     }
 
     @Override
-    public ListenableFuture<LookupSource> getLookupSource()
+    public ListenableFuture<LookupSource> getLookupSource(OperatorContext operatorContext)
     {
         return lookupSourceFuture;
     }

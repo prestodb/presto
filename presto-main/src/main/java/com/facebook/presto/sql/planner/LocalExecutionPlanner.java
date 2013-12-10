@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
@@ -50,8 +51,11 @@ import com.facebook.presto.operator.TableScanOperator.TableScanOperatorFactory;
 import com.facebook.presto.operator.TopNOperator.TopNOperatorFactory;
 import com.facebook.presto.operator.ValuesOperator.ValuesOperatorFactory;
 import com.facebook.presto.operator.WindowOperator.WindowOperatorFactory;
+import com.facebook.presto.operator.index.IndexLookupSourceSupplier;
+import com.facebook.presto.operator.index.IndexSourceOperator;
 import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.Index;
 import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.block.BlockCursor;
@@ -59,10 +63,13 @@ import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
+import com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.IndexJoinNode;
+import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
@@ -95,13 +102,18 @@ import com.google.common.base.Functions;
 import com.google.common.base.Optional;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ComparisonChain;
+import com.google.common.collect.FluentIterable;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMap.Builder;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Multimap;
 import com.google.common.collect.Ordering;
+import com.google.common.collect.SetMultimap;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 
@@ -117,13 +129,17 @@ import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static com.facebook.presto.operator.DistinctLimitOperator.DistinctLimitOperatorFactory;
 import static com.facebook.presto.operator.TableCommitOperator.TableCommitOperatorFactory;
 import static com.facebook.presto.operator.TableCommitOperator.TableCommitter;
 import static com.facebook.presto.operator.TableWriterOperator.TableWriterOperatorFactory;
+import static com.facebook.presto.operator.index.PagesIndexBuilderOperator.PagesIndexBuilderOperatorFactory;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
+import static com.facebook.presto.sql.planner.plan.IndexJoinNode.EquiJoinClause.indexGetter;
+import static com.facebook.presto.sql.planner.plan.IndexJoinNode.EquiJoinClause.probeGetter;
 import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.leftGetter;
 import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.rightGetter;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -140,6 +156,7 @@ public class LocalExecutionPlanner
     private final Metadata metadata;
 
     private final DataStreamProvider dataStreamProvider;
+    private final IndexManager indexManager;
     private final LocalStorageManager storageManager;
     private final RecordSinkManager recordSinkManager;
     private final Supplier<ExchangeClient> exchangeClientSupplier;
@@ -149,6 +166,7 @@ public class LocalExecutionPlanner
     public LocalExecutionPlanner(NodeInfo nodeInfo,
             Metadata metadata,
             DataStreamProvider dataStreamProvider,
+            IndexManager indexManager,
             LocalStorageManager storageManager,
             RecordSinkManager recordSinkManager,
             Supplier<ExchangeClient> exchangeClientSupplier,
@@ -156,6 +174,7 @@ public class LocalExecutionPlanner
     {
         this.nodeInfo = checkNotNull(nodeInfo, "nodeInfo is null");
         this.dataStreamProvider = dataStreamProvider;
+        this.indexManager = checkNotNull(indexManager, "indexManager is null");
         this.exchangeClientSupplier = exchangeClientSupplier;
         this.metadata = checkNotNull(metadata, "metadata is null");
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
@@ -187,22 +206,23 @@ public class LocalExecutionPlanner
     {
         private final Session session;
         private final Map<Symbol, Type> types;
-
         private final List<DriverFactory> driverFactories;
+        private final Optional<IndexSourceContext> indexSourceContext;
 
         private int nextOperatorId;
         private boolean inputDriver = true;
 
         public LocalExecutionPlanContext(Session session, Map<Symbol, Type> types)
         {
-            this(session, types, new ArrayList<DriverFactory>());
+            this(session, types, new ArrayList<DriverFactory>(), Optional.<IndexSourceContext>absent());
         }
 
-        private LocalExecutionPlanContext(Session session, Map<Symbol, Type> types, List<DriverFactory> driverFactories)
+        private LocalExecutionPlanContext(Session session, Map<Symbol, Type> types, List<DriverFactory> driverFactories, Optional<IndexSourceContext> indexSourceContext)
         {
             this.session = session;
             this.types = types;
             this.driverFactories = driverFactories;
+            this.indexSourceContext = indexSourceContext;
         }
 
         public void addDriverFactory(DriverFactory driverFactory)
@@ -225,6 +245,11 @@ public class LocalExecutionPlanner
             return types;
         }
 
+        public Optional<IndexSourceContext> getIndexSourceContext()
+        {
+            return indexSourceContext;
+        }
+
         private int getNextOperatorId()
         {
             return nextOperatorId++;
@@ -242,7 +267,27 @@ public class LocalExecutionPlanner
 
         public LocalExecutionPlanContext createSubContext()
         {
-            return new LocalExecutionPlanContext(session, types, driverFactories);
+            return new LocalExecutionPlanContext(session, types, driverFactories, indexSourceContext);
+        }
+
+        public LocalExecutionPlanContext createIndexSourceSubContext(IndexSourceContext indexSourceContext)
+        {
+            return new LocalExecutionPlanContext(session, types, driverFactories, Optional.of(indexSourceContext));
+        }
+    }
+
+    private static class IndexSourceContext
+    {
+        private final SetMultimap<Symbol, Input> indexLookupToProbeInput;
+
+        public IndexSourceContext(SetMultimap<Symbol, Input> indexLookupToProbeInput)
+        {
+            this.indexLookupToProbeInput = ImmutableSetMultimap.copyOf(checkNotNull(indexLookupToProbeInput, "indexLookupToProbeInput is null"));
+        }
+
+        private SetMultimap<Symbol, Input> getIndexLookupToProbeInput()
+        {
+            return indexLookupToProbeInput;
         }
     }
 
@@ -769,6 +814,144 @@ public class LocalExecutionPlanner
 
             OperatorFactory operatorFactory = new ValuesOperatorFactory(context.getNextOperatorId(), ImmutableList.of(pageBuilder.build()));
             return new PhysicalOperation(operatorFactory, outputMappings);
+        }
+
+        @Override
+        public PhysicalOperation visitIndexSource(IndexSourceNode node, LocalExecutionPlanContext context)
+        {
+            checkState(context.getIndexSourceContext().isPresent(), "Must be in an index source context");
+            IndexSourceContext indexSourceContext = context.getIndexSourceContext().get();
+
+            ImmutableMap.Builder<Symbol, Input> outputMappings = ImmutableMap.builder();
+            int channel = 0;
+            for (Symbol symbol : node.getOutputSymbols()) {
+                outputMappings.put(symbol, new Input(channel));
+                channel++;
+            }
+
+            SetMultimap<Symbol, Input> indexLookupToProbeInput = indexSourceContext.getIndexLookupToProbeInput();
+            checkState(indexLookupToProbeInput.keySet().equals(node.getLookupSymbols()));
+
+            // Finalize the symbol lookup layout for the index source
+            List<Symbol> lookupSymbolSchema = ImmutableList.copyOf(node.getLookupSymbols());
+
+            // Identify how to remap the probe key Input to match the source index lookup layout
+            List<Integer> remappedProbeKeyChannels = new ArrayList<>();
+            for (Symbol lookupSymbol : lookupSymbolSchema) {
+                // TODO: add additional optimization when there are multiple mappings for one lookup symbol (e.g. index key filtering)
+                // Currently just pick the first field that can supply this symbol
+                Input probeInput = Iterables.getFirst(indexLookupToProbeInput.get(lookupSymbol), null);
+                remappedProbeKeyChannels.add(probeInput.getChannel());
+            }
+
+            // Declare the input and output schemas for the index and acquire the actual Index
+            List<ColumnHandle> lookupSchema = Lists.transform(lookupSymbolSchema, Functions.forMap(node.getAssignments()));
+            List<ColumnHandle> outputSchema = Lists.transform(node.getOutputSymbols(), Functions.forMap(node.getAssignments()));
+            Index index = indexManager.getIndex(node.getIndexHandle(), lookupSchema, outputSchema);
+
+            List<Type> types = getSourceOperatorTypes(node, context.getTypes());
+            OperatorFactory operatorFactory = new IndexSourceOperator.IndexSourceOperatorFactory(context.getNextOperatorId(), node.getId(), index, types, remappedProbeKeyChannels);
+            return new PhysicalOperation(operatorFactory, outputMappings.build());
+        }
+
+        /**
+         * This method creates a mapping from each index source lookup symbol (directly applied to the index)
+         * to the corresponding probe key Input
+         */
+        private SetMultimap<Symbol, Input> mapIndexSourceLookupSymbolToProbeKeyInput(IndexJoinNode node, Map<Symbol, Input> probeKeyLayout)
+        {
+            Set<Symbol> indexJoinSymbols = FluentIterable.from(node.getCriteria())
+                    .transform(indexGetter())
+                    .toSet();
+
+            // Trace the index join symbols to the index source lookup symbols
+            // Map: Index join symbol => Index source lookup symbol
+            Map<Symbol, Symbol> indexKeyTrace = IndexJoinOptimizer.IndexKeyTracer.trace(node.getIndexSource(), indexJoinSymbols);
+
+            // Map the index join symbols to the probe key Input
+            Multimap<Symbol, Input> indexToProbeKeyInput = HashMultimap.create();
+            for (IndexJoinNode.EquiJoinClause clause : node.getCriteria()) {
+                indexToProbeKeyInput.put(clause.getIndex(), probeKeyLayout.get(clause.getProbe()));
+            }
+
+            // Create the mapping from index source look up symbol to probe key Input
+            ImmutableSetMultimap.Builder<Symbol, Input> builder = ImmutableSetMultimap.builder();
+            for (Map.Entry<Symbol, Symbol> entry : indexKeyTrace.entrySet()) {
+                Symbol indexJoinSymbol = entry.getKey();
+                Symbol indexLookupSymbol = entry.getValue();
+                builder.putAll(indexLookupSymbol, indexToProbeKeyInput.get(indexJoinSymbol));
+            }
+            return builder.build();
+        }
+
+        @Override
+        public PhysicalOperation visitIndexJoin(IndexJoinNode node, LocalExecutionPlanContext context)
+        {
+            List<IndexJoinNode.EquiJoinClause> clauses = node.getCriteria();
+
+            List<Symbol> probeSymbols = Lists.transform(clauses, probeGetter());
+            List<Symbol> indexSymbols = Lists.transform(clauses, indexGetter());
+
+            // Plan probe side
+            PhysicalOperation probeSource = node.getProbeSource().accept(this, context);
+            List<Integer> probeChannels = getChannelsForSymbols(probeSymbols, probeSource.getLayout());
+
+            // The probe key channels will be handed to the index according to probeSymbol order
+            Map<Symbol, Input> probeKeyLayout = new HashMap<>();
+            for (int i = 0; i < probeSymbols.size(); i++) {
+                // Duplicate symbols can appear and we only need to take take one of the Inputs
+                probeKeyLayout.put(probeSymbols.get(i), new Input(i));
+            }
+
+            // Plan the index source side
+            SetMultimap<Symbol, Input> indexLookupToProbeInput = mapIndexSourceLookupSymbolToProbeKeyInput(node, probeKeyLayout);
+            LocalExecutionPlanContext indexContext = context.createIndexSourceSubContext(new IndexSourceContext(indexLookupToProbeInput));
+            PhysicalOperation indexSource = node.getIndexSource().accept(this, indexContext);
+            List<Integer> indexChannels = getChannelsForSymbols(indexSymbols, indexSource.getLayout());
+
+            PagesIndexBuilderOperatorFactory pagesIndexOutput = new PagesIndexBuilderOperatorFactory(
+                    indexContext.getNextOperatorId(),
+                    indexSource.getTypes()
+            );
+
+            DriverFactory indexBuildDriverFactory = new DriverFactory(
+                    indexContext.isInputDriver(),
+                    false,
+                    ImmutableList.<OperatorFactory>builder()
+                            .addAll(indexSource.getOperatorFactories())
+                            .add(pagesIndexOutput)
+                            .build());
+
+            IndexLookupSourceSupplier indexLookupSourceSupplier = new IndexLookupSourceSupplier(
+                    indexChannels,
+                    indexSource.getTypes(),
+                    indexContext.getNextOperatorId(),
+                    indexBuildDriverFactory,
+                    pagesIndexOutput);
+
+            ImmutableMap.Builder<Symbol, Input> outputMappings = ImmutableMap.builder();
+            outputMappings.putAll(probeSource.getLayout());
+
+            // inputs from index side of the join are laid out following the input from the probe side,
+            // so adjust the channel ids but keep the field layouts intact
+            int offset = probeSource.getTypes().size();
+            for (Map.Entry<Symbol, Input> entry : indexSource.getLayout().entrySet()) {
+                Input input = entry.getValue();
+                outputMappings.put(entry.getKey(), new Input(offset + input.getChannel()));
+            }
+
+            OperatorFactory lookupJoinOperatorFactory;
+            switch (node.getType()) {
+                case INNER:
+                    lookupJoinOperatorFactory = LookupJoinOperators.innerJoin(context.getNextOperatorId(), indexLookupSourceSupplier, probeSource.getTypes(), probeChannels);
+                    break;
+                case SOURCE_OUTER:
+                    lookupJoinOperatorFactory = LookupJoinOperators.outerJoin(context.getNextOperatorId(), indexLookupSourceSupplier, probeSource.getTypes(), probeChannels);
+                    break;
+                default:
+                    throw new AssertionError("Unknown type: " + node.getType());
+            }
+            return new PhysicalOperation(lookupJoinOperatorFactory, outputMappings.build(), probeSource);
         }
 
         @Override

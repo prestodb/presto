@@ -50,6 +50,22 @@ public class FixedWidthBlockCursor
         offset = -entrySize;
     }
 
+    public FixedWidthBlockCursor(FixedWidthBlockCursor cursor)
+    {
+        this.type = cursor.type;
+        this.entrySize = cursor.entrySize;
+        this.slice = cursor.slice;
+        this.positionCount = cursor.positionCount;
+        this.position = cursor.position;
+        this.offset = cursor.offset;
+    }
+
+    @Override
+    public FixedWidthBlockCursor duplicate()
+    {
+        return new FixedWidthBlockCursor(this);
+    }
+
     @Override
     public Type getType()
     {

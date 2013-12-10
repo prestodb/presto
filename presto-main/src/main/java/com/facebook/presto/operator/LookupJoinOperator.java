@@ -53,7 +53,7 @@ public class LookupJoinOperator
         checkNotNull(lookupSourceSupplier, "lookupSourceSupplier is null");
         checkNotNull(probeTypes, "probeTypes is null");
 
-        this.lookupSourceFuture = lookupSourceSupplier.getLookupSource();
+        this.lookupSourceFuture = lookupSourceSupplier.getLookupSource(operatorContext);
         this.joinProbeFactory = joinProbeFactory;
         this.enableOuterJoin = enableOuterJoin;
 
