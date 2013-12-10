@@ -21,9 +21,13 @@ public interface ConnectorHandleResolver
 
     boolean canHandle(Split split);
 
+    boolean canHandle(IndexHandle indexHandle);
+
     Class<? extends TableHandle> getTableHandleClass();
 
     Class<? extends ColumnHandle> getColumnHandleClass();
 
     Class<? extends Split> getSplitClass();
+
+    Class<? extends IndexHandle> getIndexHandleClass();
 }

@@ -22,5 +22,5 @@ public interface LookupSourceSupplier
 {
     List<Type> getTypes();
 
-    ListenableFuture<LookupSource> getLookupSource();
+    ListenableFuture<LookupSource> getLookupSource(OperatorContext operatorContext);
 }

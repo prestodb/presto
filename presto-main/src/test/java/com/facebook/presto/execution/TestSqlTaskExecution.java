@@ -22,6 +22,7 @@ import com.facebook.presto.connector.dual.DualMetadata;
 import com.facebook.presto.connector.dual.DualSplitManager;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.TestSqlTaskManager.MockExchangeClientSupplier;
+import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.MockLocalStorageManager;
@@ -112,6 +113,7 @@ public class TestSqlTaskExecution
                 new NodeInfo("test"),
                 metadata,
                 new DataStreamManager(new DualDataStreamProvider()),
+                new IndexManager(),
                 new MockLocalStorageManager(new File("target/temp")),
                 new RecordSinkManager(),
                 new MockExchangeClientSupplier(),

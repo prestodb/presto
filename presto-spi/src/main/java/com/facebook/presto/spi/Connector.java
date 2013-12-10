@@ -22,4 +22,5 @@ public interface Connector
     ConnectorSplitManager getSplitManager();
     ConnectorRecordSetProvider getRecordSetProvider();
     ConnectorRecordSinkProvider getRecordSinkProvider();
+    ConnectorIndexResolver getIndexResolver();
 }

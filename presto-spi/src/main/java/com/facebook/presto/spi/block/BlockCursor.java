@@ -32,6 +32,11 @@ import io.airlift.slice.Slice;
 public interface BlockCursor
 {
     /**
+     * Creates a new cursor at the same position of as this cursor.
+     */
+    BlockCursor duplicate();
+
+    /**
      * Gets the type of this cursor
      */
     Type getType();

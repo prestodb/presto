@@ -44,6 +44,19 @@ public final class RunLengthEncodedBlockCursor
         position = -1;
     }
 
+    public RunLengthEncodedBlockCursor(RunLengthEncodedBlockCursor cursor)
+    {
+        this.value = cursor.value;
+        this.positionCount = cursor.positionCount;
+        this.position = cursor.position;
+    }
+
+    @Override
+    public BlockCursor duplicate()
+    {
+        return new RunLengthEncodedBlockCursor(this);
+    }
+
     @Override
     public Type getType()
     {
