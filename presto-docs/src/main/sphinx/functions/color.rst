@@ -73,3 +73,8 @@ Color Functions
     0x00FF00 are pased to this function a 40 character bar will be
     drawn that varies from red (0xFF0000) and yellow (0xFFFF00) and
     the remainder of the 80 character bar will be padded with spaces..
+
+.. figure:: 	  ../images/functions_color_bar.png
+   :align: 	  center
+
+   Example Output of the ``bar`` function  
