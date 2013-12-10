@@ -15,6 +15,7 @@ package com.facebook.presto.spi.classloader;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
+import com.facebook.presto.spi.IndexHandle;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.TableHandle;
 
@@ -57,6 +58,14 @@ public class ClassLoaderSafeConnectorHandleResolver
     }
 
     @Override
+    public boolean canHandle(IndexHandle indexHandle)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.canHandle(indexHandle);
+        }
+    }
+
+    @Override
     public Class<? extends TableHandle> getTableHandleClass()
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
@@ -85,6 +94,14 @@ public class ClassLoaderSafeConnectorHandleResolver
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.toString();
+        }
+    }
+
+    @Override
+    public Class<? extends IndexHandle> getIndexHandleClass()
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getIndexHandleClass();
         }
     }
 }

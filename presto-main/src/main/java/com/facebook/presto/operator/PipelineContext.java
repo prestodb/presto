@@ -85,6 +85,11 @@ public class PipelineContext
         this.executor = checkNotNull(executor, "executor is null");
     }
 
+    public TaskContext getTaskContext()
+    {
+        return taskContext;
+    }
+
     public TaskId getTaskId()
     {
         return taskContext.getTaskId();

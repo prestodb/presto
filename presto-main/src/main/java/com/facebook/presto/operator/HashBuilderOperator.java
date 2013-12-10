@@ -126,7 +126,7 @@ public class HashBuilderOperator
             return;
         }
 
-        LookupSource lookupSource = pagesIndex.createLookupSource(hashChannels, operatorContext);
+        LookupSource lookupSource = pagesIndex.createLookupSource(hashChannels);
         lookupSourceSupplier.setLookupSource(lookupSource);
         finished = true;
     }

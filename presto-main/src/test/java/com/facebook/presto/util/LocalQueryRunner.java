@@ -28,6 +28,7 @@ import com.facebook.presto.connector.system.SystemSplitManager;
 import com.facebook.presto.connector.system.SystemTablesManager;
 import com.facebook.presto.connector.system.SystemTablesMetadata;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.LocalStorageManager;
@@ -115,6 +116,7 @@ public class LocalQueryRunner
     private final MetadataManager metadata;
     private final SplitManager splitManager;
     private final DataStreamManager dataStreamProvider;
+    private final IndexManager indexManager;
     private final LocalStorageManager storageManager;
     private final RecordSinkManager recordSinkManager;
 
@@ -133,6 +135,7 @@ public class LocalQueryRunner
         this.metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true), new TypeRegistry());
         this.splitManager = new SplitManager(ImmutableSet.<ConnectorSplitManager>of());
         this.dataStreamProvider = new DataStreamManager();
+        this.indexManager = new IndexManager();
         this.recordSinkManager = new RecordSinkManager();
         this.storageManager = MockLocalStorageManager.createMockLocalStorageManager();
 
@@ -142,6 +145,7 @@ public class LocalQueryRunner
                 metadata,
                 splitManager,
                 dataStreamProvider,
+                indexManager,
                 recordSinkManager,
                 new HandleResolver(),
                 new OutputTableHandleResolver(),
@@ -288,7 +292,7 @@ public class LocalQueryRunner
 
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
         FeaturesConfig featuresConfig = new FeaturesConfig().setExperimentalSyntaxEnabled(true);
-        PlanOptimizersFactory planOptimizersFactory = new PlanOptimizersFactory(metadata, splitManager, featuresConfig);
+        PlanOptimizersFactory planOptimizersFactory = new PlanOptimizersFactory(metadata, splitManager, indexManager, featuresConfig);
 
         QueryExplainer queryExplainer = new QueryExplainer(session, planOptimizersFactory.get(), metadata, featuresConfig.isExperimentalSyntaxEnabled());
         Analyzer analyzer = new Analyzer(session, metadata, Optional.of(queryExplainer), featuresConfig.isExperimentalSyntaxEnabled());
@@ -309,6 +313,7 @@ public class LocalQueryRunner
                         .setNodeId("test-node")),
                 metadata,
                 dataStreamProvider,
+                indexManager,
                 storageManager,
                 recordSinkManager,
                 null,

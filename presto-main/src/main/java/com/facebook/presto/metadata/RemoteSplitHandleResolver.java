@@ -15,6 +15,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
+import com.facebook.presto.spi.IndexHandle;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.split.RemoteSplit;
@@ -41,6 +42,12 @@ public class RemoteSplitHandleResolver
     }
 
     @Override
+    public boolean canHandle(IndexHandle indexHandle)
+    {
+        return false;
+    }
+
+    @Override
     public Class<? extends TableHandle> getTableHandleClass()
     {
         throw new UnsupportedOperationException();
@@ -56,5 +63,11 @@ public class RemoteSplitHandleResolver
     public Class<? extends Split> getSplitClass()
     {
         return RemoteSplit.class;
+    }
+
+    @Override
+    public Class<? extends IndexHandle> getIndexHandleClass()
+    {
+        throw new UnsupportedOperationException();
     }
 }

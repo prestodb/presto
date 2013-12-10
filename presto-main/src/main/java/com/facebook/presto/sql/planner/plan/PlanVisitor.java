@@ -75,12 +75,22 @@ public class PlanVisitor<C, R>
         return visitPlan(node, context);
     }
 
+    public R visitIndexSource(IndexSourceNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
     public R visitJoin(JoinNode node, C context)
     {
         return visitPlan(node, context);
     }
 
     public R visitSemiJoin(SemiJoinNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitIndexJoin(IndexJoinNode node, C context)
     {
         return visitPlan(node, context);
     }

@@ -22,6 +22,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
@@ -72,6 +73,26 @@ public class InputExtractor
         public Void visitTableScan(TableScanNode node, Void context)
         {
             TableHandle tableHandle = node.getTable();
+            TableMetadata table = metadata.getTableMetadata(tableHandle);
+            SchemaTableName schemaTable = table.getTable();
+
+            TableEntry entry = new TableEntry(table.getConnectorId(), schemaTable.getSchemaName(), schemaTable.getTableName());
+            Optional<ColumnHandle> sampleWeightColumn = metadata.getSampleWeightColumnHandle(tableHandle);
+
+            for (ColumnHandle columnHandle : node.getAssignments().values()) {
+                if (!columnHandle.equals(sampleWeightColumn.orNull())) {
+                    ColumnMetadata columnMetadata = metadata.getColumnMetadata(tableHandle, columnHandle);
+                    builder.put(entry, new Column(columnMetadata.getName(), columnMetadata.getType().toString(), Optional.<SimpleDomain>absent()));
+                }
+            }
+
+            return null;
+        }
+
+        @Override
+        public Void visitIndexSource(IndexSourceNode node, Void context)
+        {
+            TableHandle tableHandle = node.getTableHandle();
             TableMetadata table = metadata.getTableMetadata(tableHandle);
             SchemaTableName schemaTable = table.getTable();
 

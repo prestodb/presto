@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.index.IndexHandleJacksonModule;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorOutputHandleResolver;
 import com.google.inject.Binder;
@@ -33,6 +34,7 @@ public class HandleJsonModule
         jsonBinder(binder).addModuleBinding().to(ColumnHandleJacksonModule.class);
         jsonBinder(binder).addModuleBinding().to(SplitJacksonModule.class);
         jsonBinder(binder).addModuleBinding().to(OutputTableHandleJacksonModule.class);
+        jsonBinder(binder).addModuleBinding().to(IndexHandleJacksonModule.class);
 
         binder.bind(HandleResolver.class).in(Scopes.SINGLETON);
         MapBinder<String, ConnectorHandleResolver> connectorHandleResolverBinder = newMapBinder(binder, String.class, ConnectorHandleResolver.class);

@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.NativeRecordSinkProvider;
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorHandleResolver;
+import com.facebook.presto.spi.ConnectorIndexResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorOutputHandleResolver;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
@@ -103,6 +104,12 @@ public class NativeConnectorFactory
 
             @Override
             public ConnectorRecordSetProvider getRecordSetProvider()
+            {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public ConnectorIndexResolver getIndexResolver()
             {
                 throw new UnsupportedOperationException();
             }

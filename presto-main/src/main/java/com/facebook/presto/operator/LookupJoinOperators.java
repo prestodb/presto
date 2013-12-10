@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.sql.gen.JoinProbeCompiler;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.gen.JoinProbeCompiler;
 
 import java.util.List;
 

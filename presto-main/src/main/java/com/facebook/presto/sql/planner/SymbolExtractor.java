@@ -18,6 +18,8 @@ import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.MaterializeSampleNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.IndexJoinNode;
+import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
@@ -220,6 +222,13 @@ public final class SymbolExtractor
             return null;
         }
 
+        public Void visitIndexSource(IndexSourceNode node, Void context)
+        {
+            builder.addAll(node.getAssignments().keySet());
+
+            return null;
+        }
+
         @Override
         public Void visitJoin(JoinNode node, Void context)
         {
@@ -236,6 +245,15 @@ public final class SymbolExtractor
 
             node.getSource().accept(this, context);
             node.getFilteringSource().accept(this, context);
+
+            return null;
+        }
+
+        @Override
+        public Void visitIndexJoin(IndexJoinNode node, Void context)
+        {
+            node.getProbeSource().accept(this, context);
+            node.getIndexSource().accept(this, context);
 
             return null;
         }

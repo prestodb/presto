@@ -40,6 +40,18 @@ public class DictionaryEncodedBlockCursor
         checkArgument(idCursor.getType().equals(BIGINT), "Expected bigint cursor but got %s cursor", idCursor.getType());
     }
 
+    public DictionaryEncodedBlockCursor(DictionaryEncodedBlockCursor cursor)
+    {
+        this.dictionary = cursor.dictionary;
+        this.idCursor = cursor.idCursor.duplicate();
+    }
+
+    @Override
+    public BlockCursor duplicate()
+    {
+        return new DictionaryEncodedBlockCursor(this);
+    }
+
     @Override
     public Type getType()
     {

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.connector;
 
+import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.OutputTableHandleResolver;
@@ -20,6 +21,7 @@ import com.facebook.presto.operator.RecordSinkManager;
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorHandleResolver;
+import com.facebook.presto.spi.ConnectorIndexResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorOutputHandleResolver;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
@@ -47,6 +49,8 @@ public class ConnectorManager
     private final MetadataManager metadataManager;
     private final SplitManager splitManager;
     private final DataStreamManager dataStreamManager;
+    private final IndexManager indexManager;
+
     private final RecordSinkManager recordSinkManager;
     private final HandleResolver handleResolver;
     private final OutputTableHandleResolver outputTableHandleResolver;
@@ -59,6 +63,7 @@ public class ConnectorManager
     public ConnectorManager(MetadataManager metadataManager,
             SplitManager splitManager,
             DataStreamManager dataStreamManager,
+            IndexManager indexManager,
             RecordSinkManager recordSinkManager,
             HandleResolver handleResolver,
             OutputTableHandleResolver outputTableHandleResolver,
@@ -68,6 +73,7 @@ public class ConnectorManager
         this.metadataManager = metadataManager;
         this.splitManager = splitManager;
         this.dataStreamManager = dataStreamManager;
+        this.indexManager = indexManager;
         this.recordSinkManager = recordSinkManager;
         this.handleResolver = handleResolver;
         this.outputTableHandleResolver = outputTableHandleResolver;
@@ -181,6 +187,18 @@ public class ConnectorManager
 
         if (connectorOutputHandleResolver != null) {
             outputTableHandleResolver.addHandleResolver(connectorId, connectorOutputHandleResolver);
+        }
+
+        ConnectorIndexResolver indexResolver = null;
+        try {
+            indexResolver = connector.getIndexResolver();
+            checkNotNull(indexResolver, "Connector %s returned a null index resolver", connectorId);
+        }
+        catch (UnsupportedOperationException ignored) {
+        }
+
+        if (indexResolver != null) {
+            indexManager.addIndexResolver(indexResolver);
         }
     }
 }

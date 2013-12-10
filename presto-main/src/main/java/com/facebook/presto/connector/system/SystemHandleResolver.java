@@ -15,6 +15,7 @@ package com.facebook.presto.connector.system;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
+import com.facebook.presto.spi.IndexHandle;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.TableHandle;
 
@@ -40,6 +41,12 @@ public class SystemHandleResolver
     }
 
     @Override
+    public boolean canHandle(IndexHandle indexHandle)
+    {
+        return false;
+    }
+
+    @Override
     public Class<? extends TableHandle> getTableHandleClass()
     {
         return SystemTableHandle.class;
@@ -55,5 +62,11 @@ public class SystemHandleResolver
     public Class<? extends Split> getSplitClass()
     {
         return SystemSplit.class;
+    }
+
+    @Override
+    public Class<? extends IndexHandle> getIndexHandleClass()
+    {
+        throw new UnsupportedOperationException();
     }
 }

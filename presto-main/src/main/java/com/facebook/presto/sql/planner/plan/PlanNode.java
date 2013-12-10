@@ -45,6 +45,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
         @JsonSubTypes.Type(value = SinkNode.class, name = "sink"),
         @JsonSubTypes.Type(value = JoinNode.class, name = "join"),
         @JsonSubTypes.Type(value = SemiJoinNode.class, name = "semijoin"),
+        @JsonSubTypes.Type(value = IndexJoinNode.class, name = "indexjoin"),
+        @JsonSubTypes.Type(value = IndexSourceNode.class, name = "indexsource"),
         @JsonSubTypes.Type(value = TableWriterNode.class, name = "tablewriter"),
         @JsonSubTypes.Type(value = TableCommitNode.class, name = "tablecommit"),
 })
