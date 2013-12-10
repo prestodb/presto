@@ -32,28 +32,32 @@ import static com.google.common.base.Preconditions.checkState;
 public class HashBuilderOperator
         implements Operator
 {
-    public static class HashSupplier
+    public static class HashSourceSupplier
+            implements LookupSourceSupplier
     {
         private final List<TupleInfo> tupleInfos;
         private final SettableFuture<JoinHash> hashFuture = SettableFuture.create();
 
-        public HashSupplier(List<TupleInfo> tupleInfos)
+        public HashSourceSupplier(List<TupleInfo> tupleInfos)
         {
             this.tupleInfos = ImmutableList.copyOf(checkNotNull(tupleInfos, "tupleInfos is null"));
         }
 
+        @Override
         public List<TupleInfo> getTupleInfos()
         {
             return tupleInfos;
         }
 
-        public ListenableFuture<JoinHash> getSourceHash()
+        @Override
+        public ListenableFuture<LookupSource> getLookupSource(OperatorContext operatorContext)
         {
-            return Futures.transform(hashFuture, new Function<JoinHash, JoinHash>()
+            return Futures.transform(hashFuture, new Function<JoinHash, LookupSource>()
             {
                 @Override
-                public JoinHash apply(JoinHash joinHash)
+                public LookupSource apply(JoinHash joinHash)
                 {
+                    // Make a copy of the joinHash because each instance needs to be used by a different thread
                     return new JoinHash(joinHash);
                 }
             });
@@ -70,7 +74,7 @@ public class HashBuilderOperator
             implements OperatorFactory
     {
         private final int operatorId;
-        private final HashSupplier hashSupplier;
+        private final HashSourceSupplier hashSupplier;
         private final List<Integer> hashChannels;
         private final int expectedPositions;
         private boolean closed;
@@ -82,7 +86,7 @@ public class HashBuilderOperator
                 int expectedPositions)
         {
             this.operatorId = operatorId;
-            this.hashSupplier = new HashSupplier(checkNotNull(tupleInfos, "tupleInfos is null"));
+            this.hashSupplier = new HashSourceSupplier(checkNotNull(tupleInfos, "tupleInfos is null"));
 
             Preconditions.checkArgument(!hashChannels.isEmpty(), "hashChannels is empty");
             this.hashChannels = ImmutableList.copyOf(checkNotNull(hashChannels, "hashChannels is null"));
@@ -90,7 +94,7 @@ public class HashBuilderOperator
             this.expectedPositions = checkNotNull(expectedPositions, "expectedPositions is null");
         }
 
-        public HashSupplier getHashSupplier()
+        public HashSourceSupplier getHashSupplier()
         {
             return hashSupplier;
         }
@@ -121,7 +125,7 @@ public class HashBuilderOperator
     }
 
     private final OperatorContext operatorContext;
-    private final HashSupplier hashSupplier;
+    private final HashSourceSupplier hashSupplier;
     private final List<Integer> hashChannels;
 
     private final PagesIndex pagesIndex;
@@ -130,7 +134,7 @@ public class HashBuilderOperator
 
     public HashBuilderOperator(
             OperatorContext operatorContext,
-            HashSupplier hashSupplier,
+            HashSourceSupplier hashSupplier,
             List<Integer> hashChannels,
             int expectedPositions)
     {

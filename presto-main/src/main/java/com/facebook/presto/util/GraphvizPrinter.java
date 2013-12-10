@@ -18,12 +18,14 @@ import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
-import com.facebook.presto.sql.planner.plan.MaterializeSampleNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.IndexJoinNode;
+import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
+import com.facebook.presto.sql.planner.plan.MaterializeSampleNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -76,7 +78,8 @@ public final class GraphvizPrinter
         UNION,
         SORT,
         MARK_DISTINCT,
-        MATERIALIZE_SAMPLE
+        MATERIALIZE_SAMPLE,
+        INDEX_SOURCE
     }
 
     private static final Map<NodeType, String> NODE_COLORS = immutableEnumMap(ImmutableMap.<NodeType, String>builder()
@@ -96,6 +99,7 @@ public final class GraphvizPrinter
             .put(NodeType.UNION, "turquoise4")
             .put(NodeType.MARK_DISTINCT, "violet")
             .put(NodeType.MATERIALIZE_SAMPLE, "hotpink")
+            .put(NodeType.INDEX_SOURCE, "dodgerblue3")
             .build());
 
     static {
@@ -368,6 +372,33 @@ public final class GraphvizPrinter
 
             node.getSource().accept(this, context);
             node.getFilteringSource().accept(this, context);
+
+            return null;
+        }
+
+        @Override
+        public Void visitIndexSource(IndexSourceNode node, Void context)
+        {
+            printNode(node, format("IndexSource[%s]", node.getIndexHandle()), NODE_COLORS.get(NodeType.INDEX_SOURCE));
+            return null;
+        }
+
+        @Override
+        public Void visitIndexJoin(IndexJoinNode node, Void context)
+        {
+            List<Expression> joinExpressions = new ArrayList<>();
+            for (IndexJoinNode.EquiJoinClause clause : node.getCriteria()) {
+                joinExpressions.add(new ComparisonExpression(ComparisonExpression.Type.EQUAL,
+                        new QualifiedNameReference(clause.getProbe().toQualifiedName()),
+                        new QualifiedNameReference(clause.getIndex().toQualifiedName())));
+            }
+
+            String criteria = Joiner.on(" AND ").join(joinExpressions);
+            String joinLabel = format("%sIndexJoin", node.getType().getJoinLabel());
+            printNode(node, joinLabel, criteria, NODE_COLORS.get(NodeType.JOIN));
+
+            node.getProbeSource().accept(this, context);
+            node.getIndexSource().accept(this, context);
 
             return null;
         }

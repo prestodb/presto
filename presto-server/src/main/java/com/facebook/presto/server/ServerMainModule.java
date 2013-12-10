@@ -35,6 +35,7 @@ import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.failureDetector.FailureDetectorModule;
 import com.facebook.presto.guice.AbstractConfigurationAwareModule;
+import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.CatalogManagerConfig;
 import com.facebook.presto.metadata.DatabaseLocalStorageManager;
@@ -55,6 +56,7 @@ import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.operator.RecordSinkManager;
 import com.facebook.presto.operator.RecordSinkProvider;
 import com.facebook.presto.spi.ConnectorFactory;
+import com.facebook.presto.spi.ConnectorIndexResolver;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.split.ConnectorDataStreamProvider;
@@ -171,6 +173,10 @@ public class ServerMainModule
         bindConfig(binder).to(CatalogManagerConfig.class);
         binder.bind(MetadataManager.class).in(Scopes.SINGLETON);
         binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
+
+        // index manager
+        binder.bind(IndexManager.class).in(Scopes.SINGLETON);
+        newSetBinder(binder, ConnectorIndexResolver.class);
 
         // handle resolver
         binder.install(new HandleJsonModule());

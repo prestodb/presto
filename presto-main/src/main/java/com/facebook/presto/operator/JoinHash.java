@@ -29,9 +29,11 @@ import java.util.List;
 
 import static com.facebook.presto.operator.HashStrategyUtils.addToHashCode;
 import static com.facebook.presto.operator.HashStrategyUtils.valueHashCode;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.slice.SizeOf.sizeOf;
 
 public class JoinHash
+        implements LookupSource
 {
     private static final long CURRENT_ROW_ADDRESS = 0xFF_FF_FF_FF_FF_FF_FF_FFL;
 
@@ -75,31 +77,34 @@ public class JoinHash
         return pagesIndex.getEstimatedSize().toBytes() + addressToPositionMap.getEstimatedSize().toBytes() + sizeOf(positionLinks.elements());
     }
 
+    @Override
     public int getChannelCount()
     {
         return pagesIndex.getTupleInfos().size();
     }
 
-    public void setProbeCursors(BlockCursor[] cursors, int[] probeJoinChannels)
+    @Override
+    public long getJoinPosition(BlockCursor[] joinCursors)
     {
-        hashStrategy.setProbeCursors(cursors, probeJoinChannels);
-    }
-
-    public int getJoinPosition()
-    {
+        hashStrategy.setProbeCursors(joinCursors);
         int position = addressToPositionMap.get(CURRENT_ROW_ADDRESS);
         return position;
     }
 
-    public int getNextJoinPosition(int currentPosition)
+    @Override
+    public long getNextJoinPosition(long position)
     {
-        return positionLinks.getInt(currentPosition);
+        // Positions are always ints
+        return positionLinks.getInt(Ints.checkedCast(position));
     }
 
-    public void appendTupleTo(int position, PageBuilder pageBuilder, int outputChannelOffset)
+    @Override
+    public void appendTupleTo(long position, PageBuilder pageBuilder, int outputChannelOffset)
     {
+        // Positions are always ints
+        int pagesIndexPosition = Ints.checkedCast(position);
         for (int channel = 0; channel < getChannelCount(); channel++) {
-            pagesIndex.appendTupleTo(channel, position, pageBuilder.getBlockBuilder(outputChannelOffset + channel));
+            pagesIndex.appendTupleTo(channel, pagesIndexPosition, pageBuilder.getBlockBuilder(outputChannelOffset + channel));
         }
     }
 
@@ -108,7 +113,7 @@ public class JoinHash
     {
         private final List<Type> types;
         private final List<ChannelIndex> channels;
-        private final BlockCursor[] joinCursors;
+        private BlockCursor[] joinCursors;
 
         private PagesHashStrategy(PagesIndex pagesIndex, List<Integer> hashChannels)
         {
@@ -130,12 +135,9 @@ public class JoinHash
             this.joinCursors = new BlockCursor[types.size()];
         }
 
-        public void setProbeCursors(BlockCursor[] cursors, int[] probeJoinChannels)
+        public void setProbeCursors(BlockCursor[] joinCursors)
         {
-            for (int i = 0; i < probeJoinChannels.length; i++) {
-                int probeJoinChannel = probeJoinChannels[i];
-                joinCursors[i] = cursors[probeJoinChannel];
-            }
+            this.joinCursors = checkNotNull(joinCursors, "joinCursors is null");
         }
 
         @Override

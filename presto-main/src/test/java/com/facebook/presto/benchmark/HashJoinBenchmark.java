@@ -16,8 +16,8 @@ package com.facebook.presto.benchmark;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.DriverFactory;
+import com.facebook.presto.operator.HashBuilderOperator;
 import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFactory;
-import com.facebook.presto.operator.HashBuilderOperator.HashSupplier;
 import com.facebook.presto.operator.LookupJoinOperator;
 import com.facebook.presto.operator.NullOutputOperator.NullOutputOperatorFactory;
 import com.facebook.presto.operator.OperatorFactory;
@@ -37,7 +37,7 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 public class HashJoinBenchmark
         extends AbstractOperatorBenchmark
 {
-    private HashSupplier hashSupplier;
+    private HashBuilderOperator.HashSourceSupplier hashSupplier;
 
     public HashJoinBenchmark(LocalQueryRunner localQueryRunner)
     {
