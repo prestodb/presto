@@ -21,7 +21,7 @@ public class ColumnNotFoundException
 
     public ColumnNotFoundException(SchemaTableName tableName, String columnName)
     {
-        this(tableName, columnName, "Table " + tableName + " not found");
+        this(tableName, columnName, "Column " + columnName + " not found in table " + tableName);
     }
 
     public ColumnNotFoundException(SchemaTableName tableName, String columnName, String message)
