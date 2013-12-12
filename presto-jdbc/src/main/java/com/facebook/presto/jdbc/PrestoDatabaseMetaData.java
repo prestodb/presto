@@ -916,14 +916,18 @@ public class PrestoDatabaseMetaData
     public ResultSet getSchemas()
             throws SQLException
     {
-        throw new UnsupportedOperationException("getSchemas");
+        return select("" +
+                "SELECT schema_name TABLE_SCHEM, catalog_name TABLE_CATALOG " +
+                "FROM default.information_schema.schemata");
     }
 
     @Override
     public ResultSet getCatalogs()
             throws SQLException
     {
-        throw new UnsupportedOperationException("getCatalogs");
+        return select("" +
+                "SELECT catalog_name TABLE_CAT " +
+                "FROM default.sys.catalog");
     }
 
     @Override
