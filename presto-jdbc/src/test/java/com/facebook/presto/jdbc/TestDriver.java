@@ -23,6 +23,7 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
 import java.sql.Types;
 import java.util.ArrayList;
@@ -31,6 +32,7 @@ import java.util.List;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -61,7 +63,7 @@ public class TestDriver
             }
 
             try (Statement statement = connection.createStatement()) {
-                try (ResultSet rs = statement.executeQuery("SELECT 123 x, 'foo' y FROM dual")) {
+                try (ResultSet rs = statement.executeQuery("SELECT 123 x, 'foo' y")) {
                     ResultSetMetaData metadata = rs.getMetaData();
 
                     assertEquals(metadata.getColumnCount(), 2);
@@ -80,6 +82,122 @@ public class TestDriver
 
                     assertFalse(rs.next());
                 }
+            }
+        }
+    }
+
+    @Test
+    public void testGetCatalogs()
+            throws Exception
+    {
+        try (Connection connection = createConnection()) {
+            try (ResultSet rs = connection.getMetaData().getCatalogs()) {
+                assertRowCount(rs, 2);
+                ResultSetMetaData metadata = rs.getMetaData();
+                assertEquals(metadata.getColumnCount(), 1);
+                assertEquals(metadata.getColumnLabel(1), "TABLE_CAT");
+                assertEquals(metadata.getColumnType(1), Types.LONGNVARCHAR);
+            }
+        }
+    }
+
+    @Test
+    public void testGetSchemas()
+            throws Exception
+    {
+        try (Connection connection = createConnection()) {
+            try (ResultSet rs = connection.getMetaData().getSchemas()) {
+                assertRowCount(rs, 2);
+
+                ResultSetMetaData metadata = rs.getMetaData();
+                assertEquals(metadata.getColumnCount(), 2);
+
+                assertEquals(metadata.getColumnLabel(1), "TABLE_SCHEM");
+                assertEquals(metadata.getColumnType(1), Types.LONGNVARCHAR);
+
+                assertEquals(metadata.getColumnLabel(2), "TABLE_CATALOG");
+                assertEquals(metadata.getColumnType(2), Types.LONGNVARCHAR);
+            }
+        }
+    }
+
+    @Test
+    public void testExecute()
+            throws Exception
+    {
+        try (Connection connection = createConnection()) {
+            try (Statement statement = connection.createStatement()) {
+                assertTrue(statement.execute("SELECT 123 x, 'foo' y"));
+                ResultSet rs = statement.getResultSet();
+                assertTrue(rs.next());
+                assertEquals(rs.getLong(1), 123);
+                assertEquals(rs.getLong("x"), 123);
+                assertEquals(rs.getString(2), "foo");
+                assertEquals(rs.getString("y"), "foo");
+                assertFalse(rs.next());
+            }
+        }
+    }
+
+    @Test
+    public void testGetUpdateCount()
+            throws Exception
+    {
+        try (Connection connection = createConnection()) {
+            try (Statement statement = connection.createStatement()) {
+                assertTrue(statement.execute("SELECT 123 x, 'foo' y"));
+                assertEquals(statement.getUpdateCount(), -1);
+            }
+        }
+    }
+
+    @Test
+    public void testResultSetClose()
+            throws Exception
+    {
+        try (Connection connection = createConnection()) {
+            try (Statement statement = connection.createStatement()) {
+                assertTrue(statement.execute("SELECT 123 x, 'foo' y"));
+                ResultSet result = statement.getResultSet();
+                assertFalse(result.isClosed());
+                result.close();
+                assertTrue(result.isClosed());
+            }
+        }
+    }
+
+    @Test
+    public void testGetResultSet()
+            throws Exception
+    {
+        try (Connection connection = createConnection()) {
+            try (Statement statement = connection.createStatement()) {
+                assertTrue(statement.execute("SELECT 123 x, 'foo' y"));
+                ResultSet result = statement.getResultSet();
+                assertNotNull(result);
+                assertFalse(result.isClosed());
+                statement.getMoreResults();
+                assertTrue(result.isClosed());
+
+                assertTrue(statement.execute("SELECT 123 x, 'foo' y"));
+                result = statement.getResultSet();
+                assertNotNull(result);
+                assertFalse(result.isClosed());
+
+                assertTrue(statement.execute("SELECT 123 x, 'foo' y"));
+                assertFalse(statement.getMoreResults(Statement.CLOSE_CURRENT_RESULT));
+            }
+        }
+    }
+
+    @Test(expectedExceptions = SQLFeatureNotSupportedException.class, expectedExceptionsMessageRegExp = "Multiple open results not supported")
+    public void testGetMoreResultsException()
+            throws Exception
+    {
+        try (Connection connection = createConnection()) {
+            try (Statement statement = connection.createStatement()) {
+                assertTrue(statement.execute("SELECT 123 x, 'foo' y"));
+                statement.getMoreResults(Statement.KEEP_CURRENT_RESULT);
             }
         }
     }
