@@ -15,12 +15,17 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
+import org.testng.annotations.Test;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
 
 import static com.facebook.presto.operator.aggregation.DoubleApproximateAverageAggregation.DOUBLE_APPROX_AVERAGE;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
 
 public class TestDoubleApproximateAverageAggregation
-        extends AbstractTestAggregationFunction
+        extends AbstractTestApproximateAggregationFunction
 {
     @Override
     public Block getSequenceBlock(int start, int length)
@@ -66,4 +71,31 @@ public class TestDoubleApproximateAverageAggregation
         return sb.toString();
     }
 
+    @Test
+    public void testCorrectnessOnGaussianData()
+            throws Exception
+    {
+        int originalDataSize = 100;
+        Random distribution = new Random(0);
+        List<Number> list = new ArrayList<>();
+        for (int i = 0; i < originalDataSize; i++) {
+            list.add(distribution.nextGaussian());
+        }
+
+        testCorrectnessOfErrorFunction(list);
+    }
+
+    @Test
+    public void testCorrectnessOnUniformData()
+            throws Exception
+    {
+        int originalDataSize = 100;
+        Random distribution = new Random(0);
+        List<Number> list = new ArrayList<>();
+        for (int i = 0; i < originalDataSize; i++) {
+            list.add(distribution.nextDouble() * 1000);
+        }
+
+        testCorrectnessOfErrorFunction(list);
+    }
 }
