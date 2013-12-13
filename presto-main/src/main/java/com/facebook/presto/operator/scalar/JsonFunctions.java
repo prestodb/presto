@@ -30,6 +30,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Doubles;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 import javax.annotation.Nullable;
 
@@ -37,6 +38,7 @@ import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 
 import static com.facebook.presto.operator.scalar.JsonExtract.generateExtractor;
@@ -210,6 +212,55 @@ public final class JsonFunctions
                 if (token == VALUE_STRING && valueString.equals(parser.getValueAsString())) {
                     return true;
                 }
+            }
+        }
+        catch (IOException e) {
+            return null;
+        }
+    }
+
+    @Nullable
+    @ScalarFunction
+    public static Slice jsonArrayGet(Slice json, long index)
+    {
+        try (JsonParser parser = JSON_FACTORY.createJsonParser(json.getInput())) {
+            if (parser.nextToken() != START_ARRAY) {
+                return null;
+            }
+
+            List<String> tokens = null;
+            if (index < 0) {
+                tokens = new LinkedList<String>();
+            }
+
+            long count = 0;
+            while (true) {
+                JsonToken token = parser.nextToken();
+                if (token == null) {
+                    return null;
+                }
+                if (token == END_ARRAY) {
+                    if (tokens != null && count >= index * -1) {
+                        return Slices.utf8Slice(tokens.get(0));
+                    }
+
+                    return null;
+                }
+                parser.skipChildren();
+
+                if (count == index) {
+                    return Slices.utf8Slice(parser.getValueAsString());
+                }
+
+                if (tokens != null) {
+                    tokens.add(parser.getValueAsString());
+
+                    if (count >= index * -1) {
+                        tokens.remove(0);
+                    }
+                }
+
+                count++;
             }
         }
         catch (IOException e) {
