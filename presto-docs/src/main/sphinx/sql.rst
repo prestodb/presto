@@ -15,3 +15,5 @@ SQL Statement Syntax
     sql/show-schemas
     sql/show-catalogs
     sql/show-functions
+    sql/use-catalog
+    sql/use-schema

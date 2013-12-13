@@ -28,6 +28,28 @@ public class ClientSession
     private final String schema;
     private final boolean debug;
 
+    public static ClientSession withCatalog(ClientSession session, String catalog)
+    {
+        return new ClientSession(
+                session.getServer(),
+                session.getUser(),
+                session.getSource(),
+                catalog,
+                session.getSchema(),
+                session.isDebug());
+    }
+
+    public static ClientSession withSchema(ClientSession session, String schema)
+    {
+        return new ClientSession(
+                session.getServer(),
+                session.getUser(),
+                session.getSource(),
+                session.getCatalog(),
+                schema,
+                session.isDebug());
+    }
+
     public ClientSession(URI server, String user, String source, String catalog, String schema, boolean debug)
     {
         this.server = checkNotNull(server, "server is null");

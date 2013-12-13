@@ -122,6 +122,11 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
+    protected R visitUseCollection(UseCollection node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitTimeLiteral(TimeLiteral node, C context)
     {
         return visitLiteral(node, context);

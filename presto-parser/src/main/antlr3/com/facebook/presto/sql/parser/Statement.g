@@ -67,6 +67,8 @@ tokens {
     SHOW_COLUMNS;
     SHOW_PARTITIONS;
     SHOW_FUNCTIONS;
+    USE_CATALOG;
+    USE_SCHEMA;
     CREATE_TABLE;
     CREATE_MATERIALIZED_VIEW;
     REFRESH_MATERIALIZED_VIEW;
@@ -154,6 +156,7 @@ statement
     | showColumnsStmt
     | showPartitionsStmt
     | showFunctionsStmt
+    | useCollectionStmt
     | createTableStmt
     | dropTableStmt
     | createMaterializedViewStmt
@@ -526,6 +529,11 @@ frameBound
       )
     ;
 
+useCollectionStmt
+    : USE CATALOG ident -> ^(USE_CATALOG ident)
+    | USE SCHEMA ident -> ^(USE_SCHEMA ident)
+    ;
+
 explainStmt
     : EXPLAIN explainOptions? statement -> ^(EXPLAIN explainOptions? statement)
     ;
@@ -696,7 +704,7 @@ nonReserved
     | DATE | TIME | TIMESTAMP | INTERVAL
     | YEAR | MONTH | DAY | HOUR | MINUTE | SECOND
     | EXPLAIN | FORMAT | TYPE | TEXT | GRAPHVIZ | LOGICAL | DISTRIBUTED
-    | TABLESAMPLE | SYSTEM | BERNOULLI
+    | TABLESAMPLE | SYSTEM | BERNOULLI | USE | SCHEMA | CATALOG
     ;
 
 SELECT: 'SELECT';
@@ -799,9 +807,12 @@ DISTRIBUTED: 'DISTRIBUTED';
 CAST: 'CAST';
 SHOW: 'SHOW';
 TABLES: 'TABLES';
+SCHEMA: 'SCHEMA';
 SCHEMAS: 'SCHEMAS';
+CATALOG: 'CATALOG';
 CATALOGS: 'CATALOGS';
 COLUMNS: 'COLUMNS';
+USE: 'USE';
 PARTITIONS: 'PARTITIONS';
 FUNCTIONS: 'FUNCTIONS';
 MATERIALIZED: 'MATERIALIZED';

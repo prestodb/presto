@@ -26,9 +26,12 @@ public final class Help
                 "DESCRIBE <table>\n" +
                 "SHOW COLUMNS FROM <table>\n" +
                 "SHOW FUNCTIONS\n" +
+                "SHOW CATALOGS\n" +
                 "SHOW SCHEMAS\n" +
-                "SHOW PARTITIONS FROM <table> [WHERE ...] [ORDER BY ...] [LIMIT n]\n" +
                 "SHOW TABLES [LIKE <pattern>]\n" +
+                "SHOW PARTITIONS FROM <table> [WHERE ...] [ORDER BY ...] [LIMIT n]\n" +
+                "USE CATALOG <catalog>\n" +
+                "USE SCHEMA <schema>\n" +
                 "";
     }
 }
