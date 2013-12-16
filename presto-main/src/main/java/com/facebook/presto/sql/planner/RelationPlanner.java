@@ -112,7 +112,7 @@ class RelationPlanner
         }
 
         ImmutableList<Symbol> outputSymbols = outputSymbolsBuilder.build();
-        return new RelationPlan(new TableScanNode(idAllocator.getNextId(), handle, outputSymbols, columns.build(), Optional.<GeneratedPartitions>absent()), descriptor, outputSymbols);
+        return new RelationPlan(new TableScanNode(idAllocator.getNextId(), handle, outputSymbols, columns.build(), null, Optional.<GeneratedPartitions>absent()), descriptor, outputSymbols);
     }
 
     @Override

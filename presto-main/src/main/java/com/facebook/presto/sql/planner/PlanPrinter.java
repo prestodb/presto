@@ -54,7 +54,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.sql.planner.DomainUtils.printableTupleDomainWithSymbols;
+import static com.facebook.presto.sql.planner.DomainUtils.simplifyDomain;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
 
@@ -216,11 +216,20 @@ public class PlanPrinter
         public Void visitTableScan(TableScanNode node, Integer indent)
         {
             TupleDomain partitionsDomainSummary = node.getPartitionsDomainSummary();
-            print(indent, "- TableScan[%s, domain=%s] => [%s]", node.getTable(), printableTupleDomainWithSymbols(partitionsDomainSummary, node.getAssignments()), formatOutputs(node.getOutputSymbols()));
+            print(indent, "- TableScan[%s, original constraint=%s] => [%s]", node.getTable(), node.getOriginalConstraint(), formatOutputs(node.getOutputSymbols()));
             for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
-                if (node.getOutputSymbols().contains(entry.getKey()) ||
-                        (!partitionsDomainSummary.isNone() && partitionsDomainSummary.getDomains().keySet().contains(entry.getValue()))) {
+                boolean isOutputSymbol = node.getOutputSymbols().contains(entry.getKey());
+                boolean isInOriginalConstraint = DependencyExtractor.extractUnique(node.getOriginalConstraint()).contains(entry.getKey());
+                boolean isInDomainSummary = !partitionsDomainSummary.isNone() && partitionsDomainSummary.getDomains().keySet().contains(entry.getValue());
+
+                if (isOutputSymbol || isInOriginalConstraint || isInDomainSummary) {
                     print(indent + 2, "%s := %s", entry.getKey(), entry.getValue());
+                    if (isInDomainSummary) {
+                        print(indent + 3, ":: %s", simplifyDomain(partitionsDomainSummary.getDomains().get(entry.getValue())));
+                    }
+                    else if (partitionsDomainSummary.isNone()) {
+                        print(indent + 3, ":: NONE");
+                    }
                 }
             }
             return null;
