@@ -302,12 +302,25 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT DISTINCT custkey FROM orders");
     }
 
-    // TODO: we need to properly propagate exceptions with their actual classes
-    @Test(expectedExceptions = Exception.class, expectedExceptionsMessageRegExp = "DISTINCT in aggregation parameters not yet supported")
+    @Test(expectedExceptions = Exception.class, expectedExceptionsMessageRegExp = "All DISTINCT argument lists used in aggregations must match")
+    public void testCountMultipleDifferentDistinct()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(DISTINCT orderstatus), SUM(DISTINCT custkey) FROM orders");
+    }
+
+    @Test
+    public void testCountMultipleDistinct()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(DISTINCT custkey), SUM(DISTINCT custkey) FROM orders", "SELECT COUNT(*), SUM(custkey) FROM (SELECT DISTINCT custkey FROM orders) t");
+    }
+
+    @Test
     public void testCountDistinct()
             throws Exception
     {
-        assertQuery("SELECT COUNT(DISTINCT custkey) FROM orders");
+        assertQuery("SELECT COUNT(DISTINCT custkey + 1) FROM orders", "SELECT COUNT(*) FROM (SELECT DISTINCT custkey + 1 FROM orders) t");
     }
 
     @Test
