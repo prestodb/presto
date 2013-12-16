@@ -90,7 +90,8 @@ public class SqlTaskExecution
     /**
      * Number of drivers that have been sent to the TaskExecutor that have not finished.
      */
-    private final AtomicInteger remainingDriverCount = new AtomicInteger();
+    private final AtomicInteger remainingDrivers = new AtomicInteger();
+    private final AtomicInteger remainingPartitionedDrivers = new AtomicInteger();
 
     // guarded for update only
     @GuardedBy("this")
@@ -235,7 +236,7 @@ public class SqlTaskExecution
         // start unpartitioned drivers
         for (Driver driver : unpartitionedDrivers) {
             drivers.add(new WeakReference<>(driver));
-            enqueueDriver(true, new DriverSplitRunner(driver));
+            enqueueDriver(true, false, new DriverSplitRunner(driver));
         }
     }
 
@@ -333,7 +334,7 @@ public class SqlTaskExecution
                     // only add a split if we have not already scheduled it
                     if (scheduledSplit.getSequenceId() > maxAcknowledgedSplit) {
                         // create a new driver for the split
-                        enqueueDriver(false, new DriverSplitRunner(partitionedPipelineContext.addDriverContext(), new Function<DriverContext, Driver>()
+                        enqueueDriver(false, true, new DriverSplitRunner(partitionedPipelineContext.addDriverContext(), new Function<DriverContext, Driver>()
                         {
                             @Override
                             public Driver apply(DriverContext driverContext)
@@ -391,7 +392,7 @@ public class SqlTaskExecution
         }
     }
 
-    private synchronized void enqueueDriver(boolean forceRunSplit, final DriverSplitRunner splitRunner)
+    private synchronized void enqueueDriver(boolean forceRunSplit, final boolean partitioned, final DriverSplitRunner splitRunner)
     {
         // schedule driver to be executed
         ListenableFuture<?> finishedFuture;
@@ -403,7 +404,10 @@ public class SqlTaskExecution
         }
 
         // record new driver
-        remainingDriverCount.incrementAndGet();
+        remainingDrivers.incrementAndGet();
+        if (partitioned) {
+            remainingPartitionedDrivers.incrementAndGet();
+        }
 
         // when driver completes, update state and fire events
         Futures.addCallback(finishedFuture, new FutureCallback<Object>()
@@ -413,9 +417,12 @@ public class SqlTaskExecution
             {
                 try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)) {
                     // if all drivers have been created, close the factory so it can perform cleanup
-                    int runningCount = remainingDriverCount.decrementAndGet();
-                    if (runningCount <= 0) {
-                        checkNoMorePartitionedSplits();
+                    remainingDrivers.decrementAndGet();
+                    if (partitioned) {
+                        int runningCount = remainingPartitionedDrivers.decrementAndGet();
+                        if (runningCount <= 0) {
+                            checkNoMorePartitionedSplits();
+                        }
                     }
 
                     checkTaskCompletion();
@@ -431,7 +438,10 @@ public class SqlTaskExecution
                     taskStateMachine.failed(cause);
 
                     // record driver is finished
-                    remainingDriverCount.decrementAndGet();
+                    remainingDrivers.decrementAndGet();
+                    if (partitioned) {
+                        remainingPartitionedDrivers.decrementAndGet();
+                    }
 
                     // check if partitioned driver
                     checkNoMorePartitionedSplits();
@@ -447,7 +457,7 @@ public class SqlTaskExecution
     {
         // todo this is not exactly correct, we should be closing when all drivers have been created, but
         // we check against running count which means we are waiting until all drivers are finished
-        if (partitionedDriverFactory != null && noMorePartitionedSplits.get() && remainingDriverCount.get() <= 0) {
+        if (partitionedDriverFactory != null && noMorePartitionedSplits.get() && remainingPartitionedDrivers.get() <= 0) {
             partitionedDriverFactory.close();
         }
     }
@@ -496,7 +506,7 @@ public class SqlTaskExecution
             return;
         }
         // do we still have running tasks?
-        if (remainingDriverCount.get() != 0) {
+        if (remainingDrivers.get() != 0) {
             return;
         }
 
