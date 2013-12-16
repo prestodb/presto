@@ -206,7 +206,7 @@ public class PruneUnreferencedOutputs
             List<Symbol> newOutputSymbols = FluentIterable.from(node.getOutputSymbols())
                     .filter(in(requiredTableScanOutputs))
                     .toList();
-            return new TableScanNode(node.getId(), node.getTable(), newOutputSymbols, node.getAssignments(), node.getGeneratedPartitions());
+            return new TableScanNode(node.getId(), node.getTable(), newOutputSymbols, node.getAssignments(), node.getOriginalConstraint(), node.getGeneratedPartitions());
         }
 
         @Override

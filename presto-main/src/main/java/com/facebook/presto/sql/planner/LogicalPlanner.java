@@ -146,7 +146,7 @@ public class LogicalPlanner
             }
 
             ImmutableList<Symbol> outputSymbols = outputSymbolsBuilder.build();
-            plan = new RelationPlan(new TableScanNode(idAllocator.getNextId(), sourceTableHandle, outputSymbols, inputColumnsBuilder.build(), Optional.<GeneratedPartitions>absent()), new TupleDescriptor(fields.build()), outputSymbols);
+            plan = new RelationPlan(new TableScanNode(idAllocator.getNextId(), sourceTableHandle, outputSymbols, inputColumnsBuilder.build(), null, Optional.<GeneratedPartitions>absent()), new TupleDescriptor(fields.build()), outputSymbols);
 
             targetColumnHandles = columnHandleBuilder.build();
         }

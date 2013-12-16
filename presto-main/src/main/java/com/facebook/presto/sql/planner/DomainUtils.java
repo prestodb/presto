@@ -15,7 +15,8 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Domain;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.SortedRangeSet;
+import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableMap;
@@ -39,12 +40,26 @@ public final class DomainUtils
         return builder.build();
     }
 
-    public static String printableTupleDomainWithSymbols(TupleDomain tupleDomain, Map<Symbol, ColumnHandle> assignments)
+    /**
+     * Reduces the number of discrete ranges in the Domain if there are too many.
+     */
+    public static Domain simplifyDomain(Domain domain)
     {
-        if (tupleDomain.isNone()) {
-            return "None allowed";
+        if (domain.getRanges().getRangeCount() <= 32) {
+            return domain;
         }
-        Map<Symbol, Domain> symbolDomains = columnHandleToSymbol(tupleDomain.getDomains(), assignments);
-        return symbolDomains.toString();
+        return Domain.create(SortedRangeSet.of(domain.getRanges().getSpan()), domain.isNullAllowed());
+    }
+
+    public static Function<Domain, Domain> simplifyDomainFunction()
+    {
+        return new Function<Domain, Domain>()
+        {
+            @Override
+            public Domain apply(Domain domain)
+            {
+                return simplifyDomain(domain);
+            }
+        };
     }
 }

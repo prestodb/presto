@@ -27,6 +27,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
 import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.base.Function;
@@ -88,6 +89,16 @@ public class SimplifyExpressions
                 return source;
             }
             return new FilterNode(node.getId(), source, simplified);
+        }
+
+        @Override
+        public PlanNode rewriteTableScan(TableScanNode node, Void context, PlanRewriter<Void> planRewriter)
+        {
+            Expression originalConstraint = null;
+            if (node.getOriginalConstraint() != null) {
+                originalConstraint = simplifyExpression(node.getOriginalConstraint());
+            }
+            return new TableScanNode(node.getId(), node.getTable(), node.getOutputSymbols(), node.getAssignments(), originalConstraint, node.getGeneratedPartitions());
         }
 
         private Function<Expression, Expression> simplifyExpressionFunction()

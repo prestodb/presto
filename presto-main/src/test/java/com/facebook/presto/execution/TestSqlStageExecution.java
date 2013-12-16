@@ -203,6 +203,7 @@ public class TestSqlStageExecution
                         tableHandle,
                         ImmutableList.of(symbol),
                         ImmutableMap.of(symbol, columnHandle),
+                        null,
                         Optional.<GeneratedPartitions>absent()),
                 ImmutableMap.<Symbol, Type>of(symbol, Type.VARCHAR),
                 Partitioning.SOURCE,

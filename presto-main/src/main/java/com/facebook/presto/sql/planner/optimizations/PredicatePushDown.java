@@ -776,7 +776,9 @@ public class PredicatePushDown
 
             PlanNode output = node;
             if (!node.getGeneratedPartitions().equals(Optional.of(generatedPartitions))) {
-                output = new TableScanNode(node.getId(), node.getTable(), node.getOutputSymbols(), node.getAssignments(), Optional.of(generatedPartitions));
+                // Only overwrite the originalConstraint if it was previously null
+                Expression originalConstraint = node.getOriginalConstraint() == null ? inheritedPredicate : node.getOriginalConstraint();
+                output = new TableScanNode(node.getId(), node.getTable(), node.getOutputSymbols(), node.getAssignments(), originalConstraint, Optional.of(generatedPartitions));
             }
             if (!postScanPredicate.equals(BooleanLiteral.TRUE_LITERAL)) {
                 output = new FilterNode(idAllocator.getNextId(), output, postScanPredicate);
