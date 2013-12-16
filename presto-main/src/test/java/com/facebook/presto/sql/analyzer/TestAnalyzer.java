@@ -178,7 +178,7 @@ public class TestAnalyzer
     public void testDistinctAggregations()
             throws Exception
     {
-        assertFails(NOT_SUPPORTED, "SELECT COUNT(DISTINCT a) FROM t1");
+        assertFails(NOT_SUPPORTED, "SELECT COUNT(DISTINCT a), SUM(a) FROM t1");
     }
 
     @Test
