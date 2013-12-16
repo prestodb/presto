@@ -393,13 +393,13 @@ numericFactor
 
 exprPrimary
     : NULL
+    | (dateValue) => dateValue
+    | (intervalValue) => intervalValue
     | qnameOrFunction
     | specialFunction
     | number
     | bool
     | STRING
-    | dateValue
-    | intervalValue
     | caseExpression
     | ('(' expr ')') => ('(' expr ')' -> expr)
     | subquery
@@ -693,6 +693,7 @@ nonReserved
     : SHOW | TABLES | COLUMNS | PARTITIONS | FUNCTIONS | SCHEMAS | CATALOGS
     | OVER | PARTITION | RANGE | ROWS | PRECEDING | FOLLOWING | CURRENT | ROW
     | REFRESH | MATERIALIZED | VIEW | ALIAS
+    | DATE | TIME | TIMESTAMP | INTERVAL
     | YEAR | MONTH | DAY | HOUR | MINUTE | SECOND
     | EXPLAIN | FORMAT | TYPE | TEXT | GRAPHVIZ | LOGICAL | DISTRIBUTED
     | TABLESAMPLE | SYSTEM | BERNOULLI
