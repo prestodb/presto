@@ -2,24 +2,31 @@
 Color Functions
 ================
 
-.. function:: color(color) -> bigint
+
+
+.. function:: color(varchar) -> color
 
     Returns a bigint capturing a decoded RGB value from a 4-character
-    color string of the format "#000".  For example the string value
-    "#CDE" is converted to a bigint with the hexadecimal value
+    ``color`` string of the format "#000".  For example the string
+    value "#CDE" is converted to a bigint with the hexadecimal value
     0xCCDDEE.
 
 .. function:: rgb(red, green, blue) -> bigint
 
     Returns a bigint capturing the RGB value of three component color
-    values supplied as int parameters ranging from 0 to 255: red,
-    green, blue.  For example the inputs of red 0xFF, green 0xCC, and
-    blue 0xAA produce a bigint value of 0xFFCCAA.
+    values supplied as int parameters ranging from 0 to 255: ``red``,
+    ``green``, ``blue``.  For example the inputs of ``red`` 0xFF,
+    ``green`` 0xCC, and ``blue`` 0xAA produce a bigint value of
+    0xFFCCAA.
 
 .. function:: color(value, low, high, low_color, high_color) -> bigint
 
-    Returns a bigint color interpolated between low_color and
-    high_color.
+    Returns a bigint color interpolated between ``low_color`` and
+    ``high_color`` using the double parameters ``value``, ``low``, and
+    ``high`` to calculate a fraction which is then passed to the
+    ``color(fraction, low_color, high_color)`` function shown below.
+    If ``value`` falls outside the range defined by ``low`` and
+    ``high`` it's value will be truncated to fit within this range.
 
 .. function:: color(fraction, low_color, high_color) -> bigint
 
