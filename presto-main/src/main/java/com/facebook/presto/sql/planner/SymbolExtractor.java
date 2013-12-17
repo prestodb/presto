@@ -208,7 +208,7 @@ public class SymbolExtractor
         @Override
         protected Void visitPlan(PlanNode node, Void context)
         {
-            throw new UnsupportedOperationException("not yet implemented");
+            throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
         }
     }
 }

@@ -409,7 +409,7 @@ public class DistributedLogicalPlanner
         @Override
         protected SubPlanBuilder visitPlan(PlanNode node, Void context)
         {
-            throw new UnsupportedOperationException("not yet implemented");
+            throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
         }
 
         public SubPlanBuilder createSingleNodePlan(PlanNode root)
