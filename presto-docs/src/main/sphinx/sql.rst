@@ -12,4 +12,5 @@ SQL Statement Syntax
     sql/show-partitions
     sql/show-tables
     sql/show-schemas
+    sql/show-catalogs
     sql/show-functions
