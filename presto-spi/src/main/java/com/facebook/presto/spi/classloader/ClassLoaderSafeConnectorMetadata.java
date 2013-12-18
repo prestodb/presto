@@ -17,10 +17,12 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.OutputTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableHandle;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -122,6 +124,30 @@ public class ClassLoaderSafeConnectorMetadata
     {
         try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
             delegate.dropTable(tableHandle);
+        }
+    }
+
+    @Override
+    public boolean canHandle(OutputTableHandle tableHandle)
+    {
+        try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
+            return delegate.canHandle(tableHandle);
+        }
+    }
+
+    @Override
+    public OutputTableHandle beginCreateTable(ConnectorTableMetadata tableMetadata)
+    {
+        try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
+            return delegate.beginCreateTable(tableMetadata);
+        }
+    }
+
+    @Override
+    public void commitCreateTable(OutputTableHandle tableHandle, Collection<String> fragments)
+    {
+        try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
+            delegate.commitCreateTable(tableHandle, fragments);
         }
     }
 

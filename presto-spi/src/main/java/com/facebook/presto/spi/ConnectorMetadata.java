@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -82,4 +83,19 @@ public interface ConnectorMetadata
      * @throws RuntimeException if the table can not be dropped or table handle is no longer valid
      */
     void dropTable(TableHandle tableHandle);
+
+    /**
+     * Can this connector handler operations for the specified output table handle.
+     */
+    boolean canHandle(OutputTableHandle tableHandle);
+
+    /**
+     * Begin the atomic creation of a table with data.
+     */
+    OutputTableHandle beginCreateTable(ConnectorTableMetadata tableMetadata);
+
+    /**
+     * Commit a table creation with data after the data is written.
+     */
+    void commitCreateTable(OutputTableHandle tableHandle, Collection<String> fragments);
 }
