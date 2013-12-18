@@ -17,6 +17,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.OutputTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableHandle;
@@ -31,6 +32,7 @@ import org.skife.jdbi.v2.VoidTransactionCallback;
 
 import javax.annotation.Nullable;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -222,5 +224,23 @@ public class NativeMetadata
                 MetadataDaoUtils.dropTable(dao, tableId);
             }
         });
+    }
+
+    @Override
+    public boolean canHandle(OutputTableHandle tableHandle)
+    {
+        return false;
+    }
+
+    @Override
+    public OutputTableHandle beginCreateTable(ConnectorTableMetadata tableMetadata)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void commitCreateTable(OutputTableHandle tableHandle, Collection<String> fragments)
+    {
+        throw new UnsupportedOperationException();
     }
 }

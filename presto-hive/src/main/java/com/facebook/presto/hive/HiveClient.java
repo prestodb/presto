@@ -22,6 +22,7 @@ import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Domain;
+import com.facebook.presto.spi.OutputTableHandle;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.PartitionResult;
 import com.facebook.presto.spi.Range;
@@ -58,6 +59,7 @@ import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -333,6 +335,24 @@ public class HiveClient
 
     @Override
     public void dropTable(TableHandle tableHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean canHandle(OutputTableHandle tableHandle)
+    {
+        return false;
+    }
+
+    @Override
+    public OutputTableHandle beginCreateTable(ConnectorTableMetadata tableMetadata)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void commitCreateTable(OutputTableHandle tableHandle, Collection<String> fragments)
     {
         throw new UnsupportedOperationException();
     }
