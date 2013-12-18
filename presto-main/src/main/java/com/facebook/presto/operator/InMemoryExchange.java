@@ -82,8 +82,8 @@ public class InMemoryExchange
 
     private void updateState()
     {
-        if (noMoreSinkFactories && sinkFactories == 0 && sinks == 0) {
-            finishing = true;
+        if (noMoreSinkFactories && (sinkFactories == 0) && (sinks == 0)) {
+            finish();
         }
     }
 
