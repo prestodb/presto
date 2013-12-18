@@ -157,7 +157,11 @@ public class UnaliasSymbolReferences
                 builder.put(canonicalize(entry.getKey()), entry.getValue());
             }
 
-            return new TableScanNode(node.getId(), node.getTable(), canonicalize(node.getOutputSymbols()), builder.build(), node.getGeneratedPartitions());
+            Expression originalConstraint = null;
+            if (node.getOriginalConstraint() != null) {
+                originalConstraint = canonicalize(node.getOriginalConstraint());
+            }
+            return new TableScanNode(node.getId(), node.getTable(), canonicalize(node.getOutputSymbols()), builder.build(), originalConstraint, node.getGeneratedPartitions());
         }
 
         @Override

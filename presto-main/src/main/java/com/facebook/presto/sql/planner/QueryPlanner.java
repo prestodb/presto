@@ -192,7 +192,7 @@ class QueryPlanner
         }
 
         ImmutableMap<Symbol, ColumnHandle> assignments = columns.build();
-        TableScanNode tableScan = new TableScanNode(idAllocator.getNextId(), table, ImmutableList.copyOf(assignments.keySet()), assignments, Optional.<GeneratedPartitions>absent());
+        TableScanNode tableScan = new TableScanNode(idAllocator.getNextId(), table, ImmutableList.copyOf(assignments.keySet()), assignments, null, Optional.<GeneratedPartitions>absent());
 
         return new RelationPlan(tableScan, new TupleDescriptor(), ImmutableList.<Symbol>of());
     }
