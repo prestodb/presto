@@ -29,6 +29,11 @@ public class SymbolAllocator
 
     public Symbol newSymbol(String nameHint, Type type)
     {
+        return newSymbol(nameHint, type, null);
+    }
+
+    public Symbol newSymbol(String nameHint, Type type, String suffix)
+    {
         Preconditions.checkNotNull(nameHint, "name is null");
 
         // TODO: workaround for the fact that QualifiedName lowercases parts
@@ -39,6 +44,10 @@ public class SymbolAllocator
         }
 
         String unique = nameHint;
+
+        if (suffix != null) {
+            unique = unique + "$" + suffix;
+        }
 
         int id = 1;
         while (symbols.containsKey(new Symbol(unique))) {
@@ -53,6 +62,11 @@ public class SymbolAllocator
 
     public Symbol newSymbol(Expression expression, Type type)
     {
+        return newSymbol(expression, type, null);
+    }
+
+    public Symbol newSymbol(Expression expression, Type type, String suffix)
+    {
         String nameHint = "expr";
         if (expression instanceof QualifiedNameReference) {
             nameHint = ((QualifiedNameReference) expression).getName().getSuffix();
@@ -61,7 +75,7 @@ public class SymbolAllocator
             nameHint = ((FunctionCall) expression).getName().getSuffix();
         }
 
-        return newSymbol(nameHint, type);
+        return newSymbol(nameHint, type, suffix);
     }
 
     public Symbol newSymbol(Field field)

@@ -302,18 +302,65 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT DISTINCT custkey FROM orders");
     }
 
-    @Test(expectedExceptions = Exception.class, expectedExceptionsMessageRegExp = "All DISTINCT argument lists used in aggregations must match")
-    public void testCountMultipleDifferentDistinct()
+    @Test
+    public void testDistinctGroupBy()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(DISTINCT clerk) as count, orderdate FROM orders GROUP BY orderdate ORDER BY count");
+    }
+
+    @Test
+    public void testDistinctWindow()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual(
+                "SELECT RANK() OVER (PARTITION BY orderdate ORDER BY COUNT(DISTINCT clerk)) rnk " +
+                "FROM orders " +
+                "GROUP BY orderdate, custkey " +
+                "ORDER BY rnk " +
+                "LIMIT 1");
+        MaterializedResult expected = resultBuilder(FIXED_INT_64).row(1).build();
+        assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testDistinctWhere()
+        throws Exception
+    {
+        assertQuery("SELECT COUNT(DISTINCT clerk) FROM orders WHERE LENGTH(clerk) > 5");
+    }
+
+    @Test
+    public void testMultipleDifferentDistinct()
             throws Exception
     {
         assertQuery("SELECT COUNT(DISTINCT orderstatus), SUM(DISTINCT custkey) FROM orders");
     }
 
     @Test
-    public void testCountMultipleDistinct()
+    public void testMultipleDistinct()
             throws Exception
     {
-        assertQuery("SELECT COUNT(DISTINCT custkey), SUM(DISTINCT custkey) FROM orders", "SELECT COUNT(*), SUM(custkey) FROM (SELECT DISTINCT custkey FROM orders) t");
+        assertQuery(
+                "SELECT COUNT(DISTINCT custkey), SUM(DISTINCT custkey) FROM orders",
+                "SELECT COUNT(*), SUM(custkey) FROM (SELECT DISTINCT custkey FROM orders) t");
+    }
+
+    @Test
+    public void testComplexDistinct()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT COUNT(DISTINCT custkey), " +
+                        "SUM(DISTINCT custkey), " +
+                        "SUM(DISTINCT custkey + 1.0), " +
+                        "AVG(DISTINCT custkey), " +
+                        "VARIANCE(DISTINCT custkey) FROM orders",
+                "SELECT COUNT(*), " +
+                        "SUM(custkey), " +
+                        "SUM(custkey + 1.0), " +
+                        "AVG(custkey), " +
+                        "VARIANCE(custkey) FROM (SELECT DISTINCT custkey FROM orders) t");
     }
 
     @Test
