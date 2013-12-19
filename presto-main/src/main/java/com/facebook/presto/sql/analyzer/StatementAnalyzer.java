@@ -22,6 +22,7 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
+import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.ExplainFormat;
@@ -50,7 +51,9 @@ import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_COLUMNS;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_INTERNAL_FUNCTIONS;
@@ -59,6 +62,8 @@ import static com.facebook.presto.connector.informationSchema.InformationSchemaM
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLES;
 import static com.facebook.presto.connector.system.CatalogSystemTable.CATALOG_TABLE_NAME;
 import static com.facebook.presto.sql.analyzer.Analyzer.ExpressionAnalysis;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUMN_NAME;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_NAME_NOT_SPECIFIED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_MATERIALIZED_VIEW_REFRESH_INTERVAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDINAL;
@@ -326,6 +331,38 @@ class StatementAnalyzer
                 Optional.<String>absent());
 
         return process(query, context);
+    }
+
+    @Override
+    protected TupleDescriptor visitCreateTable(CreateTable node, AnalysisContext context)
+    {
+        // turn this into a query that has a new table writer node on top.
+        QualifiedTableName targetTable = MetadataUtil.createQualifiedTableName(session, node.getName());
+        analysis.setCreateTableDestination(targetTable);
+
+        Optional<TableHandle> targetTableHandle = metadata.getTableHandle(targetTable);
+        if (targetTableHandle.isPresent()) {
+            throw new SemanticException(TABLE_ALREADY_EXISTS, node, "Destination table '%s' already exists", targetTable);
+        }
+
+        // analyze the query that creates the table
+        TupleDescriptor descriptor = process(node.getQuery(), context);
+
+        // verify that all column names are specified and unique
+        // TODO: collect errors and return them all at once
+        Set<String> names = new HashSet<>();
+        for (int i = 0; i < descriptor.getFields().size(); i++) {
+            Field field = descriptor.getFields().get(i);
+            Optional<String> fieldName = field.getName();
+            if (!fieldName.isPresent()) {
+                throw new SemanticException(COLUMN_NAME_NOT_SPECIFIED, node, "Column name not specified at position %s", i + 1);
+            }
+            if (!names.add(fieldName.get())) {
+                throw new SemanticException(DUPLICATE_COLUMN_NAME, node, "Column name '%s' specified more than once", fieldName.get());
+            }
+        }
+
+        return new TupleDescriptor(Field.newUnqualified("rows", Type.BIGINT));
     }
 
     @Override

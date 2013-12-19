@@ -15,12 +15,15 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.OutputTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableHandle;
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimaps;
@@ -33,13 +36,16 @@ import org.skife.jdbi.v2.VoidTransactionCallback;
 import javax.annotation.Nullable;
 
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.Callable;
 
 import static com.facebook.presto.metadata.MetadataDaoUtils.createMetadataTablesWithRetry;
 import static com.facebook.presto.tuple.TupleInfo.Type.fromColumnType;
 import static com.facebook.presto.util.SqlUtils.runIgnoringConstraintViolation;
+import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -49,13 +55,15 @@ public class NativeMetadata
 {
     private final IDBI dbi;
     private final MetadataDao dao;
+    private final ShardManager shardManager;
     private final String catalogName;
 
-    public NativeMetadata(String catalogName, IDBI dbi)
+    public NativeMetadata(String catalogName, IDBI dbi, ShardManager shardManager)
     {
         this.catalogName = catalogName;
         this.dbi = checkNotNull(dbi, "dbi is null");
         this.dao = dbi.onDemand(MetadataDao.class);
+        this.shardManager = checkNotNull(shardManager, "shardManager is null");
 
         createMetadataTablesWithRetry(dao);
     }
@@ -229,18 +237,57 @@ public class NativeMetadata
     @Override
     public boolean canHandle(OutputTableHandle tableHandle)
     {
-        return false;
+        return tableHandle instanceof NativeOutputTableHandle;
     }
 
     @Override
     public OutputTableHandle beginCreateTable(ConnectorTableMetadata tableMetadata)
     {
-        throw new UnsupportedOperationException();
+        ImmutableList.Builder<NativeColumnHandle> columnHandles = ImmutableList.builder();
+        ImmutableList.Builder<ColumnType> columnTypes = ImmutableList.builder();
+        for (ColumnMetadata column : tableMetadata.getColumns()) {
+            long columnId = column.getOrdinalPosition() + 1;
+            columnHandles.add(new NativeColumnHandle(column.getName(), columnId));
+            columnTypes.add(column.getType());
+        }
+
+        return new NativeOutputTableHandle(
+                tableMetadata.getTable().getSchemaName(),
+                tableMetadata.getTable().getTableName(),
+                columnHandles.build(),
+                columnTypes.build());
     }
 
     @Override
-    public void commitCreateTable(OutputTableHandle tableHandle, Collection<String> fragments)
+    public void commitCreateTable(OutputTableHandle outputTableHandle, Collection<String> fragments)
     {
-        throw new UnsupportedOperationException();
+        final NativeOutputTableHandle table = checkType(outputTableHandle, NativeOutputTableHandle.class, "outputTableHandle");
+
+        dbi.inTransaction(new VoidTransactionCallback()
+        {
+            @Override
+            protected void execute(Handle dbiHandle, TransactionStatus status)
+            {
+                MetadataDao dao = dbiHandle.attach(MetadataDao.class);
+                long tableId = dao.insertTable(catalogName, table.getSchemaName(), table.getTableName());
+                for (int i = 0; i < table.getColumnTypes().size(); i++) {
+                    NativeColumnHandle column = table.getColumnHandles().get(i);
+                    ColumnType columnType = table.getColumnTypes().get(i);
+                    dao.insertColumn(tableId, i + 1, column.getColumnName(), i, fromColumnType(columnType).getName());
+                }
+            }
+        });
+
+        ImmutableMap.Builder<UUID, String> shards = ImmutableMap.builder();
+        for (String fragment : fragments) {
+            Iterator<String> split = Splitter.on(':').split(fragment).iterator();
+            String nodeId = split.next();
+            UUID shardUuid = UUID.fromString(split.next());
+            shards.put(shardUuid, nodeId);
+        }
+
+        TableHandle tableHandle = getTableHandle(new SchemaTableName(table.getSchemaName(), table.getTableName()));
+
+        shardManager.commitUnpartitionedTable(tableHandle, shards.build());
     }
 }

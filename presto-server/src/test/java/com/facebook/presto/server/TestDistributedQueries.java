@@ -126,6 +126,19 @@ public class TestDistributedQueries
         assertEquals(catalogNames, ImmutableSet.of(TPCH_CATALOG_NAME, DEFAULT_CATALOG));
     }
 
+    @Test
+    public void testCreateTableAsSelect()
+            throws Exception
+    {
+        @Language("SQL") String query = "SELECT orderkey, totalprice, orderdate FROM orders";
+
+        assertQuery("CREATE TABLE test AS " + query, "SELECT count(*) FROM orders");
+
+        assertQuery("SELECT * FROM test", query);
+
+        // TODO: drop table in finally block when supported
+    }
+
     @Override
     protected int getNodeCount()
     {

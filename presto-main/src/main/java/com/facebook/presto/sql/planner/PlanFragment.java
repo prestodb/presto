@@ -43,7 +43,8 @@ public class PlanFragment
     {
         NONE,
         FIXED,
-        SOURCE
+        SOURCE,
+        COORDINATOR_ONLY
     }
 
     public static enum OutputPartitioning

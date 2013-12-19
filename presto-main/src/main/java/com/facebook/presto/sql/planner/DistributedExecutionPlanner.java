@@ -35,7 +35,9 @@ import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
+import com.facebook.presto.sql.planner.plan.TableCommitNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.base.Optional;
@@ -239,6 +241,18 @@ public class DistributedExecutionPlanner
 
         @Override
         public NodeSplits visitSink(SinkNode node, Predicate<Partition> materializedViewPartitionPredicate)
+        {
+            return node.getSource().accept(this, materializedViewPartitionPredicate);
+        }
+
+        @Override
+        public NodeSplits visitTableWriter(TableWriterNode node, Predicate<Partition> materializedViewPartitionPredicate)
+        {
+            return node.getSource().accept(this, materializedViewPartitionPredicate);
+        }
+
+        @Override
+        public NodeSplits visitTableCommit(TableCommitNode node, Predicate<Partition> materializedViewPartitionPredicate)
         {
             return node.getSource().accept(this, materializedViewPartitionPredicate);
         }
