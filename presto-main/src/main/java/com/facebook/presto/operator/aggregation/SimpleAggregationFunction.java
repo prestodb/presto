@@ -19,6 +19,7 @@ import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -58,20 +59,20 @@ public abstract class SimpleAggregationFunction
     }
 
     @Override
-    public final GroupedAccumulator createGroupedAggregation(int... argumentChannels)
+    public final GroupedAccumulator createGroupedAggregation(Optional<Integer> maskChannel, int... argumentChannels)
     {
         checkArgument(argumentChannels.length == 1, "Expected one argument channel, but got %s", argumentChannels.length);
 
-        return createGroupedAccumulator(argumentChannels[0]);
+        return createGroupedAccumulator(maskChannel, argumentChannels[0]);
     }
 
     @Override
     public final GroupedAccumulator createGroupedIntermediateAggregation()
     {
-        return createGroupedAccumulator(-1);
+        return createGroupedAccumulator(Optional.<Integer>absent(), -1);
     }
 
-    protected abstract GroupedAccumulator createGroupedAccumulator(int valueChannel);
+    protected abstract GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, int valueChannel);
 
     public abstract static class SimpleGroupedAccumulator
             implements GroupedAccumulator
@@ -79,12 +80,14 @@ public abstract class SimpleAggregationFunction
         private final int valueChannel;
         private final TupleInfo finalTupleInfo;
         private final TupleInfo intermediateTupleInfo;
+        private final Optional<Integer> maskChannel;
 
-        public SimpleGroupedAccumulator(int valueChannel, TupleInfo finalTupleInfo, TupleInfo intermediateTupleInfo)
+        public SimpleGroupedAccumulator(int valueChannel, TupleInfo finalTupleInfo, TupleInfo intermediateTupleInfo, Optional<Integer> maskChannel)
         {
             this.valueChannel = valueChannel;
             this.finalTupleInfo = finalTupleInfo;
             this.intermediateTupleInfo = intermediateTupleInfo;
+            this.maskChannel = maskChannel;
         }
 
         @Override
@@ -104,10 +107,10 @@ public abstract class SimpleAggregationFunction
         {
             checkArgument(valueChannel != -1, "Raw input is not allowed for a final aggregation");
 
-            processInput(groupIdsBlock, page.getBlock(valueChannel));
+            processInput(groupIdsBlock, page.getBlock(valueChannel), maskChannel.transform(page.blockGetter()));
         }
 
-        protected abstract void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock);
+        protected abstract void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock);
 
         @Override
         public final void addIntermediate(GroupByIdBlock groupIdsBlock, Block block)
@@ -119,7 +122,7 @@ public abstract class SimpleAggregationFunction
 
         protected void processIntermediate(GroupByIdBlock groupIdsBlock, Block valuesBlock)
         {
-            processInput(groupIdsBlock, valuesBlock);
+            processInput(groupIdsBlock, valuesBlock, Optional.<Block>absent());
         }
 
         @Override
@@ -133,20 +136,20 @@ public abstract class SimpleAggregationFunction
     }
 
     @Override
-    public final Accumulator createAggregation(int... argumentChannels)
+    public final Accumulator createAggregation(Optional<Integer> maskChannel, int... argumentChannels)
     {
         checkArgument(argumentChannels.length == 1, "Expected one argument channel, but got %s", argumentChannels.length);
 
-        return createAccumulator(argumentChannels[0]);
+        return createAccumulator(maskChannel, argumentChannels[0]);
     }
 
     @Override
     public final Accumulator createIntermediateAggregation()
     {
-        return createAccumulator(-1);
+        return createAccumulator(Optional.<Integer>absent(), -1);
     }
 
-    protected abstract Accumulator createAccumulator(int valueChannel);
+    protected abstract Accumulator createAccumulator(Optional<Integer> maskChannel, int valueChannel);
 
     public abstract static class SimpleAccumulator
             implements Accumulator
@@ -154,12 +157,14 @@ public abstract class SimpleAggregationFunction
         private final int valueChannel;
         private final TupleInfo finalTupleInfo;
         private final TupleInfo intermediateTupleInfo;
+        private final Optional<Integer> maskChannel;
 
-        public SimpleAccumulator(int valueChannel, TupleInfo finalTupleInfo, TupleInfo intermediateTupleInfo)
+        public SimpleAccumulator(int valueChannel, TupleInfo finalTupleInfo, TupleInfo intermediateTupleInfo, Optional<Integer> maskChannel)
         {
             this.valueChannel = valueChannel;
             this.finalTupleInfo = finalTupleInfo;
             this.intermediateTupleInfo = intermediateTupleInfo;
+            this.maskChannel = maskChannel;
         }
 
         @Override
@@ -174,15 +179,14 @@ public abstract class SimpleAggregationFunction
             return intermediateTupleInfo;
         }
 
-
         public final void addInput(Page page)
         {
             checkArgument(valueChannel != -1, "Raw input is not allowed for a final aggregation");
 
-            processInput(page.getBlock(valueChannel));
+            processInput(page.getBlock(valueChannel), maskChannel.isPresent() ? Optional.of(page.getBlock(maskChannel.get())) : Optional.<Block>absent());
         }
 
-        protected abstract void processInput(Block block);
+        protected abstract void processInput(Block block, Optional<Block> maskBlock);
 
         @Override
         public final void addIntermediate(Block block)
@@ -194,7 +198,7 @@ public abstract class SimpleAggregationFunction
 
         protected void processIntermediate(Block block)
         {
-            processInput(block);
+            processInput(block, Optional.<Block>absent());
         }
 
         @Override

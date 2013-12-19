@@ -35,11 +35,10 @@ public class IsolatedClass
         builder.put(implementationClass.getName(), getByteCode(implementationClass));
         for (Class<?> additionalClass : additionalClasses) {
             builder.put(additionalClass.getName(), getByteCode(additionalClass));
-
         }
 
         // load classes into a private class loader
-        Map<String,Class<?>> isolatedClasses = dynamicClassLoader.defineClasses(builder.build());
+        Map<String, Class<?>> isolatedClasses = dynamicClassLoader.defineClasses(builder.build());
         Class<?> isolatedClass = isolatedClasses.get(implementationClass.getName());
 
         // verify the isolated class

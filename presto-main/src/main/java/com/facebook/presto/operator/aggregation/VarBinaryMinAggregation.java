@@ -18,6 +18,7 @@ import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.util.array.ObjectBigArray;
+import com.google.common.base.Optional;
 import io.airlift.slice.Slice;
 
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
@@ -35,8 +36,9 @@ public class VarBinaryMinAggregation
     }
 
     @Override
-    protected GroupedAccumulator createGroupedAccumulator(int valueChannel)
+    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, int valueChannel)
     {
+        // Min/max are not effected by distinct, so ignore it.
         return new VarBinaryGroupedAccumulator(valueChannel);
     }
 
@@ -48,7 +50,7 @@ public class VarBinaryMinAggregation
 
         public VarBinaryGroupedAccumulator(int valueChannel)
         {
-            super(valueChannel, SINGLE_VARBINARY, SINGLE_VARBINARY);
+            super(valueChannel, SINGLE_VARBINARY, SINGLE_VARBINARY, Optional.<Integer>absent());
             this.minValues = new ObjectBigArray<>();
         }
 
@@ -59,7 +61,7 @@ public class VarBinaryMinAggregation
         }
 
         @Override
-        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock)
+        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock)
         {
             minValues.ensureCapacity(groupIdsBlock.getGroupCount());
 
@@ -102,8 +104,9 @@ public class VarBinaryMinAggregation
     }
 
     @Override
-    protected Accumulator createAccumulator(int valueChannel)
+    protected Accumulator createAccumulator(Optional<Integer> maskChannel, int valueChannel)
     {
+        // Min/max are not effected by distinct, so ignore it.
         return new VarBinaryMinAccumulator(valueChannel);
     }
 
@@ -114,11 +117,11 @@ public class VarBinaryMinAggregation
 
         public VarBinaryMinAccumulator(int valueChannel)
         {
-            super(valueChannel, SINGLE_VARBINARY, SINGLE_VARBINARY);
+            super(valueChannel, SINGLE_VARBINARY, SINGLE_VARBINARY, Optional.<Integer>absent());
         }
 
         @Override
-        protected void processInput(Block block)
+        protected void processInput(Block block, Optional<Block> maskBlock)
         {
             BlockCursor values = block.cursor();
 

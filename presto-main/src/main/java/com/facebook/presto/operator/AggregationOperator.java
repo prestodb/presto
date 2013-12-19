@@ -18,6 +18,7 @@ import com.facebook.presto.operator.aggregation.Accumulator;
 import com.facebook.presto.operator.aggregation.AggregationFunction;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -197,7 +198,11 @@ public class AggregationOperator
                     argumentChannels[i] = functionDefinition.getInputs().get(i).getChannel();
                 }
                 intermediateChannel = -1;
-                aggregation = function.createAggregation(argumentChannels);
+                Optional<Integer> maskChannel = Optional.absent();
+                if (functionDefinition.getMask().isPresent()) {
+                    maskChannel = Optional.of(functionDefinition.getMask().get().getChannel());
+                }
+                aggregation = function.createAggregation(maskChannel, argumentChannels);
             }
             else {
                 checkArgument(functionDefinition.getInputs().size() == 1, "Expected a single input for an intermediate aggregation");

@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.block.Block;
+import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import io.airlift.units.DataSize;
@@ -65,6 +66,17 @@ public class Page
     public Block getBlock(int channel)
     {
         return blocks[channel];
+    }
+
+    public Function<Integer, Block> blockGetter()
+    {
+        return new Function<Integer, Block>() {
+            @Override
+            public Block apply(Integer input)
+            {
+                return getBlock(input);
+            }
+        };
     }
 
     @Override

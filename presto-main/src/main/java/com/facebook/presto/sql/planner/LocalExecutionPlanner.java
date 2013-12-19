@@ -33,6 +33,7 @@ import com.facebook.presto.operator.HashSemiJoinOperator.HashSemiJoinOperatorFac
 import com.facebook.presto.operator.InMemoryExchange;
 import com.facebook.presto.operator.InMemoryExchangeSourceOperator.InMemoryExchangeSourceOperatorFactory;
 import com.facebook.presto.operator.LimitOperator.LimitOperatorFactory;
+import com.facebook.presto.operator.MarkDistinctOperator.MarkDistinctOperatorFactory;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.OrderByOperator.OrderByOperatorFactory;
 import com.facebook.presto.operator.OutputFactory;
@@ -59,6 +60,7 @@ import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
+import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.MaterializedViewWriterNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -87,6 +89,7 @@ import com.facebook.presto.util.IterableTransformer;
 import com.facebook.presto.util.MoreFunctions;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
+import com.google.common.base.Optional;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
@@ -102,6 +105,7 @@ import com.google.common.primitives.Ints;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 
+import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 import java.util.ArrayList;
@@ -439,6 +443,23 @@ public class LocalExecutionPlanner
             }
 
             return planGroupByAggregation(node, source, context);
+        }
+
+        @Override
+        public PhysicalOperation visitMarkDistinct(MarkDistinctNode node, LocalExecutionPlanContext context)
+        {
+            PhysicalOperation source = node.getSource().accept(this, context);
+
+            List<Integer> channels = getChannelsForSymbols(node.getDistinctSymbols(), source.getLayout());
+
+            // Source channels are always laid out first, followed by the boolean output symbol
+            Multimap<Symbol, Input> outputMappings = ImmutableMultimap.<Symbol, Input>builder()
+                    .putAll(source.getLayout())
+                    .put(node.getMarkerSymbol(), new Input(source.getLayout().size()))
+                    .build();
+
+            MarkDistinctOperatorFactory operator = new MarkDistinctOperatorFactory(context.getNextOperatorId(), source.getTupleInfos(), channels);
+            return new PhysicalOperation(operator, outputMappings, source);
         }
 
         @Override
@@ -961,7 +982,7 @@ public class LocalExecutionPlanner
                     .list());
         }
 
-        private AggregationFunctionDefinition buildFunctionDefinition(PhysicalOperation source, FunctionHandle function, FunctionCall call)
+        private AggregationFunctionDefinition buildFunctionDefinition(PhysicalOperation source, FunctionHandle function, FunctionCall call, @Nullable Symbol mask)
         {
             List<Input> arguments = new ArrayList<>();
             for (Expression argument : call.getArguments()) {
@@ -969,7 +990,13 @@ public class LocalExecutionPlanner
                 arguments.add(getFirst(source.getLayout().get(argumentSymbol)));
             }
 
-            return metadata.getFunction(function).bind(arguments);
+            Optional<Input> maskInput = Optional.absent();
+
+            if (mask != null) {
+                maskInput = Optional.of(getFirst(source.getLayout().get(mask)));
+            }
+
+            return metadata.getFunction(function).bind(arguments, maskInput);
         }
 
         private PhysicalOperation planGlobalAggregation(int operatorId, AggregationNode node, PhysicalOperation source)
@@ -980,7 +1007,7 @@ public class LocalExecutionPlanner
             for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
                 Symbol symbol = entry.getKey();
 
-                functionDefinitions.add(buildFunctionDefinition(source, node.getFunctions().get(symbol), entry.getValue()));
+                functionDefinitions.add(buildFunctionDefinition(source, node.getFunctions().get(symbol), entry.getValue(), node.getMasks().get(entry.getKey())));
                 outputMappings.put(symbol, new Input(outputChannel)); // one aggregation per channel
                 outputChannel++;
             }
@@ -998,7 +1025,7 @@ public class LocalExecutionPlanner
             for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
                 Symbol symbol = entry.getKey();
 
-                functionDefinitions.add(buildFunctionDefinition(source, node.getFunctions().get(symbol), entry.getValue()));
+                functionDefinitions.add(buildFunctionDefinition(source, node.getFunctions().get(symbol), entry.getValue(), node.getMasks().get(entry.getKey())));
                 aggregationOutputSymbols.add(symbol);
             }
 

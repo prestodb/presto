@@ -17,9 +17,10 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.operator.GroupByIdBlock;
+import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.util.array.DoubleBigArray;
 import com.facebook.presto.util.array.LongBigArray;
-import com.facebook.presto.tuple.TupleInfo.Type;
+import com.google.common.base.Optional;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
@@ -43,15 +44,16 @@ public class AverageAggregation
         }
         else if (parameterType == Type.DOUBLE) {
             this.inputIsLong = false;
-        } else {
+        }
+        else {
             throw new IllegalArgumentException("Expected parameter type to be FIXED_INT_64 or DOUBLE, but was " + parameterType);
         }
     }
 
     @Override
-    protected GroupedAccumulator createGroupedAccumulator(int valueChannel)
+    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, int valueChannel)
     {
-        return new AverageGroupedAccumulator(valueChannel, inputIsLong);
+        return new AverageGroupedAccumulator(valueChannel, inputIsLong, maskChannel);
     }
 
     public static class AverageGroupedAccumulator
@@ -62,9 +64,9 @@ public class AverageAggregation
         private final LongBigArray counts;
         private final DoubleBigArray sums;
 
-        public AverageGroupedAccumulator(int valueChannel, boolean inputIsLong)
+        public AverageGroupedAccumulator(int valueChannel, boolean inputIsLong, Optional<Integer> maskChannel)
         {
-            super(valueChannel, SINGLE_DOUBLE, SINGLE_VARBINARY);
+            super(valueChannel, SINGLE_DOUBLE, SINGLE_VARBINARY, maskChannel);
             this.inputIsLong = inputIsLong;
             this.counts = new LongBigArray();
             this.sums = new DoubleBigArray();
@@ -77,19 +79,24 @@ public class AverageAggregation
         }
 
         @Override
-        public void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock)
+        public void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock)
         {
             counts.ensureCapacity(groupIdsBlock.getGroupCount());
             sums.ensureCapacity(groupIdsBlock.getGroupCount());
 
             BlockCursor values = valuesBlock.cursor();
+            BlockCursor masks = null;
+            if (maskBlock.isPresent()) {
+                masks = maskBlock.get().cursor();
+            }
 
             for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
                 checkState(values.advanceNextPosition());
+                checkState(masks == null || masks.advanceNextPosition());
 
                 long groupId = groupIdsBlock.getGroupId(position);
 
-                if (!values.isNull()) {
+                if (!values.isNull() && (masks == null || masks.getBoolean())) {
                     counts.increment(groupId);
 
                     double value;
@@ -156,9 +163,9 @@ public class AverageAggregation
     }
 
     @Override
-    protected Accumulator createAccumulator(int valueChannel)
+    protected Accumulator createAccumulator(Optional<Integer> maskChannel, int valueChannel)
     {
-        return new AverageAccumulator(valueChannel, inputIsLong);
+        return new AverageAccumulator(valueChannel, inputIsLong, maskChannel);
     }
 
     public static class AverageAccumulator
@@ -169,20 +176,25 @@ public class AverageAggregation
         private long count;
         private double sum;
 
-        public AverageAccumulator(int valueChannel, boolean inputIsLong)
+        public AverageAccumulator(int valueChannel, boolean inputIsLong, Optional<Integer> maskChannel)
         {
-            super(valueChannel, SINGLE_DOUBLE, SINGLE_VARBINARY);
+            super(valueChannel, SINGLE_DOUBLE, SINGLE_VARBINARY, maskChannel);
             this.inputIsLong = inputIsLong;
         }
 
         @Override
-        protected void processInput(Block block)
+        protected void processInput(Block block, Optional<Block> maskBlock)
         {
             BlockCursor values = block.cursor();
+            BlockCursor masks = null;
+            if (maskBlock.isPresent()) {
+                masks = maskBlock.get().cursor();
+            }
 
             for (int position = 0; position < block.getPositionCount(); position++) {
                 checkState(values.advanceNextPosition());
-                if (!values.isNull()) {
+                checkState(masks == null || masks.advanceNextPosition());
+                if (!values.isNull() && (masks == null || masks.getBoolean())) {
                     count++;
                     if (inputIsLong) {
                         sum += values.getLong();

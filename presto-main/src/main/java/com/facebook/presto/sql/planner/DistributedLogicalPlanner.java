@@ -18,11 +18,13 @@ import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
+import com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
+import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.MaterializedViewWriterNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
@@ -46,6 +48,7 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import java.util.HashMap;
@@ -102,23 +105,57 @@ public class DistributedLogicalPlanner
 
             if (!current.isDistributed()) {
                 // add the aggregation node as the root of the current fragment
-                current.setRoot(new AggregationNode(node.getId(), current.getRoot(), node.getGroupBy(), node.getAggregations(), node.getFunctions(), SINGLE));
+                current.setRoot(new AggregationNode(node.getId(), current.getRoot(), node.getGroupBy(), node.getAggregations(), node.getFunctions(), node.getMasks(), SINGLE));
                 return current;
             }
 
             Map<Symbol, FunctionCall> aggregations = node.getAggregations();
             Map<Symbol, FunctionHandle> functions = node.getFunctions();
+            Map<Symbol, Symbol> masks = node.getMasks();
             List<Symbol> groupBy = node.getGroupBy();
 
             // else, we need to "close" the current fragment and create an unpartitioned fragment for the final aggregation
-            return addDistributedAggregation(current, aggregations, functions, groupBy);
+            return addDistributedAggregation(current, aggregations, functions, masks, groupBy);
         }
 
-        private SubPlanBuilder addDistributedAggregation(SubPlanBuilder plan, Map<Symbol, FunctionCall> aggregations, Map<Symbol, FunctionHandle> functions, List<Symbol> groupBy)
+        @Override
+        public SubPlanBuilder visitMarkDistinct(MarkDistinctNode node, Void context)
+        {
+            SubPlanBuilder current = node.getSource().accept(this, context);
+            // Check if the subplan is already partitioned the way we want it
+            boolean alreadyPartitioned = false;
+            if (current.getDistribution() == PlanDistribution.FIXED) {
+                for (SubPlan child: current.getChildren()) {
+                    if (child.getFragment().getOutputPartitioning() == OutputPartitioning.HASH &&
+                            ImmutableSet.copyOf(child.getFragment().getPartitionBy()).equals(ImmutableSet.copyOf(node.getDistinctSymbols()))) {
+                        alreadyPartitioned = true;
+                        break;
+                    }
+                }
+            }
+            if (createSingleNodePlan || alreadyPartitioned || !current.isDistributed()) {
+                MarkDistinctNode markNode = new MarkDistinctNode(idAllocator.getNextId(), current.getRoot(), node.getMarkerSymbol(), node.getDistinctSymbols());
+                current.setRoot(markNode);
+                return current;
+            }
+            else {
+                PlanNode sink = new SinkNode(idAllocator.getNextId(), current.getRoot(), current.getRoot().getOutputSymbols());
+                current.setRoot(sink)
+                        .setHashOutputPartitioning(node.getDistinctSymbols());
+
+                PlanNode exchange = new ExchangeNode(idAllocator.getNextId(), current.getId(), sink.getOutputSymbols());
+                MarkDistinctNode markNode = new MarkDistinctNode(idAllocator.getNextId(), exchange, node.getMarkerSymbol(), node.getDistinctSymbols());
+                return createFixedDistributionPlan(markNode)
+                        .addChild(current.build());
+            }
+        }
+
+        private SubPlanBuilder addDistributedAggregation(SubPlanBuilder plan, Map<Symbol, FunctionCall> aggregations, Map<Symbol, FunctionHandle> functions, Map<Symbol, Symbol> masks, List<Symbol> groupBy)
         {
             Map<Symbol, FunctionCall> finalCalls = new HashMap<>();
             Map<Symbol, FunctionCall> intermediateCalls = new HashMap<>();
             Map<Symbol, FunctionHandle> intermediateFunctions = new HashMap<>();
+            Map<Symbol, Symbol> intermediateMask = new HashMap<>();
             for (Map.Entry<Symbol, FunctionCall> entry : aggregations.entrySet()) {
                 FunctionHandle functionHandle = functions.get(entry.getKey());
                 FunctionInfo function = metadata.getFunction(functionHandle);
@@ -126,18 +163,21 @@ public class DistributedLogicalPlanner
                 Symbol intermediateSymbol = allocator.newSymbol(function.getName().getSuffix(), function.getIntermediateType());
                 intermediateCalls.put(intermediateSymbol, entry.getValue());
                 intermediateFunctions.put(intermediateSymbol, functionHandle);
+                if (masks.containsKey(entry.getKey())) {
+                    intermediateMask.put(intermediateSymbol, masks.get(entry.getKey()));
+                }
 
                 // rewrite final aggregation in terms of intermediate function
                 finalCalls.put(entry.getKey(), new FunctionCall(function.getName(), ImmutableList.<Expression>of(new QualifiedNameReference(intermediateSymbol.toQualifiedName()))));
             }
 
             // create partial aggregation plan
-            AggregationNode partialAggregation = new AggregationNode(idAllocator.getNextId(), plan.getRoot(), groupBy, intermediateCalls, intermediateFunctions, PARTIAL);
+            AggregationNode partialAggregation = new AggregationNode(idAllocator.getNextId(), plan.getRoot(), groupBy, intermediateCalls, intermediateFunctions, intermediateMask, PARTIAL);
             plan.setRoot(new SinkNode(idAllocator.getNextId(), partialAggregation, partialAggregation.getOutputSymbols()));
 
             // create final aggregation plan
             ExchangeNode source = new ExchangeNode(idAllocator.getNextId(), plan.getId(), plan.getRoot().getOutputSymbols());
-            AggregationNode finalAggregation = new AggregationNode(idAllocator.getNextId(), source, groupBy, finalCalls, functions, FINAL);
+            AggregationNode finalAggregation = new AggregationNode(idAllocator.getNextId(), source, groupBy, finalCalls, functions, ImmutableMap.<Symbol, Symbol>of(), FINAL);
 
             if (groupBy.isEmpty()) {
                 plan = createSingleNodePlan(finalAggregation)
@@ -335,6 +375,7 @@ public class DistributedLogicalPlanner
                 return addDistributedAggregation(subPlanBuilder,
                         ImmutableMap.of(node.getOutput(), aggregate),
                         ImmutableMap.of(node.getOutput(), sum.getHandle()),
+                        ImmutableMap.<Symbol, Symbol>of(),
                         ImmutableList.<Symbol>of());
             }
 

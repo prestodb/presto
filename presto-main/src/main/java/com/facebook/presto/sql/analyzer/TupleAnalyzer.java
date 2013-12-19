@@ -54,7 +54,6 @@ import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Window;
-import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -89,7 +88,6 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.ORDER_BY_MUST_BE_IN_SELECT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WILDCARD_WITHOUT_FROM;
-import static com.facebook.presto.sql.tree.FunctionCall.distinctPredicate;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.elementsEqual;
@@ -732,20 +730,6 @@ class TupleAnalyzer
 
         // is this an aggregation query?
         if (!aggregates.isEmpty() || !groupByExpressions.isEmpty()) {
-            // we only support DISTINCT in aggregations for simple cases right now. (single DISTINCT expression in the query)
-            if (Iterables.any(aggregates, distinctPredicate())) {
-                int uniqueArguments = IterableTransformer.on(aggregates)
-                        .transform(FunctionCall.argumentsGetter())
-                        .set()
-                        .size();
-                if (uniqueArguments != 1 || !Iterables.all(aggregates, distinctPredicate())) {
-                    throw new SemanticException(NOT_SUPPORTED, node, "All DISTINCT argument lists used in aggregations must match");
-                }
-                else if (!groupByExpressions.isEmpty()) {
-                    throw new SemanticException(NOT_SUPPORTED, node, "DISTINCT with GROUP BY not supported");
-                }
-            }
-
             // ensure SELECT, ORDER BY and HAVING are constant with respect to group
             // e.g, these are all valid expressions:
             //     SELECT f(a) GROUP BY a

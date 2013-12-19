@@ -68,6 +68,7 @@ public class GroupByHash
     {
         this.types = checkNotNull(types, "types is null");
         this.channels = checkNotNull(channels, "channels is null").clone();
+        checkArgument(types.size() == channels.length, "types and channels have different sizes");
 
         this.allPages = ObjectArrayList.wrap(new GroupByPageBuilder[1024], 0);
         this.activePage = new GroupByPageBuilder(types);

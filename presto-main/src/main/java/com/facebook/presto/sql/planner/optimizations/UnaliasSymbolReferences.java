@@ -24,6 +24,7 @@ import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.MaterializedViewWriterNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -117,15 +118,28 @@ public class UnaliasSymbolReferences
 
             ImmutableMap.Builder<Symbol, FunctionHandle> functionInfos = ImmutableMap.builder();
             ImmutableMap.Builder<Symbol, FunctionCall> functionCalls = ImmutableMap.builder();
+            ImmutableMap.Builder<Symbol, Symbol> masks = ImmutableMap.builder();
             for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
                 Symbol symbol = entry.getKey();
                 Symbol canonical = canonicalize(symbol);
-                functionCalls.put(canonical, (FunctionCall) canonicalize(entry.getValue()));
+                FunctionCall canonicalCall = (FunctionCall) canonicalize(entry.getValue());
+                functionCalls.put(canonical, canonicalCall);
                 functionInfos.put(canonical, node.getFunctions().get(symbol));
             }
+            for (Map.Entry<Symbol, Symbol> entry : node.getMasks().entrySet()) {
+                masks.put(canonicalize(entry.getKey()), canonicalize(entry.getValue()));
+            }
 
-            ImmutableList<Symbol> groupByKeys = ImmutableList.copyOf(ImmutableSet.copyOf(canonicalize(node.getGroupBy())));
-            return new AggregationNode(node.getId(), source, groupByKeys, functionCalls.build(), functionInfos.build());
+            List<Symbol> groupByKeys = ImmutableList.copyOf(ImmutableSet.copyOf(canonicalize(node.getGroupBy())));
+            return new AggregationNode(node.getId(), source, groupByKeys, functionCalls.build(), functionInfos.build(), masks.build());
+        }
+
+        @Override
+        public PlanNode rewriteMarkDistinct(MarkDistinctNode node, Void context, PlanRewriter<Void> planRewriter)
+        {
+            PlanNode source = planRewriter.rewrite(node.getSource(), context);
+            List<Symbol> symbols = ImmutableList.copyOf(ImmutableSet.copyOf(canonicalize(node.getDistinctSymbols())));
+            return new MarkDistinctNode(node.getId(), source, canonicalize(node.getMarkerSymbol()), symbols);
         }
 
         @Override

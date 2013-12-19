@@ -23,6 +23,7 @@ import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
+import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.MaterializedViewWriterNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
@@ -178,9 +179,21 @@ public class PlanPrinter
             print(indent, "- Aggregate%s%s => [%s]", type, key, formatOutputs(node.getOutputSymbols()));
 
             for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
-                print(indent + 2, "%s := %s", entry.getKey(), entry.getValue());
+                if (node.getMasks().containsKey(entry.getKey())) {
+                    print(indent + 2, "%s := %s (mask = %s)", entry.getKey(), entry.getValue(), node.getMasks().get(entry.getKey()));
+                }
+                else {
+                    print(indent + 2, "%s := %s", entry.getKey(), entry.getValue());
+                }
             }
 
+            return processChildren(node, indent + 1);
+        }
+
+        @Override
+        public Void visitMarkDistinct(MarkDistinctNode node, Integer indent)
+        {
+            print(indent, "- MarkDistinct[distinct=%s marker=%s] => [%s]", formatOutputs(node.getDistinctSymbols()), node.getMarkerSymbol(), formatOutputs(node.getOutputSymbols()));
             return processChildren(node, indent + 1);
         }
 

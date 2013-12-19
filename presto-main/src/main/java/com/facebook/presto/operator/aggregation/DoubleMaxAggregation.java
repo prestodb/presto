@@ -19,6 +19,7 @@ import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.util.array.BooleanBigArray;
 import com.facebook.presto.util.array.DoubleBigArray;
+import com.google.common.base.Optional;
 
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
@@ -35,8 +36,9 @@ public class DoubleMaxAggregation
     }
 
     @Override
-    protected GroupedAccumulator createGroupedAccumulator(int valueChannel)
+    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, int valueChannel)
     {
+        // Min/max are not effected by distinct, so ignore it.
         return new DoubleMaxGroupedAccumulator(valueChannel);
     }
 
@@ -48,7 +50,8 @@ public class DoubleMaxAggregation
 
         public DoubleMaxGroupedAccumulator(int valueChannel)
         {
-            super(valueChannel, SINGLE_DOUBLE, SINGLE_DOUBLE);
+            // Min/max are not effected by distinct, so ignore it.
+            super(valueChannel, SINGLE_DOUBLE, SINGLE_DOUBLE, Optional.<Integer>absent());
 
             this.notNull = new BooleanBigArray();
 
@@ -62,7 +65,7 @@ public class DoubleMaxAggregation
         }
 
         @Override
-        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock)
+        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock)
         {
             notNull.ensureCapacity(groupIdsBlock.getGroupCount());
             maxValues.ensureCapacity(groupIdsBlock.getGroupCount(), Double.NEGATIVE_INFINITY);
@@ -99,8 +102,9 @@ public class DoubleMaxAggregation
     }
 
     @Override
-    protected Accumulator createAccumulator(int valueChannel)
+    protected Accumulator createAccumulator(Optional<Integer> maskChannel, int valueChannel)
     {
+        // Min/max are not effected by distinct, so ignore it.
         return new DoubleMaxAccumulator(valueChannel);
     }
 
@@ -112,11 +116,12 @@ public class DoubleMaxAggregation
 
         public DoubleMaxAccumulator(int valueChannel)
         {
-            super(valueChannel, SINGLE_DOUBLE, SINGLE_DOUBLE);
+            // Min/max are not effected by distinct, so ignore it.
+            super(valueChannel, SINGLE_DOUBLE, SINGLE_DOUBLE, Optional.<Integer>absent());
         }
 
         @Override
-        protected void processInput(Block block)
+        protected void processInput(Block block, Optional<Block> maskBlock)
         {
             BlockCursor values = block.cursor();
 
