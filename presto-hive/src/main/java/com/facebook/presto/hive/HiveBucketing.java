@@ -68,7 +68,7 @@ final class HiveBucketing
     public static Optional<Integer> getBucketNumber(Table table, Map<ColumnHandle, ?> bindings)
     {
         if (!table.getSd().isSetBucketCols() || table.getSd().getBucketCols().isEmpty() ||
-                !table.getSd().isSetNumBuckets() || table.getSd().getNumBuckets() <= 0 ||
+                !table.getSd().isSetNumBuckets() || (table.getSd().getNumBuckets() <= 0) ||
                 bindings.isEmpty()) {
             return Optional.absent();
         }
@@ -89,7 +89,7 @@ final class HiveBucketing
         // Verify the bucket column types are supported
         for (String column : bucketColumns) {
             ObjectInspector inspector = objectInspectors.get(column);
-            if (inspector.getCategory() != Category.PRIMITIVE) {
+            if ((inspector == null) || (inspector.getCategory() != Category.PRIMITIVE)) {
                 return Optional.absent();
             }
             if (!SUPPORTED_TYPES.contains(((PrimitiveObjectInspector) inspector).getPrimitiveCategory())) {
