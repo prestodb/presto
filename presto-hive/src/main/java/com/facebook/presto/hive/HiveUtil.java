@@ -79,12 +79,13 @@ final class HiveUtil
         }
     }
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "RedundantCast"})
     private static Class<? extends InputFormat<?, ?>> getInputFormatClass(JobConf conf, String inputFormatName)
             throws ClassNotFoundException
     {
         Class<?> clazz = conf.getClassByName(inputFormatName);
-        return (Class<? extends InputFormat<?, ?>>) clazz.asSubclass(InputFormat.class);
+        // TODO: remove redundant cast to Object after IDEA-118533 is fixed
+        return (Class<? extends InputFormat<?, ?>>) (Object) clazz.asSubclass(InputFormat.class);
     }
 
     static String getInputFormatName(Properties schema)
