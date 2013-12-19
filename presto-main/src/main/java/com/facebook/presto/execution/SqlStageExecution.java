@@ -555,7 +555,9 @@ public class SqlStageExecution
 
         synchronized (this) {
             checkState(subStageOutputBuffers == INITIAL_EMPTY_OUTPUT_BUFFERS, "Sub-stage of %s already has buffers set", stageId);
-            subStageOutputBuffers = subStageOutputBuffers.withBuffers(buffers.build());
+            subStageOutputBuffers = subStageOutputBuffers
+                    .withBuffers(buffers.build())
+                    .withNoMoreBufferIds();
         }
 
         updateSubStageOutputBuffers();
