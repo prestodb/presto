@@ -25,6 +25,7 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.MockLocalStorageManager;
 import com.facebook.presto.metadata.Node;
 import com.facebook.presto.operator.ExchangeClient;
+import com.facebook.presto.operator.RecordSinkManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.PartitionResult;
 import com.facebook.presto.spi.SchemaTableName;
@@ -109,6 +110,7 @@ public class TestSqlTaskManager
                 metadata,
                 new DataStreamManager(new DualDataStreamProvider()),
                 new MockLocalStorageManager(new File("target/temp")),
+                new RecordSinkManager(),
                 new MockExchangeClientSupplier(),
                 new ExpressionCompiler(metadata));
 

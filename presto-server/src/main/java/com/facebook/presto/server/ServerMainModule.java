@@ -52,7 +52,10 @@ import com.facebook.presto.operator.ExchangeClientConfig;
 import com.facebook.presto.operator.ExchangeClientFactory;
 import com.facebook.presto.operator.ForExchange;
 import com.facebook.presto.operator.ForScheduler;
+import com.facebook.presto.operator.RecordSinkManager;
+import com.facebook.presto.operator.RecordSinkProvider;
 import com.facebook.presto.spi.ConnectorFactory;
+import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.split.ConnectorDataStreamProvider;
 import com.facebook.presto.split.DataStreamManager;
@@ -156,6 +159,11 @@ public class ServerMainModule
         binder.bind(DataStreamManager.class).in(Scopes.SINGLETON);
         binder.bind(DataStreamProvider.class).to(DataStreamManager.class).in(Scopes.SINGLETON);
         newSetBinder(binder, ConnectorDataStreamProvider.class);
+
+        // record sink provider
+        binder.bind(RecordSinkManager.class).in(Scopes.SINGLETON);
+        binder.bind(RecordSinkProvider.class).to(RecordSinkManager.class).in(Scopes.SINGLETON);
+        newSetBinder(binder, ConnectorRecordSinkProvider.class);
 
         // metadata
         binder.bind(CatalogManager.class).in(Scopes.SINGLETON);

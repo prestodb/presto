@@ -533,6 +533,9 @@ public class SqlStageExecution
                 else if (fragment.getDistribution() == PlanDistribution.SOURCE) {
                     scheduleSourcePartitionedNodes();
                 }
+                else if (fragment.getDistribution() == PlanDistribution.COORDINATOR_ONLY) {
+                    scheduleOnCurrentNode();
+                }
                 else {
                     throw new IllegalStateException("Unsupported partitioning: " + fragment.getDistribution());
                 }
@@ -571,9 +574,21 @@ public class SqlStageExecution
             scheduleTask(taskId, node);
         }
 
-        // tell sub stages about all nodes and that there will not be more nodes)
+        // tell sub stages about all nodes and that there will not be more nodes
         for (StageExecutionNode subStage : subStages.values()) {
             subStage.parentNodesAdded(nodes, true);
+        }
+    }
+
+    private void scheduleOnCurrentNode()
+    {
+        // create task on current node
+        Node node = nodeSelector.selectCurrentNode();
+        scheduleTask(0, node);
+
+        // tell sub stages about all nodes and that there will not be more nodes
+        for (StageExecutionNode subStage : subStages.values()) {
+            subStage.parentNodesAdded(ImmutableList.of(node), true);
         }
     }
 

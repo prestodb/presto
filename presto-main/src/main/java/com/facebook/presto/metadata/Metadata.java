@@ -15,6 +15,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.OutputTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.analyzer.Type;
@@ -23,6 +24,7 @@ import com.google.common.base.Optional;
 
 import javax.validation.constraints.NotNull;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -103,6 +105,16 @@ public interface Metadata
      * @throws RuntimeException if the table can not be dropped or table handle is no longer valid
      */
     void dropTable(TableHandle tableHandle);
+
+    /**
+     * Begin the atomic creation of a table with data.
+     */
+    OutputTableHandle beginCreateTable(String catalogName, TableMetadata tableMetadata);
+
+    /**
+     * Commit a table creation with data after the data is written.
+     */
+    void commitCreateTable(OutputTableHandle tableHandle, Collection<String> fragments);
 
     /**
      * HACK: This is here only for table alias support and should be remove when aliases are based on serialized table handles.

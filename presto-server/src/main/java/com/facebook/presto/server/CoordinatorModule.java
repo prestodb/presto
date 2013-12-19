@@ -37,6 +37,7 @@ import com.facebook.presto.metadata.DatabaseShardManager;
 import com.facebook.presto.metadata.DiscoveryNodeManager;
 import com.facebook.presto.metadata.ForMetadata;
 import com.facebook.presto.metadata.ForShardCleaner;
+import com.facebook.presto.metadata.NativeRecordSinkProvider;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.ShardCleaner;
 import com.facebook.presto.metadata.ShardCleanerConfig;
@@ -46,6 +47,7 @@ import com.facebook.presto.split.NativeSplitManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.tree.CreateAlias;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
+import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.DropAlias;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.Explain;
@@ -100,6 +102,7 @@ public class CoordinatorModule
         // native
         binder.bind(NativeSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(NativeDataStreamProvider.class).in(Scopes.SINGLETON);
+        binder.bind(NativeRecordSinkProvider.class).in(Scopes.SINGLETON);
 
         // split manager
         binder.bind(SplitManager.class).in(Scopes.SINGLETON);
@@ -161,6 +164,7 @@ public class CoordinatorModule
         executionBinder.addBinding(ShowCatalogs.class).to(SqlQueryExecution.SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         executionBinder.addBinding(CreateMaterializedView.class).to(SqlQueryExecution.SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         executionBinder.addBinding(RefreshMaterializedView.class).to(SqlQueryExecution.SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
+        executionBinder.addBinding(CreateTable.class).to(SqlQueryExecution.SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
     }
 
     @Provides

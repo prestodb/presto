@@ -35,7 +35,9 @@ import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
+import com.facebook.presto.sql.planner.plan.TableCommitNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
@@ -275,6 +277,32 @@ public class DistributedLogicalPlanner
         }
 
         @Override
+        public SubPlanBuilder visitTableWriter(TableWriterNode node, Void context)
+        {
+            SubPlanBuilder current = node.getSource().accept(this, context);
+            current.setRoot(new TableWriterNode(node.getId(), current.getRoot(), node.getTarget(), node.getColumns(), node.getColumnNames(), node.getOutputSymbols()));
+            return current;
+        }
+
+        @Override
+        public SubPlanBuilder visitTableCommit(TableCommitNode node, Void context)
+        {
+            SubPlanBuilder current = node.getSource().accept(this, context);
+
+            if (current.isDistributed()) {
+                current.setRoot(new SinkNode(idAllocator.getNextId(), current.getRoot(), current.getRoot().getOutputSymbols()));
+
+                // create a new non-partitioned fragment
+                current = createCoordinatorOnlyPlan(new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols()))
+                        .addChild(current.build());
+            }
+
+            current.setRoot(new TableCommitNode(node.getId(), current.getRoot(), node.getTarget(), node.getOutputSymbols()));
+
+            return current;
+        }
+
+        @Override
         public SubPlanBuilder visitMaterializedViewWriter(MaterializedViewWriterNode node, Void context)
         {
             SubPlanBuilder subPlanBuilder = node.getSource().accept(this, context);
@@ -432,6 +460,11 @@ public class DistributedLogicalPlanner
              else {
                  return new SubPlanBuilder(new PlanFragmentId(nextSubPlanId()), allocator, PlanDistribution.SOURCE, root, partitionedSourceId);
              }
+        }
+
+        public SubPlanBuilder createCoordinatorOnlyPlan(PlanNode root)
+        {
+            return new SubPlanBuilder(new PlanFragmentId(nextSubPlanId()), allocator, PlanDistribution.COORDINATOR_ONLY, root, null);
         }
 
         private SubPlanBuilder createSubPlan(PlanNode root, PlanDistribution distribution, PlanNodeId partitionedSourceId)

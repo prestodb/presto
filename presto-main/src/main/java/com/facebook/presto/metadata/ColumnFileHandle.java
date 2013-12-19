@@ -61,6 +61,11 @@ public class ColumnFileHandle
         this.writers = new LinkedHashMap<>(builder.getWriters());
     }
 
+    public int getFieldCount()
+    {
+        return files.size();
+    }
+
     public Map<ColumnHandle, File> getFiles()
     {
         return files;
@@ -74,7 +79,7 @@ public class ColumnFileHandle
     public int append(Page page)
     {
         checkNotNull(page, "page is null");
-        checkState(!committed.get(), "already committed!");
+        checkState(!committed.get(), "already committed: %s", shardUuid);
 
         Block[] blocks = page.getBlocks();
         int[] tupleCount = new int[blocks.length];
@@ -100,7 +105,7 @@ public class ColumnFileHandle
     {
         Throwable firstThrowable = null;
 
-        checkState(!committed.getAndSet(true), "already committed!");
+        checkState(!committed.getAndSet(true), "already committed: %s", shardUuid);
 
         for (BlocksFileWriter writer : writers.values()) {
             try {
@@ -113,7 +118,10 @@ public class ColumnFileHandle
             }
         }
 
-        Throwables.propagateIfInstanceOf(firstThrowable, IOException.class);
+        if (firstThrowable != null) {
+            Throwables.propagateIfInstanceOf(firstThrowable, IOException.class);
+            throw Throwables.propagate(firstThrowable);
+        }
     }
 
     public static class Builder
@@ -164,7 +172,7 @@ public class ColumnFileHandle
 
         public ColumnFileHandle build()
         {
-            checkArgument(files.size() > 0, "must have at least one column");
+            checkArgument(!files.isEmpty(), "must have at least one column");
             return new ColumnFileHandle(this);
         }
 
