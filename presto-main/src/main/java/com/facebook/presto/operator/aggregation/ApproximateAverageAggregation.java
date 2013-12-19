@@ -20,6 +20,7 @@ import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.util.array.DoubleBigArray;
 import com.facebook.presto.util.array.LongBigArray;
+import com.google.common.base.Optional;
 import io.airlift.slice.Slice;
 
 import static com.facebook.presto.operator.aggregation.VarianceAggregation.createIntermediate;
@@ -53,9 +54,9 @@ public class ApproximateAverageAggregation
     }
 
     @Override
-    protected GroupedAccumulator createGroupedAccumulator(int valueChannel)
+    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, int valueChannel)
     {
-        return new ApproximateAverageGroupedAccumulator(valueChannel, inputIsLong);
+        return new ApproximateAverageGroupedAccumulator(valueChannel, inputIsLong, maskChannel);
     }
 
     public static class ApproximateAverageGroupedAccumulator
@@ -67,9 +68,9 @@ public class ApproximateAverageAggregation
         private final DoubleBigArray means;
         private final DoubleBigArray m2s;
 
-        private ApproximateAverageGroupedAccumulator(int valueChannel, boolean inputIsLong)
+        private ApproximateAverageGroupedAccumulator(int valueChannel, boolean inputIsLong, Optional<Integer> maskChannel)
         {
-            super(valueChannel, SINGLE_VARBINARY, SINGLE_VARBINARY);
+            super(valueChannel, SINGLE_VARBINARY, SINGLE_VARBINARY, maskChannel);
 
             this.inputIsLong = inputIsLong;
 
@@ -85,18 +86,23 @@ public class ApproximateAverageAggregation
         }
 
         @Override
-        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock)
+        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock)
         {
             counts.ensureCapacity(groupIdsBlock.getGroupCount());
             means.ensureCapacity(groupIdsBlock.getGroupCount());
             m2s.ensureCapacity(groupIdsBlock.getGroupCount());
 
             BlockCursor values = valuesBlock.cursor();
+            BlockCursor masks = null;
+            if (maskBlock.isPresent()) {
+                masks = maskBlock.get().cursor();
+            }
 
             for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
                 checkState(values.advanceNextPosition());
+                checkState(masks == null || masks.advanceNextPosition());
 
-                if (!values.isNull()) {
+                if (!values.isNull() && (masks == null || masks.getBoolean())) {
 
                     long groupId = groupIdsBlock.getGroupId(position);
                     double inputValue;
@@ -158,7 +164,6 @@ public class ApproximateAverageAggregation
                     counts.set(groupId, newCount);
                     means.set(groupId, newMean);
                     m2s.set(groupId, newM2);
-
                 }
             }
             checkState(!values.advanceNextPosition());
@@ -193,9 +198,9 @@ public class ApproximateAverageAggregation
     }
 
     @Override
-    protected Accumulator createAccumulator(int valueChannel)
+    protected Accumulator createAccumulator(Optional<Integer> maskChannel, int valueChannel)
     {
-        return new ApproximateAverageAccumulator(valueChannel, inputIsLong);
+        return new ApproximateAverageAccumulator(valueChannel, inputIsLong, maskChannel);
     }
 
     public static class ApproximateAverageAccumulator
@@ -207,22 +212,27 @@ public class ApproximateAverageAggregation
         private double currentMean;
         private double currentM2;
 
-        private ApproximateAverageAccumulator(int valueChannel, boolean inputIsLong)
+        private ApproximateAverageAccumulator(int valueChannel, boolean inputIsLong, Optional<Integer> maskChannel)
         {
-            super(valueChannel, SINGLE_VARBINARY, SINGLE_VARBINARY);
+            super(valueChannel, SINGLE_VARBINARY, SINGLE_VARBINARY, maskChannel);
 
             this.inputIsLong = inputIsLong;
         }
 
         @Override
-        protected void processInput(Block block)
+        protected void processInput(Block block, Optional<Block> maskBlock)
         {
             BlockCursor values = block.cursor();
+            BlockCursor masks = null;
+            if (maskBlock.isPresent()) {
+                masks = maskBlock.get().cursor();
+            }
 
             for (int position = 0; position < block.getPositionCount(); position++) {
                 checkState(values.advanceNextPosition());
+                checkState(masks == null || masks.advanceNextPosition());
 
-                if (!values.isNull()) {
+                if (!values.isNull() && (masks == null || masks.getBoolean())) {
                     double inputValue;
                     if (inputIsLong) {
                         inputValue = values.getLong();
@@ -265,7 +275,6 @@ public class ApproximateAverageAggregation
                     currentCount = newCount;
                     currentMean = newMean;
                     currentM2 = newM2;
-
                 }
             }
             checkState(!values.advanceNextPosition());

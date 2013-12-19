@@ -20,6 +20,7 @@ import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.base.Function;
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
@@ -397,7 +398,11 @@ public class HashAggregationOperator
                     argumentChannels[i] = functionDefinition.getInputs().get(i).getChannel();
                 }
                 intermediateChannel = -1;
-                aggregation = function.createGroupedAggregation(argumentChannels);
+                Optional<Integer> maskChannel = Optional.absent();
+                if (functionDefinition.getMask().isPresent()) {
+                    maskChannel = Optional.of(functionDefinition.getMask().get().getChannel());
+                }
+                aggregation = function.createGroupedAggregation(maskChannel, argumentChannels);
             }
             this.step = step;
         }

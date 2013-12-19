@@ -132,6 +132,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.of(A, B, C),
                 ImmutableMap.of(C, fakeFunction("test"), D, fakeFunction("test")),
                 ImmutableMap.of(C, fakeFunctionHandle("test"), D, fakeFunctionHandle("test")),
+                ImmutableMap.<Symbol, Symbol>of(),
                 AggregationNode.Step.FINAL);
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node);

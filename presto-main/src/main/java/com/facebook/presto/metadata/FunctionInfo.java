@@ -22,6 +22,7 @@ import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
+import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ComparisonChain;
@@ -156,10 +157,10 @@ public class FunctionInfo
         return intermediateType;
     }
 
-    public AggregationFunctionDefinition bind(List<Input> inputs)
+    public AggregationFunctionDefinition bind(List<Input> inputs, Optional<Input> mask)
     {
         checkState(isAggregate, "function is not an aggregate");
-        return aggregation(aggregationFunction, inputs);
+        return aggregation(aggregationFunction, inputs, mask);
     }
 
     public MethodHandle getScalarFunction()
