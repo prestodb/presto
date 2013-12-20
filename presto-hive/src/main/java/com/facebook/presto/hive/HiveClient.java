@@ -67,7 +67,8 @@ import java.util.Map.Entry;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.hive.HiveBucketing.getBucketNumber;
+import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
+import static com.facebook.presto.hive.HiveBucketing.getHiveBucket;
 import static com.facebook.presto.hive.HiveColumnHandle.columnMetadataGetter;
 import static com.facebook.presto.hive.HiveColumnHandle.hiveColumnHandle;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
@@ -344,7 +345,7 @@ public class HiveClient
         SchemaTableName tableName = getTableName(tableHandle);
 
         List<FieldSchema> partitionKeys;
-        Optional<Integer> bucket;
+        Optional<HiveBucket> bucket;
 
         try {
             Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
@@ -355,7 +356,7 @@ public class HiveClient
             }
 
             partitionKeys = table.getPartitionKeys();
-            bucket = getBucketNumber(table, tupleDomain.extractFixedValues());
+            bucket = getHiveBucket(table, tupleDomain.extractFixedValues());
         }
         catch (NoSuchObjectException e) {
             throw new TableNotFoundException(tableName);
@@ -430,7 +431,7 @@ public class HiveClient
         }
         checkArgument(partition instanceof HivePartition, "Partition must be a hive partition");
         SchemaTableName tableName = ((HivePartition) partition).getTableName();
-        Optional<Integer> bucketNumber = ((HivePartition) partition).getBucket();
+        Optional<HiveBucket> bucket = ((HivePartition) partition).getBucket();
 
         List<String> partitionNames = new ArrayList<>(Lists.transform(partitions, HiveUtil.partitionIdGetter()));
         Collections.sort(partitionNames, Ordering.natural().reverse());
@@ -449,7 +450,7 @@ public class HiveClient
                 table,
                 partitionNames,
                 hivePartitions,
-                bucketNumber,
+                bucket,
                 maxSplitSize,
                 maxOutstandingSplits,
                 maxSplitIteratorThreads,
@@ -567,7 +568,7 @@ public class HiveClient
     private static Function<String, HivePartition> toPartition(
             final SchemaTableName tableName,
             final Map<String, ColumnHandle> columnsByName,
-            final Optional<Integer> bucket)
+            final Optional<HiveBucket> bucket)
     {
         return new Function<String, HivePartition>()
         {

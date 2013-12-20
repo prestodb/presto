@@ -65,7 +65,7 @@ final class HiveBucketing
 
     private HiveBucketing() {}
 
-    public static Optional<Integer> getBucketNumber(Table table, Map<ColumnHandle, ?> bindings)
+    public static Optional<HiveBucket> getHiveBucket(Table table, Map<ColumnHandle, ?> bindings)
     {
         if (!table.getSd().isSetBucketCols() || table.getSd().getBucketCols().isEmpty() ||
                 !table.getSd().isSetNumBuckets() || (table.getSd().getNumBuckets() <= 0) ||
@@ -117,10 +117,10 @@ final class HiveBucketing
             columnBindings.add(immutableEntry(objectInspectors.get(column), bucketBindings.get(column)));
         }
 
-        return getBucketNumber(columnBindings.build(), table.getSd().getNumBuckets());
+        return getHiveBucket(columnBindings.build(), table.getSd().getNumBuckets());
     }
 
-    public static Optional<Integer> getBucketNumber(List<Entry<ObjectInspector, Object>> columnBindings, int bucketCount)
+    public static Optional<HiveBucket> getHiveBucket(List<Entry<ObjectInspector, Object>> columnBindings, int bucketCount)
     {
         try {
             GenericUDFHash udf = new GenericUDFHash();
@@ -142,7 +142,9 @@ final class HiveBucketing
             HiveKey hiveKey = new HiveKey();
             hiveKey.setHashCode(inspector.get(result));
 
-            return Optional.of(new DefaultHivePartitioner<>().getBucket(hiveKey, null, bucketCount));
+            int bucketNumber = new DefaultHivePartitioner<>().getBucket(hiveKey, null, bucketCount);
+
+            return Optional.of(new HiveBucket(bucketNumber, bucketCount));
         }
         catch (HiveException e) {
             log.debug(e, "Error evaluating bucket number");
@@ -190,5 +192,31 @@ final class HiveBucketing
                 return new DeferredJavaObject(object);
         }
         throw new RuntimeException("Unsupported type: " + poi.getPrimitiveCategory());
+    }
+
+    public static class HiveBucket
+    {
+        private final int bucketNumber;
+        private final int bucketCount;
+
+        public HiveBucket(int bucketNumber, int bucketCount)
+        {
+            checkArgument(bucketCount > 0, "bucketCount must be greater than zero");
+            checkArgument(bucketNumber >= 0, "bucketCount must be positive");
+            checkArgument(bucketNumber < bucketCount, "bucketNumber must be less than bucketCount");
+
+            this.bucketNumber = bucketNumber;
+            this.bucketCount = bucketCount;
+        }
+
+        public int getBucketNumber()
+        {
+            return bucketNumber;
+        }
+
+        public int getBucketCount()
+        {
+            return bucketCount;
+        }
     }
 }
