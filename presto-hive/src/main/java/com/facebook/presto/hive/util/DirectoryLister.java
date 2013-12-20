@@ -25,6 +25,7 @@ import java.util.List;
 
 import static com.facebook.presto.hive.util.DirectoryEntry.entryForDirectory;
 import static com.facebook.presto.hive.util.DirectoryEntry.entryForFile;
+import static com.facebook.presto.hive.util.FileStatusUtil.isDirectory;
 
 /**
  * Shim to work around old versions of Hadoop not having LocatedFileStatus.
@@ -104,12 +105,5 @@ final class DirectoryLister
             }
             return list.build();
         }
-    }
-
-    @SuppressWarnings("deprecation")
-    private static boolean isDirectory(FileStatus status)
-    {
-        // older versions of Hadoop only have this method
-        return status.isDir();
     }
 }

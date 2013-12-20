@@ -20,6 +20,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
 import static com.google.common.collect.Maps.immutableEntry;
 import static java.util.Map.Entry;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaBooleanObjectInspector;
@@ -39,9 +40,10 @@ public class TestHiveBucketing
                 .add(entry(javaLongObjectInspector, 123L))
                 .build();
 
-        Optional<Integer> bucket = HiveBucketing.getBucketNumber(bindings, 32);
+        Optional<HiveBucket> bucket = HiveBucketing.getHiveBucket(bindings, 32);
         assertTrue(bucket.isPresent());
-        assertEquals((int) bucket.get(), 26);
+        assertEquals(bucket.get().getBucketCount(), 32);
+        assertEquals(bucket.get().getBucketNumber(), 26);
     }
 
     @Test
@@ -52,9 +54,10 @@ public class TestHiveBucketing
                 .add(entry(javaStringObjectInspector, "sequencefile test"))
                 .build();
 
-        Optional<Integer> bucket = HiveBucketing.getBucketNumber(bindings, 32);
+        Optional<HiveBucket> bucket = HiveBucketing.getHiveBucket(bindings, 32);
         assertTrue(bucket.isPresent());
-        assertEquals((int) bucket.get(), 21);
+        assertEquals(bucket.get().getBucketCount(), 32);
+        assertEquals(bucket.get().getBucketNumber(), 21);
     }
 
     private static Entry<ObjectInspector, Object> entry(ObjectInspector inspector, Object value)
