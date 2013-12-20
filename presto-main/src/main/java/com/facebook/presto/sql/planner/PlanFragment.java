@@ -39,34 +39,42 @@ import static com.google.common.base.Preconditions.checkNotNull;
 @Immutable
 public class PlanFragment
 {
-    public enum Partitioning
+    public enum PlanDistribution
     {
         NONE,
-        HASH,
+        FIXED,
         SOURCE
+    }
+
+    public static enum OutputPartitioning
+    {
+        NONE,
+        HASH
     }
 
     private final PlanFragmentId id;
     private final PlanNode root;
     private final Map<Symbol, Type> symbols;
-    private final Partitioning partitioning;
+    private final PlanDistribution distribution;
     private final PlanNodeId partitionedSource;
     private final List<TupleInfo> tupleInfos;
     private final List<PlanNode> sources;
     private final Set<PlanNodeId> sourceIds;
+    private final OutputPartitioning outputPartitioning;
 
     @JsonCreator
     public PlanFragment(
             @JsonProperty("id") PlanFragmentId id,
             @JsonProperty("root") PlanNode root,
             @JsonProperty("symbols") Map<Symbol, Type> symbols,
-            @JsonProperty("partitioning") Partitioning partitioning,
-            @JsonProperty("partitionedSource") PlanNodeId partitionedSource)
+            @JsonProperty("distribution") PlanDistribution distribution,
+            @JsonProperty("partitionedSource") PlanNodeId partitionedSource,
+            @JsonProperty("outputPartitioning") OutputPartitioning outputPartitioning)
     {
         this.id = checkNotNull(id, "id is null");
         this.root = checkNotNull(root, "root is null");
         this.symbols = checkNotNull(symbols, "symbols is null");
-        this.partitioning = checkNotNull(partitioning, "partitioning is null");
+        this.distribution = checkNotNull(distribution, "distribution is null");
         this.partitionedSource = partitionedSource;
 
         tupleInfos = IterableTransformer.on(root.getOutputSymbols())
@@ -94,6 +102,8 @@ public class PlanFragment
             sourceIds.add(partitionedSource);
         }
         this.sourceIds = sourceIds.build();
+
+        this.outputPartitioning = checkNotNull(outputPartitioning, "outputPartitioning is null");
     }
 
     @JsonProperty
@@ -115,15 +125,21 @@ public class PlanFragment
     }
 
     @JsonProperty
-    public Partitioning getPartitioning()
+    public PlanDistribution getDistribution()
     {
-        return partitioning;
+        return distribution;
     }
 
     @JsonProperty
     public PlanNodeId getPartitionedSource()
     {
         return partitionedSource;
+    }
+
+    @JsonProperty
+    public OutputPartitioning getOutputPartitioning()
+    {
+        return outputPartitioning;
     }
 
     public List<TupleInfo> getTupleInfos()
@@ -157,8 +173,9 @@ public class PlanFragment
     {
         return Objects.toStringHelper(this)
                 .add("id", id)
-                .add("partitioning", partitioning)
+                .add("distribution", distribution)
                 .add("partitionedSource", partitionedSource)
+                .add("outputPartitioning", outputPartitioning)
                 .toString();
     }
 

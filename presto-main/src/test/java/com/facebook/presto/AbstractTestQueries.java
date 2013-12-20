@@ -1499,6 +1499,26 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testGroupByAsJoinProbe()
+            throws Exception
+    {
+        // we join on customer key instead of order key because
+        // orders is effectively distributed on order key due the
+        // generated data being sorted
+        assertQuery("SELECT " +
+                "  b.orderkey, " +
+                "  b.custkey, " +
+                "  a.custkey " +
+                "FROM ( " +
+                "  SELECT custkey" +
+                "  FROM orders " +
+                "  GROUP BY custkey" +
+                ") a " +
+                "JOIN orders b " +
+                "  ON a.custkey = b.custkey ");
+    }
+
+    @Test
     public void testColumnAliases()
             throws Exception
     {

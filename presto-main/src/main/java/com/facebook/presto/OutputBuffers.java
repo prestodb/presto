@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 
@@ -115,10 +116,8 @@ public final class OutputBuffers
     public OutputBuffers withBuffers(Map<String, PagePartitionFunction> buffers)
     {
         checkNotNull(buffers, "buffers is null");
-        checkState(!noMoreBufferIds, "No more buffer ids already set");
 
-        ImmutableMap.Builder<String, PagePartitionFunction> newBuffers = ImmutableMap.builder();
-        newBuffers.putAll(this.buffers);
+        Map<String, PagePartitionFunction> newBuffers = new HashMap<>();
         for (Entry<String, PagePartitionFunction> entry : buffers.entrySet()) {
             String bufferId = entry.getKey();
             PagePartitionFunction pagePartitionFunction = entry.getValue();
@@ -131,7 +130,19 @@ public final class OutputBuffers
 
             newBuffers.put(bufferId, pagePartitionFunction);
         }
-        return new OutputBuffers(version + 1, false, newBuffers.build());
+
+        // if we don't have new buffers, don't update
+        if (newBuffers.isEmpty()) {
+            return this;
+        }
+
+        // verify no new buffers is not set
+        checkState(!noMoreBufferIds, "No more buffer ids already set");
+
+        // add the existing buffers
+        newBuffers.putAll(this.buffers);
+
+        return new OutputBuffers(version + 1, false, newBuffers);
     }
 
     public OutputBuffers withNoMoreBufferIds()
