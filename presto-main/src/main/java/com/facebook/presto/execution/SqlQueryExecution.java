@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.UnpartitionedPagePartitionFunction;
 import com.facebook.presto.client.Input;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
@@ -63,7 +64,9 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class SqlQueryExecution
         implements QueryExecution
 {
-    private static final String ROOT_OUTPUT_BUFFER_NAME = "out";
+    private static final OutputBuffers ROOT_OUTPUT_BUFFERS = INITIAL_EMPTY_OUTPUT_BUFFERS
+            .withBuffer("out", new UnpartitionedPagePartitionFunction())
+            .withNoMoreBufferIds();
 
     private final QueryStateMachine stateMachine;
 
@@ -159,11 +162,6 @@ public class SqlQueryExecution
                 SqlStageExecution stage = outputStage.get();
 
                 if (!stateMachine.isDone()) {
-                    stage.setOutputBuffers(
-                            INITIAL_EMPTY_OUTPUT_BUFFERS
-                                    .withBuffer(ROOT_OUTPUT_BUFFER_NAME, new UnpartitionedPagePartitionFunction())
-                                    .withNoMoreBufferIds());
-
                     stage.start();
                 }
                 else {
@@ -244,7 +242,8 @@ public class SqlQueryExecution
                 stateMachine.getSession(),
                 maxPendingSplitsPerNode,
                 initialHashPartitions,
-                queryExecutor);
+                queryExecutor,
+                ROOT_OUTPUT_BUFFERS);
         this.outputStage.set(outputStage);
         outputStage.addStateChangeListener(new StateChangeListener<StageInfo>()
         {

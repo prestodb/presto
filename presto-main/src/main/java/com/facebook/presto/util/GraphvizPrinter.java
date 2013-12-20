@@ -158,7 +158,7 @@ public final class GraphvizPrinter
                 .append(" {")
                 .append('\n');
 
-        output.append(format("label = \"%s\"", fragment.getPartitioning()))
+        output.append(format("label = \"%s\"", fragment.getDistribution()))
                 .append('\n');
 
         PlanNode plan = fragment.getRoot();

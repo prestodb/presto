@@ -37,7 +37,8 @@ import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.PlanFragment.Partitioning;
+import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
+import com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -91,7 +92,7 @@ public class TestSqlTaskManager
         DualMetadata dualMetadata = new DualMetadata();
         tableHandle = dualMetadata.getTableHandle(new SchemaTableName("default", DualMetadata.NAME));
         assertNotNull(tableHandle, "tableHandle is null");
-        ;
+
         columnHandle = dualMetadata.getColumnHandle(tableHandle, DualMetadata.COLUMN_NAME);
         assertNotNull(columnHandle, "columnHandle is null");
         symbol = new Symbol(DualMetadata.COLUMN_NAME);
@@ -132,8 +133,9 @@ public class TestSqlTaskManager
                         null,
                         Optional.<GeneratedPartitions>absent()),
                 ImmutableMap.<Symbol, Type>of(symbol, Type.VARCHAR),
-                Partitioning.SOURCE,
-                tableScanNodeId);
+                PlanDistribution.SOURCE,
+                tableScanNodeId,
+                OutputPartitioning.NONE);
 
         taskId = new TaskId("query", "stage", "task");
         session = new Session("user", "test", "default", "default", "test", "test");

@@ -30,7 +30,7 @@ import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.PlanFragment.Partitioning;
+import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.util.SetThreadName;
 import com.google.common.base.Function;
@@ -213,7 +213,7 @@ public class SqlTaskExecution
             }
             this.unpartitionedDrivers = ImmutableList.copyOf(unpartitionedDrivers);
 
-            if (fragment.getPartitioning() == Partitioning.SOURCE) {
+            if (fragment.getDistribution() == PlanDistribution.SOURCE) {
                 checkArgument(partitionedDriverFactory != null, "Fragment is partitioned, but no partitioned driver found");
                 this.partitionedSourceId = fragment.getPartitionedSource();
                 this.partitionedDriverFactory = partitionedDriverFactory;
