@@ -75,6 +75,7 @@ public class TestJsonFunctions
     {
         assertFunction("JSON_ARRAY_CONTAINS('[]', 'x')", false);
         assertFunction("JSON_ARRAY_CONTAINS('[\"foo\"]', 'foo')", true);
+        assertFunction("JSON_ARRAY_CONTAINS('[\"foo\", null]', null)", null);
         assertFunction("JSON_ARRAY_CONTAINS('[\"8\"]', '8')", true);
         assertFunction("JSON_ARRAY_CONTAINS('[1, \"foo\", null]', 'foo')", true);
         assertFunction("JSON_ARRAY_CONTAINS('[1, 5]', '5')", false);
@@ -99,6 +100,7 @@ public class TestJsonFunctions
     public void testJsonArrayGetString()
     {
         assertFunction("JSON_ARRAY_GET('[\"jhfa\"]', 0)", "jhfa");
+        assertFunction("JSON_ARRAY_GET('[\"jhfa\", null]', 1)", null);
         assertFunction("JSON_ARRAY_GET('[\"as\", \"fgs\", \"tehgf\"]', 1)", "fgs");
         assertFunction("JSON_ARRAY_GET('[\"as\", \"fgs\", \"tehgf\", \"gjyj\", \"jut\"]', 4)", "jut");
     }
@@ -107,6 +109,7 @@ public class TestJsonFunctions
     public void testJsonArrayGetDouble()
     {
         assertFunction("JSON_ARRAY_GET('[3.14]', 0)", Slices.utf8Slice(String.valueOf(3.14)));
+        assertFunction("JSON_ARRAY_GET('[3.14, null]', 1)", null);
         assertFunction("JSON_ARRAY_GET('[1.12, 3.54, 2.89]', 1)", Slices.utf8Slice(String.valueOf(3.54)));
         assertFunction("JSON_ARRAY_GET('[0.58, 9.7, 7.6, 11.2, 5.02]', 4)", Slices.utf8Slice(String.valueOf(5.02)));
     }
@@ -115,6 +118,7 @@ public class TestJsonFunctions
     public void testJsonArrayGetBoolean()
     {
         assertFunction("JSON_ARRAY_GET('[true]', 0)", Slices.utf8Slice(String.valueOf(true)));
+        assertFunction("JSON_ARRAY_GET('[true, null]', 1)", null);
         assertFunction("JSON_ARRAY_GET('[false, false, true]', 1)", Slices.utf8Slice(String.valueOf(false)));
         assertFunction(
                 "JSON_ARRAY_GET('[true, false, false, true, true, false]', 5)",
@@ -125,7 +129,7 @@ public class TestJsonFunctions
     @Test
     public void testJsonArrayContainsInvalid()
     {
-        for (String value : new String[] {"'x'", "2.5", "8", "true"}) {
+        for (String value : new String[] {"'x'", "2.5", "8", "true", null}) {
             for (String array : new String[] {"", "123", "[", "[1,0,]", "[1,,0]"}) {
                 assertFunction(format("JSON_ARRAY_CONTAINS('%s', %s)", array, value), null);
             }
