@@ -249,7 +249,11 @@ public final class JsonFunctions
                 parser.skipChildren();
 
                 if (count == index) {
+                    if (parser.getValueAsString() == null) {
+                        return null;
+                    }
                     return Slices.utf8Slice(parser.getValueAsString());
+
                 }
 
                 if (tokens != null) {
