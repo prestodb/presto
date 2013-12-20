@@ -33,24 +33,23 @@ JSON Functions
 
         SELECT json_extract_scalar(json, '$.store.book[0].author');
 
-.. function:: jason_array_get(json_array, index) -> varchar
+.. function:: json_array_get(json_array, index) -> varchar
 
    Returns the element at the specified index into the ``json_array``.  The
-   index is base 0.  For example: ::
+   index is 0-based.  For example: ::
 
-        SELECT jason_array_get('["a", "b", "c"]', 0);  =>  "a"
-
-        SELECT jason_array_get('["a", "b", "c"]', 1); => "b"
+        SELECT json_array_get('["a", "b", "c"]', 0); => "a"
+        SELECT json_array_get('["a", "b", "c"]', 1); => "b"
 
    This function also supports negative indexes for fetching element indexed
    from the end of an array.  For example: ::
 
-        SELECT jason_array_get('["c", "b", "a"]', -1); => "a"
-        SELECT jason_array_get('["c", "b", "a"]', -2); => "b"
+        SELECT json_array_get('["c", "b", "a"]', -1); => "a"
+        SELECT json_array_get('["c", "b", "a"]', -2); => "b"
 
-   If you attempt to fetch an index larger than the list, you will get a SQL
+   If the element at the specified index doesn't exist, the function returns
    null: ::
 
-        SELECT jason_array_get('[]', 0); => null
-        SELECT jason_array_get('["a", "b", "c"]', 10); => null
-        SELECT jason_array_get('["c", "b", "a"]', -10); => null
+        SELECT json_array_get('[]', 0); => null
+        SELECT json_array_get('["a", "b", "c"]', 10); => null
+        SELECT json_array_get('["c", "b", "a"]', -10); => null
