@@ -14,6 +14,9 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ColumnType;
+import com.google.common.base.Function;
+import com.google.common.collect.BiMap;
+import com.google.common.collect.ImmutableBiMap;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 
@@ -62,6 +65,11 @@ public enum HiveType
         return nativeType;
     }
 
+    public String getHiveTypeName()
+    {
+        return HIVE_TYPE_NAMES.inverse().get(this);
+    }
+
     public static HiveType getSupportedHiveType(PrimitiveCategory primitiveCategory)
     {
         HiveType hiveType = getHiveType(primitiveCategory);
@@ -104,38 +112,25 @@ public enum HiveType
         return hiveType;
     }
 
+    private static final BiMap<String, HiveType> HIVE_TYPE_NAMES = ImmutableBiMap.<String, HiveType>builder()
+            .put(BOOLEAN_TYPE_NAME, BOOLEAN)
+            .put(TINYINT_TYPE_NAME, BYTE)
+            .put(SMALLINT_TYPE_NAME, SHORT)
+            .put(INT_TYPE_NAME, INT)
+            .put(BIGINT_TYPE_NAME, LONG)
+            .put(FLOAT_TYPE_NAME, FLOAT)
+            .put(DOUBLE_TYPE_NAME, DOUBLE)
+            .put(STRING_TYPE_NAME, STRING)
+            .put(TIMESTAMP_TYPE_NAME, TIMESTAMP)
+            .put(BINARY_TYPE_NAME, BINARY)
+            .put(LIST_TYPE_NAME, LIST)
+            .put(MAP_TYPE_NAME, MAP)
+            .put(STRUCT_TYPE_NAME, STRUCT)
+            .build();
+
     public static HiveType getHiveType(String hiveTypeName)
     {
-        switch (hiveTypeName) {
-            case BOOLEAN_TYPE_NAME:
-                return BOOLEAN;
-            case TINYINT_TYPE_NAME:
-                return BYTE;
-            case SMALLINT_TYPE_NAME:
-                return SHORT;
-            case INT_TYPE_NAME:
-                return INT;
-            case BIGINT_TYPE_NAME:
-                return LONG;
-            case FLOAT_TYPE_NAME:
-                return FLOAT;
-            case DOUBLE_TYPE_NAME:
-                return DOUBLE;
-            case STRING_TYPE_NAME:
-                return STRING;
-            case TIMESTAMP_TYPE_NAME:
-                return TIMESTAMP;
-            case BINARY_TYPE_NAME:
-                return BINARY;
-            case LIST_TYPE_NAME:
-                return LIST;
-            case MAP_TYPE_NAME:
-                return MAP;
-            case STRUCT_TYPE_NAME:
-                return STRUCT;
-            default:
-                return null;
-        }
+        return HIVE_TYPE_NAMES.get(hiveTypeName);
     }
 
     public static HiveType getSupportedHiveType(ObjectInspector fieldInspector)
@@ -159,5 +154,44 @@ public enum HiveType
             default:
                 return null;
         }
+    }
+
+    public static HiveType toHiveType(ColumnType type)
+    {
+        switch (type) {
+            case BOOLEAN:
+                return BOOLEAN;
+            case LONG:
+                return LONG;
+            case DOUBLE:
+                return DOUBLE;
+            case STRING:
+                return STRING;
+        }
+        throw new IllegalArgumentException("unsupported type: " + type);
+    }
+
+    public static Function<ColumnType, HiveType> columnTypeToHiveType()
+    {
+        return new Function<ColumnType, HiveType>()
+        {
+            @Override
+            public HiveType apply(ColumnType type)
+            {
+                return toHiveType(type);
+            }
+        };
+    }
+
+    public static Function<HiveType, String> hiveTypeNameGetter()
+    {
+        return new Function<HiveType, String>()
+        {
+            @Override
+            public String apply(HiveType type)
+            {
+                return type.getHiveTypeName();
+            }
+        };
     }
 }

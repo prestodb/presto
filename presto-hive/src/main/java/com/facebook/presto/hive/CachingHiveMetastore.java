@@ -29,6 +29,10 @@ import io.airlift.units.Duration;
 import org.apache.hadoop.hive.common.FileUtils;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.Warehouse;
+import org.apache.hadoop.hive.metastore.api.AlreadyExistsException;
+import org.apache.hadoop.hive.metastore.api.Database;
+import org.apache.hadoop.hive.metastore.api.InvalidObjectException;
+import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.Table;
@@ -58,6 +62,7 @@ public class CachingHiveMetastore
 {
     private final HiveCluster clientProvider;
     private final LoadingCache<String, List<String>> databaseNamesCache;
+    private final LoadingCache<String, Database> databaseCache;
     private final LoadingCache<String, List<String>> tableNamesCache;
     private final LoadingCache<HiveTableName, List<String>> partitionNamesCache;
     private final LoadingCache<HiveTableName, Table> tableCache;
@@ -92,6 +97,19 @@ public class CachingHiveMetastore
                             throws Exception
                     {
                         return loadAllDatabases();
+                    }
+                });
+
+        databaseCache = CacheBuilder.newBuilder()
+                .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
+                .refreshAfterWrite(refreshMills, MILLISECONDS)
+                .build(new BackgroundCacheLoader<String, Database>(listeningExecutor)
+                {
+                    @Override
+                    public Database load(String databaseName)
+                            throws Exception
+                    {
+                        return loadDatabase(databaseName);
                     }
                 });
 
@@ -174,6 +192,7 @@ public class CachingHiveMetastore
         databaseNamesCache.invalidateAll();
         tableNamesCache.invalidateAll();
         partitionNamesCache.invalidateAll();
+        databaseCache.invalidateAll();
         tableCache.invalidateAll();
         partitionCache.invalidateAll();
         partitionFilterCache.invalidateAll();
@@ -226,6 +245,28 @@ public class CachingHiveMetastore
         });
     }
 
+    public Database getDatabase(String databaseName)
+            throws NoSuchObjectException
+    {
+        return get(databaseCache, databaseName, NoSuchObjectException.class);
+    }
+
+    private Database loadDatabase(final String databaseName)
+            throws Exception
+    {
+        return retry().stopOn(NoSuchObjectException.class).stopOnIllegalExceptions().run("getDatabase", new Callable<Database>()
+        {
+            @Override
+            public Database call()
+                    throws Exception
+            {
+                try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
+                    return client.get_database(databaseName);
+                }
+            }
+        });
+    }
+
     public List<String> getAllTables(String databaseName)
             throws NoSuchObjectException
     {
@@ -257,6 +298,60 @@ public class CachingHiveMetastore
             throws NoSuchObjectException
     {
         return get(tableCache, HiveTableName.table(databaseName, tableName), NoSuchObjectException.class);
+    }
+
+    public void createTable(final Table table)
+    {
+        try {
+            retry()
+                    .stopOn(AlreadyExistsException.class, InvalidObjectException.class, MetaException.class, NoSuchObjectException.class)
+                    .stopOnIllegalExceptions()
+                    .run("createTable", new Callable<Void>()
+                    {
+                        @Override
+                        public Void call()
+                                throws Exception
+                        {
+                            try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
+                                client.create_table(table);
+                            }
+                            return null;
+                        }
+                    });
+        }
+        catch (AlreadyExistsException e) {
+            throw new TableAlreadyExistsException(new SchemaTableName(table.getDbName(), table.getTableName()));
+        }
+        catch (Exception e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            throw Throwables.propagate(e);
+        }
+    }
+
+    public void dropTable(final String databaseName, final String tableName)
+    {
+        try {
+            retry().stopOn(NoSuchObjectException.class).stopOnIllegalExceptions().run("dropTable", new Callable<Void>()
+            {
+                @Override
+                public Void call()
+                        throws Exception
+                {
+                    try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
+                        client.drop_table(databaseName, tableName, true);
+                    }
+                    return null;
+                }
+            });
+        }
+        catch (Exception e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            throw Throwables.propagate(e);
+        }
     }
 
     private Table loadTable(final HiveTableName hiveTableName)

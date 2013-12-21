@@ -17,11 +17,15 @@ import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorOutputHandleResolver;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorHandleResolver;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorMetadata;
+import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorOutputHandleResolver;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorRecordSetProvider;
+import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorRecordSinkProvider;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorSplitManager;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.google.common.base.Throwables;
@@ -101,7 +105,9 @@ public class HiveConnectorFactory
             builder.put(ConnectorMetadata.class, new ClassLoaderSafeConnectorMetadata(hiveClient, classLoader));
             builder.put(ConnectorSplitManager.class, new ClassLoaderSafeConnectorSplitManager(hiveClient, classLoader));
             builder.put(ConnectorRecordSetProvider.class, new ClassLoaderSafeConnectorRecordSetProvider(hiveClient, classLoader));
+            builder.put(ConnectorRecordSinkProvider.class, new ClassLoaderSafeConnectorRecordSinkProvider(hiveClient, classLoader));
             builder.put(ConnectorHandleResolver.class, new ClassLoaderSafeConnectorHandleResolver(hiveClient, classLoader));
+            builder.put(ConnectorOutputHandleResolver.class, new ClassLoaderSafeConnectorOutputHandleResolver(hiveClient, classLoader));
 
             return new HiveConnector(builder.build());
         }
