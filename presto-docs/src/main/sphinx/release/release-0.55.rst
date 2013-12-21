@@ -51,8 +51,7 @@ back the ranges of each partition for use in the query optimizer.  This can be a
 major performance gain for ``JOIN`` queries where one side of the join has
 only a few partitions.  For example: ::
 
-   SELECT x
-   FROM data_1_year JOIN data_1_week using (ds)
+   SELECT * FROM data_1_year JOIN data_1_week USING (ds)
 
 If ``data_1_year`` and ``data_1_week`` are both partitioned on ``ds``, the
 connector will report back that one table has partitions for 365 days and the
@@ -79,7 +78,7 @@ The keywords ``DATE``, ``TIME``, ``TIMESTAMP``, and ``INTERVAL`` are no longer
 reserved keywords in the grammar.  This means that you can access a column
 named ``date`` without quoting the identifier.
 
-CLI --source Option
+CLI source Option
 -------------------
 
 The Presto CLI now has an option to set the query source.  The source
