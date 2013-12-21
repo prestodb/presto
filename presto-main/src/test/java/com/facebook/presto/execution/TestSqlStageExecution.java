@@ -35,7 +35,8 @@ import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.OutputReceiver;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.PlanFragment.Partitioning;
+import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
+import com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning;
 import com.facebook.presto.sql.planner.StageExecutionPlan;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
@@ -100,6 +101,10 @@ public class TestSqlStageExecution
             InMemoryNodeManager nodeManager = new InMemoryNodeManager();
             nodeManager.addNode("foo", new Node("other", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN));
 
+            OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS
+                    .withBuffer("out", new UnpartitionedPagePartitionFunction())
+                    .withNoMoreBufferIds();
+
             stageExecution = new SqlStageExecution(new QueryId("query"),
                     new MockLocationFactory(),
                     joinPlan,
@@ -107,11 +112,8 @@ public class TestSqlStageExecution
                     SESSION,
                     1,
                     8,
-                    executor);
-
-            stageExecution.setOutputBuffers(INITIAL_EMPTY_OUTPUT_BUFFERS
-                    .withBuffer("out", new UnpartitionedPagePartitionFunction())
-                    .withNoMoreBufferIds());
+                    executor,
+                    outputBuffers);
 
             Future<?> future = stageExecution.start();
 
@@ -178,8 +180,9 @@ public class TestSqlStageExecution
                 new PlanFragmentId(planId),
                 new JoinNode(new PlanNodeId(planId), JoinNode.Type.INNER, probe.getFragment().getRoot(), exchangeNode, ImmutableList.<EquiJoinClause>of()),
                 probe.getFragment().getSymbols(), // this is wrong, but it works
-                Partitioning.SOURCE,
-                new PlanNodeId(planId));
+                PlanDistribution.SOURCE,
+                new PlanNodeId(planId),
+                OutputPartitioning.NONE);
 
         return new StageExecutionPlan(joinPlan,
                 probe.getDataSource(),
@@ -206,8 +209,9 @@ public class TestSqlStageExecution
                         null,
                         Optional.<GeneratedPartitions>absent()),
                 ImmutableMap.<Symbol, Type>of(symbol, Type.VARCHAR),
-                Partitioning.SOURCE,
-                tableScanNodeId);
+                PlanDistribution.SOURCE,
+                tableScanNodeId,
+                OutputPartitioning.NONE);
         DataSource dataSource = new DataSource(null, ImmutableList.copyOf(Collections.nCopies(splitCount, split)));
 
         return new StageExecutionPlan(testFragment,

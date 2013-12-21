@@ -13,7 +13,8 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.sql.planner.PlanFragment.Partitioning;
+import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
+import com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -31,19 +32,20 @@ public class SubPlanBuilder
 {
     private final PlanFragmentId id;
     private final SymbolAllocator allocator;
-    private final Partitioning partitioning;
+    private final PlanDistribution distribution;
     private final PlanNodeId partitionedSource;
 
     private PlanNode root;
     private List<SubPlan> children = new ArrayList<>();
+    private OutputPartitioning outputPartitioning = OutputPartitioning.NONE;
 
-    public SubPlanBuilder(PlanFragmentId id, SymbolAllocator allocator, Partitioning partitioning, PlanNode root, PlanNodeId partitionedSource)
+    public SubPlanBuilder(PlanFragmentId id, SymbolAllocator allocator, PlanDistribution distribution, PlanNode root, PlanNodeId partitionedSource)
     {
-        this.partitionedSource = partitionedSource;
         this.id = checkNotNull(id, "id is null");
         this.allocator = checkNotNull(allocator, "allocator is null");
+        this.distribution = checkNotNull(distribution, "distribution is null");
         this.root = checkNotNull(root, "root is null");
-        this.partitioning = checkNotNull(partitioning, "partitioning is null");
+        this.partitionedSource = partitionedSource;
     }
 
     public PlanFragmentId getId()
@@ -51,14 +53,14 @@ public class SubPlanBuilder
         return id;
     }
 
-    public boolean isPartitioned()
+    public boolean isDistributed()
     {
-        return partitioning != Partitioning.NONE;
+        return distribution != PlanDistribution.NONE;
     }
 
-    public Partitioning getPartitioning()
+    public PlanDistribution getDistribution()
     {
-        return partitioning;
+        return distribution;
     }
 
     public PlanNode getRoot()
@@ -90,11 +92,17 @@ public class SubPlanBuilder
         return this;
     }
 
+    public SubPlanBuilder setOutputPartitioning(OutputPartitioning outputPartitioning)
+    {
+        this.outputPartitioning = outputPartitioning;
+        return this;
+    }
+
     public SubPlan build()
     {
         Set<Symbol> dependencies = SymbolExtractor.extract(root);
 
-        PlanFragment fragment = new PlanFragment(id, root, Maps.filterKeys(allocator.getTypes(), in(dependencies)), partitioning, partitionedSource);
+        PlanFragment fragment = new PlanFragment(id, root, Maps.filterKeys(allocator.getTypes(), in(dependencies)), distribution, partitionedSource, outputPartitioning);
 
         return new SubPlan(fragment, children);
     }
