@@ -27,7 +27,9 @@ import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
+import com.facebook.presto.sql.planner.plan.TableCommitNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
@@ -158,6 +160,26 @@ public class SymbolExtractor
         }
 
         @Override
+        public Void visitTableWriter(TableWriterNode node, Void context)
+        {
+            node.getSource().accept(this, context);
+
+            builder.addAll(node.getOutputSymbols());
+
+            return null;
+        }
+
+        @Override
+        public Void visitTableCommit(TableCommitNode node, Void context)
+        {
+            node.getSource().accept(this, context);
+
+            builder.addAll(node.getOutputSymbols());
+
+            return null;
+        }
+
+        @Override
         public Void visitMaterializedViewWriter(MaterializedViewWriterNode node, Void context)
         {
             node.getSource().accept(this, context);
@@ -208,7 +230,7 @@ public class SymbolExtractor
         @Override
         protected Void visitPlan(PlanNode node, Void context)
         {
-            throw new UnsupportedOperationException("not yet implemented");
+            throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
         }
     }
 }

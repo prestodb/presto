@@ -34,6 +34,7 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
@@ -287,6 +288,14 @@ public class PruneUnreferencedOutputs
             PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs);
 
             return new SortNode(node.getId(), source, node.getOrderBy(), node.getOrderings());
+        }
+
+        @Override
+        public PlanNode rewriteTableWriter(TableWriterNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
+        {
+            PlanNode source = planRewriter.rewrite(node.getSource(), ImmutableSet.copyOf(node.getColumns()));
+
+            return new TableWriterNode(node.getId(), source, node.getTarget(), node.getColumns(), node.getColumnNames(), node.getOutputSymbols());
         }
 
         @Override

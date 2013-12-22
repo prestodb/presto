@@ -15,8 +15,8 @@ package com.facebook.presto.example;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.ReadOnlyConnectorMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableHandle;
@@ -35,7 +35,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ExampleMetadata
-        implements ConnectorMetadata
+        extends ReadOnlyConnectorMetadata
 {
     private final String connectorId;
 
@@ -179,17 +179,5 @@ public class ExampleMetadata
         checkArgument(columnHandle instanceof ExampleColumnHandle, "columnHandle is not an instance of ExampleColumnHandle");
 
         return ((ExampleColumnHandle) columnHandle).getColumnMetadata();
-    }
-
-    @Override
-    public TableHandle createTable(ConnectorTableMetadata tableMetadata)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void dropTable(TableHandle tableHandle)
-    {
-        throw new UnsupportedOperationException();
     }
 }

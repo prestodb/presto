@@ -83,7 +83,7 @@ public class TestNativeSplitManager
         nodeManager.addNode("native", new Node(nodeName, new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN));
 
         MetadataManager metadataManager = new MetadataManager();
-        metadataManager.addConnectorMetadata("local", "local", new NativeMetadata("native", dbi));
+        metadataManager.addConnectorMetadata("local", "local", new NativeMetadata("native", dbi, shardManager));
 
         tableHandle = metadataManager.createTable("local", new TableMetadata("local", TEST_TABLE));
         dsColumnHandle = metadataManager.getColumnHandle(tableHandle, "ds").get();

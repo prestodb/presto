@@ -30,7 +30,6 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.PlanOptimizersFactory;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.tree.ExplainType;
-import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.storage.MockStorageManager;
 import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tuple.Tuple;
@@ -1994,6 +1993,15 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testExplainOfExplain()
+    {
+        String query = "EXPLAIN SELECT 123 FROM dual";
+        MaterializedResult result = computeActual("EXPLAIN " + query);
+        String actual = Iterables.getOnlyElement(transform(result.getMaterializedTuples(), onlyColumnGetter()));
+        assertEquals(actual, getExplainPlan(query, LOGICAL));
+    }
+
+    @Test
     public void testShowSchemas()
             throws Exception
     {
@@ -2928,13 +2936,13 @@ public abstract class AbstractTestQueries
     private static String getExplainPlan(String query, ExplainType.Type planType)
     {
         QueryExplainer explainer = getQueryExplainer();
-        return explainer.getPlan((Query) SqlParser.createStatement(query), planType);
+        return explainer.getPlan(SqlParser.createStatement(query), planType);
     }
 
     private static String getGraphvizExplainPlan(String query, ExplainType.Type planType)
     {
         QueryExplainer explainer = getQueryExplainer();
-        return explainer.getGraphvizPlan((Query) SqlParser.createStatement(query), planType);
+        return explainer.getGraphvizPlan(SqlParser.createStatement(query), planType);
     }
 
     private static QueryExplainer getQueryExplainer()

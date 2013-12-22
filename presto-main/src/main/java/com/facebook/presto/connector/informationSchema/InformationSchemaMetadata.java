@@ -15,8 +15,8 @@ package com.facebook.presto.connector.informationSchema;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.ReadOnlyConnectorMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableHandle;
@@ -41,7 +41,7 @@ import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.collect.Iterables.filter;
 
 public class InformationSchemaMetadata
-        implements ConnectorMetadata
+        extends ReadOnlyConnectorMetadata
 {
     public static final String INFORMATION_SCHEMA = "information_schema";
 
@@ -198,18 +198,6 @@ public class InformationSchemaMetadata
             }
         }
         return builder.build();
-    }
-
-    @Override
-    public TableHandle createTable(ConnectorTableMetadata tableMetadata)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void dropTable(TableHandle tableHandle)
-    {
-        throw new UnsupportedOperationException();
     }
 
     static List<ColumnMetadata> informationSchemaTableColumns(SchemaTableName tableName)

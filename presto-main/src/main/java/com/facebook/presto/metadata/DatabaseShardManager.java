@@ -18,6 +18,7 @@ import com.facebook.presto.spi.PartitionKey;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.split.NativePartitionKey;
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
@@ -89,6 +90,12 @@ public class DatabaseShardManager
                 }
             }
         });
+    }
+
+    @Override
+    public void commitUnpartitionedTable(TableHandle tableHandle, Map<UUID, String> shards)
+    {
+        commitPartition(tableHandle, "<UNPARTITIONED>", ImmutableList.<PartitionKey>of(), shards);
     }
 
     @Override
