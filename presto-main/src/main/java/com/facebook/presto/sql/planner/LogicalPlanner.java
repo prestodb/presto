@@ -276,11 +276,12 @@ public class LogicalPlanner
         return new OutputNode(idAllocator.getNextId(), plan.getRoot(), names.build(), outputs.build());
     }
 
-    private static TableMetadata createTableMetadata(QualifiedTableName destination, List<ColumnMetadata> columns)
+    private TableMetadata createTableMetadata(QualifiedTableName table, List<ColumnMetadata> columns)
     {
-        ConnectorTableMetadata metadata = new ConnectorTableMetadata(destination.asSchemaTableName(), columns);
+        String owner = session.getUser();
+        ConnectorTableMetadata metadata = new ConnectorTableMetadata(table.asSchemaTableName(), columns, owner);
         // TODO: first argument should actually be connectorId
-        return new TableMetadata(destination.getCatalogName(), metadata);
+        return new TableMetadata(table.getCatalogName(), metadata);
     }
 
     private static List<ColumnMetadata> getTableColumns(RelationPlan plan)

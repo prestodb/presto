@@ -21,8 +21,15 @@ public class ConnectorTableMetadata
 {
     private final SchemaTableName table;
     private final List<ColumnMetadata> columns;
+    /* nullable */
+    private final String owner;
 
     public ConnectorTableMetadata(SchemaTableName table, List<ColumnMetadata> columns)
+    {
+        this(table, columns, null);
+    }
+
+    public ConnectorTableMetadata(SchemaTableName table, List<ColumnMetadata> columns, String owner)
     {
         if (table == null) {
             throw new NullPointerException("table is null or empty");
@@ -33,6 +40,7 @@ public class ConnectorTableMetadata
 
         this.table = table;
         this.columns = Collections.unmodifiableList(new ArrayList<>(columns));
+        this.owner = owner;
     }
 
     public SchemaTableName getTable()
@@ -45,12 +53,21 @@ public class ConnectorTableMetadata
         return columns;
     }
 
+    /**
+     * @return table owner or null
+     */
+    public String getOwner()
+    {
+        return owner;
+    }
+
     @Override
     public String toString()
     {
-        final StringBuilder sb = new StringBuilder("SchemaTableMetadata{");
+        StringBuilder sb = new StringBuilder("ConnectorTableMetadata{");
         sb.append("table=").append(table);
         sb.append(", columns=").append(columns);
+        sb.append(", owner=").append(owner);
         sb.append('}');
         return sb.toString();
     }
