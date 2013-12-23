@@ -93,6 +93,10 @@ import static com.facebook.presto.sql.planner.DeterminismEvaluator.deterministic
 import static com.facebook.presto.sql.planner.DeterminismEvaluator.isDeterministic;
 import static com.facebook.presto.sql.planner.EqualityInference.createEqualityInference;
 import static com.facebook.presto.sql.planner.plan.TableScanNode.GeneratedPartitions;
+import static com.facebook.presto.sql.planner.plan.JoinNode.Type.CROSS;
+import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
+import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
+import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -200,6 +204,8 @@ public class PredicatePushDown
         @Override
         public PlanNode rewriteJoin(JoinNode node, Expression inheritedPredicate, PlanRewriter<Expression> planRewriter)
         {
+            boolean isCrossJoin = (node.getType() == JoinNode.Type.CROSS);
+
             // See if we can rewrite outer joins in terms of a plain inner join
             node = tryNormalizeToInnerJoin(node, inheritedPredicate);
 
@@ -258,7 +264,8 @@ public class PredicatePushDown
                 List<JoinNode.EquiJoinClause> criteria = node.getCriteria();
 
                 // Rewrite criteria and add projections if there is a new join predicate
-                if (!newJoinPredicate.equals(joinPredicate)) {
+
+                if (!newJoinPredicate.equals(joinPredicate) || isCrossJoin) {
                     // Create identity projections for all existing symbols
                     ImmutableMap.Builder<Symbol, Expression> leftProjections = ImmutableMap.builder();
                     leftProjections.putAll(IterableTransformer.<Symbol>on(node.getLeft().getOutputSymbols())
@@ -560,7 +567,11 @@ public class PredicatePushDown
 
         private JoinNode tryNormalizeToInnerJoin(JoinNode node, Expression inheritedPredicate)
         {
-            Preconditions.checkArgument(EnumSet.of(JoinNode.Type.INNER, JoinNode.Type.RIGHT, JoinNode.Type.LEFT).contains(node.getType()), "Unsupported join type: %s", node.getType());
+            Preconditions.checkArgument(EnumSet.of(INNER, RIGHT, LEFT, CROSS).contains(node.getType()), "Unsupported join type: %s", node.getType());
+
+            if (node.getType() == JoinNode.Type.CROSS) {
+                return new JoinNode(node.getId(), JoinNode.Type.INNER, node.getLeft(), node.getRight(), node.getCriteria());
+            }
 
             if (node.getType() == JoinNode.Type.INNER ||
                     node.getType() == JoinNode.Type.LEFT && !canConvertOuterToInner(node.getRight().getOutputSymbols(), inheritedPredicate) ||

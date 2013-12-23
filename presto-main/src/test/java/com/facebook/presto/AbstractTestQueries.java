@@ -810,13 +810,6 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND 123 = 123");
     }
 
-    @Test(expectedExceptions = Exception.class, expectedExceptionsMessageRegExp = ".*not supported.*")
-    public void testJoinOnConstantExpression()
-            throws Exception
-    {
-        assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON 123 = 123");
-    }
-
     @Test
     public void testJoinUsing()
             throws Exception
@@ -2252,6 +2245,36 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         assertQuery("SELECT 1, 1, 'a', 'a' UNION ALL SELECT 1, 2, 'a', 'b'");
+    }
+
+    @Test
+    public void testCrossJoins()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT a.custkey, b.orderkey " +
+                "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 5) a " +
+                "CROSS JOIN (SELECT * FROM lineitem ORDER BY orderkey LIMIT 5) b");
+    }
+
+    @Test
+    public void testImplicitJoin()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT * FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 5) a, " +
+                "(SELECT * FROM orders ORDER BY orderkey LIMIT 5) b, " +
+                "(SELECT * FROM orders ORDER BY orderkey LIMIT 5) c ");
+    }
+
+    @Test
+    public void testJoinOnConstantExpression()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT * FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 5) a " +
+                "   JOIN (SELECT * FROM orders ORDER BY orderkey LIMIT 5) b " +
+                "   ON 123 = 123");
     }
 
     @Test
