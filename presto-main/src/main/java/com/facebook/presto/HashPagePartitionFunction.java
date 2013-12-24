@@ -34,17 +34,17 @@ public final class HashPagePartitionFunction
 {
     private final int partition;
     private final int partitionCount;
-    private final int partitioningChannel;
+    private final List<Integer> partitioningChannels;
 
     @JsonCreator
     public HashPagePartitionFunction(
             @JsonProperty("partition") int partition,
             @JsonProperty("partitionCount") int partitionCount,
-            @JsonProperty("partitioningChannel") int partitioningChannel)
+            @JsonProperty("partitioningChannels") List<Integer> partitioningChannels)
     {
         this.partition = partition;
         this.partitionCount = partitionCount;
-        this.partitioningChannel = partitioningChannel;
+        this.partitioningChannels = ImmutableList.copyOf(partitioningChannels);
     }
 
     @JsonProperty
@@ -60,9 +60,9 @@ public final class HashPagePartitionFunction
     }
 
     @JsonProperty
-    public int getPartitioningChannel()
+    public List<Integer> getPartitioningChannels()
     {
-        return partitioningChannel;
+        return partitioningChannels;
     }
 
     @Override
@@ -117,24 +117,28 @@ public final class HashPagePartitionFunction
 
     private int getPartitionHashBucket(List<TupleInfo> tupleInfos, BlockCursor[] cursors)
     {
-        long hashCode = getPartitionedHashCode(tupleInfos, cursors[partitioningChannel]) & 0xFFFF_FFFFL;
+        long hashCode = 1;
+        for (int channel : partitioningChannels) {
+            hashCode *= 31;
+            hashCode += calculateHashCode(tupleInfos.get(channel), cursors[channel]) & 0xFFFF_FFFFL;
+        }
         int bucket = (int) (hashCode % partitionCount);
         checkState(bucket >= 0 && bucket < partitionCount);
         return bucket;
     }
 
-    private int getPartitionedHashCode(List<TupleInfo> tupleInfos, BlockCursor partitionedCursor)
+    private static int calculateHashCode(TupleInfo tupleInfo, BlockCursor cursor)
     {
-        Slice partitionedSlice = partitionedCursor.getRawSlice();
-        int partitionedOffset = partitionedCursor.getRawOffset();
-        int partitionedLength = tupleInfos.get(partitioningChannel).size(partitionedSlice, partitionedOffset);
-        return partitionedSlice.hashCode(partitionedOffset, partitionedLength);
+        Slice slice = cursor.getRawSlice();
+        int offset = cursor.getRawOffset();
+        int length = tupleInfo.size(slice, offset);
+        return slice.hashCode(offset, length);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(partition, partitionCount, partitioningChannel);
+        return Objects.hashCode(partition, partitionCount, partitioningChannels);
     }
 
     @Override
@@ -149,7 +153,7 @@ public final class HashPagePartitionFunction
         final HashPagePartitionFunction other = (HashPagePartitionFunction) obj;
         return Objects.equal(this.partition, other.partition) &&
                 Objects.equal(this.partitionCount, other.partitionCount) &&
-                Objects.equal(this.partitioningChannel, other.partitioningChannel);
+                Objects.equal(this.partitioningChannels, other.partitioningChannels);
     }
 
     @Override
@@ -158,7 +162,7 @@ public final class HashPagePartitionFunction
         return Objects.toStringHelper(this)
                 .add("partition", partition)
                 .add("partitionCount", partitionCount)
-                .add("partitioningChannel", partitioningChannel)
+                .add("partitioningChannels", partitioningChannels)
                 .toString();
     }
 

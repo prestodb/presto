@@ -185,7 +185,8 @@ public class TestSqlStageExecution
                 probe.getFragment().getSymbols(), // this is wrong, but it works
                 PlanDistribution.SOURCE,
                 new PlanNodeId(planId),
-                OutputPartitioning.NONE);
+                OutputPartitioning.NONE,
+                ImmutableList.<Symbol>of());
 
         return new StageExecutionPlan(joinPlan,
                 probe.getDataSource(),
@@ -214,7 +215,8 @@ public class TestSqlStageExecution
                 ImmutableMap.<Symbol, Type>of(symbol, Type.VARCHAR),
                 PlanDistribution.SOURCE,
                 tableScanNodeId,
-                OutputPartitioning.NONE);
+                OutputPartitioning.NONE,
+                ImmutableList.<Symbol>of());
         SplitSource splitSource = new FixedSplitSource(null, ImmutableList.copyOf(Collections.nCopies(splitCount, split)));
 
         return new StageExecutionPlan(testFragment,

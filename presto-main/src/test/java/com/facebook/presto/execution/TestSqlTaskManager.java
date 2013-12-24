@@ -149,7 +149,8 @@ public class TestSqlTaskManager
                 ImmutableMap.<Symbol, Type>of(symbol, Type.VARCHAR),
                 PlanDistribution.SOURCE,
                 tableScanNodeId,
-                OutputPartitioning.NONE);
+                OutputPartitioning.NONE,
+                ImmutableList.<Symbol>of());
 
         taskId = new TaskId("query", "stage", "task");
         session = new Session("user", "test", "default", "default", "test", "test");
