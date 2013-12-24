@@ -18,7 +18,6 @@ import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
-import com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -135,7 +134,6 @@ public class DistributedLogicalPlanner
             // create partial aggregation plan
             AggregationNode partialAggregation = new AggregationNode(idAllocator.getNextId(), plan.getRoot(), groupBy, intermediateCalls, intermediateFunctions, PARTIAL);
             plan.setRoot(new SinkNode(idAllocator.getNextId(), partialAggregation, partialAggregation.getOutputSymbols()));
-            plan.setOutputPartitioning(OutputPartitioning.HASH);
 
             // create final aggregation plan
             ExchangeNode source = new ExchangeNode(idAllocator.getNextId(), plan.getId(), plan.getRoot().getOutputSymbols());
@@ -146,6 +144,7 @@ public class DistributedLogicalPlanner
                         .addChild(plan.build());
             }
             else {
+                plan.setHashOutputPartitioning(groupBy);
                 plan = createFixedDistributionPlan(finalAggregation)
                         .addChild(plan.build());
             }
