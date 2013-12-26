@@ -19,15 +19,15 @@ public interface RecordSink
 
     void finishRecord();
 
-    void setNextNull();
+    void appendNull();
 
-    void setNextBoolean(boolean value);
+    void appendBoolean(boolean value);
 
-    void setNextLong(long value);
+    void appendLong(long value);
 
-    void setNextDouble(double value);
+    void appendDouble(double value);
 
-    void setNextString(byte[] value);
+    void appendString(byte[] value);
 
     String commit();
 }

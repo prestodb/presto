@@ -68,31 +68,31 @@ public class NativeRecordSink
     }
 
     @Override
-    public void setNextNull()
+    public void appendNull()
     {
         nextColumn().appendNull();
     }
 
     @Override
-    public void setNextBoolean(boolean value)
+    public void appendBoolean(boolean value)
     {
         nextColumn().append(value);
     }
 
     @Override
-    public void setNextLong(long value)
+    public void appendLong(long value)
     {
         nextColumn().append(value);
     }
 
     @Override
-    public void setNextDouble(double value)
+    public void appendDouble(double value)
     {
         nextColumn().append(value);
     }
 
     @Override
-    public void setNextString(byte[] value)
+    public void appendString(byte[] value)
     {
         nextColumn().append(value);
     }
