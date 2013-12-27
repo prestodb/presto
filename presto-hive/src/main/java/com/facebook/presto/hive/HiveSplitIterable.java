@@ -55,8 +55,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -113,7 +112,7 @@ class HiveSplitIterable
     private final int maxOutstandingSplits;
     private final int maxThreads;
     private final HdfsEnvironment hdfsEnvironment;
-    private final ExecutorService executor;
+    private final Executor executor;
     private final ClassLoader classLoader;
     private final DataSize maxSplitSize;
     private final int maxPartitionBatchSize;
@@ -127,7 +126,7 @@ class HiveSplitIterable
             int maxOutstandingSplits,
             int maxThreads,
             HdfsEnvironment hdfsEnvironment,
-            ExecutorService executor,
+            Executor executor,
             int maxPartitionBatchSize)
     {
         this.clientId = clientId;
@@ -150,14 +149,17 @@ class HiveSplitIterable
         // Each iterator has its own bounded executor and can be independently suspended
         final SuspendingExecutor suspendingExecutor = new SuspendingExecutor(new BoundedExecutor(executor, maxThreads));
         final HiveSplitQueue hiveSplitQueue = new HiveSplitQueue(maxOutstandingSplits, suspendingExecutor);
-        executor.submit(new Callable<Void>()
+        executor.execute(new Runnable()
         {
             @Override
-            public Void call()
-                    throws Exception
+            public void run()
             {
-                loadPartitionSplits(hiveSplitQueue, suspendingExecutor);
-                return null;
+                try {
+                    loadPartitionSplits(hiveSplitQueue, suspendingExecutor);
+                }
+                catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
             }
         });
         return hiveSplitQueue;
