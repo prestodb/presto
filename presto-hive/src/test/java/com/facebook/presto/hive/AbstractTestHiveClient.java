@@ -18,13 +18,16 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Domain;
+import com.facebook.presto.spi.OutputTableHandle;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.PartitionResult;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
+import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
@@ -48,18 +51,22 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadFactory;
 
 import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
 import static com.facebook.presto.hive.HiveUtil.partitionIdGetter;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static com.google.common.util.concurrent.MoreExecutors.sameThreadExecutor;
 import static io.airlift.testing.Assertions.assertInstanceOf;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
@@ -68,9 +75,9 @@ import static org.testng.Assert.fail;
 @Test(groups = "hive")
 public abstract class AbstractTestHiveClient
 {
-    public static final String INVALID_DATABASE = "totally_invalid_database";
-    public static final String INVALID_COLUMN = "totally_invalid_column_name";
-    public static final byte[] EMPTY_STRING = new byte[0];
+    protected static final String INVALID_DATABASE = "totally_invalid_database";
+    protected static final String INVALID_COLUMN = "totally_invalid_column_name";
+    protected static final byte[] EMPTY_STRING = new byte[0];
 
     protected String database;
     protected SchemaTableName table;
@@ -82,6 +89,9 @@ public abstract class AbstractTestHiveClient
     protected SchemaTableName tableBucketedStringInt;
     protected SchemaTableName tableBucketedBigintBoolean;
     protected SchemaTableName tableBucketedDoubleFloat;
+
+    protected SchemaTableName temporaryCreateTable;
+    protected String tableOwner;
 
     protected TableHandle invalidTableHandle;
 
@@ -95,9 +105,12 @@ public abstract class AbstractTestHiveClient
     protected Set<Partition> unpartitionedPartitions;
     protected Partition invalidPartition;
 
+    protected CachingHiveMetastore metastoreClient;
+
     protected ConnectorMetadata metadata;
     protected ConnectorSplitManager splitManager;
     protected ConnectorRecordSetProvider recordSetProvider;
+    protected ConnectorRecordSinkProvider recordSinkProvider;
 
     protected void setupHive(String connectorId, String databaseName)
     {
@@ -111,6 +124,10 @@ public abstract class AbstractTestHiveClient
         tableBucketedStringInt = new SchemaTableName(database, "presto_test_bucketed_by_string_int");
         tableBucketedBigintBoolean = new SchemaTableName(database, "presto_test_bucketed_by_bigint_boolean");
         tableBucketedDoubleFloat = new SchemaTableName(database, "presto_test_bucketed_by_double_float");
+
+        String random = UUID.randomUUID().toString().toLowerCase().replace("-", "");
+        temporaryCreateTable = new SchemaTableName(database, "tmp_presto_test_create_" + random);
+        tableOwner = "presto_test";
 
         invalidTableHandle = new HiveTableHandle("hive", database, "totally_invalid_table_name");
 
@@ -161,9 +178,11 @@ public abstract class AbstractTestHiveClient
         HiveCluster hiveCluster = new TestingHiveCluster(hiveClientConfig, host, port);
         ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("hive-%s"));
 
+        metastoreClient = new CachingHiveMetastore(hiveCluster, executor, Duration.valueOf("1m"), Duration.valueOf("15s"));
+
         HiveClient client = new HiveClient(
                 new HiveConnectorId(connectorName),
-                new CachingHiveMetastore(hiveCluster, executor, Duration.valueOf("1m"), Duration.valueOf("15s")),
+                metastoreClient,
                 new HdfsEnvironment(new HdfsConfiguration(hiveClientConfig), fileSystemWrapper),
                 sameThreadExecutor(),
                 hiveClientConfig.getMaxSplitSize(),
@@ -175,6 +194,7 @@ public abstract class AbstractTestHiveClient
         metadata = client;
         splitManager = client;
         recordSetProvider = client;
+        recordSinkProvider = client;
     }
 
     @Test
@@ -758,6 +778,113 @@ public abstract class AbstractTestHiveClient
         }
         catch (HiveViewNotSupportedException e) {
             assertEquals(e.getTableName(), view);
+        }
+    }
+
+    @Test
+    public void testTableCreation()
+            throws Exception
+    {
+        try {
+            doCreateTable();
+        }
+        finally {
+            metastoreClient.dropTable(temporaryCreateTable.getSchemaName(), temporaryCreateTable.getTableName());
+        }
+    }
+
+    private void doCreateTable()
+    {
+        // begin creating the table
+        List<ColumnMetadata> columns = ImmutableList.<ColumnMetadata>builder()
+                .add(new ColumnMetadata("id", ColumnType.LONG, 1, false))
+                .add(new ColumnMetadata("t_string", ColumnType.STRING, 2, false))
+                .add(new ColumnMetadata("t_bigint", ColumnType.LONG, 3, false))
+                .add(new ColumnMetadata("t_double", ColumnType.DOUBLE, 4, false))
+                .add(new ColumnMetadata("t_boolean", ColumnType.BOOLEAN, 5, false))
+                .build();
+
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(temporaryCreateTable, columns, tableOwner);
+        OutputTableHandle outputHandle = metadata.beginCreateTable(tableMetadata);
+
+        // write the records
+        RecordSink sink = recordSinkProvider.getRecordSink(outputHandle);
+
+        sink.beginRecord();
+        sink.appendLong(1);
+        sink.appendString("hello".getBytes(UTF_8));
+        sink.appendLong(123);
+        sink.appendDouble(43.5);
+        sink.appendBoolean(true);
+        sink.finishRecord();
+
+        sink.beginRecord();
+        sink.appendLong(2);
+        sink.appendNull();
+        sink.appendNull();
+        sink.appendNull();
+        sink.appendNull();
+        sink.finishRecord();
+
+        sink.beginRecord();
+        sink.appendLong(3);
+        sink.appendString("bye".getBytes(UTF_8));
+        sink.appendLong(456);
+        sink.appendDouble(98.1);
+        sink.appendBoolean(false);
+        sink.finishRecord();
+
+        String fragment = sink.commit();
+
+        // commit the table
+        metadata.commitCreateTable(outputHandle, ImmutableList.of(fragment));
+
+        // load the new table
+        TableHandle tableHandle = getTableHandle(temporaryCreateTable);
+        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
+
+        // verify the metadata
+        tableMetadata = metadata.getTableMetadata(getTableHandle(temporaryCreateTable));
+        assertEquals(tableMetadata.getOwner(), tableOwner);
+
+        Map<String, ColumnMetadata> columnMap = uniqueIndex(tableMetadata.getColumns(), columnNameGetter());
+
+        assertPrimitiveField(columnMap, 0, "id", ColumnType.LONG, false);
+        assertPrimitiveField(columnMap, 1, "t_string", ColumnType.STRING, false);
+        assertPrimitiveField(columnMap, 2, "t_bigint", ColumnType.LONG, false);
+        assertPrimitiveField(columnMap, 3, "t_double", ColumnType.DOUBLE, false);
+        assertPrimitiveField(columnMap, 4, "t_boolean", ColumnType.BOOLEAN, false);
+
+        // verify the data
+        PartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.all());
+        assertEquals(partitionResult.getPartitions().size(), 1);
+        Split split = getOnlyElement(splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions()));
+
+        try (RecordCursor cursor = recordSetProvider.getRecordSet(split, columnHandles).cursor()) {
+            assertRecordCursorType(cursor, "rcfile-binary");
+
+            assertTrue(cursor.advanceNextPosition());
+            assertEquals(cursor.getLong(0), 1);
+            assertEquals(cursor.getString(1), "hello".getBytes(UTF_8));
+            assertEquals(cursor.getLong(2), 123);
+            assertEquals(cursor.getDouble(3), 43.5);
+            assertEquals(cursor.getBoolean(4), true);
+
+            assertTrue(cursor.advanceNextPosition());
+            assertEquals(cursor.getLong(0), 2);
+            assertTrue(cursor.isNull(1));
+            assertTrue(cursor.isNull(2));
+            assertTrue(cursor.isNull(3));
+            assertTrue(cursor.isNull(4));
+
+            assertTrue(cursor.advanceNextPosition());
+            assertEquals(cursor.getLong(0), 3);
+            assertEquals(cursor.getString(1), "bye".getBytes(UTF_8));
+            assertEquals(cursor.getLong(2), 456);
+            assertEquals(cursor.getDouble(3), 98.1);
+            assertEquals(cursor.getBoolean(4), false);
+
+            assertFalse(cursor.advanceNextPosition());
         }
     }
 
