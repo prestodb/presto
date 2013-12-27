@@ -366,6 +366,8 @@ public class HiveClient
     @Override
     public HiveOutputTableHandle beginCreateTable(ConnectorTableMetadata tableMetadata)
     {
+        checkArgument(!isNullOrEmpty(tableMetadata.getOwner()), "Table owner is null or empty");
+
         ImmutableList.Builder<String> columnNames = ImmutableList.builder();
         ImmutableList.Builder<ColumnType> columnTypes = ImmutableList.builder();
         for (ColumnMetadata column : tableMetadata.getColumns()) {
@@ -412,7 +414,7 @@ public class HiveClient
                 tableName,
                 columnNames.build(),
                 columnTypes.build(),
-                Optional.fromNullable(tableMetadata.getOwner()),
+                tableMetadata.getOwner(),
                 targetPath.toString(),
                 temporaryPath.toString());
     }
@@ -461,7 +463,7 @@ public class HiveClient
         Table table = new Table();
         table.setDbName(handle.getSchemaName());
         table.setTableName(handle.getTableName());
-        table.setOwner(handle.getTableOwner().orNull());
+        table.setOwner(handle.getTableOwner());
         table.setTableType(TableType.MANAGED_TABLE.toString());
         table.setParameters(ImmutableMap.of("comment", "Created by Presto"));
         table.setSd(sd);
