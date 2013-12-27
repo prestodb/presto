@@ -34,6 +34,7 @@ public class HiveClientConfig
 
     private DataSize maxSplitSize = new DataSize(64, Unit.MEGABYTE);
     private int maxOutstandingSplits = 1_000;
+    private int maxGlobalSplitIteratorThreads = 1_000;
     private int maxSplitIteratorThreads = 50;
     private int minPartitionBatchSize = 10;
     private int maxPartitionBatchSize = 100;
@@ -88,6 +89,19 @@ public class HiveClientConfig
     public HiveClientConfig setMaxSplitIteratorThreads(int maxSplitIteratorThreads)
     {
         this.maxSplitIteratorThreads = maxSplitIteratorThreads;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxGlobalSplitIteratorThreads()
+    {
+        return maxGlobalSplitIteratorThreads;
+    }
+
+    @Config("hive.max-global-split-iterator-threads")
+    public HiveClientConfig setMaxGlobalSplitIteratorThreads(int maxGlobalSplitIteratorThreads)
+    {
+        this.maxGlobalSplitIteratorThreads = maxGlobalSplitIteratorThreads;
         return this;
     }
 
