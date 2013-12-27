@@ -109,4 +109,10 @@ public class HiveOutputTableHandle
     {
         return temporaryPath;
     }
+
+    @Override
+    public String toString()
+    {
+        return "hive:" + schemaName + "." + tableName;
+    }
 }
