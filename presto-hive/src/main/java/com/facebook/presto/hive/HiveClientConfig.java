@@ -33,7 +33,7 @@ public class HiveClientConfig
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
     private DataSize maxSplitSize = new DataSize(64, Unit.MEGABYTE);
-    private int maxOutstandingSplits = 10_000;
+    private int maxOutstandingSplits = 1_000;
     private int maxSplitIteratorThreads = 50;
     private int minPartitionBatchSize = 10;
     private int maxPartitionBatchSize = 100;
