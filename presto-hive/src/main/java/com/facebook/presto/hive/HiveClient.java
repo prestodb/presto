@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hadoop.HadoopNative;
+import com.facebook.presto.hive.util.BoundedExecutor;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnType;
@@ -83,6 +84,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
@@ -131,7 +133,7 @@ public class HiveClient
     private final int maxPartitionBatchSize;
     private final CachingHiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
-    private final ExecutorService executor;
+    private final Executor executor;
     private final DataSize maxSplitSize;
 
     @Inject
@@ -139,12 +141,12 @@ public class HiveClient
             HiveClientConfig hiveClientConfig,
             CachingHiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
-            @ForHiveClient ExecutorService executor)
+            @ForHiveClient ExecutorService executorService)
     {
         this(connectorId,
                 metastore,
                 hdfsEnvironment,
-                executor,
+                new BoundedExecutor(executorService, hiveClientConfig.getMaxGlobalSplitIteratorThreads()),
                 hiveClientConfig.getMaxSplitSize(),
                 hiveClientConfig.getMaxOutstandingSplits(),
                 hiveClientConfig.getMaxSplitIteratorThreads(),
@@ -155,7 +157,7 @@ public class HiveClient
     public HiveClient(HiveConnectorId connectorId,
             CachingHiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
-            ExecutorService executor,
+            Executor executor,
             DataSize maxSplitSize,
             int maxOutstandingSplits,
             int maxSplitIteratorThreads,
