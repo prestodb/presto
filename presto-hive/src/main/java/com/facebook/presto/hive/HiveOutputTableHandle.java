@@ -17,7 +17,6 @@ import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.OutputTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -33,7 +32,7 @@ public class HiveOutputTableHandle
     private final String tableName;
     private final List<String> columnNames;
     private final List<ColumnType> columnTypes;
-    private final Optional<String> tableOwner;
+    private final String tableOwner;
     private final String targetPath;
     private final String temporaryPath;
 
@@ -44,7 +43,7 @@ public class HiveOutputTableHandle
             @JsonProperty("tableName") String tableName,
             @JsonProperty("columnNames") List<String> columnNames,
             @JsonProperty("columnTypes") List<ColumnType> columnTypes,
-            @JsonProperty("tableOwner") Optional<String> tableOwner,
+            @JsonProperty("tableOwner") String tableOwner,
             @JsonProperty("targetPath") String targetPath,
             @JsonProperty("temporaryPath") String temporaryPath)
     {
@@ -93,7 +92,7 @@ public class HiveOutputTableHandle
     }
 
     @JsonProperty
-    public Optional<String> getTableOwner()
+    public String getTableOwner()
     {
         return tableOwner;
     }
