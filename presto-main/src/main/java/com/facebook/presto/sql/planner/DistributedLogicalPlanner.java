@@ -289,10 +289,10 @@ public class DistributedLogicalPlanner
         {
             SubPlanBuilder current = node.getSource().accept(this, context);
 
-            if (current.isDistributed()) {
+            if (current.getDistribution() != PlanDistribution.COORDINATOR_ONLY) {
                 current.setRoot(new SinkNode(idAllocator.getNextId(), current.getRoot(), current.getRoot().getOutputSymbols()));
 
-                // create a new non-partitioned fragment
+                // create a new non-partitioned fragment to run on the coordinator
                 current = createCoordinatorOnlyPlan(new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols()))
                         .addChild(current.build());
             }

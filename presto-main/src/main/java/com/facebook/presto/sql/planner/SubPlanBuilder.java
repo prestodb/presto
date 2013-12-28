@@ -55,7 +55,8 @@ public class SubPlanBuilder
 
     public boolean isDistributed()
     {
-        return distribution != PlanDistribution.NONE;
+        return (distribution != PlanDistribution.NONE) &&
+                (distribution != PlanDistribution.COORDINATOR_ONLY);
     }
 
     public PlanDistribution getDistribution()
