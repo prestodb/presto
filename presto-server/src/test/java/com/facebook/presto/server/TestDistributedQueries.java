@@ -22,12 +22,14 @@ import com.facebook.presto.client.StatementClient;
 import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.util.MaterializedResult;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -49,6 +51,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
+import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
 import static com.facebook.presto.tpch.TpchMetadata.TPCH_CATALOG_NAME;
 import static com.facebook.presto.tpch.TpchMetadata.TPCH_SCHEMA_NAME;
 import static com.facebook.presto.util.Types.checkType;
@@ -132,13 +135,56 @@ public class TestDistributedQueries
     public void testCreateTableAsSelect()
             throws Exception
     {
-        @Language("SQL") String query = "SELECT orderkey, totalprice, orderdate FROM orders";
+        assertCreateTable(
+                "test_simple",
+                "SELECT orderkey, totalprice, orderdate FROM orders",
+                "SELECT count(*) FROM orders");
+    }
 
-        assertQuery("CREATE TABLE test AS " + query, "SELECT count(*) FROM orders");
+    @Test
+    public void testCreateTableAsSelectGroupBy()
+            throws Exception
+    {
+        assertCreateTable(
+                "test_group",
+                "SELECT orderstatus, sum(totalprice) x FROM orders GROUP BY orderstatus",
+                "SELECT count(DISTINCT orderstatus) FROM orders");
+    }
 
-        assertQuery("SELECT * FROM test", query);
+    @Test
+    public void testCreateTableAsSelectLimit()
+            throws Exception
+    {
+        assertCreateTable(
+                "test_limit",
+                "SELECT orderkey FROM orders ORDER BY orderkey LIMIT 10",
+                "SELECT 10");
+    }
 
-        // TODO: drop table in finally block when supported
+    @Test
+    public void testCreateTableAsSelectJoin()
+            throws Exception
+    {
+        assertCreateTable(
+                "test_join",
+                "SELECT count(*) x FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey",
+                "SELECT 1");
+    }
+
+    private void assertCreateTable(String table, @Language("SQL") String query, @Language("SQL") String rowCountQuery)
+            throws Exception
+    {
+        try {
+            assertQuery("CREATE TABLE " +  table + " AS " + query, rowCountQuery);
+            assertQuery("SELECT * FROM " + table, query);
+        }
+        finally {
+            QualifiedTableName name = new QualifiedTableName(DEFAULT_CATALOG, DEFAULT_SCHEMA, table);
+            Optional<TableHandle> handle = coordinator.getMetadata().getTableHandle(name);
+            if (handle.isPresent()) {
+                coordinator.getMetadata().dropTable(handle.get());
+            }
+        }
     }
 
     @Test
