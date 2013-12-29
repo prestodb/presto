@@ -15,8 +15,6 @@ package com.facebook.presto.split;
 
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NativeTableHandle;
-import com.facebook.presto.metadata.Node;
-import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.metadata.TablePartition;
@@ -24,6 +22,8 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.Node;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.PartitionKey;
 import com.facebook.presto.spi.PartitionResult;
@@ -51,7 +51,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.metadata.Node.hostAndPortGetter;
+import static com.facebook.presto.metadata.PrestoNode.getIdentifierFunction;
+import static com.facebook.presto.metadata.PrestoNode.hostAndPortGetter;
 import static com.google.common.base.Functions.forMap;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -127,7 +128,7 @@ public class NativeSplitManager
             return new FixedSplitSource(getConnectorId(), ImmutableList.<Split>of());
         }
 
-        Map<String, Node> nodesById = uniqueIndex(nodeManager.getAllNodes().getActiveNodes(), Node.getIdentifierFunction());
+        Map<String, Node> nodesById = uniqueIndex(nodeManager.getActiveNodes(), getIdentifierFunction());
 
         List<Split> splits = new ArrayList<>();
 

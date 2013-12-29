@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.connector.jmx;
 
-import com.facebook.presto.metadata.Node;
-import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.FixedSplitSource;
+import com.facebook.presto.spi.Node;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.PartitionResult;
 import com.facebook.presto.spi.Split;
@@ -85,7 +85,7 @@ public class JmxSplitManager
         JmxPartition jmxPartition = (JmxPartition) partition;
 
         ImmutableList.Builder<Split> splits = ImmutableList.builder();
-        for (Node node : nodeManager.getAllNodes().getActiveNodes()) {
+        for (Node node : nodeManager.getActiveNodes()) {
             splits.add(new JmxSplit(jmxPartition.tableHandle, ImmutableList.of(node.getHostAndPort())));
         }
         return new FixedSplitSource(connectorId, splits.build());

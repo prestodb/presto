@@ -11,19 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution;
-
-import com.facebook.presto.spi.Node;
+package com.facebook.presto.spi;
 
 import java.net.URI;
 
-public interface LocationFactory
+public interface Node
 {
-    URI createQueryLocation(QueryId queryId);
+    HostAddress getHostAndPort();
 
-    URI createStageLocation(StageId stageId);
+    URI getHttpUri();
 
-    URI createLocalTaskLocation(TaskId taskId);
-
-    URI createTaskLocation(Node node, TaskId taskId);
+    String getNodeIdentifier();
 }

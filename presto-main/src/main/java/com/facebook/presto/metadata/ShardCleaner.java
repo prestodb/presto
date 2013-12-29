@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.Node;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.util.KeyBoundedExecutor;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -45,7 +47,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.metadata.Node.getIdentifierFunction;
+import static com.facebook.presto.metadata.PrestoNode.getIdentifierFunction;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
@@ -116,7 +118,7 @@ public class ShardCleaner
         public void run()
         {
             try {
-                Map<String, Node> activeNodes = Maps.uniqueIndex(nodeManager.getAllNodes().getActiveNodes(), getIdentifierFunction());
+                Map<String, Node> activeNodes = Maps.uniqueIndex(nodeManager.getActiveNodes(), getIdentifierFunction());
                 Iterable<String> shardNodes = shardManager.getAllNodesInUse();
 
                 ImmutableList.Builder<ListenableFuture<Void>> builder = ImmutableList.builder();

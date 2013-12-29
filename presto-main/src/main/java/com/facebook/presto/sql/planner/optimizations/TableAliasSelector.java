@@ -15,12 +15,11 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.metadata.AliasDao;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.Node;
-import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.metadata.TableAlias;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.analyzer.Session;
@@ -41,6 +40,7 @@ import com.google.common.collect.ImmutableSet;
 import java.util.Map;
 import java.util.Set;
 
+import static com.facebook.presto.metadata.PrestoNode.getIdentifierFunction;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -144,7 +144,7 @@ public class TableAliasSelector
 
         private boolean allNodesPresent(TableHandle tableHandle)
         {
-            Set<String> nodesActive = ImmutableSet.copyOf(Collections2.transform(nodeManager.getAllNodes().getActiveNodes(), Node.getIdentifierFunction()));
+            Set<String> nodesActive = ImmutableSet.copyOf(Collections2.transform(nodeManager.getActiveNodes(), getIdentifierFunction()));
             Set<String> nodesRequired = shardManager.getTableNodes(tableHandle);
 
             return nodesActive.containsAll(nodesRequired);

@@ -14,12 +14,13 @@
 package com.facebook.presto.connector.system;
 
 import com.facebook.presto.metadata.AllNodes;
-import com.facebook.presto.metadata.Node;
-import com.facebook.presto.metadata.NodeManager;
+import com.facebook.presto.metadata.InternalNodeManager;
+import com.facebook.presto.metadata.PrestoNode;
 import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.InMemoryRecordSet.Builder;
+import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
@@ -48,10 +49,10 @@ public class NodesSystemTable
             .column("is_active", BOOLEAN)
             .build();
 
-    private final NodeManager nodeManager;
+    private final InternalNodeManager nodeManager;
 
     @Inject
-    public NodesSystemTable(NodeManager nodeManager)
+    public NodesSystemTable(InternalNodeManager nodeManager)
     {
         this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
     }
@@ -80,11 +81,19 @@ public class NodesSystemTable
         Builder table = InMemoryRecordSet.builder(NODES_TABLE);
         AllNodes allNodes = nodeManager.getAllNodes();
         for (Node node : allNodes.getActiveNodes()) {
-            table.addRow(node.getNodeIdentifier(), node.getHttpUri().toString(), node.getNodeVersion().toString(), Boolean.TRUE);
+            table.addRow(node.getNodeIdentifier(), node.getHttpUri().toString(), getNodeVersion(node), Boolean.TRUE);
         }
         for (Node node : allNodes.getInactiveNodes()) {
-            table.addRow(node.getNodeIdentifier(), node.getHttpUri().toString(), node.getNodeVersion().toString(), Boolean.FALSE);
+            table.addRow(node.getNodeIdentifier(), node.getHttpUri().toString(), getNodeVersion(node), Boolean.FALSE);
         }
         return table.build().cursor();
+    }
+
+    private static String getNodeVersion(Node node)
+    {
+        if (node instanceof PrestoNode) {
+            return ((PrestoNode) node).getNodeVersion().toString();
+        }
+        return "";
     }
 }

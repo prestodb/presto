@@ -14,6 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.Node;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 
@@ -26,13 +27,14 @@ import static com.google.common.base.Strings.nullToEmpty;
 /**
  * A node is a server in a cluster than can process queries.
  */
-public class Node
+public class PrestoNode
+        implements Node
 {
     private final String nodeIdentifier;
     private final URI httpUri;
     private final NodeVersion nodeVersion;
 
-    public Node(String nodeIdentifier, URI httpUri, NodeVersion nodeVersion)
+    public PrestoNode(String nodeIdentifier, URI httpUri, NodeVersion nodeVersion)
     {
         nodeIdentifier = emptyToNull(nullToEmpty(nodeIdentifier).trim());
         this.nodeIdentifier = checkNotNull(nodeIdentifier, "nodeIdentifier is null or empty");
@@ -40,16 +42,19 @@ public class Node
         this.nodeVersion = checkNotNull(nodeVersion, "nodeVersion is null");
     }
 
+    @Override
     public String getNodeIdentifier()
     {
         return nodeIdentifier;
     }
 
+    @Override
     public URI getHttpUri()
     {
         return httpUri;
     }
 
+    @Override
     public HostAddress getHostAndPort()
     {
         return HostAddress.fromUri(httpUri);
@@ -69,7 +74,7 @@ public class Node
         if ((obj == null) || (getClass() != obj.getClass())) {
             return false;
         }
-        Node o = (Node) obj;
+        PrestoNode o = (PrestoNode) obj;
         return nodeIdentifier.equals(o.nodeIdentifier);
     }
 

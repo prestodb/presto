@@ -14,6 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.failureDetector.FailureDetector;
+import com.facebook.presto.spi.Node;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
@@ -42,7 +43,7 @@ import static java.util.Arrays.asList;
 
 @ThreadSafe
 public final class DiscoveryNodeManager
-        implements NodeManager
+        implements InternalNodeManager
 {
     private static final Duration MAX_AGE = new Duration(5, TimeUnit.SECONDS);
 
@@ -62,7 +63,7 @@ public final class DiscoveryNodeManager
     private long lastUpdateTimestamp;
 
     @GuardedBy("this")
-    private Node currentNode;
+    private PrestoNode currentNode;
 
     @Inject
     public DiscoveryNodeManager(@ServiceType("presto") ServiceSelector serviceSelector, NodeInfo nodeInfo, FailureDetector failureDetector, NodeVersion expectedNodeVersion)
@@ -97,7 +98,7 @@ public final class DiscoveryNodeManager
             URI uri = getHttpUri(service);
             NodeVersion nodeVersion = getNodeVersion(service);
             if (uri != null && nodeVersion != null) {
-                Node node = new Node(service.getNodeId(), uri, nodeVersion);
+                PrestoNode node = new PrestoNode(service.getNodeId(), uri, nodeVersion);
 
                 // record current node
                 if (node.getNodeIdentifier().equals(nodeInfo.getNodeId())) {
@@ -136,7 +137,7 @@ public final class DiscoveryNodeManager
         }
     }
 
-    private boolean isActive(Node node)
+    private boolean isActive(PrestoNode node)
     {
         return expectedNodeVersion.equals(node.getNodeVersion());
     }
@@ -146,6 +147,12 @@ public final class DiscoveryNodeManager
     {
         refreshIfNecessary();
         return allNodes;
+    }
+
+    @Override
+    public Set<Node> getActiveNodes()
+    {
+        return getAllNodes().getActiveNodes();
     }
 
     @Override

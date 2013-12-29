@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.tpch;
 
-import com.facebook.presto.metadata.Node;
-import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.FixedSplitSource;
+import com.facebook.presto.spi.Node;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.PartitionResult;
 import com.facebook.presto.spi.Split;
@@ -79,7 +79,7 @@ public class TpchSplitManager
         checkArgument(partition instanceof TpchPartition, "Partition must be a tpch partition");
         TpchTableHandle tableHandle = ((TpchPartition) partition).getTable();
 
-        Set<Node> nodes = nodeManager.getAllNodes().getActiveNodes();
+        Set<Node> nodes = nodeManager.getActiveNodes();
 
         int totalParts = nodes.size();
         int partNumber = 0;

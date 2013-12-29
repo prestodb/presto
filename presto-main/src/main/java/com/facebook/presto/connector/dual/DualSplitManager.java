@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.connector.dual;
 
-import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.FixedSplitSource;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.PartitionResult;
 import com.facebook.presto.spi.Split;
