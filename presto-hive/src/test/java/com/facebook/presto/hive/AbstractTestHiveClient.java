@@ -44,6 +44,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.net.HostAndPort;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
@@ -789,7 +790,7 @@ public abstract class AbstractTestHiveClient
             doCreateTable();
         }
         finally {
-            metastoreClient.dropTable(temporaryCreateTable.getSchemaName(), temporaryCreateTable.getTableName());
+            dropTable(temporaryCreateTable);
         }
     }
 
@@ -885,6 +886,16 @@ public abstract class AbstractTestHiveClient
             assertEquals(cursor.getBoolean(4), false);
 
             assertFalse(cursor.advanceNextPosition());
+        }
+    }
+
+    private void dropTable(SchemaTableName table)
+    {
+        try {
+            metastoreClient.dropTable(table.getSchemaName(), table.getTableName());
+        }
+        catch (RuntimeException e) {
+            Logger.get(getClass()).warn(e, "Failed to drop table: %s", table);
         }
     }
 
