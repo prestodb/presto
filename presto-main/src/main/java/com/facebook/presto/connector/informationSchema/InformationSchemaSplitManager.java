@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.connector.informationSchema;
 
-import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.PartitionResult;
 import com.facebook.presto.spi.Split;

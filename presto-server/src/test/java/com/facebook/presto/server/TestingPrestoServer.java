@@ -15,8 +15,8 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.metadata.AllNodes;
+import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.facebook.presto.tpch.TpchModule;
 import com.facebook.presto.util.InMemoryTpchBlocksProvider;
@@ -61,7 +61,7 @@ public class TestingPrestoServer
     private final LifeCycleManager lifeCycleManager;
     private final TestingHttpServer server;
     private final Metadata metadata;
-    private final NodeManager nodeManager;
+    private final InternalNodeManager nodeManager;
     private final ServiceSelectorManager serviceSelectorManager;
 
     public TestingPrestoServer()
@@ -128,7 +128,7 @@ public class TestingPrestoServer
 
         server = injector.getInstance(TestingHttpServer.class);
         metadata = injector.getInstance(Metadata.class);
-        nodeManager = injector.getInstance(NodeManager.class);
+        nodeManager = injector.getInstance(InternalNodeManager.class);
         serviceSelectorManager = injector.getInstance(ServiceSelectorManager.class);
 
         refreshNodes();

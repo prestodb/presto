@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.Node;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -25,7 +26,7 @@ import java.net.URI;
 import java.util.Set;
 
 public class InMemoryNodeManager
-        implements NodeManager
+        implements InternalNodeManager
 {
     private final Node localNode;
     private final SetMultimap<String, Node> remoteNodes = Multimaps.synchronizedSetMultimap(HashMultimap.<String, Node>create());
@@ -38,7 +39,7 @@ public class InMemoryNodeManager
 
     public InMemoryNodeManager(URI localUri)
     {
-        localNode = new Node("local", localUri, NodeVersion.UNKNOWN);
+        localNode = new PrestoNode("local", localUri, NodeVersion.UNKNOWN);
     }
 
     public void addNode(String datasourceName, Node... nodes)
@@ -49,6 +50,12 @@ public class InMemoryNodeManager
     public void addNode(String datasourceName, Iterable<Node> nodes)
     {
         remoteNodes.putAll(datasourceName, nodes);
+    }
+
+    @Override
+    public Set<Node> getActiveNodes()
+    {
+        return getAllNodes().getActiveNodes();
     }
 
     @Override
