@@ -149,6 +149,12 @@ public class NodeScheduler
             return ImmutableList.copyOf(nodeMap.get().get().getNodesByHostAndPort().values());
         }
 
+        public Node selectCurrentNode()
+        {
+            // TODO: this is a hack to force scheduling on the coordinator
+            return nodeManager.getCurrentNode();
+        }
+
         public List<Node> selectRandomNodes(int limit)
         {
             Preconditions.checkArgument(limit > 0, "limit must be at least 1");

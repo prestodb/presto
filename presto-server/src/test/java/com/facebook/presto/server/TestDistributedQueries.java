@@ -22,12 +22,14 @@ import com.facebook.presto.client.StatementClient;
 import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.util.MaterializedResult;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -49,7 +51,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
+import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
 import static com.facebook.presto.tpch.TpchMetadata.TPCH_CATALOG_NAME;
+import static com.facebook.presto.tpch.TpchMetadata.TPCH_SCHEMA_NAME;
+import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.json.JsonCodec.jsonCodec;
@@ -126,6 +131,81 @@ public class TestDistributedQueries
         assertEquals(catalogNames, ImmutableSet.of(TPCH_CATALOG_NAME, DEFAULT_CATALOG));
     }
 
+    @Test
+    public void testCreateTableAsSelect()
+            throws Exception
+    {
+        assertCreateTable(
+                "test_simple",
+                "SELECT orderkey, totalprice, orderdate FROM orders",
+                "SELECT count(*) FROM orders");
+    }
+
+    @Test
+    public void testCreateTableAsSelectGroupBy()
+            throws Exception
+    {
+        assertCreateTable(
+                "test_group",
+                "SELECT orderstatus, sum(totalprice) x FROM orders GROUP BY orderstatus",
+                "SELECT count(DISTINCT orderstatus) FROM orders");
+    }
+
+    @Test
+    public void testCreateTableAsSelectLimit()
+            throws Exception
+    {
+        assertCreateTable(
+                "test_limit",
+                "SELECT orderkey FROM orders ORDER BY orderkey LIMIT 10",
+                "SELECT 10");
+    }
+
+    @Test
+    public void testCreateTableAsSelectJoin()
+            throws Exception
+    {
+        assertCreateTable(
+                "test_join",
+                "SELECT count(*) x FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey",
+                "SELECT 1");
+    }
+
+    private void assertCreateTable(String table, @Language("SQL") String query, @Language("SQL") String rowCountQuery)
+            throws Exception
+    {
+        try {
+            assertQuery("CREATE TABLE " +  table + " AS " + query, rowCountQuery);
+            assertQuery("SELECT * FROM " + table, query);
+        }
+        finally {
+            QualifiedTableName name = new QualifiedTableName(DEFAULT_CATALOG, DEFAULT_SCHEMA, table);
+            Optional<TableHandle> handle = coordinator.getMetadata().getTableHandle(name);
+            if (handle.isPresent()) {
+                coordinator.getMetadata().dropTable(handle.get());
+            }
+        }
+    }
+
+    @Test
+    public void testCreateMaterializedView()
+            throws Exception
+    {
+        assertQuery(
+                "CREATE MATERIALIZED VIEW test_mview_orders AS SELECT * FROM " +
+                        format("%s.%s.orders", TPCH_CATALOG_NAME, TPCH_SCHEMA_NAME),
+                "SELECT count(*) FROM orders");
+
+        // Materialized views have a race condition between writing data to the
+        // native store and when the data is visible to be queried. This is a
+        // brain dead work around for this race condition that doesn't really
+        // fix the problem, but makes it very unlikely.
+        // TODO: remove this when the materialized view flow is fixed
+        MILLISECONDS.sleep(500);
+
+        assertQuery("SELECT * FROM test_mview_orders", "SELECT * FROM orders");
+    }
+
     @Override
     protected int getNodeCount()
     {
@@ -164,14 +244,7 @@ public class TestDistributedQueries
         log.info("Loading data...");
         long startTime = System.nanoTime();
         distributeData(catalog, schema);
-        log.info("Loading complete in %.2fs", nanosSince(startTime).getValue(SECONDS));
-
-        // There is a race condition between writing data to the native store and
-        // when that data is visible to be queried.  This is a brain dead work around
-        // for this race condition that doesn't really fix the problem, but makes
-        // it very unlikely.
-        // todo remove this when import flow is fixed
-        Thread.sleep(1000);
+        log.info("Loading complete in %s", nanosSince(startTime).toString(SECONDS));
     }
 
     private boolean allNodesGloballyVisible()
@@ -202,24 +275,14 @@ public class TestDistributedQueries
     private void distributeData(String catalog, String schema)
             throws Exception
     {
-        List<QualifiedTableName> qualifiedTableNames = coordinator.getMetadata().listTables(new QualifiedTablePrefix(catalog, schema));
-        for (QualifiedTableName qualifiedTableName : qualifiedTableNames) {
-            if (qualifiedTableName.getTableName().equalsIgnoreCase("dual")) {
+        for (QualifiedTableName table : coordinator.getMetadata().listTables(new QualifiedTablePrefix(catalog, schema))) {
+            if (table.getTableName().equalsIgnoreCase("dual")) {
                 continue;
             }
-            log.info("Running import for %s", qualifiedTableName.getTableName());
-            MaterializedResult importResult = computeActual(format("CREATE MATERIALIZED VIEW default.default.%s AS SELECT * FROM %s",
-                    qualifiedTableName.getTableName(),
-                    qualifiedTableName));
-
-            Object rowsImported;
-            if (importResult.getMaterializedTuples().isEmpty()) {
-                rowsImported = 0;
-            }
-            else {
-                rowsImported = importResult.getMaterializedTuples().get(0).getField(0);
-            }
-            log.info("Imported %s rows for %s", rowsImported, qualifiedTableName.getTableName());
+            log.info("Running import for %s", table.getTableName());
+            @Language("SQL") String sql = format("CREATE TABLE %s AS SELECT * FROM %s", table.getTableName(), table);
+            long rows = checkType(computeActual(sql).getMaterializedTuples().get(0).getField(0), Long.class, "rows");
+            log.info("Imported %s rows for %s", rows, table.getTableName());
         }
     }
 

@@ -16,8 +16,8 @@ package com.facebook.presto.connector.jmx;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnType;
-import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.ReadOnlyConnectorMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableHandle;
@@ -45,7 +45,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static javax.management.ObjectName.WILDCARD;
 
 public class JmxMetadata
-        implements ConnectorMetadata
+        extends ReadOnlyConnectorMetadata
 {
     public static final String SCHEMA_NAME = "jmx";
 
@@ -189,18 +189,6 @@ public class JmxMetadata
             columns.put(tableName, tableHandle.getTableMetadata().getColumns());
         }
         return columns.build();
-    }
-
-    @Override
-    public TableHandle createTable(ConnectorTableMetadata tableMetadata)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void dropTable(TableHandle tableHandle)
-    {
-        throw new UnsupportedOperationException();
     }
 
     private ColumnType getColumnType(MBeanAttributeInfo attribute)

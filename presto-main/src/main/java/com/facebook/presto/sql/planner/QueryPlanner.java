@@ -67,6 +67,7 @@ import java.util.Set;
 
 import static com.facebook.presto.sql.planner.plan.TableScanNode.GeneratedPartitions;
 import static com.facebook.presto.sql.tree.FunctionCall.argumentsGetter;
+import static com.facebook.presto.sql.tree.FunctionCall.distinctPredicate;
 import static com.facebook.presto.sql.tree.SortItem.sortKeyGetter;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -191,7 +192,7 @@ class QueryPlanner
         }
 
         ImmutableMap<Symbol, ColumnHandle> assignments = columns.build();
-        TableScanNode tableScan = new TableScanNode(idAllocator.getNextId(), table, ImmutableList.copyOf(assignments.keySet()), assignments, Optional.<GeneratedPartitions>absent());
+        TableScanNode tableScan = new TableScanNode(idAllocator.getNextId(), table, ImmutableList.copyOf(assignments.keySet()), assignments, null, Optional.<GeneratedPartitions>absent());
 
         return new RelationPlan(tableScan, new TupleDescriptor(), ImmutableList.<Symbol>of());
     }
@@ -245,6 +246,18 @@ class QueryPlanner
         Iterable<FieldOrExpression> inputs = Iterables.concat(analysis.getGroupByExpressions(node), arguments);
         if (!Iterables.isEmpty(inputs)) { // avoid an empty projection if the only aggregation is COUNT (which has no arguments)
             subPlan = project(subPlan, inputs);
+        }
+
+        // 1.a Rewrite DISTINCT aggregates as a group by
+        // All DISTINCT argument lists must match see TupleAnalyzer::analyzeAggregations
+        if (Iterables.any(analysis.getAggregates(node), distinctPredicate())) {
+            AggregationNode aggregation = new AggregationNode(idAllocator.getNextId(),
+                    subPlan.getRoot(),
+                    subPlan.getRoot().getOutputSymbols(),
+                    ImmutableMap.<Symbol, FunctionCall>of(),
+                    ImmutableMap.<Symbol, FunctionHandle>of());
+
+            subPlan =  new PlanBuilder(subPlan.getTranslations(), aggregation);
         }
 
         // 2. Aggregate

@@ -30,7 +30,6 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.PlanOptimizersFactory;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.tree.ExplainType;
-import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.storage.MockStorageManager;
 import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tuple.Tuple;
@@ -302,12 +301,25 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT DISTINCT custkey FROM orders");
     }
 
-    // TODO: we need to properly propagate exceptions with their actual classes
-    @Test(expectedExceptions = Exception.class, expectedExceptionsMessageRegExp = "DISTINCT in aggregation parameters not yet supported")
+    @Test(expectedExceptions = Exception.class, expectedExceptionsMessageRegExp = "All DISTINCT argument lists used in aggregations must match")
+    public void testCountMultipleDifferentDistinct()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(DISTINCT orderstatus), SUM(DISTINCT custkey) FROM orders");
+    }
+
+    @Test
+    public void testCountMultipleDistinct()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(DISTINCT custkey), SUM(DISTINCT custkey) FROM orders", "SELECT COUNT(*), SUM(custkey) FROM (SELECT DISTINCT custkey FROM orders) t");
+    }
+
+    @Test
     public void testCountDistinct()
             throws Exception
     {
-        assertQuery("SELECT COUNT(DISTINCT custkey) FROM orders");
+        assertQuery("SELECT COUNT(DISTINCT custkey + 1) FROM orders", "SELECT COUNT(*) FROM (SELECT DISTINCT custkey + 1 FROM orders) t");
     }
 
     @Test
@@ -796,13 +808,6 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND 123 = 123");
-    }
-
-    @Test(expectedExceptions = Exception.class, expectedExceptionsMessageRegExp = ".*not supported.*")
-    public void testJoinOnConstantExpression()
-            throws Exception
-    {
-        assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON 123 = 123");
     }
 
     @Test
@@ -1486,6 +1491,26 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testGroupByAsJoinProbe()
+            throws Exception
+    {
+        // we join on customer key instead of order key because
+        // orders is effectively distributed on order key due the
+        // generated data being sorted
+        assertQuery("SELECT " +
+                "  b.orderkey, " +
+                "  b.custkey, " +
+                "  a.custkey " +
+                "FROM ( " +
+                "  SELECT custkey" +
+                "  FROM orders " +
+                "  GROUP BY custkey" +
+                ") a " +
+                "JOIN orders b " +
+                "  ON a.custkey = b.custkey ");
+    }
+
+    @Test
     public void testColumnAliases()
             throws Exception
     {
@@ -1961,6 +1986,15 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testExplainOfExplain()
+    {
+        String query = "EXPLAIN SELECT 123 FROM dual";
+        MaterializedResult result = computeActual("EXPLAIN " + query);
+        String actual = Iterables.getOnlyElement(transform(result.getMaterializedTuples(), onlyColumnGetter()));
+        assertEquals(actual, getExplainPlan(query, LOGICAL));
+    }
+
+    @Test
     public void testShowSchemas()
             throws Exception
     {
@@ -2211,6 +2245,36 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         assertQuery("SELECT 1, 1, 'a', 'a' UNION ALL SELECT 1, 2, 'a', 'b'");
+    }
+
+    @Test
+    public void testCrossJoins()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT a.custkey, b.orderkey " +
+                "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 5) a " +
+                "CROSS JOIN (SELECT * FROM lineitem ORDER BY orderkey LIMIT 5) b");
+    }
+
+    @Test
+    public void testImplicitJoin()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT * FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 5) a, " +
+                "(SELECT * FROM orders ORDER BY orderkey LIMIT 5) b, " +
+                "(SELECT * FROM orders ORDER BY orderkey LIMIT 5) c ");
+    }
+
+    @Test
+    public void testJoinOnConstantExpression()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT * FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 5) a " +
+                "   JOIN (SELECT * FROM orders ORDER BY orderkey LIMIT 5) b " +
+                "   ON 123 = 123");
     }
 
     @Test
@@ -2895,13 +2959,13 @@ public abstract class AbstractTestQueries
     private static String getExplainPlan(String query, ExplainType.Type planType)
     {
         QueryExplainer explainer = getQueryExplainer();
-        return explainer.getPlan((Query) SqlParser.createStatement(query), planType);
+        return explainer.getPlan(SqlParser.createStatement(query), planType);
     }
 
     private static String getGraphvizExplainPlan(String query, ExplainType.Type planType)
     {
         QueryExplainer explainer = getQueryExplainer();
-        return explainer.getGraphvizPlan((Query) SqlParser.createStatement(query), planType);
+        return explainer.getGraphvizPlan(SqlParser.createStatement(query), planType);
     }
 
     private static QueryExplainer getQueryExplainer()

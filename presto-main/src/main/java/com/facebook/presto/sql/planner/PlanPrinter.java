@@ -16,7 +16,8 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.sql.analyzer.Type;
-import com.facebook.presto.sql.planner.PlanFragment.Partitioning;
+import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
+import com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -31,7 +32,9 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
+import com.facebook.presto.sql.planner.plan.TableCommitNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
@@ -54,7 +57,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.sql.planner.DomainUtils.printableTupleDomainWithSymbols;
+import static com.facebook.presto.sql.planner.DomainUtils.simplifyDomain;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
 
@@ -92,7 +95,7 @@ public class PlanPrinter
 
     public static String graphvizLogicalPlan(PlanNode plan, Map<Symbol, Type> types)
     {
-        PlanFragment fragment = new PlanFragment(new PlanFragmentId("graphviz_plan"), plan, types, Partitioning.NONE, plan.getId());
+        PlanFragment fragment = new PlanFragment(new PlanFragmentId("graphviz_plan"), plan, types, PlanDistribution.NONE, plan.getId(), OutputPartitioning.NONE);
         return GraphvizPrinter.printLogical(ImmutableList.of(fragment));
     }
 
@@ -216,11 +219,20 @@ public class PlanPrinter
         public Void visitTableScan(TableScanNode node, Integer indent)
         {
             TupleDomain partitionsDomainSummary = node.getPartitionsDomainSummary();
-            print(indent, "- TableScan[%s, domain=%s] => [%s]", node.getTable(), printableTupleDomainWithSymbols(partitionsDomainSummary, node.getAssignments()), formatOutputs(node.getOutputSymbols()));
+            print(indent, "- TableScan[%s, original constraint=%s] => [%s]", node.getTable(), node.getOriginalConstraint(), formatOutputs(node.getOutputSymbols()));
             for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
-                if (node.getOutputSymbols().contains(entry.getKey()) ||
-                        (!partitionsDomainSummary.isNone() && partitionsDomainSummary.getDomains().keySet().contains(entry.getValue()))) {
+                boolean isOutputSymbol = node.getOutputSymbols().contains(entry.getKey());
+                boolean isInOriginalConstraint = DependencyExtractor.extractUnique(node.getOriginalConstraint()).contains(entry.getKey());
+                boolean isInDomainSummary = !partitionsDomainSummary.isNone() && partitionsDomainSummary.getDomains().keySet().contains(entry.getValue());
+
+                if (isOutputSymbol || isInOriginalConstraint || isInDomainSummary) {
                     print(indent + 2, "%s := %s", entry.getKey(), entry.getValue());
+                    if (isInDomainSummary) {
+                        print(indent + 3, ":: %s", simplifyDomain(partitionsDomainSummary.getDomains().get(entry.getValue())));
+                    }
+                    else if (partitionsDomainSummary.isNone()) {
+                        print(indent + 3, ":: NONE");
+                    }
                 }
             }
             return null;
@@ -331,9 +343,30 @@ public class PlanPrinter
         }
 
         @Override
+        public Void visitTableWriter(TableWriterNode node, Integer indent)
+        {
+            print(indent, "- TableWriter => [%s]", formatOutputs(node.getOutputSymbols()));
+            for (int i = 0; i < node.getColumnNames().size(); i++) {
+                String name = node.getColumnNames().get(i);
+                Symbol symbol = node.getColumns().get(i);
+                print(indent + 2, "%s := %s", name, symbol);
+            }
+
+            return processChildren(node, indent + 1);
+        }
+
+        @Override
+        public Void visitTableCommit(TableCommitNode node, Integer indent)
+        {
+            print(indent, "- TableCommit[%s] => [%s]", node.getTarget(), formatOutputs(node.getOutputSymbols()));
+
+            return processChildren(node, indent + 1);
+        }
+
+        @Override
         protected Void visitPlan(PlanNode node, Integer context)
         {
-            throw new UnsupportedOperationException("not yet implemented");
+            throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
         }
 
         private Void processChildren(PlanNode node, int indent)

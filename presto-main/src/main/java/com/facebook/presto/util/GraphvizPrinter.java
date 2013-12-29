@@ -51,7 +51,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.sql.planner.DomainUtils.printableTupleDomainWithSymbols;
 import static com.google.common.collect.Maps.immutableEnumMap;
 import static java.lang.String.format;
 
@@ -159,7 +158,7 @@ public final class GraphvizPrinter
                 .append(" {")
                 .append('\n');
 
-        output.append(format("label = \"%s\"", fragment.getPartitioning()))
+        output.append(format("label = \"%s\"", fragment.getDistribution()))
                 .append('\n');
 
         PlanNode plan = fragment.getRoot();
@@ -304,7 +303,7 @@ public final class GraphvizPrinter
         @Override
         public Void visitTableScan(TableScanNode node, Void context)
         {
-            printNode(node, format("TableScan[%s]", node.getTable()), format("domain=%s", printableTupleDomainWithSymbols(node.getPartitionsDomainSummary(), node.getAssignments())), NODE_COLORS.get(NodeType.TABLESCAN));
+            printNode(node, format("TableScan[%s]", node.getTable()), format("original constraint=%s", node.getOriginalConstraint()), NODE_COLORS.get(NodeType.TABLESCAN));
             return null;
         }
 

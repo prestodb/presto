@@ -38,6 +38,7 @@ import com.facebook.presto.operator.OrderByOperator.InMemoryOrderByOperatorFacto
 import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.operator.ProjectionFunctions;
+import com.facebook.presto.operator.RecordSinkManager;
 import com.facebook.presto.operator.ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory;
 import com.facebook.presto.operator.SetBuilderOperator.SetBuilderOperatorFactory;
 import com.facebook.presto.operator.SetBuilderOperator.SetSupplier;
@@ -47,6 +48,7 @@ import com.facebook.presto.operator.TopNOperator.TopNOperatorFactory;
 import com.facebook.presto.operator.WindowOperator.InMemoryWindowOperatorFactory;
 import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
@@ -65,7 +67,9 @@ import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
+import com.facebook.presto.sql.planner.plan.TableCommitNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
@@ -109,6 +113,9 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.operator.MaterializedViewWriterOperator.MaterializedViewWriterOperatorFactory;
+import static com.facebook.presto.operator.TableCommitOperator.TableCommitOperatorFactory;
+import static com.facebook.presto.operator.TableCommitOperator.TableCommitter;
+import static com.facebook.presto.operator.TableWriterOperator.TableWriterOperatorFactory;
 import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.leftGetter;
 import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.rightGetter;
 import static com.facebook.presto.sql.tree.Input.fieldGetter;
@@ -126,6 +133,7 @@ public class LocalExecutionPlanner
 
     private final DataStreamProvider dataStreamProvider;
     private final LocalStorageManager storageManager;
+    private final RecordSinkManager recordSinkManager;
     private final Supplier<ExchangeClient> exchangeClientSupplier;
     private final ExpressionCompiler compiler;
 
@@ -134,6 +142,7 @@ public class LocalExecutionPlanner
             Metadata metadata,
             DataStreamProvider dataStreamProvider,
             LocalStorageManager storageManager,
+            RecordSinkManager recordSinkManager,
             Supplier<ExchangeClient> exchangeClientSupplier,
             ExpressionCompiler compiler)
     {
@@ -142,6 +151,7 @@ public class LocalExecutionPlanner
         this.exchangeClientSupplier = exchangeClientSupplier;
         this.metadata = checkNotNull(metadata, "metadata is null");
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
+        this.recordSinkManager = checkNotNull(recordSinkManager, "recordSinkManager is null");
         this.compiler = checkNotNull(compiler, "compiler is null");
     }
 
@@ -835,6 +845,80 @@ public class LocalExecutionPlanner
         }
 
         @Override
+        public PhysicalOperation visitTableWriter(TableWriterNode node, LocalExecutionPlanContext context)
+        {
+            // serialize writes by forcing data through a single writer
+            PhysicalOperation source = createInMemoryExchange(node, context);
+
+            // create the table writer
+            RecordSink recordSink = recordSinkManager.getRecordSink(node.getTarget());
+            OperatorFactory operatorFactory = new TableWriterOperatorFactory(context.getNextOperatorId(), recordSink);
+
+            Multimap<Symbol, Input> layout = ImmutableMultimap.<Symbol, Input>builder()
+                    .put(node.getOutputSymbols().get(0), new Input(0, 0))
+                    .put(node.getOutputSymbols().get(1), new Input(1, 0))
+                    .build();
+
+            return new PhysicalOperation(operatorFactory, layout, source);
+        }
+
+        private PhysicalOperation createInMemoryExchange(TableWriterNode node, LocalExecutionPlanContext context)
+        {
+            LocalExecutionPlanContext subContext = context.createSubContext();
+            PhysicalOperation source = node.getSource().accept(this, subContext);
+
+            // introduce a project to unpack everything into separate channels
+            source = unpack(source, node.getColumns(), subContext);
+
+            List<TupleInfo> tupleInfos = getSourceOperatorTupleInfos(node, context.getTypes());
+
+            InMemoryExchange exchange = new InMemoryExchange(tupleInfos);
+
+            // create exchange sink
+            List<OperatorFactory> factories = ImmutableList.<OperatorFactory>builder()
+                    .addAll(source.getOperatorFactories())
+                    .add(exchange.createSinkFactory(subContext.getNextOperatorId()))
+                    .build();
+
+            // add sub-context to current context
+            context.addDriverFactory(new DriverFactory(subContext.isInputDriver(), false, factories));
+
+            exchange.noMoreSinkFactories();
+
+            // the main driver is not an input: the source is the input for the plan
+            context.setInputDriver(false);
+
+            // assume that subplans always produce one symbol per channel
+            List<Symbol> layout = node.getOutputSymbols();
+            ImmutableMultimap.Builder<Symbol, Input> outputMappings = ImmutableMultimap.builder();
+            for (int i = 0; i < layout.size(); i++) {
+                outputMappings.put(layout.get(i), new Input(i, 0));
+            }
+
+            // add exchange source as first operator in the current context
+            OperatorFactory factory = new InMemoryExchangeSourceOperatorFactory(context.getNextOperatorId(), exchange);
+            return new PhysicalOperation(factory, outputMappings.build());
+        }
+
+        private PhysicalOperation unpack(PhysicalOperation source, List<Symbol> columns, LocalExecutionPlanContext context)
+        {
+            IdentityProjectionInfo mappings = computeIdentityMapping(columns, source.getLayout(), context.getTypes());
+            OperatorFactory operatorFactory = new FilterAndProjectOperatorFactory(context.getNextOperatorId(), FilterFunctions.TRUE_FUNCTION, mappings.getProjections());
+            return new PhysicalOperation(operatorFactory, mappings.getOutputLayout(), source);
+        }
+
+        @Override
+        public PhysicalOperation visitTableCommit(TableCommitNode node, LocalExecutionPlanContext context)
+        {
+            PhysicalOperation source = node.getSource().accept(this, context);
+
+            OperatorFactory operatorFactory = new TableCommitOperatorFactory(context.getNextOperatorId(), createTableCommitter(node, metadata));
+            Multimap<Symbol, Input> layout = ImmutableMultimap.of(getFirst(node.getOutputSymbols()), new Input(0, 0));
+
+            return new PhysicalOperation(operatorFactory, layout, source);
+        }
+
+        @Override
         public PhysicalOperation visitMaterializedViewWriter(MaterializedViewWriterNode node, LocalExecutionPlanContext context)
         {
             PhysicalOperation query = node.getSource().accept(this, context);
@@ -999,6 +1083,18 @@ public class LocalExecutionPlanner
 
             return new PhysicalOperation(operatorFactory, outputMappings.build(), source);
         }
+    }
+
+    private static TableCommitter createTableCommitter(final TableCommitNode node, final Metadata metadata)
+    {
+        return new TableCommitter()
+        {
+            @Override
+            public void commitTable(Collection<String> fragments)
+            {
+                metadata.commitCreateTable(node.getTarget(), fragments);
+            }
+        };
     }
 
     private static IdentityProjectionInfo computeIdentityMapping(List<Symbol> symbols, Multimap<Symbol, Input> inputLayout, Map<Symbol, Type> types)

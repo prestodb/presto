@@ -17,20 +17,24 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TupleDomain;
-import com.facebook.presto.sql.planner.DomainUtils;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.tree.Expression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.sql.planner.DomainUtils.columnHandleToSymbol;
+import static com.facebook.presto.sql.planner.DomainUtils.simplifyDomainFunction;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -46,21 +50,33 @@ public class TableScanNode
     private final boolean partitionsDroppedBySerialization;
     private final TupleDomain partitionDomainSummary;
 
-    public TableScanNode(PlanNodeId id,  TableHandle table, List<Symbol> outputSymbols, Map<Symbol, ColumnHandle> assignments, Optional<GeneratedPartitions> generatedPartitions)
+    // HACK!
+    //
+    // This field exists for the sole purpose of being able to print the original predicates (from the query) in
+    // a human readable way. Predicates that get converted to and from TupleDomains might get more bulky and thus
+    // more difficult to read when printed.
+    // For example:
+    // (ds > '2013-01-01') in the original query could easily become (ds IN ('2013-01-02', '2013-01-03', ...)) after the partitions are generated.
+    // To make this work, the originalConstraint should be set exactly once after the first predicate push down and never adjusted after that.
+    // In this way, we are always guaranteed to have a readable predicate that provides some kind of upper bound on the constraints.
+    private final Expression originalConstraint;
+
+    public TableScanNode(PlanNodeId id,  TableHandle table, List<Symbol> outputSymbols, Map<Symbol, ColumnHandle> assignments,  @Nullable Expression originalConstraint, Optional<GeneratedPartitions> generatedPartitions)
     {
-        this(id, table, outputSymbols, assignments, generatedPartitions, false);
+        this(id, table, outputSymbols, assignments, originalConstraint, generatedPartitions, false);
     }
 
     @JsonCreator
     public TableScanNode(@JsonProperty("id") PlanNodeId id,
             @JsonProperty("table") TableHandle table,
             @JsonProperty("outputSymbols") List<Symbol> outputSymbols,
-            @JsonProperty("assignments") Map<Symbol, ColumnHandle> assignments)
+            @JsonProperty("assignments") Map<Symbol, ColumnHandle> assignments,
+            @JsonProperty("originalConstraint") @Nullable Expression originalConstraint)
     {
-        this(id, table, outputSymbols, assignments, Optional.<GeneratedPartitions>absent(), true);
+        this(id, table, outputSymbols, assignments, originalConstraint, Optional.<GeneratedPartitions>absent(), true);
     }
 
-    private TableScanNode(PlanNodeId id, TableHandle table, List<Symbol> outputSymbols, Map<Symbol, ColumnHandle> assignments, Optional<GeneratedPartitions> generatedPartitions, boolean partitionsDroppedBySerialization)
+    private TableScanNode(PlanNodeId id, TableHandle table, List<Symbol> outputSymbols, Map<Symbol, ColumnHandle> assignments, @Nullable Expression originalConstraint, Optional<GeneratedPartitions> generatedPartitions, boolean partitionsDroppedBySerialization)
     {
         super(id);
 
@@ -74,6 +90,7 @@ public class TableScanNode
         this.table = table;
         this.outputSymbols = ImmutableList.copyOf(outputSymbols);
         this.assignments = ImmutableMap.copyOf(assignments);
+        this.originalConstraint = originalConstraint;
         this.generatedPartitions = generatedPartitions;
         this.partitionsDroppedBySerialization = partitionsDroppedBySerialization;
         this.partitionDomainSummary = computePartitionsDomainSummary(generatedPartitions);
@@ -96,6 +113,13 @@ public class TableScanNode
     public Map<Symbol, ColumnHandle> getAssignments()
     {
         return assignments;
+    }
+
+    @Nullable
+    @JsonProperty("originalConstraint")
+    public Expression getOriginalConstraint()
+    {
+        return originalConstraint;
     }
 
     public Optional<GeneratedPartitions> getGeneratedPartitions()
@@ -128,7 +152,18 @@ public class TableScanNode
     {
         // Since partitions are not serializable, we can provide an additional jackson field purely for information purposes (i.e. for logging)
         // If partitions ever become serializable, we can get rid of this method
-        return DomainUtils.printableTupleDomainWithSymbols(partitionDomainSummary, assignments);
+        StringBuilder builder = new StringBuilder()
+                .append("TupleDomain:");
+        if (partitionDomainSummary.isAll()) {
+            builder.append("ALL");
+        }
+        else if (partitionDomainSummary.isNone()) {
+            builder.append("NONE");
+        }
+        else {
+            builder.append(Maps.transformValues(columnHandleToSymbol(partitionDomainSummary.getDomains(), assignments), simplifyDomainFunction()));
+        }
+        return builder.toString();
     }
 
     public List<PlanNode> getSources()

@@ -92,12 +92,12 @@ public class DatabaseLocalStorageManager
         public Slice load(File file)
                 throws Exception
         {
-            checkArgument(file.isAbsolute(), "file is not absolute");
-            // TODO: distinguish between missing and empty files
-            if (file.exists() && file.length() > 0) {
-                return Slices.mapFileReadOnly(file);
+            checkArgument(file.isAbsolute(), "file is not absolute: %s", file);
+            checkArgument(file.canRead(), "file is not readable: %s", file);
+            if (file.length() == 0) {
+                return Slices.EMPTY_SLICE;
             }
-            return Slices.EMPTY_SLICE;
+            return Slices.mapFileReadOnly(file);
         }
     });
 
@@ -180,7 +180,7 @@ public class DatabaseLocalStorageManager
             File file = entry.getValue();
             ColumnHandle columnHandle = entry.getKey();
 
-            if (file.exists()) {
+            if (file.length() > 0) {
                 Slice slice = mappedFileCache.getUnchecked(file.getAbsoluteFile());
                 checkState(file.length() == slice.length(), "File %s, length %s was mapped to Slice length %s", file.getAbsolutePath(), file.length(), slice.length());
                 // Compute optimal encoding from stats

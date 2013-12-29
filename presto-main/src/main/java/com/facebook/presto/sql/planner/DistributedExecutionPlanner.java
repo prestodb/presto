@@ -35,7 +35,9 @@ import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
+import com.facebook.presto.sql.planner.plan.TableCommitNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.base.Optional;
@@ -170,19 +172,25 @@ public class DistributedExecutionPlanner
                     return node.getSource().accept(this, materializedViewPartitionPredicate);
 
                 case SYSTEM: {
-                    final double ratio = node.getSampleRatio();
                     NodeSplits nodeSplits = node.getSource().accept(this, materializedViewPartitionPredicate);
-                    DataSource dataSource = nodeSplits.dataSource.get();
-                    Iterable<Split> sampleIterable = Iterables.filter(dataSource.getSplits(), new Predicate<Split>()
-                    {
-                        public boolean apply(@Nullable Split input)
+                    if (nodeSplits.dataSource.isPresent()) {
+                        DataSource dataSource = nodeSplits.dataSource.get();
+                        final double ratio = node.getSampleRatio();
+                        Iterable<Split> sampleIterable = Iterables.filter(dataSource.getSplits(), new Predicate<Split>()
                         {
-                            return ThreadLocalRandom.current().nextDouble() < ratio;
-                        }
-                    });
-                    DataSource sampledDataSource = new DataSource(dataSource.getDataSourceName(), sampleIterable);
+                            public boolean apply(@Nullable Split input)
+                            {
+                                return ThreadLocalRandom.current().nextDouble() < ratio;
+                            }
+                        });
+                        DataSource sampledDataSource = new DataSource(dataSource.getDataSourceName(), sampleIterable);
 
-                    return new NodeSplits(node.getId(), sampledDataSource);
+                        return new NodeSplits(node.getId(), sampledDataSource);
+                    }
+                    else {
+                        // table sampling on a sub query without splits is meaningless
+                        return nodeSplits;
+                    }
                 }
                 default:
                     throw new UnsupportedOperationException("Sampling is not supported for type " + node.getSampleType());
@@ -233,6 +241,18 @@ public class DistributedExecutionPlanner
 
         @Override
         public NodeSplits visitSink(SinkNode node, Predicate<Partition> materializedViewPartitionPredicate)
+        {
+            return node.getSource().accept(this, materializedViewPartitionPredicate);
+        }
+
+        @Override
+        public NodeSplits visitTableWriter(TableWriterNode node, Predicate<Partition> materializedViewPartitionPredicate)
+        {
+            return node.getSource().accept(this, materializedViewPartitionPredicate);
+        }
+
+        @Override
+        public NodeSplits visitTableCommit(TableCommitNode node, Predicate<Partition> materializedViewPartitionPredicate)
         {
             return node.getSource().accept(this, materializedViewPartitionPredicate);
         }

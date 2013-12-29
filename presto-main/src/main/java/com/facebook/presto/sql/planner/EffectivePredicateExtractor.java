@@ -211,6 +211,7 @@ public class EffectivePredicateExtractor
 
         switch (node.getType()) {
             case INNER:
+            case CROSS:
                 return combineConjuncts(ImmutableList.<Expression>builder()
                         .add(leftPredicate)
                         .add(rightPredicate)

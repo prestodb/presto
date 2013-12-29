@@ -16,8 +16,8 @@ package com.facebook.presto.connector.dual;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.ReadOnlyConnectorMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableHandle;
@@ -33,7 +33,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class DualMetadata
-        implements ConnectorMetadata
+        extends ReadOnlyConnectorMetadata
 {
     @VisibleForTesting
     public static final MetadataManager DUAL_METADATA_MANAGER;
@@ -134,18 +134,6 @@ public class DualMetadata
 
         SchemaTableName tableName = new SchemaTableName(prefix.getSchemaName(), NAME);
         return ImmutableMap.<SchemaTableName, List<ColumnMetadata>>of(tableName, ImmutableList.of(COLUMN_METADATA));
-    }
-
-    @Override
-    public TableHandle createTable(ConnectorTableMetadata tableMetadata)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void dropTable(TableHandle tableHandle)
-    {
-        throw new UnsupportedOperationException();
     }
 
     public List<ColumnMetadata> listTableColumns(TableHandle tableHandle)

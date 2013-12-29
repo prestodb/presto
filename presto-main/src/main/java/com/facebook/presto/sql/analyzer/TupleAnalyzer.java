@@ -54,9 +54,9 @@ import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Window;
+import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
@@ -90,6 +90,9 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.ORDER_BY_MUST_B
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WILDCARD_WITHOUT_FROM;
 import static com.facebook.presto.sql.tree.FunctionCall.distinctPredicate;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.elementsEqual;
 import static com.google.common.collect.Iterables.transform;
 
@@ -102,9 +105,9 @@ class TupleAnalyzer
 
     public TupleAnalyzer(Analysis analysis, Session session, Metadata metadata)
     {
-        Preconditions.checkNotNull(analysis, "analysis is null");
-        Preconditions.checkNotNull(session, "session is null");
-        Preconditions.checkNotNull(metadata, "metadata is null");
+        checkNotNull(analysis, "analysis is null");
+        checkNotNull(session, "session is null");
+        checkNotNull(metadata, "metadata is null");
 
         this.analysis = analysis;
         this.session = session;
@@ -275,7 +278,7 @@ class TupleAnalyzer
     @Override
     protected TupleDescriptor visitUnion(Union node, AnalysisContext context)
     {
-        Preconditions.checkState(node.getRelations().size() >= 2);
+        checkState(node.getRelations().size() >= 2);
 
         TupleAnalyzer analyzer = new TupleAnalyzer(analysis, session, metadata);
 
@@ -308,11 +311,11 @@ class TupleAnalyzer
     @Override
     protected TupleDescriptor visitJoin(Join node, AnalysisContext context)
     {
-        if (!EnumSet.of(Join.Type.INNER, Join.Type.LEFT, Join.Type.RIGHT).contains(node.getType())) {
-            throw new SemanticException(NOT_SUPPORTED, node, "Only inner, left, and right joins are supported");
+        if (EnumSet.of(Join.Type.FULL).contains(node.getType())) {
+            throw new SemanticException(NOT_SUPPORTED, node, "Full outer joins are not supported");
         }
 
-        JoinCriteria criteria = node.getCriteria();
+        JoinCriteria criteria = node.getCriteria().orNull();
         if (criteria instanceof NaturalJoin) {
             throw new SemanticException(NOT_SUPPORTED, node, "Natural join not supported");
         }
@@ -333,6 +336,11 @@ class TupleAnalyzer
 
         TupleDescriptor output = new TupleDescriptor(outputFields);
 
+        if (node.getType() == Join.Type.CROSS) {
+            analysis.setOutputDescriptor(node, output);
+            return output;
+        }
+
         if (criteria instanceof JoinUsing) {
             // TODO: implement proper "using" semantics with respect to output columns
             List<String> columns = ((JoinUsing) criteria).getColumns();
@@ -344,8 +352,8 @@ class TupleAnalyzer
 
                 ExpressionAnalysis leftExpressionAnalysis = Analyzer.analyzeExpression(session, metadata, left, analysis, context, leftExpression);
                 ExpressionAnalysis rightExpressionAnalysis = Analyzer.analyzeExpression(session, metadata, right, analysis, context, rightExpression);
-                Preconditions.checkState(leftExpressionAnalysis.getSubqueryInPredicates().isEmpty(), "INVARIANT");
-                Preconditions.checkState(rightExpressionAnalysis.getSubqueryInPredicates().isEmpty(), "INVARIANT");
+                checkState(leftExpressionAnalysis.getSubqueryInPredicates().isEmpty(), "INVARIANT");
+                checkState(rightExpressionAnalysis.getSubqueryInPredicates().isEmpty(), "INVARIANT");
 
                 builder.add(new EquiJoinClause(leftExpression, rightExpression));
             }
@@ -364,8 +372,18 @@ class TupleAnalyzer
 
             Object optimizedExpression = ExpressionInterpreter.expressionOptimizer(expression, metadata, session).optimize(NoOpSymbolResolver.INSTANCE);
 
+            if (!(optimizedExpression instanceof Expression) && optimizedExpression instanceof Boolean) {
+                // If the JoinOn clause evaluates to a boolean expression, simulate a cross join by adding the relevant redundant expression
+                if (optimizedExpression.equals(Boolean.TRUE)) {
+                    optimizedExpression = new ComparisonExpression(ComparisonExpression.Type.EQUAL, new LongLiteral("0"), new LongLiteral("0"));
+                }
+                else {
+                    optimizedExpression = new ComparisonExpression(ComparisonExpression.Type.EQUAL, new LongLiteral("0"), new LongLiteral("1"));
+                }
+            }
+
             if (!(optimizedExpression instanceof Expression)) {
-                throw new SemanticException(NOT_SUPPORTED, node, "Joins on constant expressions (i.e., cross joins) not supported");
+                throw new SemanticException(TYPE_MISMATCH, node, "Join clause must be a boolean expression");
             }
 
             ImmutableList.Builder<EquiJoinClause> clauses = ImmutableList.builder();
@@ -696,14 +714,10 @@ class TupleAnalyzer
         TupleDescriptor fromDescriptor = new TupleDescriptor();
 
         if (node.getFrom() != null && !node.getFrom().isEmpty()) {
+            checkArgument(node.getFrom().size() == 1, "Operation not supported");
             TupleAnalyzer analyzer = new TupleAnalyzer(analysis, session, metadata);
-            if (node.getFrom().size() != 1) {
-                throw new SemanticException(NOT_SUPPORTED, node, "Cross joins not yet supported");
-            }
-
             fromDescriptor = analyzer.process(Iterables.getOnlyElement(node.getFrom()), context);
         }
-
         return fromDescriptor;
     }
 
@@ -717,8 +731,18 @@ class TupleAnalyzer
 
         // is this an aggregation query?
         if (!aggregates.isEmpty() || !groupByExpressions.isEmpty()) {
+            // we only support DISTINCT in aggregations for simple cases right now. (single DISTINCT expression in the query)
             if (Iterables.any(aggregates, distinctPredicate())) {
-                throw new SemanticException(NOT_SUPPORTED, node, "DISTINCT in aggregation parameters not yet supported");
+                int uniqueArguments = IterableTransformer.on(aggregates)
+                        .transform(FunctionCall.argumentsGetter())
+                        .set()
+                        .size();
+                if (uniqueArguments != 1 || !Iterables.all(aggregates, distinctPredicate())) {
+                    throw new SemanticException(NOT_SUPPORTED, node, "All DISTINCT argument lists used in aggregations must match");
+                }
+                else if (!groupByExpressions.isEmpty()) {
+                    throw new SemanticException(NOT_SUPPORTED, node, "DISTINCT with GROUP BY not supported");
+                }
             }
 
             // ensure SELECT, ORDER BY and HAVING are constant with respect to group

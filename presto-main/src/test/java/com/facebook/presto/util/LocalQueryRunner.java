@@ -33,7 +33,6 @@ import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.MockLocalStorageManager;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.DriverFactory;
@@ -42,6 +41,7 @@ import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.OutputFactory;
+import com.facebook.presto.operator.RecordSinkManager;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.Partition;
@@ -90,6 +90,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
+import static com.facebook.presto.metadata.MockLocalStorageManager.createMockLocalStorageManager;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
 import static com.facebook.presto.sql.parser.TreeAssertions.assertFormattedSql;
@@ -105,6 +106,7 @@ public class LocalQueryRunner
     private final SplitManager splitManager;
     private final DataStreamProvider dataStreamProvider;
     private final LocalStorageManager storageManager;
+    private final RecordSinkManager recordSinkManager;
     private final Session session;
     private final ExecutorService executor;
     private final ExpressionCompiler compiler;
@@ -114,6 +116,7 @@ public class LocalQueryRunner
             SplitManager splitManager,
             DataStreamProvider dataStreamProvider,
             LocalStorageManager storageManager,
+            RecordSinkManager recordSinkManager,
             Session session,
             ExecutorService executor)
     {
@@ -121,6 +124,7 @@ public class LocalQueryRunner
         this.splitManager = checkNotNull(splitManager, "splitManager is null");
         this.dataStreamProvider = checkNotNull(dataStreamProvider, "dataStreamProvider is null");
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
+        this.recordSinkManager = checkNotNull(recordSinkManager, "recordSinkManager is null");
         this.session = checkNotNull(session, "session is null");
         this.executor = checkNotNull(executor, "executor is null");
         this.compiler = new ExpressionCompiler(metadata);
@@ -229,6 +233,7 @@ public class LocalQueryRunner
                 metadata,
                 dataStreamProvider,
                 storageManager,
+                recordSinkManager,
                 null,
                 compiler);
 
@@ -300,11 +305,12 @@ public class LocalQueryRunner
         MetadataManager metadataManager = new MetadataManager();
         SplitManager splitManager = new SplitManager(ImmutableSet.<ConnectorSplitManager>of());
         DataStreamManager dataStreamManager = new DataStreamManager();
+        RecordSinkManager recordSinkManager = new RecordSinkManager();
 
         addDual(nodeManager, metadataManager, splitManager, dataStreamManager);
         addInformationSchema(nodeManager, metadataManager, splitManager, dataStreamManager);
 
-        return new LocalQueryRunner(metadataManager, splitManager, dataStreamManager, MockLocalStorageManager.createMockLocalStorageManager(), session, executor);
+        return new LocalQueryRunner(metadataManager, splitManager, dataStreamManager, createMockLocalStorageManager(), recordSinkManager, session, executor);
     }
 
     public static LocalQueryRunner createTpchLocalQueryRunner(ExecutorService executor)
@@ -329,13 +335,14 @@ public class LocalQueryRunner
         MetadataManager metadataManager = new MetadataManager();
         SplitManager splitManager = new SplitManager(ImmutableSet.<ConnectorSplitManager>of());
         DataStreamManager dataStreamManager = new DataStreamManager();
+        RecordSinkManager recordSinkManager = new RecordSinkManager();
 
         addDual(nodeManager, metadataManager, splitManager, dataStreamManager);
         addSystem(nodeManager, metadataManager, splitManager, dataStreamManager);
         addInformationSchema(nodeManager, metadataManager, splitManager, dataStreamManager);
         addTpch(nodeManager, metadataManager, splitManager, dataStreamManager, tpchBlocksProvider);
 
-        return new LocalQueryRunner(metadataManager, splitManager, dataStreamManager, MockLocalStorageManager.createMockLocalStorageManager(), session, executor);
+        return new LocalQueryRunner(metadataManager, splitManager, dataStreamManager, createMockLocalStorageManager(), recordSinkManager, session, executor);
     }
 
     private static void addSystem(InMemoryNodeManager nodeManager, MetadataManager metadataManager, SplitManager splitManager, DataStreamManager dataStreamManager)
