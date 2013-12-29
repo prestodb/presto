@@ -6,6 +6,7 @@ Presto Documentation
     :maxdepth: 2
     :numbered: 2
 
+    overview
     installation
     functions
     language
@@ -13,3 +14,4 @@ Presto Documentation
     migration
     release
     spi
+    rest
