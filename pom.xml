@@ -49,6 +49,7 @@
 
     <modules>
         <module>presto-spi</module>
+        <module>presto-cassandra</module>
         <module>presto-hive</module>
         <module>presto-hive-hadoop1</module>
         <module>presto-hive-hadoop2</module>
@@ -422,7 +423,7 @@
             <dependency>
                 <groupId>io.netty</groupId>
                 <artifactId>netty</artifactId>
-                <version>3.6.2.Final</version>
+                <version>3.7.0.Final</version>
             </dependency>
 
             <dependency>
