@@ -90,7 +90,6 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.ORDER_BY_MUST_B
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WILDCARD_WITHOUT_FROM;
 import static com.facebook.presto.sql.tree.FunctionCall.distinctPredicate;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.elementsEqual;
@@ -714,8 +713,10 @@ class TupleAnalyzer
         TupleDescriptor fromDescriptor = new TupleDescriptor();
 
         if (node.getFrom() != null && !node.getFrom().isEmpty()) {
-            checkArgument(node.getFrom().size() == 1, "Operation not supported");
             TupleAnalyzer analyzer = new TupleAnalyzer(analysis, session, metadata);
+            if (node.getFrom().size() != 1) {
+                throw new SemanticException(NOT_SUPPORTED, node, "Implicit cross joins are not yet supported; use CROSS JOIN");
+            }
             fromDescriptor = analyzer.process(Iterables.getOnlyElement(node.getFrom()), context);
         }
         return fromDescriptor;

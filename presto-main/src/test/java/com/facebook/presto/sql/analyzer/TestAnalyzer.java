@@ -256,6 +256,12 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testImplicitCrossJoinNotSupported()
+    {
+        assertFails(NOT_SUPPORTED, "SELECT * FROM a, b");
+    }
+
+    @Test
     public void testNaturalJoinNotSupported()
             throws Exception
     {
