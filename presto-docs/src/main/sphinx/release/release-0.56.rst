@@ -31,3 +31,6 @@ Cross joins are supported using the standard ANSI SQL syntax::
     SELECT *
     FROM a
     CROSS JOIN b
+
+Inner joins that result in a cross join due to the join criteria evaluating
+to true at analysis time are also supported.
