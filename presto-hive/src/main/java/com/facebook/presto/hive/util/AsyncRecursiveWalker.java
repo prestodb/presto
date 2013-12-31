@@ -71,7 +71,7 @@ public class AsyncRecursiveWalker
                 else {
                     callback.process(entry.getFileStatus(), entry.getBlockLocations());
                 }
-                if (future.isCancelled()) {
+                if (future.isDone()) {
                     return;
                 }
             }
