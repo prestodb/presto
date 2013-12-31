@@ -19,7 +19,6 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
 import java.io.FileNotFoundException;
-import java.io.IOException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -39,41 +38,54 @@ public class AsyncRecursiveWalker
 
     public ListenableFuture<Void> beginWalk(Path path, FileStatusCallback callback)
     {
-        SettableFuture<Void> settableFuture = SettableFuture.create();
-        recursiveWalk(path, callback, new AtomicLong(), settableFuture);
-        return settableFuture;
+        SettableFuture<Void> future = SettableFuture.create();
+        recursiveWalk(path, callback, new AtomicLong(), future);
+        return future;
     }
 
-    private void recursiveWalk(final Path path, final FileStatusCallback callback, final AtomicLong taskCount, final SettableFuture<Void> settableFuture)
+    private void recursiveWalk(final Path path, final FileStatusCallback callback, final AtomicLong taskCount, final SettableFuture<Void> future)
     {
         taskCount.incrementAndGet();
-        executor.execute(new Runnable()
-        {
-            @Override
-            public void run()
+        try {
+            executor.execute(new Runnable()
             {
-                try {
-                    for (DirectoryEntry entry : listDirectory(fileSystem, path)) {
-                        if (entry.isDirectory()) {
-                            recursiveWalk(entry.getFileStatus().getPath(), callback, taskCount, settableFuture);
-                        }
-                        else {
-                            callback.process(entry.getFileStatus(), entry.getBlockLocations());
-                        }
-                    }
+                @Override
+                public void run()
+                {
+                    doWalk(path, callback, taskCount, future);
                 }
-                catch (FileNotFoundException e) {
-                    settableFuture.setException(new FileNotFoundException("Partition location does not exist: " + path));
+            });
+        }
+        catch (Throwable t) {
+            future.setException(t);
+        }
+    }
+
+    private void doWalk(Path path, FileStatusCallback callback, AtomicLong taskCount, SettableFuture<Void> future)
+    {
+        try {
+            for (DirectoryEntry entry : listDirectory(fileSystem, path)) {
+                if (entry.isDirectory()) {
+                    recursiveWalk(entry.getFileStatus().getPath(), callback, taskCount, future);
                 }
-                catch (IOException | RuntimeException e) {
-                    settableFuture.setException(e);
+                else {
+                    callback.process(entry.getFileStatus(), entry.getBlockLocations());
                 }
-                finally {
-                    if (taskCount.decrementAndGet() == 0) {
-                        settableFuture.set(null);
-                    }
+                if (future.isCancelled()) {
+                    return;
                 }
             }
-        });
+        }
+        catch (FileNotFoundException e) {
+            future.setException(new FileNotFoundException("Partition location does not exist: " + path));
+        }
+        catch (Throwable t) {
+            future.setException(t);
+        }
+        finally {
+            if (taskCount.decrementAndGet() == 0) {
+                future.set(null);
+            }
+        }
     }
 }

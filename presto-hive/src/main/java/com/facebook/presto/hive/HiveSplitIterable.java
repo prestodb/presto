@@ -248,15 +248,15 @@ class HiveSplitIterable
                     @Override
                     public void onSuccess(Void result)
                     {
-                        markerQueue.finish();
                         semaphore.release();
+                        markerQueue.finish();
                     }
 
                     @Override
                     public void onFailure(Throwable t)
                     {
-                        markerQueue.finish();
                         semaphore.release();
+                        markerQueue.finish();
                     }
                 });
                 futureBuilder.add(partitionFuture);
