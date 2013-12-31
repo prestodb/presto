@@ -16,6 +16,13 @@ Tables are created in Hive without partitions (unpartitioned) and use
 RCFile with the Binary SerDe (``LazyBinaryColumnarSerDe``) as this is
 currently the best format for Presto.
 
+.. note::
+    This is a backwards incompatible change to ``ConnectorMetadata`` in the SPI,
+    so if you have written a connector, you will need to update your code before
+    deploying this release. We recommend changing your connector to extend from
+    the new ``ReadOnlyConnectorMetadata`` abstract base class unless you want to
+    support table creation.
+
 Cross Joins
 -----------
 
