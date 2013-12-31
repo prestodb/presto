@@ -1,0 +1,135 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>3.1. SELECT &mdash; Presto 0.56 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.56',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.56 Documentation" href="../index.html" />
+    <link rel="up" title="3. SQL Statement Syntax" href="../sql.html" />
+    <link rel="next" title="3.2. CREATE TABLE" href="create-table.html" />
+    <link rel="prev" title="3. SQL Statement Syntax" href="../sql.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.56 Documentation</span></a></h1>
+    <h2 class="heading"><span>3.1. SELECT</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="../sql.html">3. SQL Statement Syntax</a>
+    </span>
+    <span class="right">
+        <a href="create-table.html">3.2. CREATE TABLE</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="select">
+<h1>3.1. SELECT</h1>
+<div class="section" id="synopsis">
+<h2>Synopsis</h2>
+<div class="highlight-none"><div class="highlight"><pre>[ WITH with_query [, ...] ]
+SELECT [ ALL | DISTINCT ] select_expr [, ...]
+[ FROM from_item [, ...] ]
+[ WHERE condition ]
+[ GROUP BY expression [, ...] ]
+[ HAVING condition]
+[ UNION [ ALL | DISTINCT ] select ]
+[ ORDER BY expression [ ASC | DESC ] [, ...] ]
+[ LIMIT count ]
+</pre></div>
+</div>
+<p>where <tt class="docutils literal"><span class="pre">from_item</span></tt> is one of</p>
+<div class="highlight-none"><div class="highlight"><pre>table_name [ [ AS ] alias [ ( column_alias [, ...] ) ] ]
+</pre></div>
+</div>
+<div class="highlight-none"><div class="highlight"><pre>from_item join_type from_item [ ON join_condition | USING ( join_column [, ...] ) ]
+</pre></div>
+</div>
+</div>
+<div class="section" id="description">
+<h2>Description</h2>
+<p>Retrieve rows from zero or more tables.</p>
+</div>
+<div class="section" id="tablesample">
+<h2>TABLESAMPLE</h2>
+<p>Sample method can be specified as <tt class="docutils literal"><span class="pre">BERNOULLI</span></tt> or <tt class="docutils literal"><span class="pre">SYSTEM</span></tt>.</p>
+<dl class="docutils">
+<dt>Bernoulli method</dt>
+<dd>Each row is selected to be in the table sample with a probability of samplePercentage/100. When a table is sampled using the Bernoulli method, all physical blocks of the table are scanned and certain rows are skipped (based on the comparison between the samplePercentage and random value calculated at runtime). The probability of a row being included in the result is independent from any other row. This does not reduce the time required to read the sampled table from disk. It may have an impact on the total query time if the sampled output is processed further.</dd>
+<dt>System method</dt>
+<dd>This sampling method divides the table into logical segments of data and samples the table at this granularity. This sampling method either selects all the rows from a particular segment of data or skips it (based on the comparison between the samplePercentage and random value calculated at runtime). The rows selected in a system sampling will be dependent on which connector is used. For example, when used with Hive, it is dependent on how the data is laid out on HDFS. This method does not guarantee independent sampling probabilities.</dd>
+</dl>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Neither of the two methods allow deterministic bounds on the number of rows returned.</p>
+</div>
+<p>Example:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="o">*</span>
+<span class="k">FROM</span> <span class="n">dim_all_users</span>
+<span class="n">TABLESAMPLE</span> <span class="n">BERNOULLI</span> <span class="p">(</span><span class="mi">50</span><span class="p">);</span>
+
+<span class="k">SELECT</span> <span class="o">*</span>
+<span class="k">FROM</span> <span class="n">dim_all_users</span>
+<span class="n">TABLESAMPLE</span> <span class="k">SYSTEM</span> <span class="p">(</span><span class="mi">75</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>Using with tablealias and joins:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="n">t1</span><span class="p">.</span><span class="o">*</span><span class="p">,</span> <span class="n">t2</span><span class="p">.</span><span class="o">*</span>
+<span class="k">FROM</span>
+<span class="n">table1</span> <span class="n">t1</span> <span class="n">TABLESAMPLE</span> <span class="k">SYSTEM</span> <span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+<span class="k">JOIN</span>
+<span class="n">table2</span> <span class="n">t2</span> <span class="n">TABLESAMPLE</span> <span class="n">BERNOULLI</span> <span class="p">(</span><span class="mi">40</span><span class="p">)</span>
+<span class="k">ON</span>
+<span class="n">t1</span><span class="p">.</span><span class="n">id</span> <span class="o">=</span> <span class="n">t2</span><span class="p">.</span><span class="n">id</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="../sql.html">3. SQL Statement Syntax</a>
+    </span>
+    <span class="right">
+        <a href="create-table.html">3.2. CREATE TABLE</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+        &copy; Copyright 2013, Facebook.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>
