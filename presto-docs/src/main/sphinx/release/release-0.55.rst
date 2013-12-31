@@ -61,7 +61,7 @@ match.  These constraints are combined with other predicates in the
 query to further limit the data scanned.
 
 .. note::
-    this is a backwards incompatible change with the previous connector SPI,
+    This is a backwards incompatible change with the previous connector SPI,
     so if you have written a connector, you will need to update your code
     before deploying this release.
 
