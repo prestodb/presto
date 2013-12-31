@@ -6,6 +6,7 @@ SQL Statement Syntax
     :maxdepth: 1
 
     sql/select
+    sql/create-table
     sql/explain
     sql/describe
     sql/show-columns

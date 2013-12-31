@@ -7,7 +7,7 @@ RC Binary 2-4x Gain in CPU Efficiency
 
 Presto uses custom fast-path decoding logic for specific Hive file
 formats.  In this release we have added a fast path for for RCFile when using
-the Binary SerDe (LazyBinaryColumnarSerDe).  In our
+the Binary SerDe (``LazyBinaryColumnarSerDe``).  In our
 micro benchmarks, we see a gain between 2x and 4x in CPU efficiency compared
 to the generic (slow) path.  Since Hive data decoding accounts for a
 significant portion of the CPU time, this should
@@ -79,7 +79,7 @@ reserved keywords in the grammar.  This means that you can access a column
 named ``date`` without quoting the identifier.
 
 CLI source Option
--------------------
+-----------------
 
 The Presto CLI now has an option to set the query source.  The source
 value is shown in the UI and is recorded in events.   When using the CLI in
