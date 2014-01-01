@@ -38,11 +38,11 @@ import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.http.client.testing.TestingResponse;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.units.DataSize;
-import org.testng.annotations.AfterMethod;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.io.Closeable;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -72,34 +72,27 @@ public class TestExchangeOperator
     private static final String TASK_2_ID = "task2";
     private static final String TASK_3_ID = "task3";
 
-    private LoadingCache<String, TaskBuffer> taskBuffers;
+    private final LoadingCache<String, TaskBuffer> taskBuffers = CacheBuilder.newBuilder().build(new CacheLoader<String, TaskBuffer>()
+    {
+        @Override
+        public TaskBuffer load(String key)
+                throws Exception
+        {
+            return new TaskBuffer();
+        }
+    });
+
     private ExecutorService executor;
     private AsyncHttpClient httpClient;
-
-    private DriverContext driverContext;
     private Supplier<ExchangeClient> exchangeClientSupplier;
 
-    @BeforeMethod
+    @BeforeClass
     public void setUp()
             throws Exception
     {
-        taskBuffers = CacheBuilder.newBuilder().build(new CacheLoader<String, TaskBuffer>()
-        {
-            @Override
-            public TaskBuffer load(String key)
-                    throws Exception
-            {
-                return new TaskBuffer();
-            }
-        });
         executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
 
-        httpClient = new TestingHttpClient(new HttpClientHandler(), executor);
-
-        Session session = new Session("user", "source", "catalog", "schema", "address", "agent");
-        driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session)
-                .addPipelineContext(true, true)
-                .addDriverContext();
+        httpClient = new TestingHttpClient(new HttpClientHandler(taskBuffers), executor);
 
         exchangeClientSupplier = new Supplier<ExchangeClient>()
         {
@@ -111,12 +104,10 @@ public class TestExchangeOperator
         };
     }
 
-    @AfterMethod
+    @AfterClass
     public void tearDown()
             throws Exception
     {
-        taskBuffers = null;
-
         httpClient.close();
         httpClient = null;
 
@@ -124,12 +115,17 @@ public class TestExchangeOperator
         executor = null;
     }
 
+    @BeforeMethod
+    public void setUpMethod()
+    {
+        taskBuffers.invalidateAll();
+    }
+
     @Test
     public void testSimple()
             throws Exception
     {
-        ExchangeOperatorFactory operatorFactory = new ExchangeOperatorFactory(0, new PlanNodeId("test"), exchangeClientSupplier, TUPLE_INFOS);
-        SourceOperator operator = operatorFactory.createOperator(driverContext);
+        SourceOperator operator = createExchangeOperator();
 
         operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_1_ID), TUPLE_INFOS));
         operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_2_ID), TUPLE_INFOS));
@@ -152,8 +148,7 @@ public class TestExchangeOperator
     public void testWaitForClose()
             throws Exception
     {
-        ExchangeOperatorFactory operatorFactory = new ExchangeOperatorFactory(0, new PlanNodeId("test"), exchangeClientSupplier, TUPLE_INFOS);
-        SourceOperator operator = operatorFactory.createOperator(driverContext);
+        SourceOperator operator = createExchangeOperator();
 
         operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_1_ID), TUPLE_INFOS));
         operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_2_ID), TUPLE_INFOS));
@@ -189,12 +184,10 @@ public class TestExchangeOperator
     public void testWaitForNoMoreSplits()
             throws Exception
     {
-        ExchangeOperatorFactory operatorFactory = new ExchangeOperatorFactory(0, new PlanNodeId("test"), exchangeClientSupplier, TUPLE_INFOS);
-        SourceOperator operator = operatorFactory.createOperator(driverContext);
+        SourceOperator operator = createExchangeOperator();
 
+        // add a buffer location containing one page and close the buffer
         operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_1_ID), TUPLE_INFOS));
-
-        // add pages and leave buffers open
         taskBuffers.getUnchecked(TASK_1_ID).addPages(1, true);
 
         // read page
@@ -205,9 +198,11 @@ public class TestExchangeOperator
         assertEquals(operator.needsInput(), false);
         assertEquals(operator.getOutput(), null);
 
-        // add more pages and close the buffers
+        // add a buffer location
         operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_2_ID), TUPLE_INFOS));
+        // set no more splits (buffer locations)
         operator.noMoreSplits();
+        // add two pages and close the last buffer
         taskBuffers.getUnchecked(TASK_2_ID).addPages(2, true);
 
         // read all pages
@@ -221,8 +216,7 @@ public class TestExchangeOperator
     public void testFinish()
             throws Exception
     {
-        ExchangeOperatorFactory operatorFactory = new ExchangeOperatorFactory(0, new PlanNodeId("test"), exchangeClientSupplier, TUPLE_INFOS);
-        SourceOperator operator = operatorFactory.createOperator(driverContext);
+        SourceOperator operator = createExchangeOperator();
 
         operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_1_ID), TUPLE_INFOS));
         operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_2_ID), TUPLE_INFOS));
@@ -247,6 +241,18 @@ public class TestExchangeOperator
 
         // wait for finished
         waitForFinished(operator);
+    }
+
+    private SourceOperator createExchangeOperator()
+    {
+        ExchangeOperatorFactory operatorFactory = new ExchangeOperatorFactory(0, new PlanNodeId("test"), exchangeClientSupplier, TUPLE_INFOS);
+
+        Session session = new Session("user", "source", "catalog", "schema", "address", "agent");
+        DriverContext driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session)
+                .addPipelineContext(true, true)
+                .addDriverContext();
+
+        return operatorFactory.createOperator(driverContext);
     }
 
     private List<Page> waitForPages(Operator operator, int expectedPageCount)
@@ -306,9 +312,16 @@ public class TestExchangeOperator
         assertNull(operator.getOutput());
     }
 
-    private class HttpClientHandler
+    private static class HttpClientHandler
             implements Function<Request, Response>
     {
+        private final LoadingCache<String, TaskBuffer> taskBuffers;
+
+        public HttpClientHandler(LoadingCache<String, TaskBuffer> taskBuffers)
+        {
+            this.taskBuffers = taskBuffers;
+        }
+
         @Override
         public Response apply(Request request)
         {
@@ -329,7 +342,7 @@ public class TestExchangeOperator
                 PagesSerde.writePages(output, page);
                 return new TestingResponse(HttpStatus.OK, headers.build(), output.slice().getInput());
             }
-            else if (taskBuffer.isClosed()) {
+            else if (taskBuffer.isFinished()) {
                 headers.put(PRESTO_PAGE_NEXT_TOKEN, String.valueOf(pageToken));
                 return new TestingResponse(HttpStatus.GONE, headers.build(), new byte[0]);
             }
@@ -341,12 +354,12 @@ public class TestExchangeOperator
     }
 
     private static class TaskBuffer
-            implements Closeable
     {
         private final List<Page> buffer = new ArrayList<>();
+        private int acknowledgedPages;
         private boolean closed;
 
-        private void addPages(int pages, boolean close)
+        private synchronized void addPages(int pages, boolean close)
         {
             addPages(Collections.nCopies(pages, PAGE));
             if (close) {
@@ -354,28 +367,23 @@ public class TestExchangeOperator
             }
         }
 
-        public void addPages(Iterable<Page> pages)
+        public synchronized void addPages(Iterable<Page> pages)
         {
             Iterables.addAll(buffer, pages);
         }
 
-        public Page getPage(int pageSequenceId)
+        public synchronized Page getPage(int pageSequenceId)
         {
+            acknowledgedPages = Math.max(acknowledgedPages, pageSequenceId);
             if (pageSequenceId >= buffer.size()) {
                 return null;
             }
             return buffer.get(pageSequenceId);
         }
 
-        private boolean isClosed()
+        private synchronized boolean isFinished()
         {
-            return closed;
-        }
-
-        @Override
-        public void close()
-        {
-            closed = true;
+            return closed && acknowledgedPages == buffer.size();
         }
     }
 }
