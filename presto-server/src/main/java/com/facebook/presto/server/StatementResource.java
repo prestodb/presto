@@ -388,18 +388,21 @@ public class StatementResource
 
         private synchronized void updateExchangeClient(StageInfo outputStage)
         {
-            // update the exchange client with any additional locations
-            for (TaskInfo taskInfo : outputStage.getTasks()) {
-                List<BufferInfo> buffers = taskInfo.getOutputBuffers().getBuffers();
-                Preconditions.checkState(buffers.size() == 1,
-                        "Expected a single output buffer for task %s, but found %s",
-                        taskInfo.getTaskId(),
-                        buffers);
+            // if the output stage is not done, update the exchange client with any additional locations
+            if (!outputStage.getState().isDone()) {
+                for (TaskInfo taskInfo : outputStage.getTasks()) {
+                    List<BufferInfo> buffers = taskInfo.getOutputBuffers().getBuffers();
+                    Preconditions.checkState(buffers.size() == 1,
+                            "Expected a single output buffer for task %s, but found %s",
+                            taskInfo.getTaskId(),
+                            buffers);
 
-                String bufferId = Iterables.getOnlyElement(buffers).getBufferId();
-                URI uri = uriBuilderFrom(taskInfo.getSelf()).appendPath("results").appendPath(bufferId).build();
-                exchangeClient.addLocation(uri);
+                    String bufferId = Iterables.getOnlyElement(buffers).getBufferId();
+                    URI uri = uriBuilderFrom(taskInfo.getSelf()).appendPath("results").appendPath(bufferId).build();
+                    exchangeClient.addLocation(uri);
+                }
             }
+            // if the output stage has finished scheduling, set no more locations
             if ((outputStage.getState() != StageState.PLANNED) && (outputStage.getState() != StageState.SCHEDULING)) {
                 exchangeClient.noMoreLocations();
             }
