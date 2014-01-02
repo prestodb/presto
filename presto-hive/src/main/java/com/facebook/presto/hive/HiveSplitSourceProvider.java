@@ -62,6 +62,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.hadoop.HadoopFileStatus.isFile;
 import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
 import static com.facebook.presto.hive.HiveSplit.markAsLastSplit;
 import static com.facebook.presto.hive.HiveType.getSupportedHiveType;
@@ -69,7 +70,6 @@ import static com.facebook.presto.hive.HiveUtil.convertNativeHiveType;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
 import static com.facebook.presto.hive.HiveUtil.isSplittable;
 import static com.facebook.presto.hive.UnpartitionedPartition.isUnpartitioned;
-import static com.facebook.presto.hive.util.FileStatusUtil.isFile;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -175,14 +175,13 @@ class HiveSplitSourceProvider
                 Path path = new Path(getPartitionLocation(table, partition));
                 final Configuration configuration = hdfsEnvironment.getConfiguration(path);
                 final InputFormat<?, ?> inputFormat = getInputFormat(configuration, schema, false);
-                Path partitionPath = hdfsEnvironment.getFileSystemWrapper().wrap(path);
 
-                FileSystem fs = partitionPath.getFileSystem(configuration);
+                FileSystem fs = path.getFileSystem(configuration);
                 final LastSplitMarkingQueue markerQueue = new LastSplitMarkingQueue(hiveSplitSource);
 
                 if (inputFormat instanceof SymlinkTextInputFormat) {
                     JobConf jobConf = new JobConf(configuration);
-                    FileInputFormat.setInputPaths(jobConf, partitionPath);
+                    FileInputFormat.setInputPaths(jobConf, path);
                     InputSplit[] splits = inputFormat.getSplits(jobConf, 0);
                     for (InputSplit rawSplit : splits) {
                         FileSplit split = ((SymlinkTextInputFormat.SymlinkTextInputSplit) rawSplit).getTargetSplit();
@@ -218,7 +217,7 @@ class HiveSplitSourceProvider
                     }
                 }
 
-                ListenableFuture<Void> partitionFuture = new AsyncRecursiveWalker(fs, suspendingExecutor).beginWalk(partitionPath, new FileStatusCallback()
+                ListenableFuture<Void> partitionFuture = new AsyncRecursiveWalker(fs, suspendingExecutor).beginWalk(path, new FileStatusCallback()
                 {
                     @Override
                     public void process(FileStatus file, BlockLocation[] blockLocations)
