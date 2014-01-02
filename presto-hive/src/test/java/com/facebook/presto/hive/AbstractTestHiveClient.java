@@ -175,8 +175,6 @@ public abstract class AbstractTestHiveClient
             hiveClientConfig.setMetastoreSocksProxy(HostAndPort.fromString(proxy));
         }
 
-        FileSystemWrapper fileSystemWrapper = new FileSystemWrapperProvider(new FileSystemCache(hiveClientConfig)).get();
-
         HiveCluster hiveCluster = new TestingHiveCluster(hiveClientConfig, host, port);
         ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("hive-%s"));
 
@@ -185,7 +183,7 @@ public abstract class AbstractTestHiveClient
         HiveClient client = new HiveClient(
                 new HiveConnectorId(connectorName),
                 metastoreClient,
-                new HdfsEnvironment(new HdfsConfiguration(hiveClientConfig), fileSystemWrapper),
+                new HdfsEnvironment(new HdfsConfiguration(hiveClientConfig)),
                 sameThreadExecutor(),
                 hiveClientConfig.getMaxSplitSize(),
                 maxOutstandingSplits,

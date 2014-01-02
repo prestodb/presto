@@ -16,13 +16,16 @@ package com.facebook.presto.hive.util;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.RemoteIterator;
 
 import java.io.FileNotFoundException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static com.facebook.presto.hive.util.DirectoryLister.listDirectory;
+import static com.facebook.presto.hadoop.HadoopFileStatus.isDirectory;
+import static com.facebook.presto.hadoop.HadoopFileSystem.listLocatedStatus;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class AsyncRecursiveWalker
@@ -64,12 +67,14 @@ public class AsyncRecursiveWalker
     private void doWalk(Path path, FileStatusCallback callback, AtomicLong taskCount, SettableFuture<Void> future)
     {
         try {
-            for (DirectoryEntry entry : listDirectory(fileSystem, path)) {
-                if (entry.isDirectory()) {
-                    recursiveWalk(entry.getFileStatus().getPath(), callback, taskCount, future);
+            RemoteIterator<LocatedFileStatus> iterator = listLocatedStatus(fileSystem, path);
+            while (iterator.hasNext()) {
+                LocatedFileStatus status = iterator.next();
+                if (isDirectory(status)) {
+                    recursiveWalk(status.getPath(), callback, taskCount, future);
                 }
                 else {
-                    callback.process(entry.getFileStatus(), entry.getBlockLocations());
+                    callback.process(status, status.getBlockLocations());
                 }
                 if (future.isDone()) {
                     return;
