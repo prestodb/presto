@@ -346,7 +346,7 @@ public class DistributedLogicalPlanner
         {
             SubPlanBuilder current = node.getSource().accept(this, context);
 
-            if (current.getDistribution() != PlanDistribution.COORDINATOR_ONLY) {
+            if (current.getDistribution() != PlanDistribution.COORDINATOR_ONLY && !createSingleNodePlan) {
                 current.setRoot(new SinkNode(idAllocator.getNextId(), current.getRoot(), current.getRoot().getOutputSymbols()));
 
                 // create a new non-partitioned fragment to run on the coordinator
