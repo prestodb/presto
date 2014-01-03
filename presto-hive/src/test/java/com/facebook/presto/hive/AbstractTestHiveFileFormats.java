@@ -40,11 +40,9 @@ import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.util.Progressable;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
-import sun.misc.Unsafe;
 
 import java.io.File;
 import java.io.IOException;
-import java.lang.reflect.Field;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
@@ -78,30 +76,11 @@ public abstract class AbstractTestHiveFileFormats
     private static final List<ObjectInspector> FIELD_INSPECTORS;
     private static final int NUM_ROWS = 1000;
     private static final double EPSILON = 0.001;
-    private static final Unsafe unsafe;
 
     // Pairs of <value-to-write-to-Hive, value-expected-from-Presto>
     private final List<Pair<Object, Object>> TEST_VALUES;
 
     static {
-        try {
-            // fetch theUnsafe object
-            Field field = Unsafe.class.getDeclaredField("theUnsafe");
-            field.setAccessible(true);
-            unsafe = (Unsafe) field.get(null);
-            if (unsafe == null) {
-                throw new RuntimeException("Unsafe access not available");
-            }
-
-            // make sure the VM thinks bytes are only one byte wide
-            if (Unsafe.ARRAY_BYTE_INDEX_SCALE != 1) {
-                throw new IllegalStateException("Byte array index scale must be 1, but is " + Unsafe.ARRAY_BYTE_INDEX_SCALE);
-            }
-        }
-        catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-
         FIELD_INSPECTORS = ImmutableList.of(
                 javaStringObjectInspector,
                 javaStringObjectInspector,
@@ -189,7 +168,7 @@ public abstract class AbstractTestHiveFileFormats
         COLUMN_NAMES_STRING = Joiner.on(",").join(COLUMN_NAMES);
     }
 
-    public AbstractTestHiveFileFormats()
+    protected AbstractTestHiveFileFormats()
     {
         long millis = new DateTime(2011, 5, 6, 7, 8, 9, 123).getMillis();
 
@@ -319,7 +298,8 @@ public abstract class AbstractTestHiveFileFormats
                     default:
                         throw new RuntimeException("unknown type");
                 }
-                if (FIELD_INSPECTORS.get(i).getTypeName() == "float" || FIELD_INSPECTORS.get(i).getTypeName() == "double") {
+                if (FIELD_INSPECTORS.get(i).getTypeName().equals("float") ||
+                        FIELD_INSPECTORS.get(i).getTypeName().equals("double")) {
                     assertEquals((double) fieldFromCursor, (double) TEST_VALUES.get(i).getValue(), EPSILON);
                 }
                 else if (FIELD_INSPECTORS.get(i).getCategory() == ObjectInspector.Category.PRIMITIVE) {

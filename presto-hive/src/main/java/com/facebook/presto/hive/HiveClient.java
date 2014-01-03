@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hadoop.HadoopFileSystemCache;
 import com.facebook.presto.hadoop.HadoopNative;
 import com.facebook.presto.hive.util.BoundedExecutor;
 import com.facebook.presto.spi.ColumnHandle;
@@ -124,6 +125,7 @@ public class HiveClient
 {
     static {
         HadoopNative.requireHadoopNative();
+        HadoopFileSystemCache.initialize();
     }
 
     private static final Logger log = Logger.get(HiveClient.class);
@@ -531,8 +533,7 @@ public class HiveClient
     private FileSystem getFileSystem(Path path)
             throws IOException
     {
-        return hdfsEnvironment.getFileSystemWrapper().wrap(path)
-                .getFileSystem(hdfsEnvironment.getConfiguration(path));
+        return path.getFileSystem(hdfsEnvironment.getConfiguration(path));
     }
 
     private void rename(Path source, Path target)

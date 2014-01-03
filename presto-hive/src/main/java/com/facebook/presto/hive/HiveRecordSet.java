@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hadoop.HadoopFileSystemCache;
 import com.facebook.presto.hadoop.HadoopNative;
 import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.RecordCursor;
@@ -29,7 +30,6 @@ import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
-import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.JobConf;
@@ -61,6 +61,7 @@ public class HiveRecordSet
 {
     static {
         HadoopNative.requireHadoopNative();
+        HadoopFileSystemCache.initialize();
     }
 
     private final HiveSplit split;
@@ -90,7 +91,7 @@ public class HiveRecordSet
 
         Path path = new Path(split.getPath());
         this.configuration = hdfsEnvironment.getConfiguration(path);
-        this.wrappedPath = hdfsEnvironment.getFileSystemWrapper().wrap(path);
+        this.wrappedPath = hdfsEnvironment.wrapInputPath(path);
 
         String nullSequence = split.getSchema().getProperty(SERIALIZATION_NULL_FORMAT);
         checkState(nullSequence == null || nullSequence.equals("\\N"), "Only '\\N' supported as null specifier, was '%s'", nullSequence);
