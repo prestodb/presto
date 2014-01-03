@@ -23,10 +23,10 @@ import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.util.MaterializedResult;
+import com.facebook.presto.util.MaterializedTuple;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
@@ -44,6 +44,7 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -55,6 +56,7 @@ import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
 import static com.facebook.presto.tpch.TpchMetadata.TPCH_CATALOG_NAME;
 import static com.facebook.presto.tpch.TpchMetadata.TPCH_SCHEMA_NAME;
 import static com.facebook.presto.util.Types.checkType;
+import static com.facebook.presto.util.MaterializedResult.DEFAULT_PRECISION;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.json.JsonCodec.jsonCodec;
@@ -293,8 +295,8 @@ public class TestDistributedQueries
 
         try (StatementClient client = new StatementClient(httpClient, queryResultsCodec, session, sql)) {
             AtomicBoolean loggedUri = new AtomicBoolean(false);
-            ImmutableList.Builder<Tuple> rows = ImmutableList.builder();
-            TupleInfo tupleInfo = null;
+            ImmutableList.Builder<MaterializedTuple> rows = ImmutableList.builder();
+            List<TupleInfo> types = null;
 
             while (client.isValid()) {
                 QueryResults results = client.current();
@@ -302,18 +304,18 @@ public class TestDistributedQueries
                     log.info("Query %s: %s?pretty", results.getId(), results.getInfoUri());
                 }
 
-                if ((tupleInfo == null) && (results.getColumns() != null)) {
-                    tupleInfo = getTupleInfo(results.getColumns());
+                if ((types == null) && (results.getColumns() != null)) {
+                    types = getTupleInfos(results.getColumns());
                 }
                 if (results.getData() != null) {
-                    rows.addAll(transform(results.getData(), dataToTuple(tupleInfo)));
+                    rows.addAll(transform(results.getData(), dataToTuple(types)));
                 }
 
                 client.advance();
             }
 
             if (!client.isFailed()) {
-                return new MaterializedResult(rows.build(), tupleInfo);
+                return new MaterializedResult(rows.build(), types);
             }
 
             QueryError error = client.finalResults().getError();
@@ -329,67 +331,68 @@ public class TestDistributedQueries
         }
     }
 
-    private static TupleInfo getTupleInfo(List<Column> columns)
+    private static List<TupleInfo> getTupleInfos(List<Column> columns)
     {
-        return new TupleInfo(transform(transform(columns, Column.typeGetter()), tupleType()));
+        return ImmutableList.copyOf(transform(columns, columnTupleInfoGetter()));
     }
 
-    private static Function<String, Type> tupleType()
+    private static Function<Column, TupleInfo> columnTupleInfoGetter()
     {
-        return new Function<String, Type>()
+        return new Function<Column, TupleInfo>()
         {
             @Override
-            public Type apply(String type)
+            public TupleInfo apply(Column column)
             {
+                String type = column.getType();
                 switch (type) {
                     case "boolean":
-                        return Type.BOOLEAN;
+                        return TupleInfo.SINGLE_BOOLEAN;
                     case "bigint":
-                        return Type.FIXED_INT_64;
+                        return TupleInfo.SINGLE_LONG;
                     case "double":
-                        return Type.DOUBLE;
+                        return TupleInfo.SINGLE_DOUBLE;
                     case "varchar":
-                        return Type.VARIABLE_BINARY;
+                        return TupleInfo.SINGLE_VARBINARY;
                 }
                 throw new AssertionError("Unhandled type: " + type);
             }
         };
     }
 
-    private static Function<List<Object>, Tuple> dataToTuple(final TupleInfo tupleInfo)
+    private static Function<List<Object>, MaterializedTuple> dataToTuple(final List<TupleInfo> tupleInfos)
     {
-        return new Function<List<Object>, Tuple>()
+        return new Function<List<Object>, MaterializedTuple>()
         {
             @Override
-            public Tuple apply(List<Object> data)
+            public MaterializedTuple apply(List<Object> data)
             {
-                checkArgument(data.size() == tupleInfo.getTypes().size(), "columns size does not match tuple info");
-                TupleInfo.Builder tuple = tupleInfo.builder();
+                checkArgument(data.size() == tupleInfos.size(), "columns size does not match tuple infos");
+                List<Object> row = new ArrayList<>();
                 for (int i = 0; i < data.size(); i++) {
                     Object value = data.get(i);
                     if (value == null) {
-                        tuple.appendNull();
+                        row.add(null);
                         continue;
                     }
-                    Type type = tupleInfo.getTypes().get(i);
+                    Type type = tupleInfos.get(i).getType();
                     switch (type) {
                         case BOOLEAN:
-                            tuple.append((Boolean) value);
+                            row.add(value);
                             break;
                         case FIXED_INT_64:
-                            tuple.append(((Number) value).longValue());
+                            row.add(((Number) value).longValue());
                             break;
                         case DOUBLE:
-                            tuple.append(((Number) value).doubleValue());
+                            row.add(((Number) value).doubleValue());
                             break;
                         case VARIABLE_BINARY:
-                            tuple.append((String) value);
+                            row.add(value);
                             break;
                         default:
                             throw new AssertionError("unhandled type: " + type);
                     }
                 }
-                return tuple.build();
+                return new MaterializedTuple(DEFAULT_PRECISION, row);
             }
         };
     }

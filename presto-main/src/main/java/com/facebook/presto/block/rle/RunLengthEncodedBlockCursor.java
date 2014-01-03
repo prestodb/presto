@@ -110,38 +110,38 @@ public final class RunLengthEncodedBlockCursor
     }
 
     @Override
-    public boolean getBoolean(int field)
+    public boolean getBoolean()
     {
         checkReadablePosition();
-        return value.getBoolean(field);
+        return value.getBoolean();
     }
 
     @Override
-    public long getLong(int field)
+    public long getLong()
     {
         checkReadablePosition();
-        return value.getLong(field);
+        return value.getLong();
     }
 
     @Override
-    public double getDouble(int field)
+    public double getDouble()
     {
         checkReadablePosition();
-        return value.getDouble(field);
+        return value.getDouble();
     }
 
     @Override
-    public Slice getSlice(int field)
+    public Slice getSlice()
     {
         checkReadablePosition();
-        return value.getSlice(field);
+        return value.getSlice();
     }
 
     @Override
-    public boolean isNull(int field)
+    public boolean isNull()
     {
         checkReadablePosition();
-        return value.isNull(field);
+        return value.isNull();
     }
 
     @Override

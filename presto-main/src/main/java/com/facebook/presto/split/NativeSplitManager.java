@@ -22,11 +22,13 @@ import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.metadata.TablePartition;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplitManager;
+import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.PartitionKey;
 import com.facebook.presto.spi.PartitionResult;
 import com.facebook.presto.spi.Split;
+import com.facebook.presto.spi.SplitSource;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TupleDomain;
 import com.google.common.base.Objects;
@@ -115,14 +117,14 @@ public class NativeSplitManager
     }
 
     @Override
-    public Iterable<Split> getPartitionSplits(TableHandle tableHandle, List<Partition> partitions)
+    public SplitSource getPartitionSplits(TableHandle tableHandle, List<Partition> partitions)
     {
         Stopwatch splitTimer = new Stopwatch();
         splitTimer.start();
 
         checkNotNull(partitions, "partitions is null");
         if (partitions.isEmpty()) {
-            return ImmutableList.of();
+            return new FixedSplitSource(getConnectorId(), ImmutableList.<Split>of());
         }
 
         Map<String, Node> nodesById = uniqueIndex(nodeManager.getAllNodes().getActiveNodes(), Node.getIdentifierFunction());
@@ -155,7 +157,7 @@ public class NativeSplitManager
         // set of nodes is fired up. Shuffle the splits to ensure random distribution.
         Collections.shuffle(splits);
 
-        return ImmutableList.copyOf(splits);
+        return new FixedSplitSource(getConnectorId(), splits);
     }
 
     private static List<HostAddress> getAddressesForNodes(Map<String, Node> nodeMap, Iterable<String> nodeIdentifiers)

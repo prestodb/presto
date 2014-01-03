@@ -16,9 +16,11 @@ package com.facebook.presto.connector.jmx;
 import com.facebook.presto.metadata.Node;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.spi.ConnectorSplitManager;
+import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.PartitionResult;
 import com.facebook.presto.spi.Split;
+import com.facebook.presto.spi.SplitSource;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TupleDomain;
 import com.google.common.base.Objects;
@@ -71,11 +73,11 @@ public class JmxSplitManager
     }
 
     @Override
-    public Iterable<Split> getPartitionSplits(TableHandle table, List<Partition> partitions)
+    public SplitSource getPartitionSplits(TableHandle table, List<Partition> partitions)
     {
         checkNotNull(partitions, "partitions is null");
         if (partitions.isEmpty()) {
-            return ImmutableList.of();
+            return new FixedSplitSource(connectorId, ImmutableList.<Split>of());
         }
 
         Partition partition = Iterables.getOnlyElement(partitions);
@@ -86,7 +88,7 @@ public class JmxSplitManager
         for (Node node : nodeManager.getAllNodes().getActiveNodes()) {
             splits.add(new JmxSplit(jmxPartition.tableHandle, ImmutableList.of(node.getHostAndPort())));
         }
-        return splits.build();
+        return new FixedSplitSource(connectorId, splits.build());
     }
 
     public static class JmxPartition

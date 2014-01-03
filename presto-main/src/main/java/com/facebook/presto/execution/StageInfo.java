@@ -140,7 +140,9 @@ public class StageInfo
     public static List<StageInfo> getAllStages(StageInfo stageInfo)
     {
         ImmutableList.Builder<StageInfo> collector = ImmutableList.builder();
-        addAllStages(stageInfo, collector);
+        if (stageInfo != null) {
+            addAllStages(stageInfo, collector);
+        }
         return collector.build();
     }
 

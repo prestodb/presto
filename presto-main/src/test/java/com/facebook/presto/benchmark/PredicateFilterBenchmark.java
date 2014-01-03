@@ -48,7 +48,7 @@ public class PredicateFilterBenchmark
         FilterAndProjectOperatorFactory filterAndProjectOperator = new FilterAndProjectOperatorFactory(
                 1,
                 new DoubleFilter(50000.00),
-                ImmutableList.of(singleColumn(Type.DOUBLE, 0, 0)));
+                ImmutableList.of(singleColumn(Type.DOUBLE, 0)));
 
         return ImmutableList.of(alignmentOperator, filterAndProjectOperator);
     }
@@ -66,7 +66,7 @@ public class PredicateFilterBenchmark
         @Override
         public boolean filter(TupleReadable... cursors)
         {
-            return cursors[0].getDouble(0) >= minValue;
+            return cursors[0].getDouble() >= minValue;
         }
 
         @Override

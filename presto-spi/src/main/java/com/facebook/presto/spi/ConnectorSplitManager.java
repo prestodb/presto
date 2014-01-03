@@ -39,5 +39,5 @@ public interface ConnectorSplitManager
     /**
      * Gets the Splits for the specified Partitions in the indicated table.
      */
-    Iterable<Split> getPartitionSplits(TableHandle table, List<Partition> partitions);
+    SplitSource getPartitionSplits(TableHandle table, List<Partition> partitions);
 }

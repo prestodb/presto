@@ -50,7 +50,6 @@ public class RecordProjectOperator
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         this.cursor = checkNotNull(cursor, "cursor is null");
 
-        // project each field into a separate channel
         ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
         for (ColumnType columnType : columnTypes) {
             tupleInfos.add(new TupleInfo(Type.fromColumnType(columnType)));
@@ -134,7 +133,7 @@ public class RecordProjectOperator
                         output.appendNull();
                     }
                     else {
-                        Type type = getTupleInfos().get(column).getTypes().get(0);
+                        Type type = getTupleInfos().get(column).getType();
                         switch (type) {
                             case BOOLEAN:
                                 output.append(cursor.getBoolean(column));
