@@ -269,6 +269,14 @@
                                 </artifactItem>
                                 <artifactItem>
                                     <groupId>com.facebook.presto</groupId>
+                                    <artifactId>presto-hive-hadoop2</artifactId>
+                                    <version>${project.version}</version>
+                                    <type>zip</type>
+                                    <overWrite>false</overWrite>
+                                    <outputDirectory>${project.build.directory}/plugin/hive-hadoop2</outputDirectory>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>com.facebook.presto</groupId>
                                     <artifactId>presto-hive-cdh4</artifactId>
                                     <version>${project.version}</version>
                                     <type>zip</type>

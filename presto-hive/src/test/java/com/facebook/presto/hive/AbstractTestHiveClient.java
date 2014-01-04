@@ -50,6 +50,7 @@ import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -458,6 +459,8 @@ public abstract class AbstractTestHiveClient
         List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
+        assertTableIsBucketed(tableHandle);
+
         String testString = "sequencefile test";
         Long testInt = 413L;
         Long testSmallint = 412L;
@@ -493,6 +496,8 @@ public abstract class AbstractTestHiveClient
         TableHandle tableHandle = getTableHandle(tableBucketedBigintBoolean);
         List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
+
+        assertTableIsBucketed(tableHandle);
 
         String testString = "textfile test";
         // This needs to match one of the rows where t_string is not empty or null, and where t_bigint is not null
@@ -532,11 +537,14 @@ public abstract class AbstractTestHiveClient
         List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
+        assertTableIsBucketed(tableHandle);
+
         ImmutableMap<ColumnHandle, Comparable<?>> bindings = ImmutableMap.<ColumnHandle, Comparable<?>>builder()
                 .put(columnHandles.get(columnIndex.get("t_float")), 406.1000061035156)
                 .put(columnHandles.get(columnIndex.get("t_double")), 407.2)
                 .build();
 
+        // floats and doubles are not supported, so we should see all splits
         PartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.withFixedValues(bindings));
         List<Split> splits = getAllSplits(splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions()));
         assertEquals(splits.size(), 32);
@@ -550,6 +558,21 @@ public abstract class AbstractTestHiveClient
             }
         }
         assertEquals(count, 300);
+    }
+
+    private void assertTableIsBucketed(TableHandle tableHandle)
+            throws Exception
+    {
+        // the bucketed test tables should have exactly 32 splits
+        PartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.all());
+        List<Split> splits = getAllSplits(splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions()));
+        assertEquals(splits.size(), 32);
+
+        // verify all paths are unique
+        Set<String> paths = new HashSet<>();
+        for (Split split : splits) {
+            assertTrue(paths.add(((HiveSplit) split).getPath()));
+        }
     }
 
     @Test
