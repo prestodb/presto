@@ -51,6 +51,7 @@
         <module>presto-spi</module>
         <module>presto-hive</module>
         <module>presto-hive-hadoop1</module>
+        <module>presto-hive-hadoop2</module>
         <module>presto-hive-cdh4</module>
         <module>presto-example-http</module>
         <module>presto-client</module>
@@ -152,6 +153,12 @@
                 <groupId>com.facebook.presto.hadoop</groupId>
                 <artifactId>hadoop-apache1</artifactId>
                 <version>0.2-SNAPSHOT</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto.hadoop</groupId>
+                <artifactId>hadoop-apache2</artifactId>
+                <version>0.1-SNAPSHOT</version>
             </dependency>
 
             <dependency>
