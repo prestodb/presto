@@ -107,6 +107,12 @@
         </dependency>
 
         <dependency>
+            <groupId>io.airlift.tpch</groupId>
+            <artifactId>tpch</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>javax.servlet</groupId>
             <artifactId>javax.servlet-api</artifactId>
             <scope>runtime</scope>
@@ -177,6 +183,11 @@
             <artifactId>snappy</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-tpch</artifactId>
+        </dependency>
+
         <!-- for testing -->
         <dependency>
             <groupId>org.testng</groupId>
@@ -195,7 +206,6 @@
             <artifactId>asm-all</artifactId>
         </dependency>
 
-        <!-- for testing -->
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>log-manager</artifactId>
@@ -290,32 +300,6 @@
                     <excludedGroups>hive</excludedGroups>
                 </configuration>
             </plugin>
-
-            <!-- Intellij will try to load all lib dependencies into memory, so fetch the test data manually -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-dependency-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>copy-testdata</id>
-                        <phase>process-test-resources</phase>
-                        <goals>
-                            <goal>copy</goal>
-                        </goals>
-                        <configuration>
-                            <artifactItems>
-                                <artifactItem>
-                                    <groupId>com.facebook.presto</groupId>
-                                    <artifactId>testdata-tpch-1g</artifactId>
-                                    <version>1</version>
-                                    <type>jar</type>
-                                    <destFileName>testdata-tpch-1g.jar</destFileName>
-                                </artifactItem>
-                            </artifactItems>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
         </plugins>
     </build>
 
@@ -339,7 +323,6 @@
                             <executable>${java.home}/bin/java</executable>
                             <arguments>
                                 <argument>-DoutputDirectory=benchmark_outputs</argument>
-                                <argument>-DtpchDataJar=${project.build.directory}/dependency/testdata-tpch-1g.jar</argument>
                                 <argument>-Dmyproperty=myvalue</argument>
                                 <argument>-classpath</argument>
                                 <classpath />

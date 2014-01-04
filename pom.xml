@@ -55,6 +55,7 @@
         <module>presto-hive-hadoop2</module>
         <module>presto-hive-cdh4</module>
         <module>presto-example-http</module>
+        <module>presto-tpch</module>
         <module>presto-client</module>
         <module>presto-parser</module>
         <module>presto-main</module>
@@ -97,6 +98,19 @@
                 <artifactId>presto-hive</artifactId>
                 <version>${project.version}</version>
                 <type>test-jar</type>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-tpch</artifactId>
+                <version>${project.version}</version>
+                <type>zip</type>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-tpch</artifactId>
+                <version>${project.version}</version>
             </dependency>
 
             <dependency>
@@ -286,6 +300,12 @@
                 <groupId>io.airlift</groupId>
                 <artifactId>stats</artifactId>
                 <version>${dep.airlift.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.airlift.tpch</groupId>
+                <artifactId>tpch</artifactId>
+                <version>0.1-SNAPSHOT</version>
             </dependency>
 
             <dependency>

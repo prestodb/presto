@@ -29,7 +29,6 @@ import com.facebook.presto.split.ConnectorDataStreamProvider;
 import com.facebook.presto.split.DataStreamManager;
 import com.facebook.presto.split.RecordSetDataStreamProvider;
 import com.facebook.presto.split.SplitManager;
-import com.google.common.base.Preconditions;
 import com.google.inject.Inject;
 
 import javax.annotation.Nullable;
@@ -92,12 +91,20 @@ public class ConnectorManager
         checkNotNull(connectorName, "connectorName is null");
         checkNotNull(properties, "properties is null");
 
+        ConnectorFactory connectorFactory = connectorFactories.get(connectorName);
+        checkArgument(connectorFactory != null, "No factory for connector %s", connectorName);
+        createConnection(catalogName, connectorFactory, properties);
+    }
+
+    public synchronized void createConnection(String catalogName, ConnectorFactory connectorFactory, Map<String, String> properties)
+    {
+        checkNotNull(catalogName, "catalogName is null");
+        checkNotNull(properties, "properties is null");
+        checkNotNull(connectorFactory, "connectorFactory is null");
+
         // for now connectorId == catalogName
         String connectorId = catalogName;
         checkState(!connectors.containsKey(connectorId), "A connector %s already exists", connectorId);
-
-        ConnectorFactory connectorFactory = connectorFactories.get(connectorName);
-        Preconditions.checkArgument(connectorFactory != null, "No factory for connector %s", connectorName);
 
         Connector connector = connectorFactory.create(connectorId, properties);
         connectors.put(connectorId, connector);

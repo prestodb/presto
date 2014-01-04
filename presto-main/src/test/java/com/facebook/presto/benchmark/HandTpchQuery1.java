@@ -41,8 +41,10 @@ import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
 import static com.facebook.presto.operator.aggregation.AverageAggregations.DOUBLE_AVERAGE;
+import static com.facebook.presto.operator.aggregation.AverageAggregations.LONG_AVERAGE;
 import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
 import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUBLE_SUM;
+import static com.facebook.presto.operator.aggregation.LongSumAggregation.LONG_SUM;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -107,10 +109,10 @@ public class HandTpchQuery1
                 Ints.asList(0, 1),
                 Step.SINGLE,
                 ImmutableList.of(
-                        aggregation(DOUBLE_SUM, new Input(2)),
+                        aggregation(LONG_SUM, new Input(2)),
                         aggregation(DOUBLE_SUM, new Input(3)),
                         aggregation(DOUBLE_SUM, new Input(4)),
-                        aggregation(DOUBLE_AVERAGE, new Input(2)),
+                        aggregation(LONG_AVERAGE, new Input(2)),
                         aggregation(DOUBLE_AVERAGE, new Input(5)),
                         aggregation(DOUBLE_AVERAGE, new Input(6)),
                         aggregation(COUNT, new Input(2))
@@ -126,7 +128,7 @@ public class HandTpchQuery1
         private static final ImmutableList<TupleInfo> TUPLE_INFOS = ImmutableList.of(
                 TupleInfo.SINGLE_VARBINARY,
                 TupleInfo.SINGLE_VARBINARY,
-                TupleInfo.SINGLE_DOUBLE,
+                TupleInfo.SINGLE_LONG,
                 TupleInfo.SINGLE_DOUBLE,
                 TupleInfo.SINGLE_DOUBLE,
                 TupleInfo.SINGLE_DOUBLE,
@@ -275,7 +277,8 @@ public class HandTpchQuery1
                 // where
                 //     shipdate <= '1998-09-02'
                 if (shipDate.compareTo(MAX_SHIP_DATE) <= 0) {
-                    //     returnflag, linestatus
+                    //     returnflag,
+                    //     linestatus
                     //     quantity
                     //     extendedprice
                     //     extendedprice * (1 - discount)
@@ -295,7 +298,7 @@ public class HandTpchQuery1
                         pageBuilder.getBlockBuilder(1).append(lineStatusCursor.getSlice());
                     }
 
-                    double quantity = quantityCursor.getDouble();
+                    long quantity = quantityCursor.getLong();
                     double extendedPrice = extendedPriceCursor.getDouble();
                     double discount = discountCursor.getDouble();
                     double tax = taxCursor.getDouble();

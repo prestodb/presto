@@ -27,8 +27,6 @@ import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
-import javax.inject.Inject;
-
 import java.util.List;
 import java.util.Set;
 
@@ -40,12 +38,14 @@ public class TpchSplitManager
 {
     private final String connectorId;
     private final NodeManager nodeManager;
+    private final int splitsPerNode;
 
-    @Inject
-    public TpchSplitManager(String connectorId, NodeManager nodeManager)
+    public TpchSplitManager(String connectorId, NodeManager nodeManager, int splitsPerNode)
     {
         this.connectorId = connectorId;
         this.nodeManager = nodeManager;
+        checkArgument(splitsPerNode > 0, "splitsPerNode must be at least 1");
+        this.splitsPerNode = splitsPerNode;
     }
 
     @Override
@@ -79,16 +79,17 @@ public class TpchSplitManager
         checkArgument(partition instanceof TpchPartition, "Partition must be a tpch partition");
         TpchTableHandle tableHandle = ((TpchPartition) partition).getTable();
 
-        Set<Node> nodes = nodeManager.getActiveNodes();
+        Set<Node> nodes = nodeManager.getActiveDatasourceNodes(connectorId);
 
-        int totalParts = nodes.size();
+        int totalParts = nodes.size() * splitsPerNode;
         int partNumber = 0;
 
         // Split the data using split and skew by the number of nodes available.
         ImmutableList.Builder<Split> splits = ImmutableList.builder();
         for (Node node : nodes) {
-            TpchSplit tpchSplit = new TpchSplit(tableHandle, partNumber++, totalParts, ImmutableList.of(node.getHostAndPort()));
-            splits.add(tpchSplit);
+            for (int i = 0; i < splitsPerNode; i++) {
+                splits.add(new TpchSplit(tableHandle, partNumber++, totalParts, ImmutableList.of(node.getHostAndPort())));
+            }
         }
         return new FixedSplitSource(connectorId, splits.build());
     }
