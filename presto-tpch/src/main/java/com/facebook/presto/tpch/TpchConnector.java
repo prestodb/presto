@@ -13,17 +13,25 @@
  */
 package com.facebook.presto.tpch;
 
-import com.facebook.presto.spi.ConnectorFactory;
-import com.google.inject.Binder;
-import com.google.inject.Module;
-import com.google.inject.multibindings.MapBinder;
+import com.facebook.presto.spi.Connector;
+import com.google.common.collect.ClassToInstanceMap;
+import com.google.common.collect.ImmutableClassToInstanceMap;
 
-public class TpchModule
-        implements Module
+import java.util.Map;
+
+public class TpchConnector
+        implements Connector
 {
-    @Override
-    public void configure(Binder binder)
+    private final ClassToInstanceMap<Object> services;
+
+    public TpchConnector(Map<Class<?>, ?> services)
     {
-        MapBinder.newMapBinder(binder, String.class, ConnectorFactory.class).addBinding("tpch").to(TpchConnectorFactory.class);
+        this.services = ImmutableClassToInstanceMap.copyOf(services);
+    }
+
+    @Override
+    public <T> T getService(Class<T> type)
+    {
+        return services.getInstance(type);
     }
 }

@@ -23,6 +23,8 @@ import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.util.MaterializedResult;
@@ -32,7 +34,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Closeables;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.client.HttpClientConfig;
@@ -47,14 +48,11 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
-import static com.facebook.presto.tpch.TpchMetadata.TPCH_CATALOG_NAME;
-import static com.facebook.presto.tpch.TpchMetadata.TPCH_SCHEMA_NAME;
 import static com.facebook.presto.util.MaterializedResult.DEFAULT_PRECISION;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -72,6 +70,8 @@ import static org.testng.Assert.assertTrue;
 public class TestDistributedQueries
         extends AbstractTestQueries
 {
+    private static final Session SESSION = new Session("user", "test", DEFAULT_CATALOG, "test", null, null);
+
     private static final String ENVIRONMENT = "testing";
     private static final Logger log = Logger.get(TestDistributedQueries.class.getSimpleName());
     private final JsonCodec<QueryResults> queryResultsCodec = jsonCodec(QueryResults.class);
@@ -122,15 +122,6 @@ public class TestDistributedQueries
 
         assertTrue(all.getMaterializedTuples().containsAll(fullSample.getMaterializedTuples()));
         assertEquals(emptySample.getMaterializedTuples().size(), 0);
-    }
-
-    @Test
-    public void testShowCatalogs()
-            throws Exception
-    {
-        MaterializedResult result = computeActual("SHOW CATALOGS");
-        Set<String> catalogNames = ImmutableSet.copyOf(transform(result.getMaterializedTuples(), onlyColumnGetter()));
-        assertEquals(catalogNames, ImmutableSet.of(TPCH_CATALOG_NAME, DEFAULT_CATALOG));
     }
 
     @Test
@@ -193,9 +184,9 @@ public class TestDistributedQueries
     public void testCreateMaterializedView()
             throws Exception
     {
+        // materialized view doesn't seem to work with native tables
         assertQuery(
-                "CREATE MATERIALIZED VIEW test_mview_orders AS SELECT * FROM " +
-                        format("%s.%s.orders", TPCH_CATALOG_NAME, TPCH_SCHEMA_NAME),
+                "CREATE MATERIALIZED VIEW test_mview_orders AS SELECT * FROM tpch.tiny.orders",
                 "SELECT count(*) FROM orders");
 
         // Materialized views have a race condition between writing data to the
@@ -215,7 +206,7 @@ public class TestDistributedQueries
     }
 
     @Override
-    protected void setUpQueryFramework(String catalog, String schema)
+    protected Session setUpQueryFramework()
             throws Exception
     {
         try {
@@ -249,8 +240,10 @@ public class TestDistributedQueries
 
         log.info("Loading data...");
         long startTime = System.nanoTime();
-        distributeData(catalog, schema);
+        distributeData("tpch", TpchMetadata.TINY_SCHEMA_NAME);
         log.info("Loading complete in %s", nanosSince(startTime).toString(SECONDS));
+
+        return SESSION;
     }
 
     private boolean allNodesGloballyVisible()
@@ -295,7 +288,7 @@ public class TestDistributedQueries
     @Override
     protected MaterializedResult computeActual(@Language("SQL") String sql)
     {
-        ClientSession session = new ClientSession(coordinator.getBaseUrl(), "testuser", "test", "default", "default", true);
+        ClientSession session = new ClientSession(coordinator.getBaseUrl(), SESSION.getUser(), SESSION.getSource(), SESSION.getCatalog(), SESSION.getSchema(), true);
 
         try (StatementClient client = new StatementClient(httpClient, queryResultsCodec, session, sql)) {
             AtomicBoolean loggedUri = new AtomicBoolean(false);

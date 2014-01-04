@@ -41,7 +41,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
-import static com.facebook.presto.tpch.TpchMetadata.TPCH_SCHEMA_NAME;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -80,7 +79,7 @@ public abstract class AbstractOperatorBenchmark
     protected BlockIterable getBlockIterable(String tableName, String columnName, BlocksFileEncoding columnEncoding)
     {
         ConnectorMetadata metadata = new TpchMetadata();
-        TableHandle tableHandle = metadata.getTableHandle(new SchemaTableName(TPCH_SCHEMA_NAME, tableName));
+        TableHandle tableHandle = metadata.getTableHandle(new SchemaTableName(TpchMetadata.TINY_SCHEMA_NAME, tableName));
         ColumnHandle columnHandle = metadata.getColumnHandle(tableHandle, columnName);
         checkArgument(columnHandle != null, "Table %s does not have a column %s", tableName, columnName);
         return getTpchBlocksProvider().getBlocks((TpchTableHandle) tableHandle, (TpchColumnHandle) columnHandle, 0, 1, columnEncoding);

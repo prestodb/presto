@@ -82,7 +82,6 @@ import static com.facebook.presto.spi.ColumnType.LONG;
 import static com.facebook.presto.spi.ColumnType.STRING;
 import static com.facebook.presto.sql.parser.SqlParser.createExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static com.facebook.presto.util.LocalQueryRunner.createDualLocalQueryRunner;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -202,7 +201,7 @@ public final class FunctionAssertions
         // If the projection does not need bound values, execute query using full engine
         if (!needsBoundValue(projectionExpression)) {
             try {
-                LocalQueryRunner runner = createDualLocalQueryRunner(session, EXECUTOR);
+                LocalQueryRunner runner = new LocalQueryRunner(session, EXECUTOR);
                 MaterializedResult result = runner.execute("SELECT " + projection + " FROM dual");
                 assertEquals(result.getTupleInfos().size(), 1);
                 assertEquals(result.getMaterializedTuples().size(), 1);
@@ -293,7 +292,7 @@ public final class FunctionAssertions
         // If the filter does not need bound values, execute query using full engine
         if (!needsBoundValue(filterExpression)) {
             try {
-                LocalQueryRunner runner = createDualLocalQueryRunner(session, EXECUTOR);
+                LocalQueryRunner runner = new LocalQueryRunner(session, EXECUTOR);
                 MaterializedResult result = runner.execute("SELECT TRUE FROM dual WHERE " + filter);
                 assertEquals(result.getTupleInfos().size(), 1);
 

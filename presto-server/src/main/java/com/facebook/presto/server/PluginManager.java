@@ -146,23 +146,26 @@ public class PluginManager
         List<Plugin> plugins = ImmutableList.copyOf(serviceLoader);
 
         for (Plugin plugin : plugins) {
-            if (plugin.getClass().isAnnotationPresent(PrestoInternalPlugin.class)) {
-                injector.injectMembers(plugin);
-            }
+            installPlugin(plugin);
+        }
+    }
 
-            plugin.setOptionalConfig(optionalConfig);
+    public void installPlugin(Plugin plugin)
+    {
+        injector.injectMembers(plugin);
 
-            for (ConnectorFactory connectorFactory : plugin.getServices(ConnectorFactory.class)) {
-                connectorManager.addConnectorFactory(connectorFactory);
-            }
+        plugin.setOptionalConfig(optionalConfig);
 
-            for (SystemTable systemTable : plugin.getServices(SystemTable.class)) {
-                systemTablesManager.addTable(systemTable);
-            }
+        for (ConnectorFactory connectorFactory : plugin.getServices(ConnectorFactory.class)) {
+            connectorManager.addConnectorFactory(connectorFactory);
+        }
 
-            for (FunctionFactory functionFactory : plugin.getServices(FunctionFactory.class)) {
-                metadataManager.addFunctions(functionFactory.listFunctions());
-            }
+        for (SystemTable systemTable : plugin.getServices(SystemTable.class)) {
+            systemTablesManager.addTable(systemTable);
+        }
+
+        for (FunctionFactory functionFactory : plugin.getServices(FunctionFactory.class)) {
+            metadataManager.addFunctions(functionFactory.listFunctions());
         }
     }
 

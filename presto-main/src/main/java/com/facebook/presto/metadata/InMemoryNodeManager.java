@@ -42,6 +42,11 @@ public class InMemoryNodeManager
         localNode = new PrestoNode("local", localUri, NodeVersion.UNKNOWN);
     }
 
+    public void addCurrentNodeDatasource(String datasourceName)
+    {
+        addNode(datasourceName, localNode);
+    }
+
     public void addNode(String datasourceName, Node... nodes)
     {
         addNode(datasourceName, ImmutableList.copyOf(nodes));

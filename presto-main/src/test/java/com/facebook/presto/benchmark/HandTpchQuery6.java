@@ -174,7 +174,7 @@ public class HandTpchQuery6
                     !shipDateCursor.isNull() && shipDateCursor.getSlice().compareTo(MAX_SHIP_DATE) < 0 &&
                     !discountCursor.isNull() && discountCursor.getDouble() >= 0.05 &&
                     !discountCursor.isNull() && discountCursor.getDouble() <= 0.07 &&
-                    !quantityCursor.isNull() && quantityCursor.getDouble() < 24;
+                    !quantityCursor.isNull() && quantityCursor.getLong() < 24;
         }
     }
 

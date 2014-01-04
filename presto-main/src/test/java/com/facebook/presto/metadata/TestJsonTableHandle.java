@@ -22,8 +22,6 @@ import com.facebook.presto.connector.system.SystemTableHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.tpch.TpchHandleResolver;
-import com.facebook.presto.tpch.TpchTableHandle;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
@@ -52,9 +50,6 @@ public class TestJsonTableHandle
             "tableName", "native_table",
             "tableId", 1);
 
-    private static final Map<String, Object> TPCH_AS_MAP = ImmutableMap.<String, Object>of("type", "tpch",
-            "tableName", "tpch_table");
-
     private static final Map<String, Object> SYSTEM_AS_MAP = ImmutableMap.<String, Object>of("type", "system",
             "schemaName", "system_schema",
             "tableName", "system_table");
@@ -82,7 +77,6 @@ public class TestJsonTableHandle
                     {
                         MapBinder<String, ConnectorHandleResolver> connectorHandleResolverBinder = MapBinder.newMapBinder(binder, String.class, ConnectorHandleResolver.class);
                         connectorHandleResolverBinder.addBinding("native").to(NativeHandleResolver.class).in(Scopes.SINGLETON);
-                        connectorHandleResolverBinder.addBinding("tpch").to(TpchHandleResolver.class).in(Scopes.SINGLETON);
                         connectorHandleResolverBinder.addBinding("system").to(SystemHandleResolver.class).in(Scopes.SINGLETON);
                         connectorHandleResolverBinder.addBinding("dual").to(DualHandleResolver.class).in(Scopes.SINGLETON);
                         connectorHandleResolverBinder.addBinding("information_schema").to(InformationSchemaHandleResolver.class).in(Scopes.SINGLETON);
@@ -101,17 +95,6 @@ public class TestJsonTableHandle
         assertTrue(objectMapper.canSerialize(NativeTableHandle.class));
         String json = objectMapper.writeValueAsString(nativeHandle);
         testJsonEquals(json, NATIVE_AS_MAP);
-    }
-
-    @Test
-    public void testTpchSerialize()
-            throws Exception
-    {
-        TpchTableHandle tpchHandle = new TpchTableHandle("tpch_table");
-
-        assertTrue(objectMapper.canSerialize(TpchTableHandle.class));
-        String json = objectMapper.writeValueAsString(tpchHandle);
-        testJsonEquals(json, TPCH_AS_MAP);
     }
 
     @Test
@@ -166,19 +149,6 @@ public class TestJsonTableHandle
     }
 
     @Test
-    public void testTpchDeserialize()
-            throws Exception
-    {
-        String json = objectMapper.writeValueAsString(TPCH_AS_MAP);
-
-        TableHandle tableHandle = objectMapper.readValue(json, TableHandle.class);
-        assertEquals(tableHandle.getClass(), TpchTableHandle.class);
-        TpchTableHandle tpchTableHandle = (TpchTableHandle) tableHandle;
-
-        assertEquals(tpchTableHandle.getTableName(), "tpch_table");
-    }
-
-    @Test
     public void testSystemDeserialize()
             throws Exception
     {
@@ -222,9 +192,7 @@ public class TestJsonTableHandle
     private void testJsonEquals(String json, Map<String, Object> expectedMap)
             throws Exception
     {
-        final Map<String, Object> jsonMap = objectMapper.readValue(json, new TypeReference<Map<String, Object>>()
-        {
-        });
+        Map<String, Object> jsonMap = objectMapper.readValue(json, new TypeReference<Map<String, Object>>() {});
         Assertions.assertEqualsIgnoreOrder(jsonMap.entrySet(), expectedMap.entrySet());
     }
 }

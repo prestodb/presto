@@ -15,13 +15,13 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.OutputTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.tpch.TpchColumnHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -84,7 +84,7 @@ public class InMemoryMetadata
     {
         ImmutableMap.Builder<String, ColumnHandle> builder = ImmutableMap.builder();
         for (ColumnMetadata columnMetadata : getTableMetadata(tableHandle).getColumns()) {
-            builder.put(columnMetadata.getName(), new TpchColumnHandle(columnMetadata.getName(), columnMetadata.getOrdinalPosition(), columnMetadata.getType()));
+            builder.put(columnMetadata.getName(), new InMemoryColumnHandle(columnMetadata.getName(), columnMetadata.getOrdinalPosition(), columnMetadata.getType()));
         }
         return builder.build();
     }
@@ -94,7 +94,7 @@ public class InMemoryMetadata
     {
         for (ColumnMetadata columnMetadata : getTableMetadata(tableHandle).getColumns()) {
             if (columnMetadata.getName().equals(columnName)) {
-                return new TpchColumnHandle(columnMetadata.getName(), columnMetadata.getOrdinalPosition(), columnMetadata.getType());
+                return new InMemoryColumnHandle(columnMetadata.getName(), columnMetadata.getOrdinalPosition(), columnMetadata.getType());
             }
         }
         return null;
@@ -122,9 +122,9 @@ public class InMemoryMetadata
     public ColumnMetadata getColumnMetadata(TableHandle tableHandle, ColumnHandle columnHandle)
     {
         SchemaTableName tableName = getTableName(tableHandle);
-        checkArgument(columnHandle instanceof TpchColumnHandle, "columnHandle is not an instance of TpchColumnHandle");
-        TpchColumnHandle tpchColumnHandle = (TpchColumnHandle) columnHandle;
-        int columnIndex = tpchColumnHandle.getFieldIndex();
+        checkArgument(columnHandle instanceof InMemoryColumnHandle, "columnHandle is not an instance of InMemoryColumnHandle");
+        InMemoryColumnHandle inMemoryColumnHandle = (InMemoryColumnHandle) columnHandle;
+        int columnIndex = inMemoryColumnHandle.getOrdinalPosition();
         return tables.get(tableName).getColumns().get(columnIndex);
     }
 
@@ -193,6 +193,36 @@ public class InMemoryMetadata
         public SchemaTableName getTableName()
         {
             return tableName;
+        }
+    }
+
+    public static class InMemoryColumnHandle
+            implements ColumnHandle
+    {
+        private final String name;
+        private final int ordinalPosition;
+        private final ColumnType type;
+
+        public InMemoryColumnHandle(String name, int ordinalPosition, ColumnType type)
+        {
+            this.name = name;
+            this.ordinalPosition = ordinalPosition;
+            this.type = type;
+        }
+
+        public String getName()
+        {
+            return name;
+        }
+
+        public int getOrdinalPosition()
+        {
+            return ordinalPosition;
+        }
+
+        public ColumnType getType()
+        {
+            return type;
         }
     }
 }

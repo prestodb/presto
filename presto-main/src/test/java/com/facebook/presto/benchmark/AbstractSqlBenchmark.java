@@ -13,17 +13,31 @@
  */
 package com.facebook.presto.benchmark;
 
+import com.facebook.presto.connector.StaticConnector;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.NullOutputOperator.NullOutputFactory;
 import com.facebook.presto.operator.TaskContext;
+import com.facebook.presto.spi.Connector;
+import com.facebook.presto.spi.ConnectorFactory;
+import com.facebook.presto.spi.ConnectorHandleResolver;
+import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorSplitManager;
+import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.split.ConnectorDataStreamProvider;
+import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.tpch.TpchBlocksProvider;
+import com.facebook.presto.tpch.TpchDataStreamProvider;
+import com.facebook.presto.tpch.TpchHandleResolver;
+import com.facebook.presto.tpch.TpchMetadata;
+import com.facebook.presto.tpch.TpchSplitManager;
 import com.facebook.presto.util.LocalQueryRunner;
+import com.google.common.collect.ImmutableClassToInstanceMap;
+import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
-
-import static com.facebook.presto.util.LocalQueryRunner.createTpchLocalQueryRunner;
 
 public abstract class AbstractSqlBenchmark
         extends AbstractOperatorBenchmark
@@ -49,5 +63,49 @@ public abstract class AbstractSqlBenchmark
     protected List<Driver> createDrivers(TaskContext taskContext)
     {
         return tpchLocalQueryRunner.createDrivers(query, new NullOutputFactory(), taskContext);
+    }
+
+    public static LocalQueryRunner createTpchLocalQueryRunner(TpchBlocksProvider tpchBlocksProvider, ExecutorService executor)
+    {
+        return createTpchLocalQueryRunner(new Session("user", "test", "tpch", "tiny", null, null), tpchBlocksProvider, executor);
+    }
+
+    public static LocalQueryRunner createTpchLocalQueryRunner(Session session, TpchBlocksProvider tpchBlocksProvider, ExecutorService executor)
+    {
+        LocalQueryRunner localQueryRunner = new LocalQueryRunner(session, executor);
+        BenchmarkConnectorFactory connectorFactory = new BenchmarkConnectorFactory(localQueryRunner.getNodeManager(), tpchBlocksProvider);
+        localQueryRunner.createCatalog(session.getCatalog(), connectorFactory, ImmutableMap.<String, String>of());
+        return localQueryRunner;
+    }
+
+    public static class BenchmarkConnectorFactory
+            implements ConnectorFactory
+    {
+        private final NodeManager nodeManager;
+        private final TpchBlocksProvider tpchBlocksProvider;
+
+        public BenchmarkConnectorFactory(NodeManager nodeManager, TpchBlocksProvider tpchBlocksProvider)
+        {
+            this.nodeManager = nodeManager;
+            this.tpchBlocksProvider = tpchBlocksProvider;
+        }
+
+        @Override
+        public String getName()
+        {
+            return "benchmark";
+        }
+
+        @Override
+        public Connector create(String connectorId, Map<String, String> config)
+        {
+            ImmutableClassToInstanceMap.Builder<Object> builder = ImmutableClassToInstanceMap.builder();
+            builder.put(ConnectorMetadata.class, new TpchMetadata());
+            builder.put(ConnectorSplitManager.class, new TpchSplitManager(connectorId, nodeManager, 1));
+            builder.put(ConnectorDataStreamProvider.class, new TpchDataStreamProvider(tpchBlocksProvider));
+            builder.put(ConnectorHandleResolver.class, new TpchHandleResolver());
+
+            return new StaticConnector(builder.build());
+        }
     }
 }

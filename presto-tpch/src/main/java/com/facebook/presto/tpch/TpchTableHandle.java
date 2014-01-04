@@ -18,17 +18,21 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
 
-import static com.facebook.presto.metadata.MetadataUtil.checkTableName;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class TpchTableHandle
         implements TableHandle
 {
     private final String tableName;
+    private final double scaleFactor;
 
     @JsonCreator
-    public TpchTableHandle(@JsonProperty("tableName") String tableName)
+    public TpchTableHandle(@JsonProperty("tableName") String tableName, @JsonProperty("scaleFactor") double scaleFactor)
     {
-        this.tableName = checkTableName(tableName);
+        this.tableName = checkNotNull(tableName, "tableName is null");
+        checkArgument(scaleFactor > 0, "Scale factor must be larger than 0");
+        this.scaleFactor = scaleFactor;
     }
 
     @JsonProperty
@@ -37,16 +41,22 @@ public class TpchTableHandle
         return tableName;
     }
 
+    @JsonProperty
+    public double getScaleFactor()
+    {
+        return scaleFactor;
+    }
+
     @Override
     public String toString()
     {
-        return "tpch:" + tableName;
+        return "tpch:" + tableName + ":sf" + scaleFactor;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(tableName);
+        return Objects.hashCode(tableName, scaleFactor);
     }
 
     @Override
@@ -58,7 +68,8 @@ public class TpchTableHandle
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final TpchTableHandle other = (TpchTableHandle) obj;
-        return Objects.equal(this.tableName, other.tableName);
+        TpchTableHandle other = (TpchTableHandle) obj;
+        return Objects.equal(this.tableName, other.tableName) &&
+                Objects.equal(this.scaleFactor, other.scaleFactor);
     }
 }

@@ -15,6 +15,7 @@ package com.facebook.presto.util;
 
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
+import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.dual.DualDataStreamProvider;
 import com.facebook.presto.connector.dual.DualMetadata;
 import com.facebook.presto.connector.dual.DualSplitManager;
@@ -28,10 +29,12 @@ import com.facebook.presto.connector.system.SystemTablesManager;
 import com.facebook.presto.connector.system.SystemTablesMetadata;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.importer.MockPeriodicImportManager;
+import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.LocalStorageManager;
-import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.MockLocalStorageManager;
+import com.facebook.presto.metadata.OutputTableHandleResolver;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.DriverFactory;
@@ -42,6 +45,8 @@ import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.RecordSinkManager;
 import com.facebook.presto.operator.TaskContext;
+import com.facebook.presto.spi.Connector;
+import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.PartitionResult;
@@ -50,7 +55,6 @@ import com.facebook.presto.spi.SplitSource;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.split.DataStreamManager;
-import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
@@ -72,14 +76,11 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.storage.MockStorageManager;
-import com.facebook.presto.tpch.TpchBlocksProvider;
-import com.facebook.presto.tpch.TpchDataStreamProvider;
-import com.facebook.presto.tpch.TpchMetadata;
-import com.facebook.presto.tpch.TpchSplitManager;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.node.NodeConfig;
 import io.airlift.node.NodeInfo;
@@ -92,55 +93,105 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.metadata.MockLocalStorageManager.createMockLocalStorageManager;
-import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
-import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
 import static com.facebook.presto.sql.parser.TreeAssertions.assertFormattedSql;
-import static com.facebook.presto.tpch.TpchMetadata.TPCH_CATALOG_NAME;
-import static com.facebook.presto.tpch.TpchMetadata.TPCH_SCHEMA_NAME;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static org.testng.Assert.assertTrue;
 
 public class LocalQueryRunner
 {
-    private final Metadata metadata;
-    private final SplitManager splitManager;
-    private final DataStreamProvider dataStreamProvider;
-    private final LocalStorageManager storageManager;
-    private final RecordSinkManager recordSinkManager;
     private final Session session;
     private final ExecutorService executor;
+
+    private final InMemoryNodeManager nodeManager;
+    private final MetadataManager metadata;
+    private final SplitManager splitManager;
+    private final DataStreamManager dataStreamProvider;
+    private final LocalStorageManager storageManager;
+    private final RecordSinkManager recordSinkManager;
+
     private final ExpressionCompiler compiler;
+    private final ConnectorManager connectorManager;
+
     private boolean printPlan;
 
-    public LocalQueryRunner(Metadata metadata,
-            SplitManager splitManager,
-            DataStreamProvider dataStreamProvider,
-            LocalStorageManager storageManager,
-            RecordSinkManager recordSinkManager,
-            Session session,
-            ExecutorService executor)
+    public LocalQueryRunner(Session session, ExecutorService executor)
     {
-        this.metadata = checkNotNull(metadata, "metadata is null");
-        this.splitManager = checkNotNull(splitManager, "splitManager is null");
-        this.dataStreamProvider = checkNotNull(dataStreamProvider, "dataStreamProvider is null");
-        this.storageManager = checkNotNull(storageManager, "storageManager is null");
-        this.recordSinkManager = checkNotNull(recordSinkManager, "recordSinkManager is null");
         this.session = checkNotNull(session, "session is null");
         this.executor = checkNotNull(executor, "executor is null");
+
+        this.nodeManager = new InMemoryNodeManager();
+        this.metadata = new MetadataManager();
+        this.splitManager = new SplitManager(ImmutableSet.<ConnectorSplitManager>of());
+        this.dataStreamProvider = new DataStreamManager();
+        this.recordSinkManager = new RecordSinkManager();
+        this.storageManager = MockLocalStorageManager.createMockLocalStorageManager();
+
         this.compiler = new ExpressionCompiler(metadata);
+
+        this.connectorManager = new ConnectorManager(
+                metadata,
+                splitManager,
+                dataStreamProvider,
+                recordSinkManager,
+                new HandleResolver(),
+                new OutputTableHandleResolver(),
+                ImmutableMap.<String, ConnectorFactory>of(),
+                ImmutableMap.<String, Connector>of());
+
+        // information schema
+        splitManager.addConnectorSplitManager(new InformationSchemaSplitManager(nodeManager));
+        dataStreamProvider.addConnectorDataStreamProvider(new InformationSchemaDataStreamProvider(metadata, splitManager));
+
+        // dual table
+        metadata.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, new DualMetadata());
+        splitManager.addConnectorSplitManager(new DualSplitManager(nodeManager));
+        dataStreamProvider.addConnectorDataStreamProvider(new DualDataStreamProvider());
+
+        // sys schema
+        SystemTablesMetadata systemTablesMetadata = new SystemTablesMetadata();
+        metadata.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, systemTablesMetadata);
+
+        SystemSplitManager systemSplitManager = new SystemSplitManager(nodeManager);
+        splitManager.addConnectorSplitManager(systemSplitManager);
+
+        SystemDataStreamProvider systemDataStreamProvider = new SystemDataStreamProvider();
+        dataStreamProvider.addConnectorDataStreamProvider(systemDataStreamProvider);
+
+        SystemTablesManager systemTablesManager = new SystemTablesManager(systemTablesMetadata, systemSplitManager, systemDataStreamProvider, ImmutableSet.<SystemTable>of());
+
+        // sys.node
+        systemTablesManager.addTable(new NodesSystemTable(nodeManager));
+
+        // sys.catalog
+        systemTablesManager.addTable(new CatalogSystemTable(metadata));
+    }
+
+    public InMemoryNodeManager getNodeManager()
+    {
+        return nodeManager;
+    }
+
+    public MetadataManager getMetadata()
+    {
+        return metadata;
+    }
+
+    public ExecutorService getExecutor()
+    {
+        return executor;
+    }
+
+    public void createCatalog(String catalogName, ConnectorFactory connectorFactory, Map<String, String> properties)
+    {
+        nodeManager.addCurrentNodeDatasource(catalogName);
+        connectorManager.createConnection(catalogName, connectorFactory, properties);
     }
 
     public LocalQueryRunner printPlan()
     {
         printPlan = true;
         return this;
-    }
-
-    public Metadata getMetadata()
-    {
-        return metadata;
     }
 
     private static class MaterializedOutputFactory
@@ -310,98 +361,5 @@ public class LocalQueryRunner
         // Otherwise return all partitions
         PartitionResult matchingPartitions = splitManager.getPartitions(node.getTable(), Optional.<TupleDomain>absent());
         return matchingPartitions.getPartitions();
-    }
-
-    public static LocalQueryRunner createDualLocalQueryRunner(ExecutorService executor)
-    {
-        return createDualLocalQueryRunner(new Session("user", "test", DEFAULT_CATALOG, DEFAULT_SCHEMA, null, null), executor);
-    }
-
-    public static LocalQueryRunner createDualLocalQueryRunner(Session session, ExecutorService executor)
-    {
-        InMemoryNodeManager nodeManager = new InMemoryNodeManager();
-
-        MetadataManager metadataManager = new MetadataManager();
-        SplitManager splitManager = new SplitManager(ImmutableSet.<ConnectorSplitManager>of());
-        DataStreamManager dataStreamManager = new DataStreamManager();
-        RecordSinkManager recordSinkManager = new RecordSinkManager();
-
-        addDual(nodeManager, metadataManager, splitManager, dataStreamManager);
-        addInformationSchema(nodeManager, metadataManager, splitManager, dataStreamManager);
-
-        return new LocalQueryRunner(metadataManager, splitManager, dataStreamManager, createMockLocalStorageManager(), recordSinkManager, session, executor);
-    }
-
-    public static LocalQueryRunner createTpchLocalQueryRunner(ExecutorService executor)
-    {
-        return createTpchLocalQueryRunner(new Session("user", "test", TPCH_CATALOG_NAME, TPCH_SCHEMA_NAME, null, null), executor);
-    }
-
-    public static LocalQueryRunner createTpchLocalQueryRunner(Session session, ExecutorService executor)
-    {
-        return createTpchLocalQueryRunner(session, new InMemoryTpchBlocksProvider(), executor);
-    }
-
-    public static LocalQueryRunner createTpchLocalQueryRunner(TpchBlocksProvider tpchBlocksProvider, ExecutorService executor)
-    {
-        return createTpchLocalQueryRunner(new Session("user", "test", TPCH_CATALOG_NAME, TPCH_SCHEMA_NAME, null, null), tpchBlocksProvider, executor);
-    }
-
-    public static LocalQueryRunner createTpchLocalQueryRunner(Session session, TpchBlocksProvider tpchBlocksProvider, ExecutorService executor)
-    {
-        InMemoryNodeManager nodeManager = new InMemoryNodeManager();
-
-        MetadataManager metadataManager = new MetadataManager();
-        SplitManager splitManager = new SplitManager(ImmutableSet.<ConnectorSplitManager>of());
-        DataStreamManager dataStreamManager = new DataStreamManager();
-        RecordSinkManager recordSinkManager = new RecordSinkManager();
-
-        addDual(nodeManager, metadataManager, splitManager, dataStreamManager);
-        addSystem(nodeManager, metadataManager, splitManager, dataStreamManager);
-        addInformationSchema(nodeManager, metadataManager, splitManager, dataStreamManager);
-        addTpch(nodeManager, metadataManager, splitManager, dataStreamManager, tpchBlocksProvider);
-
-        return new LocalQueryRunner(metadataManager, splitManager, dataStreamManager, createMockLocalStorageManager(), recordSinkManager, session, executor);
-    }
-
-    private static void addSystem(InMemoryNodeManager nodeManager, MetadataManager metadataManager, SplitManager splitManager, DataStreamManager dataStreamManager)
-    {
-        SystemTablesMetadata systemTablesMetadata = new SystemTablesMetadata();
-        metadataManager.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, systemTablesMetadata);
-
-        SystemSplitManager systemSplitManager = new SystemSplitManager(nodeManager);
-        splitManager.addConnectorSplitManager(systemSplitManager);
-
-        SystemDataStreamProvider systemDataStreamProvider = new SystemDataStreamProvider();
-        dataStreamManager.addConnectorDataStreamProvider(systemDataStreamProvider);
-
-        SystemTablesManager systemTablesManager = new SystemTablesManager(systemTablesMetadata, systemSplitManager, systemDataStreamProvider, ImmutableSet.<SystemTable>of());
-
-        systemTablesManager.addTable(new NodesSystemTable(nodeManager));
-        systemTablesManager.addTable(new CatalogSystemTable(metadataManager));
-    }
-
-    private static void addTpch(InMemoryNodeManager nodeManager,
-            MetadataManager metadataManager,
-            SplitManager splitManager,
-            DataStreamManager dataStreamManager,
-            TpchBlocksProvider tpchBlocksProvider)
-    {
-        metadataManager.addConnectorMetadata(TPCH_CATALOG_NAME, TPCH_CATALOG_NAME, new TpchMetadata());
-        splitManager.addConnectorSplitManager(new TpchSplitManager("tpch", nodeManager));
-        dataStreamManager.addConnectorDataStreamProvider(new TpchDataStreamProvider(tpchBlocksProvider));
-    }
-
-    private static void addInformationSchema(InMemoryNodeManager nodeManager, MetadataManager metadataManager, SplitManager splitManager, DataStreamManager dataStreamManager)
-    {
-        splitManager.addConnectorSplitManager(new InformationSchemaSplitManager(nodeManager));
-        dataStreamManager.addConnectorDataStreamProvider(new InformationSchemaDataStreamProvider(metadataManager, splitManager));
-    }
-
-    private static void addDual(InMemoryNodeManager nodeManager, MetadataManager metadataManager, SplitManager splitManager, DataStreamManager dataStreamManager)
-    {
-        metadataManager.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, new DualMetadata());
-        splitManager.addConnectorSplitManager(new DualSplitManager(nodeManager));
-        dataStreamManager.addConnectorDataStreamProvider(new DualDataStreamProvider());
     }
 }
