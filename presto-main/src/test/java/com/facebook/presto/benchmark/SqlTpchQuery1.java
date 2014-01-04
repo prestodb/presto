@@ -13,19 +13,20 @@
  */
 package com.facebook.presto.benchmark;
 
-import com.facebook.presto.tpch.TpchBlocksProvider;
+import com.facebook.presto.util.LocalQueryRunner;
 
 import java.util.concurrent.ExecutorService;
 
+import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class SqlTpchQuery1
         extends AbstractSqlBenchmark
 {
-    public SqlTpchQuery1(ExecutorService executor, TpchBlocksProvider tpchBlocksProvider)
+    public SqlTpchQuery1(LocalQueryRunner localQueryRunner)
     {
-        super(executor, tpchBlocksProvider, "sql_tpch_query_1", 1, 5, "" +
+        super(localQueryRunner, "sql_tpch_query_1", 1, 5, "" +
                 "select\n" +
                 "    returnflag,\n" +
                 "    linestatus,\n" +
@@ -52,6 +53,6 @@ public class SqlTpchQuery1
     public static void main(String[] args)
     {
         ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        new SqlTpchQuery1(executor, DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));
+        new SqlTpchQuery1(createLocalQueryRunner(executor)).runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));
     }
 }

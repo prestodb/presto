@@ -35,6 +35,7 @@ import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.MockLocalStorageManager;
 import com.facebook.presto.metadata.OutputTableHandleResolver;
+import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.DriverFactory;
@@ -45,6 +46,8 @@ import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.RecordSinkManager;
 import com.facebook.presto.operator.TaskContext;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorSplitManager;
@@ -53,6 +56,7 @@ import com.facebook.presto.spi.PartitionResult;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.SplitSource;
 import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.split.DataStreamManager;
 import com.facebook.presto.split.SplitManager;
@@ -82,6 +86,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import io.airlift.node.NodeConfig;
 import io.airlift.node.NodeInfo;
 import org.intellij.lang.annotations.Language;
@@ -94,6 +99,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.sql.parser.TreeAssertions.assertFormattedSql;
+import static com.facebook.presto.tuple.TupleInfo.Type.fromColumnType;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static org.testng.Assert.assertTrue;
@@ -361,5 +368,64 @@ public class LocalQueryRunner
         // Otherwise return all partitions
         PartitionResult matchingPartitions = splitManager.getPartitions(node.getTable(), Optional.<TupleDomain>absent());
         return matchingPartitions.getPartitions();
+    }
+
+    public OperatorFactory createTableScanOperator(final int operatorId, String tableName, String... columnNames)
+    {
+        // look up the table
+        TableHandle tableHandle = metadata.getTableHandle(new QualifiedTableName(session.getCatalog(), session.getSchema(), tableName)).orNull();
+        checkArgument(tableHandle != null, "Table %s does not exist", tableName);
+
+        // lookup the columns
+        ImmutableList.Builder<ColumnHandle> columnHandlesBuilder = ImmutableList.builder();
+        ImmutableList.Builder<TupleInfo> columnTypesBuilder = ImmutableList.builder();
+        for (String columnName : columnNames) {
+            ColumnHandle columnHandle = metadata.getColumnHandle(tableHandle, columnName).orNull();
+            checkArgument(columnHandle != null, "Table %s does not have a column %s", tableName, columnName);
+            columnHandlesBuilder.add(columnHandle);
+            ColumnMetadata columnMetadata = metadata.getColumnMetadata(tableHandle, columnHandle);
+            columnTypesBuilder.add(new TupleInfo(fromColumnType(columnMetadata.getType())));
+        }
+        final List<ColumnHandle> columnHandles = columnHandlesBuilder.build();
+        final List<TupleInfo> columnTypes = columnTypesBuilder.build();
+
+        // get the split for this table
+        final Split split = getLocalQuerySplit(tableHandle);
+
+        return new OperatorFactory()
+        {
+            @Override
+            public List<TupleInfo> getTupleInfos()
+            {
+                return columnTypes;
+            }
+
+            @Override
+            public Operator createOperator(DriverContext driverContext)
+            {
+                OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, "BenchmarkSource");
+                return dataStreamProvider.createNewDataStream(operatorContext, split, columnHandles);
+            }
+
+            @Override
+            public void close()
+            {
+            }
+        };
+    }
+
+    private Split getLocalQuerySplit(TableHandle tableHandle)
+    {
+        try {
+            List<Partition> partitions = splitManager.getPartitions(tableHandle, Optional.<TupleDomain>absent()).getPartitions();
+            SplitSource splitSource = splitManager.getPartitionSplits(tableHandle, partitions);
+            Split split = Iterables.getOnlyElement(splitSource.getNextBatch(1000));
+            checkState(splitSource.isFinished(), "Expected only one split for a local query");
+            return split;
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw Throwables.propagate(e);
+        }
     }
 }

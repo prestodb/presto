@@ -13,24 +13,25 @@
  */
 package com.facebook.presto.benchmark;
 
-import com.facebook.presto.tpch.TpchBlocksProvider;
+import com.facebook.presto.util.LocalQueryRunner;
 
 import java.util.concurrent.ExecutorService;
 
+import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class SqlRegexpLikeBenchmark
         extends AbstractSqlBenchmark
 {
-    public SqlRegexpLikeBenchmark(ExecutorService executor, TpchBlocksProvider tpchBlocksProvider)
+    public SqlRegexpLikeBenchmark(LocalQueryRunner localQueryRunner)
     {
-        super(executor, tpchBlocksProvider, "sql_regexp_like", 4, 5, "SELECT count(*) FROM orders WHERE regexp_like(comment, '\\b[a-z]{5}ly\\b')");
+        super(localQueryRunner, "sql_regexp_like", 4, 5, "SELECT count(*) FROM orders WHERE regexp_like(comment, '\\b[a-z]{5}ly\\b')");
     }
 
     public static void main(String[] args)
     {
         ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        new SqlRegexpLikeBenchmark(executor, DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));
+        new SqlRegexpLikeBenchmark(createLocalQueryRunner(executor)).runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));
     }
 }

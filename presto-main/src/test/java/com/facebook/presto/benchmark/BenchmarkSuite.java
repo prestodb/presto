@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.benchmark;
 
-import com.facebook.presto.tpch.TpchBlocksProvider;
+import com.facebook.presto.util.LocalQueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
 import io.airlift.log.Logger;
@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
+import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -34,58 +35,60 @@ public class BenchmarkSuite
 {
     private static final Logger LOGGER = Logger.get(BenchmarkSuite.class);
 
-    public static List<AbstractBenchmark> createBenchmarks(ExecutorService executor, TpchBlocksProvider tpchBlocksProvider)
+    public static List<AbstractBenchmark> createBenchmarks(ExecutorService executor)
     {
+        LocalQueryRunner localQueryRunner = createLocalQueryRunner(executor);
+
         return ImmutableList.<AbstractBenchmark>of(
                 // hand built benchmarks
-                new CountAggregationBenchmark(executor, tpchBlocksProvider),
-                new DoubleSumAggregationBenchmark(executor, tpchBlocksProvider),
-                new HashAggregationBenchmark(executor, tpchBlocksProvider),
-                new PredicateFilterBenchmark(executor, tpchBlocksProvider),
-                new RawStreamingBenchmark(executor, tpchBlocksProvider),
-                new Top100Benchmark(executor, tpchBlocksProvider),
-                new OrderByBenchmark(executor, tpchBlocksProvider),
-                new HashBuildBenchmark(executor, tpchBlocksProvider),
-                new HashJoinBenchmark(executor, tpchBlocksProvider),
-                new HashBuildAndJoinBenchmark(executor, tpchBlocksProvider),
-                new HandTpchQuery1(executor, tpchBlocksProvider),
-                new HandTpchQuery6(executor, tpchBlocksProvider),
+                new CountAggregationBenchmark(localQueryRunner),
+                new DoubleSumAggregationBenchmark(localQueryRunner),
+                new HashAggregationBenchmark(localQueryRunner),
+                new PredicateFilterBenchmark(localQueryRunner),
+                new RawStreamingBenchmark(localQueryRunner),
+                new Top100Benchmark(localQueryRunner),
+                new OrderByBenchmark(localQueryRunner),
+                new HashBuildBenchmark(localQueryRunner),
+                new HashJoinBenchmark(localQueryRunner),
+                new HashBuildAndJoinBenchmark(localQueryRunner),
+                new HandTpchQuery1(localQueryRunner),
+                new HandTpchQuery6(localQueryRunner),
 
                 // sql benchmarks
-                new GroupBySumWithArithmeticSqlBenchmark(executor, tpchBlocksProvider),
-                new CountAggregationSqlBenchmark(executor, tpchBlocksProvider),
-                new SqlDoubleSumAggregationBenchmark(executor, tpchBlocksProvider),
-                new CountWithFilterSqlBenchmark(executor, tpchBlocksProvider),
-                new GroupByAggregationSqlBenchmark(executor, tpchBlocksProvider),
-                new PredicateFilterSqlBenchmark(executor, tpchBlocksProvider),
-                new RawStreamingSqlBenchmark(executor, tpchBlocksProvider),
-                new Top100SqlBenchmark(executor, tpchBlocksProvider),
-                new SqlHashJoinBenchmark(executor, tpchBlocksProvider),
-                new SqlJoinWithPredicateBenchmark(executor, tpchBlocksProvider),
-                new VarBinaryMaxAggregationSqlBenchmark(executor, tpchBlocksProvider),
-                new SqlDistinctMultipleFields(executor, tpchBlocksProvider),
-                new SqlDistinctSingleField(executor, tpchBlocksProvider),
-                new SqlTpchQuery1(executor, tpchBlocksProvider),
-                new SqlTpchQuery6(executor, tpchBlocksProvider),
-                new SqlLikeBenchmark(executor, tpchBlocksProvider),
-                new SqlInBenchmark(executor, tpchBlocksProvider),
-                new SqlSemiJoinInPredicateBenchmark(executor, tpchBlocksProvider),
-                new SqlRegexpLikeBenchmark(executor, tpchBlocksProvider),
-                new SqlApproximatePercentileBenchmark(executor, tpchBlocksProvider),
+                new GroupBySumWithArithmeticSqlBenchmark(localQueryRunner),
+                new CountAggregationSqlBenchmark(localQueryRunner),
+                new SqlDoubleSumAggregationBenchmark(localQueryRunner),
+                new CountWithFilterSqlBenchmark(localQueryRunner),
+                new GroupByAggregationSqlBenchmark(localQueryRunner),
+                new PredicateFilterSqlBenchmark(localQueryRunner),
+                new RawStreamingSqlBenchmark(localQueryRunner),
+                new Top100SqlBenchmark(localQueryRunner),
+                new SqlHashJoinBenchmark(localQueryRunner),
+                new SqlJoinWithPredicateBenchmark(localQueryRunner),
+                new VarBinaryMaxAggregationSqlBenchmark(localQueryRunner),
+                new SqlDistinctMultipleFields(localQueryRunner),
+                new SqlDistinctSingleField(localQueryRunner),
+                new SqlTpchQuery1(localQueryRunner),
+                new SqlTpchQuery6(localQueryRunner),
+                new SqlLikeBenchmark(localQueryRunner),
+                new SqlInBenchmark(localQueryRunner),
+                new SqlSemiJoinInPredicateBenchmark(localQueryRunner),
+                new SqlRegexpLikeBenchmark(localQueryRunner),
+                new SqlApproximatePercentileBenchmark(localQueryRunner),
 
                 // statistics benchmarks
-                new StatisticsBenchmark.LongVarianceBenchmark(executor, tpchBlocksProvider),
-                new StatisticsBenchmark.LongVariancePopBenchmark(executor, tpchBlocksProvider),
-                new StatisticsBenchmark.DoubleVarianceBenchmark(executor, tpchBlocksProvider),
-                new StatisticsBenchmark.DoubleVariancePopBenchmark(executor, tpchBlocksProvider),
-                new StatisticsBenchmark.LongStdDevBenchmark(executor, tpchBlocksProvider),
-                new StatisticsBenchmark.LongStdDevPopBenchmark(executor, tpchBlocksProvider),
-                new StatisticsBenchmark.DoubleStdDevBenchmark(executor, tpchBlocksProvider),
-                new StatisticsBenchmark.DoubleStdDevPopBenchmark(executor, tpchBlocksProvider),
+                new StatisticsBenchmark.LongVarianceBenchmark(localQueryRunner),
+                new StatisticsBenchmark.LongVariancePopBenchmark(localQueryRunner),
+                new StatisticsBenchmark.DoubleVarianceBenchmark(localQueryRunner),
+                new StatisticsBenchmark.DoubleVariancePopBenchmark(localQueryRunner),
+                new StatisticsBenchmark.LongStdDevBenchmark(localQueryRunner),
+                new StatisticsBenchmark.LongStdDevPopBenchmark(localQueryRunner),
+                new StatisticsBenchmark.DoubleStdDevBenchmark(localQueryRunner),
+                new StatisticsBenchmark.DoubleStdDevPopBenchmark(localQueryRunner),
 
-                new SqlApproximateCountDistinctLongBenchmark(executor, tpchBlocksProvider),
-                new SqlApproximateCountDistinctDoubleBenchmark(executor, tpchBlocksProvider),
-                new SqlApproximateCountDistinctVarBinaryBenchmark(executor, tpchBlocksProvider)
+                new SqlApproximateCountDistinctLongBenchmark(localQueryRunner),
+                new SqlApproximateCountDistinctDoubleBenchmark(localQueryRunner),
+                new SqlApproximateCountDistinctVarBinaryBenchmark(localQueryRunner)
         );
     }
 
@@ -109,7 +112,7 @@ public class BenchmarkSuite
     {
         ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test"));
         try {
-            List<AbstractBenchmark> benchmarks = createBenchmarks(executor, AbstractOperatorBenchmark.DEFAULT_TPCH_BLOCKS_PROVIDER);
+            List<AbstractBenchmark> benchmarks = createBenchmarks(executor);
 
             LOGGER.info("=== Pre-running all benchmarks for JVM warmup ===");
             for (AbstractBenchmark benchmark : benchmarks) {

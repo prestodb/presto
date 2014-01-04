@@ -13,27 +13,16 @@
  */
 package com.facebook.presto.benchmark;
 
-import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskStateMachine;
 import com.facebook.presto.operator.Driver;
+import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskStats;
-import com.facebook.presto.serde.BlocksFileEncoding;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorMetadata;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.tpch.CachingTpchDataFileLoader;
-import com.facebook.presto.tpch.DataFileTpchBlocksProvider;
-import com.facebook.presto.tpch.GeneratingTpchDataFileLoader;
-import com.facebook.presto.tpch.TpchBlocksProvider;
-import com.facebook.presto.tpch.TpchColumnHandle;
-import com.facebook.presto.tpch.TpchMetadata;
-import com.facebook.presto.tpch.TpchTableHandle;
 import com.facebook.presto.util.CpuTimer;
 import com.facebook.presto.util.CpuTimer.CpuDuration;
+import com.facebook.presto.util.LocalQueryRunner;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 
@@ -41,7 +30,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -54,35 +42,21 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public abstract class AbstractOperatorBenchmark
         extends AbstractBenchmark
 {
-    public static final TpchBlocksProvider DEFAULT_TPCH_BLOCKS_PROVIDER = new DataFileTpchBlocksProvider(new CachingTpchDataFileLoader(new GeneratingTpchDataFileLoader()));
-
-    private final ExecutorService executor;
-    private final TpchBlocksProvider tpchBlocksProvider;
+    protected final LocalQueryRunner localQueryRunner;
 
     protected AbstractOperatorBenchmark(
-            ExecutorService executor,
-            TpchBlocksProvider tpchBlocksProvider,
+            LocalQueryRunner localQueryRunner,
             String benchmarkName,
             int warmupIterations,
             int measuredIterations)
     {
         super(benchmarkName, warmupIterations, measuredIterations);
-        this.executor = checkNotNull(executor, "executor is null");
-        this.tpchBlocksProvider = checkNotNull(tpchBlocksProvider, "tpchBlocksProvider is null");
+        this.localQueryRunner = checkNotNull(localQueryRunner, "localQueryRunner is null");
     }
 
-    protected TpchBlocksProvider getTpchBlocksProvider()
+    protected OperatorFactory createTableScanOperator(int operatorId, String tableName, String... columnNames)
     {
-        return tpchBlocksProvider;
-    }
-
-    protected BlockIterable getBlockIterable(String tableName, String columnName, BlocksFileEncoding columnEncoding)
-    {
-        ConnectorMetadata metadata = new TpchMetadata();
-        TableHandle tableHandle = metadata.getTableHandle(new SchemaTableName(TpchMetadata.TINY_SCHEMA_NAME, tableName));
-        ColumnHandle columnHandle = metadata.getColumnHandle(tableHandle, columnName);
-        checkArgument(columnHandle != null, "Table %s does not have a column %s", tableName, columnName);
-        return getTpchBlocksProvider().getBlocks((TpchTableHandle) tableHandle, (TpchColumnHandle) columnHandle, 0, 1, columnEncoding);
+        return localQueryRunner.createTableScanOperator(operatorId, tableName, columnNames);
     }
 
     protected abstract List<Driver> createDrivers(TaskContext taskContext);
@@ -108,6 +82,7 @@ public abstract class AbstractOperatorBenchmark
     protected Map<String, Long> runOnce()
     {
         Session session = new Session("user", "source", "catalog", "schema", "address", "agent");
+        ExecutorService executor = localQueryRunner.getExecutor();
         TaskContext taskContext = new TaskContext(
                 new TaskStateMachine(new TaskId("query", "stage", "task"), executor),
                 executor,

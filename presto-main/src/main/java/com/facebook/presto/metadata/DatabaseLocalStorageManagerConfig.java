@@ -25,6 +25,7 @@ public class DatabaseLocalStorageManagerConfig
 {
     private File dataDirectory = new File("var/data");
     private int tasksPerNode = 32;
+    private boolean compressed = true;
 
     @NotNull
     public File getDataDirectory()
@@ -51,6 +52,20 @@ public class DatabaseLocalStorageManagerConfig
     public DatabaseLocalStorageManagerConfig setTasksPerNode(int tasksPerNode)
     {
         this.tasksPerNode = tasksPerNode;
+        return this;
+    }
+
+    @Deprecated
+    public boolean isCompressed()
+    {
+        return compressed;
+    }
+
+    @Deprecated
+    @Config("storage-manager.compress")
+    public DatabaseLocalStorageManagerConfig setCompressed(boolean compressed)
+    {
+        this.compressed = compressed;
         return this;
     }
 }

@@ -13,24 +13,25 @@
  */
 package com.facebook.presto.benchmark;
 
-import com.facebook.presto.tpch.TpchBlocksProvider;
+import com.facebook.presto.util.LocalQueryRunner;
 
 import java.util.concurrent.ExecutorService;
 
+import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class SqlApproximateCountDistinctDoubleBenchmark
         extends AbstractSqlBenchmark
 {
-    public SqlApproximateCountDistinctDoubleBenchmark(ExecutorService executor, TpchBlocksProvider tpchBlocksProvider)
+    public SqlApproximateCountDistinctDoubleBenchmark(LocalQueryRunner localQueryRunner)
     {
-        super(executor, tpchBlocksProvider, "sql_approx_count_distinct_double", 10, 50, "select approx_distinct(totalprice) from orders");
+        super(localQueryRunner, "sql_approx_count_distinct_double", 10, 50, "select approx_distinct(totalprice) from orders");
     }
 
     public static void main(String[] args)
     {
         ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        new SqlApproximateCountDistinctDoubleBenchmark(executor, DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));
+        new SqlApproximateCountDistinctDoubleBenchmark(createLocalQueryRunner(executor)).runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));
     }
 }

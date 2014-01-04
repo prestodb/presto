@@ -37,8 +37,13 @@ public class NativeRecordSinkProvider
     @Inject
     public NativeRecordSinkProvider(LocalStorageManager storageManager, NodeInfo nodeInfo)
     {
+        this(storageManager, checkNotNull(nodeInfo, "nodeInfo is null").getNodeId());
+    }
+
+    public NativeRecordSinkProvider(LocalStorageManager storageManager, String nodeId)
+    {
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
-        nodeId = checkNotNull(nodeInfo, "nodeInfo is null").getNodeId();
+        this.nodeId = checkNotNull(nodeId, "nodeId is null");
     }
 
     @Override
