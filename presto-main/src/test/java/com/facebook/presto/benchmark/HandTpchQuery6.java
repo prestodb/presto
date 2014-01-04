@@ -16,19 +16,16 @@ package com.facebook.presto.benchmark;
 import com.facebook.presto.benchmark.HandTpchQuery6.TpchQuery6Operator.TpchQuery6OperatorFactory;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
-import com.facebook.presto.operator.AlignmentOperator.AlignmentOperatorFactory;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.PageBuilder;
-import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.tree.Input;
-import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.util.LocalQueryRunner;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -36,6 +33,7 @@ import io.airlift.slice.Slices;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 
+import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
 import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUBLE_SUM;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
@@ -46,9 +44,9 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 public class HandTpchQuery6
         extends AbstractSimpleOperatorBenchmark
 {
-    public HandTpchQuery6(ExecutorService executor, TpchBlocksProvider tpchBlocksProvider)
+    public HandTpchQuery6(LocalQueryRunner localQueryRunner)
     {
-        super(executor, tpchBlocksProvider, "hand_tpch_query_6", 10, 100);
+        super(localQueryRunner, "hand_tpch_query_6", 10, 100);
     }
 
     @Override
@@ -61,13 +59,7 @@ public class HandTpchQuery6
         //    and discount >= 0.05
         //    and discount <= 0.07
         //    and quantity < 24;
-
-        BlockIterable extendedPrice = getBlockIterable("lineitem", "extendedprice", BlocksFileEncoding.RAW);
-        BlockIterable discount = getBlockIterable("lineitem", "discount", BlocksFileEncoding.RAW);
-        BlockIterable shipDate = getBlockIterable("lineitem", "shipdate", BlocksFileEncoding.RAW);
-        BlockIterable quantity = getBlockIterable("lineitem", "quantity", BlocksFileEncoding.RAW);
-
-        AlignmentOperatorFactory alignmentOperator = new AlignmentOperatorFactory(0, extendedPrice, discount, shipDate, quantity);
+        OperatorFactory tableScanOperator = createTableScanOperator(0, "lineitem", "extendedprice", "discount", "shipdate", "quantity");
 
         TpchQuery6OperatorFactory tpchQuery6Operator = new TpchQuery6OperatorFactory(1);
 
@@ -78,7 +70,7 @@ public class HandTpchQuery6
                         aggregation(DOUBLE_SUM, new Input(0))
                 ));
 
-        return ImmutableList.of(alignmentOperator, tpchQuery6Operator, aggregationOperator);
+        return ImmutableList.of(tableScanOperator, tpchQuery6Operator, aggregationOperator);
     }
 
     public static class TpchQuery6Operator
@@ -181,7 +173,7 @@ public class HandTpchQuery6
     public static void main(String[] args)
     {
         ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        new HandTpchQuery6(executor, DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(
+        new HandTpchQuery6(createLocalQueryRunner(executor)).runBenchmark(
                 new SimpleLineBenchmarkResultWriter(System.out)
         );
     }

@@ -19,22 +19,23 @@ import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.NullOutputOperator.NullOutputOperatorFactory;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.tpch.TpchBlocksProvider;
+import com.facebook.presto.util.LocalQueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
 
 public abstract class AbstractSimpleOperatorBenchmark
         extends AbstractOperatorBenchmark
 {
-    protected AbstractSimpleOperatorBenchmark(ExecutorService executor,
-            TpchBlocksProvider tpchBlocksProvider,
-            String benchmarkName, int warmupIterations, int measuredIterations)
+    protected AbstractSimpleOperatorBenchmark(
+            LocalQueryRunner localQueryRunner,
+            String benchmarkName,
+            int warmupIterations,
+            int measuredIterations)
     {
-        super(executor, tpchBlocksProvider, benchmarkName, warmupIterations, measuredIterations);
+        super(localQueryRunner, benchmarkName, warmupIterations, measuredIterations);
     }
 
     protected abstract List<? extends OperatorFactory> createOperatorFactories();
