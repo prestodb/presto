@@ -14,25 +14,15 @@
 package com.facebook.presto.cassandra;
 
 import com.datastax.driver.core.Host;
-import com.facebook.presto.cassandra.util.CassandraCqlUtils;
 import com.facebook.presto.cassandra.util.HostAddressFactory;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
-import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.NotFoundException;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.PartitionResult;
 import com.facebook.presto.spi.Range;
-import com.facebook.presto.spi.ReadOnlyConnectorMetadata;
-import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.SplitSource;
 import com.facebook.presto.spi.TableHandle;
@@ -41,7 +31,6 @@ import com.google.common.base.Objects;
 import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.inject.Inject;
@@ -50,21 +39,17 @@ import io.airlift.log.Logger;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.cassandra.CassandraColumnHandle.columnMetadataGetter;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
-import static com.google.common.collect.Iterables.transform;
 
-public class CassandraClient
-        extends ReadOnlyConnectorMetadata
-        implements ConnectorSplitManager, ConnectorRecordSetProvider, ConnectorHandleResolver
+public class CassandraSplitManager
+        implements ConnectorSplitManager
 {
-    private static final Logger log = Logger.get(CassandraClient.class);
+    private static final Logger log = Logger.get(ConnectorSplitManager.class);
 
     private final String connectorId;
     private final CassandraSession cassandraSession;
@@ -72,7 +57,7 @@ public class CassandraClient
     private final int unpartitionedSplits;
 
     @Inject
-    public CassandraClient(CassandraConnectorId connectorId,
+    public CassandraSplitManager(CassandraConnectorId connectorId,
             CassandraClientConfig cassandraClientConfig,
             CassandraSession cassandraSession,
             CachingCassandraSchemaProvider schemaProvider)
@@ -90,124 +75,9 @@ public class CassandraClient
     }
 
     @Override
-    public List<String> listSchemaNames()
+    public boolean canHandle(TableHandle tableHandle)
     {
-        return schemaProvider.getAllSchemas();
-    }
-
-    @Override
-    public CassandraTableHandle getTableHandle(SchemaTableName tableName)
-    {
-        checkNotNull(tableName, "tableName is null");
-        try {
-            CassandraTableHandle tableHandle = new CassandraTableHandle(connectorId, tableName.getSchemaName(), tableName.getTableName());
-            schemaProvider.getTable(tableHandle);
-            return tableHandle;
-        }
-        catch (NotFoundException e) {
-            // table was not found
-            return null;
-        }
-    }
-
-    private static SchemaTableName getTableName(TableHandle tableHandle)
-    {
-        checkArgument(tableHandle instanceof CassandraTableHandle, "tableHandle is not an instance of CassandraTableHandle");
-        return ((CassandraTableHandle) tableHandle).getSchemaTableName();
-    }
-
-    @Override
-    public ConnectorTableMetadata getTableMetadata(TableHandle tableHandle)
-    {
-        checkNotNull(tableHandle, "tableHandle is null");
-        SchemaTableName tableName = getTableName(tableHandle);
-        return getTableMetadata(tableName);
-    }
-
-    private ConnectorTableMetadata getTableMetadata(SchemaTableName tableName)
-    {
-        CassandraTableHandle tableHandle = new CassandraTableHandle(connectorId, tableName.getSchemaName(), tableName.getTableName());
-        CassandraTable table = schemaProvider.getTable(tableHandle);
-        List<ColumnMetadata> columns = ImmutableList.copyOf(transform(table.getColumns(), columnMetadataGetter()));
-        return new ConnectorTableMetadata(tableName, columns);
-    }
-
-    @Override
-    public List<SchemaTableName> listTables(String schemaNameOrNull)
-    {
-        ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
-        for (String schemaName : listSchemas(schemaNameOrNull)) {
-            try {
-                for (String tableName : schemaProvider.getAllTables(schemaName)) {
-                    tableNames.add(new SchemaTableName(schemaName, tableName.toLowerCase()));
-                }
-            }
-            catch (NotFoundException e) {
-                // schema disappeared during listing operation
-            }
-        }
-        return tableNames.build();
-    }
-
-    private List<String> listSchemas(String schemaNameOrNull)
-    {
-        if (schemaNameOrNull == null) {
-            return listSchemaNames();
-        }
-        return ImmutableList.of(schemaNameOrNull);
-    }
-
-    @Override
-    public ColumnHandle getColumnHandle(TableHandle tableHandle, String columnName)
-    {
-        checkNotNull(tableHandle, "tableHandle is null");
-        checkNotNull(columnName, "columnName is null");
-        return getColumnHandles(tableHandle).get(columnName);
-    }
-
-    @Override
-    public Map<String, ColumnHandle> getColumnHandles(TableHandle tableHandle)
-    {
-        CassandraTable table = schemaProvider.getTable((CassandraTableHandle) tableHandle);
-        ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
-        for (CassandraColumnHandle columnHandle : table.getColumns()) {
-            columnHandles.put(CassandraCqlUtils.cqlNameToSqlName(columnHandle.getName()), columnHandle);
-        }
-        return columnHandles.build();
-    }
-
-    @Override
-    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(SchemaTablePrefix prefix)
-    {
-        checkNotNull(prefix, "prefix is null");
-        ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
-        for (SchemaTableName tableName : listTables(prefix)) {
-            try {
-                columns.put(tableName, getTableMetadata(tableName).getColumns());
-            }
-            catch (NotFoundException e) {
-                // table disappeared during listing operation
-            }
-        }
-        return columns.build();
-    }
-
-    private List<SchemaTableName> listTables(SchemaTablePrefix prefix)
-    {
-        if (prefix.getSchemaName() == null) {
-            return listTables(prefix.getSchemaName());
-        }
-        return ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
-    }
-
-    @Override
-    public ColumnMetadata getColumnMetadata(TableHandle tableHandle, ColumnHandle columnHandle)
-    {
-        checkNotNull(tableHandle, "tableHandle is null");
-        checkNotNull(columnHandle, "columnHandle is null");
-        checkArgument(tableHandle instanceof CassandraTableHandle, "tableHandle is not an instance of CassandraTableHandle");
-        checkArgument(columnHandle instanceof CassandraColumnHandle, "columnHandle is not an instance of CassandraColumnHandle");
-        return ((CassandraColumnHandle) columnHandle).getColumnMetadata();
+        return tableHandle instanceof CassandraTableHandle && ((CassandraTableHandle) tableHandle).getConnectorId().equals(connectorId);
     }
 
     @Override
@@ -344,64 +214,6 @@ public class CassandraClient
             builder.add(split);
         }
         return builder.build();
-    }
-
-    @Override
-    public RecordSet getRecordSet(Split split, List<? extends ColumnHandle> columns)
-    {
-        checkNotNull(split, "split is null");
-        checkArgument(split instanceof CassandraSplit, "expected instance of %s: %s", CassandraSplit.class, split.getClass());
-        CassandraSplit cassandraSplit = (CassandraSplit) split;
-
-        checkNotNull(columns, "columns is null");
-        List<CassandraColumnHandle> cassandraColumns = ImmutableList.copyOf(transform(columns, CassandraColumnHandle.cassandraColumnHandle()));
-
-        String selectCql = CassandraCqlUtils.selectFrom(cassandraSplit.getCassandraTableHandle(), cassandraColumns).getQueryString();
-        StringBuilder sb = new StringBuilder(selectCql);
-        if (sb.charAt(sb.length() - 1) == ';') {
-            sb.setLength(sb.length() - 1);
-        }
-        sb.append(cassandraSplit.getWhereClause());
-        String cql = sb.toString();
-        log.debug("Creating record set: %s", cql);
-
-        return new CassandraRecordSet(cassandraSession, cql, cassandraColumns);
-    }
-
-    @Override
-    public boolean canHandle(TableHandle tableHandle)
-    {
-        return tableHandle instanceof CassandraTableHandle && ((CassandraTableHandle) tableHandle).getConnectorId().equals(connectorId);
-    }
-
-    @Override
-    public boolean canHandle(ColumnHandle columnHandle)
-    {
-        return columnHandle instanceof CassandraColumnHandle && ((CassandraColumnHandle) columnHandle).getConnectorId().equals(connectorId);
-    }
-
-    @Override
-    public boolean canHandle(Split split)
-    {
-        return split instanceof CassandraSplit && ((CassandraSplit) split).getConnectorId().equals(connectorId);
-    }
-
-    @Override
-    public Class<? extends TableHandle> getTableHandleClass()
-    {
-        return CassandraTableHandle.class;
-    }
-
-    @Override
-    public Class<? extends ColumnHandle> getColumnHandleClass()
-    {
-        return CassandraColumnHandle.class;
-    }
-
-    @Override
-    public Class<? extends Split> getSplitClass()
-    {
-        return CassandraSplit.class;
     }
 
     @Override
