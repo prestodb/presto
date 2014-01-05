@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.cassandra;
 
+import com.facebook.presto.spi.NotFoundException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
@@ -176,7 +177,7 @@ public class CachingCassandraSchemaProvider
     private List<String> loadAllTables(final String databaseName)
             throws Exception
     {
-        return retry().stopOn(SchemaNotFoundException.class).stopOnIllegalExceptions()
+        return retry().stopOn(NotFoundException.class).stopOnIllegalExceptions()
                 .run("getAllTables", new Callable<List<String>>()
                 {
                     @Override
@@ -202,7 +203,7 @@ public class CachingCassandraSchemaProvider
     private CassandraTable loadTable(final SchemaTableName tableName)
             throws Exception
     {
-        return retry().stopOn(TableNotFoundException.class).stopOnIllegalExceptions()
+        return retry().stopOn(NotFoundException.class).stopOnIllegalExceptions()
                 .run("getTable", new Callable<CassandraTable>()
                 {
                     @Override

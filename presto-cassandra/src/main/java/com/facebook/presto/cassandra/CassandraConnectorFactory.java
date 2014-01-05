@@ -89,13 +89,16 @@ public class CassandraConnectorFactory
                     .setRequiredConfigurationProperties(config)
                     .setOptionalConfigurationProperties(optionalConfig).initialize();
 
-            CassandraClient cassandraClient = injector.getInstance(CassandraClient.class);
+            CassandraMetadata metadata = injector.getInstance(CassandraMetadata.class);
+            CassandraSplitManager splitManager = injector.getInstance(CassandraSplitManager.class);
+            ConnectorRecordSetProvider recordSetProvider = injector.getInstance(CassandraRecordSetProvider.class);
+            CassandraHandleResolver handleResolver = injector.getInstance(CassandraHandleResolver.class);
 
             ImmutableClassToInstanceMap.Builder<Object> builder = ImmutableClassToInstanceMap.builder();
-            builder.put(ConnectorMetadata.class, new ClassLoaderSafeConnectorMetadata(cassandraClient, classLoader));
-            builder.put(ConnectorSplitManager.class, new ClassLoaderSafeConnectorSplitManager(cassandraClient, classLoader));
-            builder.put(ConnectorRecordSetProvider.class, new ClassLoaderSafeConnectorRecordSetProvider(cassandraClient, classLoader));
-            builder.put(ConnectorHandleResolver.class, new ClassLoaderSafeConnectorHandleResolver(cassandraClient, classLoader));
+            builder.put(ConnectorMetadata.class, new ClassLoaderSafeConnectorMetadata(metadata, classLoader));
+            builder.put(ConnectorSplitManager.class, new ClassLoaderSafeConnectorSplitManager(splitManager, classLoader));
+            builder.put(ConnectorRecordSetProvider.class, new ClassLoaderSafeConnectorRecordSetProvider(recordSetProvider, classLoader));
+            builder.put(ConnectorHandleResolver.class, new ClassLoaderSafeConnectorHandleResolver(handleResolver, classLoader));
 
             return new CassandraConnector(builder.build());
         }

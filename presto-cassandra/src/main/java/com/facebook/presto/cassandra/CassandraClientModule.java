@@ -42,7 +42,10 @@ public class CassandraClientModule
     public void configure(Binder binder)
     {
         binder.bind(CassandraConnectorId.class).toInstance(new CassandraConnectorId(connectorId));
-        binder.bind(CassandraClient.class).in(Scopes.SINGLETON);
+        binder.bind(CassandraMetadata.class).in(Scopes.SINGLETON);
+        binder.bind(CassandraSplitManager.class).in(Scopes.SINGLETON);
+        binder.bind(CassandraRecordSetProvider.class).in(Scopes.SINGLETON);
+        binder.bind(CassandraHandleResolver.class).in(Scopes.SINGLETON);
 
         bindConfig(binder).to(CassandraClientConfig.class);
 
