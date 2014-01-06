@@ -36,7 +36,8 @@ public class TestCassandraClientConfig
                 .setSchemaRefreshInterval(new Duration(2, TimeUnit.MINUTES))
                 .setFetchSize(5_000)
                 .setConsistencyLevel(ConsistencyLevel.ONE)
-                .setContactPoints(""));
+                .setContactPoints("")
+                .setNativeProtocolPort(9042));
     }
 
     @Test
@@ -50,6 +51,7 @@ public class TestCassandraClientConfig
                 .put("cassandra.schema-cache-ttl", "2h")
                 .put("cassandra.schema-refresh-interval", "30m")
                 .put("cassandra.contact-points", "host1,host2")
+                .put("cassandra.native-protocol-port", "9999")
                 .put("cassandra.fetch-size", "10000")
                 .put("cassandra.consistency-level", "TWO")
                 .build();
@@ -62,6 +64,7 @@ public class TestCassandraClientConfig
                 .setSchemaCacheTtl(new Duration(2, TimeUnit.HOURS))
                 .setSchemaRefreshInterval(new Duration(30, TimeUnit.MINUTES))
                 .setContactPoints("host1", "host2")
+                .setNativeProtocolPort(9999)
                 .setFetchSize(10_000)
                 .setConsistencyLevel(ConsistencyLevel.TWO);
 
