@@ -34,15 +34,18 @@ public class CassandraSessionFactory
     private final ConsistencyLevel consistencyLevel;
     private final int fetchSizeForPartitionKeySelect;
     private final int limitForPartitionKeySelect;
+    private final int nativeProtocolPort;
 
     @Inject
     public CassandraSessionFactory(CassandraConnectorId connectorId, CassandraClientConfig config)
     {
         this.connectorId = checkNotNull(connectorId, "connectorId is null");
+        checkNotNull(config, "config is null");
+
         this.contactPoints = checkNotNull(config.getContactPoints(), "contactPoints is null");
         checkArgument(contactPoints.size() > 0, "empty contactPoints");
 
-        checkNotNull(config, "config is null");
+        nativeProtocolPort = config.getNativeProtocolPort();
         fetchSize = config.getFetchSize();
         consistencyLevel = config.getConsistencyLevel();
         fetchSizeForPartitionKeySelect = config.getFetchSizeForPartitionKeySelect();
@@ -51,29 +54,17 @@ public class CassandraSessionFactory
 
     public CassandraSession create()
     {
-        // todo not good
-        if (connectorId.toString().endsWith("-simulate")) {
-            // load mock class for testing without Cassandra server
-            try {
-                Class<?> cls = Class.forName("com.facebook.presto.cassandra.MockCassandraSession");
-                return (CassandraSession) cls.getConstructor(String.class).newInstance(connectorId.toString());
-            }
-            catch (Exception e) {
-                throw new IllegalStateException(e);
-            }
-        }
-        else {
-            Cluster.Builder clusterBuilder = Cluster.builder();
-            clusterBuilder.addContactPoints(contactPoints.toArray(new String[contactPoints.size()]));
+        Cluster.Builder clusterBuilder = Cluster.builder();
+        clusterBuilder.addContactPoints(contactPoints.toArray(new String[contactPoints.size()]));
+        clusterBuilder.withPort(nativeProtocolPort);
 
-            QueryOptions options = new QueryOptions();
-            options.setFetchSize(fetchSize);
-            options.setConsistencyLevel(consistencyLevel);
-            clusterBuilder.withQueryOptions(options);
+        QueryOptions options = new QueryOptions();
+        options.setFetchSize(fetchSize);
+        options.setConsistencyLevel(consistencyLevel);
+        clusterBuilder.withQueryOptions(options);
 
-            Cluster cluster = clusterBuilder.build();
-            Session session = cluster.connect();
-            return new CassandraSession(connectorId.toString(), session, fetchSizeForPartitionKeySelect, limitForPartitionKeySelect);
-        }
+        Cluster cluster = clusterBuilder.build();
+        Session session = cluster.connect();
+        return new CassandraSession(connectorId.toString(), session, fetchSizeForPartitionKeySelect, limitForPartitionKeySelect);
     }
 }

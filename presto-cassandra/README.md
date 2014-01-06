@@ -1,9 +1,8 @@
 # Presto Plugin for Cassandra 2.0
 
 This is a plugin for [Presto](http://prestodb.io/) to access a [Apache Cassandra](http://cassandra.apache.org) database.
-Please note that this plugin is still in early stage.
 
-A precompiled version for Presto 0.55 can be found here: [presto-cassandra-0.55.zip](https://drive.google.com/file/d/0B_erXJlLdLcCaTlDSFRnUEJzVlE/edit?usp=sharing).
+Please note that this plugin is still in early stage.
 
 ## Deployment
 After installation of Presto, you need to deploy to plugin to every presto node.
@@ -13,7 +12,7 @@ After installation of Presto, you need to deploy to plugin to every presto node.
   - unpack the `presto-cassandra-x.xx.zip` file into this directory
   - add `cassandra.properties` to `PRESTO_HOME/etc/catalog` (example see below)
 - On all worker nodes:
-  - change `PRESTO_HOME/etc/config.properties`, add cassandra as data source
+  - change `PRESTO_HOME/etc/config.properties`, add `cassandra` as data source
 
 ```
 ...
@@ -47,6 +46,9 @@ connector.name=cassandra
 # to discover the cluster topology. Only one contact point is required.
 # THIS VALUE MUST BE ADJUSTED TO YOUR DEPLOYMENT
 cassandra.contact-points=host1,host2
+
+# Port running the native Cassandra protocol
+cassandra.native-protocol-port=9142
 
 # Limit of rows to read for finding all partition keys.
 # If a Cassandra table has more rows than this value, splits based on token ranges are used instead.

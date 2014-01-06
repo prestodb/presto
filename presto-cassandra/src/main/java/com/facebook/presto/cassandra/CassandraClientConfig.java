@@ -40,6 +40,7 @@ public class CassandraClientConfig
     private ConsistencyLevel consistencyLevel = ConsistencyLevel.ONE;
     private int fetchSize = 5_000;
     private List<String> contactPoints = ImmutableList.of();
+    private int nativeProtocolPort = 9042;
 
     @Min(0)
     public int getLimitForPartitionKeySelect()
@@ -123,6 +124,19 @@ public class CassandraClientConfig
     public CassandraClientConfig setContactPoints(String... contactPoints)
     {
         this.contactPoints = Arrays.asList(contactPoints);
+        return this;
+    }
+
+    @Min(1)
+    public int getNativeProtocolPort()
+    {
+        return nativeProtocolPort;
+    }
+
+    @Config(("cassandra.native-protocol-port"))
+    public CassandraClientConfig setNativeProtocolPort(int nativeProtocolPort)
+    {
+        this.nativeProtocolPort = nativeProtocolPort;
         return this;
     }
 
