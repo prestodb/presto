@@ -282,7 +282,7 @@ public class SqlTaskManager
     }
 
     @Override
-    public TaskInfo updateTask(Session session, TaskId taskId, PlanFragment fragment, List<TaskSource> sources, OutputBuffers outputIds)
+    public TaskInfo updateTask(Session session, TaskId taskId, PlanFragment fragment, List<TaskSource> sources, OutputBuffers outputBuffers)
     {
         URI location = locationFactory.createLocalTaskLocation(taskId);
 
@@ -300,6 +300,8 @@ public class SqlTaskManager
                         taskId,
                         location,
                         fragment,
+                        sources,
+                        outputBuffers,
                         planner,
                         maxBufferSize,
                         taskExecutor,
@@ -315,7 +317,7 @@ public class SqlTaskManager
 
         taskExecution.recordHeartbeat();
         taskExecution.addSources(sources);
-        taskExecution.addResultQueue(outputIds);
+        taskExecution.addResultQueue(outputBuffers);
 
         return getTaskInfo(taskExecution, false);
     }

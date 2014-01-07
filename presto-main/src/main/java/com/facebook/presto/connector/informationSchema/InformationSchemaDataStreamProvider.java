@@ -25,9 +25,11 @@ import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.Partition;
+import com.facebook.presto.spi.PartitionResult;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.split.ConnectorDataStreamProvider;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.Type;
@@ -126,17 +128,16 @@ public class InformationSchemaDataStreamProvider
         for (Entry<QualifiedTableName, List<ColumnMetadata>> entry : getColumnsList(catalogName, filters).entrySet()) {
             QualifiedTableName tableName = entry.getKey();
             for (ColumnMetadata column : entry.getValue()) {
-                table.add(table.getTupleInfo().builder()
-                        .append(tableName.getCatalogName())
-                        .append(tableName.getSchemaName())
-                        .append(tableName.getTableName())
-                        .append(column.getName())
-                        .append(column.getOrdinalPosition() + 1)
-                        .appendNull()
-                        .append("YES")
-                        .append(fromColumnType(column.getType()).getName())
-                        .append(column.isPartitionKey() ? "YES" : "NO")
-                        .build());
+                table.add(
+                        tableName.getCatalogName(),
+                        tableName.getSchemaName(),
+                        tableName.getTableName(),
+                        column.getName(),
+                        column.getOrdinalPosition() + 1,
+                        null,
+                        "YES",
+                        fromColumnType(column.getType()).getName(),
+                        column.isPartitionKey() ? "YES" : "NO");
             }
         }
         return table.build();
@@ -151,12 +152,11 @@ public class InformationSchemaDataStreamProvider
     {
         InternalTable.Builder table = InternalTable.builder(InformationSchemaMetadata.informationSchemaTableColumns(InformationSchemaMetadata.TABLE_TABLES));
         for (QualifiedTableName name : getTablesList(catalogName, filters)) {
-            table.add(table.getTupleInfo().builder()
-                    .append(name.getCatalogName())
-                    .append(name.getSchemaName())
-                    .append(name.getTableName())
-                    .append("BASE TABLE")
-                    .build());
+            table.add(
+                    name.getCatalogName(),
+                    name.getSchemaName(),
+                    name.getTableName(),
+                    "BASE TABLE");
         }
         return table.build();
     }
@@ -186,13 +186,12 @@ public class InformationSchemaDataStreamProvider
                 functionType = "scalar (non-deterministic)";
             }
 
-            table.add(table.getTupleInfo().builder()
-                    .append(function.getName().toString())
-                    .append(Joiner.on(", ").join(arguments))
-                    .append(function.getReturnType().getName())
-                    .append(functionType)
-                    .append(nullToEmpty(function.getDescription()))
-                    .build());
+            table.add(
+                    function.getName().toString(),
+                    Joiner.on(", ").join(arguments),
+                    function.getReturnType().getName(),
+                    functionType,
+                    nullToEmpty(function.getDescription()));
         }
         return table.build();
     }
@@ -201,10 +200,7 @@ public class InformationSchemaDataStreamProvider
     {
         InternalTable.Builder table = InternalTable.builder(InformationSchemaMetadata.informationSchemaTableColumns(InformationSchemaMetadata.TABLE_SCHEMATA));
         for (String schema : metadata.listSchemaNames(catalogName)) {
-            table.add(table.getTupleInfo().builder()
-                    .append(catalogName)
-                    .append(schema)
-                    .build());
+            table.add(catalogName, schema);
         }
         return table.build();
     }
@@ -219,21 +215,20 @@ public class InformationSchemaDataStreamProvider
         Optional<TableHandle> tableHandle = metadata.getTableHandle(tableName);
         checkArgument(tableHandle.isPresent(), "Table %s does not exist", tableName);
         Map<ColumnHandle, String> columnHandles = ImmutableBiMap.copyOf(metadata.getColumnHandles(tableHandle.get())).inverse();
-        List<Partition> partitions = splitManager.getPartitions(tableHandle.get(), Optional.<Map<ColumnHandle, Object>>absent());
+        PartitionResult partitionResult = splitManager.getPartitions(tableHandle.get(), Optional.<TupleDomain>absent());
 
-        for (Partition partition : partitions) {
-            for (Map.Entry<ColumnHandle, Object> entry : partition.getKeys().entrySet()) {
+        for (Partition partition : partitionResult.getPartitions()) {
+            for (Entry<ColumnHandle, Comparable<?>> entry : partition.getTupleDomain().extractFixedValues().entrySet()) {
                 ColumnHandle columnHandle = entry.getKey();
                 String columnName = columnHandles.get(columnHandle);
                 String value = entry.getValue() != null ? String.valueOf(entry.getValue()) : null;
-                table.add(table.getTupleInfo().builder()
-                        .append(catalogName)
-                        .append(tableName.getSchemaName())
-                        .append(tableName.getTableName())
-                        .append(partitionNumber)
-                        .append(columnName)
-                        .append(value)
-                        .build());
+                table.add(
+                        catalogName,
+                        tableName.getSchemaName(),
+                        tableName.getTableName(),
+                        partitionNumber,
+                        columnName,
+                        value);
             }
             partitionNumber++;
         }

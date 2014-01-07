@@ -17,16 +17,21 @@ import com.facebook.presto.metadata.Node;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplitManager;
+import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Partition;
+import com.facebook.presto.spi.PartitionResult;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.Split;
+import com.facebook.presto.spi.SplitSource;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.TupleDomain;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 
 import javax.inject.Inject;
 
@@ -38,6 +43,8 @@ import java.util.concurrent.ConcurrentMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Predicates.in;
+import static com.google.common.base.Predicates.not;
 
 public class SystemSplitManager
         implements ConnectorSplitManager
@@ -72,23 +79,31 @@ public class SystemSplitManager
     }
 
     @Override
-    public List<Partition> getPartitions(TableHandle table, Map<ColumnHandle, Object> bindings)
+    public PartitionResult getPartitions(TableHandle table, TupleDomain tupleDomain)
     {
         checkNotNull(table, "table is null");
-        checkNotNull(bindings, "bindings is null");
+        checkNotNull(tupleDomain, "tupleDomain is null");
 
         checkArgument(table instanceof SystemTableHandle, "TableHandle must be an SystemTableHandle");
         SystemTableHandle systemTableHandle = (SystemTableHandle) table;
 
-        return ImmutableList.<Partition>of(new SystemPartition(systemTableHandle, bindings));
+        Map<ColumnHandle, Comparable<?>> bindings = tupleDomain.extractFixedValues();
+
+        TupleDomain unusedTupleDomain = TupleDomain.none();
+        if (!tupleDomain.isNone()) {
+            unusedTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(tupleDomain.getDomains(), not(in(bindings.keySet()))));
+        }
+
+        ImmutableList<Partition> partitions = ImmutableList.<Partition>of(new SystemPartition(systemTableHandle, bindings));
+        return new PartitionResult(partitions, unusedTupleDomain);
     }
 
     @Override
-    public Iterable<Split> getPartitionSplits(TableHandle table, List<Partition> partitions)
+    public SplitSource getPartitionSplits(TableHandle table, List<Partition> partitions)
     {
         checkNotNull(partitions, "partitions is null");
         if (partitions.isEmpty()) {
-            return ImmutableList.of();
+            return new FixedSplitSource(null, ImmutableList.<Split>of());
         }
 
         Partition partition = Iterables.getOnlyElement(partitions);
@@ -99,7 +114,7 @@ public class SystemSplitManager
         checkArgument(systemTable != null, "Table %s does not exist", systemPartition.getTableHandle().getTableName());
 
         ImmutableMap.Builder<String, Object> filters = ImmutableMap.builder();
-        for (Entry<ColumnHandle, Object> entry : systemPartition.getFilters().entrySet()) {
+        for (Entry<ColumnHandle, Comparable<?>> entry : systemPartition.getFilters().entrySet()) {
             SystemColumnHandle systemColumnHandle = (SystemColumnHandle) entry.getKey();
             filters.put(systemColumnHandle.getColumnName(), entry.getValue());
         }
@@ -109,21 +124,21 @@ public class SystemSplitManager
             for (Node node : nodeManager.getAllNodes().getActiveNodes()) {
                 splits.add(new SystemSplit(systemPartition.tableHandle, filters.build(), node.getHostAndPort()));
             }
-            return splits.build();
+            return new FixedSplitSource(null, splits.build());
         }
 
         HostAddress address = nodeManager.getCurrentNode().getHostAndPort();
         Split split = new SystemSplit(systemPartition.tableHandle, filters.build(), address);
-        return ImmutableList.of(split);
+        return new FixedSplitSource(null, ImmutableList.of(split));
     }
 
     public static class SystemPartition
             implements Partition
     {
         private final SystemTableHandle tableHandle;
-        private final Map<ColumnHandle, Object> filters;
+        private final Map<ColumnHandle, Comparable<?>> filters;
 
-        public SystemPartition(SystemTableHandle tableHandle, Map<ColumnHandle, Object> filters)
+        public SystemPartition(SystemTableHandle tableHandle, Map<ColumnHandle, Comparable<?>> filters)
         {
             this.tableHandle = checkNotNull(tableHandle, "tableHandle is null");
             this.filters = ImmutableMap.copyOf(checkNotNull(filters, "filters is null"));
@@ -141,12 +156,12 @@ public class SystemSplitManager
         }
 
         @Override
-        public Map<ColumnHandle, Object> getKeys()
+        public TupleDomain getTupleDomain()
         {
-            return ImmutableMap.of();
+            return TupleDomain.withFixedValues(filters);
         }
 
-        public Map<ColumnHandle, Object> getFilters()
+        public Map<ColumnHandle, Comparable<?>> getFilters()
         {
             return filters;
         }

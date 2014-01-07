@@ -14,16 +14,18 @@
 package com.facebook.presto.block.rle;
 
 import com.facebook.presto.block.Block;
+import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.serde.RunLengthBlockEncoding;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 
 public class RunLengthEncodedBlock
-        implements Block
+        implements RandomAccessBlock
 {
     private final Tuple value;
     private final int positionCount;
@@ -70,9 +72,47 @@ public class RunLengthEncodedBlock
     }
 
     @Override
+    public RandomAccessBlock toRandomAccessBlock()
+    {
+        return this;
+    }
+
+    @Override
     public TupleInfo getTupleInfo()
     {
         return value.getTupleInfo();
+    }
+
+    @Override
+    public boolean getBoolean(int position)
+    {
+        checkReadablePosition(position);
+        return value.getBoolean();
+    }
+
+    @Override
+    public long getLong(int position)
+    {
+        return value.getLong();
+    }
+
+    @Override
+    public double getDouble(int position)
+    {
+        return value.getDouble();
+    }
+
+    @Override
+    public Slice getSlice(int position)
+    {
+        return value.getSlice();
+    }
+
+    @Override
+    public boolean isNull(int position)
+    {
+        checkReadablePosition(position);
+        return value.isNull();
     }
 
     @Override
@@ -88,5 +128,10 @@ public class RunLengthEncodedBlock
     public RunLengthEncodedBlockCursor cursor()
     {
         return new RunLengthEncodedBlockCursor(value, positionCount);
+    }
+
+    private void checkReadablePosition(int position)
+    {
+        Preconditions.checkState(position > 0 && position < positionCount, "position is not valid");
     }
 }

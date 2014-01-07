@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableMetadata;
+import com.facebook.presto.operator.SortOrder;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.TableHandle;
@@ -46,6 +47,8 @@ import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.SortItem;
+import com.facebook.presto.sql.tree.SortItem.NullOrdering;
+import com.facebook.presto.sql.tree.SortItem.Ordering;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
@@ -65,8 +68,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static com.facebook.presto.sql.planner.plan.TableScanNode.GeneratedPartitions;
 import static com.facebook.presto.sql.tree.FunctionCall.argumentsGetter;
+import static com.facebook.presto.sql.tree.FunctionCall.distinctPredicate;
 import static com.facebook.presto.sql.tree.SortItem.sortKeyGetter;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -191,7 +195,7 @@ class QueryPlanner
         }
 
         ImmutableMap<Symbol, ColumnHandle> assignments = columns.build();
-        TableScanNode tableScan = new TableScanNode(idAllocator.getNextId(), table, ImmutableList.copyOf(assignments.keySet()), assignments, TRUE_LITERAL, TRUE_LITERAL);
+        TableScanNode tableScan = new TableScanNode(idAllocator.getNextId(), table, ImmutableList.copyOf(assignments.keySet()), assignments, null, Optional.<GeneratedPartitions>absent());
 
         return new RelationPlan(tableScan, new TupleDescriptor(), ImmutableList.<Symbol>of());
     }
@@ -247,6 +251,18 @@ class QueryPlanner
             subPlan = project(subPlan, inputs);
         }
 
+        // 1.a Rewrite DISTINCT aggregates as a group by
+        // All DISTINCT argument lists must match see TupleAnalyzer::analyzeAggregations
+        if (Iterables.any(analysis.getAggregates(node), distinctPredicate())) {
+            AggregationNode aggregation = new AggregationNode(idAllocator.getNextId(),
+                    subPlan.getRoot(),
+                    subPlan.getRoot().getOutputSymbols(),
+                    ImmutableMap.<Symbol, FunctionCall>of(),
+                    ImmutableMap.<Symbol, FunctionHandle>of());
+
+            subPlan =  new PlanBuilder(subPlan.getTranslations(), aggregation);
+        }
+
         // 2. Aggregate
         ImmutableMap.Builder<Symbol, FunctionCall> aggregationAssignments = ImmutableMap.builder();
         ImmutableMap.Builder<Symbol, FunctionHandle> functions = ImmutableMap.builder();
@@ -299,11 +315,11 @@ class QueryPlanner
 
             // Rewrite ORDER BY in terms of pre-projected inputs
             ImmutableList.Builder<Symbol> orderBySymbols = ImmutableList.builder();
-            Map<Symbol, SortItem.Ordering> orderings = new HashMap<>();
+            Map<Symbol, SortOrder> orderings = new HashMap<>();
             for (SortItem item : windowFunction.getWindow().get().getOrderBy()) {
                 Symbol symbol = subPlan.translate(item.getSortKey());
                 orderBySymbols.add(symbol);
-                orderings.put(symbol, item.getOrdering());
+                orderings.put(symbol, toSortOrder(item));
             }
 
             TranslationMap outputTranslations = new TranslationMap(subPlan.getRelationPlan(), analysis);
@@ -440,11 +456,12 @@ class QueryPlanner
         Iterator<SortItem> sortItems = orderBy.iterator();
 
         ImmutableList.Builder<Symbol> orderBySymbols = ImmutableList.builder();
-        ImmutableMap.Builder<Symbol, SortItem.Ordering> orderings = ImmutableMap.builder();
+        ImmutableMap.Builder<Symbol, SortOrder> orderings = ImmutableMap.builder();
         for (FieldOrExpression fieldOrExpression : orderByExpressions) {
             Symbol symbol = subPlan.translate(fieldOrExpression);
             orderBySymbols.add(symbol);
-            orderings.put(symbol, sortItems.next().getOrdering());
+
+            orderings.put(symbol, toSortOrder(sortItems.next()));
         }
 
         PlanNode planNode;
@@ -476,6 +493,26 @@ class QueryPlanner
         }
 
         return subPlan;
+    }
+
+    private SortOrder toSortOrder(SortItem sortItem)
+    {
+        if (sortItem.getOrdering() == Ordering.ASCENDING) {
+            if (sortItem.getNullOrdering() == NullOrdering.FIRST) {
+                return SortOrder.ASC_NULLS_FIRST;
+            }
+            else {
+                return SortOrder.ASC_NULLS_LAST;
+            }
+        }
+        else {
+            if (sortItem.getNullOrdering() == NullOrdering.FIRST) {
+                return SortOrder.DESC_NULLS_FIRST;
+            }
+            else {
+                return SortOrder.DESC_NULLS_LAST;
+            }
+        }
     }
 
     public static Function<Expression, FieldOrExpression> toFieldOrExpression()

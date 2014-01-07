@@ -138,7 +138,7 @@ public class TestQueryResourceServer
         PagesResponse response = client.execute(
                 prepareGet().setUri(uriBuilderFrom(outputLocation).appendPath(String.valueOf(sequenceId)).build()).build(),
                 new PageResponseHandler());
-        List<Page> pages = response.getPages(sequenceId);
+        List<Page> pages = response.getPages();
         assertEquals(countPositions(pages), 220);
         assertQueryStatus(location, QueryState.RUNNING);
 
@@ -146,14 +146,14 @@ public class TestQueryResourceServer
         response = client.execute(
                 prepareGet().setUri(uriBuilderFrom(outputLocation).appendPath(String.valueOf(sequenceId)).build()).build(),
                 new PageResponseHandler());
-        pages = response.getPages(sequenceId);
+        pages = response.getPages();
         assertEquals(countPositions(pages), 44 + 48);
 
         sequenceId += pages.size();
         response = client.execute(
                 prepareGet().setUri(uriBuilderFrom(outputLocation).appendPath(String.valueOf(sequenceId)).build()).build(),
                 new PageResponseHandler());
-        pages = response.getPages(sequenceId);
+        pages = response.getPages();
         assertEquals(countPositions(pages), 0);
 
         assertQueryStatus(location, QueryState.FINISHED);

@@ -82,8 +82,8 @@ public class InMemoryExchange
 
     private void updateState()
     {
-        if (noMoreSinkFactories && sinkFactories == 0 && sinks == 0) {
-            finishing = true;
+        if (noMoreSinkFactories && (sinkFactories == 0) && (sinks == 0)) {
+            finish();
         }
     }
 
@@ -139,6 +139,7 @@ public class InMemoryExchange
             implements OperatorFactory
     {
         private final int operatorId;
+        private boolean closed;
 
         private InMemoryExchangeSinkOperatorFactory(int operatorId)
         {
@@ -154,6 +155,7 @@ public class InMemoryExchange
         @Override
         public Operator createOperator(DriverContext driverContext)
         {
+            checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, InMemoryExchangeSinkOperator.class.getSimpleName());
             addSink();
             return new InMemoryExchangeSinkOperator(operatorContext, InMemoryExchange.this);
@@ -162,7 +164,10 @@ public class InMemoryExchange
         @Override
         public void close()
         {
-            sinkFactoryClosed();
+            if (!closed) {
+                closed = true;
+                sinkFactoryClosed();
+            }
         }
     }
 }

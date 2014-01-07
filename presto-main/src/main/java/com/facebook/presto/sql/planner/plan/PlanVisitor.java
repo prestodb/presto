@@ -95,6 +95,16 @@ public class PlanVisitor<C, R>
         return visitPlan(node, context);
     }
 
+    public R visitTableCommit(TableCommitNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitMaterializedViewWriter(MaterializedViewWriterNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
     public R visitUnion(UnionNode node, C context)
     {
         return visitPlan(node, context);

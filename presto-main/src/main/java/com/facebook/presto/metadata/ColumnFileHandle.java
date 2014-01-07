@@ -29,6 +29,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.block.BlockUtils.toTupleIterable;
@@ -42,22 +43,27 @@ public class ColumnFileHandle
 {
     private static final DataSize OUTPUT_BUFFER_SIZE = new DataSize(64, KILOBYTE);
 
-    private final long shardId;
+    private final UUID shardUuid;
     private final Map<ColumnHandle, File> files;
     private final Map<ColumnHandle, BlocksFileWriter> writers;
 
     private final AtomicBoolean committed = new AtomicBoolean();
 
-    public static Builder builder(long shardId)
+    public static Builder builder(UUID shardUuid)
     {
-        return new Builder(shardId);
+        return new Builder(shardUuid);
     }
 
     private ColumnFileHandle(Builder builder)
     {
-        this.shardId = builder.getShardId();
+        this.shardUuid = builder.getShardUuid();
         this.files = new LinkedHashMap<>(builder.getFiles());
         this.writers = new LinkedHashMap<>(builder.getWriters());
+    }
+
+    public int getFieldCount()
+    {
+        return files.size();
     }
 
     public Map<ColumnHandle, File> getFiles()
@@ -65,15 +71,15 @@ public class ColumnFileHandle
         return files;
     }
 
-    public long getShardId()
+    public UUID getShardUuid()
     {
-        return shardId;
+        return shardUuid;
     }
 
     public int append(Page page)
     {
         checkNotNull(page, "page is null");
-        checkState(!committed.get(), "already committed!");
+        checkState(!committed.get(), "already committed: %s", shardUuid);
 
         Block[] blocks = page.getBlocks();
         int[] tupleCount = new int[blocks.length];
@@ -99,7 +105,7 @@ public class ColumnFileHandle
     {
         Throwable firstThrowable = null;
 
-        checkState(!committed.getAndSet(true), "already committed!");
+        checkState(!committed.getAndSet(true), "already committed: %s", shardUuid);
 
         for (BlocksFileWriter writer : writers.values()) {
             try {
@@ -112,20 +118,23 @@ public class ColumnFileHandle
             }
         }
 
-        Throwables.propagateIfInstanceOf(firstThrowable, IOException.class);
+        if (firstThrowable != null) {
+            Throwables.propagateIfInstanceOf(firstThrowable, IOException.class);
+            throw Throwables.propagate(firstThrowable);
+        }
     }
 
     public static class Builder
     {
-        private final long shardId;
+        private final UUID shardUuid;
         // both of these Maps are ordered by the column handles. The writer map
         // may contain less writers than files.
         private final Map<ColumnHandle, File> files = new LinkedHashMap<>();
         private final Map<ColumnHandle, BlocksFileWriter> writers = new LinkedHashMap<>();
 
-        public Builder(long shardId)
+        public Builder(UUID shardUuid)
         {
-            this.shardId = shardId;
+            this.shardUuid = checkNotNull(shardUuid, "shardUuid is null");
         }
 
         /**
@@ -163,13 +172,13 @@ public class ColumnFileHandle
 
         public ColumnFileHandle build()
         {
-            checkArgument(files.size() > 0, "must have at least one column");
+            checkArgument(!files.isEmpty(), "must have at least one column");
             return new ColumnFileHandle(this);
         }
 
-        private long getShardId()
+        private UUID getShardUuid()
         {
-            return shardId;
+            return shardUuid;
         }
 
         private Map<ColumnHandle, File> getFiles()

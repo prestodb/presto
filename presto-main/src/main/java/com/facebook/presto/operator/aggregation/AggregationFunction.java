@@ -14,10 +14,23 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.tuple.TupleInfo.Type;
+
+import java.util.List;
 
 public interface AggregationFunction
 {
+    List<Type> getParameterTypes();
+
     TupleInfo getFinalTupleInfo();
 
     TupleInfo getIntermediateTupleInfo();
+
+    Accumulator createAggregation(int... argumentChannels);
+
+    Accumulator createIntermediateAggregation();
+
+    GroupedAccumulator createGroupedAggregation(int... argumentChannels);
+
+    GroupedAccumulator createGroupedIntermediateAggregation();
 }

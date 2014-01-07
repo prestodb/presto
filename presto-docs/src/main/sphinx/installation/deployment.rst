@@ -187,7 +187,7 @@ Log Levels
 ^^^^^^^^^^
 
 The optional log levels file, ``etc/log.properties``, allows setting the
-miminum log level for named logger hierarchies. Every logger has a name,
+minimum log level for named logger hierarchies. Every logger has a name,
 which is typically the fully qualified name of the class that uses the logger.
 Loggers have a hierarchy based on the dots in the name (like Java packages).
 For example, consider the following log levels file:
@@ -220,9 +220,16 @@ contents to mount the ``jmx`` connector as the ``jmx`` catalog:
 
     connector.name=jmx
 
+Presto includes Hive connectors for multiple versions of Hadoop:
+
+* ``hive-hadoop1``: Apache Hadoop 1.x
+* ``hive-hadoop2``: Apache Hadoop 2.x
+* ``hive-cdh4``: Cloudera CDH4
+
 Create ``etc/catalog/hive.properties`` with the following contents
 to mount the ``hive-cdh4`` connector as the ``hive`` catalog,
-replacing ``example.net:9083`` with the correct host and port
+replacing ``hive-cdh4`` with the proper connector for your version
+of Hadoop and ``example.net:9083`` with the correct host and port
 for your Hive metastore Thrift service:
 
 .. code-block:: none

@@ -17,6 +17,7 @@ import com.facebook.presto.execution.TaskExecutor.TaskHandle;
 import com.google.common.base.Throwables;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Sets;
@@ -301,7 +302,7 @@ public class TaskExecutorSimulator
                         for (int splitId = 0; splitId < splits; splitId++) {
                             SimulationSplit split = new SimulationSplit(new Duration(80, TimeUnit.MILLISECONDS), new Duration(1, TimeUnit.MILLISECONDS));
                             SimulationTask.this.splits.add(split);
-                            splitFutures.add(taskExecutor.enqueueSplit(taskHandle, split));
+                            splitFutures.addAll(taskExecutor.enqueueSplits(taskHandle, false, ImmutableList.of(split)));
                             Thread.sleep(entryDelay.toMillis());
                         }
 
@@ -379,11 +380,6 @@ public class TaskExecutorSimulator
         private long getQueuedNanos()
         {
             return queuedNanos.get();
-        }
-
-        @Override
-        public void initialize()
-        {
         }
 
         @Override

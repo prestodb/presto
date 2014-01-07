@@ -15,7 +15,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.OutputTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.analyzer.Type;
@@ -24,6 +24,7 @@ import com.google.common.base.Optional;
 
 import javax.validation.constraints.NotNull;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -106,6 +107,16 @@ public interface Metadata
     void dropTable(TableHandle tableHandle);
 
     /**
+     * Begin the atomic creation of a table with data.
+     */
+    OutputTableHandle beginCreateTable(String catalogName, TableMetadata tableMetadata);
+
+    /**
+     * Commit a table creation with data after the data is written.
+     */
+    void commitCreateTable(OutputTableHandle tableHandle, Collection<String> fragments);
+
+    /**
      * HACK: This is here only for table alias support and should be remove when aliases are based on serialized table handles.
      */
     @NotNull
@@ -118,4 +129,11 @@ public interface Metadata
     @NotNull
     @Deprecated
     Optional<TableHandle> getTableHandle(String connectorId, SchemaTableName tableName);
+
+    /**
+     * Gets all the loaded catalogs
+     * @return Map of catalog name to connector id
+     */
+    @NotNull
+    Map<String, String> getCatalogNames();
 }

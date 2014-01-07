@@ -9,3 +9,4 @@ Presto Documentation
     installation
     functions
     sql
+    release

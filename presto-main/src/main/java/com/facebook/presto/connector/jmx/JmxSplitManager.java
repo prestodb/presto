@@ -15,20 +15,21 @@ package com.facebook.presto.connector.jmx;
 
 import com.facebook.presto.metadata.Node;
 import com.facebook.presto.metadata.NodeManager;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplitManager;
+import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.Partition;
+import com.facebook.presto.spi.PartitionResult;
 import com.facebook.presto.spi.Split;
+import com.facebook.presto.spi.SplitSource;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.TupleDomain;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 
 import javax.inject.Inject;
 
 import java.util.List;
-import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -59,23 +60,24 @@ public class JmxSplitManager
     }
 
     @Override
-    public List<Partition> getPartitions(TableHandle table, Map<ColumnHandle, Object> bindings)
+    public PartitionResult getPartitions(TableHandle table, TupleDomain tupleDomain)
     {
         checkNotNull(table, "table is null");
-        checkNotNull(bindings, "bindings is null");
+        checkNotNull(tupleDomain, "tupleDomain is null");
 
         checkArgument(table instanceof JmxTableHandle, "TableHandle must be an JmxTableHandle");
         JmxTableHandle jmxTableHandle = (JmxTableHandle) table;
 
-        return ImmutableList.<Partition>of(new JmxPartition(jmxTableHandle));
+        ImmutableList<Partition> partitions = ImmutableList.<Partition>of(new JmxPartition(jmxTableHandle));
+        return new PartitionResult(partitions, tupleDomain);
     }
 
     @Override
-    public Iterable<Split> getPartitionSplits(TableHandle table, List<Partition> partitions)
+    public SplitSource getPartitionSplits(TableHandle table, List<Partition> partitions)
     {
         checkNotNull(partitions, "partitions is null");
         if (partitions.isEmpty()) {
-            return ImmutableList.of();
+            return new FixedSplitSource(connectorId, ImmutableList.<Split>of());
         }
 
         Partition partition = Iterables.getOnlyElement(partitions);
@@ -86,7 +88,7 @@ public class JmxSplitManager
         for (Node node : nodeManager.getAllNodes().getActiveNodes()) {
             splits.add(new JmxSplit(jmxPartition.tableHandle, ImmutableList.of(node.getHostAndPort())));
         }
-        return splits.build();
+        return new FixedSplitSource(connectorId, splits.build());
     }
 
     public static class JmxPartition
@@ -111,9 +113,9 @@ public class JmxSplitManager
         }
 
         @Override
-        public Map<ColumnHandle, Object> getKeys()
+        public TupleDomain getTupleDomain()
         {
-            return ImmutableMap.of();
+            return TupleDomain.all();
         }
 
         @Override

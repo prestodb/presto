@@ -18,6 +18,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.OutputTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.analyzer.Type;
@@ -29,6 +30,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import javax.inject.Singleton;
+
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -202,6 +205,20 @@ public class MetadataManager
     }
 
     @Override
+    public OutputTableHandle beginCreateTable(String catalogName, TableMetadata tableMetadata)
+    {
+        ConnectorMetadataEntry connectorMetadata = connectors.get(catalogName);
+        checkArgument(connectorMetadata != null, "Catalog %s does not exist", catalogName);
+        return connectorMetadata.getMetadata().beginCreateTable(tableMetadata.getMetadata());
+    }
+
+    @Override
+    public void commitCreateTable(OutputTableHandle tableHandle, Collection<String> fragments)
+    {
+        lookupConnectorFor(tableHandle).getMetadata().commitCreateTable(tableHandle, fragments);
+    }
+
+    @Override
     public String getConnectorId(TableHandle tableHandle)
     {
         return lookupConnectorFor(tableHandle).getConnectorId();
@@ -216,6 +233,16 @@ public class MetadataManager
             return Optional.absent();
         }
         return Optional.fromNullable(entry.getMetadata().getTableHandle(tableName));
+    }
+
+    @Override
+    public Map<String, String> getCatalogNames()
+    {
+        ImmutableMap.Builder<String, String> catalogsMap = ImmutableMap.builder();
+        for(Map.Entry<String, ConnectorMetadataEntry> entry : connectors.entrySet()) {
+            catalogsMap.put(entry.getKey(), entry.getValue().getConnectorId());
+        }
+        return catalogsMap.build();
     }
 
     private List<ConnectorMetadataEntry> allConnectorsFor(String catalogName)
@@ -257,6 +284,16 @@ public class MetadataManager
         }
 
         throw new IllegalArgumentException("Table %s does not exist: " + tableHandle);
+    }
+
+    private ConnectorMetadataEntry lookupConnectorFor(OutputTableHandle tableHandle)
+    {
+        for (Entry<String, ConnectorMetadataEntry> entry : connectors.entrySet()) {
+            if (entry.getValue().getMetadata().canHandle(tableHandle)) {
+                return entry.getValue();
+            }
+        }
+        throw new IllegalArgumentException("No connector for output table handle: " + tableHandle);
     }
 
     private static class ConnectorMetadataEntry

@@ -13,80 +13,119 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hadoop.HadoopFileSystemCache;
 import com.facebook.presto.hadoop.HadoopNative;
+import com.facebook.presto.hive.util.BoundedExecutor;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorOutputHandleResolver;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.Domain;
+import com.facebook.presto.spi.OutputTableHandle;
+import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.Partition;
+import com.facebook.presto.spi.PartitionResult;
+import com.facebook.presto.spi.Range;
 import com.facebook.presto.spi.RecordSet;
+import com.facebook.presto.spi.RecordSink;
+import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.Split;
+import com.facebook.presto.spi.SplitSource;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.TupleDomain;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
+import com.google.common.base.StandardSystemProperty;
 import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;
+import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.ProtectMode;
+import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.Warehouse;
+import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
+import org.apache.hadoop.hive.metastore.api.SerDeInfo;
+import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.apache.hadoop.hive.metastore.api.Table;
+import org.apache.hadoop.hive.ql.io.RCFileInputFormat;
+import org.apache.hadoop.hive.ql.io.RCFileOutputFormat;
 import org.apache.hadoop.hive.serde2.SerDeException;
+import org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
+import org.apache.hadoop.mapred.JobConf;
 
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.hive.HiveBucketing.getBucketNumber;
+import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
+import static com.facebook.presto.hive.HiveBucketing.getHiveBucket;
 import static com.facebook.presto.hive.HiveColumnHandle.columnMetadataGetter;
 import static com.facebook.presto.hive.HiveColumnHandle.hiveColumnHandle;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
+import static com.facebook.presto.hive.HiveType.columnTypeToHiveType;
 import static com.facebook.presto.hive.HiveType.getHiveType;
 import static com.facebook.presto.hive.HiveType.getSupportedHiveType;
+import static com.facebook.presto.hive.HiveType.hiveTypeNameGetter;
 import static com.facebook.presto.hive.HiveUtil.getTableStructFields;
 import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
 import static com.facebook.presto.hive.UnpartitionedPartition.UNPARTITIONED_PARTITION;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Predicates.in;
+import static com.google.common.base.Predicates.not;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.transform;
 import static java.lang.Boolean.parseBoolean;
 import static java.lang.Double.parseDouble;
 import static java.lang.Long.parseLong;
+import static java.lang.String.format;
+import static java.util.UUID.randomUUID;
 import static org.apache.hadoop.hive.metastore.ProtectMode.getProtectModeFromString;
 import static org.apache.hadoop.hive.metastore.Warehouse.makePartName;
 
 @SuppressWarnings("deprecation")
 public class HiveClient
-        implements ConnectorMetadata, ConnectorSplitManager, ConnectorRecordSetProvider, ConnectorHandleResolver
+        implements ConnectorMetadata, ConnectorSplitManager, ConnectorRecordSetProvider, ConnectorRecordSinkProvider, ConnectorHandleResolver, ConnectorOutputHandleResolver
 {
     static {
         HadoopNative.requireHadoopNative();
+        HadoopFileSystemCache.initialize();
     }
 
     private static final Logger log = Logger.get(HiveClient.class);
@@ -98,7 +137,7 @@ public class HiveClient
     private final int maxPartitionBatchSize;
     private final CachingHiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
-    private final ExecutorService executor;
+    private final Executor executor;
     private final DataSize maxSplitSize;
 
     @Inject
@@ -106,12 +145,12 @@ public class HiveClient
             HiveClientConfig hiveClientConfig,
             CachingHiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
-            @ForHiveClient ExecutorService executor)
+            @ForHiveClient ExecutorService executorService)
     {
         this(connectorId,
                 metastore,
                 hdfsEnvironment,
-                executor,
+                new BoundedExecutor(executorService, hiveClientConfig.getMaxGlobalSplitIteratorThreads()),
                 hiveClientConfig.getMaxSplitSize(),
                 hiveClientConfig.getMaxOutstandingSplits(),
                 hiveClientConfig.getMaxSplitIteratorThreads(),
@@ -122,7 +161,7 @@ public class HiveClient
     public HiveClient(HiveConnectorId connectorId,
             CachingHiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
-            ExecutorService executor,
+            Executor executor,
             DataSize maxSplitSize,
             int maxOutstandingSplits,
             int maxSplitIteratorThreads,
@@ -193,7 +232,7 @@ public class HiveClient
         try {
             Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
             List<ColumnMetadata> columns = ImmutableList.copyOf(transform(getColumnHandles(table), columnMetadataGetter()));
-            return new ConnectorTableMetadata(tableName, columns);
+            return new ConnectorTableMetadata(tableName, columns, table.getOwner());
         }
         catch (NoSuchObjectException e) {
             throw new TableNotFoundException(tableName);
@@ -329,14 +368,195 @@ public class HiveClient
     }
 
     @Override
-    public List<Partition> getPartitions(TableHandle tableHandle, Map<ColumnHandle, Object> bindings)
+    public HiveOutputTableHandle beginCreateTable(ConnectorTableMetadata tableMetadata)
+    {
+        checkArgument(!isNullOrEmpty(tableMetadata.getOwner()), "Table owner is null or empty");
+
+        ImmutableList.Builder<String> columnNames = ImmutableList.builder();
+        ImmutableList.Builder<ColumnType> columnTypes = ImmutableList.builder();
+        for (ColumnMetadata column : tableMetadata.getColumns()) {
+            columnNames.add(column.getName());
+            columnTypes.add(column.getType());
+        }
+
+        // get the root directory for the database
+        SchemaTableName table = tableMetadata.getTable();
+        String schemaName = table.getSchemaName();
+        String tableName = table.getTableName();
+
+        String location = getDatabase(schemaName).getLocationUri();
+        if (isNullOrEmpty(location)) {
+            throw new RuntimeException(format("Database '%s' location is not set", schemaName));
+        }
+
+        Path databasePath = new Path(location);
+        if (!pathExists(databasePath)) {
+            throw new RuntimeException(format("Database '%s' location does not exist: %s", schemaName, databasePath));
+        }
+        if (!isDirectory(databasePath)) {
+            throw new RuntimeException(format("Database '%s' location is not a directory: %s", schemaName, databasePath));
+        }
+
+        // verify the target directory for the table
+        Path targetPath = new Path(databasePath, tableName);
+        if (pathExists(targetPath)) {
+            throw new RuntimeException(format("Target directory for table '%s' already exists: %s", table, targetPath));
+        }
+
+        // use a per-user temporary directory to avoid permission problems
+        // TODO: this should use Hadoop UserGroupInformation
+        String temporaryPrefix = "/tmp/presto-" + StandardSystemProperty.USER_NAME.value();
+
+        // create a temporary directory on the same filesystem
+        Path temporaryRoot = new Path(targetPath, temporaryPrefix);
+        Path temporaryPath = new Path(temporaryRoot, randomUUID().toString());
+        createDirectories(temporaryPath);
+
+        return new HiveOutputTableHandle(
+                connectorId,
+                schemaName,
+                tableName,
+                columnNames.build(),
+                columnTypes.build(),
+                tableMetadata.getOwner(),
+                targetPath.toString(),
+                temporaryPath.toString());
+    }
+
+    @Override
+    public void commitCreateTable(OutputTableHandle tableHandle, Collection<String> fragments)
     {
         checkNotNull(tableHandle, "tableHandle is null");
-        checkNotNull(bindings, "bindings is null");
+        checkArgument(tableHandle instanceof HiveOutputTableHandle, "tableHandle is not an instance of HiveOutputTableHandle");
+        HiveOutputTableHandle handle = (HiveOutputTableHandle) tableHandle;
+
+        // verify no one raced us to create the target directory
+        Path targetPath = new Path(handle.getTargetPath());
+        if (pathExists(targetPath)) {
+            SchemaTableName table = new SchemaTableName(handle.getSchemaName(), handle.getTableName());
+            throw new RuntimeException(format("Unable to commit creation of table '%s': target directory already exists: %s", table, targetPath));
+        }
+
+        // rename the temporary directory to the target
+        rename(new Path(handle.getTemporaryPath()), targetPath);
+
+        // create the table in the metastore
+        List<String> types = FluentIterable.from(handle.getColumnTypes())
+                .transform(columnTypeToHiveType())
+                .transform(hiveTypeNameGetter())
+                .toList();
+
+        ImmutableList.Builder<FieldSchema> columns = ImmutableList.builder();
+        for (int i = 0; i < handle.getColumnNames().size(); i++) {
+            String name = handle.getColumnNames().get(i);
+            String type = types.get(i);
+            columns.add(new FieldSchema(name, type, null));
+        }
+
+        SerDeInfo serdeInfo = new SerDeInfo();
+        serdeInfo.setName(handle.getTableName());
+        serdeInfo.setSerializationLib(LazyBinaryColumnarSerDe.class.getName());
+
+        StorageDescriptor sd = new StorageDescriptor();
+        sd.setLocation(targetPath.toString());
+        sd.setCols(columns.build());
+        sd.setSerdeInfo(serdeInfo);
+        sd.setInputFormat(RCFileInputFormat.class.getName());
+        sd.setOutputFormat(RCFileOutputFormat.class.getName());
+
+        Table table = new Table();
+        table.setDbName(handle.getSchemaName());
+        table.setTableName(handle.getTableName());
+        table.setOwner(handle.getTableOwner());
+        table.setTableType(TableType.MANAGED_TABLE.toString());
+        table.setParameters(ImmutableMap.of("comment", "Created by Presto"));
+        table.setSd(sd);
+
+        metastore.createTable(table);
+    }
+
+    @Override
+    public RecordSink getRecordSink(OutputTableHandle tableHandle)
+    {
+        checkNotNull(tableHandle, "tableHandle is null");
+        checkArgument(tableHandle instanceof HiveOutputTableHandle, "tableHandle is not an instance of HiveOutputTableHandle");
+        HiveOutputTableHandle handle = (HiveOutputTableHandle) tableHandle;
+
+        Path target = new Path(handle.getTemporaryPath(), randomUUID().toString());
+        JobConf conf = new JobConf(hdfsEnvironment.getConfiguration(target));
+
+        return new HiveRecordSink(handle, target, conf);
+    }
+
+    private Database getDatabase(String database)
+    {
+        try {
+            return metastore.getDatabase(database);
+        }
+        catch (NoSuchObjectException e) {
+            throw new SchemaNotFoundException(database);
+        }
+    }
+
+    private boolean pathExists(Path path)
+    {
+        try {
+            return getFileSystem(path).exists(path);
+        }
+        catch (IOException e) {
+            throw new RuntimeException("Failed checking path: " + path, e);
+        }
+    }
+
+    private boolean isDirectory(Path path)
+    {
+        try {
+            return getFileSystem(path).isDirectory(path);
+        }
+        catch (IOException e) {
+            throw new RuntimeException("Failed checking path: " + path, e);
+        }
+    }
+
+    private void createDirectories(Path path)
+    {
+        try {
+            if (!getFileSystem(path).mkdirs(path)) {
+                throw new IOException("mkdirs returned false");
+            }
+        }
+        catch (IOException e) {
+            throw new RuntimeException("Failed to create directory: " + path, e);
+        }
+    }
+
+    private FileSystem getFileSystem(Path path)
+            throws IOException
+    {
+        return path.getFileSystem(hdfsEnvironment.getConfiguration(path));
+    }
+
+    private void rename(Path source, Path target)
+    {
+        try {
+            if (!getFileSystem(source).rename(source, target)) {
+                throw new IOException("rename returned false");
+            }
+        }
+        catch (IOException e) {
+            throw new RuntimeException(format("Failed to rename %s to %s", source, target), e);
+        }
+    }
+
+    @Override
+    public PartitionResult getPartitions(TableHandle tableHandle, TupleDomain tupleDomain)
+    {
+        checkNotNull(tableHandle, "tableHandle is null");
+        checkNotNull(tupleDomain, "tupleDomain is null");
         SchemaTableName tableName = getTableName(tableHandle);
 
         List<FieldSchema> partitionKeys;
-        Optional<Integer> bucket;
+        Optional<HiveBucket> bucket;
 
         try {
             Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
@@ -347,27 +567,32 @@ public class HiveClient
             }
 
             partitionKeys = table.getPartitionKeys();
-            bucket = getBucketNumber(table, bindings);
+            bucket = getHiveBucket(table, tupleDomain.extractFixedValues());
         }
         catch (NoSuchObjectException e) {
             throw new TableNotFoundException(tableName);
         }
 
-        ImmutableMap.Builder<String, ColumnHandle> partitionKeysByName = ImmutableMap.builder();
+        ImmutableMap.Builder<String, ColumnHandle> partitionKeysByNameBuilder = ImmutableMap.builder();
         List<String> filterPrefix = new ArrayList<>();
         for (int i = 0; i < partitionKeys.size(); i++) {
             FieldSchema field = partitionKeys.get(i);
 
             HiveColumnHandle columnHandle = new HiveColumnHandle(connectorId, field.getName(), i, getSupportedHiveType(field.getType()), -1, true);
-            partitionKeysByName.put(field.getName(), columnHandle);
+            partitionKeysByNameBuilder.put(field.getName(), columnHandle);
 
             // only add to prefix if all previous keys have a value
-            if (filterPrefix.size() == i) {
-                Object value = bindings.get(columnHandle);
-                if (value != null) {
-                    checkArgument(value instanceof Boolean || value instanceof String || value instanceof Double || value instanceof Long,
-                            "Only Boolean, String, Double and Long partition keys are supported");
-                    filterPrefix.add(value.toString());
+            if (filterPrefix.size() == i && !tupleDomain.isNone()) {
+                Domain domain = tupleDomain.getDomains().get(columnHandle);
+                if (domain != null && domain.getRanges().getRangeCount() == 1) {
+                    // We intentionally ignore whether NULL is in the domain since partition keys can never be NULL
+                    Range range = Iterables.getOnlyElement(domain.getRanges());
+                    if (range.isSingleValue()) {
+                        Comparable<?> value = range.getLow().getValue();
+                        checkArgument(value instanceof Boolean || value instanceof String || value instanceof Double || value instanceof Long,
+                                "Only Boolean, String, Double and Long partition keys are supported");
+                        filterPrefix.add(value.toString());
+                    }
                 }
             }
         }
@@ -390,22 +615,34 @@ public class HiveClient
         }
 
         // do a final pass to filter based on fields that could not be used to build the prefix
-        Iterable<Partition> partitions = transform(partitionNames, toPartition(tableName, partitionKeysByName.build(), bucket));
-        return ImmutableList.copyOf(Iterables.filter(partitions, partitionMatches(bindings)));
+        Map<String, ColumnHandle> partitionKeysByName = partitionKeysByNameBuilder.build();
+        List<Partition> partitions = FluentIterable.from(partitionNames)
+                .transform(toPartition(tableName, partitionKeysByName, bucket))
+                .filter(partitionMatches(tupleDomain))
+                .filter(Partition.class)
+                .toList();
+
+        // All partition key domains will be fully evaluated, so we don't need to include those
+        TupleDomain remainingTupleDomain = TupleDomain.none();
+        if (!tupleDomain.isNone()) {
+            remainingTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(tupleDomain.getDomains(), not(in(partitionKeysByName.values()))));
+        }
+
+        return new PartitionResult(partitions, remainingTupleDomain);
     }
 
     @Override
-    public Iterable<Split> getPartitionSplits(TableHandle tableHandle, List<Partition> partitions)
+    public SplitSource getPartitionSplits(TableHandle tableHandle, List<Partition> partitions)
     {
         checkNotNull(partitions, "partitions is null");
 
         Partition partition = Iterables.getFirst(partitions, null);
         if (partition == null) {
-            return ImmutableList.of();
+            return new FixedSplitSource(connectorId, ImmutableList.<Split>of());
         }
         checkArgument(partition instanceof HivePartition, "Partition must be a hive partition");
         SchemaTableName tableName = ((HivePartition) partition).getTableName();
-        Optional<Integer> bucketNumber = ((HivePartition) partition).getBucket();
+        Optional<HiveBucket> bucket = ((HivePartition) partition).getBucket();
 
         List<String> partitionNames = new ArrayList<>(Lists.transform(partitions, HiveUtil.partitionIdGetter()));
         Collections.sort(partitionNames, Ordering.natural().reverse());
@@ -420,17 +657,17 @@ public class HiveClient
             throw new TableNotFoundException(tableName);
         }
 
-        return new HiveSplitIterable(connectorId,
+        return new HiveSplitSourceProvider(connectorId,
                 table,
                 partitionNames,
                 hivePartitions,
-                bucketNumber,
+                bucket,
                 maxSplitSize,
                 maxOutstandingSplits,
                 maxSplitIteratorThreads,
                 hdfsEnvironment,
                 executor,
-                maxPartitionBatchSize);
+                maxPartitionBatchSize).get();
     }
 
     private Iterable<org.apache.hadoop.hive.metastore.api.Partition> getPartitions(final Table table, final SchemaTableName tableName, List<String> partitionNames)
@@ -492,7 +729,7 @@ public class HiveClient
         checkArgument(split instanceof HiveSplit, "expected instance of %s: %s", HiveSplit.class, split.getClass());
 
         List<HiveColumnHandle> hiveColumns = ImmutableList.copyOf(transform(columns, hiveColumnHandle()));
-        return new HiveRecordSet(hdfsEnvironment, (HiveSplit) split, hiveColumns);
+        return new HiveRecordSet(hdfsEnvironment, (HiveSplit) split, hiveColumns, HiveRecordCursorProviders.getDefaultProviders());
     }
 
     @Override
@@ -514,6 +751,12 @@ public class HiveClient
     }
 
     @Override
+    public boolean canHandle(OutputTableHandle handle)
+    {
+        return (handle instanceof HiveOutputTableHandle) && ((HiveOutputTableHandle) handle).getClientId().equals(connectorId);
+    }
+
+    @Override
     public Class<? extends TableHandle> getTableHandleClass()
     {
         return HiveTableHandle.class;
@@ -532,6 +775,12 @@ public class HiveClient
     }
 
     @Override
+    public Class<? extends OutputTableHandle> getOutputTableHandleClass()
+    {
+        return HiveOutputTableHandle.class;
+    }
+
+    @Override
     public String toString()
     {
         return Objects.toStringHelper(this)
@@ -539,15 +788,15 @@ public class HiveClient
                 .toString();
     }
 
-    private static Function<String, Partition> toPartition(
+    private static Function<String, HivePartition> toPartition(
             final SchemaTableName tableName,
             final Map<String, ColumnHandle> columnsByName,
-            final Optional<Integer> bucket)
+            final Optional<HiveBucket> bucket)
     {
-        return new Function<String, Partition>()
+        return new Function<String, HivePartition>()
         {
             @Override
-            public Partition apply(String partitionId)
+            public HivePartition apply(String partitionId)
             {
                 try {
                     if (partitionId.equals(UNPARTITIONED_ID)) {
@@ -555,7 +804,7 @@ public class HiveClient
                     }
 
                     LinkedHashMap<String, String> keys = Warehouse.makeSpecFromName(partitionId);
-                    ImmutableMap.Builder<ColumnHandle, Object> builder = ImmutableMap.builder();
+                    ImmutableMap.Builder<ColumnHandle, Comparable<?>> builder = ImmutableMap.builder();
                     for (Entry<String, String> entry : keys.entrySet()) {
                         ColumnHandle columnHandle = columnsByName.get(entry.getKey());
                         checkArgument(columnHandle != null, "Invalid partition key %s in partition %s", entry.getKey(), partitionId);
@@ -585,7 +834,7 @@ public class HiveClient
                                 break;
                             case DOUBLE:
                                 if (value.isEmpty()) {
-                                    builder.put(columnHandle, 0L);
+                                    builder.put(columnHandle, 0.0);
                                 }
                                 else {
                                     builder.put(columnHandle, parseDouble(value));
@@ -607,16 +856,19 @@ public class HiveClient
         };
     }
 
-    public static Predicate<Partition> partitionMatches(final Map<ColumnHandle, Object> filters)
+    public static Predicate<HivePartition> partitionMatches(final TupleDomain tupleDomain)
     {
-        return new Predicate<Partition>()
+        return new Predicate<HivePartition>()
         {
             @Override
-            public boolean apply(Partition partition)
+            public boolean apply(HivePartition partition)
             {
-                for (Map.Entry<ColumnHandle, Object> entry : partition.getKeys().entrySet()) {
-                    Object filterValue = filters.get(entry.getKey());
-                    if (filterValue != null && !entry.getValue().equals(filterValue)) {
+                if (tupleDomain.isNone()) {
+                    return false;
+                }
+                for (Entry<ColumnHandle, Comparable<?>> entry : partition.getKeys().entrySet()) {
+                    Domain allowedDomain = tupleDomain.getDomains().get(entry.getKey());
+                    if (allowedDomain != null && !allowedDomain.includesValue(entry.getValue())) {
                         return false;
                     }
                 }

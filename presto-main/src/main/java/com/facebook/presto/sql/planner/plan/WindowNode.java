@@ -14,9 +14,9 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.metadata.FunctionHandle;
+import com.facebook.presto.operator.SortOrder;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.SortItem;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -38,7 +38,7 @@ public class WindowNode
     private final PlanNode source;
     private final List<Symbol> partitionBy;
     private final List<Symbol> orderBy;
-    private final Map<Symbol, SortItem.Ordering> orderings;
+    private final Map<Symbol, SortOrder> orderings;
     private final Map<Symbol, FunctionCall> windowFunctions;
     private final Map<Symbol, FunctionHandle> functionHandles;
 
@@ -48,7 +48,7 @@ public class WindowNode
             @JsonProperty("source") PlanNode source,
             @JsonProperty("partitionBy") List<Symbol> partitionBy,
             @JsonProperty("orderBy") List<Symbol> orderBy,
-            @JsonProperty("orderings") Map<Symbol, SortItem.Ordering> orderings,
+            @JsonProperty("orderings") Map<Symbol, SortOrder> orderings,
             @JsonProperty("windowFunctions") Map<Symbol, FunctionCall> windowFunctions,
             @JsonProperty("functionHandles") Map<Symbol, FunctionHandle> functionHandles)
     {
@@ -101,7 +101,7 @@ public class WindowNode
     }
 
     @JsonProperty
-    public Map<Symbol, SortItem.Ordering> getOrderings()
+    public Map<Symbol, SortOrder> getOrderings()
     {
         return orderings;
     }

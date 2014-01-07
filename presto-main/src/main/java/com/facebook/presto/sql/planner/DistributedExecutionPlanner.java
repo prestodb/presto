@@ -13,17 +13,19 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.execution.DataSource;
+import com.facebook.presto.execution.SampledSplitSource;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.spi.Partition;
-import com.facebook.presto.spi.Split;
+import com.facebook.presto.spi.PartitionResult;
+import com.facebook.presto.spi.SplitSource;
+import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.split.SplitManager;
-import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
+import com.facebook.presto.sql.planner.plan.MaterializedViewWriterNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -33,6 +35,7 @@ import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
+import com.facebook.presto.sql.planner.plan.TableCommitNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
@@ -40,16 +43,15 @@ import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 
-import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -57,16 +59,12 @@ import static com.google.common.base.Preconditions.checkState;
 public class DistributedExecutionPlanner
 {
     private final SplitManager splitManager;
-    private final Session session;
     private final ShardManager shardManager;
 
     @Inject
-    public DistributedExecutionPlanner(SplitManager splitManager,
-            Session session,
-            ShardManager shardManager)
+    public DistributedExecutionPlanner(SplitManager splitManager, ShardManager shardManager)
     {
         this.splitManager = checkNotNull(splitManager, "splitManager is null");
-        this.session = checkNotNull(session, "session is null");
         this.shardManager = checkNotNull(shardManager, "databaseShardManager is null");
     }
 
@@ -75,22 +73,22 @@ public class DistributedExecutionPlanner
         return plan(root, Predicates.<Partition>alwaysTrue());
     }
 
-    public StageExecutionPlan plan(SubPlan root, Predicate<Partition> tableWriterPartitionPredicate)
+    public StageExecutionPlan plan(SubPlan root, Predicate<Partition> materializedViewPartitionPredicate)
     {
         PlanFragment currentFragment = root.getFragment();
 
         // get splits for this fragment, this is lazy so split assignments aren't actually calculated here
         Visitor visitor = new Visitor();
-        NodeSplits nodeSplits = currentFragment.getRoot().accept(visitor, tableWriterPartitionPredicate);
+        NodeSplits nodeSplits = currentFragment.getRoot().accept(visitor, materializedViewPartitionPredicate);
 
         // create child stages
         ImmutableList.Builder<StageExecutionPlan> dependencies = ImmutableList.builder();
         for (SubPlan childPlan : root.getChildren()) {
-            dependencies.add(plan(childPlan, tableWriterPartitionPredicate));
+            dependencies.add(plan(childPlan, materializedViewPartitionPredicate));
         }
 
         return new StageExecutionPlan(currentFragment,
-                nodeSplits.dataSource,
+                nodeSplits.getDataSource(),
                 dependencies.build(),
                 visitor.getOutputReceivers());
     }
@@ -106,75 +104,80 @@ public class DistributedExecutionPlanner
         }
 
         @Override
-        public NodeSplits visitTableScan(TableScanNode node, Predicate<Partition> tableWriterPartitionPredicate)
+        public NodeSplits visitTableScan(TableScanNode node, Predicate<Partition> materializedViewPartitionPredicate)
         {
-            // get dataSource for table
-            DataSource dataSource = splitManager.getSplits(session,
-                    node.getTable(),
-                    node.getPartitionPredicate(),
-                    node.getUpstreamPredicateHint(),
-                    tableWriterPartitionPredicate,
-                    node.getAssignments());
+            List<Partition> partitions = FluentIterable.from(getPartitions(node))
+                    .filter(materializedViewPartitionPredicate)
+                    .toList();
 
-            return new NodeSplits(node.getId(), dataSource);
+            // get dataSource for table
+            SplitSource splitSource = splitManager.getPartitionSplits(node.getTable(), partitions);
+
+            return new NodeSplits(node.getId(), splitSource);
+        }
+
+        private List<Partition> getPartitions(TableScanNode node)
+        {
+            if (node.getGeneratedPartitions().isPresent()) {
+                return node.getGeneratedPartitions().get().getPartitions();
+            }
+
+            PartitionResult allPartitions = splitManager.getPartitions(node.getTable(), Optional.<TupleDomain>absent());
+            return allPartitions.getPartitions();
         }
 
         @Override
-        public NodeSplits visitJoin(JoinNode node, Predicate<Partition> tableWriterPartitionPredicate)
+        public NodeSplits visitJoin(JoinNode node, Predicate<Partition> materializedViewPartitionPredicate)
         {
-            NodeSplits leftSplits = node.getLeft().accept(this, tableWriterPartitionPredicate);
-            NodeSplits rightSplits = node.getRight().accept(this, tableWriterPartitionPredicate);
-            if (leftSplits.dataSource.isPresent() && rightSplits.dataSource.isPresent()) {
+            NodeSplits leftSplits = node.getLeft().accept(this, materializedViewPartitionPredicate);
+            NodeSplits rightSplits = node.getRight().accept(this, materializedViewPartitionPredicate);
+            if (leftSplits.getDataSource().isPresent() && rightSplits.getDataSource().isPresent()) {
                 throw new IllegalArgumentException("Both left and right join nodes are partitioned"); // TODO: "partitioned" may not be the right term
             }
-            return leftSplits.dataSource.isPresent() ? leftSplits : rightSplits;
+            return leftSplits.getDataSource().isPresent() ? leftSplits : rightSplits;
         }
 
         @Override
-        public NodeSplits visitSemiJoin(SemiJoinNode node, Predicate<Partition> tableWriterPartitionPredicate)
+        public NodeSplits visitSemiJoin(SemiJoinNode node, Predicate<Partition> materializedViewPartitionPredicate)
         {
-            NodeSplits sourceSplits = node.getSource().accept(this, tableWriterPartitionPredicate);
-            NodeSplits filteringSourceSplits = node.getFilteringSource().accept(this, tableWriterPartitionPredicate);
-            if (sourceSplits.dataSource.isPresent() && filteringSourceSplits.dataSource.isPresent()) {
+            NodeSplits sourceSplits = node.getSource().accept(this, materializedViewPartitionPredicate);
+            NodeSplits filteringSourceSplits = node.getFilteringSource().accept(this, materializedViewPartitionPredicate);
+            if (sourceSplits.getDataSource().isPresent() && filteringSourceSplits.getDataSource().isPresent()) {
                 throw new IllegalArgumentException("Both source and filteringSource semi join nodes are partitioned"); // TODO: "partitioned" may not be the right term
             }
-            return sourceSplits.dataSource.isPresent() ? sourceSplits : filteringSourceSplits;
+            return sourceSplits.getDataSource().isPresent() ? sourceSplits : filteringSourceSplits;
         }
 
         @Override
-        public NodeSplits visitExchange(ExchangeNode node, Predicate<Partition> tableWriterPartitionPredicate)
+        public NodeSplits visitExchange(ExchangeNode node, Predicate<Partition> materializedViewPartitionPredicate)
         {
             // exchange node does not have splits
             return new NodeSplits(node.getId());
         }
 
         @Override
-        public NodeSplits visitFilter(FilterNode node, Predicate<Partition> tableWriterPartitionPredicate)
+        public NodeSplits visitFilter(FilterNode node, Predicate<Partition> materializedViewPartitionPredicate)
         {
-            return node.getSource().accept(this, tableWriterPartitionPredicate);
+            return node.getSource().accept(this, materializedViewPartitionPredicate);
         }
 
         @Override
-        public NodeSplits visitSample(SampleNode node, Predicate<Partition> tableWriterPartitionPredicate)
+        public NodeSplits visitSample(SampleNode node, Predicate<Partition> materializedViewPartitionPredicate)
         {
             switch(node.getSampleType()) {
                 case BERNOULLI:
-                    return node.getSource().accept(this, tableWriterPartitionPredicate);
+                    return node.getSource().accept(this, materializedViewPartitionPredicate);
 
                 case SYSTEM: {
-                    final double ratio = node.getSampleRatio();
-                    NodeSplits nodeSplits = node.getSource().accept(this, tableWriterPartitionPredicate);
-                    DataSource dataSource = nodeSplits.dataSource.get();
-                    Iterable<Split> sampleIterable = Iterables.filter(dataSource.getSplits(), new Predicate<Split>()
-                    {
-                        public boolean apply(@Nullable Split input)
-                        {
-                            return ThreadLocalRandom.current().nextDouble() < ratio;
-                        }
-                    });
-                    DataSource sampledDataSource = new DataSource(dataSource.getDataSourceName(), sampleIterable);
-
-                    return new NodeSplits(node.getId(), sampledDataSource);
+                    NodeSplits nodeSplits = node.getSource().accept(this, materializedViewPartitionPredicate);
+                    if (nodeSplits.getDataSource().isPresent()) {
+                        SplitSource sampledSplitSource = new SampledSplitSource(nodeSplits.getDataSource().get(), node.getSampleRatio());
+                        return new NodeSplits(node.getId(), sampledSplitSource);
+                    }
+                    else {
+                        // table sampling on a sub query without splits is meaningless
+                        return nodeSplits;
+                    }
                 }
                 default:
                     throw new UnsupportedOperationException("Sampling is not supported for type " + node.getSampleType());
@@ -182,73 +185,84 @@ public class DistributedExecutionPlanner
         }
 
         @Override
-        public NodeSplits visitAggregation(AggregationNode node, Predicate<Partition> tableWriterPartitionPredicate)
+        public NodeSplits visitAggregation(AggregationNode node, Predicate<Partition> materializedViewPartitionPredicate)
         {
-            return node.getSource().accept(this, tableWriterPartitionPredicate);
+            return node.getSource().accept(this, materializedViewPartitionPredicate);
         }
 
         @Override
-        public NodeSplits visitWindow(WindowNode node, Predicate<Partition> tableWriterPartitionPredicate)
+        public NodeSplits visitWindow(WindowNode node, Predicate<Partition> materializedViewPartitionPredicate)
         {
-            return node.getSource().accept(this, tableWriterPartitionPredicate);
+            return node.getSource().accept(this, materializedViewPartitionPredicate);
         }
 
         @Override
-        public NodeSplits visitProject(ProjectNode node, Predicate<Partition> tableWriterPartitionPredicate)
+        public NodeSplits visitProject(ProjectNode node, Predicate<Partition> materializedViewPartitionPredicate)
         {
-            return node.getSource().accept(this, tableWriterPartitionPredicate);
+            return node.getSource().accept(this, materializedViewPartitionPredicate);
         }
 
         @Override
-        public NodeSplits visitTopN(TopNNode node, Predicate<Partition> tableWriterPartitionPredicate)
+        public NodeSplits visitTopN(TopNNode node, Predicate<Partition> materializedViewPartitionPredicate)
         {
-            return node.getSource().accept(this, tableWriterPartitionPredicate);
+            return node.getSource().accept(this, materializedViewPartitionPredicate);
         }
 
         @Override
-        public NodeSplits visitOutput(OutputNode node, Predicate<Partition> tableWriterPartitionPredicate)
+        public NodeSplits visitOutput(OutputNode node, Predicate<Partition> materializedViewPartitionPredicate)
         {
-            return node.getSource().accept(this, tableWriterPartitionPredicate);
+            return node.getSource().accept(this, materializedViewPartitionPredicate);
         }
 
         @Override
-        public NodeSplits visitLimit(LimitNode node, Predicate<Partition> tableWriterPartitionPredicate)
+        public NodeSplits visitLimit(LimitNode node, Predicate<Partition> materializedViewPartitionPredicate)
         {
-            return node.getSource().accept(this, tableWriterPartitionPredicate);
+            return node.getSource().accept(this, materializedViewPartitionPredicate);
         }
 
         @Override
-        public NodeSplits visitSort(SortNode node, Predicate<Partition> tableWriterPartitionPredicate)
+        public NodeSplits visitSort(SortNode node, Predicate<Partition> materializedViewPartitionPredicate)
         {
-            return node.getSource().accept(this, tableWriterPartitionPredicate);
+            return node.getSource().accept(this, materializedViewPartitionPredicate);
         }
 
         @Override
-        public NodeSplits visitSink(SinkNode node, Predicate<Partition> tableWriterPartitionPredicate)
+        public NodeSplits visitSink(SinkNode node, Predicate<Partition> materializedViewPartitionPredicate)
         {
-            return node.getSource().accept(this, tableWriterPartitionPredicate);
+            return node.getSource().accept(this, materializedViewPartitionPredicate);
         }
 
         @Override
-        public NodeSplits visitTableWriter(final TableWriterNode node, Predicate<Partition> tableWriterPartitionPredicate)
+        public NodeSplits visitTableWriter(TableWriterNode node, Predicate<Partition> materializedViewPartitionPredicate)
         {
-            TableWriter tableWriter = new TableWriter(node, shardManager);
+            return node.getSource().accept(this, materializedViewPartitionPredicate);
+        }
+
+        @Override
+        public NodeSplits visitTableCommit(TableCommitNode node, Predicate<Partition> materializedViewPartitionPredicate)
+        {
+            return node.getSource().accept(this, materializedViewPartitionPredicate);
+        }
+
+        @Override
+        public NodeSplits visitMaterializedViewWriter(MaterializedViewWriterNode node, Predicate<Partition> materializedViewPartitionPredicate)
+        {
+            MaterializedViewWriter materializedViewWriter = new MaterializedViewWriter(node, shardManager);
 
             // get source splits
-            NodeSplits nodeSplits = node.getSource().accept(this, tableWriter.getPartitionPredicate());
-            checkState(nodeSplits.dataSource.isPresent(), "No splits present for import");
-            DataSource dataSource = nodeSplits.dataSource.get();
+            NodeSplits nodeSplits = node.getSource().accept(this, materializedViewWriter.getPartitionPredicate());
+            checkState(nodeSplits.getDataSource().isPresent(), "No splits present for import");
+            SplitSource splitSource = nodeSplits.getDataSource().get();
 
             // record output
-            outputReceivers.put(node.getId(), tableWriter.getOutputReceiver());
+            outputReceivers.put(node.getId(), materializedViewWriter.getOutputReceiver());
 
             // wrap splits with table writer info
-            Iterable<Split> newSplits = tableWriter.wrapSplits(nodeSplits.planNodeId, dataSource.getSplits());
-            return new NodeSplits(node.getId(), new DataSource(dataSource.getDataSourceName(), newSplits));
+            return new NodeSplits(node.getId(), materializedViewWriter.wrapSplitSource(nodeSplits.getPlanNodeId(), splitSource));
         }
 
         @Override
-        protected NodeSplits visitPlan(PlanNode node, Predicate<Partition> tableWriterPartitionPredicate)
+        protected NodeSplits visitPlan(PlanNode node, Predicate<Partition> materializedViewPartitionPredicate)
         {
             throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
         }
@@ -257,7 +271,7 @@ public class DistributedExecutionPlanner
     private class NodeSplits
     {
         private final PlanNodeId planNodeId;
-        private final Optional<DataSource> dataSource;
+        private final Optional<SplitSource> dataSource;
 
         private NodeSplits(PlanNodeId planNodeId)
         {
@@ -265,10 +279,20 @@ public class DistributedExecutionPlanner
             this.dataSource = Optional.absent();
         }
 
-        private NodeSplits(PlanNodeId planNodeId, DataSource dataSource)
+        private NodeSplits(PlanNodeId planNodeId, SplitSource splitSource)
         {
             this.planNodeId = planNodeId;
-            this.dataSource = Optional.of(dataSource);
+            this.dataSource = Optional.of(splitSource);
+        }
+
+        public PlanNodeId getPlanNodeId()
+        {
+            return planNodeId;
+        }
+
+        public Optional<SplitSource> getDataSource()
+        {
+            return dataSource;
         }
     }
 }

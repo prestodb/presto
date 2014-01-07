@@ -13,10 +13,11 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
+import com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
@@ -24,31 +25,43 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.in;
 
 public class SubPlanBuilder
 {
     private final PlanFragmentId id;
-    private PlanNode root;
-    private PlanNodeId partitionedSource;
-    private List<SubPlan> children = new ArrayList<>();
-
     private final SymbolAllocator allocator;
+    private final PlanDistribution distribution;
+    private final PlanNodeId partitionedSource;
 
-    public SubPlanBuilder(PlanFragmentId id, SymbolAllocator allocator, PlanNode root)
+    private PlanNode root;
+    private List<SubPlan> children = new ArrayList<>();
+    private OutputPartitioning outputPartitioning = OutputPartitioning.NONE;
+
+    public SubPlanBuilder(PlanFragmentId id, SymbolAllocator allocator, PlanDistribution distribution, PlanNode root, PlanNodeId partitionedSource)
     {
-        Preconditions.checkNotNull(id, "id is null");
-        Preconditions.checkNotNull(allocator, "allocator is null");
-        Preconditions.checkNotNull(root, "root is null");
-
-        this.allocator = allocator;
-        this.id = id;
-        this.root = root;
+        this.id = checkNotNull(id, "id is null");
+        this.allocator = checkNotNull(allocator, "allocator is null");
+        this.distribution = checkNotNull(distribution, "distribution is null");
+        this.root = checkNotNull(root, "root is null");
+        this.partitionedSource = partitionedSource;
     }
 
     public PlanFragmentId getId()
     {
         return id;
+    }
+
+    public boolean isDistributed()
+    {
+        return (distribution != PlanDistribution.NONE) &&
+                (distribution != PlanDistribution.COORDINATOR_ONLY);
+    }
+
+    public PlanDistribution getDistribution()
+    {
+        return distribution;
     }
 
     public PlanNode getRoot()
@@ -58,30 +71,8 @@ public class SubPlanBuilder
 
     public SubPlanBuilder setRoot(PlanNode root)
     {
-        Preconditions.checkNotNull(root, "root is null");
+        checkNotNull(root, "root is null");
         this.root = root;
-        return this;
-    }
-
-    public boolean isPartitioned()
-    {
-        return partitionedSource != null;
-    }
-
-    public PlanNodeId getPartitionedSource()
-    {
-        return partitionedSource;
-    }
-
-    public SubPlanBuilder setPartitionedSource(PlanNodeId partitionedSource)
-    {
-        this.partitionedSource = partitionedSource;
-        return this;
-    }
-
-    public SubPlanBuilder setUnpartitionedSource()
-    {
-        this.partitionedSource = null;
         return this;
     }
 
@@ -102,11 +93,17 @@ public class SubPlanBuilder
         return this;
     }
 
+    public SubPlanBuilder setOutputPartitioning(OutputPartitioning outputPartitioning)
+    {
+        this.outputPartitioning = outputPartitioning;
+        return this;
+    }
+
     public SubPlan build()
     {
         Set<Symbol> dependencies = SymbolExtractor.extract(root);
 
-        PlanFragment fragment = new PlanFragment(id, partitionedSource, Maps.filterKeys(allocator.getTypes(), in(dependencies)), root);
+        PlanFragment fragment = new PlanFragment(id, root, Maps.filterKeys(allocator.getTypes(), in(dependencies)), distribution, partitionedSource, outputPartitioning);
 
         return new SubPlan(fragment, children);
     }

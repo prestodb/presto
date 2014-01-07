@@ -88,9 +88,13 @@ public class HdfsConfiguration
             config.set("hadoop.socks.server", socksProxy.toString());
         }
 
-        config.setBoolean("dfs.client.read.shortcircuit", true);
         if (domainSocketPath != null) {
             config.setStrings("dfs.domain.socket.path", domainSocketPath);
+        }
+
+        // only enable short circuit reads if domain socket path is properly configured
+        if (!config.get("dfs.domain.socket.path", "").trim().isEmpty()) {
+            config.setBooleanIfUnset("dfs.client.read.shortcircuit", true);
         }
 
         config.setInt("dfs.socket.timeout", Ints.checkedCast(dfsTimeout.toMillis()));

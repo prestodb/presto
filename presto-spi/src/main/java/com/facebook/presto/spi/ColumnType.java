@@ -13,7 +13,34 @@
  */
 package com.facebook.presto.spi;
 
+import java.util.Objects;
+
 public enum ColumnType
 {
-    BOOLEAN, LONG, DOUBLE, STRING
+    BOOLEAN(Boolean.class),
+    LONG(Long.class),
+    DOUBLE(Double.class),
+    STRING(String.class);
+
+    private final Class<?> nativeType;
+
+    private ColumnType(Class<?> nativeType)
+    {
+        this.nativeType = Objects.requireNonNull(nativeType, "nativeType is null");
+    }
+
+    public Class<?> getNativeType()
+    {
+        return nativeType;
+    }
+
+    public static ColumnType fromNativeType(Class<?> nativeType)
+    {
+        for (ColumnType columnType : ColumnType.values()) {
+            if (columnType.getNativeType().equals(nativeType)) {
+                return columnType;
+            }
+        }
+        throw new IllegalArgumentException(String.format("No native column type found for %s", nativeType));
+    }
 }

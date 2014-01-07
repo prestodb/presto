@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.RemoteTask;
@@ -36,9 +37,7 @@ import org.weakref.jmx.Nested;
 
 import javax.inject.Inject;
 
-import java.net.URI;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 
@@ -84,20 +83,18 @@ public class HttpRemoteTaskFactory
             TaskId taskId,
             Node node,
             PlanFragment fragment,
-            Split initialSplit,
+            Multimap<PlanNodeId, Split> initialSplits,
             Map<PlanNodeId, OutputReceiver> outputReceivers,
-            Multimap<PlanNodeId, URI> initialExchangeLocations,
-            Set<String> initialOutputIds)
+            OutputBuffers outputBuffers)
     {
         return new HttpRemoteTask(session,
                 taskId,
-                node,
+                node.getNodeIdentifier(),
                 locationFactory.createTaskLocation(node, taskId),
                 fragment,
-                initialSplit,
+                initialSplits,
                 outputReceivers,
-                initialExchangeLocations,
-                initialOutputIds,
+                outputBuffers,
                 httpClient,
                 executor,
                 maxConsecutiveErrorCount,

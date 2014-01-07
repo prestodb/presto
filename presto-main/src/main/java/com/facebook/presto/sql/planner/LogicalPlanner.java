@@ -22,7 +22,9 @@ import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.OutputTableHandle;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
@@ -30,8 +32,10 @@ import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.TupleDescriptor;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
+import com.facebook.presto.sql.planner.plan.MaterializedViewWriterNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.TableCommitNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.tree.QueryBody;
@@ -48,7 +52,7 @@ import com.google.common.collect.Iterables;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static com.facebook.presto.sql.planner.plan.TableScanNode.GeneratedPartitions;
 import static com.google.common.base.Preconditions.checkState;
 
 public class LogicalPlanner
@@ -89,7 +93,10 @@ public class LogicalPlanner
     public Plan plan(Analysis analysis)
     {
         RelationPlan plan;
-        if (analysis.getDestination() != null) {
+        if (analysis.getMaterializedViewDestination().isPresent()) {
+            plan = createMaterializedViewWriterPlan(analysis);
+        }
+        else if (analysis.getCreateTableDestination().isPresent()) {
             plan = createTableWriterPlan(analysis);
         }
         else {
@@ -114,7 +121,44 @@ public class LogicalPlanner
 
     private RelationPlan createTableWriterPlan(Analysis analysis)
     {
-        QualifiedTableName destination = analysis.getDestination();
+        QualifiedTableName destination = analysis.getCreateTableDestination().get();
+
+        RelationPlanner planner = new RelationPlanner(analysis, symbolAllocator, idAllocator, metadata, session);
+        RelationPlan plan = planner.process(analysis.getQuery(), null);
+
+        TableMetadata tableMetadata = createTableMetadata(destination, getTableColumns(plan));
+
+        // TODO: create table in pre-execution step, not here
+        // Part of the plan should be an Optional<StateChangeListener<QueryState>> and this
+        // callback can create the table and abort the table creation if the query fails.
+        OutputTableHandle target = metadata.beginCreateTable(destination.getCatalogName(), tableMetadata);
+
+        ImmutableList<Symbol> writerOutputs = ImmutableList.of(
+                symbolAllocator.newSymbol("partialrows", Type.BIGINT),
+                symbolAllocator.newSymbol("fragment", Type.VARCHAR));
+
+        TableWriterNode writerNode = new TableWriterNode(
+                idAllocator.getNextId(),
+                plan.getRoot(),
+                target,
+                plan.getOutputSymbols(),
+                getColumnNames(tableMetadata),
+                writerOutputs);
+
+        List<Symbol> outputs = ImmutableList.of(symbolAllocator.newSymbol("rows", Type.BIGINT));
+
+        TableCommitNode commitNode = new TableCommitNode(
+                idAllocator.getNextId(),
+                writerNode,
+                target,
+                outputs);
+
+        return new RelationPlan(commitNode, analysis.getOutputDescriptor(), outputs);
+    }
+
+    private RelationPlan createMaterializedViewWriterPlan(Analysis analysis)
+    {
+        QualifiedTableName destination = analysis.getMaterializedViewDestination().get();
 
         TableHandle targetTable;
         List<ColumnHandle> targetColumnHandles;
@@ -146,7 +190,7 @@ public class LogicalPlanner
             }
 
             ImmutableList<Symbol> outputSymbols = outputSymbolsBuilder.build();
-            plan = new RelationPlan(new TableScanNode(idAllocator.getNextId(), sourceTableHandle, outputSymbols, inputColumnsBuilder.build(), TRUE_LITERAL, TRUE_LITERAL), new TupleDescriptor(fields.build()), outputSymbols);
+            plan = new RelationPlan(new TableScanNode(idAllocator.getNextId(), sourceTableHandle, outputSymbols, inputColumnsBuilder.build(), null, Optional.<GeneratedPartitions>absent()), new TupleDescriptor(fields.build()), outputSymbols);
 
             targetColumnHandles = columnHandleBuilder.build();
         }
@@ -165,8 +209,7 @@ public class LogicalPlanner
                 columns.add(columnMetadata);
             }
 
-            // TODO: first argument should actually be connectorId
-            TableMetadata tableMetadata = new TableMetadata(destination.getCatalogName(), new ConnectorTableMetadata(destination.asSchemaTableName(), columns.build()));
+            TableMetadata tableMetadata = createTableMetadata(destination, columns.build());
             targetTable = metadata.createTable(destination.getCatalogName(), tableMetadata);
 
             // get the column handles for the destination table
@@ -208,7 +251,7 @@ public class LogicalPlanner
         // create writer node
         Symbol output = symbolAllocator.newSymbol("imported_rows", Type.BIGINT);
 
-        TableWriterNode writerNode = new TableWriterNode(idAllocator.getNextId(),
+        MaterializedViewWriterNode writerNode = new MaterializedViewWriterNode(idAllocator.getNextId(),
                 plan.getRoot(),
                 targetTable,
                 mappings.build(),
@@ -231,5 +274,35 @@ public class LogicalPlanner
         }
 
         return new OutputNode(idAllocator.getNextId(), plan.getRoot(), names.build(), outputs.build());
+    }
+
+    private TableMetadata createTableMetadata(QualifiedTableName table, List<ColumnMetadata> columns)
+    {
+        String owner = session.getUser();
+        ConnectorTableMetadata metadata = new ConnectorTableMetadata(table.asSchemaTableName(), columns, owner);
+        // TODO: first argument should actually be connectorId
+        return new TableMetadata(table.getCatalogName(), metadata);
+    }
+
+    private static List<ColumnMetadata> getTableColumns(RelationPlan plan)
+    {
+        ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
+        List<Field> fields = plan.getDescriptor().getFields();
+        for (int i = 0; i < fields.size(); i++) {
+            Field field = fields.get(i);
+            String name = field.getName().get();
+            ColumnType type = field.getType().getColumnType();
+            columns.add(new ColumnMetadata(name, type, i, false));
+        }
+        return columns.build();
+    }
+
+    private static List<String> getColumnNames(TableMetadata tableMetadata)
+    {
+        ImmutableList.Builder<String> list = ImmutableList.builder();
+        for (ColumnMetadata column : tableMetadata.getColumns()) {
+            list.add(column.getName());
+        }
+        return list.build();
     }
 }

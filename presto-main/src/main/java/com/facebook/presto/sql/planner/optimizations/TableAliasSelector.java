@@ -28,11 +28,11 @@ import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.plan.MaterializedViewWriterNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
 import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
-import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.google.common.base.Optional;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableMap;
@@ -74,23 +74,23 @@ public class TableAliasSelector
 
         // don't optimize plans that actually write local tables. We always want to
         // read the remote table in that case.
-        if (containsTableWriter(plan)) {
+        if (containsMaterializedViewWriter(plan)) {
             return plan;
         }
 
         return PlanRewriter.rewriteWith(new Rewriter(), plan);
     }
 
-    private static boolean containsTableWriter(PlanNode plan)
+    private static boolean containsMaterializedViewWriter(PlanNode plan)
     {
         if (plan == null) {
             return false;
         }
-        if (plan instanceof TableWriterNode) {
+        if (plan instanceof MaterializedViewWriterNode) {
             return true;
         }
         for (PlanNode sourceNode : plan.getSources()) {
-            if (containsTableWriter(sourceNode)) {
+            if (containsMaterializedViewWriter(sourceNode)) {
                 return true;
             }
         }
@@ -139,13 +139,13 @@ public class TableAliasSelector
                 newAssignmentsBuilder.put(assignmentEntry.getKey(), aliasedColumnHandle);
             }
 
-            return new TableScanNode(node.getId(), aliasTableHandle.get(), node.getOutputSymbols(), newAssignmentsBuilder.build(), node.getPartitionPredicate(), node.getUpstreamPredicateHint());
+            return new TableScanNode(node.getId(), aliasTableHandle.get(), node.getOutputSymbols(), newAssignmentsBuilder.build(), node.getOriginalConstraint(), node.getGeneratedPartitions());
         }
 
         private boolean allNodesPresent(TableHandle tableHandle)
         {
             Set<String> nodesActive = ImmutableSet.copyOf(Collections2.transform(nodeManager.getAllNodes().getActiveNodes(), Node.getIdentifierFunction()));
-            Set<String> nodesRequired = ImmutableSet.copyOf(shardManager.getCommittedShardNodesByTableId(tableHandle).values());
+            Set<String> nodesRequired = shardManager.getTableNodes(tableHandle);
 
             return nodesActive.containsAll(nodesRequired);
         }

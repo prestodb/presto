@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.tuple;
 
-import com.facebook.presto.tuple.TupleInfo.Builder;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
@@ -32,11 +31,7 @@ public class Tuples
 
     public static Tuple nullTuple(TupleInfo tupleInfo)
     {
-        Builder builder = tupleInfo.builder();
-        for (int i = 0; i < tupleInfo.getFieldCount(); i++) {
-            builder.appendNull();
-        }
-        return builder.build();
+        return tupleInfo.builder().appendNull().build();
     }
 
     public static Tuple createTuple(boolean value)

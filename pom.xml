@@ -10,7 +10,7 @@
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.53-SNAPSHOT</version>
+    <version>0.57-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -48,16 +48,19 @@
     </properties>
 
     <modules>
-        <module>presto-docs</module>
         <module>presto-spi</module>
         <module>presto-hive</module>
+        <module>presto-hive-hadoop1</module>
+        <module>presto-hive-hadoop2</module>
         <module>presto-hive-cdh4</module>
+        <module>presto-example-http</module>
         <module>presto-client</module>
         <module>presto-parser</module>
         <module>presto-main</module>
         <module>presto-jdbc</module>
         <module>presto-cli</module>
         <module>presto-server</module>
+        <module>presto-docs</module>
     </modules>
 
     <dependencyManagement>
@@ -77,6 +80,13 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-hive-cdh4</artifactId>
+                <version>${project.version}</version>
+                <type>zip</type>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-example-http</artifactId>
                 <version>${project.version}</version>
                 <type>zip</type>
             </dependency>
@@ -141,14 +151,26 @@
 
             <dependency>
                 <groupId>com.facebook.presto.hadoop</groupId>
+                <artifactId>hadoop-apache1</artifactId>
+                <version>0.2-SNAPSHOT</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto.hadoop</groupId>
+                <artifactId>hadoop-apache2</artifactId>
+                <version>0.1-SNAPSHOT</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto.hadoop</groupId>
                 <artifactId>hadoop-cdh4</artifactId>
-                <version>0.3</version>
+                <version>0.6-SNAPSHOT</version>
             </dependency>
 
             <dependency>
                 <groupId>com.facebook.presto.hive</groupId>
                 <artifactId>hive-apache</artifactId>
-                <version>0.3</version>
+                <version>0.4</version>
             </dependency>
 
             <dependency>
@@ -316,7 +338,7 @@
             <dependency>
                 <groupId>it.unimi.dsi</groupId>
                 <artifactId>fastutil</artifactId>
-                <version>6.5.0</version>
+                <version>6.5.9</version>
             </dependency>
 
             <dependency>
@@ -386,6 +408,12 @@
             </dependency>
 
             <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-lang3</artifactId>
+                <version>3.1</version>
+            </dependency>
+
+            <dependency>
                 <groupId>commons-codec</groupId>
                 <artifactId>commons-codec</artifactId>
                 <version>1.7</version>
@@ -412,7 +440,7 @@
             <dependency>
                 <groupId>io.airlift.discovery</groupId>
                 <artifactId>discovery-server</artifactId>
-                <version>1.15</version>
+                <version>1.16</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -483,6 +511,9 @@
                                         <versionRange>[2.5.1,)</versionRange>
                                         <goals>
                                             <goal>copy</goal>
+                                            <goal>analyze-dep-mgt</goal>
+                                            <goal>analyze-duplicate</goal>
+                                            <goal>analyze-only</goal>
                                         </goals>
                                     </pluginExecutionFilter>
                                     <action>
@@ -496,6 +527,32 @@
                                         <versionRange>[0.6.2.201302030002,)</versionRange>
                                         <goals>
                                             <goal>prepare-agent</goal>
+                                        </goals>
+                                    </pluginExecutionFilter>
+                                    <action>
+                                        <ignore />
+                                    </action>
+                                </pluginExecution>
+                                <pluginExecution>
+                                    <pluginExecutionFilter>
+                                        <groupId>com.mycila</groupId>
+                                        <artifactId>license-maven-plugin</artifactId>
+                                        <versionRange>[2.3,)</versionRange>
+                                        <goals>
+                                            <goal>check</goal>
+                                        </goals>
+                                    </pluginExecutionFilter>
+                                    <action>
+                                        <ignore />
+                                    </action>
+                                </pluginExecution>
+                                <pluginExecution>
+                                    <pluginExecutionFilter>
+                                        <groupId>com.ning.maven.plugins</groupId>
+                                        <artifactId>maven-duplicate-finder-plugin</artifactId>
+                                        <versionRange>[1.0.4,)</versionRange>
+                                        <goals>
+                                            <goal>check</goal>
                                         </goals>
                                     </pluginExecutionFilter>
                                     <action>

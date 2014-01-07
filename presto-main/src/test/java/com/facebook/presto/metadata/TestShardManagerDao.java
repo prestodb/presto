@@ -36,6 +36,7 @@ import java.util.UUID;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.fail;
 
 public class TestShardManagerDao
 {
@@ -102,26 +103,39 @@ public class TestShardManagerDao
         long partitionId1 = dao.insertPartition(tableId, "part_1");
         long partitionId2 = dao.insertPartition(tableId, "part_2");
 
-        long shardId0 = dao.insertShard(tableId, true);
-        long shardId1 = dao.insertShard(tableId, true);
-        long shardId2 = dao.insertShard(tableId, true);
+        UUID shardUuid0 = UUID.randomUUID();
+        UUID shardUuid1 = UUID.randomUUID();
+        UUID shardUuid2a = UUID.randomUUID();
+        UUID shardUuid2b = UUID.randomUUID();
+
+        long shardId0 = dao.insertShard(shardUuid0);
+        long shardId1 = dao.insertShard(shardUuid1);
+        long shardId2a = dao.insertShard(shardUuid2a);
+        long shardId2b = dao.insertShard(shardUuid2b);
 
         dao.insertShardNode(shardId0, nodeId);
         dao.insertShardNode(shardId1, nodeId);
-        dao.insertShardNode(shardId2, nodeId);
+        dao.insertShardNode(shardId2a, nodeId);
+        dao.insertShardNode(shardId2b, nodeId);
 
         dao.insertPartitionShard(shardId0, tableId, partitionId0);
         dao.insertPartitionShard(shardId1, tableId, partitionId1);
-        dao.insertPartitionShard(shardId2, tableId, partitionId2);
+        dao.insertPartitionShard(shardId2a, tableId, partitionId2);
+        dao.insertPartitionShard(shardId2b, tableId, partitionId2);
 
         Set<TablePartition> partitions = dao.getPartitions(tableId);
         assertEquals(partitions.size(), 3);
 
-        List<ShardNode> partitionNodes = dao.getCommittedShardNodesByPartitionId(partitionId1);
-        assertEquals(partitionNodes.size(), 1);
+        List<ShardNode> shardNodes = dao.getShardNodes(tableId);
+        assertEquals(shardNodes.size(), 4);
 
-        List<ShardNode> tableNodes = dao.getCommittedShardNodesByTableId(tableId);
-        assertEquals(tableNodes.size(), 3);
+        assertContainsShardNode(shardNodes, tableId, nodeName, partitionId0, shardUuid0);
+        assertContainsShardNode(shardNodes, tableId, nodeName, partitionId1, shardUuid1);
+        assertContainsShardNode(shardNodes, tableId, nodeName, partitionId2, shardUuid2a);
+        assertContainsShardNode(shardNodes, tableId, nodeName, partitionId2, shardUuid2b);
+
+        Set<String> nodes = dao.getTableNodes(tableId);
+        assertEquals(nodes, ImmutableSet.of(nodeName));
     }
 
     @Test
@@ -154,5 +168,24 @@ public class TestShardManagerDao
         assertNotNull(retrievedKeys);
         assertEquals(retrievedKeys.size(), 1);
         assertEquals(Iterables.getOnlyElement(retrievedKeys), testKey1);
+    }
+
+    private static void assertContainsShardNode(List<ShardNode> nodes, long tableId, String nodeName, long partitionId, UUID shardUuid)
+    {
+        ShardNode expected = new ShardNode(shardUuid, nodeName, tableId, partitionId);
+        for (ShardNode node : nodes) {
+            if (shardNodesEqual(node, expected)) {
+                return;
+            }
+        }
+        fail(expected.toString());
+    }
+
+    private static boolean shardNodesEqual(ShardNode a, ShardNode b)
+    {
+        return (a.getTableId() == b.getTableId()) &&
+                (a.getPartitionId() == b.getPartitionId()) &&
+                a.getNodeIdentifier().equals(b.getNodeIdentifier()) &&
+                a.getShardUuid().equals(b.getShardUuid());
     }
 }

@@ -52,8 +52,12 @@ import com.facebook.presto.operator.ExchangeClientConfig;
 import com.facebook.presto.operator.ExchangeClientFactory;
 import com.facebook.presto.operator.ForExchange;
 import com.facebook.presto.operator.ForScheduler;
+import com.facebook.presto.operator.RecordSinkManager;
+import com.facebook.presto.operator.RecordSinkProvider;
 import com.facebook.presto.spi.ConnectorFactory;
+import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.Split;
+import com.facebook.presto.split.ConnectorDataStreamProvider;
 import com.facebook.presto.split.DataStreamManager;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
@@ -96,6 +100,7 @@ import static com.facebook.presto.guice.ConditionalModule.installIfPropertyEqual
 import static com.facebook.presto.guice.DbiProvider.bindDbiToDataSource;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigurationModule.bindConfig;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.event.client.EventBinder.eventBinder;
@@ -130,6 +135,7 @@ public class ServerMainModule
         newExporter(binder).export(TaskExecutor.class).withGeneratedName();
         binder.bind(LocalExecutionPlanner.class).in(Scopes.SINGLETON);
         binder.bind(ExpressionCompiler.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(ExpressionCompiler.class).withGeneratedName();
         bindConfig(binder).to(TaskManagerConfig.class);
 
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
@@ -153,6 +159,12 @@ public class ServerMainModule
         // data stream provider
         binder.bind(DataStreamManager.class).in(Scopes.SINGLETON);
         binder.bind(DataStreamProvider.class).to(DataStreamManager.class).in(Scopes.SINGLETON);
+        newSetBinder(binder, ConnectorDataStreamProvider.class);
+
+        // record sink provider
+        binder.bind(RecordSinkManager.class).in(Scopes.SINGLETON);
+        binder.bind(RecordSinkProvider.class).to(RecordSinkManager.class).in(Scopes.SINGLETON);
+        newSetBinder(binder, ConnectorRecordSinkProvider.class);
 
         // metadata
         binder.bind(CatalogManager.class).in(Scopes.SINGLETON);
@@ -278,6 +290,7 @@ public class ServerMainModule
         // TODO: this is a hack until the coordinator module works correctly
         if (coordinator) {
             binder.install(new FailureDetectorModule());
+            binder.bind(NodeResource.class).in(Scopes.SINGLETON);
         }
         else {
             binder.bind(FailureDetector.class).toInstance(new FailureDetector() {

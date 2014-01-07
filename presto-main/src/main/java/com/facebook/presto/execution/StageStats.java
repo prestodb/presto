@@ -19,6 +19,7 @@ import com.google.common.annotations.VisibleForTesting;
 import io.airlift.stats.Distribution.DistributionSnapshot;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -28,6 +29,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 @Immutable
 public class StageStats
 {
+    private final DateTime schedulingComplete;
+
     private final DistributionSnapshot getSplitDistribution;
     private final DistributionSnapshot scheduleTaskDistribution;
     private final DistributionSnapshot addSplitDistribution;
@@ -60,6 +63,7 @@ public class StageStats
     @VisibleForTesting
     public StageStats()
     {
+        this.schedulingComplete = null;
         this.getSplitDistribution = null;
         this.scheduleTaskDistribution = null;
         this.addSplitDistribution = null;
@@ -85,6 +89,8 @@ public class StageStats
 
     @JsonCreator
     public StageStats(
+            @JsonProperty("schedulingComplete") DateTime schedulingComplete,
+
             @JsonProperty("getSplitDistribution") DistributionSnapshot getSplitDistribution,
             @JsonProperty("scheduleTaskDistribution") DistributionSnapshot scheduleTaskDistribution,
             @JsonProperty("addSplitDistribution") DistributionSnapshot addSplitDistribution,
@@ -114,6 +120,7 @@ public class StageStats
             @JsonProperty("outputDataSize") DataSize outputDataSize,
             @JsonProperty("outputPositions") long outputPositions)
     {
+        this.schedulingComplete = schedulingComplete;
         this.getSplitDistribution = checkNotNull(getSplitDistribution, "getSplitDistribution is null");
         this.scheduleTaskDistribution = checkNotNull(scheduleTaskDistribution, "scheduleTaskDistribution is null");
         this.addSplitDistribution = checkNotNull(addSplitDistribution, "addSplitDistribution is null");
@@ -152,6 +159,12 @@ public class StageStats
         this.outputDataSize = checkNotNull(outputDataSize, "outputDataSize is null");
         checkArgument(outputPositions >= 0, "outputPositions is negative");
         this.outputPositions = outputPositions;
+    }
+
+    @JsonProperty
+    public DateTime getSchedulingComplete()
+    {
+        return schedulingComplete;
     }
 
     @JsonProperty
