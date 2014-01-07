@@ -34,6 +34,7 @@ public class PrestoStatement
     private final AtomicBoolean escapeProcessing = new AtomicBoolean(true);
     private final AtomicBoolean closeOnCompletion = new AtomicBoolean();
     private final AtomicReference<PrestoConnection> connection;
+    private AtomicReference<ResultSet> currentResult = new AtomicReference<>();
 
     PrestoStatement(PrestoConnection connection)
     {
@@ -45,7 +46,9 @@ public class PrestoStatement
             throws SQLException
     {
         try {
-            return new PrestoResultSet(connection().startQuery(sql));
+            ResultSet result = new PrestoResultSet(connection().startQuery(sql));
+            currentResult.set(result);
+            return result;
         }
         catch (RuntimeException e) {
             throw new SQLException("Error executing query", e);
@@ -167,28 +170,36 @@ public class PrestoStatement
     public boolean execute(String sql)
             throws SQLException
     {
-        throw new UnsupportedOperationException("execute");
+        checkOpen();
+        // Only support returning a single result set
+        currentResult.set(executeQuery(sql));
+        return true;
     }
 
     @Override
     public ResultSet getResultSet()
             throws SQLException
     {
-        throw new UnsupportedOperationException("getResultSet");
+        checkOpen();
+        return currentResult.get();
     }
 
     @Override
     public int getUpdateCount()
             throws SQLException
     {
-        throw new UnsupportedOperationException("getUpdateCount");
+        checkOpen();
+        // Updates are not allowed yet so return -1
+        return -1;
     }
 
     @Override
     public boolean getMoreResults()
             throws SQLException
     {
-        throw new UnsupportedOperationException("getMoreResults");
+        checkOpen();
+        currentResult.get().close();
+        return false;
     }
 
     @Override
@@ -280,7 +291,18 @@ public class PrestoStatement
     public boolean getMoreResults(int current)
             throws SQLException
     {
-        throw new UnsupportedOperationException("getMoreResults");
+        checkOpen();
+
+        if (current == CLOSE_CURRENT_RESULT) {
+            currentResult.get().close();
+            return false;
+        }
+
+        if (current != KEEP_CURRENT_RESULT && current != CLOSE_ALL_RESULTS) {
+            throw new SQLException("Invalid argument: " + current);
+        }
+
+        throw new SQLFeatureNotSupportedException("Multiple open results not supported");
     }
 
     @Override
