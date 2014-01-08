@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
-import com.facebook.presto.metadata.FunctionHandle;
+import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.SortOrder;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.sql.analyzer.Session;
@@ -115,7 +115,7 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = planRewriter.rewrite(node.getSource(), context);
 
-            ImmutableMap.Builder<Symbol, FunctionHandle> functionInfos = ImmutableMap.builder();
+            ImmutableMap.Builder<Symbol, Signature> functionInfos = ImmutableMap.builder();
             ImmutableMap.Builder<Symbol, FunctionCall> functionCalls = ImmutableMap.builder();
             for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
                 Symbol symbol = entry.getKey();
@@ -133,7 +133,7 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = planRewriter.rewrite(node.getSource(), context);
 
-            ImmutableMap.Builder<Symbol, FunctionHandle> functionInfos = ImmutableMap.builder();
+            ImmutableMap.Builder<Symbol, Signature> functionInfos = ImmutableMap.builder();
             ImmutableMap.Builder<Symbol, FunctionCall> functionCalls = ImmutableMap.builder();
             for (Map.Entry<Symbol, FunctionCall> entry : node.getWindowFunctions().entrySet()) {
                 Symbol symbol = entry.getKey();

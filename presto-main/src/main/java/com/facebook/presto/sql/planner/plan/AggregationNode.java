@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.metadata.FunctionHandle;
+import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -34,7 +34,7 @@ public class AggregationNode
     private final PlanNode source;
     private final List<Symbol> groupByKeys;
     private final Map<Symbol, FunctionCall> aggregations;
-    private final Map<Symbol, FunctionHandle> functions;
+    private final Map<Symbol, Signature> functions;
     private final Step step;
 
     public enum Step
@@ -44,7 +44,7 @@ public class AggregationNode
         SINGLE
     }
 
-    public AggregationNode(PlanNodeId id, PlanNode source, List<Symbol> groupByKeys, Map<Symbol, FunctionCall> aggregations, Map<Symbol, FunctionHandle> functions)
+    public AggregationNode(PlanNodeId id, PlanNode source, List<Symbol> groupByKeys, Map<Symbol, FunctionCall> aggregations, Map<Symbol, Signature> functions)
     {
         this(id, source, groupByKeys, aggregations, functions, Step.SINGLE);
     }
@@ -54,7 +54,7 @@ public class AggregationNode
             @JsonProperty("source") PlanNode source,
             @JsonProperty("groupBy") List<Symbol> groupByKeys,
             @JsonProperty("aggregations") Map<Symbol, FunctionCall> aggregations,
-            @JsonProperty("functions") Map<Symbol, FunctionHandle> functions,
+            @JsonProperty("functions") Map<Symbol, Signature> functions,
             @JsonProperty("step") Step step)
     {
         super(id);
@@ -85,7 +85,7 @@ public class AggregationNode
     }
 
     @JsonProperty("functions")
-    public Map<Symbol, FunctionHandle> getFunctions()
+    public Map<Symbol, Signature> getFunctions()
     {
         return functions;
     }
