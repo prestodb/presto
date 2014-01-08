@@ -51,6 +51,9 @@ public class HiveClientConfig
 
     private String domainSocketPath;
 
+    private String s3AwsAccessKey;
+    private String s3AwsSecretKey;
+
     private List<String> resourceConfigFiles;
 
     @NotNull
@@ -276,6 +279,30 @@ public class HiveClientConfig
     public HiveClientConfig setDomainSocketPath(String domainSocketPath)
     {
         this.domainSocketPath = domainSocketPath;
+        return this;
+    }
+
+    public String getS3AwsAccessKey()
+    {
+        return s3AwsAccessKey;
+    }
+
+    @Config("hive.s3.aws-access-key")
+    public HiveClientConfig setS3AwsAccessKey(String s3AwsAccessKey)
+    {
+        this.s3AwsAccessKey = s3AwsAccessKey;
+        return this;
+    }
+
+    public String getS3AwsSecretKey()
+    {
+        return s3AwsSecretKey;
+    }
+
+    @Config("hive.s3.aws-secret-key")
+    public HiveClientConfig setS3AwsSecretKey(String s3AwsSecretKey)
+    {
+        this.s3AwsSecretKey = s3AwsSecretKey;
         return this;
     }
 }

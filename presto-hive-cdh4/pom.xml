@@ -79,7 +79,7 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
-                    <excludedGroups>hive</excludedGroups>
+                    <excludedGroups>hive,hive-s3</excludedGroups>
                 </configuration>
             </plugin>
         </plugins>
@@ -94,7 +94,7 @@
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
-                            <excludedGroups combine.self="override" />
+                            <excludedGroups>hive-s3</excludedGroups>
                             <systemProperties>
                                 <hive.cdh4.metastoreHost>localhost</hive.cdh4.metastoreHost>
                                 <hive.cdh4.metastorePort>9083</hive.cdh4.metastorePort>
