@@ -36,7 +36,7 @@ public class LongMaxAggregation
     }
 
     @Override
-    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, int valueChannel)
+    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int valueChannel)
     {
         // Min/max are not effected by distinct, so ignore it.
         return new LongMaxGroupedAccumulator(valueChannel);
@@ -50,7 +50,7 @@ public class LongMaxAggregation
 
         public LongMaxGroupedAccumulator(int valueChannel)
         {
-            super(valueChannel, SINGLE_LONG, SINGLE_LONG, Optional.<Integer>absent());
+            super(valueChannel, SINGLE_LONG, SINGLE_LONG, Optional.<Integer>absent(), Optional.<Integer>absent());
 
             this.notNull = new BooleanBigArray();
             this.maxValues = new LongBigArray(Long.MIN_VALUE);
@@ -63,7 +63,7 @@ public class LongMaxAggregation
         }
 
         @Override
-        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock)
+        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
         {
             notNull.ensureCapacity(groupIdsBlock.getGroupCount());
             maxValues.ensureCapacity(groupIdsBlock.getGroupCount(), Long.MIN_VALUE);
@@ -100,7 +100,7 @@ public class LongMaxAggregation
     }
 
     @Override
-    protected Accumulator createAccumulator(Optional<Integer> maskChannel, int valueChannel)
+    protected Accumulator createAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int valueChannel)
     {
         // Min/max are not effected by distinct, so ignore it.
         return new LongMaxAccumulator(valueChannel);
@@ -114,11 +114,11 @@ public class LongMaxAggregation
 
         public LongMaxAccumulator(int valueChannel)
         {
-            super(valueChannel, SINGLE_LONG, SINGLE_LONG, Optional.<Integer>absent());
+            super(valueChannel, SINGLE_LONG, SINGLE_LONG, Optional.<Integer>absent(), Optional.<Integer>absent());
         }
 
         @Override
-        protected void processInput(Block block, Optional<Block> maskBlock)
+        protected void processInput(Block block, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
         {
             BlockCursor values = block.cursor();
 

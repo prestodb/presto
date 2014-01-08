@@ -321,7 +321,7 @@ class QueryPlanner
             subPlan = new PlanBuilder(subPlan.getTranslations(), markDistinct);
         }
 
-        return new PlanBuilder(translations, new AggregationNode(idAllocator.getNextId(), subPlan.getRoot(), ImmutableList.copyOf(groupBySymbols), aggregationAssignments.build(), functions.build(), masks.build()));
+        return new PlanBuilder(translations, new AggregationNode(idAllocator.getNextId(), subPlan.getRoot(), ImmutableList.copyOf(groupBySymbols), aggregationAssignments.build(), functions.build(), masks.build(), Optional.<Symbol>absent()));
     }
 
     private PlanBuilder window(PlanBuilder subPlan, QuerySpecification node)
@@ -464,7 +464,8 @@ class QueryPlanner
                     subPlan.getRoot().getOutputSymbols(),
                     ImmutableMap.<Symbol, FunctionCall>of(),
                     ImmutableMap.<Symbol, Signature>of(),
-                    ImmutableMap.<Symbol, Symbol>of());
+                    ImmutableMap.<Symbol, Symbol>of(),
+                    Optional.<Symbol>absent());
 
             return new PlanBuilder(subPlan.getTranslations(), aggregation);
         }

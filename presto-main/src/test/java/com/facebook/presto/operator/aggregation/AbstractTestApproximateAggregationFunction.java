@@ -71,7 +71,7 @@ public abstract class AbstractTestApproximateAggregationFunction
                     throw new AssertionError("Can only handle longs and doubles");
                 }
             }
-            Accumulator accumulator = getFunction().createAggregation(Optional.<Integer>absent(), 0);
+            Accumulator accumulator = getFunction().createAggregation(Optional.<Integer>absent(), Optional.<Integer>absent(), 0);
 
             accumulator.addInput(new Page(builder.build()));
             Block result = accumulator.evaluateFinal();

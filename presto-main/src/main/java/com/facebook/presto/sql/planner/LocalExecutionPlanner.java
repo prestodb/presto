@@ -1016,7 +1016,7 @@ public class LocalExecutionPlanner
                     .list());
         }
 
-        private AggregationFunctionDefinition buildFunctionDefinition(PhysicalOperation source, Signature function, FunctionCall call, @Nullable Symbol mask)
+        private AggregationFunctionDefinition buildFunctionDefinition(PhysicalOperation source, Signature function, FunctionCall call, @Nullable Symbol mask, Optional<Symbol> sampleWeight)
         {
             List<Input> arguments = new ArrayList<>();
             for (Expression argument : call.getArguments()) {
@@ -1030,7 +1030,12 @@ public class LocalExecutionPlanner
                 maskInput = Optional.of(source.getLayout().get(mask));
             }
 
-            return metadata.getFunction(function).bind(arguments, maskInput);
+            Optional<Input> sampleWeightInput = Optional.absent();
+            if (sampleWeight.isPresent()) {
+                sampleWeightInput = Optional.of(source.getLayout().get(sampleWeight.get()));
+            }
+
+            return metadata.getFunction(function).bind(arguments, maskInput, sampleWeightInput);
         }
 
         private PhysicalOperation planGlobalAggregation(int operatorId, AggregationNode node, PhysicalOperation source)
@@ -1041,7 +1046,7 @@ public class LocalExecutionPlanner
             for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
                 Symbol symbol = entry.getKey();
 
-                functionDefinitions.add(buildFunctionDefinition(source, node.getFunctions().get(symbol), entry.getValue(), node.getMasks().get(entry.getKey())));
+                functionDefinitions.add(buildFunctionDefinition(source, node.getFunctions().get(symbol), entry.getValue(), node.getMasks().get(entry.getKey()), node.getSampleWeight()));
                 outputMappings.put(symbol, new Input(outputChannel)); // one aggregation per channel
                 outputChannel++;
             }
@@ -1059,7 +1064,7 @@ public class LocalExecutionPlanner
             for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
                 Symbol symbol = entry.getKey();
 
-                functionDefinitions.add(buildFunctionDefinition(source, node.getFunctions().get(symbol), entry.getValue(), node.getMasks().get(entry.getKey())));
+                functionDefinitions.add(buildFunctionDefinition(source, node.getFunctions().get(symbol), entry.getValue(), node.getMasks().get(entry.getKey()), node.getSampleWeight()));
                 aggregationOutputSymbols.add(symbol);
             }
 

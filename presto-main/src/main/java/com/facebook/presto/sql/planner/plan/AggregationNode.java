@@ -18,6 +18,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -41,6 +42,7 @@ public class AggregationNode
     private final Map<Symbol, Symbol> masks;
     private final Map<Symbol, Signature> functions;
     private final Step step;
+    private final Optional<Symbol> sampleWeight;
 
     public enum Step
     {
@@ -49,9 +51,9 @@ public class AggregationNode
         SINGLE
     }
 
-    public AggregationNode(PlanNodeId id, PlanNode source, List<Symbol> groupByKeys, Map<Symbol, FunctionCall> aggregations, Map<Symbol, Signature> functions, Map<Symbol, Symbol> masks)
+    public AggregationNode(PlanNodeId id, PlanNode source, List<Symbol> groupByKeys, Map<Symbol, FunctionCall> aggregations, Map<Symbol, Signature> functions, Map<Symbol, Symbol> masks, Optional<Symbol> sampleWeight)
     {
-        this(id, source, groupByKeys, aggregations, functions, masks, Step.SINGLE);
+        this(id, source, groupByKeys, aggregations, functions, masks, Step.SINGLE, sampleWeight);
     }
 
     @JsonCreator
@@ -61,7 +63,8 @@ public class AggregationNode
             @JsonProperty("aggregations") Map<Symbol, FunctionCall> aggregations,
             @JsonProperty("functions") Map<Symbol, Signature> functions,
             @JsonProperty("masks") Map<Symbol, Symbol> masks,
-            @JsonProperty("step") Step step)
+            @JsonProperty("step") Step step,
+            @JsonProperty("sampleWeight") Optional<Symbol> sampleWeight)
     {
         super(id);
 
@@ -74,6 +77,7 @@ public class AggregationNode
             checkArgument(aggregations.containsKey(mask), "mask does not match any aggregations");
         }
         this.step = step;
+        this.sampleWeight = checkNotNull(sampleWeight, "sampleWeight is null");
     }
 
     @Override
@@ -122,6 +126,12 @@ public class AggregationNode
     public Step getStep()
     {
         return step;
+    }
+
+    @JsonProperty("sampleWeight")
+    public Optional<Symbol> getSampleWeight()
+    {
+        return sampleWeight;
     }
 
     public <C, R> R accept(PlanVisitor<C, R> visitor, C context)

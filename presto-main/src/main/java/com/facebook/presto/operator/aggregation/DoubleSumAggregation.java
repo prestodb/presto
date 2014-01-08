@@ -36,9 +36,9 @@ public class DoubleSumAggregation
     }
 
     @Override
-    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, int valueChannel)
+    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int valueChannel)
     {
-        return new DoubleSumGroupedAccumulator(valueChannel, maskChannel);
+        return new DoubleSumGroupedAccumulator(valueChannel, maskChannel, sampleWeightChannel);
     }
 
     public static class DoubleSumGroupedAccumulator
@@ -47,9 +47,9 @@ public class DoubleSumAggregation
         private final BooleanBigArray notNull;
         private final DoubleBigArray sums;
 
-        public DoubleSumGroupedAccumulator(int valueChannel, Optional<Integer> maskChannel)
+        public DoubleSumGroupedAccumulator(int valueChannel, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel)
         {
-            super(valueChannel, SINGLE_DOUBLE, SINGLE_DOUBLE, maskChannel);
+            super(valueChannel, SINGLE_DOUBLE, SINGLE_DOUBLE, maskChannel, sampleWeightChannel);
             this.notNull = new BooleanBigArray();
             this.sums = new DoubleBigArray();
         }
@@ -61,7 +61,7 @@ public class DoubleSumAggregation
         }
 
         @Override
-        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock)
+        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
         {
             notNull.ensureCapacity(groupIdsBlock.getGroupCount());
             sums.ensureCapacity(groupIdsBlock.getGroupCount());
@@ -71,18 +71,24 @@ public class DoubleSumAggregation
             if (maskBlock.isPresent()) {
                 masks = maskBlock.get().cursor();
             }
+            BlockCursor sampleWeights = null;
+            if (sampleWeightBlock.isPresent()) {
+                sampleWeights = sampleWeightBlock.get().cursor();
+            }
 
             for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
                 checkState(values.advanceNextPosition());
                 checkState(masks == null || masks.advanceNextPosition());
+                checkState(sampleWeights == null || sampleWeights.advanceNextPosition());
 
                 long groupId = groupIdsBlock.getGroupId(position);
 
-                if (!values.isNull() && (masks == null || masks.getBoolean())) {
+                long sampleWeight = computeSampleWeight(masks, sampleWeights);
+                if (!values.isNull() && sampleWeight > 0) {
                     notNull.set(groupId, true);
 
                     double value = values.getDouble();
-                    sums.add(groupId, value);
+                    sums.add(groupId, sampleWeight * value);
                 }
             }
             checkState(!values.advanceNextPosition());
@@ -102,9 +108,9 @@ public class DoubleSumAggregation
     }
 
     @Override
-    protected Accumulator createAccumulator(Optional<Integer> maskChannel, int valueChannel)
+    protected Accumulator createAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int valueChannel)
     {
-        return new DoubleSumAccumulator(valueChannel, maskChannel);
+        return new DoubleSumAccumulator(valueChannel, maskChannel, sampleWeightChannel);
     }
 
     public static class DoubleSumAccumulator
@@ -113,26 +119,32 @@ public class DoubleSumAggregation
         private boolean notNull;
         private double sum;
 
-        public DoubleSumAccumulator(int valueChannel, Optional<Integer> maskChannel)
+        public DoubleSumAccumulator(int valueChannel, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel)
         {
-            super(valueChannel, SINGLE_DOUBLE, SINGLE_DOUBLE, maskChannel);
+            super(valueChannel, SINGLE_DOUBLE, SINGLE_DOUBLE, maskChannel, sampleWeightChannel);
         }
 
         @Override
-        protected void processInput(Block block, Optional<Block> maskBlock)
+        protected void processInput(Block block, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
         {
             BlockCursor intermediates = block.cursor();
             BlockCursor masks = null;
             if (maskBlock.isPresent()) {
                 masks = maskBlock.get().cursor();
             }
+            BlockCursor sampleWeights = null;
+            if (sampleWeightBlock.isPresent()) {
+                sampleWeights = sampleWeightBlock.get().cursor();
+            }
 
             for (int position = 0; position < block.getPositionCount(); position++) {
                 checkState(intermediates.advanceNextPosition());
                 checkState(masks == null || masks.advanceNextPosition());
-                if (!intermediates.isNull() && (masks == null || masks.getBoolean())) {
+                checkState(sampleWeights == null || sampleWeights.advanceNextPosition());
+                long sampleWeight = computeSampleWeight(masks, sampleWeights);
+                if (!intermediates.isNull() && sampleWeight > 0) {
                     notNull = true;
-                    sum += intermediates.getDouble();
+                    sum += sampleWeight * intermediates.getDouble();
                 }
             }
         }

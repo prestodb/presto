@@ -51,9 +51,9 @@ public class AverageAggregation
     }
 
     @Override
-    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, int valueChannel)
+    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int valueChannel)
     {
-        return new AverageGroupedAccumulator(valueChannel, inputIsLong, maskChannel);
+        return new AverageGroupedAccumulator(valueChannel, inputIsLong, maskChannel, sampleWeightChannel);
     }
 
     public static class AverageGroupedAccumulator
@@ -64,9 +64,9 @@ public class AverageAggregation
         private final LongBigArray counts;
         private final DoubleBigArray sums;
 
-        public AverageGroupedAccumulator(int valueChannel, boolean inputIsLong, Optional<Integer> maskChannel)
+        public AverageGroupedAccumulator(int valueChannel, boolean inputIsLong, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel)
         {
-            super(valueChannel, SINGLE_DOUBLE, SINGLE_VARBINARY, maskChannel);
+            super(valueChannel, SINGLE_DOUBLE, SINGLE_VARBINARY, maskChannel, sampleWeightChannel);
             this.inputIsLong = inputIsLong;
             this.counts = new LongBigArray();
             this.sums = new DoubleBigArray();
@@ -79,7 +79,7 @@ public class AverageAggregation
         }
 
         @Override
-        public void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock)
+        public void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
         {
             counts.ensureCapacity(groupIdsBlock.getGroupCount());
             sums.ensureCapacity(groupIdsBlock.getGroupCount());
@@ -89,15 +89,21 @@ public class AverageAggregation
             if (maskBlock.isPresent()) {
                 masks = maskBlock.get().cursor();
             }
+            BlockCursor sampleWeights = null;
+            if (sampleWeightBlock.isPresent()) {
+                sampleWeights = sampleWeightBlock.get().cursor();
+            }
 
             for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
                 checkState(values.advanceNextPosition());
                 checkState(masks == null || masks.advanceNextPosition());
+                checkState(sampleWeights == null || sampleWeights.advanceNextPosition());
 
                 long groupId = groupIdsBlock.getGroupId(position);
 
-                if (!values.isNull() && (masks == null || masks.getBoolean())) {
-                    counts.increment(groupId);
+                long sampleWeight = computeSampleWeight(masks, sampleWeights);
+                if (!values.isNull() && sampleWeight > 0) {
+                    counts.add(groupId, sampleWeight);
 
                     double value;
                     if (inputIsLong) {
@@ -106,7 +112,7 @@ public class AverageAggregation
                     else {
                         value = values.getDouble();
                     }
-                    sums.add(groupId, value);
+                    sums.add(groupId, sampleWeight * value);
                 }
             }
             checkState(!values.advanceNextPosition());
@@ -163,9 +169,9 @@ public class AverageAggregation
     }
 
     @Override
-    protected Accumulator createAccumulator(Optional<Integer> maskChannel, int valueChannel)
+    protected Accumulator createAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int valueChannel)
     {
-        return new AverageAccumulator(valueChannel, inputIsLong, maskChannel);
+        return new AverageAccumulator(valueChannel, inputIsLong, maskChannel, sampleWeightChannel);
     }
 
     public static class AverageAccumulator
@@ -176,31 +182,37 @@ public class AverageAggregation
         private long count;
         private double sum;
 
-        public AverageAccumulator(int valueChannel, boolean inputIsLong, Optional<Integer> maskChannel)
+        public AverageAccumulator(int valueChannel, boolean inputIsLong, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel)
         {
-            super(valueChannel, SINGLE_DOUBLE, SINGLE_VARBINARY, maskChannel);
+            super(valueChannel, SINGLE_DOUBLE, SINGLE_VARBINARY, maskChannel, sampleWeightChannel);
             this.inputIsLong = inputIsLong;
         }
 
         @Override
-        protected void processInput(Block block, Optional<Block> maskBlock)
+        protected void processInput(Block block, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
         {
             BlockCursor values = block.cursor();
             BlockCursor masks = null;
             if (maskBlock.isPresent()) {
                 masks = maskBlock.get().cursor();
             }
+            BlockCursor sampleWeights = null;
+            if (sampleWeightBlock.isPresent()) {
+                sampleWeights = sampleWeightBlock.get().cursor();
+            }
 
             for (int position = 0; position < block.getPositionCount(); position++) {
                 checkState(values.advanceNextPosition());
                 checkState(masks == null || masks.advanceNextPosition());
-                if (!values.isNull() && (masks == null || masks.getBoolean())) {
-                    count++;
+                checkState(sampleWeights == null || sampleWeights.advanceNextPosition());
+                long sampleWeight = computeSampleWeight(masks, sampleWeights);
+                if (!values.isNull() && sampleWeight > 0) {
+                    count += sampleWeight;
                     if (inputIsLong) {
-                        sum += values.getLong();
+                        sum += sampleWeight * values.getLong();
                     }
                     else {
-                        sum += values.getDouble();
+                        sum += sampleWeight * values.getDouble();
                     }
                 }
             }

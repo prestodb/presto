@@ -53,15 +53,15 @@ public class CountAggregation
     }
 
     @Override
-    public CountGroupedAccumulator createGroupedAggregation(Optional<Integer> maskChannel, int[] argumentChannels)
+    public CountGroupedAccumulator createGroupedAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int[] argumentChannels)
     {
-        return new CountGroupedAccumulator(maskChannel);
+        return new CountGroupedAccumulator(maskChannel, sampleWeightChannel);
     }
 
     @Override
     public GroupedAccumulator createGroupedIntermediateAggregation()
     {
-        return new CountGroupedAccumulator(Optional.<Integer>absent());
+        return new CountGroupedAccumulator(Optional.<Integer>absent(), Optional.<Integer>absent());
     }
 
     public static class CountGroupedAccumulator
@@ -69,11 +69,13 @@ public class CountAggregation
     {
         private final LongBigArray counts;
         private final Optional<Integer> maskChannel;
+        private final Optional<Integer> sampleWeightChannel;
 
-        public CountGroupedAccumulator(Optional<Integer> maskChannel)
+        public CountGroupedAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel)
         {
             this.counts = new LongBigArray();
             this.maskChannel = maskChannel;
+            this.sampleWeightChannel = sampleWeightChannel;
         }
 
         @Override
@@ -97,22 +99,14 @@ public class CountAggregation
         public void addInput(GroupByIdBlock groupIdsBlock, Page page)
         {
             counts.ensureCapacity(groupIdsBlock.getGroupCount());
+            BlockCursor masks = maskChannel.isPresent() ? page.getBlock(maskChannel.get()).cursor() : null;
+            BlockCursor sampleWeights = sampleWeightChannel.isPresent() ? page.getBlock(sampleWeightChannel.get()).cursor() : null;
 
-            if (!maskChannel.isPresent()) {
-                for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
-                    long groupId = groupIdsBlock.getGroupId(position);
-                    counts.increment(groupId);
-                }
-            }
-            else {
-                BlockCursor cursor = page.getBlock(maskChannel.get()).cursor();
-                for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
-                    long groupId = groupIdsBlock.getGroupId(position);
-                    cursor.advanceNextPosition();
-                    if (cursor.getBoolean()) {
-                        counts.increment(groupId);
-                    }
-                }
+            for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
+                long groupId = groupIdsBlock.getGroupId(position);
+                checkState(masks == null || masks.advanceNextPosition());
+                checkState(sampleWeights == null || sampleWeights.advanceNextPosition());
+                counts.add(groupId, SimpleAggregationFunction.computeSampleWeight(masks, sampleWeights));
             }
         }
 
@@ -145,15 +139,15 @@ public class CountAggregation
     }
 
     @Override
-    public CountAccumulator createAggregation(Optional<Integer> maskChannel, int... argumentChannels)
+    public CountAccumulator createAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int... argumentChannels)
     {
-        return new CountAccumulator(maskChannel);
+        return new CountAccumulator(maskChannel, sampleWeightChannel);
     }
 
     @Override
     public CountAccumulator createIntermediateAggregation()
     {
-        return new CountAccumulator(Optional.<Integer>absent());
+        return new CountAccumulator(Optional.<Integer>absent(), Optional.<Integer>absent());
     }
 
     public static class CountAccumulator
@@ -161,10 +155,12 @@ public class CountAggregation
     {
         private long count;
         private final Optional<Integer> maskChannel;
+        private final Optional<Integer> sampleWeightChannel;
 
-        public CountAccumulator(Optional<Integer> maskChannel)
+        public CountAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel)
         {
             this.maskChannel = maskChannel;
+            this.sampleWeightChannel = sampleWeightChannel;
         }
 
         @Override
@@ -181,15 +177,22 @@ public class CountAggregation
 
         public void addInput(Page page)
         {
-            if (!maskChannel.isPresent()) {
+            if (!maskChannel.isPresent() && !sampleWeightChannel.isPresent()) {
                 count += page.getPositionCount();
             }
             else {
-                BlockCursor masks = page.getBlock(maskChannel.get()).cursor();
-                while (masks.advanceNextPosition()) {
-                    if (masks.getBoolean()) {
-                        count++;
-                    }
+                BlockCursor masks = null;
+                if (maskChannel.isPresent()) {
+                    masks = page.getBlock(maskChannel.get()).cursor();
+                }
+                BlockCursor sampleWeights = null;
+                if (sampleWeightChannel.isPresent()) {
+                    sampleWeights = page.getBlock(sampleWeightChannel.get()).cursor();
+                }
+                for (int i = 0; i < page.getPositionCount(); i++) {
+                    checkState(masks == null || masks.advanceNextPosition());
+                    checkState(sampleWeights == null || sampleWeights.advanceNextPosition());
+                    count += SimpleAggregationFunction.computeSampleWeight(masks, sampleWeights);
                 }
             }
         }

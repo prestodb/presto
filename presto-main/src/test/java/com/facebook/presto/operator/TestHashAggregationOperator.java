@@ -19,6 +19,7 @@ import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.util.MaterializedResult;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
@@ -88,12 +89,12 @@ public class TestHashAggregationOperator
                 ImmutableList.of(SINGLE_VARBINARY),
                 Ints.asList(1),
                 Step.SINGLE,
-                ImmutableList.of(aggregation(COUNT, new Input(0)),
-                        aggregation(LONG_SUM, new Input(3)),
-                        aggregation(LONG_AVERAGE, new Input(3)),
-                        aggregation(VAR_BINARY_MAX, new Input(2)),
-                        aggregation(COUNT_STRING_COLUMN, new Input(0)),
-                        aggregation(COUNT_BOOLEAN_COLUMN, new Input(4))),
+                ImmutableList.of(aggregation(COUNT, ImmutableList.of(new Input(0)), Optional.<Input>absent(), Optional.<Input>absent()),
+                        aggregation(LONG_SUM, ImmutableList.of(new Input(3)), Optional.<Input>absent(), Optional.<Input>absent()),
+                        aggregation(LONG_AVERAGE, ImmutableList.of(new Input(3)), Optional.<Input>absent(), Optional.<Input>absent()),
+                        aggregation(VAR_BINARY_MAX, ImmutableList.of(new Input(2)), Optional.<Input>absent(), Optional.<Input>absent()),
+                        aggregation(COUNT_STRING_COLUMN, ImmutableList.of(new Input(0)), Optional.<Input>absent(), Optional.<Input>absent()),
+                        aggregation(COUNT_BOOLEAN_COLUMN, ImmutableList.of(new Input(4)), Optional.<Input>absent(), Optional.<Input>absent())),
                 100_000);
 
         Operator operator = operatorFactory.createOperator(driverContext);
@@ -133,10 +134,10 @@ public class TestHashAggregationOperator
                 ImmutableList.of(SINGLE_VARBINARY),
                 Ints.asList(1),
                 Step.SINGLE,
-                ImmutableList.of(aggregation(COUNT, new Input(0)),
-                        aggregation(LONG_SUM, new Input(3)),
-                        aggregation(LONG_AVERAGE, new Input(3)),
-                        aggregation(VAR_BINARY_MAX, new Input(2))),
+                ImmutableList.of(aggregation(COUNT, ImmutableList.of(new Input(0)), Optional.<Input>absent(), Optional.<Input>absent()),
+                        aggregation(LONG_SUM, ImmutableList.of(new Input(3)), Optional.<Input>absent(), Optional.<Input>absent()),
+                        aggregation(LONG_AVERAGE, ImmutableList.of(new Input(3)), Optional.<Input>absent(), Optional.<Input>absent()),
+                        aggregation(VAR_BINARY_MAX, ImmutableList.of(new Input(2)), Optional.<Input>absent(), Optional.<Input>absent())),
                 100_000);
 
         Operator operator = operatorFactory.createOperator(driverContext);
@@ -159,8 +160,8 @@ public class TestHashAggregationOperator
                 ImmutableList.of(SINGLE_LONG),
                 Ints.asList(1),
                 Step.SINGLE,
-                ImmutableList.of(aggregation(COUNT, new Input(0)),
-                        aggregation(LONG_AVERAGE, new Input(1))),
+                ImmutableList.of(aggregation(COUNT, ImmutableList.of(new Input(0)), Optional.<Input>absent(), Optional.<Input>absent()),
+                        aggregation(LONG_AVERAGE, ImmutableList.of(new Input(1)), Optional.<Input>absent(), Optional.<Input>absent())),
                 100_000);
 
         Operator operator = operatorFactory.createOperator(driverContext);

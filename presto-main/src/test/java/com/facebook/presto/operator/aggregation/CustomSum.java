@@ -25,6 +25,7 @@ import com.google.common.base.Optional;
 
 import java.util.List;
 
+import static com.facebook.presto.operator.aggregation.SimpleAggregationFunction.computeSampleWeight;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -50,27 +51,27 @@ public class CustomSum
     }
 
     @Override
-    public Accumulator createAggregation(Optional<Integer> maskChannel, int... argumentChannels)
+    public Accumulator createAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int... argumentChannels)
     {
-        return new CustomSumAccumulator(argumentChannels[0], maskChannel);
+        return new CustomSumAccumulator(argumentChannels[0], maskChannel, sampleWeightChannel);
     }
 
     @Override
     public Accumulator createIntermediateAggregation()
     {
-        return new CustomSumAccumulator(-1, Optional.<Integer>absent());
+        return new CustomSumAccumulator(-1, Optional.<Integer>absent(), Optional.<Integer>absent());
     }
 
     @Override
-    public GroupedAccumulator createGroupedAggregation(Optional<Integer> maskChannel, int... argumentChannels)
+    public GroupedAccumulator createGroupedAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int... argumentChannels)
     {
-        return new CustomSumGroupedAccumulator(argumentChannels[0], maskChannel);
+        return new CustomSumGroupedAccumulator(argumentChannels[0], maskChannel, sampleWeightChannel);
     }
 
     @Override
     public GroupedAccumulator createGroupedIntermediateAggregation()
     {
-        return new CustomSumGroupedAccumulator(-1, Optional.<Integer>absent());
+        return new CustomSumGroupedAccumulator(-1, Optional.<Integer>absent(), Optional.<Integer>absent());
     }
 
     public static class CustomSumAccumulator
@@ -80,11 +81,13 @@ public class CustomSum
         private boolean notNull;
         private long sum;
         private final Optional<Integer> maskChannel;
+        private final Optional<Integer> sampleWeightChannel;
 
-        public CustomSumAccumulator(int channel, Optional<Integer> maskChannel)
+        public CustomSumAccumulator(int channel, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel)
         {
             this.channel = channel;
             this.maskChannel = maskChannel;
+            this.sampleWeightChannel = sampleWeightChannel;
         }
 
         @Override
@@ -102,23 +105,30 @@ public class CustomSum
         @Override
         public void addInput(Page page)
         {
-            processBlock(page.getBlock(channel), maskChannel.isPresent() ? Optional.of(page.getBlock(maskChannel.get())) : Optional.<Block>absent());
+            processBlock(page.getBlock(channel), maskChannel.transform(page.blockGetter()), sampleWeightChannel.transform(page.blockGetter()));
         }
 
-        private void processBlock(Block block, Optional<Block> maskBlock)
+        private void processBlock(Block block, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
         {
             BlockCursor values = block.cursor();
             BlockCursor masks = null;
+            BlockCursor sampleWeights = null;
             if (maskBlock.isPresent()) {
                 masks = maskBlock.get().cursor();
+            }
+            if (sampleWeightBlock.isPresent()) {
+                sampleWeights = sampleWeightBlock.get().cursor();
             }
 
             for (int position = 0; position < block.getPositionCount(); position++) {
                 checkState(values.advanceNextPosition());
                 checkState(masks == null || masks.advanceNextPosition());
-                if (!values.isNull() && (masks == null || masks.getBoolean())) {
+                checkState(sampleWeights == null || sampleWeights.advanceNextPosition());
+
+                long sampleWeight = computeSampleWeight(masks, sampleWeights);
+                if (!values.isNull() && sampleWeight > 0) {
                     notNull = true;
-                    sum += values.getLong();
+                    sum += sampleWeight * values.getLong();
                 }
             }
         }
@@ -126,7 +136,7 @@ public class CustomSum
         @Override
         public void addIntermediate(Block block)
         {
-            processBlock(block, Optional.<Block>absent());
+            processBlock(block, Optional.<Block>absent(), Optional.<Block>absent());
         }
 
         @Override
@@ -162,13 +172,15 @@ public class CustomSum
         private final BooleanBigArray notNull;
         private final LongBigArray sums;
         private final Optional<Integer> maskChannel;
+        private final Optional<Integer> sampleWeightChannel;
 
-        public CustomSumGroupedAccumulator(int channel, Optional<Integer> maskChannel)
+        public CustomSumGroupedAccumulator(int channel, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel)
         {
             this.channel = channel;
             this.notNull = new BooleanBigArray();
             this.sums = new LongBigArray();
             this.maskChannel = maskChannel;
+            this.sampleWeightChannel = sampleWeightChannel;
         }
 
         @Override
@@ -192,13 +204,13 @@ public class CustomSum
         @Override
         public void addInput(GroupByIdBlock groupIdsBlock, Page page)
         {
-            processBlock(groupIdsBlock, page.getBlock(channel), maskChannel.transform(page.blockGetter()));
+            processBlock(groupIdsBlock, page.getBlock(channel), maskChannel.transform(page.blockGetter()), sampleWeightChannel.transform(page.blockGetter()));
         }
 
         @Override
         public void addIntermediate(GroupByIdBlock groupIdsBlock, Block block)
         {
-            processBlock(groupIdsBlock, block, Optional.<Block>absent());
+            processBlock(groupIdsBlock, block, Optional.<Block>absent(), Optional.<Block>absent());
         }
 
         @Override
@@ -219,27 +231,33 @@ public class CustomSum
             }
         }
 
-        private void processBlock(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock)
+        private void processBlock(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
         {
             notNull.ensureCapacity(groupIdsBlock.getGroupCount());
             sums.ensureCapacity(groupIdsBlock.getGroupCount());
 
             BlockCursor values = valuesBlock.cursor();
             BlockCursor masks = null;
+            BlockCursor sampleWeights = null;
             if (maskBlock.isPresent()) {
                 masks = maskBlock.get().cursor();
+            }
+            if (sampleWeightBlock.isPresent()) {
+                sampleWeights = sampleWeightBlock.get().cursor();
             }
 
             for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
                 checkState(values.advanceNextPosition());
                 checkState(masks == null || masks.advanceNextPosition());
+                checkState(sampleWeights == null || sampleWeights.advanceNextPosition());
 
                 long groupId = groupIdsBlock.getGroupId(position);
+                long sampleWeight = computeSampleWeight(masks, sampleWeights);
 
-                if (!values.isNull() && (masks == null || masks.getBoolean())) {
+                if (!values.isNull() && sampleWeight > 0) {
                     notNull.set(groupId, true);
 
-                    long value = values.getLong();
+                    long value = sampleWeight * values.getLong();
                     sums.add(groupId, value);
                 }
             }

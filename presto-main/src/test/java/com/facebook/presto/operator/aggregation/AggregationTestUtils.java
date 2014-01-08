@@ -120,7 +120,7 @@ public final class AggregationTestUtils
 
     private static Object aggregation(AggregationFunction function, int[] args, Optional<Integer> maskChannel, Page... pages)
     {
-        Accumulator aggregation = function.createAggregation(maskChannel, args);
+        Accumulator aggregation = function.createAggregation(maskChannel, Optional.<Integer>absent(), args);
         for (Page page : pages) {
             if (page.getPositionCount() > 0) {
                 aggregation.addInput(page);
@@ -151,7 +151,7 @@ public final class AggregationTestUtils
 
     public static Object partialAggregation(AggregationFunction function, int[] args, Page... pages)
     {
-        Accumulator partialAggregation = function.createAggregation(Optional.<Integer>absent(), args);
+        Accumulator partialAggregation = function.createAggregation(Optional.<Integer>absent(), Optional.<Integer>absent(), args);
         for (Page page : pages) {
             if (page.getPositionCount() > 0) {
                 partialAggregation.addInput(page);
@@ -187,7 +187,7 @@ public final class AggregationTestUtils
 
     public static Object groupedAggregation(AggregationFunction function, int[] args, Page... pages)
     {
-        GroupedAccumulator groupedAggregation = function.createGroupedAggregation(Optional.<Integer>absent(), args);
+        GroupedAccumulator groupedAggregation = function.createGroupedAggregation(Optional.<Integer>absent(), Optional.<Integer>absent(), args);
         for (Page page : pages) {
             groupedAggregation.addInput(createGroupByIdBlock(0, page.getPositionCount()), page);
         }
@@ -222,7 +222,7 @@ public final class AggregationTestUtils
 
     public static Object groupedPartialAggregation(AggregationFunction function, int[] args, Page... pages)
     {
-        GroupedAccumulator partialAggregation = function.createGroupedAggregation(Optional.<Integer>absent(), args);
+        GroupedAccumulator partialAggregation = function.createGroupedAggregation(Optional.<Integer>absent(), Optional.<Integer>absent(), args);
         for (Page page : pages) {
             partialAggregation.addInput(createGroupByIdBlock(0, page.getPositionCount()), page);
         }

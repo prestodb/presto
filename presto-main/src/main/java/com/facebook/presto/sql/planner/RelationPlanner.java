@@ -356,6 +356,7 @@ class RelationPlanner
                 node.getOutputSymbols(),
                 ImmutableMap.<Symbol, FunctionCall>of(),
                 ImmutableMap.<Symbol, Signature>of(),
-                ImmutableMap.<Symbol, Symbol>of());
+                ImmutableMap.<Symbol, Symbol>of(),
+                Optional.<Symbol>absent());
     }
 }
