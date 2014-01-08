@@ -18,6 +18,7 @@ import com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
@@ -25,6 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.in;
 
@@ -36,6 +38,7 @@ public class SubPlanBuilder
     private final PlanNodeId partitionedSource;
 
     private PlanNode root;
+    private List<Symbol> partitionBy = ImmutableList.of();
     private List<SubPlan> children = new ArrayList<>();
     private OutputPartitioning outputPartitioning = OutputPartitioning.NONE;
 
@@ -93,9 +96,12 @@ public class SubPlanBuilder
         return this;
     }
 
-    public SubPlanBuilder setOutputPartitioning(OutputPartitioning outputPartitioning)
+    public SubPlanBuilder setHashOutputPartitioning(List<Symbol> partitionBy)
     {
-        this.outputPartitioning = outputPartitioning;
+        this.outputPartitioning = OutputPartitioning.HASH;
+        checkNotNull(partitionBy, "partitionBy is null");
+        checkArgument(!partitionBy.isEmpty(), "partitionBy is empty");
+        this.partitionBy = ImmutableList.copyOf(partitionBy);
         return this;
     }
 
@@ -103,7 +109,7 @@ public class SubPlanBuilder
     {
         Set<Symbol> dependencies = SymbolExtractor.extract(root);
 
-        PlanFragment fragment = new PlanFragment(id, root, Maps.filterKeys(allocator.getTypes(), in(dependencies)), distribution, partitionedSource, outputPartitioning);
+        PlanFragment fragment = new PlanFragment(id, root, Maps.filterKeys(allocator.getTypes(), in(dependencies)), distribution, partitionedSource, outputPartitioning, partitionBy);
 
         return new SubPlan(fragment, children);
     }

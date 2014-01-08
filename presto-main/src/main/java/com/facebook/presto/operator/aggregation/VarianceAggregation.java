@@ -20,6 +20,7 @@ import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.util.array.DoubleBigArray;
 import com.facebook.presto.util.array.LongBigArray;
+import com.google.common.base.Optional;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
@@ -60,9 +61,9 @@ public class VarianceAggregation
     }
 
     @Override
-    protected GroupedAccumulator createGroupedAccumulator(int valueChannel)
+    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, int valueChannel)
     {
-        return new VarianceGroupedAccumulator(valueChannel, inputIsLong, population, standardDeviation);
+        return new VarianceGroupedAccumulator(valueChannel, inputIsLong, population, standardDeviation, maskChannel);
     }
 
     public static class VarianceGroupedAccumulator
@@ -76,9 +77,9 @@ public class VarianceAggregation
         private final DoubleBigArray means;
         private final DoubleBigArray m2s;
 
-        private VarianceGroupedAccumulator(int valueChannel, boolean inputIsLong, boolean population, boolean standardDeviation)
+        private VarianceGroupedAccumulator(int valueChannel, boolean inputIsLong, boolean population, boolean standardDeviation, Optional<Integer> maskChannel)
         {
-            super(valueChannel, SINGLE_DOUBLE, SINGLE_VARBINARY);
+            super(valueChannel, SINGLE_DOUBLE, SINGLE_VARBINARY, maskChannel);
 
             this.inputIsLong = inputIsLong;
             this.population = population;
@@ -96,18 +97,23 @@ public class VarianceAggregation
         }
 
         @Override
-        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock)
+        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock)
         {
             counts.ensureCapacity(groupIdsBlock.getGroupCount());
             means.ensureCapacity(groupIdsBlock.getGroupCount());
             m2s.ensureCapacity(groupIdsBlock.getGroupCount());
 
             BlockCursor values = valuesBlock.cursor();
+            BlockCursor masks = null;
+            if (maskBlock.isPresent()) {
+                masks = maskBlock.get().cursor();
+            }
 
             for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
                 checkState(values.advanceNextPosition());
+                checkState(masks == null || masks.advanceNextPosition());
 
-                if (!values.isNull()) {
+                if (!values.isNull() && (masks == null || masks.getBoolean())) {
 
                     long groupId = groupIdsBlock.getGroupId(position);
                     double inputValue;
@@ -169,7 +175,6 @@ public class VarianceAggregation
                     counts.set(groupId, newCount);
                     means.set(groupId, newMean);
                     m2s.set(groupId, newM2);
-
                 }
             }
             checkState(!values.advanceNextPosition());
@@ -219,9 +224,9 @@ public class VarianceAggregation
     }
 
     @Override
-    protected Accumulator createAccumulator(int valueChannel)
+    protected Accumulator createAccumulator(Optional<Integer> maskChannel, int valueChannel)
     {
-        return new VarianceAccumulator(valueChannel, inputIsLong, population, standardDeviation);
+        return new VarianceAccumulator(valueChannel, inputIsLong, population, standardDeviation, maskChannel);
     }
 
     public static class VarianceAccumulator
@@ -235,9 +240,9 @@ public class VarianceAggregation
         private double currentMean;
         private double currentM2;
 
-        private VarianceAccumulator(int valueChannel, boolean inputIsLong, boolean population, boolean standardDeviation)
+        private VarianceAccumulator(int valueChannel, boolean inputIsLong, boolean population, boolean standardDeviation, Optional<Integer> maskChannel)
         {
-            super(valueChannel, SINGLE_DOUBLE, SINGLE_VARBINARY);
+            super(valueChannel, SINGLE_DOUBLE, SINGLE_VARBINARY, maskChannel);
 
             this.inputIsLong = inputIsLong;
             this.population = population;
@@ -245,14 +250,19 @@ public class VarianceAggregation
         }
 
         @Override
-        protected void processInput(Block block)
+        protected void processInput(Block block, Optional<Block> maskBlock)
         {
             BlockCursor values = block.cursor();
+            BlockCursor masks = null;
+            if (maskBlock.isPresent()) {
+                masks = maskBlock.get().cursor();
+            }
 
             for (int position = 0; position < block.getPositionCount(); position++) {
                 checkState(values.advanceNextPosition());
+                checkState(masks == null || masks.advanceNextPosition());
 
-                if (!values.isNull()) {
+                if (!values.isNull() && (masks == null || masks.getBoolean())) {
                     double inputValue;
                     if (inputIsLong) {
                         inputValue = values.getLong();
@@ -295,7 +305,6 @@ public class VarianceAggregation
                     currentCount = newCount;
                     currentMean = newMean;
                     currentM2 = newM2;
-
                 }
             }
             checkState(!values.advanceNextPosition());

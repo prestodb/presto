@@ -19,6 +19,7 @@ import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.util.array.BooleanBigArray;
 import com.facebook.presto.util.array.DoubleBigArray;
+import com.google.common.base.Optional;
 
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
@@ -35,9 +36,9 @@ public class DoubleSumAggregation
     }
 
     @Override
-    protected GroupedAccumulator createGroupedAccumulator(int valueChannel)
+    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, int valueChannel)
     {
-        return new DoubleSumGroupedAccumulator(valueChannel);
+        return new DoubleSumGroupedAccumulator(valueChannel, maskChannel);
     }
 
     public static class DoubleSumGroupedAccumulator
@@ -46,9 +47,9 @@ public class DoubleSumAggregation
         private final BooleanBigArray notNull;
         private final DoubleBigArray sums;
 
-        public DoubleSumGroupedAccumulator(int valueChannel)
+        public DoubleSumGroupedAccumulator(int valueChannel, Optional<Integer> maskChannel)
         {
-            super(valueChannel, SINGLE_DOUBLE, SINGLE_DOUBLE);
+            super(valueChannel, SINGLE_DOUBLE, SINGLE_DOUBLE, maskChannel);
             this.notNull = new BooleanBigArray();
             this.sums = new DoubleBigArray();
         }
@@ -60,19 +61,24 @@ public class DoubleSumAggregation
         }
 
         @Override
-        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock)
+        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock)
         {
             notNull.ensureCapacity(groupIdsBlock.getGroupCount());
             sums.ensureCapacity(groupIdsBlock.getGroupCount());
 
             BlockCursor values = valuesBlock.cursor();
+            BlockCursor masks = null;
+            if (maskBlock.isPresent()) {
+                masks = maskBlock.get().cursor();
+            }
 
             for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
                 checkState(values.advanceNextPosition());
+                checkState(masks == null || masks.advanceNextPosition());
 
                 long groupId = groupIdsBlock.getGroupId(position);
 
-                if (!values.isNull()) {
+                if (!values.isNull() && (masks == null || masks.getBoolean())) {
                     notNull.set(groupId, true);
 
                     double value = values.getDouble();
@@ -96,9 +102,9 @@ public class DoubleSumAggregation
     }
 
     @Override
-    protected Accumulator createAccumulator(int valueChannel)
+    protected Accumulator createAccumulator(Optional<Integer> maskChannel, int valueChannel)
     {
-        return new DoubleSumAccumulator(valueChannel);
+        return new DoubleSumAccumulator(valueChannel, maskChannel);
     }
 
     public static class DoubleSumAccumulator
@@ -107,19 +113,24 @@ public class DoubleSumAggregation
         private boolean notNull;
         private double sum;
 
-        public DoubleSumAccumulator(int valueChannel)
+        public DoubleSumAccumulator(int valueChannel, Optional<Integer> maskChannel)
         {
-            super(valueChannel, SINGLE_DOUBLE, SINGLE_DOUBLE);
+            super(valueChannel, SINGLE_DOUBLE, SINGLE_DOUBLE, maskChannel);
         }
 
         @Override
-        protected void processInput(Block block)
+        protected void processInput(Block block, Optional<Block> maskBlock)
         {
             BlockCursor intermediates = block.cursor();
+            BlockCursor masks = null;
+            if (maskBlock.isPresent()) {
+                masks = maskBlock.get().cursor();
+            }
 
             for (int position = 0; position < block.getPositionCount(); position++) {
                 checkState(intermediates.advanceNextPosition());
-                if (!intermediates.isNull()) {
+                checkState(masks == null || masks.advanceNextPosition());
+                if (!intermediates.isNull() && (masks == null || masks.getBoolean())) {
                     notNull = true;
                     sum += intermediates.getDouble();
                 }
