@@ -29,6 +29,7 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.lang.String.format;
 
 public class HdfsConfiguration
 {
@@ -37,6 +38,8 @@ public class HdfsConfiguration
     private final Duration dfsConnectTimeout;
     private final int dfsConnectMaxRetries;
     private final String domainSocketPath;
+    private final String s3AwsAccessKey;
+    private final String s3AwsSecretKey;
     private final List<String> resourcePaths;
 
     @SuppressWarnings("ThreadLocalNotStaticFinal")
@@ -60,6 +63,8 @@ public class HdfsConfiguration
         this.dfsConnectTimeout = hiveClientConfig.getDfsConnectTimeout();
         this.dfsConnectMaxRetries = hiveClientConfig.getDfsConnectMaxRetries();
         this.domainSocketPath = hiveClientConfig.getDomainSocketPath();
+        this.s3AwsAccessKey = hiveClientConfig.getS3AwsAccessKey();
+        this.s3AwsSecretKey = hiveClientConfig.getS3AwsSecretKey();
         this.resourcePaths = hiveClientConfig.getResourceConfigFiles();
     }
 
@@ -101,6 +106,20 @@ public class HdfsConfiguration
         config.setInt("ipc.ping.interval", Ints.checkedCast(dfsTimeout.toMillis()));
         config.setInt("ipc.client.connect.timeout", Ints.checkedCast(dfsConnectTimeout.toMillis()));
         config.setInt("ipc.client.connect.max.retries", dfsConnectMaxRetries);
+
+        // re-map filesystem schemes to match Amazon Elastic MapReduce
+        config.set("fs.s3.impl", "org.apache.hadoop.fs.s3native.NativeS3FileSystem");
+        config.set("fs.s3bfs.impl", "org.apache.hadoop.fs.s3.S3FileSystem");
+
+        // set AWS credentials for S3
+        for (String scheme : ImmutableList.of("s3", "s3bfs", "s3n")) {
+            if (s3AwsAccessKey != null) {
+                config.set(format("fs.%s.awsAccessKeyId", scheme), s3AwsAccessKey);
+            }
+            if (s3AwsSecretKey != null) {
+                config.set(format("fs.%s.awsSecretAccessKey", scheme), s3AwsSecretKey);
+            }
+        }
 
         updateConfiguration(config);
 

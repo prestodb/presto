@@ -47,7 +47,9 @@ public class TestHiveClientConfig
                 .setDfsConnectMaxRetries(5)
                 .setFileSystemCacheTtl(new Duration(1, TimeUnit.DAYS))
                 .setResourceConfigFiles((String) null)
-                .setDomainSocketPath(null));
+                .setDomainSocketPath(null)
+                .setS3AwsAccessKey(null)
+                .setS3AwsSecretKey(null));
     }
 
     @Test
@@ -71,6 +73,8 @@ public class TestHiveClientConfig
                 .put("hive.file-system-cache-ttl", "2d")
                 .put("hive.config.resources", "/foo.xml,/bar.xml")
                 .put("dfs.domain-socket-path", "/foo")
+                .put("hive.s3.aws-access-key", "abc123")
+                .put("hive.s3.aws-secret-key", "secret")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -90,7 +94,9 @@ public class TestHiveClientConfig
                 .setDfsConnectMaxRetries(10)
                 .setFileSystemCacheTtl(new Duration(2, TimeUnit.DAYS))
                 .setResourceConfigFiles(ImmutableList.of("/foo.xml", "/bar.xml"))
-                .setDomainSocketPath("/foo");
+                .setDomainSocketPath("/foo")
+                .setS3AwsAccessKey("abc123")
+                .setS3AwsSecretKey("secret");
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
