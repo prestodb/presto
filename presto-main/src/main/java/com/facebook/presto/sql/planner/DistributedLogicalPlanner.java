@@ -48,6 +48,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -107,7 +108,7 @@ public class DistributedLogicalPlanner
 
             if (!current.isDistributed()) {
                 // add the aggregation node as the root of the current fragment
-                current.setRoot(new AggregationNode(node.getId(), current.getRoot(), node.getGroupBy(), node.getAggregations(), node.getFunctions(), node.getMasks(), SINGLE));
+                current.setRoot(new AggregationNode(node.getId(), current.getRoot(), node.getGroupBy(), node.getAggregations(), node.getFunctions(), node.getMasks(), SINGLE, node.getSampleWeight()));
                 return current;
             }
 
@@ -117,7 +118,7 @@ public class DistributedLogicalPlanner
             List<Symbol> groupBy = node.getGroupBy();
 
             // else, we need to "close" the current fragment and create an unpartitioned fragment for the final aggregation
-            return addDistributedAggregation(current, aggregations, functions, masks, groupBy);
+            return addDistributedAggregation(current, aggregations, functions, masks, groupBy, node.getSampleWeight());
         }
 
         @Override
@@ -152,7 +153,7 @@ public class DistributedLogicalPlanner
             }
         }
 
-        private SubPlanBuilder addDistributedAggregation(SubPlanBuilder plan, Map<Symbol, FunctionCall> aggregations, Map<Symbol, Signature> functions, Map<Symbol, Symbol> masks, List<Symbol> groupBy)
+        private SubPlanBuilder addDistributedAggregation(SubPlanBuilder plan, Map<Symbol, FunctionCall> aggregations, Map<Symbol, Signature> functions, Map<Symbol, Symbol> masks, List<Symbol> groupBy, Optional<Symbol> sampleWeight)
         {
             Map<Symbol, FunctionCall> finalCalls = new HashMap<>();
             Map<Symbol, FunctionCall> intermediateCalls = new HashMap<>();
@@ -174,12 +175,12 @@ public class DistributedLogicalPlanner
             }
 
             // create partial aggregation plan
-            AggregationNode partialAggregation = new AggregationNode(idAllocator.getNextId(), plan.getRoot(), groupBy, intermediateCalls, intermediateFunctions, intermediateMask, PARTIAL);
+            AggregationNode partialAggregation = new AggregationNode(idAllocator.getNextId(), plan.getRoot(), groupBy, intermediateCalls, intermediateFunctions, intermediateMask, PARTIAL, sampleWeight);
             plan.setRoot(new SinkNode(idAllocator.getNextId(), partialAggregation, partialAggregation.getOutputSymbols()));
 
             // create final aggregation plan
             ExchangeNode source = new ExchangeNode(idAllocator.getNextId(), plan.getId(), plan.getRoot().getOutputSymbols());
-            AggregationNode finalAggregation = new AggregationNode(idAllocator.getNextId(), source, groupBy, finalCalls, functions, ImmutableMap.<Symbol, Symbol>of(), FINAL);
+            AggregationNode finalAggregation = new AggregationNode(idAllocator.getNextId(), source, groupBy, finalCalls, functions, ImmutableMap.<Symbol, Symbol>of(), FINAL, Optional.<Symbol>absent());
 
             if (groupBy.isEmpty()) {
                 plan = createSingleNodePlan(finalAggregation)
@@ -412,7 +413,8 @@ public class DistributedLogicalPlanner
                         ImmutableMap.of(node.getOutput(), aggregate),
                         ImmutableMap.of(node.getOutput(), sum.getHandle()),
                         ImmutableMap.<Symbol, Symbol>of(),
-                        ImmutableList.<Symbol>of());
+                        ImmutableList.<Symbol>of(),
+                        Optional.<Symbol>absent());
             }
 
             return subPlanBuilder;

@@ -141,10 +141,10 @@ public final class FunctionInfo
         return intermediateType;
     }
 
-    public AggregationFunctionDefinition bind(List<Input> inputs, Optional<Input> mask)
+    public AggregationFunctionDefinition bind(List<Input> inputs, Optional<Input> mask, Optional<Input> sampleWeight)
     {
         checkState(isAggregate, "function is not an aggregate");
-        return aggregation(aggregationFunction, inputs, mask);
+        return aggregation(aggregationFunction, inputs, mask, sampleWeight);
     }
 
     public MethodHandle getScalarFunction()

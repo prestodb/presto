@@ -17,10 +17,10 @@ import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.operator.aggregation.AggregationFunction;
 import com.facebook.presto.operator.aggregation.GroupedAccumulator;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
+import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.base.Function;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
@@ -397,11 +397,10 @@ public class HashAggregationOperator
                     argumentChannels[i] = functionDefinition.getInputs().get(i).getChannel();
                 }
                 intermediateChannel = -1;
-                Optional<Integer> maskChannel = Optional.absent();
-                if (functionDefinition.getMask().isPresent()) {
-                    maskChannel = Optional.of(functionDefinition.getMask().get().getChannel());
-                }
-                aggregation = function.createGroupedAggregation(maskChannel, argumentChannels);
+                aggregation = function.createGroupedAggregation(
+                        functionDefinition.getMask().transform(Input.channelGetter()),
+                        functionDefinition.getSampleWeight().transform(Input.channelGetter()),
+                        argumentChannels);
             }
             this.step = step;
         }

@@ -35,9 +35,9 @@ public class CountIfAggregation
     }
 
     @Override
-    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, int valueChannel)
+    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int valueChannel)
     {
-        return new CountIfGroupedAccumulator(valueChannel, maskChannel);
+        return new CountIfGroupedAccumulator(valueChannel, maskChannel, sampleWeightChannel);
     }
 
     public static class CountIfGroupedAccumulator
@@ -45,9 +45,9 @@ public class CountIfAggregation
     {
         private final LongBigArray counts;
 
-        public CountIfGroupedAccumulator(int valueChannel, Optional<Integer> maskChannel)
+        public CountIfGroupedAccumulator(int valueChannel, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel)
         {
-            super(valueChannel, SINGLE_LONG, SINGLE_LONG, maskChannel);
+            super(valueChannel, SINGLE_LONG, SINGLE_LONG, maskChannel, sampleWeightChannel);
             this.counts = new LongBigArray();
         }
 
@@ -58,7 +58,7 @@ public class CountIfAggregation
         }
 
         @Override
-        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock)
+        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
         {
             counts.ensureCapacity(groupIdsBlock.getGroupCount());
 
@@ -67,14 +67,20 @@ public class CountIfAggregation
             if (maskBlock.isPresent()) {
                 masks = maskBlock.get().cursor();
             }
+            BlockCursor sampleWeights = null;
+            if (sampleWeightBlock.isPresent()) {
+                sampleWeights = sampleWeightBlock.get().cursor();
+            }
 
             for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
                 checkState(values.advanceNextPosition());
                 checkState(masks == null || masks.advanceNextPosition());
+                checkState(sampleWeights == null || sampleWeights.advanceNextPosition());
 
-                if (!values.isNull() && values.getBoolean() && (masks == null || masks.getBoolean())) {
+                long sampleWeight = computeSampleWeight(masks, sampleWeights);
+                if (!values.isNull() && values.getBoolean() && sampleWeight > 0) {
                     long groupId = groupIdsBlock.getGroupId(position);
-                    counts.increment(groupId);
+                    counts.add(groupId, sampleWeight);
                 }
             }
             checkState(!values.advanceNextPosition());
@@ -107,9 +113,9 @@ public class CountIfAggregation
     }
 
     @Override
-    protected Accumulator createAccumulator(Optional<Integer> maskChannel, int valueChannel)
+    protected Accumulator createAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int valueChannel)
     {
-        return new CountIfAccumulator(valueChannel, maskChannel);
+        return new CountIfAccumulator(valueChannel, maskChannel, sampleWeightChannel);
     }
 
     public static class CountIfAccumulator
@@ -117,25 +123,31 @@ public class CountIfAggregation
     {
         private long count;
 
-        public CountIfAccumulator(int valueChannel, Optional<Integer> maskChannel)
+        public CountIfAccumulator(int valueChannel, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel)
         {
-            super(valueChannel, SINGLE_LONG, SINGLE_LONG, maskChannel);
+            super(valueChannel, SINGLE_LONG, SINGLE_LONG, maskChannel, sampleWeightChannel);
         }
 
         @Override
-        protected void processInput(Block block, Optional<Block> maskBlock)
+        protected void processInput(Block block, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
         {
             BlockCursor values = block.cursor();
             BlockCursor masks = null;
             if (maskBlock.isPresent()) {
                 masks = maskBlock.get().cursor();
             }
+            BlockCursor sampleWeights = null;
+            if (sampleWeightBlock.isPresent()) {
+                sampleWeights = sampleWeightBlock.get().cursor();
+            }
 
             for (int position = 0; position < block.getPositionCount(); position++) {
                 checkState(values.advanceNextPosition());
                 checkState(masks == null || masks.advanceNextPosition());
-                if (!values.isNull() && values.getBoolean() && (masks == null || masks.getBoolean())) {
-                    count++;
+                checkState(sampleWeights == null || sampleWeights.advanceNextPosition());
+                long sampleWeight = computeSampleWeight(masks, sampleWeights);
+                if (!values.isNull() && values.getBoolean() && sampleWeight > 0) {
+                    count += sampleWeight;
                 }
             }
         }

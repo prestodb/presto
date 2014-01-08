@@ -61,7 +61,7 @@ public class ApproximateCountDistinctAggregation
     }
 
     @Override
-    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, int valueChannel)
+    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int valueChannel)
     {
         return new ApproximateCountDistinctGroupedAccumulator(parameterType, valueChannel, maskChannel);
     }
@@ -74,7 +74,7 @@ public class ApproximateCountDistinctAggregation
 
         public ApproximateCountDistinctGroupedAccumulator(Type parameterType, int valueChannel, Optional<Integer> maskChannel)
         {
-            super(valueChannel, SINGLE_LONG, SINGLE_VARBINARY, maskChannel);
+            super(valueChannel, SINGLE_LONG, SINGLE_VARBINARY, maskChannel, Optional.<Integer>absent());
             this.parameterType = parameterType;
         }
 
@@ -85,7 +85,7 @@ public class ApproximateCountDistinctAggregation
         }
 
         @Override
-        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock)
+        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
         {
             ensureCapacity(groupIdsBlock.getGroupCount());
 
@@ -192,7 +192,7 @@ public class ApproximateCountDistinctAggregation
     }
 
     @Override
-    protected Accumulator createAccumulator(Optional<Integer> maskChannel, int valueChannel)
+    protected Accumulator createAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int valueChannel)
     {
         return new ApproximateCountDistinctAccumulator(parameterType, valueChannel, maskChannel);
     }
@@ -207,13 +207,14 @@ public class ApproximateCountDistinctAggregation
 
         public ApproximateCountDistinctAccumulator(Type parameterType, int valueChannel, Optional<Integer> maskChannel)
         {
-            super(valueChannel, SINGLE_LONG, SINGLE_VARBINARY, maskChannel);
+            // Ignore sample weight, because we're trying to count distincts
+            super(valueChannel, SINGLE_LONG, SINGLE_VARBINARY, maskChannel, Optional.<Integer>absent());
 
             this.parameterType = parameterType;
         }
 
         @Override
-        protected void processInput(Block block, Optional<Block> maskBlock)
+        protected void processInput(Block block, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
         {
             BlockCursor values = block.cursor();
             BlockCursor masks = null;

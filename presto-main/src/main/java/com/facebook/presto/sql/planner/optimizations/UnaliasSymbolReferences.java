@@ -45,6 +45,7 @@ import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.google.common.base.Function;
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -132,7 +133,7 @@ public class UnaliasSymbolReferences
             }
 
             List<Symbol> groupByKeys = ImmutableList.copyOf(ImmutableSet.copyOf(canonicalize(node.getGroupBy())));
-            return new AggregationNode(node.getId(), source, groupByKeys, functionCalls.build(), functionInfos.build(), masks.build());
+            return new AggregationNode(node.getId(), source, groupByKeys, functionCalls.build(), functionInfos.build(), masks.build(), canonicalize(node.getSampleWeight()));
         }
 
         @Override
@@ -303,6 +304,14 @@ public class UnaliasSymbolReferences
         {
             Preconditions.checkArgument(!symbol.equals(canonical), "Can't map symbol to itself: %s", symbol);
             mapping.put(symbol, canonical);
+        }
+
+        private Optional<Symbol> canonicalize(Optional<Symbol> symbol)
+        {
+            if (symbol.isPresent()) {
+                return Optional.of(canonicalize(symbol.get()));
+            }
+            return Optional.absent();
         }
 
         private Symbol canonicalize(Symbol symbol)

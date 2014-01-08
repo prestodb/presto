@@ -18,6 +18,7 @@ import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.util.LocalQueryRunner;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 
@@ -46,7 +47,7 @@ public class HashAggregationBenchmark
                 ImmutableList.of(tableScanOperator.getTupleInfos().get(0)),
                 Ints.asList(0),
                 Step.SINGLE,
-                ImmutableList.of(aggregation(DOUBLE_SUM, new Input(1))),
+                ImmutableList.of(aggregation(DOUBLE_SUM, ImmutableList.of(new Input(1)), Optional.<Input>absent(), Optional.<Input>absent())),
                 100_000);
         return ImmutableList.of(tableScanOperator, aggregationOperator);
     }

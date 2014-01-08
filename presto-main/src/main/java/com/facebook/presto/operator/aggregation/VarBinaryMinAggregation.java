@@ -36,7 +36,7 @@ public class VarBinaryMinAggregation
     }
 
     @Override
-    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, int valueChannel)
+    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int valueChannel)
     {
         // Min/max are not effected by distinct, so ignore it.
         return new VarBinaryGroupedAccumulator(valueChannel);
@@ -50,7 +50,7 @@ public class VarBinaryMinAggregation
 
         public VarBinaryGroupedAccumulator(int valueChannel)
         {
-            super(valueChannel, SINGLE_VARBINARY, SINGLE_VARBINARY, Optional.<Integer>absent());
+            super(valueChannel, SINGLE_VARBINARY, SINGLE_VARBINARY, Optional.<Integer>absent(), Optional.<Integer>absent());
             this.minValues = new ObjectBigArray<>();
         }
 
@@ -61,7 +61,7 @@ public class VarBinaryMinAggregation
         }
 
         @Override
-        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock)
+        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
         {
             minValues.ensureCapacity(groupIdsBlock.getGroupCount());
 
@@ -104,7 +104,7 @@ public class VarBinaryMinAggregation
     }
 
     @Override
-    protected Accumulator createAccumulator(Optional<Integer> maskChannel, int valueChannel)
+    protected Accumulator createAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int valueChannel)
     {
         // Min/max are not effected by distinct, so ignore it.
         return new VarBinaryMinAccumulator(valueChannel);
@@ -117,11 +117,11 @@ public class VarBinaryMinAggregation
 
         public VarBinaryMinAccumulator(int valueChannel)
         {
-            super(valueChannel, SINGLE_VARBINARY, SINGLE_VARBINARY, Optional.<Integer>absent());
+            super(valueChannel, SINGLE_VARBINARY, SINGLE_VARBINARY, Optional.<Integer>absent(), Optional.<Integer>absent());
         }
 
         @Override
-        protected void processInput(Block block, Optional<Block> maskBlock)
+        protected void processInput(Block block, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
         {
             BlockCursor values = block.cursor();
 

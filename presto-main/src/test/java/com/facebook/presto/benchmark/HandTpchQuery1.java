@@ -27,6 +27,7 @@ import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.util.LocalQueryRunner;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -100,14 +101,14 @@ public class HandTpchQuery1
                 Ints.asList(0, 1),
                 Step.SINGLE,
                 ImmutableList.of(
-                        aggregation(LONG_SUM, new Input(2)),
-                        aggregation(DOUBLE_SUM, new Input(3)),
-                        aggregation(DOUBLE_SUM, new Input(4)),
-                        aggregation(LONG_AVERAGE, new Input(2)),
-                        aggregation(DOUBLE_AVERAGE, new Input(5)),
-                        aggregation(DOUBLE_AVERAGE, new Input(6)),
-                        aggregation(COUNT, new Input(2))
-                ),
+                        aggregation(LONG_SUM, ImmutableList.of(new Input(2)), Optional.<Input>absent(), Optional.<Input>absent()),
+                        aggregation(DOUBLE_SUM, ImmutableList.of(new Input(3)), Optional.<Input>absent(), Optional.<Input>absent()),
+                        aggregation(DOUBLE_SUM, ImmutableList.of(new Input(4)), Optional.<Input>absent(), Optional.<Input>absent()),
+                        aggregation(LONG_AVERAGE, ImmutableList.of(new Input(2)), Optional.<Input>absent(), Optional.<Input>absent()),
+                        aggregation(DOUBLE_AVERAGE, ImmutableList.of(new Input(5)), Optional.<Input>absent(), Optional.<Input>absent()),
+                        aggregation(DOUBLE_AVERAGE, ImmutableList.of(new Input(6)), Optional.<Input>absent(), Optional.<Input>absent()),
+                        aggregation(COUNT, ImmutableList.of(new Input(2)), Optional.<Input>absent(), Optional.<Input>absent())
+                        ),
                 10_000);
 
         return ImmutableList.of(tableScanOperator, tpchQuery1Operator, aggregationOperator);

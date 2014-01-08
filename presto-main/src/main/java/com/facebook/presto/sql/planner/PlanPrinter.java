@@ -184,8 +184,12 @@ public class PlanPrinter
             if (!node.getGroupBy().isEmpty()) {
                 key = node.getGroupBy().toString();
             }
+            String sampleWeight = "";
+            if (node.getSampleWeight().isPresent()) {
+                sampleWeight = format("[sampleWeight = %s]", node.getSampleWeight().get());
+            }
 
-            print(indent, "- Aggregate%s%s => [%s]", type, key, formatOutputs(node.getOutputSymbols()));
+            print(indent, "- Aggregate%s%s%s => [%s]", type, key, sampleWeight, formatOutputs(node.getOutputSymbols()));
 
             for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
                 if (node.getMasks().containsKey(entry.getKey())) {
