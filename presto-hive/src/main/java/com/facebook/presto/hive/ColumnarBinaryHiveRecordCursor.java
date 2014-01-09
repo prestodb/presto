@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hadoop.shaded.com.google.common.collect.ImmutableSet;
 import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.RecordCursor;
 import com.google.common.base.Charsets;
@@ -36,10 +35,10 @@ import sun.misc.Unsafe;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.Arrays;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 
 import static com.facebook.presto.hive.HiveBooleanParser.isFalse;
 import static com.facebook.presto.hive.HiveBooleanParser.isTrue;
@@ -50,6 +49,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.uniqueIndex;
+import static com.google.common.collect.Sets.immutableEnumSet;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
@@ -91,7 +91,7 @@ class ColumnarBinaryHiveRecordCursor<K>
     private static final int SIZE_OF_INT = 4;
     private static final int SIZE_OF_LONG = 8;
 
-    private static final EnumSet<HiveType> VALID_HIVE_STRING_TYPES = EnumSet.of(HiveType.BINARY, HiveType.STRING, HiveType.MAP, HiveType.LIST, HiveType.STRUCT);
+    private static final Set<HiveType> VALID_HIVE_STRING_TYPES = immutableEnumSet(HiveType.BINARY, HiveType.STRING, HiveType.MAP, HiveType.LIST, HiveType.STRUCT);
 
     static {
         try {
