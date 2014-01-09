@@ -30,10 +30,6 @@ import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.SplitSource;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TupleDomain;
-import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorHandleResolver;
-import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorMetadata;
-import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorRecordSetProvider;
-import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorSplitManager;
 import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -99,24 +95,23 @@ public class TestCassandraConnector
         String connectorId = "cassandra-test";
         CassandraConnectorFactory connectorFactory = new CassandraConnectorFactory(
                 connectorId,
-                ImmutableMap.<String, String>of("node.environment", "test"),
-                CassandraConnector.class.getClassLoader());
+                ImmutableMap.<String, String>of("node.environment", "test"));
 
         Connector connector = connectorFactory.create(connectorId, ImmutableMap.<String, String>of(
                 "cassandra.contact-points", "localhost",
                 "cassandra.native-protocol-port", "9142"));
 
         metadata = connector.getService(ConnectorMetadata.class);
-        assertInstanceOf(metadata, ClassLoaderSafeConnectorMetadata.class);
+        assertInstanceOf(metadata, CassandraMetadata.class);
 
         splitManager = connector.getService(ConnectorSplitManager.class);
-        assertInstanceOf(splitManager, ClassLoaderSafeConnectorSplitManager.class);
+        assertInstanceOf(splitManager, CassandraSplitManager.class);
 
         recordSetProvider = connector.getService(ConnectorRecordSetProvider.class);
-        assertInstanceOf(recordSetProvider, ClassLoaderSafeConnectorRecordSetProvider.class);
+        assertInstanceOf(recordSetProvider, CassandraRecordSetProvider.class);
 
         ConnectorHandleResolver handleResolver = connector.getService(ConnectorHandleResolver.class);
-        assertInstanceOf(handleResolver, ClassLoaderSafeConnectorHandleResolver.class);
+        assertInstanceOf(handleResolver, CassandraHandleResolver.class);
 
 
         database = "presto_database";

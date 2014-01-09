@@ -38,17 +38,8 @@ public class CassandraPlugin
     public <T> List<T> getServices(Class<T> type)
     {
         if (type == ConnectorFactory.class) {
-            return ImmutableList.of(type.cast(new CassandraConnectorFactory("cassandra", optionalConfig, getClassLoader())));
+            return ImmutableList.of(type.cast(new CassandraConnectorFactory("cassandra", optionalConfig)));
         }
         return ImmutableList.of();
-    }
-
-    private static ClassLoader getClassLoader()
-    {
-        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-        if (classLoader == null) {
-            classLoader = CassandraPlugin.class.getClassLoader();
-        }
-        return classLoader;
     }
 }
