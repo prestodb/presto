@@ -19,11 +19,6 @@ import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
-import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorHandleResolver;
-import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorMetadata;
-import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorRecordSetProvider;
-import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorSplitManager;
-import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.inject.Binder;
@@ -48,14 +43,12 @@ public class CassandraConnectorFactory
 {
     private final String name;
     private final Map<String, String> optionalConfig;
-    private final ClassLoader classLoader;
 
-    public CassandraConnectorFactory(String name, Map<String, String> optionalConfig, ClassLoader classLoader)
+    public CassandraConnectorFactory(String name, Map<String, String> optionalConfig)
     {
         checkArgument(!isNullOrEmpty(name), "name is null or empty");
         this.name = name;
         this.optionalConfig = checkNotNull(optionalConfig, "optionalConfig is null");
-        this.classLoader = checkNotNull(classLoader, "classLoader is null");
     }
 
     @Override
@@ -69,21 +62,21 @@ public class CassandraConnectorFactory
     {
         checkNotNull(config, "config is null");
 
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+        try {
             Bootstrap app = new Bootstrap(
                     new NodeModule(),
                     new MBeanModule(),
                     new JsonModule(),
                     new CassandraClientModule(connectorId),
                     new Module()
-            {
-                @Override
-                public void configure(Binder binder)
-                {
-                    MBeanServer platformMBeanServer = ManagementFactory.getPlatformMBeanServer();
-                    binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(platformMBeanServer));
-                }
-            });
+                    {
+                        @Override
+                        public void configure(Binder binder)
+                        {
+                            MBeanServer platformMBeanServer = ManagementFactory.getPlatformMBeanServer();
+                            binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(platformMBeanServer));
+                        }
+                    });
 
             Injector injector = app.strictConfig().doNotInitializeLogging()
                     .setRequiredConfigurationProperties(config)
@@ -95,10 +88,10 @@ public class CassandraConnectorFactory
             CassandraHandleResolver handleResolver = injector.getInstance(CassandraHandleResolver.class);
 
             ImmutableClassToInstanceMap.Builder<Object> builder = ImmutableClassToInstanceMap.builder();
-            builder.put(ConnectorMetadata.class, new ClassLoaderSafeConnectorMetadata(metadata, classLoader));
-            builder.put(ConnectorSplitManager.class, new ClassLoaderSafeConnectorSplitManager(splitManager, classLoader));
-            builder.put(ConnectorRecordSetProvider.class, new ClassLoaderSafeConnectorRecordSetProvider(recordSetProvider, classLoader));
-            builder.put(ConnectorHandleResolver.class, new ClassLoaderSafeConnectorHandleResolver(handleResolver, classLoader));
+            builder.put(ConnectorMetadata.class, metadata);
+            builder.put(ConnectorSplitManager.class, splitManager);
+            builder.put(ConnectorRecordSetProvider.class, recordSetProvider);
+            builder.put(ConnectorHandleResolver.class, handleResolver);
 
             return new CassandraConnector(builder.build());
         }
