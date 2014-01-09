@@ -190,11 +190,8 @@ class GenericHiveRecordCursor<K, V extends Writable>
     @Override
     public long getCompletedBytes()
     {
-        try {
-            long newCompletedBytes = (long) (totalBytes * recordReader.getProgress());
-            completedBytes = min(totalBytes, max(completedBytes, newCompletedBytes));
-        }
-        catch (IOException ignored) {
+        if (!closed) {
+            updateCompletedBytes();
         }
         return completedBytes;
     }
@@ -345,6 +342,14 @@ class GenericHiveRecordCursor<K, V extends Writable>
         return strings[fieldId];
     }
 
+    private void updateCompletedBytes() {
+        try {
+            long newCompletedBytes = (long) (totalBytes * recordReader.getProgress());
+            completedBytes = min(totalBytes, max(completedBytes, newCompletedBytes));
+        } catch (IOException ignored) {
+        }
+    }
+
     private void parseStringColumn(int column)
     {
         // don't include column number in message because it causes boxing which is expensive here
@@ -425,6 +430,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
             return;
         }
         closed = true;
+        updateCompletedBytes();
 
         try {
             recordReader.close();
