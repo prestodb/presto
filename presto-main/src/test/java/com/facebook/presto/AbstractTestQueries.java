@@ -289,6 +289,17 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testDistinctJoin()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(DISTINCT b.quantity), a.orderstatus " +
+                "FROM orders a " +
+                "JOIN lineitem b " +
+                "ON a.orderkey = b.orderkey " +
+                "GROUP BY a.orderstatus");
+    }
+
+    @Test
     public void testArithmeticNegation()
             throws Exception
     {
