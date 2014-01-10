@@ -35,6 +35,7 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -46,21 +47,26 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 public class NodeScheduler
 {
     private final NodeManager nodeManager;
+    private final NodeTaskMap nodeTaskMap;
     private final AtomicLong scheduleLocal = new AtomicLong();
     private final AtomicLong scheduleRack = new AtomicLong();
     private final AtomicLong scheduleRandom = new AtomicLong();
     private final int minCandidates;
+    private final int maxSplitsPerNode;
 
     @Inject
-    public NodeScheduler(NodeManager nodeManager, NodeSchedulerConfig config)
+    public NodeScheduler(NodeManager nodeManager, NodeSchedulerConfig config, NodeTaskMap nodeTaskMap)
     {
         this.nodeManager = nodeManager;
+        this.nodeTaskMap = nodeTaskMap;
         this.minCandidates = config.getMinCandidates();
+        this.maxSplitsPerNode = config.getMaxSplitsPerNode();
     }
 
     @Managed
@@ -89,7 +95,7 @@ public class NodeScheduler
         scheduleRandom.set(0);
     }
 
-    public NodeSelector createNodeSelector(final String dataSourceName, Map<Node, RemoteTask> taskMap, int maxPendingSplitsPerTask)
+    public NodeSelector createNodeSelector(final String dataSourceName)
     {
         // this supplier is thread-safe. TODO: this logic should probably move to the scheduler since the choice of which node to run in should be
         // done as close to when the the split is about to be scheduled
@@ -128,20 +134,21 @@ public class NodeScheduler
             }
         }, 5, TimeUnit.SECONDS);
 
-        return new NodeSelector(nodeMap, taskMap, maxPendingSplitsPerTask);
+        return new NodeSelector(nodeMap, nodeTaskMap, maxSplitsPerNode);
     }
 
     public class NodeSelector
     {
         private final AtomicReference<Supplier<NodeMap>> nodeMap;
-        private final Map<Node, RemoteTask> taskMap;
-        private final int maxPendingSplitsPerTask;
+        private final NodeTaskMap nodeTaskMap;
+        private final int maxSplitsPerNode;
 
-        public NodeSelector(Supplier<NodeMap> nodeMap, Map<Node, RemoteTask> taskMap, int maxPendingSplitsPerTask)
+        public NodeSelector(Supplier<NodeMap> nodeMap, NodeTaskMap nodeTaskMap, int maxSplitsPerNode)
         {
             this.nodeMap = new AtomicReference<>(nodeMap);
-            this.taskMap = taskMap;
-            this.maxPendingSplitsPerTask = maxPendingSplitsPerTask;
+            this.nodeTaskMap = checkNotNull(nodeTaskMap);
+            checkArgument(maxSplitsPerNode > 0, "maxSplitsPerNode must be greater than 0");
+            this.maxSplitsPerNode = maxSplitsPerNode;
         }
 
         public void lockDownNodes()
@@ -182,13 +189,18 @@ public class NodeScheduler
                 List<Node> candidateNodes = selectCandidateNodes(nodeMap.get().get(), split);
                 checkState(!candidateNodes.isEmpty(), "No nodes available to run query");
 
+                Map<Node, Integer> splitsByNode = new HashMap<>();
                 Node chosen = null;
                 int min = Integer.MAX_VALUE;
+
                 for (Node node : candidateNodes) {
-                    RemoteTask task = taskMap.get(node);
-                    int currentSplits = (task == null) ? 0 : task.getQueuedSplits();
-                    int assignedSplits = currentSplits + assignment.get(node).size();
-                    if (assignedSplits < min && assignedSplits < maxPendingSplitsPerTask) {
+                    Integer partitionedSplitCount = splitsByNode.get(node);
+                    if (partitionedSplitCount == null) {
+                        partitionedSplitCount = nodeTaskMap.getPartitionedSplitsOnNode(node);
+                        splitsByNode.put(node, partitionedSplitCount);
+                    }
+                    int assignedSplits = partitionedSplitCount + assignment.get(node).size();
+                    if (assignedSplits < min && assignedSplits < maxSplitsPerNode) {
                         chosen = node;
                         min = assignedSplits;
                     }

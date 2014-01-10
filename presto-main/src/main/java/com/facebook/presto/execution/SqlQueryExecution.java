@@ -75,13 +75,13 @@ public class SqlQueryExecution
     private final RemoteTaskFactory remoteTaskFactory;
     private final LocationFactory locationFactory;
     private final int scheduleSplitBatchSize;
-    private final int maxPendingSplitsPerNode;
     private final int initialHashPartitions;
     private final boolean experimentalSyntaxEnabled;
     private final ExecutorService queryExecutor;
 
     private final QueryExplainer queryExplainer;
     private final AtomicReference<SqlStageExecution> outputStage = new AtomicReference<>();
+    private final NodeTaskMap nodeTaskMap;
 
     public SqlQueryExecution(QueryId queryId,
             String query,
@@ -95,10 +95,10 @@ public class SqlQueryExecution
             RemoteTaskFactory remoteTaskFactory,
             LocationFactory locationFactory,
             int scheduleSplitBatchSize,
-            int maxPendingSplitsPerNode,
             int initialHashPartitions,
             boolean experimentalSyntaxEnabled,
-            ExecutorService queryExecutor)
+            ExecutorService queryExecutor,
+            NodeTaskMap nodeTaskMap)
     {
         try (SetThreadName setThreadName = new SetThreadName("Query-%s", queryId)) {
             this.statement = checkNotNull(statement, "statement is null");
@@ -110,12 +110,10 @@ public class SqlQueryExecution
             this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
             this.queryExecutor = checkNotNull(queryExecutor, "queryExecutor is null");
             this.experimentalSyntaxEnabled = experimentalSyntaxEnabled;
+            this.nodeTaskMap = checkNotNull(nodeTaskMap, "nodeTaskMap is null");
 
-            checkArgument(maxPendingSplitsPerNode > 0, "scheduleSplitBatchSize must be greater than 0");
+            checkArgument(scheduleSplitBatchSize > 0, "scheduleSplitBatchSize must be greater than 0");
             this.scheduleSplitBatchSize = scheduleSplitBatchSize;
-
-            checkArgument(maxPendingSplitsPerNode > 0, "maxPendingSplitsPerNode must be greater than 0");
-            this.maxPendingSplitsPerNode = maxPendingSplitsPerNode;
 
             checkArgument(initialHashPartitions > 0, "initialHashPartitions must be greater than 0");
             this.initialHashPartitions = initialHashPartitions;
@@ -236,9 +234,9 @@ public class SqlQueryExecution
                 remoteTaskFactory,
                 stateMachine.getSession(),
                 scheduleSplitBatchSize,
-                maxPendingSplitsPerNode,
                 initialHashPartitions,
                 queryExecutor,
+                nodeTaskMap,
                 ROOT_OUTPUT_BUFFERS);
         this.outputStage.set(outputStage);
         outputStage.addStateChangeListener(new StateChangeListener<StageInfo>()
@@ -382,7 +380,6 @@ public class SqlQueryExecution
             implements QueryExecutionFactory<SqlQueryExecution>
     {
         private final int scheduleSplitBatchSize;
-        private final int maxPendingSplitsPerNode;
         private final int initialHashPartitions;
         private final boolean experimentalSyntaxEnabled;
         private final Metadata metadata;
@@ -394,6 +391,7 @@ public class SqlQueryExecution
 
         private final ExecutorService executor;
         private final ThreadPoolExecutorMBean executorMBean;
+        private final NodeTaskMap nodeTaskMap;
 
         @Inject
         SqlQueryExecutionFactory(QueryManagerConfig config,
@@ -403,11 +401,11 @@ public class SqlQueryExecution
                 SplitManager splitManager,
                 NodeScheduler nodeScheduler,
                 List<PlanOptimizer> planOptimizers,
-                RemoteTaskFactory remoteTaskFactory)
+                RemoteTaskFactory remoteTaskFactory,
+                NodeTaskMap nodeTaskMap)
         {
             checkNotNull(config, "config is null");
             this.scheduleSplitBatchSize = config.getScheduleSplitBatchSize();
-            this.maxPendingSplitsPerNode = config.getMaxPendingSplitsPerNode();
             this.initialHashPartitions = config.getInitialHashPartitions();
             this.metadata = checkNotNull(metadata, "metadata is null");
             this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
@@ -416,6 +414,7 @@ public class SqlQueryExecution
             this.planOptimizers = checkNotNull(planOptimizers, "planOptimizers is null");
             this.remoteTaskFactory = checkNotNull(remoteTaskFactory, "remoteTaskFactory is null");
             this.experimentalSyntaxEnabled = checkNotNull(analyzerConfig, "analyzerConfig is null").isExperimentalSyntaxEnabled();
+            this.nodeTaskMap = checkNotNull(nodeTaskMap, "nodeTaskMap is null");
 
             this.executor = Executors.newCachedThreadPool(threadsNamed("query-scheduler-%d"));
             this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) executor);
@@ -443,10 +442,10 @@ public class SqlQueryExecution
                     remoteTaskFactory,
                     locationFactory,
                     scheduleSplitBatchSize,
-                    maxPendingSplitsPerNode,
                     initialHashPartitions,
                     experimentalSyntaxEnabled,
-                    executor);
+                    executor,
+                    nodeTaskMap);
 
             return queryExecution;
         }
