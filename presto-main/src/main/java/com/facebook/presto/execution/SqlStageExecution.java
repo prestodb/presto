@@ -142,6 +142,7 @@ public class SqlStageExecution
 
     // Note: atomic is needed to assure thread safety between constructor and scheduler thread
     private final AtomicReference<Multimap<PlanNodeId, URI>> exchangeLocations = new AtomicReference<Multimap<PlanNodeId, URI>>(ImmutableMultimap.<PlanNodeId, URI>of());
+    private final NodeTaskMap nodeTaskMap;
 
     public SqlStageExecution(QueryId queryId,
             LocationFactory locationFactory,
@@ -153,6 +154,7 @@ public class SqlStageExecution
             int maxPendingSplitsPerNode,
             int initialHashPartitions,
             ExecutorService executor,
+            NodeTaskMap nodeTaskMap,
             OutputBuffers nextOutputBuffers)
     {
         this(null,
@@ -166,7 +168,8 @@ public class SqlStageExecution
                 splitBatchSize,
                 maxPendingSplitsPerNode,
                 initialHashPartitions,
-                executor);
+                executor,
+                nodeTaskMap);
 
         // add a single output buffer
         this.nextOutputBuffers = nextOutputBuffers;
@@ -183,7 +186,8 @@ public class SqlStageExecution
             int splitBatchSize,
             int maxPendingSplitsPerNode,
             int initialHashPartitions,
-            ExecutorService executor)
+            ExecutorService executor,
+            final NodeTaskMap nodeTaskMap)
     {
         checkNotNull(queryId, "queryId is null");
         checkNotNull(nextStageId, "nextStageId is null");
@@ -209,6 +213,7 @@ public class SqlStageExecution
             this.maxPendingSplitsPerNode = maxPendingSplitsPerNode;
             this.initialHashPartitions = initialHashPartitions;
             this.executor = executor;
+            this.nodeTaskMap = nodeTaskMap;
 
             tupleInfos = fragment.getTupleInfos();
 
@@ -226,7 +231,8 @@ public class SqlStageExecution
                         splitBatchSize,
                         maxPendingSplitsPerNode,
                         initialHashPartitions,
-                        executor);
+                        executor,
+                        nodeTaskMap);
 
                 subStage.addStateChangeListener(new StateChangeListener<StageInfo>()
                 {
@@ -247,8 +253,7 @@ public class SqlStageExecution
                 @Override
                 public Integer apply(Node input)
                 {
-                    RemoteTask task = tasks.get(input);
-                    return task == null ? 0 : task.getQueuedSplits();
+                    return nodeTaskMap.getSplitsOnNode(input);
                 }
             }));
             stageState = new StateMachine<>("stage " + stageId, this.executor, StageState.PLANNED);
@@ -696,7 +701,7 @@ public class SqlStageExecution
 
             // if the chosen node doesn't have too many tasks already, return
             RemoteTask task = tasks.get(chosen);
-            if (task == null || task.getQueuedSplits() < maxPendingSplitsPerNode) {
+            if (task == null || task.getSplitCount() < maxPendingSplitsPerNode) {
                 return chosen;
             }
 
@@ -771,6 +776,7 @@ public class SqlStageExecution
 
         // record this task
         tasks.put(node, task);
+        nodeTaskMap.addTask(node, task);
 
         // update in case task finished before listener was registered
         doUpdateState();

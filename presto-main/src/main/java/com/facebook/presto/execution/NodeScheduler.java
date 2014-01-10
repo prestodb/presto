@@ -184,10 +184,12 @@ public class NodeScheduler
             List<Node> nodes = selectNodes(nodeMap.get().get(), split, minCandidates);
 
             Preconditions.checkState(!nodes.isEmpty(), "No nodes available to run query");
+            List<Node> shuffledNodes = new ArrayList<>();
+            shuffledNodes.addAll(nodes);
+            Collections.shuffle(shuffledNodes, ThreadLocalRandom.current());
 
             // select the node with the smallest number of assignments
-            Node chosen = Ordering.from(nodeComparator).min(nodes);
-            return chosen;
+            return Ordering.from(nodeComparator).min(shuffledNodes);
         }
 
         private List<Node> selectNodes(NodeMap nodeMap, Split split, int minCount)
