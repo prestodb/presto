@@ -18,6 +18,7 @@ import com.facebook.presto.execution.DropAliasExecution;
 import com.facebook.presto.execution.DropTableExecution;
 import com.facebook.presto.execution.NodeScheduler;
 import com.facebook.presto.execution.NodeSchedulerConfig;
+import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.execution.QueryManager;
@@ -113,6 +114,7 @@ public class CoordinatorModule
         bindConfig(binder).to(NodeSchedulerConfig.class);
         binder.bind(NodeScheduler.class).in(Scopes.SINGLETON);
         newExporter(binder).export(NodeScheduler.class).withGeneratedName();
+        binder.bind(NodeTaskMap.class).in(Scopes.SINGLETON);
 
         // shard management
         binder.bind(ShardManager.class).to(DatabaseShardManager.class).in(Scopes.SINGLETON);

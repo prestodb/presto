@@ -33,11 +33,15 @@ public interface RemoteTask
 
     void setOutputBuffers(OutputBuffers outputBuffers);
 
-    void addStateChangeListener(StateChangeListener<TaskInfo> stateChangeListener);
+    void addTaskStateChangeListener(StateChangeListener<TaskInfo> stateChangeListener);
+
+    void addSplitCountStateChangeListener(StateChangeListener<Integer> stateChangeListener);
 
     void cancel();
 
-    int getQueuedSplits();
+    int getSplitCount();
+
+    int getPendingSplitCount();
 
     Duration waitForTaskToFinish(Duration maxWait)
             throws InterruptedException;

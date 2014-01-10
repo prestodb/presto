@@ -85,6 +85,7 @@ public class SqlQueryExecution
     private final StorageManager storageManager;
 
     private final PeriodicImportManager periodicImportManager;
+    private final NodeTaskMap nodeTaskMap;
 
     private final QueryExplainer queryExplainer;
     private final AtomicReference<SqlStageExecution> outputStage = new AtomicReference<>();
@@ -106,7 +107,8 @@ public class SqlQueryExecution
             ExecutorService queryExecutor,
             ShardManager shardManager,
             StorageManager storageManager,
-            PeriodicImportManager periodicImportManager)
+            PeriodicImportManager periodicImportManager,
+            NodeTaskMap nodeTaskMap)
     {
         try (SetThreadName setThreadName = new SetThreadName("Query-%s", queryId)) {
             this.statement = checkNotNull(statement, "statement is null");
@@ -120,6 +122,7 @@ public class SqlQueryExecution
             this.shardManager = checkNotNull(shardManager, "shardManager is null");
             this.storageManager = checkNotNull(storageManager, "storageManager is null");
             this.periodicImportManager = checkNotNull(periodicImportManager, "periodicImportManager is null");
+            this.nodeTaskMap = checkNotNull(nodeTaskMap, "nodeTaskMap is null");
 
             checkArgument(maxPendingSplitsPerNode > 0, "scheduleSplitBatchSize must be greater than 0");
             this.scheduleSplitBatchSize = scheduleSplitBatchSize;
@@ -249,6 +252,7 @@ public class SqlQueryExecution
                 maxPendingSplitsPerNode,
                 initialHashPartitions,
                 queryExecutor,
+                nodeTaskMap,
                 ROOT_OUTPUT_BUFFERS);
         this.outputStage.set(outputStage);
         outputStage.addStateChangeListener(new StateChangeListener<StageInfo>()
@@ -406,6 +410,7 @@ public class SqlQueryExecution
         private final PeriodicImportManager periodicImportManager;
         private final ExecutorService executor;
         private final ThreadPoolExecutorMBean executorMBean;
+        private final NodeTaskMap nodeTaskMap;
 
         @Inject
         SqlQueryExecutionFactory(QueryManagerConfig config,
@@ -417,7 +422,8 @@ public class SqlQueryExecution
                 RemoteTaskFactory remoteTaskFactory,
                 ShardManager shardManager,
                 StorageManager storageManager,
-                PeriodicImportManager periodicImportManager)
+                PeriodicImportManager periodicImportManager,
+                NodeTaskMap nodeTaskMap)
         {
             checkNotNull(config, "config is null");
             this.scheduleSplitBatchSize = config.getScheduleSplitBatchSize();
@@ -432,6 +438,7 @@ public class SqlQueryExecution
             this.shardManager = checkNotNull(shardManager, "shardManager is null");
             this.storageManager = checkNotNull(storageManager, "storageManager is null");
             this.periodicImportManager = checkNotNull(periodicImportManager, "periodicImportManager is null");
+            this.nodeTaskMap = checkNotNull(nodeTaskMap, "nodeTaskMap is null");
 
             this.executor = Executors.newCachedThreadPool(threadsNamed("query-scheduler-%d"));
             this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) executor);
@@ -464,7 +471,8 @@ public class SqlQueryExecution
                     executor,
                     shardManager,
                     storageManager,
-                    periodicImportManager);
+                    periodicImportManager,
+                    nodeTaskMap);
 
             return queryExecution;
         }
