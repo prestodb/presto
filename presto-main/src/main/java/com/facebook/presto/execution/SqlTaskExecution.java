@@ -245,7 +245,7 @@ public class SqlTaskExecution
         // start unpartitioned drivers
         List<DriverSplitRunner> runners = new ArrayList<>();
         for (DriverSplitRunnerFactory driverFactory : unpartitionedDriverFactories) {
-            runners.add(driverFactory.createDriverRunner(null));
+            runners.add(driverFactory.createDriverRunner(null, false));
             driverFactory.setNoMoreSplits();
         }
         enqueueDrivers(true, runners);
@@ -345,7 +345,7 @@ public class SqlTaskExecution
                     // only add a split if we have not already scheduled it
                     if (scheduledSplit.getSequenceId() > maxAcknowledgedSplit) {
                         // create a new driver for the split
-                        runners.add(partitionedDriverFactory.createDriverRunner(scheduledSplit));
+                        runners.add(partitionedDriverFactory.createDriverRunner(scheduledSplit, true));
                         newMaxAcknowledgedSplit = max(scheduledSplit.getSequenceId(), newMaxAcknowledgedSplit);
                     }
                 }
@@ -559,12 +559,12 @@ public class SqlTaskExecution
             this.pipelineContext = taskContext.addPipelineContext(driverFactory.isInputDriver(), driverFactory.isOutputDriver());
         }
 
-        private DriverSplitRunner createDriverRunner(@Nullable ScheduledSplit partitionedSplit)
+        private DriverSplitRunner createDriverRunner(@Nullable ScheduledSplit partitionedSplit, boolean isPartitionedDriver)
         {
             pendingCreation.incrementAndGet();
             // create driver context immediately so the driver existence is recorded in the stats
             // the number of drivers is used to balance work across nodes
-            DriverContext driverContext = pipelineContext.addDriverContext();
+            DriverContext driverContext = pipelineContext.addDriverContext(isPartitionedDriver);
             return new DriverSplitRunner(this, driverContext, partitionedSplit);
         }
 

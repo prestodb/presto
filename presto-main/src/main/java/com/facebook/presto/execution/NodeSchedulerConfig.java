@@ -20,6 +20,7 @@ import javax.validation.constraints.Min;
 public class NodeSchedulerConfig
 {
     private int minCandidates = 10;
+    private int maxSplitsPerNode = 100;
 
     @Min(1)
     public int getMinCandidates()
@@ -31,6 +32,19 @@ public class NodeSchedulerConfig
     public NodeSchedulerConfig setMinCandidates(int candidates)
     {
         this.minCandidates = candidates;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxSplitsPerNode()
+    {
+        return maxSplitsPerNode;
+    }
+
+    @Config("node-scheduler.max-splits-per-node")
+    public NodeSchedulerConfig setMaxSplitsPerNode(int maxSplitsPerNode)
+    {
+        this.maxSplitsPerNode = maxSplitsPerNode;
         return this;
     }
 }
