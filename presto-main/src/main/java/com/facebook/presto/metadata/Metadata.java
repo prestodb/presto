@@ -40,6 +40,8 @@ public interface Metadata
     @NotNull
     List<FunctionInfo> listFunctions();
 
+    void addFunctions(List<FunctionInfo> functions);
+
     @NotNull
     List<String> listSchemaNames(String catalogName);
 

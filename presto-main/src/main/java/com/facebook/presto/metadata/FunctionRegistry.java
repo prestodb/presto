@@ -37,6 +37,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -55,6 +56,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -107,8 +109,8 @@ import static java.lang.invoke.MethodHandles.lookup;
 
 public class FunctionRegistry
 {
-    private final Multimap<QualifiedName, FunctionInfo> functionsByName;
-    private final Map<Signature, FunctionInfo> functionsByHandle;
+    private final Multimap<QualifiedName, FunctionInfo> functionsByName = ArrayListMultimap.create();
+    private final Map<Signature, FunctionInfo> functionsByHandle = new HashMap<>();
 
     public FunctionRegistry()
     {
@@ -167,8 +169,13 @@ public class FunctionRegistry
                 .scalar(ColorFunctions.class)
                 .build();
 
-        functionsByName = Multimaps.index(functions, FunctionInfo.nameGetter());
-        functionsByHandle = Maps.uniqueIndex(functions, FunctionInfo.handleGetter());
+        addFunctions(functions);
+    }
+
+    public final void addFunctions(List<FunctionInfo> functions)
+    {
+        functionsByName.putAll(Multimaps.index(functions, FunctionInfo.nameGetter()));
+        functionsByHandle.putAll(Maps.uniqueIndex(functions, FunctionInfo.handleGetter()));
 
         // Make sure all functions with the same name are aggregations or none of them are
         for (Map.Entry<QualifiedName, Collection<FunctionInfo>> entry : functionsByName.asMap().entrySet()) {
@@ -274,7 +281,7 @@ public class FunctionRegistry
         throw new IllegalArgumentException("Unhandled type: " + clazz.getName());
     }
 
-    private static class FunctionListBuilder
+    public static class FunctionListBuilder
     {
         private final List<FunctionInfo> functions = new ArrayList<>();
 
@@ -390,13 +397,13 @@ public class FunctionRegistry
             }
         }
 
-        public ImmutableList<FunctionInfo> build()
+        public List<FunctionInfo> build()
         {
             return ImmutableList.copyOf(functions);
         }
     }
 
-    private static Supplier<WindowFunction> supplier(final Class<? extends WindowFunction> clazz)
+    public static Supplier<WindowFunction> supplier(final Class<? extends WindowFunction> clazz)
     {
         return new Supplier<WindowFunction>()
         {

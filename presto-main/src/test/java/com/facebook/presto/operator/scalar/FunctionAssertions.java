@@ -97,7 +97,8 @@ public final class FunctionAssertions
 
     private static final ExecutorService EXECUTOR = Executors.newCachedThreadPool(Threads.daemonThreadsNamed("test-%s"));
 
-    private static final ExpressionCompiler COMPILER = new ExpressionCompiler(new MetadataManager());
+    private static final MetadataManager METADATA_MANAGER = new MetadataManager();
+    private static final ExpressionCompiler COMPILER = new ExpressionCompiler(METADATA_MANAGER);
 
     private static final Page SOURCE_PAGE = new Page(
             createLongsBlock(1234L),
@@ -132,6 +133,11 @@ public final class FunctionAssertions
     private static final PlanNodeId SOURCE_ID = new PlanNodeId("scan");
 
     private FunctionAssertions() {}
+
+    public static MetadataManager getMetadataManager()
+    {
+        return METADATA_MANAGER;
+    }
 
     public static void assertFunction(String projection, Object expected)
     {
@@ -362,7 +368,7 @@ public final class FunctionAssertions
         FilterFunction filterFunction = new InterpretedFilterFunction(
                 filter,
                 INPUT_MAPPING,
-                new MetadataManager(),
+                getMetadataManager(),
                 session
         );
 
@@ -370,7 +376,7 @@ public final class FunctionAssertions
                 expressionType,
                 projection,
                 INPUT_MAPPING,
-                new MetadataManager(),
+                getMetadataManager(),
                 session
         );
 

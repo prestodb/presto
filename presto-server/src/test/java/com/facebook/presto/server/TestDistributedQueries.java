@@ -243,6 +243,10 @@ public class TestDistributedQueries
             MILLISECONDS.sleep(10);
         }
 
+        for (TestingPrestoServer server : servers) {
+            server.getMetadata().addFunctions(CUSTOM_FUNCTIONS);
+        }
+
         log.info("Loading data...");
         long startTime = System.nanoTime();
         distributeData(catalog, schema);
