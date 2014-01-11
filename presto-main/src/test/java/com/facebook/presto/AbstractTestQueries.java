@@ -16,8 +16,13 @@ package com.facebook.presto;
 import com.facebook.presto.connector.dual.DualMetadata;
 import com.facebook.presto.connector.dual.DualSplitManager;
 import com.facebook.presto.importer.MockPeriodicImportManager;
+import com.facebook.presto.metadata.FunctionInfo;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.operator.aggregation.CustomSum;
+import com.facebook.presto.operator.scalar.CustomAdd;
+import com.facebook.presto.operator.window.CustomRank;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorTableMetadata;
@@ -26,6 +31,7 @@ import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.PlanOptimizersFactory;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
@@ -71,8 +77,10 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.INFORMATION_SCHEMA;
+import static com.facebook.presto.metadata.FunctionRegistry.supplier;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
+import static com.facebook.presto.sql.analyzer.Type.BIGINT;
 import static com.facebook.presto.sql.tree.ExplainType.Type.DISTRIBUTED;
 import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
 import static com.facebook.presto.tpch.TpchMetadata.TPCH_LINEITEM_METADATA;
@@ -100,6 +108,12 @@ import static org.testng.Assert.fail;
 
 public abstract class AbstractTestQueries
 {
+    protected static final List<FunctionInfo> CUSTOM_FUNCTIONS = new FunctionRegistry.FunctionListBuilder()
+            .aggregate("custom_sum", BIGINT, ImmutableList.of(BIGINT), BIGINT, new CustomSum())
+            .window("custom_rank", BIGINT, ImmutableList.<Type>of(), supplier(CustomRank.class))
+            .scalar(CustomAdd.class)
+            .build();
+
     private Handle handle;
 
     @Test void testSpecialFloatingPointValues()
@@ -2858,6 +2872,39 @@ public abstract class AbstractTestQueries
         assertQuery("" +
                 "SELECT TIME, TIMESTAMP, DATE, INTERVAL\n" +
                 "FROM (SELECT 1 TIME, 2 TIMESTAMP, 3 DATE, 4 INTERVAL)");
+    }
+
+    @Test
+    public void testCustomAdd()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT custom_add(orderkey, custkey) FROM orders",
+                "SELECT orderkey + custkey FROM orders");
+    }
+
+    @Test
+    public void testCustomSum()
+            throws Exception
+    {
+        @Language("SQL") String sql = "SELECT orderstatus, custom_sum(orderkey) FROM orders GROUP BY orderstatus";
+        assertQuery(sql, sql.replace("custom_sum", "sum"));
+    }
+
+    @Test
+    public void testCustomRank()
+            throws Exception
+    {
+        @Language("SQL") String sql = "" +
+                "SELECT orderstatus, clerk, sales\n" +
+                ", custom_rank() OVER (PARTITION BY orderstatus ORDER BY sales DESC) rnk\n" +
+                "FROM (\n" +
+                "  SELECT orderstatus, clerk, sum(totalprice) sales\n" +
+                "  FROM orders\n" +
+                "  GROUP BY orderstatus, clerk\n" +
+                ")";
+
+        assertEquals(computeActual(sql), computeActual(sql.replace("custom_rank", "rank")));
     }
 
     @BeforeClass(alwaysRun = true)
