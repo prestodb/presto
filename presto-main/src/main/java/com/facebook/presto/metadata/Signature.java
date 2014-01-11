@@ -26,23 +26,33 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public final class Signature
 {
+    private final String group;
     private final String name;
     private final Type returnType;
     private final List<Type> argumentTypes;
 
     @JsonCreator
     public Signature(
+            @JsonProperty("group") String group,
             @JsonProperty("name") String name,
             @JsonProperty("returnType") Type returnType,
             @JsonProperty("argumentTypes") List<Type> argumentTypes)
     {
+        checkNotNull(group, "group is null");
         checkNotNull(name, "name is null");
         checkNotNull(returnType, "returnType is null");
         checkNotNull(argumentTypes, "argumentTypes is null");
 
+        this.group = group;
         this.name = name;
         this.returnType = returnType;
         this.argumentTypes = ImmutableList.copyOf(argumentTypes);
+    }
+
+    @JsonProperty
+    public String getGroup()
+    {
+        return group;
     }
 
     @JsonProperty
@@ -79,13 +89,14 @@ public final class Signature
             return false;
         }
         Signature other = (Signature) obj;
-        return Objects.equals(this.name, other.name) &&
+        return Objects.equals(this.group, other.group) &&
+                Objects.equals(this.name, other.name) &&
                 Objects.equals(this.returnType, other.returnType) &&
                 Objects.equals(this.argumentTypes, other.argumentTypes);
     }
 
     public String toString()
     {
-        return name + "(" + Joiner.on(",").join(argumentTypes) + "):" + returnType;
+        return group + "/" + name + "(" + Joiner.on(",").join(argumentTypes) + "):" + returnType;
     }
 }

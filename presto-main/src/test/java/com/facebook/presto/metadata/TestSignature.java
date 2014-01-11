@@ -27,11 +27,12 @@ public class TestSignature
     @Test
     public void testRoundTrip()
     {
-        Signature expected = new Signature("function", Type.BIGINT, ImmutableList.of(Type.BOOLEAN, Type.DOUBLE, Type.VARCHAR));
+        Signature expected = new Signature("$builtin", "function", Type.BIGINT, ImmutableList.of(Type.BOOLEAN, Type.DOUBLE, Type.VARCHAR));
 
         String json = codec.toJson(expected);
         Signature actual = codec.fromJson(json);
 
+        assertEquals(actual.getGroup(), expected.getGroup());
         assertEquals(actual.getName(), expected.getName());
         assertEquals(actual.getReturnType(), expected.getReturnType());
         assertEquals(actual.getArgumentTypes(), expected.getArgumentTypes());

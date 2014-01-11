@@ -13,17 +13,28 @@
  */
 package com.facebook.presto;
 
+import com.facebook.presto.CustomFunctions.CustomRank;
+import com.facebook.presto.CustomFunctions.CustomSum;
+import com.facebook.presto.metadata.FunctionFactory;
+import com.facebook.presto.metadata.FunctionInfo;
+import com.facebook.presto.metadata.FunctionRegistry.FunctionListBuilder;
 import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.util.LocalQueryRunner;
 import com.facebook.presto.util.MaterializedResult;
+import com.google.common.collect.ImmutableList;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
-
+import org.testng.annotations.Test;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 
+import static com.facebook.presto.metadata.FunctionRegistry.supplier;
+import static com.facebook.presto.sql.analyzer.Type.BIGINT;
 import static com.facebook.presto.util.LocalQueryRunner.createTpchLocalQueryRunner;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static org.testng.Assert.assertEquals;
 
 public class TestLocalQueries
         extends AbstractTestQueries
@@ -60,11 +71,59 @@ public class TestLocalQueries
 
         // dump query plan to console (for debugging)
         // tpchLocalQueryRunner.printPlan();
+        tpchLocalQueryRunner.getMetadata().addFunctions(
+                new FunctionFactory()
+                {
+                    @Override
+                    public List<FunctionInfo> listFunctions()
+                    {
+                        return new FunctionListBuilder("custom")
+                                .aggregate("custom_sum", BIGINT, ImmutableList.of(BIGINT), BIGINT, new CustomSum())
+                                .window("custom_rank", BIGINT, ImmutableList.<Type>of(), supplier(CustomRank.class))
+                                .build();
+                    }
+                }
+        );
     }
 
     @Override
     protected MaterializedResult computeActual(@Language("SQL") String sql)
     {
         return tpchLocalQueryRunner.execute(sql);
+    }
+
+    @Test
+    public void testCustomSum()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("SELECT orderstatus, custom_sum(CAST(NULL AS BIGINT)) FROM orders GROUP BY orderstatus");
+
+        MaterializedResult expected = computeActual("SELECT orderstatus, sum(CAST(NULL AS BIGINT)) FROM orders GROUP BY orderstatus");
+
+        assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testCustomRank()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual(" SELECT orderstatus, clerk, sales\n" +
+                "  , custom_rank() OVER (PARTITION BY x.orderstatus ORDER BY sales DESC) rnk\n" +
+                "  FROM (\n" +
+                "    SELECT orderstatus, clerk, sum(totalprice) sales\n" +
+                "    FROM orders\n" +
+                "    GROUP BY orderstatus, clerk\n" +
+                "   ) x");
+
+        MaterializedResult expected = computeActual(" SELECT orderstatus, clerk, sales\n" +
+                "  , rank() OVER (PARTITION BY x.orderstatus ORDER BY sales DESC) rnk\n" +
+                "  FROM (\n" +
+                "    SELECT orderstatus, clerk, sum(totalprice) sales\n" +
+                "    FROM orders\n" +
+                "    GROUP BY orderstatus, clerk\n" +
+                "   ) x"
+        );
+
+        assertEquals(actual, expected);
     }
 }

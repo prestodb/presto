@@ -102,6 +102,12 @@ public class MetadataManager
     }
 
     @Override
+    public void addFunctions(FunctionFactory functionFactory)
+    {
+        functions.addFunctions(functionFactory.listFunctions());
+    }
+
+    @Override
     public List<String> listSchemaNames(String catalogName)
     {
         checkCatalogName(catalogName);

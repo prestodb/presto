@@ -652,7 +652,7 @@ public class TestEffectivePredicateExtractor
 
     private static Signature fakeFunctionHandle(String name)
     {
-        return new Signature(name, Type.NULL, ImmutableList.<Type>of());
+        return new Signature("$builtin", name, Type.NULL, ImmutableList.<Type>of());
     }
 
     private Set<Expression> normalizeConjuncts(Expression... conjuncts)
