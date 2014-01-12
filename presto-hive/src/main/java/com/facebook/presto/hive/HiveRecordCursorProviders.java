@@ -17,8 +17,10 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-public class HiveRecordCursorProviders
+public final class HiveRecordCursorProviders
 {
+    private HiveRecordCursorProviders() {}
+
     public static List<HiveRecordCursorProvider> getDefaultProviders()
     {
         return ImmutableList.of(

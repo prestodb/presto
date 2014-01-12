@@ -19,8 +19,10 @@ import javax.annotation.Nullable;
 
 import java.util.Map;
 
-public class MoreFunctions
+public final class MoreFunctions
 {
+    private MoreFunctions() {}
+
     public static Function<String, String> toLowerCase()
     {
         return new Function<String, String>()

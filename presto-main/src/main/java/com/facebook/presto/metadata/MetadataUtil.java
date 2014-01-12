@@ -32,8 +32,10 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-public class MetadataUtil
+public final class MetadataUtil
 {
+    private MetadataUtil() {}
+
     public static QualifiedTableName checkTable(QualifiedTableName table)
     {
         checkNotNull(table, "table is null");

@@ -26,8 +26,10 @@ import io.airlift.units.DataSize.Unit;
 
 import java.util.Iterator;
 
-public class BlockUtils
+public final class BlockUtils
 {
+    private BlockUtils() {}
+
     // TODO: remove this hack after empty blocks are supported
     public static BlockIterable emptyBlockIterable()
     {

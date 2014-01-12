@@ -23,7 +23,7 @@ import com.google.common.base.Throwables;
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 
-public class VarianceAggregations
+public final class VarianceAggregations
 {
     public static final AggregationFunction LONG_VARIANCE_INSTANCE = createIsolatedAggregation(FIXED_INT_64, false, false);
     public static final AggregationFunction LONG_VARIANCE_POP_INSTANCE = createIsolatedAggregation(FIXED_INT_64, true, false);
@@ -33,6 +33,8 @@ public class VarianceAggregations
     public static final AggregationFunction DOUBLE_VARIANCE_POP_INSTANCE = createIsolatedAggregation(DOUBLE, true, false);
     public static final AggregationFunction DOUBLE_STDDEV_INSTANCE = createIsolatedAggregation(DOUBLE, false, true);
     public static final AggregationFunction DOUBLE_STDDEV_POP_INSTANCE = createIsolatedAggregation(DOUBLE, true, true);
+
+    private VarianceAggregations() {}
 
     private static AggregationFunction createIsolatedAggregation(Type parameterType, boolean population, boolean standardDeviation)
     {

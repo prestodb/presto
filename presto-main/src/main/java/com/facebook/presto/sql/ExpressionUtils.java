@@ -37,8 +37,10 @@ import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
 
-public class ExpressionUtils
+public final class ExpressionUtils
 {
+    private ExpressionUtils() {}
+
     public static List<Expression> extractConjuncts(Expression expression)
     {
         if (expression instanceof LogicalBinaryExpression && ((LogicalBinaryExpression) expression).getType() == LogicalBinaryExpression.Type.AND) {

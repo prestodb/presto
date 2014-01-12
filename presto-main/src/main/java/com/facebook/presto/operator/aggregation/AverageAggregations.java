@@ -23,10 +23,12 @@ import com.google.common.base.Throwables;
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 
-public class AverageAggregations
+public final class AverageAggregations
 {
     public static final AggregationFunction LONG_AVERAGE = createIsolatedAggregation(FIXED_INT_64);
     public static final AggregationFunction DOUBLE_AVERAGE = createIsolatedAggregation(DOUBLE);
+
+    private AverageAggregations() {}
 
     private static AggregationFunction createIsolatedAggregation(Type parameterType)
     {

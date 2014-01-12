@@ -41,8 +41,10 @@ import java.util.Set;
 /**
  * Computes all symbols declared by a logical plan
  */
-public class SymbolExtractor
+public final class SymbolExtractor
 {
+    private SymbolExtractor() {}
+
     public static Set<Symbol> extract(PlanNode node)
     {
         ImmutableSet.Builder<Symbol> builder = ImmutableSet.builder();
