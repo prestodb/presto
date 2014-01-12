@@ -130,7 +130,6 @@ public class SqlStageExecution
     @GuardedBy("this")
     private OutputBuffers nextOutputBuffers;
 
-
     private final ExecutorService executor;
 
     private final AtomicReference<DateTime> schedulingComplete = new AtomicReference<>();
@@ -1007,7 +1006,6 @@ public class SqlStageExecution
             }
         };
     }
-
 }
 
 /*
@@ -1034,5 +1032,3 @@ interface StageExecutionNode
 
     void cancel(boolean force);
 }
-
-

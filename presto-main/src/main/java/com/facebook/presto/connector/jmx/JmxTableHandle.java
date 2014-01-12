@@ -96,4 +96,3 @@ public class JmxTableHandle
         return new ConnectorTableMetadata(new SchemaTableName(JmxMetadata.SCHEMA_NAME, objectName), ImmutableList.copyOf(transform(columns, columnMetadataGetter())));
     }
 }
-

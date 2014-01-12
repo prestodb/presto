@@ -31,9 +31,9 @@ import javax.annotation.Nullable;
 import java.util.Map;
 
 import static com.facebook.presto.connector.dual.DualMetadata.DUAL_METADATA_MANAGER;
+import static com.facebook.presto.sql.analyzer.Type.BIGINT;
 import static com.facebook.presto.sql.analyzer.Type.BOOLEAN;
 import static com.facebook.presto.sql.analyzer.Type.DOUBLE;
-import static com.facebook.presto.sql.analyzer.Type.BIGINT;
 import static com.facebook.presto.sql.analyzer.Type.VARCHAR;
 import static com.facebook.presto.sql.parser.SqlParser.createExpression;
 import static com.facebook.presto.tuple.Tuples.NULL_BOOLEAN_TUPLE;

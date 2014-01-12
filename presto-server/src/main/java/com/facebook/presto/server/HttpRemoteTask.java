@@ -257,7 +257,7 @@ public class HttpRemoteTask
     @Override
     public synchronized void noMoreSplits(PlanNodeId sourceId)
     {
-        try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)){
+        try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             if (noMoreSplits.add(sourceId)) {
                 needsUpdate.set(true);
                 scheduleUpdate();

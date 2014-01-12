@@ -287,7 +287,8 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitSampledRelation(SampledRelation node, Integer indent) {
+        protected Void visitSampledRelation(SampledRelation node, Integer indent)
+        {
             process(node.getRelation(), indent);
 
             builder.append(" TABLESAMPLE ")

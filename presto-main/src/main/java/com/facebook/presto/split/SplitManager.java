@@ -13,21 +13,17 @@
  */
 package com.facebook.presto.split;
 
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplitManager;
-import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.PartitionResult;
 import com.facebook.presto.spi.SplitSource;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TupleDomain;
 import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.google.inject.Inject;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 

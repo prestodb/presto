@@ -115,7 +115,6 @@ public class ChannelSet
             checkArgument(expectedPositions >= 0, "expectedPositions must be greater than or equal to zero");
             this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
 
-
             // Construct the set from the source
             strategy = new SliceHashStrategy(tupleInfo);
             addressValueSet = new AddressValueSet(expectedPositions, strategy);

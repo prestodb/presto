@@ -185,7 +185,8 @@ public class HttpPageBufferClient
                     if (result.getToken() == token) {
                         pages = result.getPages();
                         token = result.getNextToken();
-                    } else {
+                    }
+                    else {
                         pages = ImmutableList.of();
                     }
                 }

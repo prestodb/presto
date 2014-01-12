@@ -106,7 +106,6 @@ public class Driver
         return sourceOperators.keySet();
     }
 
-
     private final ConcurrentMap<PlanNodeId, TaskSource> sources = new ConcurrentHashMap<>();
 
     public synchronized void updateSource(TaskSource source)

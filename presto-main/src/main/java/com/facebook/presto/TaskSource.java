@@ -76,7 +76,8 @@ public class TaskSource
             return new TaskSource(planNodeId,
                     newSplits,
                     source.isNoMoreSplits());
-        } else {
+        }
+        else {
             // the specified source is older than this one
             return this;
         }

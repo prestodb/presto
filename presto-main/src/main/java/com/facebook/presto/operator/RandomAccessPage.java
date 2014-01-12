@@ -100,7 +100,7 @@ public class RandomAccessPage
         return Objects.toStringHelper(this)
                 .add("positionCount", positionCount)
                 .add("channelCount", getChannelCount())
-                .addValue("@" +Integer.toHexString(System.identityHashCode(this)))
+                .addValue("@" + Integer.toHexString(System.identityHashCode(this)))
                 .toString();
     }
 }

@@ -50,7 +50,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public class FairBatchExecutor
 {
-    private final static Logger log = Logger.get(FairBatchExecutor.class);
+    private static final Logger log = Logger.get(FairBatchExecutor.class);
 
     private final AtomicBoolean shutdown = new AtomicBoolean();
     private final int threads;

@@ -302,7 +302,6 @@ public class HashAggregationOperator
             final PageBuilder pageBuilder = new PageBuilder(tupleInfos.build());
             return new AbstractIterator<Page>()
             {
-
                 private final ObjectIterator<Entry> pagePositionToGroup = groupByHash.getPagePositionToGroupId().long2IntEntrySet().fastIterator();
 
                 @Override

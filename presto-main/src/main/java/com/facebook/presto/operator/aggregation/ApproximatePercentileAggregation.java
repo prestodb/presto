@@ -139,7 +139,6 @@ public class ApproximatePercentileAggregation
 
                 // skip null values
                 if (!values.isNull() && (masks == null || masks.getBoolean())) {
-
                     DigestAndPercentile currentValue = digests.get(groupId);
                     if (currentValue == null) {
                         currentValue = new DigestAndPercentile(new QuantileDigest(0.01));

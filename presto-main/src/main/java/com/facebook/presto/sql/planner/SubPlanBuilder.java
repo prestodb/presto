@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning;
+import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;

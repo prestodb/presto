@@ -174,10 +174,10 @@ public class PerfTest
                 futures.add(runner.execute(queue, remainingQueries));
             }
 
-
             // kill test if anything fails
             ListenableFuture<List<Object>> allFutures = Futures.allAsList(futures);
-            Futures.addCallback(allFutures, new FutureCallback<List<Object>>() {
+            Futures.addCallback(allFutures, new FutureCallback<List<Object>>()
+            {
                 @Override
                 public void onSuccess(@Nullable List<Object> result)
                 {
@@ -200,7 +200,6 @@ public class PerfTest
 
             return executionTime;
         }
-
 
         @Override
         public void close()

@@ -176,7 +176,7 @@ public class TableScanNode
         return visitor.visitTableScan(this, context);
     }
 
-    public final static class GeneratedPartitions
+    public static final class GeneratedPartitions
     {
         private final TupleDomain tupleDomainInput; // The TupleDomain used to generate the current list of Partitions
         private final List<Partition> partitions;

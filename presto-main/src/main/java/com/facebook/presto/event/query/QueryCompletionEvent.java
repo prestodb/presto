@@ -28,8 +28,6 @@ import javax.annotation.concurrent.Immutable;
 import java.net.URI;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 @Immutable
 @EventType("QueryCompletion")
 public class QueryCompletionEvent

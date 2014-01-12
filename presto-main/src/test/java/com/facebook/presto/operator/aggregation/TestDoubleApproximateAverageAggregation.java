@@ -65,5 +65,4 @@ public class TestDoubleApproximateAverageAggregation
 
         return sb.toString();
     }
-
 }

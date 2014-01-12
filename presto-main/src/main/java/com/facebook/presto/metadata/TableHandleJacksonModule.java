@@ -33,9 +33,9 @@ public class TableHandleJacksonModule
     {
         private final HandleResolver handleResolver;
 
-        private TableHandleJsonTypeIdResolver(HandleResolver HandleResolver)
+        private TableHandleJsonTypeIdResolver(HandleResolver handleResolver)
         {
-            this.handleResolver = checkNotNull(HandleResolver, "handleIdResolvers is null");
+            this.handleResolver = checkNotNull(handleResolver, "handleResolver is null");
         }
 
         @Override

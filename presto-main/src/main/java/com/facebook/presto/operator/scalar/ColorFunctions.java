@@ -30,8 +30,8 @@ public final class ColorFunctions
 {
     private static final String ANSI_RESET = "\u001b[0m";
 
-    private final static Slice RENDERED_TRUE = render(Slices.copiedBuffer("\u2713", Charsets.UTF_8), color(Slices.copiedBuffer("green", Charsets.UTF_8)));
-    private final static Slice RENDERED_FALSE = render(Slices.copiedBuffer("\u2717", Charsets.UTF_8), color(Slices.copiedBuffer("red", Charsets.UTF_8)));
+    private static final Slice RENDERED_TRUE = render(Slices.copiedBuffer("\u2713", Charsets.UTF_8), color(Slices.copiedBuffer("green", Charsets.UTF_8)));
+    private static final Slice RENDERED_FALSE = render(Slices.copiedBuffer("\u2717", Charsets.UTF_8), color(Slices.copiedBuffer("red", Charsets.UTF_8)));
 
     private enum SystemColor
     {

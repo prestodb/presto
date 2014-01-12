@@ -93,11 +93,11 @@ import static com.facebook.presto.sql.ExpressionUtils.symbolToQualifiedNameRefer
 import static com.facebook.presto.sql.planner.DeterminismEvaluator.deterministic;
 import static com.facebook.presto.sql.planner.DeterminismEvaluator.isDeterministic;
 import static com.facebook.presto.sql.planner.EqualityInference.createEqualityInference;
-import static com.facebook.presto.sql.planner.plan.TableScanNode.GeneratedPartitions;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.CROSS;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
+import static com.facebook.presto.sql.planner.plan.TableScanNode.GeneratedPartitions;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;

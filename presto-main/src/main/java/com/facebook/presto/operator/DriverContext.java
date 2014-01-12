@@ -157,7 +157,8 @@ public class DriverContext
         OperatorContext inputOperator = getFirst(operatorContexts, null);
         if (inputOperator != null) {
             return inputOperator.getInputDataSize();
-        } else {
+        }
+        else {
             return new CounterStat();
         }
     }
@@ -167,7 +168,8 @@ public class DriverContext
         OperatorContext inputOperator = getFirst(operatorContexts, null);
         if (inputOperator != null) {
             return inputOperator.getInputPositions();
-        } else {
+        }
+        else {
             return new CounterStat();
         }
     }
@@ -177,7 +179,8 @@ public class DriverContext
         OperatorContext inputOperator = getLast(operatorContexts, null);
         if (inputOperator != null) {
             return inputOperator.getOutputDataSize();
-        } else {
+        }
+        else {
             return new CounterStat();
         }
     }
@@ -187,7 +190,8 @@ public class DriverContext
         OperatorContext inputOperator = getLast(operatorContexts, null);
         if (inputOperator != null) {
             return inputOperator.getOutputPositions();
-        } else {
+        }
+        else {
             return new CounterStat();
         }
     }

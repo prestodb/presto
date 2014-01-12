@@ -21,8 +21,8 @@ import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 import java.util.List;
 
-import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
+import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class SliceHashStrategy
