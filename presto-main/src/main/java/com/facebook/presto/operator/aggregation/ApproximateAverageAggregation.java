@@ -302,13 +302,13 @@ public class ApproximateAverageAggregation
     {
         // The multiplier 2.575 corresponds to the z-score of 99% confidence interval
         // (http://upload.wikimedia.org/wikipedia/commons/b/bb/Normal_distribution_and_scales.gif)
-        double Z_SCORE = 2.575;
+        double zScore = 2.575;
 
         // Error bars at 99% confidence interval
         StringBuilder sb = new StringBuilder();
         sb.append(mean);
         sb.append(" +/- ");
-        sb.append(Z_SCORE * Math.sqrt(variance / count));
+        sb.append(zScore * Math.sqrt(variance / count));
         return sb.toString();
     }
 }

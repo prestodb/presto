@@ -32,7 +32,7 @@ import static com.facebook.presto.byteCode.ParameterizedType.type;
 
 public class AnnotationDefinition
 {
-    private static Set<Class<?>> ALLOWED_TYPES = ImmutableSet.<Class<?>>builder()
+    private static final Set<Class<?>> ALLOWED_TYPES = ImmutableSet.<Class<?>>builder()
             .addAll(Primitives.allWrapperTypes())
             .add(String.class)
             .add(Class.class)
