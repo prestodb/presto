@@ -43,10 +43,10 @@ public class SampledRelation
 
         if (columnsToStratifyOn.isPresent()) {
             this.columnsToStratifyOn = Optional.<List<Expression>>of(ImmutableList.copyOf(columnsToStratifyOn.get()));
-        } else {
+        }
+        else {
             this.columnsToStratifyOn = columnsToStratifyOn;
         }
-
     }
 
     public Relation getRelation()

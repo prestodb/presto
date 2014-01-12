@@ -13,8 +13,7 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.metadata.Signature
-        ;
+import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.SortOrder;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.FunctionCall;

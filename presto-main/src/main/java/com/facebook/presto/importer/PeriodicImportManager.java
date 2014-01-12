@@ -35,5 +35,3 @@ public interface PeriodicImportManager
 
     void endRun(long runId, boolean result);
 }
-
-
