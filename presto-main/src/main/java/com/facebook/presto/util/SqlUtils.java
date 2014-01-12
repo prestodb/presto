@@ -18,8 +18,10 @@ import org.skife.jdbi.v2.exceptions.UnableToExecuteStatementException;
 import java.sql.SQLException;
 import java.util.concurrent.Callable;
 
-public class SqlUtils
+public final class SqlUtils
 {
+    private SqlUtils() {}
+
     /**
      * Run a SQL query as Runnable ignoring any constraint violations.
      * This is a HACK to allow us to support idempotent inserts on

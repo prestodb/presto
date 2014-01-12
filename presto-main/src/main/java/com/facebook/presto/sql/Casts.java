@@ -20,10 +20,12 @@ import io.airlift.slice.Slices;
 import static com.google.common.base.Charsets.US_ASCII;
 import static com.google.common.base.Charsets.UTF_8;
 
-public class Casts
+public final class Casts
 {
     private static final Slice TRUE = Slices.copiedBuffer("true", US_ASCII);
     private static final Slice FALSE = Slices.copiedBuffer("false", US_ASCII);
+
+    private Casts() {}
 
     public static Object toBoolean(Object value)
     {

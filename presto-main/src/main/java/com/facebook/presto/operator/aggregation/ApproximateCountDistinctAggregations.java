@@ -24,11 +24,13 @@ import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 
-public class ApproximateCountDistinctAggregations
+public final class ApproximateCountDistinctAggregations
 {
     public static final AggregationFunction LONG_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS = createIsolatedAggregation(FIXED_INT_64);
     public static final AggregationFunction DOUBLE_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS = createIsolatedAggregation(DOUBLE);
     public static final AggregationFunction VARBINARY_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS = createIsolatedAggregation(VARIABLE_BINARY);
+
+    private ApproximateCountDistinctAggregations() {}
 
     private static AggregationFunction createIsolatedAggregation(Type parameterType)
     {

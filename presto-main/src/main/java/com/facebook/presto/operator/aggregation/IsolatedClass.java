@@ -25,8 +25,10 @@ import java.util.Map;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
-public class IsolatedClass
+public final class IsolatedClass
 {
+    private IsolatedClass() {}
+
     public static <T> Class<? extends T> isolateClass(Class<T> publicBaseClass, Class<? extends T> implementationClass, Class<?>... additionalClasses)
     {
         DynamicClassLoader dynamicClassLoader = new DynamicClassLoader(publicBaseClass.getClassLoader());

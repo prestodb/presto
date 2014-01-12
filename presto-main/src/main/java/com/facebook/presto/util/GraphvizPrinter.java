@@ -98,6 +98,8 @@ public final class GraphvizPrinter
         Preconditions.checkState(NODE_COLORS.size() == NodeType.values().length);
     }
 
+    private GraphvizPrinter() {}
+
     public static String printLogical(List<PlanFragment> fragments)
     {
         Map<PlanFragmentId, PlanFragment> fragmentsById = Maps.uniqueIndex(fragments, new Function<PlanFragment, PlanFragmentId>()

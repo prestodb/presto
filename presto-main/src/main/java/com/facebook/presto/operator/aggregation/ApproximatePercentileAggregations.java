@@ -24,10 +24,12 @@ import com.google.common.base.Throwables;
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 
-public class ApproximatePercentileAggregations
+public final class ApproximatePercentileAggregations
 {
     public static final AggregationFunction LONG_APPROXIMATE_PERCENTILE_AGGREGATION = createIsolatedAggregation(FIXED_INT_64);
     public static final AggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_AGGREGATION = createIsolatedAggregation(DOUBLE);
+
+    private ApproximatePercentileAggregations() {}
 
     private static AggregationFunction createIsolatedAggregation(Type parameterType)
     {
