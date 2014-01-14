@@ -70,18 +70,10 @@ import static org.testng.Assert.assertTrue;
 @Test(groups = "hive")
 public abstract class AbstractTestHiveFileFormats
 {
-    protected static final List<String> COLUMN_NAMES;
-    protected static final String COLUMN_NAMES_STRING;
-    protected static final String COLUMN_TYPES;
-    private static final List<ObjectInspector> FIELD_INSPECTORS;
     private static final int NUM_ROWS = 1000;
     private static final double EPSILON = 0.001;
 
-    // Pairs of <value-to-write-to-Hive, value-expected-from-Presto>
-    private final List<Pair<Object, Object>> TEST_VALUES;
-
-    static {
-        FIELD_INSPECTORS = ImmutableList.of(
+    private static final List<ObjectInspector> FIELD_INSPECTORS = ImmutableList.of(
                 javaStringObjectInspector,
                 javaStringObjectInspector,
                 javaStringObjectInspector,
@@ -122,16 +114,17 @@ public abstract class AbstractTestHiveFileFormats
                         )
                 )
         );
-        COLUMN_TYPES = Joiner.on(":").join(transform(FIELD_INSPECTORS, new Function<ObjectInspector, String>()
-        {
-            @Override
-            public String apply(ObjectInspector input)
-            {
-                return input.getTypeName();
-            }
-        }));
 
-        COLUMN_NAMES = ImmutableList.of(
+    protected static final String COLUMN_TYPES = Joiner.on(":").join(transform(FIELD_INSPECTORS, new Function<ObjectInspector, String>()
+    {
+        @Override
+        public String apply(ObjectInspector input)
+        {
+            return input.getTypeName();
+        }
+    }));
+
+    protected static final List<String> COLUMN_NAMES = ImmutableList.of(
                 "t_null_string",
                 "t_empty_string",
                 "t_string",
@@ -165,47 +158,45 @@ public abstract class AbstractTestHiveFileFormats
                 "t_complex"
         );
 
-        COLUMN_NAMES_STRING = Joiner.on(",").join(COLUMN_NAMES);
-    }
+    protected static final String COLUMN_NAMES_STRING = Joiner.on(",").join(COLUMN_NAMES);
 
-    protected AbstractTestHiveFileFormats()
-    {
-        long millis = new DateTime(2011, 5, 6, 7, 8, 9, 123).getMillis();
+    public static final long TIMESTAMP = new DateTime(2011, 5, 6, 7, 8, 9, 123).getMillis();
 
-        TEST_VALUES = ImmutableList.of(
+    // Pairs of <value-to-write-to-Hive, value-expected-from-Presto>
+    @SuppressWarnings("unchecked")
+    private static final List<Pair<Object, Object>>  TEST_VALUES = ImmutableList.of(
                 Pair.<Object, Object>of(null, null),
                 Pair.<Object, Object>of("", new byte[0]),
                 Pair.<Object, Object>of("test", "test".getBytes(Charsets.UTF_8)),
-                Pair.<Object, Object>of(Byte.valueOf((byte) 1), Long.valueOf((byte) 1)),
-                Pair.<Object, Object>of(Short.valueOf((short) 2), Long.valueOf((short) 2)),
-                Pair.<Object, Object>of(Integer.valueOf(3), Long.valueOf(3)),
-                Pair.<Object, Object>of(Long.valueOf(4), Long.valueOf(4)),
-                Pair.<Object, Object>of(Float.valueOf((float) 5.1), Double.valueOf((float) 5.1)),
-                Pair.<Object, Object>of(Double.valueOf(6.2), Double.valueOf(6.2)),
-                Pair.<Object, Object>of(Boolean.valueOf(true), Boolean.valueOf(true)),
-                Pair.<Object, Object>of(new Timestamp(millis), Long.valueOf(millis / 1000)),
+                Pair.<Object, Object>of((byte) 1, 1L),
+                Pair.<Object, Object>of((short) 2, 2L),
+                Pair.<Object, Object>of(3, 3L),
+                Pair.<Object, Object>of(4L, 4L),
+                Pair.<Object, Object>of(5.1f, 5.1),
+                Pair.<Object, Object>of(6.2, 6.2),
+                Pair.<Object, Object>of(true, true),
+                Pair.<Object, Object>of(new Timestamp(TIMESTAMP), TIMESTAMP / 1000),
                 Pair.<Object, Object>of("test2".getBytes(Charsets.UTF_8), "test2".getBytes(Charsets.UTF_8)),
                 Pair.<Object, Object>of(ImmutableMap.of("test", "test"), "{\"test\":\"test\"}"),
-                Pair.<Object, Object>of(ImmutableMap.of(Byte.valueOf((byte) 1), Byte.valueOf((byte) 1)), "{\"1\":1}"),
-                Pair.<Object, Object>of(ImmutableMap.of(Short.valueOf((short) 2), Short.valueOf((short) 2)), "{\"2\":2}"),
-                Pair.<Object, Object>of(ImmutableMap.of(Integer.valueOf(3), Integer.valueOf(3)), "{\"3\":3}"),
-                Pair.<Object, Object>of(ImmutableMap.of(Long.valueOf(4), Long.valueOf(4)), "{\"4\":4}"),
-                Pair.<Object, Object>of(ImmutableMap.of(Float.valueOf((float) 5.0), Float.valueOf((float) 5.0)), "{\"5.0\":5.0}"),
-                Pair.<Object, Object>of(ImmutableMap.of(Double.valueOf(6.0), Double.valueOf(6.0)), "{\"6.0\":6.0}"),
-                Pair.<Object, Object>of(ImmutableMap.of(Boolean.valueOf(true), Boolean.valueOf(true)), "{\"true\":true}"),
-                Pair.<Object, Object>of(ImmutableMap.of(new Timestamp(millis), new Timestamp(millis)), String.format("{\"%d\":%d}", millis / 1000, millis / 1000)),
+                Pair.<Object, Object>of(ImmutableMap.of((byte) 1, (byte) 1), "{\"1\":1}"),
+                Pair.<Object, Object>of(ImmutableMap.of((short) 2, (short) 2), "{\"2\":2}"),
+                Pair.<Object, Object>of(ImmutableMap.of(3, 3), "{\"3\":3}"),
+                Pair.<Object, Object>of(ImmutableMap.of(4L, 4L), "{\"4\":4}"),
+                Pair.<Object, Object>of(ImmutableMap.of(5.0f, 5.0f), "{\"5.0\":5.0}"),
+                Pair.<Object, Object>of(ImmutableMap.of(6.0, 6.0), "{\"6.0\":6.0}"),
+                Pair.<Object, Object>of(ImmutableMap.of(true, true), "{\"true\":true}"),
+                Pair.<Object, Object>of(ImmutableMap.of(new Timestamp(TIMESTAMP), new Timestamp(TIMESTAMP)), String.format("{\"%d\":%d}", TIMESTAMP / 1000, TIMESTAMP / 1000)),
                 Pair.<Object, Object>of(ImmutableList.of("test"), "[\"test\"]"),
-                Pair.<Object, Object>of(ImmutableList.of(Byte.valueOf((byte) 1)), "[1]"),
-                Pair.<Object, Object>of(ImmutableList.of(Short.valueOf((short) 2)), "[2]"),
-                Pair.<Object, Object>of(ImmutableList.of(Integer.valueOf(3)), "[3]"),
-                Pair.<Object, Object>of(ImmutableList.of(Long.valueOf(4)), "[4]"),
-                Pair.<Object, Object>of(ImmutableList.of(Float.valueOf((float) 5.0)), "[5.0]"),
-                Pair.<Object, Object>of(ImmutableList.of(Double.valueOf(6.0)), "[6.0]"),
-                Pair.<Object, Object>of(ImmutableList.of(Boolean.valueOf(true)), "[true]"),
-                Pair.<Object, Object>of(ImmutableList.of(new Timestamp(millis)), String.format("[%d]", millis / 1000)),
+                Pair.<Object, Object>of(ImmutableList.of((byte) 1), "[1]"),
+                Pair.<Object, Object>of(ImmutableList.of((short) 2), "[2]"),
+                Pair.<Object, Object>of(ImmutableList.of(3), "[3]"),
+                Pair.<Object, Object>of(ImmutableList.of(4L), "[4]"),
+                Pair.<Object, Object>of(ImmutableList.of(5.0f), "[5.0]"),
+                Pair.<Object, Object>of(ImmutableList.of(6.0), "[6.0]"),
+                Pair.<Object, Object>of(ImmutableList.of(true), "[true]"),
+                Pair.<Object, Object>of(ImmutableList.of(new Timestamp(TIMESTAMP)), String.format("[%d]", TIMESTAMP / 1000)),
                 Pair.<Object, Object>of(ImmutableMap.of("test", ImmutableList.<Object>of(new Integer[] {1})), "{\"test\":[{\"s_int\":1}]}")
         );
-    }
 
     protected List<HiveColumnHandle> getColumns()
     {
@@ -216,7 +207,7 @@ public abstract class AbstractTestHiveFileFormats
         return columns;
     }
 
-    public FileSplit createTestFile(String filePath, HiveOutputFormat<?, ?> outputFormat, SerDe serDe, String compressionCodec)
+    public FileSplit createTestFile(String filePath, HiveOutputFormat<?, ?> outputFormat, @SuppressWarnings("deprecation") SerDe serDe, String compressionCodec)
             throws Exception
     {
         JobConf jobConf = new JobConf();
@@ -284,13 +275,13 @@ public abstract class AbstractTestHiveFileFormats
                 HiveType type = HiveType.getHiveType(FIELD_INSPECTORS.get(i));
                 switch (type.getNativeType()) {
                     case BOOLEAN:
-                        fieldFromCursor = Boolean.valueOf(cursor.getBoolean(i));
+                        fieldFromCursor = cursor.getBoolean(i);
                         break;
                     case LONG:
-                        fieldFromCursor = Long.valueOf(cursor.getLong(i));
+                        fieldFromCursor = cursor.getLong(i);
                         break;
                     case DOUBLE:
-                        fieldFromCursor = Double.valueOf(cursor.getDouble(i));
+                        fieldFromCursor = cursor.getDouble(i);
                         break;
                     case STRING:
                         fieldFromCursor = cursor.getString(i);
