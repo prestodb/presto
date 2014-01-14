@@ -70,7 +70,7 @@ public class AggregationNode
         this.aggregations = ImmutableMap.copyOf(checkNotNull(aggregations, "aggregations is null"));
         this.functions = ImmutableMap.copyOf(checkNotNull(functions, "functions is null"));
         this.masks = ImmutableMap.copyOf(checkNotNull(masks, "masks is null"));
-        for (Symbol mask: masks.keySet()) {
+        for (Symbol mask : masks.keySet()) {
             checkArgument(aggregations.containsKey(mask), "mask does not match any aggregations");
         }
         this.step = step;

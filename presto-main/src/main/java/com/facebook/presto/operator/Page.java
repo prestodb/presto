@@ -70,7 +70,8 @@ public class Page
 
     public Function<Integer, Block> blockGetter()
     {
-        return new Function<Integer, Block>() {
+        return new Function<Integer, Block>()
+        {
             @Override
             public Block apply(Integer input)
             {

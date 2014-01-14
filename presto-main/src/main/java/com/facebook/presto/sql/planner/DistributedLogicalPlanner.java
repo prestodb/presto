@@ -125,7 +125,7 @@ public class DistributedLogicalPlanner
             // Check if the subplan is already partitioned the way we want it
             boolean alreadyPartitioned = false;
             if (current.getDistribution() == PlanDistribution.FIXED) {
-                for (SubPlan child: current.getChildren()) {
+                for (SubPlan child : current.getChildren()) {
                     if (child.getFragment().getOutputPartitioning() == OutputPartitioning.HASH &&
                             ImmutableSet.copyOf(child.getFragment().getPartitionBy()).equals(ImmutableSet.copyOf(node.getDistinctSymbols()))) {
                         alreadyPartitioned = true;
@@ -493,13 +493,13 @@ public class DistributedLogicalPlanner
         public SubPlanBuilder createSourceDistributionPlan(PlanNode root, PlanNodeId partitionedSourceId)
         {
             if (createSingleNodePlan) {
-                 // when creating a single node plan, we tell the planner that the table is not partitioned,
-                 // but we still need to set the source id for the execution engine
-                 return new SubPlanBuilder(new PlanFragmentId(nextSubPlanId()), allocator, PlanDistribution.NONE, root, partitionedSourceId);
-             }
-             else {
-                 return new SubPlanBuilder(new PlanFragmentId(nextSubPlanId()), allocator, PlanDistribution.SOURCE, root, partitionedSourceId);
-             }
+                // when creating a single node plan, we tell the planner that the table is not partitioned,
+                // but we still need to set the source id for the execution engine
+                return new SubPlanBuilder(new PlanFragmentId(nextSubPlanId()), allocator, PlanDistribution.NONE, root, partitionedSourceId);
+            }
+            else {
+                return new SubPlanBuilder(new PlanFragmentId(nextSubPlanId()), allocator, PlanDistribution.SOURCE, root, partitionedSourceId);
+            }
         }
 
         public SubPlanBuilder createCoordinatorOnlyPlan(PlanNode root)

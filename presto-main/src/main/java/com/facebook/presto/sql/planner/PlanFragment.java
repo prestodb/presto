@@ -159,7 +159,8 @@ public class PlanFragment
         checkState(outputPartitioning == OutputPartitioning.HASH, "fragment is not hash partitioned");
         checkState(root instanceof SinkNode, "root is not an instance of SinkNode");
         // We can convert the symbols directly into channels, because the root must be a sink and therefore the layout is fixed
-        return IterableTransformer.on(partitionBy).transform(new Function<Symbol, Integer>() {
+        return IterableTransformer.on(partitionBy).transform(new Function<Symbol, Integer>()
+        {
             @Override
             public Integer apply(Symbol input)
             {

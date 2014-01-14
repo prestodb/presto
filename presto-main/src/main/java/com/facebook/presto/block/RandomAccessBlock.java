@@ -16,7 +16,7 @@ package com.facebook.presto.block;
 import io.airlift.slice.Slice;
 
 public interface RandomAccessBlock
-    extends Block
+        extends Block
 {
     /**
      * Gets a position from the current tuple.

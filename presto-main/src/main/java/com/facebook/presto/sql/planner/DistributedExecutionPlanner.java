@@ -165,7 +165,7 @@ public class DistributedExecutionPlanner
         @Override
         public NodeSplits visitSample(SampleNode node, Predicate<Partition> materializedViewPartitionPredicate)
         {
-            switch(node.getSampleType()) {
+            switch (node.getSampleType()) {
                 case BERNOULLI:
                     return node.getSource().accept(this, materializedViewPartitionPredicate);
 

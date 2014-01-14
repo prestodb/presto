@@ -61,7 +61,7 @@ public class TableScanNode
     // In this way, we are always guaranteed to have a readable predicate that provides some kind of upper bound on the constraints.
     private final Expression originalConstraint;
 
-    public TableScanNode(PlanNodeId id,  TableHandle table, List<Symbol> outputSymbols, Map<Symbol, ColumnHandle> assignments,  @Nullable Expression originalConstraint, Optional<GeneratedPartitions> generatedPartitions)
+    public TableScanNode(PlanNodeId id, TableHandle table, List<Symbol> outputSymbols, Map<Symbol, ColumnHandle> assignments, @Nullable Expression originalConstraint, Optional<GeneratedPartitions> generatedPartitions)
     {
         this(id, table, outputSymbols, assignments, originalConstraint, generatedPartitions, false);
     }
