@@ -292,7 +292,7 @@ public class FunctionRegistry
             name = name.toLowerCase();
 
             String description = getDescription(function.getClass());
-            functions.add(new FunctionInfo(new Signature(name,  returnType, argumentTypes), description, intermediateType, function));
+            functions.add(new FunctionInfo(new Signature(name, returnType, argumentTypes), description, intermediateType, function));
             return this;
         }
 
