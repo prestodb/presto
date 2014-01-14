@@ -38,12 +38,15 @@ public class TestHiveFileFormats
             throws Exception
     {
         JobConf jobConf = new JobConf();
-        final RCFileOutputFormat outputFormat = new RCFileOutputFormat();
-        final RCFileInputFormat inputFormat = new RCFileInputFormat();
-        final SerDe serde = new ColumnarSerDe();
+        RCFileOutputFormat outputFormat = new RCFileOutputFormat();
+        @SuppressWarnings("rawtypes")
+        RCFileInputFormat inputFormat = new RCFileInputFormat();
+        @SuppressWarnings("deprecation")
+        SerDe serde = new ColumnarSerDe();
         File file = File.createTempFile("presto_test", "rc-text");
         try {
             FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null);
+            @SuppressWarnings("unchecked")
             RecordReader<?, BytesRefArrayWritable> recordReader = (RecordReader<?, BytesRefArrayWritable>) inputFormat.getRecordReader(split, jobConf, Reporter.NULL);
             Properties splitProperties = new Properties();
             splitProperties.setProperty("serialization.lib", "org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe");
@@ -54,6 +57,7 @@ public class TestHiveFileFormats
             checkCursor(cursor, true);
         }
         finally {
+            //noinspection ResultOfMethodCallIgnored
             file.delete();
         }
     }
@@ -63,12 +67,15 @@ public class TestHiveFileFormats
             throws Exception
     {
         JobConf jobConf = new JobConf();
-        final RCFileOutputFormat outputFormat = new RCFileOutputFormat();
-        final RCFileInputFormat inputFormat = new RCFileInputFormat();
-        final SerDe serde = new LazyBinaryColumnarSerDe();
+        RCFileOutputFormat outputFormat = new RCFileOutputFormat();
+        @SuppressWarnings("rawtypes")
+        RCFileInputFormat inputFormat = new RCFileInputFormat();
+        @SuppressWarnings("deprecation")
+        SerDe serde = new LazyBinaryColumnarSerDe();
         File file = File.createTempFile("presto_test", "rc-binary");
         try {
             FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null);
+            @SuppressWarnings("unchecked")
             RecordReader<?, BytesRefArrayWritable> recordReader = (RecordReader<?, BytesRefArrayWritable>) inputFormat.getRecordReader(split, jobConf, Reporter.NULL);
             Properties splitProperties = new Properties();
             splitProperties.setProperty("serialization.lib", "org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe");
@@ -79,6 +86,7 @@ public class TestHiveFileFormats
             checkCursor(cursor, true);
         }
         finally {
+            //noinspection ResultOfMethodCallIgnored
             file.delete();
         }
     }
