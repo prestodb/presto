@@ -286,10 +286,23 @@ public class TestDistributedQueries
     }
 
     @Override
+    protected MaterializedResult computeActualSampled(@Language("SQL") String sql)
+    {
+        ClientSession session = new ClientSession(coordinator.getBaseUrl(), SESSION.getUser(), SESSION.getSource(), "tpch_sampled", TpchMetadata.TINY_SCHEMA_NAME, true);
+
+        return compute(sql, session);
+    }
+
+    @Override
     protected MaterializedResult computeActual(@Language("SQL") String sql)
     {
         ClientSession session = new ClientSession(coordinator.getBaseUrl(), SESSION.getUser(), SESSION.getSource(), SESSION.getCatalog(), SESSION.getSchema(), true);
 
+        return compute(sql, session);
+    }
+
+    private MaterializedResult compute(@Language("SQL") String sql, ClientSession session)
+    {
         try (StatementClient client = new StatementClient(httpClient, queryResultsCodec, session, sql)) {
             AtomicBoolean loggedUri = new AtomicBoolean(false);
             ImmutableList.Builder<MaterializedTuple> rows = ImmutableList.builder();
@@ -400,7 +413,7 @@ public class TestDistributedQueries
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("query.client.timeout", "10m")
                 .put("exchange.http-client.read-timeout", "1h")
-                .put("datasources", "native,tpch")
+                .put("datasources", "native,tpch,tpch_sampled")
                 .build();
 
         return new TestingPrestoServer(coordinator, properties, ENVIRONMENT, discoveryUri);

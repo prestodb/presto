@@ -25,6 +25,7 @@ import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.TupleDescriptor;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.MaterializeSampleNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -111,8 +112,21 @@ class RelationPlanner
             columns.put(symbol, analysis.getColumn(field));
         }
 
-        ImmutableList<Symbol> outputSymbols = outputSymbolsBuilder.build();
-        return new RelationPlan(new TableScanNode(idAllocator.getNextId(), handle, outputSymbols, columns.build(), null, Optional.<GeneratedPartitions>absent()), descriptor, outputSymbols);
+        List<Symbol> planOutputSymbols = outputSymbolsBuilder.build();
+        Optional<ColumnHandle> sampleWeightColumn = metadata.getSampleWeightColumnHandle(handle);
+        Symbol sampleWeightSymbol = null;
+        if (sampleWeightColumn.isPresent()) {
+            sampleWeightSymbol = symbolAllocator.newSymbol("$sampleWeight", Type.BIGINT);
+            outputSymbolsBuilder.add(sampleWeightSymbol);
+            columns.put(sampleWeightSymbol, sampleWeightColumn.get());
+        }
+
+        List<Symbol> nodeOutputSymbols = outputSymbolsBuilder.build();
+        PlanNode root = new TableScanNode(idAllocator.getNextId(), handle, nodeOutputSymbols, columns.build(), null, Optional.<GeneratedPartitions>absent());
+        if (sampleWeightSymbol != null) {
+            root = new MaterializeSampleNode(idAllocator.getNextId(), root, sampleWeightSymbol);
+        }
+        return new RelationPlan(root, descriptor, planOutputSymbols);
     }
 
     @Override

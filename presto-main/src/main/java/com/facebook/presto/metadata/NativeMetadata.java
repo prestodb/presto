@@ -148,6 +148,12 @@ public class NativeMetadata
     }
 
     @Override
+    public ColumnHandle getSampleWeightColumnHandle(TableHandle tableHandle)
+    {
+        return null;
+    }
+
+    @Override
     public ColumnMetadata getColumnMetadata(TableHandle tableHandle, ColumnHandle columnHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");

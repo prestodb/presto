@@ -18,13 +18,22 @@ import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.TableHandle;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 public class TpchHandleResolver
         implements ConnectorHandleResolver
 {
+    private final String connectorId;
+
+    public TpchHandleResolver(String connectorId)
+    {
+        this.connectorId = checkNotNull(connectorId, "connectorId is null");
+    }
+
     @Override
     public boolean canHandle(TableHandle tableHandle)
     {
-        return tableHandle instanceof TpchTableHandle;
+        return tableHandle instanceof TpchTableHandle && ((TpchTableHandle) tableHandle).getConnectorId().equals(connectorId);
     }
 
     @Override
@@ -36,7 +45,7 @@ public class TpchHandleResolver
     @Override
     public boolean canHandle(Split split)
     {
-        return split instanceof TpchSplit;
+        return split instanceof TpchSplit && ((TpchSplit) split).getTableHandle().getConnectorId().equals(connectorId);
     }
 
     @Override

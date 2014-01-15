@@ -14,6 +14,7 @@
 package com.facebook.presto;
 
 import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.tpch.SampledTpchConnectorFactory;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.util.LocalQueryRunner;
@@ -31,6 +32,7 @@ public class TestLocalQueries
         extends AbstractTestQueries
 {
     private LocalQueryRunner localQueryRunner;
+    private LocalQueryRunner localSampledQueryRunner;
     private ExecutorService executor;
 
     public ExecutorService getExecutor()
@@ -60,10 +62,12 @@ public class TestLocalQueries
     {
         Session session = new Session("user", "test", "local", TpchMetadata.TINY_SCHEMA_NAME, null, null);
         localQueryRunner = new LocalQueryRunner(session, getExecutor());
+        localSampledQueryRunner = new LocalQueryRunner(session, getExecutor());
 
         // add the tpch catalog
         // local queries run directly against the generator
         localQueryRunner.createCatalog(session.getCatalog(), new TpchConnectorFactory(localQueryRunner.getNodeManager(), 1), ImmutableMap.<String, String>of());
+        localSampledQueryRunner.createCatalog(session.getCatalog(), new SampledTpchConnectorFactory(localSampledQueryRunner.getNodeManager(), 1), ImmutableMap.<String, String>of());
 
         localQueryRunner.getMetadata().addFunctions(CUSTOM_FUNCTIONS);
 
@@ -77,5 +81,11 @@ public class TestLocalQueries
     protected MaterializedResult computeActual(@Language("SQL") String sql)
     {
         return localQueryRunner.execute(sql);
+    }
+
+    @Override
+    protected MaterializedResult computeActualSampled(@Language("SQL") String sql)
+    {
+        return localSampledQueryRunner.execute(sql);
     }
 }

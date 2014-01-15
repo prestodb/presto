@@ -23,6 +23,7 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSetMultimap;
 
@@ -73,10 +74,17 @@ public class InputExtractor
             SchemaTableName schemaTable = table.getTable();
 
             TableEntry entry = new TableEntry(table.getConnectorId(), schemaTable.getSchemaName(), schemaTable.getTableName());
+            Optional<ColumnHandle> sampleWeightColumn = metadata.getSampleWeightColumnHandle(tableHandle);
 
             for (ColumnHandle columnHandle : node.getAssignments().values()) {
-                ColumnMetadata columnMetadata = metadata.getColumnMetadata(tableHandle, columnHandle);
-                builder.put(entry, columnMetadata.getName());
+                if (sampleWeightColumn.isPresent() && sampleWeightColumn.get().equals(columnHandle)) {
+                    // Make up a name, since this column handle may or may not have metadata
+                    builder.put(entry, "$sampleWeight");
+                }
+                else {
+                    ColumnMetadata columnMetadata = metadata.getColumnMetadata(tableHandle, columnHandle);
+                    builder.put(entry, columnMetadata.getName());
+                }
             }
 
             return null;

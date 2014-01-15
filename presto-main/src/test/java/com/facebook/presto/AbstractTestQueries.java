@@ -117,7 +117,115 @@ public abstract class AbstractTestQueries
     private Handle handle;
     private Session session;
 
-    @Test void testSpecialFloatingPointValues()
+    @Test
+    public void testSampledCountStar()
+            throws Exception
+    {
+        assertSampledQuery("SELECT COUNT(*) FROM orders", "SELECT 2 * COUNT(*) FROM orders");
+    }
+
+    @Test
+    public void testSampledCount()
+            throws Exception
+    {
+        assertSampledQuery("SELECT COUNT(custkey), COUNT(DISTINCT custkey) FROM orders", "SELECT 2 * COUNT(custkey), COUNT(DISTINCT custkey) FROM orders");
+    }
+
+    @Test
+    public void testSampledCountIf()
+            throws Exception
+    {
+        assertSampledQuery("SELECT COUNT_IF(custkey > 100) FROM orders", "SELECT 2 * COUNT(custkey) FROM orders WHERE custkey > 100");
+    }
+
+    @Test
+    public void testSampledAvg()
+            throws Exception
+    {
+        assertSampledQuery("SELECT AVG(totalprice) FROM orders", "SELECT AVG(totalprice) FROM orders");
+    }
+
+    @Test
+    public void testSampledVariance()
+            throws Exception
+    {
+        assertSampledQuery("SELECT CAST(VARIANCE(totalprice) / 100000000 AS BIGINT) FROM orders", "SELECT CAST(VARIANCE(totalprice) / 100000000 AS BIGINT) FROM orders");
+    }
+
+    @Test
+    public void testSampledSum()
+            throws Exception
+    {
+        assertSampledQuery("SELECT SUM(custkey), SUM(totalprice) FROM orders",
+                "SELECT 2 * SUM(custkey), 2 * SUM(totalprice) FROM orders");
+    }
+
+    @Test
+    public void testSampledMin()
+            throws Exception
+    {
+        assertSampledQuery("SELECT MIN(custkey), MIN(totalprice), MIN(clerk), MIN(CAST(custkey AS BOOLEAN)) FROM orders",
+                "SELECT MIN(custkey), MIN(totalprice), MIN(clerk), MIN(CAST(custkey AS BOOLEAN)) FROM orders");
+    }
+
+    @Test
+    public void testSampledMax()
+            throws Exception
+    {
+        assertSampledQuery("SELECT MAX(custkey), MAX(totalprice), MAX(clerk), MAX(CAST(custkey AS BOOLEAN)) FROM orders",
+                "SELECT MAX(custkey), MAX(totalprice), MAX(clerk), MAX(CAST(custkey AS BOOLEAN)) FROM orders");
+    }
+
+    @Test
+    public void testSampledGroupBy()
+            throws Exception
+    {
+        assertSampledQuery("SELECT MAX(custkey), AVG(totalprice), COUNT(custkey), SUM(totalprice), clerk FROM orders GROUP BY clerk",
+                "SELECT MAX(custkey), AVG(totalprice), 2 * COUNT(custkey), 2 * SUM(totalprice), clerk FROM orders GROUP BY clerk");
+    }
+
+    @Test
+    public void testSampledJoin()
+            throws Exception
+    {
+        assertSampledQuery("SELECT SUM(quantity), clerk FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey GROUP BY clerk ORDER BY clerk",
+                "SELECT 4 * SUM(quantity), clerk FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey GROUP BY clerk ORDER BY clerk");
+    }
+
+    @Test
+    public void testSampledUnion()
+            throws Exception
+    {
+        assertSampledQuery("SELECT COUNT(*) FROM (SELECT orderkey FROM lineitem UNION SELECT orderkey FROM orders)",
+                "SELECT COUNT(*) FROM (SELECT orderkey FROM lineitem UNION SELECT orderkey FROM orders)");
+    }
+
+    @Test
+    public void testSampledUnionAll()
+            throws Exception
+    {
+        assertSampledQuery("SELECT COUNT(*) FROM (SELECT orderkey FROM lineitem UNION ALL SELECT orderkey FROM orders)",
+                "SELECT 2 * COUNT(*) FROM (SELECT orderkey FROM lineitem UNION ALL SELECT orderkey FROM orders)");
+    }
+
+    @Test
+    public void testSampledDistinctGroupBy()
+            throws Exception
+    {
+        assertSampledQuery("SELECT COUNT(DISTINCT clerk) as count, orderdate FROM orders GROUP BY orderdate ORDER BY count",
+                "SELECT COUNT(DISTINCT clerk) as count, orderdate FROM orders GROUP BY orderdate ORDER BY count");
+    }
+
+    @Test
+    public void testSampledSelect()
+            throws Exception
+    {
+        assertSampledQuery("SELECT orderkey, orderkey + 1, sqrt(orderkey) FROM orders WHERE orderkey > 2 ORDER BY orderkey LIMIT 5",
+                "SELECT orderkey, orderkey + 1, sqrt(orderkey) FROM (SELECT orderkey FROM orders UNION ALL SELECT orderkey FROM orders) t WHERE orderkey > 2 ORDER BY orderkey LIMIT 5");
+    }
+
+    @Test
+    public void testSpecialFloatingPointValues()
             throws Exception
     {
         MaterializedResult actual = computeActual("SELECT nan(), infinity(), -infinity()");
@@ -2956,7 +3064,7 @@ public abstract class AbstractTestQueries
         Logging.initialize();
 
         handle = DBI.open("jdbc:h2:mem:test" + System.nanoTime());
-        TpchMetadata tpchMetadata = new TpchMetadata();
+        TpchMetadata tpchMetadata = new TpchMetadata("");
 
         handle.execute("CREATE TABLE orders (\n" +
                 "  orderkey BIGINT PRIMARY KEY,\n" +
@@ -3017,6 +3125,8 @@ public abstract class AbstractTestQueries
 
     protected abstract MaterializedResult computeActual(@Language("SQL") String sql);
 
+    protected abstract MaterializedResult computeActualSampled(@Language("SQL") String sql);
+
     protected void assertQuery(@Language("SQL") String sql)
             throws Exception
     {
@@ -3027,6 +3137,12 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         assertQuery(sql, sql, true);
+    }
+
+    protected void assertSampledQuery(@Language("SQL") String actual, @Language("SQL") String expected)
+            throws Exception
+    {
+        assertSampledQuery(actual, expected, false);
     }
 
     protected void assertQuery(@Language("SQL") String actual, @Language("SQL") String expected)
@@ -3042,6 +3158,23 @@ public abstract class AbstractTestQueries
     }
 
     private static final Logger log = Logger.get(AbstractTestQueries.class);
+
+    private void assertSampledQuery(@Language("SQL") String actual, @Language("SQL") String expected, boolean ensureOrdering)
+            throws Exception
+    {
+        long start = System.nanoTime();
+        MaterializedResult actualResults = computeActualSampled(actual);
+        log.info("FINISHED in %s", Duration.nanosSince(start));
+
+        MaterializedResult expectedResults = computeExpected(expected, actualResults.getTupleInfos());
+
+        if (ensureOrdering) {
+            assertEquals(actualResults.getMaterializedTuples(), expectedResults.getMaterializedTuples());
+        }
+        else {
+            assertEqualsIgnoreOrder(actualResults.getMaterializedTuples(), expectedResults.getMaterializedTuples());
+        }
+    }
 
     private void assertQuery(@Language("SQL") String actual, @Language("SQL") String expected, boolean ensureOrdering)
             throws Exception

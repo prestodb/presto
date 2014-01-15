@@ -20,6 +20,7 @@ import com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning;
 import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
+import com.facebook.presto.sql.planner.plan.MaterializeSampleNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -309,6 +310,13 @@ public class PlanPrinter
             });
 
             print(indent, "- TopN[%s by (%s)] => [%s]", node.getCount(), Joiner.on(", ").join(keys), formatOutputs(node.getOutputSymbols()));
+            return processChildren(node, indent + 1);
+        }
+
+        @Override
+        public Void visitMaterializeSample(final MaterializeSampleNode node, Integer indent)
+        {
+            print(indent, "- MaterializeSample[%s] => [%s]", node.getSampleWeightSymbol(), formatOutputs(node.getOutputSymbols()));
             return processChildren(node, indent + 1);
         }
 
