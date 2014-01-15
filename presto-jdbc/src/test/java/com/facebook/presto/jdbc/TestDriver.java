@@ -14,6 +14,8 @@
 package com.facebook.presto.jdbc;
 
 import com.facebook.presto.server.TestingPrestoServer;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -28,6 +30,7 @@ import java.sql.Statement;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
@@ -92,7 +95,7 @@ public class TestDriver
     {
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getCatalogs()) {
-                assertRowCount(rs, 2);
+                assertRowCount(rs, 1);
                 ResultSetMetaData metadata = rs.getMetaData();
                 assertEquals(metadata.getColumnCount(), 1);
                 assertEquals(metadata.getColumnLabel(1), "TABLE_CAT");
@@ -107,18 +110,281 @@ public class TestDriver
     {
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getSchemas()) {
-                assertRowCount(rs, 2);
+                assertGetSchemasResult(rs, 2);
+            }
 
-                ResultSetMetaData metadata = rs.getMetaData();
-                assertEquals(metadata.getColumnCount(), 2);
+            try (ResultSet rs = connection.getMetaData().getSchemas(null, null)) {
+                assertGetSchemasResult(rs, 2);
+            }
 
-                assertEquals(metadata.getColumnLabel(1), "TABLE_SCHEM");
-                assertEquals(metadata.getColumnType(1), Types.LONGNVARCHAR);
+            try (ResultSet rs = connection.getMetaData().getSchemas("default", null)) {
+                assertGetSchemasResult(rs, 2);
+            }
 
-                assertEquals(metadata.getColumnLabel(2), "TABLE_CATALOG");
-                assertEquals(metadata.getColumnType(2), Types.LONGNVARCHAR);
+            try (ResultSet rs = connection.getMetaData().getSchemas("", null)) {
+                // all schemas in presto have a catalog name
+                assertGetSchemasResult(rs, 0);
+            }
+
+            try (ResultSet rs = connection.getMetaData().getSchemas("default", "sys")) {
+                assertGetSchemasResult(rs, 1);
+            }
+
+            try (ResultSet rs = connection.getMetaData().getSchemas(null, "sys")) {
+                assertGetSchemasResult(rs, 1);
+            }
+
+            try (ResultSet rs = connection.getMetaData().getSchemas("unknown", null)) {
+                assertGetSchemasResult(rs, 0);
+            }
+
+            try (ResultSet rs = connection.getMetaData().getSchemas("unknown", "sys")) {
+                assertGetSchemasResult(rs, 0);
+            }
+
+            try (ResultSet rs = connection.getMetaData().getSchemas(null, "unknown")) {
+                assertGetSchemasResult(rs, 0);
+            }
+
+            try (ResultSet rs = connection.getMetaData().getSchemas("default", "unknown")) {
+                assertGetSchemasResult(rs, 0);
+            }
+
+            try (ResultSet rs = connection.getMetaData().getSchemas("unknown", "unknown")) {
+                assertGetSchemasResult(rs, 0);
             }
         }
+    }
+
+    private void assertGetSchemasResult(ResultSet rs, int expectedRows)
+            throws SQLException
+    {
+        assertRowCount(rs, expectedRows);
+
+        ResultSetMetaData metadata = rs.getMetaData();
+        assertEquals(metadata.getColumnCount(), 2);
+
+        assertEquals(metadata.getColumnLabel(1), "TABLE_SCHEM");
+        assertEquals(metadata.getColumnType(1), Types.LONGNVARCHAR);
+
+        assertEquals(metadata.getColumnLabel(2), "TABLE_CATALOG");
+        assertEquals(metadata.getColumnType(2), Types.LONGNVARCHAR);
+    }
+
+    @Test
+    public void testGetTables()
+            throws Exception
+    {
+        try (Connection connection = createConnection()) {
+            try (ResultSet rs = connection.getMetaData().getTables(null, null, null, null)) {
+                assertTableMetadata(rs);
+
+                Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
+                assertTrue(rows.contains(ImmutableList.of("default", "information_schema", "tables", "BASE TABLE", "",  "",  "",  "",  "", "")));
+                assertTrue(rows.contains(ImmutableList.of("default", "information_schema", "schemata", "BASE TABLE", "",  "",  "",  "",  "", "")));
+                assertTrue(rows.contains(ImmutableList.of("default", "sys", "node", "BASE TABLE", "",  "",  "",  "",  "", "")));
+            }
+        }
+
+        try (Connection connection = createConnection()) {
+            try (ResultSet rs = connection.getMetaData().getTables("default", null, null, null)) {
+                assertTableMetadata(rs);
+
+                Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
+                assertTrue(rows.contains(ImmutableList.of("default", "information_schema", "tables", "BASE TABLE", "",  "",  "",  "",  "", "")));
+                assertTrue(rows.contains(ImmutableList.of("default", "information_schema", "schemata", "BASE TABLE", "",  "",  "",  "",  "", "")));
+                assertTrue(rows.contains(ImmutableList.of("default", "sys", "node", "BASE TABLE", "",  "",  "",  "",  "", "")));
+            }
+        }
+
+        try (Connection connection = createConnection()) {
+            try (ResultSet rs = connection.getMetaData().getTables("", null, null, null)) {
+                assertTableMetadata(rs);
+
+                // all tables in presto have a catalog name
+                Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
+                assertEquals(rows.size(), 0);
+            }
+        }
+
+        try (Connection connection = createConnection()) {
+            try (ResultSet rs = connection.getMetaData().getTables("default", "information_schema", null, null)) {
+                assertTableMetadata(rs);
+
+                Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
+                assertTrue(rows.contains(ImmutableList.of("default", "information_schema", "tables", "BASE TABLE", "",  "",  "",  "",  "", "")));
+                assertTrue(rows.contains(ImmutableList.of("default", "information_schema", "schemata", "BASE TABLE", "",  "",  "",  "",  "", "")));
+                assertFalse(rows.contains(ImmutableList.of("default", "sys", "node", "BASE TABLE", "", "", "", "", "", "")));
+            }
+        }
+
+        try (Connection connection = createConnection()) {
+            try (ResultSet rs = connection.getMetaData().getTables("default", "", null, null)) {
+                assertTableMetadata(rs);
+
+                Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
+                assertEquals(rows.size(), 0);
+            }
+        }
+
+        try (Connection connection = createConnection()) {
+            try (ResultSet rs = connection.getMetaData().getTables("default", "information_schema", "tables", null)) {
+                assertTableMetadata(rs);
+
+                Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
+                assertTrue(rows.contains(ImmutableList.of("default", "information_schema", "tables", "BASE TABLE", "",  "",  "",  "",  "", "")));
+                assertFalse(rows.contains(ImmutableList.of("default", "information_schema", "schemata", "BASE TABLE", "", "", "", "", "", "")));
+                assertFalse(rows.contains(ImmutableList.of("default", "sys", "node", "BASE TABLE", "",  "",  "",  "",  "", "")));
+            }
+        }
+
+        try (Connection connection = createConnection()) {
+            try (ResultSet rs = connection.getMetaData().getTables("default", "information_schema", "tables", new String[] {"BASE TABLE"})) {
+                assertTableMetadata(rs);
+
+                Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
+                assertTrue(rows.contains(ImmutableList.of("default", "information_schema", "tables", "BASE TABLE", "",  "",  "",  "",  "", "")));
+                assertFalse(rows.contains(ImmutableList.of("default", "information_schema", "schemata", "BASE TABLE", "",  "",  "",  "",  "", "")));
+                assertFalse(rows.contains(ImmutableList.of("default", "sys", "node", "BASE TABLE", "",  "",  "",  "",  "", "")));
+            }
+        }
+
+        try (Connection connection = createConnection()) {
+            try (ResultSet rs = connection.getMetaData().getTables(null, "information_schema", null, null)) {
+                assertTableMetadata(rs);
+
+                Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
+                assertTrue(rows.contains(ImmutableList.of("default", "information_schema", "tables", "BASE TABLE", "",  "",  "",  "",  "", "")));
+                assertTrue(rows.contains(ImmutableList.of("default", "information_schema", "schemata", "BASE TABLE", "", "", "", "", "", "")));
+                assertFalse(rows.contains(ImmutableList.of("default", "sys", "node", "BASE TABLE", "", "", "", "", "", "")));
+            }
+        }
+
+        try (Connection connection = createConnection()) {
+            try (ResultSet rs = connection.getMetaData().getTables(null, null, "tables", null)) {
+                assertTableMetadata(rs);
+
+                // todo why does Presto require a schema name in this case
+                readRows(rs);
+                fail("Expected SQLException");
+            } catch (SQLException expected) {
+            }
+        }
+
+        try (Connection connection = createConnection()) {
+            try (ResultSet rs = connection.getMetaData().getTables(null, null, null, new String[] {"BASE TABLE"})) {
+                assertTableMetadata(rs);
+
+                Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
+                assertTrue(rows.contains(ImmutableList.of("default", "information_schema", "tables", "BASE TABLE", "",  "",  "",  "",  "", "")));
+                assertTrue(rows.contains(ImmutableList.of("default", "information_schema", "schemata", "BASE TABLE", "", "", "", "", "", "")));
+                assertTrue(rows.contains(ImmutableList.of("default", "sys", "node", "BASE TABLE", "", "", "", "", "", "")));
+            }
+        }
+
+        try (Connection connection = createConnection()) {
+            try (ResultSet rs = connection.getMetaData().getTables("unknown", "information_schema", "tables", new String[] {"BASE TABLE"})) {
+                assertTableMetadata(rs);
+
+                Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
+                assertFalse(rows.contains(ImmutableList.of("default", "information_schema", "tables", "BASE TABLE", "",  "",  "",  "",  "", "")));
+                assertFalse(rows.contains(ImmutableList.of("default", "information_schema", "schemata", "BASE TABLE", "",  "",  "",  "",  "", "")));
+                assertFalse(rows.contains(ImmutableList.of("default", "sys", "node", "BASE TABLE", "",  "",  "",  "",  "", "")));
+            }
+        }
+
+        // todo why does Presto require that the schema name be lower case
+        try (Connection connection = createConnection()) {
+            try (ResultSet rs = connection.getMetaData().getTables("default", "unknown", "tables", new String[] {"BASE TABLE"})) {
+                assertTableMetadata(rs);
+
+                Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
+                assertFalse(rows.contains(ImmutableList.of("default", "information_schema", "tables", "BASE TABLE", "",  "",  "",  "",  "", "")));
+                assertFalse(rows.contains(ImmutableList.of("default", "information_schema", "schemata", "BASE TABLE", "",  "",  "",  "",  "", "")));
+                assertFalse(rows.contains(ImmutableList.of("default", "sys", "node", "BASE TABLE", "",  "",  "",  "",  "", "")));
+            }
+        }
+
+        try (Connection connection = createConnection()) {
+            try (ResultSet rs = connection.getMetaData().getTables("default", "information_schema", "unknown", new String[] {"BASE TABLE"})) {
+                assertTableMetadata(rs);
+
+                Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
+                assertFalse(rows.contains(ImmutableList.of("default", "information_schema", "tables", "BASE TABLE", "", "", "", "", "", "")));
+                assertFalse(rows.contains(ImmutableList.of("default", "information_schema", "schemata", "BASE TABLE", "", "", "", "", "", "")));
+                assertFalse(rows.contains(ImmutableList.of("default", "sys", "node", "BASE TABLE", "", "", "", "", "", "")));
+            }
+        }
+
+        try (Connection connection = createConnection()) {
+            try (ResultSet rs = connection.getMetaData().getTables("default", "information_schema", "tables", new String[] {"unknown"})) {
+                assertTableMetadata(rs);
+
+                Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
+                assertFalse(rows.contains(ImmutableList.of("default", "information_schema", "tables", "BASE TABLE", "",  "",  "",  "",  "", "")));
+                assertFalse(rows.contains(ImmutableList.of("default", "information_schema", "schemata", "BASE TABLE", "",  "",  "",  "",  "", "")));
+                assertFalse(rows.contains(ImmutableList.of("default", "sys", "node", "BASE TABLE", "",  "",  "",  "",  "", "")));
+            }
+        }
+
+        try (Connection connection = createConnection()) {
+            try (ResultSet rs = connection.getMetaData().getTables("default", "information_schema", "tables", new String[] {"unknown", "BASE TABLE"})) {
+                assertTableMetadata(rs);
+
+                Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
+                assertTrue(rows.contains(ImmutableList.of("default", "information_schema", "tables", "BASE TABLE", "",  "",  "",  "",  "", "")));
+                assertFalse(rows.contains(ImmutableList.of("default", "information_schema", "schemata", "BASE TABLE", "", "", "", "", "", "")));
+                assertFalse(rows.contains(ImmutableList.of("default", "sys", "node", "BASE TABLE", "", "", "", "", "", "")));
+            }
+        }
+
+        try (Connection connection = createConnection()) {
+            try (ResultSet rs = connection.getMetaData().getTables("default", "information_schema", "tables", new String[] {})) {
+                assertTableMetadata(rs);
+
+                Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
+                assertTrue(rows.contains(ImmutableList.of("default", "information_schema", "tables", "BASE TABLE", "", "", "", "", "", "")));
+                assertFalse(rows.contains(ImmutableList.of("default", "information_schema", "schemata", "BASE TABLE", "", "", "", "", "", "")));
+                assertFalse(rows.contains(ImmutableList.of("default", "sys", "node", "BASE TABLE", "", "", "", "", "", "")));
+            }
+        }
+    }
+
+    private void assertTableMetadata(ResultSet rs)
+            throws SQLException
+    {
+        ResultSetMetaData metadata = rs.getMetaData();
+        assertEquals(metadata.getColumnCount(), 10);
+
+        assertEquals(metadata.getColumnLabel(1), "TABLE_CAT");
+        assertEquals(metadata.getColumnType(1), Types.LONGNVARCHAR);
+
+        assertEquals(metadata.getColumnLabel(2), "TABLE_SCHEM");
+        assertEquals(metadata.getColumnType(2), Types.LONGNVARCHAR);
+
+        assertEquals(metadata.getColumnLabel(3), "TABLE_NAME");
+        assertEquals(metadata.getColumnType(3), Types.LONGNVARCHAR);
+
+        assertEquals(metadata.getColumnLabel(4), "TABLE_TYPE");
+        assertEquals(metadata.getColumnType(4), Types.LONGNVARCHAR);
+
+        assertEquals(metadata.getColumnLabel(5), "REMARKS");
+        assertEquals(metadata.getColumnType(5), Types.LONGNVARCHAR);
+
+        assertEquals(metadata.getColumnLabel(6), "TYPE_CAT");
+        assertEquals(metadata.getColumnType(6), Types.LONGNVARCHAR);
+
+        assertEquals(metadata.getColumnLabel(7), "TYPE_SCHEM");
+        assertEquals(metadata.getColumnType(7), Types.LONGNVARCHAR);
+
+        assertEquals(metadata.getColumnLabel(8), "TYPE_NAME");
+        assertEquals(metadata.getColumnType(8), Types.LONGNVARCHAR);
+
+        assertEquals(metadata.getColumnLabel(9), "SELF_REFERENCING_COL_NAME");
+        assertEquals(metadata.getColumnType(9), Types.LONGNVARCHAR);
+
+        assertEquals(metadata.getColumnLabel(10), "REF_GENERATION");
+        assertEquals(metadata.getColumnType(10), Types.LONGNVARCHAR);
     }
 
     @Test
@@ -383,11 +649,23 @@ public class TestDriver
     private static void assertRowCount(ResultSet rs, int expected)
             throws SQLException
     {
-        int actual = 0;
+        List<List<Object>> data = readRows(rs);
+        assertEquals(data.size(), expected);
+    }
+
+    private static List<List<Object>> readRows(ResultSet rs)
+            throws SQLException
+    {
+        ImmutableList.Builder<List<Object>> rows = ImmutableList.builder();
+        int columnCount = rs.getMetaData().getColumnCount();
         while (rs.next()) {
-            actual++;
+            ImmutableList.Builder<Object> row = ImmutableList.builder();
+            for (int i = 0; i < columnCount; i++) {
+                row.add(rs.getObject(i + 1));
+            }
+            rows.add(row.build());
         }
-        assertEquals(actual, expected);
+        return rows.build();
     }
 
     static void closeQuietly(AutoCloseable closeable)
