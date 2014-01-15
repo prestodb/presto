@@ -17,6 +17,7 @@ import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.tpch.SampledTpchPlugin;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
@@ -118,10 +119,12 @@ public class TestingPrestoServer
 
         PluginManager pluginManager = injector.getInstance(PluginManager.class);
         pluginManager.installPlugin(new TpchPlugin());
+        pluginManager.installPlugin(new SampledTpchPlugin());
 
         ConnectorManager connectorManager = injector.getInstance(ConnectorManager.class);
         connectorManager.createConnection("default", "native", ImmutableMap.<String, String>of());
         connectorManager.createConnection("tpch", "tpch", ImmutableMap.<String, String>of());
+        connectorManager.createConnection("tpch_sampled", "tpch_sampled", ImmutableMap.<String, String>of());
 
         server = injector.getInstance(TestingHttpServer.class);
         metadata = injector.getInstance(Metadata.class);

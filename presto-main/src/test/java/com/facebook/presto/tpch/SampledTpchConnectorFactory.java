@@ -28,18 +28,13 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class TpchConnectorFactory
+public class SampledTpchConnectorFactory
         implements ConnectorFactory
 {
     private final NodeManager nodeManager;
     private final int defaultSplitsPerNode;
 
-    public TpchConnectorFactory(NodeManager nodeManager)
-    {
-        this(nodeManager, Runtime.getRuntime().availableProcessors());
-    }
-
-    public TpchConnectorFactory(NodeManager nodeManager, int defaultSplitsPerNode)
+    public SampledTpchConnectorFactory(NodeManager nodeManager, int defaultSplitsPerNode)
     {
         this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
         this.defaultSplitsPerNode = defaultSplitsPerNode;
@@ -48,19 +43,20 @@ public class TpchConnectorFactory
     @Override
     public String getName()
     {
-        return "tpch";
+        return "tpch_sampled";
     }
 
     @Override
-    public Connector create(final String connectorId, final Map<String, String> properties)
+    public Connector create(final String connectorId, Map<String, String> properties)
     {
+        checkNotNull(properties, "properties is null");
         final int splitsPerNode = getSplitsPerNode(properties);
 
         return new Connector() {
             @Override
             public ConnectorMetadata getMetadata()
             {
-                return new TpchMetadata(connectorId);
+                return new SampledTpchMetadata(connectorId);
             }
 
             @Override
@@ -78,7 +74,7 @@ public class TpchConnectorFactory
             @Override
             public ConnectorRecordSetProvider getRecordSetProvider()
             {
-                return new TpchRecordSetProvider(connectorId);
+                return new SampledTpchRecordSetProvider(connectorId);
             }
 
             @Override

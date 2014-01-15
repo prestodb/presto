@@ -41,21 +41,23 @@ public class TpchMetadata
     public static final String TINY_SCHEMA_NAME = "tiny";
     private static final double TINY_SCALE_FACTOR = 0.01;
 
+    private final String connectorId;
     private final Set<String> tableNames;
 
-    public TpchMetadata()
+    public TpchMetadata(String connectorId)
     {
         ImmutableSet.Builder<String> tableNames = ImmutableSet.builder();
         for (TpchTable<?> tpchTable : TpchTable.getTables()) {
             tableNames.add(tpchTable.getTableName());
         }
         this.tableNames = tableNames.build();
+        this.connectorId = connectorId;
     }
 
     @Override
     public boolean canHandle(TableHandle tableHandle)
     {
-        return tableHandle instanceof TpchTableHandle;
+        return tableHandle instanceof TpchTableHandle && ((TpchTableHandle) tableHandle).getConnectorId().equals(connectorId);
     }
 
     @Override
@@ -78,7 +80,7 @@ public class TpchMetadata
             return null;
         }
 
-        return new TpchTableHandle(tableName.getTableName(), scaleFactor);
+        return new TpchTableHandle(connectorId, tableName.getTableName(), scaleFactor);
     }
 
     @Override
@@ -120,6 +122,12 @@ public class TpchMetadata
     public ColumnHandle getColumnHandle(TableHandle tableHandle, String columnName)
     {
         return getColumnHandles(tableHandle).get(columnName);
+    }
+
+    @Override
+    public ColumnHandle getSampleWeightColumnHandle(TableHandle tableHandle)
+    {
+        return null;
     }
 
     @Override

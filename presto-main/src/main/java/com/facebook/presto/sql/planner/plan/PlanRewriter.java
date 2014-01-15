@@ -111,6 +111,25 @@ public final class PlanRewriter<C>
         }
 
         @Override
+        public PlanNode visitMaterializeSample(MaterializeSampleNode node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                PlanNode result = nodeRewriter.rewriteMaterializeSample(node, context.get(), PlanRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            PlanNode source = rewrite(node.getSource(), context.get());
+
+            if (source != node.getSource()) {
+                return new MaterializeSampleNode(node.getId(), source, node.getSampleWeightSymbol());
+            }
+
+            return node;
+        }
+
+        @Override
         public PlanNode visitMarkDistinct(MarkDistinctNode node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {

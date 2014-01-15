@@ -31,10 +31,17 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class TpchRecordSetProvider
         implements ConnectorRecordSetProvider
 {
+    private final String connectorId;
+
+    public TpchRecordSetProvider(String connectorId)
+    {
+        this.connectorId = connectorId;
+    }
+
     @Override
     public boolean canHandle(Split split)
     {
-        return split instanceof TpchSplit;
+        return split instanceof TpchSplit && ((TpchSplit) split).getTableHandle().getConnectorId().equals(connectorId);
     }
 
     @Override

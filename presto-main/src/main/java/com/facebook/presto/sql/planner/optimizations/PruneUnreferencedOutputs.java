@@ -23,6 +23,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
+import com.facebook.presto.sql.planner.plan.MaterializeSampleNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
@@ -239,6 +240,19 @@ public class PruneUnreferencedOutputs
             PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs);
 
             return new FilterNode(node.getId(), source, node.getPredicate());
+        }
+
+        @Override
+        public PlanNode rewriteMaterializeSample(MaterializeSampleNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
+        {
+            Set<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
+                    .add(node.getSampleWeightSymbol())
+                    .addAll(expectedOutputs)
+                    .build();
+
+            PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs);
+
+            return new MaterializeSampleNode(node.getId(), source, node.getSampleWeightSymbol());
         }
 
         @Override

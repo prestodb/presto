@@ -126,6 +126,12 @@ public class CassandraMetadata
     }
 
     @Override
+    public ColumnHandle getSampleWeightColumnHandle(TableHandle tableHandle)
+    {
+        return null;
+    }
+
+    @Override
     public Map<String, ColumnHandle> getColumnHandles(TableHandle tableHandle)
     {
         CassandraTable table = schemaProvider.getTable((CassandraTableHandle) tableHandle);

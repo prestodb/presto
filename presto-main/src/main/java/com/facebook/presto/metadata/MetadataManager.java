@@ -180,6 +180,13 @@ public class MetadataManager
     }
 
     @Override
+    public Optional<ColumnHandle> getSampleWeightColumnHandle(TableHandle tableHandle)
+    {
+        checkNotNull(tableHandle, "tableHandle is null");
+        return Optional.fromNullable(lookupConnectorFor(tableHandle).getMetadata().getSampleWeightColumnHandle(tableHandle));
+    }
+
+    @Override
     public Map<QualifiedTableName, List<ColumnMetadata>> listTableColumns(QualifiedTablePrefix prefix)
     {
         checkNotNull(prefix, "prefix is null");

@@ -57,7 +57,7 @@ public class TpchSplitManager
     @Override
     public boolean canHandle(TableHandle handle)
     {
-        return handle instanceof TpchTableHandle;
+        return handle instanceof TpchTableHandle && ((TpchTableHandle) handle).getConnectorId().equals(connectorId);
     }
 
     @Override

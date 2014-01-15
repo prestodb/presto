@@ -80,6 +80,11 @@ public class PlanNodeRewriter<C>
         return rewriteNode(node, context, planRewriter);
     }
 
+    public PlanNode rewriteMaterializeSample(MaterializeSampleNode node, C context, PlanRewriter<C> planRewriter)
+    {
+        return rewriteNode(node, context, planRewriter);
+    }
+
     public PlanNode rewriteWindow(WindowNode node, C context, PlanRewriter<C> planRewriter)
     {
         return rewriteNode(node, context, planRewriter);

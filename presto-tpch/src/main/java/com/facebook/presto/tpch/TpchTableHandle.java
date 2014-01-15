@@ -24,15 +24,23 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class TpchTableHandle
         implements TableHandle
 {
+    private final String connectorId;
     private final String tableName;
     private final double scaleFactor;
 
     @JsonCreator
-    public TpchTableHandle(@JsonProperty("tableName") String tableName, @JsonProperty("scaleFactor") double scaleFactor)
+    public TpchTableHandle(@JsonProperty("connectorId") String connectorId, @JsonProperty("tableName") String tableName, @JsonProperty("scaleFactor") double scaleFactor)
     {
+        this.connectorId = checkNotNull(connectorId, "connectorId is null");
         this.tableName = checkNotNull(tableName, "tableName is null");
         checkArgument(scaleFactor > 0, "Scale factor must be larger than 0");
         this.scaleFactor = scaleFactor;
+    }
+
+    @JsonProperty
+    public String getConnectorId()
+    {
+        return connectorId;
     }
 
     @JsonProperty
@@ -56,7 +64,7 @@ public class TpchTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(tableName, scaleFactor);
+        return Objects.hashCode(connectorId, tableName, scaleFactor);
     }
 
     @Override
@@ -70,6 +78,7 @@ public class TpchTableHandle
         }
         TpchTableHandle other = (TpchTableHandle) obj;
         return Objects.equal(this.tableName, other.tableName) &&
-                Objects.equal(this.scaleFactor, other.scaleFactor);
+                Objects.equal(this.scaleFactor, other.scaleFactor) &&
+                Objects.equal(this.connectorId, other.connectorId);
     }
 }

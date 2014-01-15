@@ -54,6 +54,13 @@ public interface ConnectorMetadata
     ColumnHandle getColumnHandle(TableHandle tableHandle, String columnName);
 
     /**
+     * Returns the handle for the sample weight column, or null if the table does not contain sampled data.
+     *
+     * @throws RuntimeException if the table handle is no longer valid
+     */
+    ColumnHandle getSampleWeightColumnHandle(TableHandle tableHandle);
+
+    /**
      * Gets all of the columns on the specified table, or an empty map if the columns can not be enumerated.
      *
      * @throws RuntimeException if table handle is no longer valid

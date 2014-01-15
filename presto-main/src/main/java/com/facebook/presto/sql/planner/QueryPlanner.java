@@ -29,6 +29,7 @@ import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.TupleDescriptor;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.MaterializeSampleNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
@@ -188,17 +189,26 @@ class QueryPlanner
         TableHandle table = optionalHandle.get();
         TableMetadata tableMetadata = metadata.getTableMetadata(table);
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(table);
+        Optional<ColumnHandle> sampleWeightColumn = metadata.getSampleWeightColumnHandle(table);
 
         ImmutableMap.Builder<Symbol, ColumnHandle> columns = ImmutableMap.builder();
+        Symbol sampleWeightSymbol = null;
+        if (sampleWeightColumn.isPresent()) {
+            sampleWeightSymbol = symbolAllocator.newSymbol("$sampleWeight", Type.BIGINT);
+            columns.put(sampleWeightSymbol, sampleWeightColumn.get());
+        }
         for (ColumnMetadata column : tableMetadata.getColumns()) {
             Symbol symbol = symbolAllocator.newSymbol(column.getName(), Type.fromRaw(column.getType()));
             columns.put(symbol, columnHandles.get(column.getName()));
         }
 
         ImmutableMap<Symbol, ColumnHandle> assignments = columns.build();
-        TableScanNode tableScan = new TableScanNode(idAllocator.getNextId(), table, ImmutableList.copyOf(assignments.keySet()), assignments, null, Optional.<GeneratedPartitions>absent());
+        PlanNode node = new TableScanNode(idAllocator.getNextId(), table, ImmutableList.copyOf(assignments.keySet()), assignments, null, Optional.<GeneratedPartitions>absent());
+        if (sampleWeightSymbol != null) {
+            node = new MaterializeSampleNode(idAllocator.getNextId(), node, sampleWeightSymbol);
+        }
 
-        return new RelationPlan(tableScan, new TupleDescriptor(), ImmutableList.<Symbol>of());
+        return new RelationPlan(node, new TupleDescriptor(), ImmutableList.<Symbol>of());
     }
 
     private PlanBuilder filter(PlanBuilder subPlan, Expression predicate)
