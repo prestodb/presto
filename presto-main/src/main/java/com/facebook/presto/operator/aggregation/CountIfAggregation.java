@@ -18,6 +18,7 @@ import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.util.array.LongBigArray;
+import com.google.common.base.Optional;
 
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 import static com.facebook.presto.tuple.TupleInfo.Type.BOOLEAN;
@@ -34,9 +35,9 @@ public class CountIfAggregation
     }
 
     @Override
-    protected GroupedAccumulator createGroupedAccumulator(int valueChannel)
+    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, int valueChannel)
     {
-        return new CountIfGroupedAccumulator(valueChannel);
+        return new CountIfGroupedAccumulator(valueChannel, maskChannel);
     }
 
     public static class CountIfGroupedAccumulator
@@ -44,9 +45,9 @@ public class CountIfAggregation
     {
         private final LongBigArray counts;
 
-        public CountIfGroupedAccumulator(int valueChannel)
+        public CountIfGroupedAccumulator(int valueChannel, Optional<Integer> maskChannel)
         {
-            super(valueChannel, SINGLE_LONG, SINGLE_LONG);
+            super(valueChannel, SINGLE_LONG, SINGLE_LONG, maskChannel);
             this.counts = new LongBigArray();
         }
 
@@ -57,16 +58,21 @@ public class CountIfAggregation
         }
 
         @Override
-        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock)
+        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock)
         {
             counts.ensureCapacity(groupIdsBlock.getGroupCount());
 
             BlockCursor values = valuesBlock.cursor();
+            BlockCursor masks = null;
+            if (maskBlock.isPresent()) {
+                masks = maskBlock.get().cursor();
+            }
 
             for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
                 checkState(values.advanceNextPosition());
+                checkState(masks == null || masks.advanceNextPosition());
 
-                if (!values.isNull() && values.getBoolean()) {
+                if (!values.isNull() && values.getBoolean() && (masks == null || masks.getBoolean())) {
                     long groupId = groupIdsBlock.getGroupId(position);
                     counts.increment(groupId);
                 }
@@ -101,9 +107,9 @@ public class CountIfAggregation
     }
 
     @Override
-    protected Accumulator createAccumulator(int valueChannel)
+    protected Accumulator createAccumulator(Optional<Integer> maskChannel, int valueChannel)
     {
-        return new CountIfAccumulator(valueChannel);
+        return new CountIfAccumulator(valueChannel, maskChannel);
     }
 
     public static class CountIfAccumulator
@@ -111,19 +117,24 @@ public class CountIfAggregation
     {
         private long count;
 
-        public CountIfAccumulator(int valueChannel)
+        public CountIfAccumulator(int valueChannel, Optional<Integer> maskChannel)
         {
-            super(valueChannel, SINGLE_LONG, SINGLE_LONG);
+            super(valueChannel, SINGLE_LONG, SINGLE_LONG, maskChannel);
         }
 
         @Override
-        protected void processInput(Block block)
+        protected void processInput(Block block, Optional<Block> maskBlock)
         {
             BlockCursor values = block.cursor();
+            BlockCursor masks = null;
+            if (maskBlock.isPresent()) {
+                masks = maskBlock.get().cursor();
+            }
 
             for (int position = 0; position < block.getPositionCount(); position++) {
                 checkState(values.advanceNextPosition());
-                if (!values.isNull() && values.getBoolean()) {
+                checkState(masks == null || masks.advanceNextPosition());
+                if (!values.isNull() && values.getBoolean() && (masks == null || masks.getBoolean())) {
                     count++;
                 }
             }

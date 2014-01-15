@@ -19,6 +19,7 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.LimitNode;
+import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
 import com.facebook.presto.sql.planner.plan.PlanRewriter;
@@ -73,6 +74,12 @@ public class LimitPushDown
         public PlanNode rewriteLimit(LimitNode node, Long limit, PlanRewriter<Long> planRewriter)
         {
             return planRewriter.rewrite(node.getSource(), Math.min(node.getCount(), limit));
+        }
+
+        @Override
+        public PlanNode rewriteMarkDistinct(MarkDistinctNode node, Long limit, PlanRewriter<Long> planRewriter)
+        {
+            return planRewriter.defaultRewrite(node, limit);
         }
 
         @Override

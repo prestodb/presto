@@ -21,6 +21,7 @@ import com.facebook.presto.operator.Page;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.util.array.ObjectBigArray;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -67,15 +68,15 @@ public class ApproximatePercentileAggregation
     }
 
     @Override
-    public ApproximatePercentileGroupedAccumulator createGroupedAggregation(int[] argumentChannels)
+    public ApproximatePercentileGroupedAccumulator createGroupedAggregation(Optional<Integer> maskChannel, int[] argumentChannels)
     {
-        return new ApproximatePercentileGroupedAccumulator(argumentChannels[0], argumentChannels[1], parameterType);
+        return new ApproximatePercentileGroupedAccumulator(argumentChannels[0], argumentChannels[1], parameterType, maskChannel);
     }
 
     @Override
     public GroupedAccumulator createGroupedIntermediateAggregation()
     {
-        return new ApproximatePercentileGroupedAccumulator(-1, -1, parameterType);
+        return new ApproximatePercentileGroupedAccumulator(-1, -1, parameterType, Optional.<Integer>absent());
     }
 
     public static class ApproximatePercentileGroupedAccumulator
@@ -85,14 +86,16 @@ public class ApproximatePercentileAggregation
         private final int percentileChannel;
         private final Type parameterType;
         private final ObjectBigArray<DigestAndPercentile> digests;
+        private final Optional<Integer> maskChannel;
         private long sizeOfValues;
 
-        public ApproximatePercentileGroupedAccumulator(int valueChannel, int percentileChannel, Type parameterType)
+        public ApproximatePercentileGroupedAccumulator(int valueChannel, int percentileChannel, Type parameterType, Optional<Integer> maskChannel)
         {
             this.digests = new ObjectBigArray<>();
             this.valueChannel = valueChannel;
             this.percentileChannel = percentileChannel;
             this.parameterType = parameterType;
+            this.maskChannel = maskChannel;
         }
 
         @Override
@@ -122,15 +125,20 @@ public class ApproximatePercentileAggregation
 
             BlockCursor values = page.getBlock(valueChannel).cursor();
             BlockCursor percentiles = page.getBlock(percentileChannel).cursor();
+            BlockCursor masks = null;
+            if (maskChannel.isPresent()) {
+                masks = page.getBlock(maskChannel.get()).cursor();
+            }
 
             for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
                 checkState(values.advanceNextPosition());
                 checkState(percentiles.advanceNextPosition());
+                checkState(masks == null || masks.advanceNextPosition());
 
                 long groupId = groupIdsBlock.getGroupId(position);
 
                 // skip null values
-                if (!values.isNull()) {
+                if (!values.isNull() && (masks == null || masks.getBoolean())) {
 
                     DigestAndPercentile currentValue = digests.get(groupId);
                     if (currentValue == null) {
@@ -221,15 +229,15 @@ public class ApproximatePercentileAggregation
     }
 
     @Override
-    public ApproximatePercentileAccumulator createAggregation(int... argumentChannels)
+    public ApproximatePercentileAccumulator createAggregation(Optional<Integer> maskChannel, int... argumentChannels)
     {
-        return new ApproximatePercentileAccumulator(argumentChannels[0], argumentChannels[1], parameterType);
+        return new ApproximatePercentileAccumulator(argumentChannels[0], argumentChannels[1], parameterType, maskChannel);
     }
 
     @Override
     public ApproximatePercentileAccumulator createIntermediateAggregation()
     {
-        return new ApproximatePercentileAccumulator(-1, -1, parameterType);
+        return new ApproximatePercentileAccumulator(-1, -1, parameterType, Optional.<Integer>absent());
     }
 
     public static class ApproximatePercentileAccumulator
@@ -238,15 +246,17 @@ public class ApproximatePercentileAggregation
         private final int valueChannel;
         private final int percentileChannel;
         private final Type parameterType;
+        private final Optional<Integer> maskChannel;
 
         private final QuantileDigest digest = new QuantileDigest(0.01);
         private double percentile = -1;
 
-        public ApproximatePercentileAccumulator(int valueChannel, int percentileChannel, Type parameterType)
+        public ApproximatePercentileAccumulator(int valueChannel, int percentileChannel, Type parameterType, Optional<Integer> maskChannel)
         {
             this.valueChannel = valueChannel;
             this.percentileChannel = percentileChannel;
             this.parameterType = parameterType;
+            this.maskChannel = maskChannel;
         }
 
         @Override
@@ -268,12 +278,17 @@ public class ApproximatePercentileAggregation
 
             BlockCursor values = page.getBlock(valueChannel).cursor();
             BlockCursor percentiles = page.getBlock(percentileChannel).cursor();
+            BlockCursor masks = null;
+            if (maskChannel.isPresent()) {
+                masks = page.getBlock(maskChannel.get()).cursor();
+            }
 
             for (int position = 0; position < page.getPositionCount(); position++) {
                 checkState(values.advanceNextPosition());
                 checkState(percentiles.advanceNextPosition());
+                checkState(masks == null || masks.advanceNextPosition());
 
-                if (!values.isNull()) {
+                if (!values.isNull() && (masks == null || masks.getBoolean())) {
                     addValue(digest, values, parameterType);
 
                     // use last non-null percentile

@@ -190,13 +190,20 @@ class GenericHiveRecordCursor<K, V extends Writable>
     @Override
     public long getCompletedBytes()
     {
+        if (!closed) {
+            updateCompletedBytes();
+        }
+        return completedBytes;
+    }
+
+    private void updateCompletedBytes()
+    {
         try {
             long newCompletedBytes = (long) (totalBytes * recordReader.getProgress());
             completedBytes = min(totalBytes, max(completedBytes, newCompletedBytes));
         }
         catch (IOException ignored) {
         }
-        return completedBytes;
     }
 
     @Override
@@ -425,6 +432,8 @@ class GenericHiveRecordCursor<K, V extends Writable>
             return;
         }
         closed = true;
+
+        updateCompletedBytes();
 
         try {
             recordReader.close();

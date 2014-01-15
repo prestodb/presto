@@ -18,6 +18,7 @@ import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.tuple.TupleInfo.Type;
+import com.google.common.base.Optional;
 import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hashing;
 import com.google.common.primitives.Ints;
@@ -60,9 +61,9 @@ public class ApproximateCountDistinctAggregation
     }
 
     @Override
-    protected GroupedAccumulator createGroupedAccumulator(int valueChannel)
+    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, int valueChannel)
     {
-        return new ApproximateCountDistinctGroupedAccumulator(parameterType, valueChannel);
+        return new ApproximateCountDistinctGroupedAccumulator(parameterType, valueChannel, maskChannel);
     }
 
     public static class ApproximateCountDistinctGroupedAccumulator
@@ -71,9 +72,9 @@ public class ApproximateCountDistinctAggregation
         private final Type parameterType;
         private final List<Slice> slices = new ArrayList<>();
 
-        public ApproximateCountDistinctGroupedAccumulator(Type parameterType, int valueChannel)
+        public ApproximateCountDistinctGroupedAccumulator(Type parameterType, int valueChannel, Optional<Integer> maskChannel)
         {
-            super(valueChannel, SINGLE_LONG, SINGLE_VARBINARY);
+            super(valueChannel, SINGLE_LONG, SINGLE_VARBINARY, maskChannel);
             this.parameterType = parameterType;
         }
 
@@ -84,17 +85,22 @@ public class ApproximateCountDistinctAggregation
         }
 
         @Override
-        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock)
+        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock)
         {
             ensureCapacity(groupIdsBlock.getGroupCount());
 
             BlockCursor values = valuesBlock.cursor();
+            BlockCursor masks = null;
+            if (maskBlock.isPresent()) {
+                masks = maskBlock.get().cursor();
+            }
 
             for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
                 checkState(values.advanceNextPosition());
+                checkState(masks == null || masks.advanceNextPosition());
 
                 // skip null values
-                if (!values.isNull()) {
+                if (!values.isNull() && (masks == null || masks.getBoolean())) {
                     long groupId = groupIdsBlock.getGroupId(position);
 
                     // todo do all of this with shifts and masks
@@ -131,7 +137,6 @@ public class ApproximateCountDistinctAggregation
                     int sliceIndex = Ints.checkedCast(globalOffset / SLICE_SIZE);
                     Slice slice = slices.get(sliceIndex);
                     int sliceOffset = Ints.checkedCast(globalOffset - (sliceIndex * SLICE_SIZE));
-
 
                     Slice input = intermediates.getSlice();
 
@@ -187,9 +192,9 @@ public class ApproximateCountDistinctAggregation
     }
 
     @Override
-    protected Accumulator createAccumulator(int valueChannel)
+    protected Accumulator createAccumulator(Optional<Integer> maskChannel, int valueChannel)
     {
-        return new ApproximateCountDistinctAccumulator(parameterType, valueChannel);
+        return new ApproximateCountDistinctAccumulator(parameterType, valueChannel, maskChannel);
     }
 
     public static class ApproximateCountDistinctAccumulator
@@ -200,21 +205,26 @@ public class ApproximateCountDistinctAggregation
         private final Slice slice = Slices.allocate(ENTRY_SIZE);
         private boolean notNull;
 
-        public ApproximateCountDistinctAccumulator(Type parameterType, int valueChannel)
+        public ApproximateCountDistinctAccumulator(Type parameterType, int valueChannel, Optional<Integer> maskChannel)
         {
-            super(valueChannel, SINGLE_LONG, SINGLE_VARBINARY);
+            super(valueChannel, SINGLE_LONG, SINGLE_VARBINARY, maskChannel);
 
             this.parameterType = parameterType;
         }
 
         @Override
-        protected void processInput(Block block)
+        protected void processInput(Block block, Optional<Block> maskBlock)
         {
             BlockCursor values = block.cursor();
+            BlockCursor masks = null;
+            if (maskBlock.isPresent()) {
+                masks = maskBlock.get().cursor();
+            }
 
             for (int position = 0; position < block.getPositionCount(); position++) {
                 checkState(values.advanceNextPosition());
-                if (!values.isNull()) {
+                checkState(masks == null || masks.advanceNextPosition());
+                if (!values.isNull() && (masks == null || masks.getBoolean())) {
                     notNull = true;
 
                     long hash = hash(values, parameterType);

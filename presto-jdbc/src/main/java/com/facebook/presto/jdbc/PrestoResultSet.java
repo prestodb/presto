@@ -62,7 +62,6 @@ public class PrestoResultSet
 {
     private static final int VARIABLE_BINARY_MAX = 1024 * 1024 * 1024;
 
-    private final AtomicBoolean closed = new AtomicBoolean();
     private final StatementClient client;
     private final Iterator<List<Object>> results;
     private final Map<String, Integer> fieldMap;
@@ -1124,7 +1123,7 @@ public class PrestoResultSet
     public boolean isClosed()
             throws SQLException
     {
-        return closed.get();
+        return client.isClosed();
     }
 
     @Override
