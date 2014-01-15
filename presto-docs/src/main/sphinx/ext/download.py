@@ -21,6 +21,7 @@ GROUP_ID = 'com.facebook.presto'
 ARTIFACTS = {
     'server': ('presto-server', 'tar.gz', None),
     'cli': ('presto-cli', 'jar', 'executable'),
+    'jdbc': ('presto-jdbc', 'jar', 'standalone'),
 }
 
 
