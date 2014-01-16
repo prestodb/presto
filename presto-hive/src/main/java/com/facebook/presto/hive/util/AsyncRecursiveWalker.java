@@ -13,14 +13,19 @@
  */
 package com.facebook.presto.hive.util;
 
+import com.facebook.presto.hive.HdfsConfiguration;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import io.airlift.log.Logger;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
+import org.apache.hadoop.security.UserGroupInformation;
 
 import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.security.PrivilegedAction;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -32,6 +37,8 @@ public class AsyncRecursiveWalker
 {
     private final FileSystem fileSystem;
     private final Executor executor;
+
+    private static final Logger log = Logger.get(AsyncRecursiveWalker.class);
 
     public AsyncRecursiveWalker(FileSystem fileSystem, Executor executor)
     {
@@ -64,33 +71,43 @@ public class AsyncRecursiveWalker
         }
     }
 
-    private void doWalk(Path path, FileStatusCallback callback, AtomicLong taskCount, SettableFuture<Void> future)
+    private void doWalk(final Path path, final FileStatusCallback callback, final AtomicLong taskCount, final SettableFuture<Void> future)
     {
         try {
-            RemoteIterator<LocatedFileStatus> iterator = listLocatedStatus(fileSystem, path);
-            while (iterator.hasNext()) {
-                LocatedFileStatus status = iterator.next();
-                if (isDirectory(status)) {
-                    recursiveWalk(status.getPath(), callback, taskCount, future);
+            SecurityUtils.doAs(UserGroupInformation.getLoginUser(), new PrivilegedAction<Void>() {
+                @Override
+                public Void run() {
+                    try {
+                        RemoteIterator<LocatedFileStatus> iterator = listLocatedStatus(fileSystem, path);
+                        while (iterator.hasNext()) {
+                            LocatedFileStatus status = iterator.next();
+                            if (isDirectory(status)) {
+                                recursiveWalk(status.getPath(), callback, taskCount, future);
+                            }
+                            else {
+                                callback.process(status, status.getBlockLocations());
+                            }
+                            if (future.isDone()) {
+                                return null;
+                            }
+                        }
+                    }
+                    catch (FileNotFoundException e) {
+                        future.setException(new FileNotFoundException("Partition location does not exist: " + path));
+                    }
+                    catch (Throwable t) {
+                        future.setException(t);
+                    }
+                    finally {
+                        if (taskCount.decrementAndGet() == 0) {
+                            future.set(null);
+                        }
+                    }
+                    return null;
                 }
-                else {
-                    callback.process(status, status.getBlockLocations());
-                }
-                if (future.isDone()) {
-                    return;
-                }
-            }
-        }
-        catch (FileNotFoundException e) {
-            future.setException(new FileNotFoundException("Partition location does not exist: " + path));
-        }
-        catch (Throwable t) {
-            future.setException(t);
-        }
-        finally {
-            if (taskCount.decrementAndGet() == 0) {
-                future.set(null);
-            }
+            });
+        } catch (IOException e) {
+            log.error(e.getMessage(), e);
         }
     }
 }
