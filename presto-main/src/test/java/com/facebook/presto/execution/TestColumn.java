@@ -14,27 +14,21 @@
 package com.facebook.presto.execution;
 
 import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;
 
-public class TestInput
+public class TestColumn
 {
-    private static final JsonCodec<Input> codec = JsonCodec.jsonCodec(Input.class);
+    private static final JsonCodec<Column> codec = JsonCodec.jsonCodec(Column.class);
 
     @Test
     public void testRoundTrip()
-            throws Exception
     {
-        Input expected = new Input("connectorId", "schema", "table", ImmutableList.of(
-                new Column("column1", "string", Optional.<SimpleDomain>absent()),
-                new Column("column2", "string", Optional.<SimpleDomain>absent()),
-                new Column("column3", "string", Optional.<SimpleDomain>absent())));
-
+        Column expected = new Column("name", "type", Optional.<SimpleDomain>absent());
         String json = codec.toJson(expected);
-        Input actual = codec.fromJson(json);
+        Column actual = codec.fromJson(json);
 
         assertEquals(actual, expected);
     }
