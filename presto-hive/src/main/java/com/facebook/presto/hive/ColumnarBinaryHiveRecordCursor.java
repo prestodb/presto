@@ -469,7 +469,8 @@ class ColumnarBinaryHiveRecordCursor<K>
     {
         if (length == 0) {
             nulls[column] = true;
-        } else {
+        }
+        else {
             nulls[column] = false;
             switch (hiveTypes[column]) {
                 case FLOAT:
@@ -535,7 +536,8 @@ class ColumnarBinaryHiveRecordCursor<K>
         checkState(VALID_HIVE_STRING_TYPES.contains(hiveTypes[column]), "%s is not a valid STRING type", hiveTypes[column]);
         if (length == 0) {
             nulls[column] = true;
-        } else {
+        }
+        else {
             nulls[column] = false;
             if (hiveTypes[column] == HiveType.MAP || hiveTypes[column] == HiveType.LIST || hiveTypes[column] == HiveType.STRUCT) {
                 // temporarily special case MAP, LIST, and STRUCT types as strings

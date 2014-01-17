@@ -114,7 +114,6 @@ public class VarianceAggregation
                 checkState(masks == null || masks.advanceNextPosition());
 
                 if (!values.isNull() && (masks == null || masks.getBoolean())) {
-
                     long groupId = groupIdsBlock.getGroupId(position);
                     double inputValue;
                     if (inputIsLong) {

@@ -25,12 +25,14 @@ import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 
-public class CountColumnAggregations
+public final class CountColumnAggregations
 {
     public static final AggregationFunction COUNT_BOOLEAN_COLUMN = createIsolatedAggregation(BOOLEAN);
     public static final AggregationFunction COUNT_LONG_COLUMN = createIsolatedAggregation(FIXED_INT_64);
     public static final AggregationFunction COUNT_DOUBLE_COLUMN = createIsolatedAggregation(DOUBLE);
     public static final AggregationFunction COUNT_STRING_COLUMN = createIsolatedAggregation(VARIABLE_BINARY);
+
+    private CountColumnAggregations() {}
 
     private static AggregationFunction createIsolatedAggregation(Type parameterType)
     {

@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.byteCode;
 
-public class ByteCodeNodes
+public final class ByteCodeNodes
 {
+    private ByteCodeNodes() {}
+
     public static Block buildBlock(CompilerContext context, ByteCodeNode node)
     {
         return buildBlock(context, node, null);
