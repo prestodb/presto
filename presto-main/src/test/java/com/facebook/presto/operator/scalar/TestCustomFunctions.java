@@ -34,11 +34,11 @@ public class TestCustomFunctions
             @Override
             public List<FunctionInfo> listFunctions()
             {
-                return new FunctionListBuilder("custom")
+                return new FunctionListBuilder()
                         .scalar(CustomAdd.class)
                         .build();
             }
-        });
+        }.listFunctions());
     }
 
     @Test

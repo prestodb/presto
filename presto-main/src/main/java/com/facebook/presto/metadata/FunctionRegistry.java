@@ -56,6 +56,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -108,14 +109,12 @@ import static java.lang.invoke.MethodHandles.lookup;
 
 public class FunctionRegistry
 {
-    private static final String BUILTIN_FUNCTION_ID = "$builtin";
-
     private final Multimap<QualifiedName, FunctionInfo> functionsByName;
     private final Map<Signature, FunctionInfo> functionsByHandle;
 
     public FunctionRegistry()
     {
-        List<FunctionInfo> functions = new FunctionListBuilder(BUILTIN_FUNCTION_ID)
+        List<FunctionInfo> functions = new FunctionListBuilder()
                 .window("row_number", BIGINT, ImmutableList.<Type>of(), supplier(RowNumberFunction.class))
                 .window("rank", BIGINT, ImmutableList.<Type>of(), supplier(RankFunction.class))
                 .window("dense_rank", BIGINT, ImmutableList.<Type>of(), supplier(DenseRankFunction.class))
@@ -171,7 +170,7 @@ public class FunctionRegistry
                 .build();
 
         functionsByName = ArrayListMultimap.create();
-        functionsByHandle = Maps.newHashMap();
+        functionsByHandle = new HashMap<>();
 
         addFunctions(functions);
     }
@@ -288,19 +287,13 @@ public class FunctionRegistry
     public static class FunctionListBuilder
     {
         private final List<FunctionInfo> functions = new ArrayList<>();
-        private final String functionGroup;
-
-        public FunctionListBuilder(String name)
-        {
-            functionGroup = name;
-        }
 
         public FunctionListBuilder window(String name, Type returnType, List<Type> argumentTypes, Supplier<WindowFunction> function)
         {
             name = name.toLowerCase();
 
             String description = getDescription(function.getClass());
-            functions.add(new FunctionInfo(new Signature(functionGroup, name, returnType, argumentTypes), description, function));
+            functions.add(new FunctionInfo(new Signature(name, returnType, argumentTypes), description, function));
             return this;
         }
 
@@ -309,7 +302,7 @@ public class FunctionRegistry
             name = name.toLowerCase();
 
             String description = getDescription(function.getClass());
-            functions.add(new FunctionInfo(new Signature(functionGroup, name,  returnType, argumentTypes), description, intermediateType, function));
+            functions.add(new FunctionInfo(new Signature(name,  returnType, argumentTypes), description, intermediateType, function));
             return this;
         }
 
@@ -319,7 +312,7 @@ public class FunctionRegistry
 
             Type returnType = type(function.type().returnType());
             List<Type> argumentTypes = types(function);
-            functions.add(new FunctionInfo(new Signature(functionGroup, name, returnType, argumentTypes), description, function, deterministic, functionBinder));
+            functions.add(new FunctionInfo(new Signature(name, returnType, argumentTypes), description, function, deterministic, functionBinder));
             return this;
         }
 

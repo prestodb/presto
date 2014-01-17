@@ -77,12 +77,12 @@ public class TestLocalQueries
                     @Override
                     public List<FunctionInfo> listFunctions()
                     {
-                        return new FunctionListBuilder("custom")
+                        return new FunctionListBuilder()
                                 .aggregate("custom_sum", BIGINT, ImmutableList.of(BIGINT), BIGINT, new CustomSum())
                                 .window("custom_rank", BIGINT, ImmutableList.<Type>of(), supplier(CustomRank.class))
                                 .build();
                     }
-                }
+                }.listFunctions()
         );
     }
 
@@ -96,33 +96,24 @@ public class TestLocalQueries
     public void testCustomSum()
             throws Exception
     {
-        MaterializedResult actual = computeActual("SELECT orderstatus, custom_sum(CAST(NULL AS BIGINT)) FROM orders GROUP BY orderstatus");
-
-        MaterializedResult expected = computeActual("SELECT orderstatus, sum(CAST(NULL AS BIGINT)) FROM orders GROUP BY orderstatus");
-
-        assertEquals(actual, expected);
+        String query = "SELECT orderstatus, custom_sum(CAST(NULL AS BIGINT)) FROM orders GROUP BY orderstatus";
+        assertQuery(query, query.replace("custom_sum", "sum"));
     }
 
     @Test
     public void testCustomRank()
             throws Exception
     {
-        MaterializedResult actual = computeActual(" SELECT orderstatus, clerk, sales\n" +
-                "  , custom_rank() OVER (PARTITION BY x.orderstatus ORDER BY sales DESC) rnk\n" +
-                "  FROM (\n" +
-                "    SELECT orderstatus, clerk, sum(totalprice) sales\n" +
-                "    FROM orders\n" +
-                "    GROUP BY orderstatus, clerk\n" +
-                "   ) x");
+        String query = " SELECT orderstatus, clerk, sales\n" +
+                       "  , custom_rank() OVER (PARTITION BY x.orderstatus ORDER BY sales DESC) rnk\n" +
+                       "  FROM (\n" +
+                       "    SELECT orderstatus, clerk, sum(totalprice) sales\n" +
+                       "    FROM orders\n" +
+                       "    GROUP BY orderstatus, clerk\n" +
+                       "   ) x";
 
-        MaterializedResult expected = computeActual(" SELECT orderstatus, clerk, sales\n" +
-                "  , rank() OVER (PARTITION BY x.orderstatus ORDER BY sales DESC) rnk\n" +
-                "  FROM (\n" +
-                "    SELECT orderstatus, clerk, sum(totalprice) sales\n" +
-                "    FROM orders\n" +
-                "    GROUP BY orderstatus, clerk\n" +
-                "   ) x"
-        );
+        MaterializedResult actual = computeActual(query);
+        MaterializedResult expected = computeActual(query.replace("custom_rank", "rank"));
 
         assertEquals(actual, expected);
     }

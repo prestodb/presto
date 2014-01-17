@@ -40,7 +40,7 @@ public interface Metadata
     @NotNull
     List<FunctionInfo> listFunctions();
 
-    void addFunctions(FunctionFactory functionFactory);
+    void addFunctions(List<FunctionInfo> functions);
 
     @NotNull
     List<String> listSchemaNames(String catalogName);

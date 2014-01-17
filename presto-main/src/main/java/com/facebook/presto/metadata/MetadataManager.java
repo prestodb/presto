@@ -102,9 +102,9 @@ public class MetadataManager
     }
 
     @Override
-    public void addFunctions(FunctionFactory functionFactory)
+    public void addFunctions(List<FunctionInfo> functionInfos)
     {
-        functions.addFunctions(functionFactory.listFunctions());
+        functions.addFunctions(functionInfos);
     }
 
     @Override

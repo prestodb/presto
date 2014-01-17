@@ -161,7 +161,7 @@ public class PluginManager
             }
 
             for (FunctionFactory functionFactory : plugin.getServices(FunctionFactory.class)) {
-                metadataManager.addFunctions(functionFactory);
+                metadataManager.addFunctions(functionFactory.listFunctions());
             }
         }
     }
