@@ -138,6 +138,11 @@ public class LocalQueryRunner
         return this;
     }
 
+    public Metadata getMetadata()
+    {
+        return metadata;
+    }
+
     private static class MaterializedOutputFactory
             implements OutputFactory
     {

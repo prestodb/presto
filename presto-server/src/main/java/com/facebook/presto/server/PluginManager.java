@@ -15,6 +15,8 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.SystemTablesManager;
+import com.facebook.presto.metadata.FunctionFactory;
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.SystemTable;
@@ -58,6 +60,7 @@ public class PluginManager
     private final Injector injector;
     private final ConnectorManager connectorManager;
     private final SystemTablesManager systemTablesManager;
+    private final MetadataManager metadataManager;
     private final ArtifactResolver resolver;
     private final File installedPluginsDir;
     private final List<String> plugins;
@@ -70,7 +73,9 @@ public class PluginManager
             HttpServerInfo httpServerInfo,
             PluginManagerConfig config,
             ConnectorManager connectorManager,
-            ConfigurationFactory configurationFactory, SystemTablesManager systemTablesManager)
+            ConfigurationFactory configurationFactory,
+            SystemTablesManager systemTablesManager,
+            MetadataManager metadataManager)
     {
         checkNotNull(injector, "injector is null");
         checkNotNull(nodeInfo, "nodeInfo is null");
@@ -96,6 +101,7 @@ public class PluginManager
 
         this.connectorManager = checkNotNull(connectorManager, "connectorManager is null");
         this.systemTablesManager = checkNotNull(systemTablesManager, "systemTablesManager is null");
+        this.metadataManager = checkNotNull(metadataManager, "metadataManager is null");
     }
 
     public boolean arePluginsLoaded()
@@ -152,6 +158,10 @@ public class PluginManager
 
             for (SystemTable systemTable : plugin.getServices(SystemTable.class)) {
                 systemTablesManager.addTable(systemTable);
+            }
+
+            for (FunctionFactory functionFactory : plugin.getServices(FunctionFactory.class)) {
+                metadataManager.addFunctions(functionFactory.listFunctions());
             }
         }
     }
