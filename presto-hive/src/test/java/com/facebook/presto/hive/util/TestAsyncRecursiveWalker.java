@@ -228,7 +228,7 @@ public class TestAsyncRecursiveWalker
         }
 
         @Override
-        public void setWorkingDirectory(Path new_dir)
+        public void setWorkingDirectory(Path path)
         {
             throw new UnsupportedOperationException();
         }

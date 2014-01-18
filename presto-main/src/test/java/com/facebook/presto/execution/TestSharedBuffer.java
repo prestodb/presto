@@ -245,7 +245,6 @@ public class TestSharedBuffer
             addPage(sharedBuffer, createPage(i));
         }
 
-
         // add a queue
         outputBuffers = outputBuffers.withBuffer("first", new UnpartitionedPagePartitionFunction());
         sharedBuffer.setOutputBuffers(outputBuffers);
@@ -414,7 +413,6 @@ public class TestSharedBuffer
             addPage(sharedBuffer, createPage(i));
         }
         sharedBuffer.finish();
-
 
         outputBuffers = outputBuffers.withBuffer("first", new UnpartitionedPagePartitionFunction());
         sharedBuffer.setOutputBuffers(outputBuffers);
@@ -707,7 +705,7 @@ public class TestSharedBuffer
         return new BufferResult(token, token + pages.size(), false, pages);
     }
 
-    private static class GetPagesJob 
+    private static class GetPagesJob
             implements Runnable
     {
         private final SharedBuffer sharedBuffer;

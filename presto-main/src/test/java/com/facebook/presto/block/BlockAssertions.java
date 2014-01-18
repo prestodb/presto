@@ -40,8 +40,10 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-public class BlockAssertions
+public final class BlockAssertions
 {
+    private BlockAssertions() {}
+
     public static Object getOnlyValue(Block block)
     {
         assertEquals(block.getPositionCount(), 1, "Block positions");
@@ -117,10 +119,10 @@ public class BlockAssertions
         assertEqualsIgnoreOrder(actualTuples, expectedTuples);
     }
 
-    public static List<Tuple> toTuplesList(Block Block)
+    public static List<Tuple> toTuplesList(Block block)
     {
         ImmutableList.Builder<Tuple> tuples = ImmutableList.builder();
-        BlockCursor actualCursor = Block.cursor();
+        BlockCursor actualCursor = block.cursor();
         while (actualCursor.advanceNextPosition()) {
             tuples.add(actualCursor.getTuple());
         }

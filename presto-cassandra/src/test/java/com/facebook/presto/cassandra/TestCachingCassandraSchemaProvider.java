@@ -141,7 +141,6 @@ public class TestCachingCassandraSchemaProvider
         assertEquals(mockSession.getAccessCount(), 3);
     }
 
-
     @Test
     public void testNoCacheExceptions()
             throws Exception

@@ -23,8 +23,10 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
-public class BlockCursorAssertions
+public final class BlockCursorAssertions
 {
+    private BlockCursorAssertions() {}
+
     public static void assertAdvanceNextPosition(BlockCursor cursor)
     {
         assertTrue(cursor.advanceNextPosition());

@@ -111,7 +111,6 @@ public class TestExampleRecordSet
     // TODO: your code should also have tests for all types that you support and for the state machine of your cursor
     //
 
-
     //
     // Start http server for testing
     //

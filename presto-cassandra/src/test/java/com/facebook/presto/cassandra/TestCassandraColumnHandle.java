@@ -40,7 +40,6 @@ public class TestCassandraColumnHandle
         assertEquals(actual.isClusteringKey(), expected.isClusteringKey());
     }
 
-
     @Test
     public void testRoundTrip2()
     {
