@@ -780,7 +780,6 @@ public class TestExpressionInterpreter
 
     private static Object optimize(@Language("SQL") String expression)
     {
-
         Expression parsedExpression = createExpression(expression);
 
         // verify roundtrip

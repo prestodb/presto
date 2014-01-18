@@ -244,7 +244,6 @@ public class TestDriver
                         "SELECT table_catalog, table_schema " +
                         "FROM tables " +
                         "WHERE table_schema = 'sys' AND table_name = 'node'")) {
-
                     ResultSetMetaData metadata = rs.getMetaData();
                     assertEquals(metadata.getColumnCount(), 2);
                     assertEquals(metadata.getColumnLabel(1), "table_catalog");
@@ -266,7 +265,6 @@ public class TestDriver
                         "SELECT table_catalog, table_schema " +
                         "FROM information_schema.tables " +
                         "WHERE table_schema = 'sys' AND table_name = 'node'")) {
-
                     ResultSetMetaData metadata = rs.getMetaData();
                     assertEquals(metadata.getColumnCount(), 2);
                     assertEquals(metadata.getColumnLabel(1), "table_catalog");

@@ -2812,7 +2812,6 @@ public abstract class AbstractTestQueries
     public void testTableSampleBernoulliBoundaryValues()
             throws Exception
     {
-
         MaterializedResult fullSample = computeActual("SELECT orderkey FROM orders TABLESAMPLE BERNOULLI (100)");
         MaterializedResult emptySample = computeActual("SELECT orderkey FROM orders TABLESAMPLE BERNOULLI (0)");
         MaterializedResult all = computeExpected("SELECT orderkey FROM orders", fullSample.getTupleInfos());

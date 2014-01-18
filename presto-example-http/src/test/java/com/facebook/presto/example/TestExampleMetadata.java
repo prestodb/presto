@@ -50,7 +50,6 @@ public class TestExampleMetadata
     private ExampleMetadata metadata;
     private URI metadataUri;
 
-
     @BeforeMethod
     public void setUp()
             throws Exception
@@ -180,7 +179,6 @@ public class TestExampleMetadata
         // it is not possible for the Presto Metadata system to create the handles
         // directly.
     }
-
 
     @Test(expectedExceptions = UnsupportedOperationException.class)
     public void testCreateTable()

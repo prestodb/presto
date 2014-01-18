@@ -60,7 +60,6 @@ public class TestCassandraSplit
                 addresses);
         assertEquals(split.getWhereClause(), " WHERE token(k) >= 0 AND token(k) <= 2");
 
-
         split = new CassandraSplit(
                 "connectorId",
                 "schema1",

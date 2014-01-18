@@ -580,6 +580,7 @@
                         </goals>
                         <configuration>
                             <consoleOutput>true</consoleOutput>
+                            <includeTestSourceDirectory>true</includeTestSourceDirectory>
                             <configLocation>${air.main.basedir}/src/checkstyle/checks.xml</configLocation>
                         </configuration>
                     </execution>
