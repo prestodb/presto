@@ -23,4 +23,3 @@ public class TestHost
         super(address, new ConvictionPolicy.Simple.Factory());
     }
 }
-

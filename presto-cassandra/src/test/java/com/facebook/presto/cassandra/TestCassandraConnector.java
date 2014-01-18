@@ -86,7 +86,6 @@ public class TestCassandraConnector
     public void setup()
             throws Exception
     {
-
         EmbeddedCassandraServerHelper.startEmbeddedCassandra();
         EmbeddedCassandraServerHelper.cleanEmbeddedCassandra();
 
@@ -112,7 +111,6 @@ public class TestCassandraConnector
 
         ConnectorHandleResolver handleResolver = connector.getService(ConnectorHandleResolver.class);
         assertInstanceOf(handleResolver, CassandraHandleResolver.class);
-
 
         database = "presto_database";
         table = new SchemaTableName(database, "presto_test");
@@ -212,7 +210,6 @@ public class TestCassandraConnector
                     // lexical UUIDs are encoded as a hex string for some reason
                     assertEquals(toUtf8String(cursor.getString(columnIndex.get("t_lexical_uuid"))), String.format("0x%032X", rowId));
 
-
                     long newCompletedBytes = cursor.getCompletedBytes();
                     assertTrue(newCompletedBytes >= completedBytes);
                     completedBytes = newCompletedBytes;
@@ -296,7 +293,6 @@ public class TestCassandraConnector
         Cluster cluster = HFactory.getOrCreateCluster(clusterName, host);
         Keyspace keyspace = HFactory.createKeyspace("beautifulKeyspaceName", cluster);
         assertNotNull(keyspace);
-
 
         String keyspaceName = "presto_database";
         String columnFamilyName = "presto_test";
