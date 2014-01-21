@@ -265,23 +265,26 @@ public class TopNOperator
                 }
 
                 if (globalCandidates.size() < n) {
-                    sizeDelta = addRow(sizeDelta, cursors);
+                    sizeDelta += addRow(cursors);
                 }
                 else if (ordering.compare(cursors, globalCandidates.peek()) > 0) {
-                    Tuple[] previous = globalCandidates.remove();
-                    for (Tuple tuple : previous) {
-                        sizeDelta -= tuple.size();
-                    }
-
-                    sizeDelta = addRow(sizeDelta, cursors);
+                    sizeDelta += addRow(cursors);
                 }
             }
 
             return sizeDelta;
         }
 
-        private long addRow(long sizeDelta, BlockCursor[] cursors)
+        private long addRow(BlockCursor[] cursors)
         {
+            long sizeDelta = 0;
+            if (globalCandidates.size() >= n) {
+                Tuple[] previous = globalCandidates.remove();
+                for (Tuple tuple : previous) {
+                    sizeDelta -= tuple.size();
+                }
+                sizeDelta -= OVERHEAD_PER_TUPLE.toBytes();
+            }
             Tuple[] row = getValues(cursors);
             for (Tuple tuple : row) {
                 sizeDelta += tuple.size();
