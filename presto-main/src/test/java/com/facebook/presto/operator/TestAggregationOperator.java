@@ -13,16 +13,12 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.tree.Input;
-import com.facebook.presto.util.IterableTransformer;
 import com.facebook.presto.util.MaterializedResult;
-import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterMethod;
@@ -33,6 +29,7 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
+import static com.facebook.presto.operator.OperatorAssertion.appendSampleWeight;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.operator.aggregation.AverageAggregations.LONG_AVERAGE;
@@ -80,21 +77,7 @@ public class TestAggregationOperator
                 .addSequencePage(100, 0, 0, 300, 500, 500, 500)
                 .build();
 
-        input = IterableTransformer.on(input).transform(new Function<Page, Page>()
-        {
-            @Override
-            public Page apply(Page page)
-            {
-                BlockBuilder builder = new BlockBuilder(SINGLE_LONG);
-                for (int i = 0; i < 100; i++) {
-                    builder.append(2);
-                }
-                Block[] blocks = new Block[page.getChannelCount() + 1];
-                System.arraycopy(page.getBlocks(), 0, blocks, 0, page.getChannelCount());
-                blocks[blocks.length - 1] = builder.build();
-                return new Page(blocks);
-            }
-        }).list();
+        input = appendSampleWeight(input, 2);
 
         Optional<Input> sampleWeightInput = Optional.of(new Input(input.get(0).getChannelCount() - 1));
         OperatorFactory operatorFactory = new AggregationOperatorFactory(

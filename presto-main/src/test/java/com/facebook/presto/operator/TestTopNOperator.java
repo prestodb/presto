@@ -18,6 +18,7 @@ import com.facebook.presto.operator.TopNOperator.TopNOperatorFactory;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.tuple.FieldOrderedTupleComparator;
 import com.facebook.presto.util.MaterializedResult;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import org.testng.annotations.AfterMethod;
@@ -27,6 +28,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 
+import static com.facebook.presto.operator.OperatorAssertion.appendSampleWeight;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
 import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
@@ -62,6 +64,42 @@ public class TestTopNOperator
     }
 
     @Test
+    public void testSampledTopN()
+            throws Exception
+    {
+        List<Page> input = rowPagesBuilder(SINGLE_LONG, SINGLE_DOUBLE)
+                .row(1, 0.1)
+                .row(2, 0.2)
+                .pageBreak()
+                .row(-1, -0.1)
+                .row(4, 0.4)
+                .pageBreak()
+                .row(5, 0.5)
+                .row(4, 0.41)
+                .row(6, 0.6)
+                .pageBreak()
+                .build();
+        input = appendSampleWeight(input, 2);
+
+        TopNOperatorFactory factory = new TopNOperatorFactory(
+                0,
+                3,
+                ImmutableList.of(singleColumn(FIXED_INT_64, 0), singleColumn(DOUBLE, 1), singleColumn(FIXED_INT_64, 2)),
+                Ordering.from(new FieldOrderedTupleComparator(ImmutableList.of(0), ImmutableList.of(SortOrder.DESC_NULLS_LAST))),
+                Optional.of(input.get(0).getChannelCount() - 1),
+                false);
+
+        Operator operator = factory.createOperator(driverContext);
+
+        MaterializedResult expected = resultBuilder(FIXED_INT_64, DOUBLE, FIXED_INT_64)
+                .row(6, 0.6, 2)
+                .row(5, 0.5, 1)
+                .build();
+
+        assertOperatorEquals(operator, input, expected);
+    }
+
+    @Test
     public void testSingleFieldKey()
             throws Exception
     {
@@ -83,6 +121,7 @@ public class TestTopNOperator
                 2,
                 ImmutableList.of(singleColumn(FIXED_INT_64, 0), singleColumn(DOUBLE, 1)),
                 Ordering.from(new FieldOrderedTupleComparator(ImmutableList.of(0), ImmutableList.of(SortOrder.DESC_NULLS_LAST))),
+                Optional.<Integer>absent(),
                 false);
 
         Operator operator = factory.createOperator(driverContext);
@@ -117,6 +156,7 @@ public class TestTopNOperator
                 3,
                 ImmutableList.of(singleColumn(VARIABLE_BINARY, 0), singleColumn(FIXED_INT_64, 1)),
                 Ordering.from(comparator),
+                Optional.<Integer>absent(),
                 false);
 
         Operator operator = operatorFactory.createOperator(driverContext);
@@ -152,6 +192,7 @@ public class TestTopNOperator
                 2,
                 ImmutableList.of(singleColumn(FIXED_INT_64, 0), singleColumn(DOUBLE, 1)),
                 Ordering.from(new FieldOrderedTupleComparator(ImmutableList.of(0), ImmutableList.of(SortOrder.ASC_NULLS_LAST))),
+                Optional.<Integer>absent(),
                 false);
 
         Operator operator = operatorFactory.createOperator(driverContext);
