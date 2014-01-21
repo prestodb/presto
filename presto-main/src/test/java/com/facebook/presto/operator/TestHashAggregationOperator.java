@@ -224,7 +224,7 @@ public class TestHashAggregationOperator
         toPages(operator, input);
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Not enough memory to build group by hash")
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Task exceeded max memory size of 3MB")
     public void testHashBuilderResizeLimit()
     {
         BlockBuilder builder = createBlockBuilder(SINGLE_VARBINARY);

@@ -263,7 +263,7 @@ public class HashAggregationOperator
                 }
             }));
 
-            this.groupByHash = new GroupByHash(groupByTypes, Ints.toArray(groupByChannels), expectedGroups, memoryManager);
+            this.groupByHash = new GroupByHash(groupByTypes, Ints.toArray(groupByChannels), expectedGroups);
             this.memoryManager = memoryManager;
 
             // wrapper each function with an aggregator

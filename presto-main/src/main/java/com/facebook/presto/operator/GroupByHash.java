@@ -16,22 +16,10 @@ package com.facebook.presto.operator;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.uncompressed.FixedWidthBlock;
-import com.facebook.presto.operator.HashAggregationOperator.HashMemoryManager;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.StandardErrorCode;
-import com.facebook.presto.tuple.FixedWidthTypeInfo;
+import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
-import com.facebook.presto.tuple.VariableWidthTypeInfo;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Booleans;
-import com.google.common.primitives.Ints;
-import com.google.common.primitives.Longs;
-import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
-import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
-import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.longs.Long2IntOpenCustomHashMap;
 import it.unimi.dsi.fastutil.longs.LongHash;
 import it.unimi.dsi.fastutil.longs.LongHash.Strategy;
@@ -40,16 +28,15 @@ import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import java.util.List;
 
 import static com.facebook.presto.block.BlockBuilders.createBlockBuilder;
+import static com.facebook.presto.operator.HashStrategyUtils.addToHashCode;
+import static com.facebook.presto.operator.HashStrategyUtils.valueHashCode;
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
-import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.sizeOf;
 
 public class GroupByHash
@@ -59,9 +46,8 @@ public class GroupByHash
     private final List<Type> types;
     private final int[] channels;
 
-    private GroupByPageBuilder activePage;
+    private final List<PageBuilder> pages;
 
-    private final List<GroupByPageBuilder> allPages;
     private long completedPagesMemorySize;
 
     private final PageBuilderHashStrategy hashStrategy;
@@ -69,28 +55,23 @@ public class GroupByHash
 
     private int nextGroupId;
 
-    private final HashMemoryManager memoryManager;
-
-    public GroupByHash(List<Type> types, int[] channels, int expectedSize, HashMemoryManager memoryManager)
+    public GroupByHash(List<Type> types, int[] channels, int expectedSize)
     {
         this.types = checkNotNull(types, "types is null");
         this.channels = checkNotNull(channels, "channels is null").clone();
         checkArgument(types.size() == channels.length, "types and channels have different sizes");
 
-        this.allPages = ObjectArrayList.wrap(new GroupByPageBuilder[1024], 0);
-        this.activePage = new GroupByPageBuilder(types);
-        this.allPages.add(activePage);
+        this.pages = ObjectArrayList.wrap(new PageBuilder[1024], 0);
+        this.pages.add(new PageBuilder(types));
 
         this.hashStrategy = new PageBuilderHashStrategy();
         this.pagePositionToGroupId = new PagePositionToGroupId(expectedSize, hashStrategy);
         this.pagePositionToGroupId.defaultReturnValue(-1);
-
-        this.memoryManager = memoryManager;
     }
 
     public long getEstimatedSize()
     {
-        return completedPagesMemorySize + activePage.getMemorySize() + pagePositionToGroupId.getEstimatedSize();
+        return completedPagesMemorySize + pages.get(pages.size() - 1).getMemorySize() + pagePositionToGroupId.getEstimatedSize();
     }
 
     public List<Type> getTypes()
@@ -126,34 +107,28 @@ public class GroupByHash
             }
             blockBuilder.append(groupId);
         }
-        FixedWidthBlock block = (FixedWidthBlock) blockBuilder.build().toRandomAccessBlock();
+        FixedWidthBlock block = (FixedWidthBlock) blockBuilder.build();
         return new GroupByIdBlock(nextGroupId, block);
     }
 
     private int addNewGroup(BlockCursor... row)
     {
-        int pageIndex = allPages.size() - 1;
-        if (!activePage.append(row)) {
-            // record the active page memory size
-            completedPagesMemorySize += activePage.getMemorySize();
-
-            activePage = new GroupByPageBuilder(types);
-            if (!activePage.append(row)) {
-                if (!memoryManager.canUse(getEstimatedSize() + GroupByPageBuilder.memoryRequiredFor(row))) {
-                    throw new PrestoException(StandardErrorCode.EXCEEDED_MEMORY_LIMIT.toErrorCode(), "Not enough memory to build group by hash");
-                }
-                activePage = new GroupByPageBuilder(types, row);
-                checkState(activePage.append(row), "Could not add row to empty page builder");
-            }
-            allPages.add(activePage);
-            pageIndex++;
-        }
+        int pageIndex = pages.size() - 1;
+        PageBuilder pageBuilder = pages.get(pageIndex);
+        pageBuilder.append(row);
 
         // record group id in hash
         int groupId = nextGroupId++;
-        long address = encodeSyntheticAddress(pageIndex, activePage.getPositionCount() - 1);
+        long address = encodeSyntheticAddress(pageIndex, pageBuilder.getPositionCount() - 1);
         pagePositionToGroupId.put(address, groupId);
 
+        // create new page builder if this page is full
+        if (pageBuilder.isFull()) {
+            completedPagesMemorySize += pageBuilder.getMemorySize();
+
+            pageBuilder = new PageBuilder(types);
+            pages.add(pageBuilder);
+        }
         return groupId;
     }
 
@@ -164,7 +139,7 @@ public class GroupByHash
 
     public void appendValuesTo(long pagePosition, BlockBuilder[] builders)
     {
-        GroupByPageBuilder page = allPages.get(decodeSliceIndex(pagePosition));
+        PageBuilder page = pages.get(decodeSliceIndex(pagePosition));
         page.appendValuesTo(decodePosition(pagePosition), builders);
     }
 
@@ -176,6 +151,11 @@ public class GroupByHash
         public void setCurrentRow(BlockCursor[] currentRow)
         {
             this.currentRow = currentRow;
+        }
+
+        public void addPage(PageBuilder page)
+        {
+            pages.add(page);
         }
 
         @Override
@@ -193,7 +173,7 @@ public class GroupByHash
         {
             int sliceIndex = decodeSliceIndex(sliceAddress);
             int position = decodePosition(sliceAddress);
-            return allPages.get(sliceIndex).hashCode(position);
+            return pages.get(sliceIndex).hashCode(position);
         }
 
         private int hashCurrentRow()
@@ -233,65 +213,28 @@ public class GroupByHash
 
         private boolean positionEqualsCurrentRow(int sliceIndex, int position)
         {
-            return allPages.get(sliceIndex).equals(position, currentRow);
+            return pages.get(sliceIndex).equals(position, currentRow);
         }
 
         private boolean positionEqualsPosition(int leftSliceIndex, int leftPosition, int rightSliceIndex, int rightPosition)
         {
-            return allPages.get(leftSliceIndex).equals(leftPosition, allPages.get(rightSliceIndex), rightPosition);
+            return pages.get(leftSliceIndex).equals(leftPosition, pages.get(rightSliceIndex), rightPosition);
         }
     }
 
-    private static class GroupByPageBuilder
+    private static class PageBuilder
     {
-        private final List<ChannelBuilder> channels;
+        private final List<BlockBuilder> channels;
         private int positionCount;
         private boolean full;
 
-        public GroupByPageBuilder(List<Type> types)
+        public PageBuilder(List<Type> types)
         {
-            ImmutableList.Builder<ChannelBuilder> builder = ImmutableList.builder();
+            ImmutableList.Builder<BlockBuilder> builder = ImmutableList.builder();
             for (Type type : types) {
-                builder.add(new ChannelBuilder(type));
+                builder.add(createBlockBuilder(new TupleInfo(type)));
             }
             channels = builder.build();
-        }
-
-        private GroupByPageBuilder(List<Type> types, BlockCursor... cursors)
-        {
-            checkArgument(types.size() == cursors.length, "types and cursors must have the same length");
-            ImmutableList.Builder<ChannelBuilder> builder = ImmutableList.builder();
-            for (int i = 0; i < types.size(); i++) {
-                builder.add(new ChannelBuilder(types.get(i), sizeOfFirstValue(cursors[i]) + 1));
-            }
-            channels = builder.build();
-        }
-
-        public static int memoryRequiredFor(BlockCursor... cursors)
-        {
-            int total = 0;
-            for (BlockCursor cursor : cursors) {
-                total += sizeOfFirstValue(cursor);
-            }
-            return total;
-        }
-
-        public static int sizeOfFirstValue(BlockCursor cursor)
-        {
-            boolean isNull = cursor.isNull();
-            if (isNull) {
-                return SIZE_OF_BYTE;
-            }
-            if (cursor.getTupleInfo().getType().isFixedSize()) {
-                return cursor.getTupleInfo().getType().getSize() + SIZE_OF_BYTE;
-            }
-            else if (cursor.getTupleInfo().equals(SINGLE_VARBINARY)) {
-                int sliceLength = getVariableBinaryLength(cursor.getRawSlice(), cursor.getRawOffset());
-                return SIZE_OF_INT + sliceLength + SIZE_OF_BYTE;
-            }
-            else {
-                throw new IllegalArgumentException("Unsupported type " + cursor.getTupleInfo());
-            }
         }
 
         public int getPositionCount()
@@ -302,56 +245,44 @@ public class GroupByHash
         public long getMemorySize()
         {
             long memorySize = 0;
-            for (ChannelBuilder channel : channels) {
-                memorySize += channel.getMemorySize();
+            for (BlockBuilder channel : channels) {
+                memorySize += channel.getDataSize().toBytes();
             }
             return memorySize;
         }
 
-        private boolean append(BlockCursor... row)
+        private void append(BlockCursor... row)
         {
-            // don't add row if already full
-            if (full) {
-                return false;
-            }
-
             // append to each channel
             for (int channel = 0; channel < row.length; channel++) {
-                if (!channels.get(channel).append(row[channel])) {
-                    // This early return will result in uneven channels, but this is not
-                    // a problem since the position count is not incremented.  This means
-                    // that although some channels have "garbage" on the end, these values
-                    // will never be read since the position is not valid.
-                    full = true;
-                    return false;
-                }
+                row[channel].appendTupleTo(channels.get(channel));
+                full = full || channels.get(channel).isFull();
             }
             positionCount++;
-            return true;
         }
 
-        public void appendValuesTo(int position, BlockBuilder[] builders)
+        public void appendValuesTo(int position, BlockBuilder... builders)
         {
             for (int i = 0; i < channels.size(); i++) {
-                ChannelBuilder channel = channels.get(i);
-                channel.appendTo(position, builders[i]);
+                BlockBuilder channel = channels.get(i);
+                channel.appendTupleTo(position, builders[i]);
             }
         }
 
         public int hashCode(int position)
         {
             int result = 0;
-            for (ChannelBuilder channel : channels) {
+            for (BlockBuilder channel : channels) {
                 result = addToHashCode(result, channel.hashCode(position));
             }
             return result;
         }
 
-        public boolean equals(int thisPosition, GroupByPageBuilder that, int thatPosition)
+        public boolean equals(int thisPosition, PageBuilder that, int thatPosition)
         {
             for (int i = 0; i < channels.size(); i++) {
-                ChannelBuilder thisBlock = this.channels.get(i);
-                ChannelBuilder thatBlock = that.channels.get(i);
+                BlockBuilder thisBlock = this.channels.get(i);
+                BlockBuilder thatBlock = that.channels.get(i);
                 if (!thisBlock.equals(thisPosition, thatBlock, thatPosition)) {
                     return false;
                 }
@@ -362,205 +293,17 @@ public class GroupByHash
         public boolean equals(int position, BlockCursor... row)
         {
             for (int i = 0; i < channels.size(); i++) {
-                ChannelBuilder thisBlock = this.channels.get(i);
+                BlockBuilder thisBlock = this.channels.get(i);
                 if (!thisBlock.equals(position, row[i])) {
                     return false;
                 }
             }
             return true;
         }
-    }
 
-    private static class ChannelBuilder
-    {
-        public static final DataSize DEFAULT_MAX_BLOCK_SIZE = new DataSize(64, Unit.KILOBYTE);
-
-        private final Type type;
-        private final SliceOutput sliceOutput;
-        private final Slice slice;
-        private final IntArrayList positionOffsets;
-
-        public ChannelBuilder(Type type)
+        public boolean isFull()
         {
-            this(type, Ints.checkedCast(DEFAULT_MAX_BLOCK_SIZE.toBytes()));
-        }
-
-        public ChannelBuilder(Type type, int blockSize)
-        {
-            checkNotNull(type, "type is null");
-
-            this.type = type;
-            this.slice = Slices.allocate(blockSize);
-            this.sliceOutput = slice.getOutput();
-            this.positionOffsets = new IntArrayList(1024);
-        }
-
-        public long getMemorySize()
-        {
-            return slice.length() + sizeOf(positionOffsets.elements());
-        }
-
-        public boolean equals(int position, ChannelBuilder rightBuilder, int rightPosition)
-        {
-            checkArgument(position >= 0 && position < positionOffsets.size());
-            checkArgument(rightPosition >= 0 && rightPosition < rightBuilder.positionOffsets.size());
-
-            Slice leftSlice = slice;
-            int leftOffset = positionOffsets.getInt(position);
-
-            Slice rightSlice = rightBuilder.slice;
-            int rightOffset = rightBuilder.positionOffsets.getInt(rightPosition);
-
-            return valueEquals(type, leftSlice, leftOffset, rightSlice, rightOffset);
-        }
-
-        public boolean equals(int position, BlockCursor cursor)
-        {
-            checkArgument(position >= 0 && position < positionOffsets.size());
-
-            int offset = positionOffsets.getInt(position);
-
-            Slice rightSlice = cursor.getRawSlice();
-            int rightOffset = cursor.getRawOffset();
-            return valueEquals(type, slice, offset, rightSlice, rightOffset);
-        }
-
-        public void appendTo(int position, BlockBuilder builder)
-        {
-            checkArgument(position >= 0 && position < positionOffsets.size());
-
-            int offset = positionOffsets.getInt(position);
-
-            if (slice.getByte(offset) != 0) {
-                builder.appendNull();
-            }
-            else {
-                type.getTypeInfo().appendTo(slice, offset + SIZE_OF_BYTE, builder);
-            }
-        }
-
-        public int hashCode(int position)
-        {
-            checkArgument(position >= 0 && position < positionOffsets.size());
-            return valueHashCode(type, slice, positionOffsets.getInt(position));
-        }
-
-        public boolean append(BlockCursor cursor)
-        {
-            // the extra BYTE here is for the null flag
-            int writableBytes = sliceOutput.writableBytes() - SIZE_OF_BYTE;
-            if (writableBytes == 0) {
-                return false;
-            }
-
-            boolean isNull = cursor.isNull();
-
-            Slice slice = cursor.getRawSlice();
-            int offset = cursor.getRawOffset();
-
-            if (type.isFixedSize()) {
-                FixedWidthTypeInfo typeInfo = (FixedWidthTypeInfo) type.getTypeInfo();
-                if (writableBytes < typeInfo.getSize() + SIZE_OF_BYTE) {
-                    return false;
-                }
-                positionOffsets.add(sliceOutput.size());
-                if (isNull) {
-                    sliceOutput.writeByte(1);
-                    sliceOutput.writeZero(typeInfo.getSize());
-                }
-                else {
-                    sliceOutput.writeByte(0);
-                    type.getTypeInfo().appendTo(slice, offset + SIZE_OF_BYTE, sliceOutput);
-                }
-            }
-            else if (isNull) {
-                positionOffsets.add(sliceOutput.size());
-                sliceOutput.writeByte(1);
-            }
-            else {
-                VariableWidthTypeInfo typeInfo = (VariableWidthTypeInfo) type.getTypeInfo();
-                if (writableBytes < typeInfo.getLength(slice, offset + SIZE_OF_BYTE) + SIZE_OF_BYTE) {
-                    return false;
-                }
-                positionOffsets.add(sliceOutput.size());
-                sliceOutput.writeByte(0);
-                type.getTypeInfo().appendTo(slice, offset + SIZE_OF_BYTE, sliceOutput);
-            }
-
-            return true;
-        }
-    }
-
-    private static int addToHashCode(int result, int hashCode)
-    {
-        result = 31 * result + hashCode;
-        return result;
-    }
-
-    private static int valueHashCode(Type type, Slice slice, int offset)
-    {
-        boolean isNull = slice.getByte(offset) != 0;
-        if (isNull) {
-            return 0;
-        }
-
-        if (type == Type.FIXED_INT_64) {
-            return Longs.hashCode(slice.getLong(offset + SIZE_OF_BYTE));
-        }
-        else if (type == Type.DOUBLE) {
-            long longValue = Double.doubleToLongBits(slice.getDouble(offset + SIZE_OF_BYTE));
-            return Longs.hashCode(longValue);
-        }
-        else if (type == Type.BOOLEAN) {
-            return Booleans.hashCode(slice.getByte(offset + SIZE_OF_BYTE) != 0);
-        }
-        else if (type == Type.VARIABLE_BINARY) {
-            int sliceLength = getVariableBinaryLength(slice, offset);
-            return slice.hashCode(offset + SIZE_OF_BYTE + SIZE_OF_INT, sliceLength);
-        }
-        else {
-            throw new IllegalArgumentException("Unsupported type " + type);
-        }
-    }
-
-    private static int getVariableBinaryLength(Slice slice, int offset)
-    {
-        // INT here is the length and the BYTE is the null flag
-        return slice.getInt(offset + SIZE_OF_BYTE);
-    }
-
-    private static boolean valueEquals(Type type, Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)
-    {
-        // check if null flags are the same
-        boolean leftIsNull = leftSlice.getByte(leftOffset) != 0;
-        boolean rightIsNull = rightSlice.getByte(rightOffset) != 0;
-        if (leftIsNull != rightIsNull) {
-            return false;
-        }
-
-        // if values are both null, they are equal
-        if (leftIsNull) {
-            return true;
-        }
-
-        if (type == Type.FIXED_INT_64 || type == Type.DOUBLE) {
-            long leftValue = leftSlice.getLong(leftOffset + SIZE_OF_BYTE);
-            long rightValue = rightSlice.getLong(rightOffset + SIZE_OF_BYTE);
-            return leftValue == rightValue;
-        }
-        else if (type == Type.BOOLEAN) {
-            boolean leftValue = leftSlice.getByte(leftOffset + SIZE_OF_BYTE) != 0;
-            boolean rightValue = rightSlice.getByte(rightOffset + SIZE_OF_BYTE) != 0;
-            return leftValue == rightValue;
-        }
-        else if (type == Type.VARIABLE_BINARY) {
-            int leftLength = getVariableBinaryLength(leftSlice, leftOffset);
-            int rightLength = getVariableBinaryLength(rightSlice, rightOffset);
-            return leftSlice.equals(leftOffset + SIZE_OF_BYTE + SIZE_OF_INT, leftLength,
-                    rightSlice, rightOffset + SIZE_OF_BYTE + SIZE_OF_INT, rightLength);
-        }
-        else {
-            throw new IllegalArgumentException("Unsupported type " + type);
+            return full;
         }
     }
 
