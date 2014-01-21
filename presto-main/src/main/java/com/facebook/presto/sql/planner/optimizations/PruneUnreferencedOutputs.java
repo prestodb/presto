@@ -272,7 +272,7 @@ public class PruneUnreferencedOutputs
 
             PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs);
 
-            return new MarkDistinctNode(node.getId(), source, node.getMarkerSymbol(), node.getDistinctSymbols());
+            return new MarkDistinctNode(node.getId(), source, node.getMarkerSymbol(), node.getDistinctSymbols(), node.getSampleWeightSymbol());
         }
 
         @Override
@@ -308,7 +308,7 @@ public class PruneUnreferencedOutputs
         public PlanNode rewriteLimit(LimitNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
         {
             PlanNode source = planRewriter.rewrite(node.getSource(), expectedOutputs);
-            return new LimitNode(node.getId(), source, node.getCount());
+            return new LimitNode(node.getId(), source, node.getCount(), node.getSampleWeight());
         }
 
         @Override
@@ -325,7 +325,7 @@ public class PruneUnreferencedOutputs
 
             PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs);
 
-            return new TopNNode(node.getId(), source, node.getCount(), node.getOrderBy(), node.getOrderings(), node.isPartial());
+            return new TopNNode(node.getId(), source, node.getCount(), node.getOrderBy(), node.getOrderings(), node.isPartial(), node.getSampleWeight());
         }
 
         @Override

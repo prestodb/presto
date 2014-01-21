@@ -141,7 +141,7 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = planRewriter.rewrite(node.getSource(), context);
             List<Symbol> symbols = ImmutableList.copyOf(ImmutableSet.copyOf(canonicalize(node.getDistinctSymbols())));
-            return new MarkDistinctNode(node.getId(), source, canonicalize(node.getMarkerSymbol()), symbols);
+            return new MarkDistinctNode(node.getId(), source, canonicalize(node.getMarkerSymbol()), symbols, node.getSampleWeightSymbol());
         }
 
         @Override
@@ -244,7 +244,7 @@ public class UnaliasSymbolReferences
                 orderings.put(canonical, node.getOrderings().get(symbol));
             }
 
-            return new TopNNode(node.getId(), source, node.getCount(), symbols.build(), orderings.build(), node.isPartial());
+            return new TopNNode(node.getId(), source, node.getCount(), symbols.build(), orderings.build(), node.isPartial(), node.getSampleWeight());
         }
 
         @Override

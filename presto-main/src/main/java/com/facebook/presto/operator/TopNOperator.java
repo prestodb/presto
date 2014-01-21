@@ -17,6 +17,8 @@ import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleReadable;
+import com.facebook.presto.tuple.Tuples;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -45,6 +47,7 @@ public class TopNOperator
         private final Ordering<TupleReadable[]> ordering;
         private final boolean partial;
         private final List<TupleInfo> tupleInfos;
+        private final Optional<Integer> sampleWeight;
         private boolean closed;
 
         public TopNOperatorFactory(
@@ -52,6 +55,7 @@ public class TopNOperator
                 int n,
                 List<ProjectionFunction> projections,
                 Ordering<TupleReadable[]> ordering,
+                Optional<Integer> sampleWeight,
                 boolean partial)
         {
             this.operatorId = operatorId;
@@ -59,6 +63,7 @@ public class TopNOperator
             this.projections = projections;
             this.ordering = ordering;
             this.partial = partial;
+            this.sampleWeight = sampleWeight;
             this.tupleInfos = toTupleInfos(projections);
         }
 
@@ -78,6 +83,7 @@ public class TopNOperator
                     n,
                     projections,
                     ordering,
+                    sampleWeight,
                     partial);
         }
 
@@ -98,6 +104,7 @@ public class TopNOperator
     private final List<TupleInfo> tupleInfos;
     private final TopNMemoryManager memoryManager;
     private final boolean partial;
+    private final Optional<Integer> sampleWeight;
 
     private final PageBuilder pageBuilder;
 
@@ -111,6 +118,7 @@ public class TopNOperator
             int n,
             List<ProjectionFunction> projections,
             Ordering<TupleReadable[]> ordering,
+            Optional<Integer> sampleWeight,
             boolean partial)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
@@ -131,6 +139,8 @@ public class TopNOperator
         this.tupleInfos = toTupleInfos(projections);
 
         this.pageBuilder = new PageBuilder(getTupleInfos());
+
+        this.sampleWeight = sampleWeight;
     }
 
     @Override
@@ -178,6 +188,7 @@ public class TopNOperator
             topNBuilder = new TopNBuilder(
                     n,
                     ordering,
+                    sampleWeight,
                     memoryManager);
         }
 
@@ -233,14 +244,16 @@ public class TopNOperator
         private final Ordering<TupleReadable[]> ordering;
         private final TopNMemoryManager memoryManager;
         private final PriorityQueue<Tuple[]> globalCandidates;
+        private final Optional<Integer> sampleWeightChannel;
 
         private long memorySize;
 
-        private TopNBuilder(int n, Ordering<TupleReadable[]> ordering, TopNMemoryManager memoryManager)
+        private TopNBuilder(int n, Ordering<TupleReadable[]> ordering, Optional<Integer> sampleWeightChannel, TopNMemoryManager memoryManager)
         {
             this.n = n;
             this.ordering = ordering;
             this.memoryManager = memoryManager;
+            this.sampleWeightChannel = sampleWeightChannel;
             this.globalCandidates = new PriorityQueue<>(Math.min(n, MAX_INITIAL_PRIORITY_QUEUE_SIZE), ordering);
         }
 
@@ -278,19 +291,31 @@ public class TopNOperator
         private long addRow(BlockCursor[] cursors)
         {
             long sizeDelta = 0;
-            if (globalCandidates.size() >= n) {
-                Tuple[] previous = globalCandidates.remove();
-                for (Tuple tuple : previous) {
-                    sizeDelta -= tuple.size();
-                }
-                sizeDelta -= OVERHEAD_PER_TUPLE.toBytes();
-            }
             Tuple[] row = getValues(cursors);
+            long sampleWeight = 1;
+            if (sampleWeightChannel.isPresent()) {
+                sampleWeight = row[sampleWeightChannel.get()].getLong();
+                // Set the weight to one, since we're going to insert it multiple times in the priority queue
+                row[sampleWeightChannel.get()] = Tuples.createTuple(1);
+            }
+            // Count the column sizes only once, because we insert the same object reference multiple times for sampled rows
             for (Tuple tuple : row) {
                 sizeDelta += tuple.size();
             }
-            sizeDelta += OVERHEAD_PER_TUPLE.toBytes();
-            globalCandidates.add(row);
+            for (int i = 0; i < sampleWeight; i++) {
+                sizeDelta += OVERHEAD_PER_TUPLE.toBytes();
+                globalCandidates.add(row);
+            }
+            while (globalCandidates.size() > n) {
+                Tuple[] previous = globalCandidates.remove();
+                // We insert sampled rows multiple times, so use reference equality when checking if this row is still in the queue
+                if (previous != globalCandidates.peek()) {
+                    for (Tuple tuple : previous) {
+                        sizeDelta -= tuple.size();
+                    }
+                }
+                sizeDelta -= OVERHEAD_PER_TUPLE.toBytes();
+            }
             return sizeDelta;
         }
 
@@ -311,8 +336,23 @@ public class TopNOperator
         public Iterator<TupleReadable[]> build()
         {
             ImmutableList.Builder<TupleReadable[]> minSortedGlobalCandidates = ImmutableList.builder();
+            long sampleWeight = 1;
             while (!globalCandidates.isEmpty()) {
-                minSortedGlobalCandidates.add(globalCandidates.remove());
+                Tuple[] row = globalCandidates.remove();
+                if (sampleWeightChannel.isPresent()) {
+                    // sampled rows are inserted multiple times
+                    if (globalCandidates.peek() != null && ordering.compare(row, globalCandidates.peek()) == 0) {
+                        sampleWeight++;
+                    }
+                    else {
+                        row[sampleWeightChannel.get()] = Tuples.createTuple(sampleWeight);
+                        minSortedGlobalCandidates.add(row);
+                        sampleWeight = 1;
+                    }
+                }
+                else {
+                    minSortedGlobalCandidates.add(row);
+                }
             }
             return minSortedGlobalCandidates.build().reverse().iterator();
         }

@@ -225,6 +225,38 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testSampledSort()
+            throws Exception
+    {
+        assertSampledQuery("SELECT orderkey FROM orders ORDER BY orderkey",
+                "SELECT orderkey FROM (SELECT orderkey FROM orders UNION ALL SELECT orderkey FROM orders) t ORDER BY orderkey");
+    }
+
+    @Test
+    public void testSampledSemiJoin()
+            throws Exception
+    {
+        assertSampledQuery("SELECT partkey FROM lineitem WHERE orderkey IN (SELECT DISTINCT(orderkey) FROM orders WHERE custkey > 10)",
+                "SELECT partkey FROM (SELECT partkey, orderkey FROM lineitem UNION ALL SELECT partkey, orderkey FROM lineitem) t WHERE orderkey IN " +
+                        "(SELECT orderkey FROM orders WHERE custkey > 10)");
+    }
+
+    @Test
+    public void testSampledLimit()
+            throws Exception
+    {
+        assertSampledQuery("SELECT COUNT(*) FROM (SELECT orderkey FROM orders LIMIT 5) t",
+                "SELECT COUNT(*) FROM (SELECT orderkey FROM orders LIMIT 5) t");
+    }
+
+    @Test
+    public void testSampledDistinct()
+            throws Exception
+    {
+        assertSampledQuery("SELECT COUNT(DISTINCT clerk) FROM orders", "SELECT COUNT(DISTINCT clerk) FROM orders");
+    }
+
+    @Test
     public void testSpecialFloatingPointValues()
             throws Exception
     {

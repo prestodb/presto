@@ -108,6 +108,7 @@ import io.airlift.node.NodeInfo;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
+import javax.validation.constraints.NotNull;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -124,6 +125,7 @@ import static com.facebook.presto.operator.TableCommitOperator.TableCommitter;
 import static com.facebook.presto.operator.TableWriterOperator.TableWriterOperatorFactory;
 import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.leftGetter;
 import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.rightGetter;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class LocalExecutionPlanner
@@ -384,11 +386,14 @@ public class LocalExecutionPlanner
 
             IdentityProjectionInfo mappings = computeIdentityMapping(node.getOutputSymbols(), source.getLayout(), context.getTypes());
 
+            Optional<Integer> sampleWeightChannel = node.getSampleWeight().transform(source.channelGetter());
+
             OperatorFactory operator = new TopNOperatorFactory(
                     context.getNextOperatorId(),
                     (int) node.getCount(),
                     mappings.getProjections(),
                     ordering,
+                    sampleWeightChannel,
                     node.isPartial());
 
             return new PhysicalOperation(operator, mappings.getOutputLayout(), source);
@@ -430,7 +435,9 @@ public class LocalExecutionPlanner
         {
             PhysicalOperation source = node.getSource().accept(this, context);
 
-            OperatorFactory operatorFactory = new LimitOperatorFactory(context.getNextOperatorId(), source.getTupleInfos(), node.getCount());
+            Optional<Integer> sampleWeightChannel = node.getSampleWeight().transform(source.channelGetter());
+
+            OperatorFactory operatorFactory = new LimitOperatorFactory(context.getNextOperatorId(), source.getTupleInfos(), node.getCount(), sampleWeightChannel);
             return new PhysicalOperation(operatorFactory, source.getLayout(), source);
         }
 
@@ -467,10 +474,11 @@ public class LocalExecutionPlanner
             // Source channels are always laid out first, followed by the boolean output symbol
             Map<Symbol, Input> outputMappings = ImmutableMap.<Symbol, Input>builder()
                     .putAll(source.getLayout())
-                    .put(node.getMarkerSymbol(), new Input(source.getLayout().size()))
-                    .build();
+                    .put(node.getMarkerSymbol(), new Input(source.getLayout().size())).build();
 
-            MarkDistinctOperatorFactory operator = new MarkDistinctOperatorFactory(context.getNextOperatorId(), source.getTupleInfos(), channels);
+            Optional<Integer> sampleWeightChannel = node.getSampleWeightSymbol().transform(source.channelGetter());
+
+            MarkDistinctOperatorFactory operator = new MarkDistinctOperatorFactory(context.getNextOperatorId(), source.getTupleInfos(), channels, sampleWeightChannel);
             return new PhysicalOperation(operator, outputMappings, source);
         }
 
@@ -1192,6 +1200,19 @@ public class LocalExecutionPlanner
             this.operatorFactories = ImmutableList.<OperatorFactory>builder().addAll(source.getOperatorFactories()).add(operatorFactory).build();
             this.layout = ImmutableMap.copyOf(layout);
             this.tupleInfos = operatorFactory.getTupleInfos();
+        }
+
+        public Function<Symbol, Integer> channelGetter()
+        {
+            return new Function<Symbol, Integer>() {
+                @NotNull
+                @Override
+                public Integer apply(Symbol input)
+                {
+                    checkArgument(layout.containsKey(input));
+                    return layout.get(input).getChannel();
+                }
+            };
         }
 
         public List<TupleInfo> getTupleInfos()

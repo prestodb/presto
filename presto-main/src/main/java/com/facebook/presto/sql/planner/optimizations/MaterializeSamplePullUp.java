@@ -15,16 +15,23 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
+import com.facebook.presto.sql.planner.DeterminismEvaluator;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.MaterializeSampleNode;
+import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.LimitNode;
+import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
+import com.facebook.presto.sql.planner.plan.MaterializeSampleNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
 import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SemiJoinNode;
+import com.facebook.presto.sql.planner.plan.SortNode;
+import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
 import com.facebook.presto.sql.tree.Expression;
@@ -76,6 +83,109 @@ public class MaterializeSamplePullUp
         public PlanNode rewriteNode(PlanNode node, Void context, PlanRewriter<Void> planRewriter)
         {
             return planRewriter.defaultRewrite(node, null);
+        }
+
+        @Override
+        public PlanNode rewriteFilter(FilterNode node, Void context, PlanRewriter<Void> planRewriter)
+        {
+            PlanNode source = planRewriter.rewrite(node.getSource(), null);
+            if (source instanceof MaterializeSampleNode && DeterminismEvaluator.isDeterministic(node.getPredicate())) {
+                FilterNode filterNode = new FilterNode(node.getId(), ((MaterializeSampleNode) source).getSource(), node.getPredicate());
+                return new MaterializeSampleNode(source.getId(), filterNode, ((MaterializeSampleNode) source).getSampleWeightSymbol());
+            }
+            else {
+                return planRewriter.defaultRewrite(node, null);
+            }
+        }
+
+        @Override
+        public PlanNode rewriteProject(ProjectNode node, Void context, PlanRewriter<Void> planRewriter)
+        {
+            PlanNode source = planRewriter.rewrite(node.getSource(), null);
+            if (source instanceof MaterializeSampleNode && Iterables.all(node.getExpressions(), DeterminismEvaluator.deterministic())) {
+                Symbol sampleWeightSymbol = ((MaterializeSampleNode) source).getSampleWeightSymbol();
+                Map<Symbol, Expression> outputMap = ImmutableMap.<Symbol, Expression>builder()
+                        .putAll(node.getOutputMap())
+                        .put(sampleWeightSymbol, new QualifiedNameReference(sampleWeightSymbol.toQualifiedName()))
+                        .build();
+                ProjectNode projectNode = new ProjectNode(node.getId(), ((MaterializeSampleNode) source).getSource(), outputMap);
+                return new MaterializeSampleNode(source.getId(), projectNode, sampleWeightSymbol);
+            }
+            else {
+                return planRewriter.defaultRewrite(node, null);
+            }
+        }
+
+        @Override
+        public PlanNode rewriteTopN(TopNNode node, Void context, PlanRewriter<Void> planRewriter)
+        {
+            PlanNode source = planRewriter.rewrite(node.getSource(), null);
+            if (source instanceof MaterializeSampleNode) {
+                node = new TopNNode(node.getId(), ((MaterializeSampleNode) source).getSource(), node.getCount(), node.getOrderBy(), node.getOrderings(), node.isPartial(), Optional.of(((MaterializeSampleNode) source).getSampleWeightSymbol()));
+                return new MaterializeSampleNode(source.getId(), node, ((MaterializeSampleNode) source).getSampleWeightSymbol());
+            }
+            else {
+                return planRewriter.defaultRewrite(node, null);
+            }
+        }
+
+        @Override
+        public PlanNode rewriteSort(SortNode node, Void context, PlanRewriter<Void> planRewriter)
+        {
+            PlanNode source = planRewriter.rewrite(node.getSource(), null);
+            if (source instanceof MaterializeSampleNode) {
+                node = new SortNode(node.getId(), ((MaterializeSampleNode) source).getSource(), node.getOrderBy(), node.getOrderings());
+                return new MaterializeSampleNode(source.getId(), node, ((MaterializeSampleNode) source).getSampleWeightSymbol());
+            }
+            else {
+                return planRewriter.defaultRewrite(node, null);
+            }
+        }
+
+        @Override
+        public PlanNode rewriteLimit(LimitNode node, Void context, PlanRewriter<Void> planRewriter)
+        {
+            PlanNode source = planRewriter.rewrite(node.getSource(), null);
+            if (source instanceof MaterializeSampleNode) {
+                node = new LimitNode(node.getId(), ((MaterializeSampleNode) source).getSource(), node.getCount(), Optional.of(((MaterializeSampleNode) source).getSampleWeightSymbol()));
+                return new MaterializeSampleNode(source.getId(), node, ((MaterializeSampleNode) source).getSampleWeightSymbol());
+            }
+            else {
+                return planRewriter.defaultRewrite(node, null);
+            }
+        }
+
+        @Override
+        public PlanNode rewriteMarkDistinct(MarkDistinctNode node, Void context, PlanRewriter<Void> planRewriter)
+        {
+            PlanNode source = planRewriter.rewrite(node.getSource(), null);
+            if (source instanceof MaterializeSampleNode) {
+                node = new MarkDistinctNode(node.getId(), ((MaterializeSampleNode) source).getSource(), node.getMarkerSymbol(), node.getDistinctSymbols(), Optional.of(((MaterializeSampleNode) source).getSampleWeightSymbol()));
+                return new MaterializeSampleNode(source.getId(), node, ((MaterializeSampleNode) source).getSampleWeightSymbol());
+            }
+            else {
+                return planRewriter.defaultRewrite(node, null);
+            }
+        }
+
+        @Override
+        public PlanNode rewriteSemiJoin(SemiJoinNode node, Void context, PlanRewriter<Void> planRewriter)
+        {
+            PlanNode filteringSource = planRewriter.rewrite(node.getFilteringSource(), null);
+            PlanNode source = planRewriter.rewrite(node.getSource(), null);
+
+            if (filteringSource instanceof MaterializeSampleNode) {
+                // Materializing the filtering table does nothing, since it will be treated as a set
+                filteringSource = ((MaterializeSampleNode) filteringSource).getSource();
+            }
+
+            if (source instanceof MaterializeSampleNode) {
+                node = new SemiJoinNode(node.getId(), ((MaterializeSampleNode) source).getSource(), filteringSource, node.getSourceJoinSymbol(), node.getFilteringSourceJoinSymbol(), node.getSemiJoinOutput());
+                return new MaterializeSampleNode(source.getId(), node, ((MaterializeSampleNode) source).getSampleWeightSymbol());
+            }
+            else {
+                return new SemiJoinNode(node.getId(), source, filteringSource, node.getSourceJoinSymbol(), node.getFilteringSourceJoinSymbol(), node.getSemiJoinOutput());
+            }
         }
 
         @Override
