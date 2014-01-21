@@ -36,7 +36,7 @@ public class MarkDistinctHash
 
     public MarkDistinctHash(List<TupleInfo.Type> types, int[] channels, HashMemoryManager memoryManager, int expectedDistinctValues)
     {
-        this.groupByHash = new GroupByHash(types, channels, expectedDistinctValues, memoryManager);
+        this.groupByHash = new GroupByHash(types, channels, expectedDistinctValues);
     }
 
     public long getEstimatedSize()
