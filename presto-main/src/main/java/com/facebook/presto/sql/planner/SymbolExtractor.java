@@ -18,6 +18,7 @@ import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
+import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.MaterializedViewWriterNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -40,8 +41,10 @@ import java.util.Set;
 /**
  * Computes all symbols declared by a logical plan
  */
-public class SymbolExtractor
+public final class SymbolExtractor
 {
+    private SymbolExtractor() {}
+
     public static Set<Symbol> extract(PlanNode node)
     {
         ImmutableSet.Builder<Symbol> builder = ImmutableSet.builder();
@@ -76,6 +79,16 @@ public class SymbolExtractor
             node.getSource().accept(this, context);
 
             builder.addAll(node.getAggregations().keySet());
+
+            return null;
+        }
+
+        @Override
+        public Void visitMarkDistinct(MarkDistinctNode node, Void context)
+        {
+            node.getSource().accept(this, context);
+
+            builder.add(node.getMarkerSymbol());
 
             return null;
         }

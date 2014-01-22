@@ -20,29 +20,19 @@ import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.tuple.TupleReadable;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 
-import java.util.List;
-
-public class ProjectionFunctions
+public final class ProjectionFunctions
 {
-    public static ProjectionFunction singleColumn(Type columnType, int channelIndex, int fieldIndex)
+    private ProjectionFunctions() {}
+
+    public static ProjectionFunction singleColumn(Type columnType, int channelIndex)
     {
-        return new SingleColumnProjection(columnType, channelIndex, fieldIndex);
+        return new SingleColumnProjection(columnType, channelIndex);
     }
 
     public static ProjectionFunction singleColumn(Type columnType, Input input)
     {
-        return new SingleColumnProjection(columnType, input.getChannel(), input.getField());
-    }
-
-    public static List<TupleInfo> toTupleInfos(List<ProjectionFunction> projections)
-    {
-        ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
-        for (ProjectionFunction projection : projections) {
-            tupleInfos.add(projection.getTupleInfo());
-        }
-        return tupleInfos.build();
+        return new SingleColumnProjection(columnType, input.getChannel());
     }
 
     private static class SingleColumnProjection
@@ -50,18 +40,15 @@ public class ProjectionFunctions
     {
         private final Type columnType;
         private final int channelIndex;
-        private final int fieldIndex;
         private final TupleInfo info;
 
-        public SingleColumnProjection(Type columnType, int channelIndex, int fieldIndex)
+        public SingleColumnProjection(Type columnType, int channelIndex)
         {
             Preconditions.checkNotNull(columnType, "columnType is null");
             Preconditions.checkArgument(channelIndex >= 0, "channelIndex is negative");
-            Preconditions.checkArgument(fieldIndex >= 0, "fieldIndex is negative");
 
             this.columnType = columnType;
             this.channelIndex = channelIndex;
-            this.fieldIndex = fieldIndex;
             this.info = new TupleInfo(columnType);
         }
 
@@ -74,22 +61,22 @@ public class ProjectionFunctions
         @Override
         public void project(TupleReadable[] cursors, BlockBuilder output)
         {
-            if (cursors[channelIndex].isNull(fieldIndex)) {
+            if (cursors[channelIndex].isNull()) {
                 output.appendNull();
             }
             else {
                 switch (columnType) {
                     case BOOLEAN:
-                        output.append(cursors[channelIndex].getBoolean(fieldIndex));
+                        output.append(cursors[channelIndex].getBoolean());
                         return;
                     case FIXED_INT_64:
-                        output.append(cursors[channelIndex].getLong(fieldIndex));
+                        output.append(cursors[channelIndex].getLong());
                         return;
                     case VARIABLE_BINARY:
-                        output.append(cursors[channelIndex].getSlice(fieldIndex));
+                        output.append(cursors[channelIndex].getSlice());
                         return;
                     case DOUBLE:
-                        output.append(cursors[channelIndex].getDouble(fieldIndex));
+                        output.append(cursors[channelIndex].getDouble());
                         return;
                 }
                 throw new IllegalStateException("Unsupported type info " + info);
@@ -100,7 +87,6 @@ public class ProjectionFunctions
         public void project(RecordCursor cursor, BlockBuilder output)
         {
             // record cursors have each value in a separate field
-            Preconditions.checkArgument(fieldIndex == 0, "field must be 0 for a record cursor projection");
             if (cursor.isNull(channelIndex)) {
                 output.appendNull();
             }
@@ -119,56 +105,6 @@ public class ProjectionFunctions
                         output.append(cursor.getDouble(channelIndex));
                         break;
                 }
-            }
-        }
-    }
-
-    public static ProjectionFunction concat(ProjectionFunction... projectionFunctions)
-    {
-        return concat(ImmutableList.copyOf(projectionFunctions));
-    }
-
-    public static ProjectionFunction concat(Iterable<ProjectionFunction> projections)
-    {
-        return new ConcatProjection(projections);
-    }
-
-    private static class ConcatProjection
-            implements ProjectionFunction
-    {
-        private final List<ProjectionFunction> projections;
-        private final TupleInfo tupleInfo;
-
-        private ConcatProjection(Iterable<ProjectionFunction> projections)
-        {
-            this.projections = ImmutableList.copyOf(projections);
-
-            ImmutableList.Builder<Type> builder = ImmutableList.builder();
-            for (ProjectionFunction projection : projections) {
-                builder.addAll(projection.getTupleInfo().getTypes());
-            }
-            this.tupleInfo = new TupleInfo(builder.build());
-        }
-
-        @Override
-        public TupleInfo getTupleInfo()
-        {
-            return tupleInfo;
-        }
-
-        @Override
-        public void project(TupleReadable[] cursors, BlockBuilder output)
-        {
-            for (ProjectionFunction projection : projections) {
-                projection.project(cursors, output);
-            }
-        }
-
-        @Override
-        public void project(RecordCursor cursor, BlockBuilder output)
-        {
-            for (ProjectionFunction projection : projections) {
-                projection.project(cursor, output);
             }
         }
     }

@@ -97,7 +97,8 @@ public final class FunctionAssertions
 
     private static final ExecutorService EXECUTOR = Executors.newCachedThreadPool(Threads.daemonThreadsNamed("test-%s"));
 
-    private static final ExpressionCompiler COMPILER = new ExpressionCompiler(new MetadataManager());
+    private static final MetadataManager METADATA_MANAGER = new MetadataManager();
+    private static final ExpressionCompiler COMPILER = new ExpressionCompiler(METADATA_MANAGER);
 
     private static final Page SOURCE_PAGE = new Page(
             createLongsBlock(1234L),
@@ -109,29 +110,34 @@ public final class FunctionAssertions
             createStringsBlock((String) null));
 
     private static final Map<Input, Type> INPUT_TYPES = ImmutableMap.<Input, Type>builder()
-            .put(new Input(0, 0), Type.BIGINT)
-            .put(new Input(1, 0), Type.VARCHAR)
-            .put(new Input(2, 0), Type.DOUBLE)
-            .put(new Input(3, 0), Type.BOOLEAN)
-            .put(new Input(4, 0), Type.BIGINT)
-            .put(new Input(5, 0), Type.VARCHAR)
-            .put(new Input(6, 0), Type.VARCHAR)
+            .put(new Input(0), Type.BIGINT)
+            .put(new Input(1), Type.VARCHAR)
+            .put(new Input(2), Type.DOUBLE)
+            .put(new Input(3), Type.BOOLEAN)
+            .put(new Input(4), Type.BIGINT)
+            .put(new Input(5), Type.VARCHAR)
+            .put(new Input(6), Type.VARCHAR)
             .build();
 
     private static final Map<Symbol, Input> INPUT_MAPPING = ImmutableMap.<Symbol, Input>builder()
-            .put(new Symbol("bound_long"), new Input(0, 0))
-            .put(new Symbol("bound_string"), new Input(1, 0))
-            .put(new Symbol("bound_double"), new Input(2, 0))
-            .put(new Symbol("bound_boolean"), new Input(3, 0))
-            .put(new Symbol("bound_timestamp"), new Input(4, 0))
-            .put(new Symbol("bound_pattern"), new Input(5, 0))
-            .put(new Symbol("bound_null_string"), new Input(6, 0))
+            .put(new Symbol("bound_long"), new Input(0))
+            .put(new Symbol("bound_string"), new Input(1))
+            .put(new Symbol("bound_double"), new Input(2))
+            .put(new Symbol("bound_boolean"), new Input(3))
+            .put(new Symbol("bound_timestamp"), new Input(4))
+            .put(new Symbol("bound_pattern"), new Input(5))
+            .put(new Symbol("bound_null_string"), new Input(6))
             .build();
 
     private static final DataStreamProvider DATA_STREAM_PROVIDER = new TestDataStreamProvider();
     private static final PlanNodeId SOURCE_ID = new PlanNodeId("scan");
 
     private FunctionAssertions() {}
+
+    public static MetadataManager getMetadataManager()
+    {
+        return METADATA_MANAGER;
+    }
 
     public static void assertFunction(String projection, Object expected)
     {
@@ -175,7 +181,7 @@ public final class FunctionAssertions
 
         // execute as standalone operator
         OperatorFactory operatorFactory = compileFilterProject(TRUE_LITERAL, projectionExpression);
-        Type expressionType = Type.fromRaw(operatorFactory.getTupleInfos().get(0).getTypes().get(0));
+        Type expressionType = Type.fromRaw(operatorFactory.getTupleInfos().get(0).getType());
         Object directOperatorValue = selectSingleValue(operatorFactory, session);
         results.add(directOperatorValue);
 
@@ -198,7 +204,7 @@ public final class FunctionAssertions
             try {
                 LocalQueryRunner runner = createDualLocalQueryRunner(session, EXECUTOR);
                 MaterializedResult result = runner.execute("SELECT " + projection + " FROM dual");
-                assertEquals(result.getTupleInfo().getFieldCount(), 1);
+                assertEquals(result.getTupleInfos().size(), 1);
                 assertEquals(result.getMaterializedTuples().size(), 1);
                 Object queryResult = Iterables.getOnlyElement(result.getMaterializedTuples()).getField(0);
                 results.add(queryResult);
@@ -235,15 +241,14 @@ public final class FunctionAssertions
 
         Block block = output.getBlock(0);
         assertEquals(block.getPositionCount(), 1);
-        assertEquals(block.getTupleInfo().getFieldCount(), 1);
 
         BlockCursor cursor = block.cursor();
         assertTrue(cursor.advanceNextPosition());
-        if (cursor.isNull(0)) {
+        if (cursor.isNull()) {
             return null;
         }
         else {
-            return cursor.getTuple().toValues().get(0);
+            return cursor.getTuple().getObjectValue();
         }
     }
 
@@ -268,7 +273,7 @@ public final class FunctionAssertions
 
         // execute as standalone operator
         OperatorFactory operatorFactory = compileFilterProject(filterExpression, TRUE_LITERAL);
-        Type expressionType = Type.fromRaw(operatorFactory.getTupleInfos().get(0).getTypes().get(0));
+        Type expressionType = Type.fromRaw(operatorFactory.getTupleInfos().get(0).getType());
         results.add(executeFilter(operatorFactory, session));
 
         // interpret
@@ -290,7 +295,7 @@ public final class FunctionAssertions
             try {
                 LocalQueryRunner runner = createDualLocalQueryRunner(session, EXECUTOR);
                 MaterializedResult result = runner.execute("SELECT TRUE FROM dual WHERE " + filter);
-                assertEquals(result.getTupleInfo().getFieldCount(), 1);
+                assertEquals(result.getTupleInfos().size(), 1);
 
                 Boolean queryResult;
                 if (result.getMaterializedTuples().isEmpty()) {
@@ -334,7 +339,7 @@ public final class FunctionAssertions
 
             BlockCursor cursor = page.getBlock(0).cursor();
             assertTrue(cursor.advanceNextPosition());
-            assertTrue(cursor.getBoolean(0));
+            assertTrue(cursor.getBoolean());
             value = true;
         }
         else {
@@ -363,7 +368,7 @@ public final class FunctionAssertions
         FilterFunction filterFunction = new InterpretedFilterFunction(
                 filter,
                 INPUT_MAPPING,
-                new MetadataManager(),
+                getMetadataManager(),
                 session
         );
 
@@ -371,7 +376,7 @@ public final class FunctionAssertions
                 expressionType,
                 projection,
                 INPUT_MAPPING,
-                new MetadataManager(),
+                getMetadataManager(),
                 session
         );
 

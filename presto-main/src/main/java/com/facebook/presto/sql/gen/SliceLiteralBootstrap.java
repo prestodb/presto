@@ -18,6 +18,7 @@ import com.google.common.base.Throwables;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
+import java.lang.invoke.CallSite;
 import java.lang.invoke.ConstantCallSite;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.MethodType;
@@ -25,7 +26,7 @@ import java.lang.reflect.Method;
 
 import static java.lang.invoke.MethodHandles.constant;
 
-public class SliceLiteralBootstrap
+public final class SliceLiteralBootstrap
 {
     public static final Method SLICE_LITERAL_BOOTSTRAP;
 
@@ -38,7 +39,9 @@ public class SliceLiteralBootstrap
         }
     }
 
-    public static java.lang.invoke.CallSite bootstrap(Lookup lookup, String name, MethodType type, String value)
+    private SliceLiteralBootstrap() {}
+
+    public static CallSite bootstrap(Lookup lookup, String name, MethodType type, String value)
     {
         return new ConstantCallSite(constant(Slice.class, Slices.copiedBuffer(value, Charsets.UTF_8)));
     }

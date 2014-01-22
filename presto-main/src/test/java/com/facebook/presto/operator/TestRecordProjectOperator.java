@@ -81,9 +81,10 @@ public class TestRecordProjectOperator
     public void testMultiColumn()
             throws Exception
     {
-        InMemoryRecordSet records = new InMemoryRecordSet(ImmutableList.of(STRING, LONG), ImmutableList.copyOf(new List<?>[] {ImmutableList.of("abc", 1L),
-                                                                                                                              ImmutableList.of("def", 2L),
-                                                                                                                              ImmutableList.of("g", 0L)}));
+        InMemoryRecordSet records = new InMemoryRecordSet(ImmutableList.of(STRING, LONG), ImmutableList.of(
+                ImmutableList.of("abc", 1L),
+                ImmutableList.of("def", 2L),
+                ImmutableList.of("g", 0L)));
 
         OperatorContext operatorContext = driverContext.addOperatorContext(0, RecordProjectOperator.class.getSimpleName());
         Operator operator = new RecordProjectOperator(operatorContext, records);

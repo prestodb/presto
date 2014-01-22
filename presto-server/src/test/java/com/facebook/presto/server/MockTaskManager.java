@@ -207,7 +207,7 @@ public class MockTaskManager
 
             this.location = checkNotNull(location, "location is null");
 
-            this.sharedBuffer = new SharedBuffer(checkNotNull(maxBufferSize, "maxBufferSize is null"), outputBuffers);
+            this.sharedBuffer = new SharedBuffer(taskId, executor, checkNotNull(maxBufferSize, "maxBufferSize is null"), outputBuffers);
 
             List<String> data = ImmutableList.of("apple", "banana", "cherry", "date");
 

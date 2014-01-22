@@ -26,7 +26,6 @@ import com.facebook.presto.connector.system.SystemDataStreamProvider;
 import com.facebook.presto.connector.system.SystemSplitManager;
 import com.facebook.presto.connector.system.SystemTablesManager;
 import com.facebook.presto.connector.system.SystemTablesMetadata;
-import com.facebook.presto.execution.DataSource;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.importer.MockPeriodicImportManager;
 import com.facebook.presto.metadata.InMemoryNodeManager;
@@ -47,6 +46,7 @@ import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.PartitionResult;
 import com.facebook.presto.spi.Split;
+import com.facebook.presto.spi.SplitSource;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.split.DataStreamManager;
@@ -78,6 +78,7 @@ import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tpch.TpchSplitManager;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Optional;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.node.NodeConfig;
@@ -89,6 +90,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.metadata.MockLocalStorageManager.createMockLocalStorageManager;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
@@ -136,15 +138,21 @@ public class LocalQueryRunner
         return this;
     }
 
+    public Metadata getMetadata()
+    {
+        return metadata;
+    }
+
     private static class MaterializedOutputFactory
             implements OutputFactory
     {
-        private MaterializingOperator materializingOperator;
+        private final AtomicReference<MaterializingOperator> materializingOperator = new AtomicReference<>();
 
         private MaterializingOperator getMaterializingOperator()
         {
-            checkState(materializingOperator != null, "Output not created");
-            return materializingOperator;
+            MaterializingOperator operator = materializingOperator.get();
+            checkState(operator != null, "Output not created");
+            return operator;
         }
 
         @Override
@@ -163,10 +171,13 @@ public class LocalQueryRunner
                 @Override
                 public Operator createOperator(DriverContext driverContext)
                 {
-                    checkState(materializingOperator == null, "Output already created");
                     OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, MaterializingOperator.class.getSimpleName());
-                    materializingOperator = new MaterializingOperator(operatorContext, sourceTupleInfo);
-                    return materializingOperator;
+                    MaterializingOperator operator = new MaterializingOperator(operatorContext, sourceTupleInfo);
+
+                    if (!materializingOperator.compareAndSet(null, operator)) {
+                        throw new IllegalArgumentException("Output already created");
+                    }
+                    return operator;
                 }
 
                 @Override
@@ -249,11 +260,19 @@ public class LocalQueryRunner
         for (PlanNode sourceNode : subplan.getFragment().getSources()) {
             TableScanNode tableScan = (TableScanNode) sourceNode;
 
-            DataSource dataSource = splitManager.getPartitionSplits(tableScan.getTable(), getPartitions(tableScan));
+            SplitSource splitSource = splitManager.getPartitionSplits(tableScan.getTable(), getPartitions(tableScan));
 
             ImmutableSet.Builder<ScheduledSplit> scheduledSplits = ImmutableSet.builder();
-            for (Split split : dataSource.getSplits()) {
-                scheduledSplits.add(new ScheduledSplit(sequenceId++, split));
+            while (!splitSource.isFinished()) {
+                try {
+                    for (Split split : splitSource.getNextBatch(1000)) {
+                        scheduledSplits.add(new ScheduledSplit(sequenceId++, split));
+                    }
+                }
+                catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw Throwables.propagate(e);
+                }
             }
 
             sources.add(new TaskSource(tableScan.getId(), scheduledSplits.build(), true));

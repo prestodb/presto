@@ -15,6 +15,7 @@ package com.facebook.presto.block.uncompressed;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.serde.UncompressedBlockEncoding;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
@@ -23,6 +24,9 @@ import com.google.common.base.Preconditions;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class UncompressedBlock
         implements Block
@@ -33,13 +37,21 @@ public class UncompressedBlock
 
     public UncompressedBlock(int positionCount, TupleInfo tupleInfo, Slice slice)
     {
-        Preconditions.checkArgument(positionCount >= 0, "positionCount is negative");
-        Preconditions.checkNotNull(tupleInfo, "tupleInfo is null");
-        Preconditions.checkNotNull(slice, "data is null");
+        checkArgument(positionCount >= 0, "positionCount is negative");
+        checkNotNull(tupleInfo, "tupleInfo is null");
+        checkNotNull(slice, "data is null");
 
         this.tupleInfo = tupleInfo;
         this.slice = slice;
         this.positionCount = positionCount;
+    }
+
+    public UncompressedBlock(UncompressedBlock block)
+    {
+        checkNotNull(block, "block is null");
+        this.positionCount = block.positionCount;
+        this.tupleInfo = block.tupleInfo;
+        this.slice = block.slice;
     }
 
     public TupleInfo getTupleInfo()
@@ -71,22 +83,20 @@ public class UncompressedBlock
     @Override
     public BlockCursor cursor()
     {
-        if (tupleInfo.getFieldCount() == 1) {
-            Type type = tupleInfo.getTypes().get(0);
-            if (type == Type.BOOLEAN) {
-                return new UncompressedBooleanBlockCursor(positionCount, slice);
-            }
-            if (type == Type.FIXED_INT_64) {
-                return new UncompressedLongBlockCursor(positionCount, slice);
-            }
-            if (type == Type.DOUBLE) {
-                return new UncompressedDoubleBlockCursor(positionCount, slice);
-            }
-            if (type == Type.VARIABLE_BINARY) {
-                return new UncompressedSliceBlockCursor(positionCount, slice);
-            }
+        Type type = tupleInfo.getType();
+        if (type == Type.BOOLEAN) {
+            return new UncompressedBooleanBlockCursor(positionCount, slice);
         }
-        return new UncompressedBlockCursor(tupleInfo, positionCount, slice);
+        else if (type == Type.FIXED_INT_64) {
+            return new UncompressedLongBlockCursor(positionCount, slice);
+        }
+        else if (type == Type.DOUBLE) {
+            return new UncompressedDoubleBlockCursor(positionCount, slice);
+        }
+        else if (type == Type.VARIABLE_BINARY) {
+            return new UncompressedSliceBlockCursor(positionCount, slice);
+        }
+        throw new IllegalStateException("Unsupported type " + type);
     }
 
     @Override
@@ -100,6 +110,25 @@ public class UncompressedBlock
     {
         Preconditions.checkPositionIndexes(positionOffset, positionOffset + length, positionCount);
         return cursor().getRegionAndAdvance(length);
+    }
+
+    @Override
+    public RandomAccessBlock toRandomAccessBlock()
+    {
+        Type type = tupleInfo.getType();
+        if (type == Type.BOOLEAN) {
+            return new UncompressedBooleanBlock(positionCount, slice);
+        }
+        if (type == Type.FIXED_INT_64) {
+            return new UncompressedLongBlock(slice);
+        }
+        if (type == Type.DOUBLE) {
+            return new UncompressedDoubleBlock(positionCount, slice);
+        }
+        if (type == Type.VARIABLE_BINARY) {
+            return new UncompressedSliceBlock(this);
+        }
+        throw new IllegalStateException("Unsupported type " + tupleInfo.getType());
     }
 
     @Override

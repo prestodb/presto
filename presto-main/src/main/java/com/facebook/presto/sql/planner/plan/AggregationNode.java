@@ -13,18 +13,21 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.metadata.FunctionHandle;
+import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.concat;
 
 @Immutable
@@ -34,7 +37,9 @@ public class AggregationNode
     private final PlanNode source;
     private final List<Symbol> groupByKeys;
     private final Map<Symbol, FunctionCall> aggregations;
-    private final Map<Symbol, FunctionHandle> functions;
+    // Map from function symbol, to the mask symbol
+    private final Map<Symbol, Symbol> masks;
+    private final Map<Symbol, Signature> functions;
     private final Step step;
 
     public enum Step
@@ -44,9 +49,9 @@ public class AggregationNode
         SINGLE
     }
 
-    public AggregationNode(PlanNodeId id, PlanNode source, List<Symbol> groupByKeys, Map<Symbol, FunctionCall> aggregations, Map<Symbol, FunctionHandle> functions)
+    public AggregationNode(PlanNodeId id, PlanNode source, List<Symbol> groupByKeys, Map<Symbol, FunctionCall> aggregations, Map<Symbol, Signature> functions, Map<Symbol, Symbol> masks)
     {
-        this(id, source, groupByKeys, aggregations, functions, Step.SINGLE);
+        this(id, source, groupByKeys, aggregations, functions, masks, Step.SINGLE);
     }
 
     @JsonCreator
@@ -54,15 +59,20 @@ public class AggregationNode
             @JsonProperty("source") PlanNode source,
             @JsonProperty("groupBy") List<Symbol> groupByKeys,
             @JsonProperty("aggregations") Map<Symbol, FunctionCall> aggregations,
-            @JsonProperty("functions") Map<Symbol, FunctionHandle> functions,
+            @JsonProperty("functions") Map<Symbol, Signature> functions,
+            @JsonProperty("masks") Map<Symbol, Symbol> masks,
             @JsonProperty("step") Step step)
     {
         super(id);
 
         this.source = source;
-        this.groupByKeys = groupByKeys;
-        this.aggregations = aggregations;
-        this.functions = functions;
+        this.groupByKeys = ImmutableList.copyOf(checkNotNull(groupByKeys, "groupByKeys is null"));
+        this.aggregations = ImmutableMap.copyOf(checkNotNull(aggregations, "aggregations is null"));
+        this.functions = ImmutableMap.copyOf(checkNotNull(functions, "functions is null"));
+        this.masks = ImmutableMap.copyOf(checkNotNull(masks, "masks is null"));
+        for (Symbol mask : masks.keySet()) {
+            checkArgument(aggregations.containsKey(mask), "mask does not match any aggregations");
+        }
         this.step = step;
     }
 
@@ -85,9 +95,15 @@ public class AggregationNode
     }
 
     @JsonProperty("functions")
-    public Map<Symbol, FunctionHandle> getFunctions()
+    public Map<Symbol, Signature> getFunctions()
     {
         return functions;
+    }
+
+    @JsonProperty("masks")
+    public Map<Symbol, Symbol> getMasks()
+    {
+        return masks;
     }
 
     @JsonProperty("groupBy")

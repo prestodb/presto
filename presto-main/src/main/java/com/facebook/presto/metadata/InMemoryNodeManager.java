@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.metadata;
 
-import com.google.common.base.Optional;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;

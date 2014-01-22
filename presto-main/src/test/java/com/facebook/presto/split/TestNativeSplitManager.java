@@ -30,12 +30,11 @@ import com.facebook.presto.spi.PartitionKey;
 import com.facebook.presto.spi.PartitionResult;
 import com.facebook.presto.spi.Range;
 import com.facebook.presto.spi.SortedRangeSet;
-import com.facebook.presto.spi.Split;
+import com.facebook.presto.spi.SplitSource;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TupleDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.io.Files;
 import io.airlift.testing.FileUtils;
 import org.skife.jdbi.v2.DBI;
@@ -123,6 +122,7 @@ public class TestNativeSplitManager
 
     @Test
     public void testSanity()
+            throws InterruptedException
     {
         PartitionResult partitionResult = nativeSplitManager.getPartitions(tableHandle, TupleDomain.all());
         assertEquals(partitionResult.getPartitions().size(), 2);
@@ -132,7 +132,11 @@ public class TestNativeSplitManager
         TupleDomain columnUnionedTupleDomain = partitions.get(0).getTupleDomain().columnWiseUnion(partitions.get(1).getTupleDomain());
         assertEquals(columnUnionedTupleDomain, TupleDomain.withColumnDomains(ImmutableMap.of(dsColumnHandle, Domain.create(SortedRangeSet.of(Range.equal("1"), Range.equal("2")), false))));
 
-        Iterable<Split> splits = nativeSplitManager.getPartitionSplits(tableHandle, partitions);
-        assertEquals(Iterables.size(splits), 4);
+        SplitSource splitSource = nativeSplitManager.getPartitionSplits(tableHandle, partitions);
+        int splitCount = 0;
+        while (!splitSource.isFinished()) {
+            splitCount += splitSource.getNextBatch(1000).size();
+        }
+        assertEquals(splitCount, 4);
     }
 }

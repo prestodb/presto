@@ -105,7 +105,7 @@ public class TestJdbcResultSet
     private Connection createConnection()
             throws SQLException
     {
-        String url = format("jdbc:presto://%s/", server.getAddress());
+        String url = format("jdbc:presto://%s", server.getAddress());
         return DriverManager.getConnection(url, "test", null);
     }
 }

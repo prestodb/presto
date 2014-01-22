@@ -10,7 +10,7 @@
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.56-SNAPSHOT</version>
+    <version>0.58-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -49,8 +49,10 @@
 
     <modules>
         <module>presto-spi</module>
+        <module>presto-cassandra</module>
         <module>presto-hive</module>
         <module>presto-hive-hadoop1</module>
+        <module>presto-hive-hadoop2</module>
         <module>presto-hive-cdh4</module>
         <module>presto-example-http</module>
         <module>presto-client</module>
@@ -151,13 +153,19 @@
             <dependency>
                 <groupId>com.facebook.presto.hadoop</groupId>
                 <artifactId>hadoop-apache1</artifactId>
+                <version>0.2</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto.hadoop</groupId>
+                <artifactId>hadoop-apache2</artifactId>
                 <version>0.1</version>
             </dependency>
 
             <dependency>
                 <groupId>com.facebook.presto.hadoop</groupId>
                 <artifactId>hadoop-cdh4</artifactId>
-                <version>0.5</version>
+                <version>0.6</version>
             </dependency>
 
             <dependency>
@@ -331,7 +339,7 @@
             <dependency>
                 <groupId>it.unimi.dsi</groupId>
                 <artifactId>fastutil</artifactId>
-                <version>6.5.0</version>
+                <version>6.5.9</version>
             </dependency>
 
             <dependency>
@@ -415,7 +423,7 @@
             <dependency>
                 <groupId>io.netty</groupId>
                 <artifactId>netty</artifactId>
-                <version>3.6.2.Final</version>
+                <version>3.7.0.Final</version>
             </dependency>
 
             <dependency>
@@ -558,6 +566,27 @@
                 </plugin>
             </plugins>
         </pluginManagement>
+
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-checkstyle-plugin</artifactId>
+                <version>2.11</version>
+                <executions>
+                    <execution>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                        <configuration>
+                            <consoleOutput>true</consoleOutput>
+                            <includeTestSourceDirectory>true</includeTestSourceDirectory>
+                            <configLocation>${air.main.basedir}/src/checkstyle/checks.xml</configLocation>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
     </build>
 
     <profiles>

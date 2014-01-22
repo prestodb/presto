@@ -61,7 +61,7 @@ public class TableScanNode
     // In this way, we are always guaranteed to have a readable predicate that provides some kind of upper bound on the constraints.
     private final Expression originalConstraint;
 
-    public TableScanNode(PlanNodeId id,  TableHandle table, List<Symbol> outputSymbols, Map<Symbol, ColumnHandle> assignments,  @Nullable Expression originalConstraint, Optional<GeneratedPartitions> generatedPartitions)
+    public TableScanNode(PlanNodeId id, TableHandle table, List<Symbol> outputSymbols, Map<Symbol, ColumnHandle> assignments, @Nullable Expression originalConstraint, Optional<GeneratedPartitions> generatedPartitions)
     {
         this(id, table, outputSymbols, assignments, originalConstraint, generatedPartitions, false);
     }
@@ -176,7 +176,7 @@ public class TableScanNode
         return visitor.visitTableScan(this, context);
     }
 
-    public final static class GeneratedPartitions
+    public static final class GeneratedPartitions
     {
         private final TupleDomain tupleDomainInput; // The TupleDomain used to generate the current list of Partitions
         private final List<Partition> partitions;

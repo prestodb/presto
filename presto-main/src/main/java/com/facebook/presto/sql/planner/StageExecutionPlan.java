@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.execution.DataSource;
+import com.facebook.presto.spi.SplitSource;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.tuple.TupleInfo;
@@ -35,13 +35,13 @@ import static com.google.common.base.Preconditions.checkState;
 public class StageExecutionPlan
 {
     private final PlanFragment fragment;
-    private final Optional<DataSource> dataSource;
+    private final Optional<SplitSource> dataSource;
     private final List<StageExecutionPlan> subStages;
     private final List<TupleInfo> tupleInfos;
     private final Optional<List<String>> fieldNames;
     private final Map<PlanNodeId, OutputReceiver> outputReceivers;
 
-    public StageExecutionPlan(PlanFragment fragment, Optional<DataSource> dataSource, List<StageExecutionPlan> subStages, Map<PlanNodeId, OutputReceiver> outputReceivers)
+    public StageExecutionPlan(PlanFragment fragment, Optional<SplitSource> dataSource, List<StageExecutionPlan> subStages, Map<PlanNodeId, OutputReceiver> outputReceivers)
     {
         this.fragment = checkNotNull(fragment, "fragment is null");
         this.dataSource = checkNotNull(dataSource, "dataSource is null");
@@ -81,7 +81,7 @@ public class StageExecutionPlan
         return fragment;
     }
 
-    public Optional<DataSource> getDataSource()
+    public Optional<SplitSource> getDataSource()
     {
         return dataSource;
     }

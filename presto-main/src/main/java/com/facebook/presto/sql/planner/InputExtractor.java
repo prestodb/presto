@@ -92,7 +92,7 @@ public class InputExtractor
         }
     }
 
-    private final static class TableEntry
+    private static final class TableEntry
     {
         private final String connectorId;
         private final String schema;
@@ -141,5 +141,4 @@ public class InputExtractor
                     Objects.equals(this.table, other.table);
         }
     }
-
 }

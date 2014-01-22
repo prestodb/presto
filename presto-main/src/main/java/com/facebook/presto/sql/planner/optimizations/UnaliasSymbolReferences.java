@@ -13,7 +13,8 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
-import com.facebook.presto.metadata.FunctionHandle;
+import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.operator.SortOrder;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
@@ -23,6 +24,7 @@ import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.MaterializedViewWriterNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -41,7 +43,6 @@ import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.facebook.presto.sql.tree.SortItem;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -115,17 +116,30 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = planRewriter.rewrite(node.getSource(), context);
 
-            ImmutableMap.Builder<Symbol, FunctionHandle> functionInfos = ImmutableMap.builder();
+            ImmutableMap.Builder<Symbol, Signature> functionInfos = ImmutableMap.builder();
             ImmutableMap.Builder<Symbol, FunctionCall> functionCalls = ImmutableMap.builder();
+            ImmutableMap.Builder<Symbol, Symbol> masks = ImmutableMap.builder();
             for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
                 Symbol symbol = entry.getKey();
                 Symbol canonical = canonicalize(symbol);
-                functionCalls.put(canonical, (FunctionCall) canonicalize(entry.getValue()));
+                FunctionCall canonicalCall = (FunctionCall) canonicalize(entry.getValue());
+                functionCalls.put(canonical, canonicalCall);
                 functionInfos.put(canonical, node.getFunctions().get(symbol));
             }
+            for (Map.Entry<Symbol, Symbol> entry : node.getMasks().entrySet()) {
+                masks.put(canonicalize(entry.getKey()), canonicalize(entry.getValue()));
+            }
 
-            ImmutableList<Symbol> groupByKeys = ImmutableList.copyOf(ImmutableSet.copyOf(canonicalize(node.getGroupBy())));
-            return new AggregationNode(node.getId(), source, groupByKeys, functionCalls.build(), functionInfos.build());
+            List<Symbol> groupByKeys = ImmutableList.copyOf(ImmutableSet.copyOf(canonicalize(node.getGroupBy())));
+            return new AggregationNode(node.getId(), source, groupByKeys, functionCalls.build(), functionInfos.build(), masks.build());
+        }
+
+        @Override
+        public PlanNode rewriteMarkDistinct(MarkDistinctNode node, Void context, PlanRewriter<Void> planRewriter)
+        {
+            PlanNode source = planRewriter.rewrite(node.getSource(), context);
+            List<Symbol> symbols = ImmutableList.copyOf(ImmutableSet.copyOf(canonicalize(node.getDistinctSymbols())));
+            return new MarkDistinctNode(node.getId(), source, canonicalize(node.getMarkerSymbol()), symbols);
         }
 
         @Override
@@ -133,17 +147,17 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = planRewriter.rewrite(node.getSource(), context);
 
-            ImmutableMap.Builder<Symbol, FunctionHandle> functionInfos = ImmutableMap.builder();
+            ImmutableMap.Builder<Symbol, Signature> functionInfos = ImmutableMap.builder();
             ImmutableMap.Builder<Symbol, FunctionCall> functionCalls = ImmutableMap.builder();
             for (Map.Entry<Symbol, FunctionCall> entry : node.getWindowFunctions().entrySet()) {
                 Symbol symbol = entry.getKey();
                 Symbol canonical = canonicalize(symbol);
                 functionCalls.put(canonical, (FunctionCall) canonicalize(entry.getValue()));
-                functionInfos.put(canonical, node.getFunctionHandles().get(symbol));
+                functionInfos.put(canonical, node.getSignatures().get(symbol));
             }
 
-            ImmutableMap.Builder<Symbol, SortItem.Ordering> orderings = ImmutableMap.builder();
-            for (Map.Entry<Symbol, SortItem.Ordering> entry : node.getOrderings().entrySet()) {
+            ImmutableMap.Builder<Symbol, SortOrder> orderings = ImmutableMap.builder();
+            for (Map.Entry<Symbol, SortOrder> entry : node.getOrderings().entrySet()) {
                 orderings.put(canonicalize(entry.getKey()), entry.getValue());
             }
 
@@ -214,7 +228,7 @@ public class UnaliasSymbolReferences
             PlanNode source = planRewriter.rewrite(node.getSource(), context);
 
             ImmutableList.Builder<Symbol> symbols = ImmutableList.builder();
-            ImmutableMap.Builder<Symbol, SortItem.Ordering> orderings = ImmutableMap.builder();
+            ImmutableMap.Builder<Symbol, SortOrder> orderings = ImmutableMap.builder();
             for (Symbol symbol : node.getOrderBy()) {
                 Symbol canonical = canonicalize(symbol);
                 symbols.add(canonical);
@@ -230,7 +244,7 @@ public class UnaliasSymbolReferences
             PlanNode source = planRewriter.rewrite(node.getSource(), context);
 
             ImmutableList.Builder<Symbol> symbols = ImmutableList.builder();
-            ImmutableMap.Builder<Symbol, SortItem.Ordering> orderings = ImmutableMap.builder();
+            ImmutableMap.Builder<Symbol, SortOrder> orderings = ImmutableMap.builder();
             for (Symbol symbol : node.getOrderBy()) {
                 Symbol canonical = canonicalize(symbol);
                 symbols.add(canonical);

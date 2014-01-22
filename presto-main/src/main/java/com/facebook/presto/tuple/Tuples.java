@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.tuple;
 
-import com.facebook.presto.tuple.TupleInfo.Builder;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
@@ -23,20 +22,18 @@ import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 import static com.google.common.base.Charsets.UTF_8;
 
-public class Tuples
+public final class Tuples
 {
     public static final Tuple NULL_BOOLEAN_TUPLE = nullTuple(SINGLE_BOOLEAN);
     public static final Tuple NULL_STRING_TUPLE = nullTuple(SINGLE_VARBINARY);
     public static final Tuple NULL_LONG_TUPLE = nullTuple(SINGLE_LONG);
     public static final Tuple NULL_DOUBLE_TUPLE = nullTuple(SINGLE_DOUBLE);
 
+    private Tuples() {}
+
     public static Tuple nullTuple(TupleInfo tupleInfo)
     {
-        Builder builder = tupleInfo.builder();
-        for (int i = 0; i < tupleInfo.getFieldCount(); i++) {
-            builder.appendNull();
-        }
-        return builder.build();
+        return tupleInfo.builder().appendNull().build();
     }
 
     public static Tuple createTuple(boolean value)

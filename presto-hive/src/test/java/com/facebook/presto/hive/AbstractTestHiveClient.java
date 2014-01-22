@@ -32,6 +32,7 @@ import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.Split;
+import com.facebook.presto.spi.SplitSource;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.TupleDomain;
@@ -43,17 +44,17 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.net.HostAndPort;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ThreadFactory;
 
 import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
 import static com.facebook.presto.hive.HiveUtil.partitionIdGetter;
@@ -61,6 +62,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static com.google.common.util.concurrent.MoreExecutors.sameThreadExecutor;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -173,8 +175,6 @@ public abstract class AbstractTestHiveClient
             hiveClientConfig.setMetastoreSocksProxy(HostAndPort.fromString(proxy));
         }
 
-        FileSystemWrapper fileSystemWrapper = new FileSystemWrapperProvider(new FileSystemCache(hiveClientConfig)).get();
-
         HiveCluster hiveCluster = new TestingHiveCluster(hiveClientConfig, host, port);
         ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("hive-%s"));
 
@@ -183,7 +183,7 @@ public abstract class AbstractTestHiveClient
         HiveClient client = new HiveClient(
                 new HiveConnectorId(connectorName),
                 metastoreClient,
-                new HdfsEnvironment(new HdfsConfiguration(hiveClientConfig), fileSystemWrapper),
+                new HdfsEnvironment(new HdfsConfiguration(hiveClientConfig)),
                 sameThreadExecutor(),
                 hiveClientConfig.getMaxSplitSize(),
                 maxOutstandingSplits,
@@ -375,10 +375,9 @@ public abstract class AbstractTestHiveClient
     {
         TableHandle tableHandle = getTableHandle(table);
         PartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.all());
-        Iterable<Split> iterator = splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions());
+        SplitSource splitSource = splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions());
 
-        List<Split> splits = ImmutableList.copyOf(iterator);
-        assertEquals(splits.size(), partitions.size());
+        assertEquals(getSplitCount(splitSource), partitions.size());
     }
 
     @Test
@@ -387,10 +386,9 @@ public abstract class AbstractTestHiveClient
     {
         TableHandle tableHandle = getTableHandle(tableUnpartitioned);
         PartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.all());
-        Iterable<Split> iterator = splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions());
+        SplitSource splitSource = splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions());
 
-        List<Split> splits = ImmutableList.copyOf(iterator);
-        assertEquals(splits.size(), 1);
+        assertEquals(getSplitCount(splitSource), 1);
     }
 
     @Test(expectedExceptions = TableNotFoundException.class)
@@ -404,9 +402,9 @@ public abstract class AbstractTestHiveClient
     public void testGetPartitionSplitsEmpty()
             throws Exception
     {
-        Iterable<Split> iterator = splitManager.getPartitionSplits(invalidTableHandle, ImmutableList.<Partition>of());
+        SplitSource splitSource = splitManager.getPartitionSplits(invalidTableHandle, ImmutableList.<Partition>of());
         // fetch full list
-        ImmutableList.copyOf(iterator);
+        getSplitCount(splitSource);
     }
 
     @Test
@@ -438,7 +436,7 @@ public abstract class AbstractTestHiveClient
         for (Partition partition : partitionResult.getPartitions()) {
             if (Domain.singleValue("2012-12-30").equals(partition.getTupleDomain().getDomains().get(dsColumn))) {
                 try {
-                    Iterables.size(splitManager.getPartitionSplits(tableHandle, ImmutableList.of(partition)));
+                    getSplitCount(splitManager.getPartitionSplits(tableHandle, ImmutableList.of(partition)));
                     fail("Expected PartitionOfflineException");
                 }
                 catch (PartitionOfflineException e) {
@@ -447,7 +445,7 @@ public abstract class AbstractTestHiveClient
                 }
             }
             else {
-                Iterables.size(splitManager.getPartitionSplits(tableHandle, ImmutableList.of(partition)));
+                getSplitCount(splitManager.getPartitionSplits(tableHandle, ImmutableList.of(partition)));
             }
         }
     }
@@ -459,6 +457,8 @@ public abstract class AbstractTestHiveClient
         TableHandle tableHandle = getTableHandle(tableBucketedStringInt);
         List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
+
+        assertTableIsBucketed(tableHandle);
 
         String testString = "sequencefile test";
         Long testInt = 413L;
@@ -472,7 +472,7 @@ public abstract class AbstractTestHiveClient
                 .build();
 
         PartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.withFixedValues(bindings));
-        List<Split> splits = ImmutableList.copyOf(splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions()));
+        List<Split> splits = getAllSplits(splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions()));
         assertEquals(splits.size(), 1);
 
         boolean rowFound = false;
@@ -496,6 +496,8 @@ public abstract class AbstractTestHiveClient
         List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
+        assertTableIsBucketed(tableHandle);
+
         String testString = "textfile test";
         // This needs to match one of the rows where t_string is not empty or null, and where t_bigint is not null
         // (i.e. (testBigint - 604) % 19 > 1 and (testBigint - 604) % 13 != 0)
@@ -509,7 +511,7 @@ public abstract class AbstractTestHiveClient
                 .build();
 
         PartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.withFixedValues(bindings));
-        List<Split> splits = ImmutableList.copyOf(splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions()));
+        List<Split> splits = getAllSplits(splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions()));
         assertEquals(splits.size(), 1);
 
         boolean rowFound = false;
@@ -534,13 +536,16 @@ public abstract class AbstractTestHiveClient
         List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
+        assertTableIsBucketed(tableHandle);
+
         ImmutableMap<ColumnHandle, Comparable<?>> bindings = ImmutableMap.<ColumnHandle, Comparable<?>>builder()
                 .put(columnHandles.get(columnIndex.get("t_float")), 406.1000061035156)
                 .put(columnHandles.get(columnIndex.get("t_double")), 407.2)
                 .build();
 
+        // floats and doubles are not supported, so we should see all splits
         PartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.withFixedValues(bindings));
-        List<Split> splits = ImmutableList.copyOf(splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions()));
+        List<Split> splits = getAllSplits(splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions()));
         assertEquals(splits.size(), 32);
 
         int count = 0;
@@ -554,6 +559,21 @@ public abstract class AbstractTestHiveClient
         assertEquals(count, 300);
     }
 
+    private void assertTableIsBucketed(TableHandle tableHandle)
+            throws Exception
+    {
+        // the bucketed test tables should have exactly 32 splits
+        PartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.all());
+        List<Split> splits = getAllSplits(splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions()));
+        assertEquals(splits.size(), 32);
+
+        // verify all paths are unique
+        Set<String> paths = new HashSet<>();
+        for (Split split : splits) {
+            assertTrue(paths.add(((HiveSplit) split).getPath()));
+        }
+    }
+
     @Test
     public void testGetRecords()
             throws Exception
@@ -564,7 +584,7 @@ public abstract class AbstractTestHiveClient
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
         PartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.all());
-        List<Split> splits = ImmutableList.copyOf(splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions()));
+        List<Split> splits = getAllSplits(splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions()));
         assertEquals(splits.size(), this.partitions.size());
         for (Split split : splits) {
             HiveSplit hiveSplit = (HiveSplit) split;
@@ -687,7 +707,7 @@ public abstract class AbstractTestHiveClient
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
         PartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.all());
-        List<Split> splits = ImmutableList.copyOf(splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions()));
+        List<Split> splits = getAllSplits(splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions()));
         assertEquals(splits.size(), this.partitions.size());
         for (Split split : splits) {
             HiveSplit hiveSplit = (HiveSplit) split;
@@ -724,7 +744,7 @@ public abstract class AbstractTestHiveClient
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
         PartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.all());
-        List<Split> splits = ImmutableList.copyOf(splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions()));
+        List<Split> splits = getAllSplits(splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions()));
         assertEquals(splits.size(), 1);
 
         for (Split split : splits) {
@@ -763,7 +783,7 @@ public abstract class AbstractTestHiveClient
     {
         TableHandle table = getTableHandle(tableUnpartitioned);
         PartitionResult partitionResult = splitManager.getPartitions(table, TupleDomain.all());
-        Split split = Iterables.getFirst(splitManager.getPartitionSplits(table, partitionResult.getPartitions()), null);
+        Split split = Iterables.getFirst(getAllSplits(splitManager.getPartitionSplits(table, partitionResult.getPartitions())), null);
         RecordSet recordSet = recordSetProvider.getRecordSet(split, ImmutableList.of(invalidColumnHandle));
         recordSet.cursor();
     }
@@ -789,11 +809,12 @@ public abstract class AbstractTestHiveClient
             doCreateTable();
         }
         finally {
-            metastoreClient.dropTable(temporaryCreateTable.getSchemaName(), temporaryCreateTable.getTableName());
+            dropTable(temporaryCreateTable);
         }
     }
 
     private void doCreateTable()
+            throws InterruptedException
     {
         // begin creating the table
         List<ColumnMetadata> columns = ImmutableList.<ColumnMetadata>builder()
@@ -858,7 +879,9 @@ public abstract class AbstractTestHiveClient
         // verify the data
         PartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.all());
         assertEquals(partitionResult.getPartitions().size(), 1);
-        Split split = getOnlyElement(splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions()));
+        SplitSource splitSource = splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions());
+        Split split = getOnlyElement(splitSource.getNextBatch(1000));
+        assertTrue(splitSource.isFinished());
 
         try (RecordCursor cursor = recordSetProvider.getRecordSet(split, columnHandles).cursor()) {
             assertRecordCursorType(cursor, "rcfile-binary");
@@ -888,11 +911,43 @@ public abstract class AbstractTestHiveClient
         }
     }
 
+    private void dropTable(SchemaTableName table)
+    {
+        try {
+            metastoreClient.dropTable(table.getSchemaName(), table.getTableName());
+        }
+        catch (RuntimeException e) {
+            Logger.get(getClass()).warn(e, "Failed to drop table: %s", table);
+        }
+    }
+
     private TableHandle getTableHandle(SchemaTableName tableName)
     {
         TableHandle handle = metadata.getTableHandle(tableName);
         checkArgument(handle != null, "table not found: %s", tableName);
         return handle;
+    }
+
+    private static int getSplitCount(SplitSource splitSource)
+            throws InterruptedException
+    {
+        int splitCount = 0;
+        while (!splitSource.isFinished()) {
+            List<Split> batch = splitSource.getNextBatch(1000);
+            splitCount += batch.size();
+        }
+        return splitCount;
+    }
+
+    private static List<Split> getAllSplits(SplitSource splitSource)
+            throws InterruptedException
+    {
+        ImmutableList.Builder<Split> splits = ImmutableList.builder();
+        while (!splitSource.isFinished()) {
+            List<Split> batch = splitSource.getNextBatch(1000);
+            splits.addAll(batch);
+        }
+        return splits.build();
     }
 
     private static long getBaseValueForFileType(String fileType)
@@ -986,10 +1041,5 @@ public abstract class AbstractTestHiveClient
                 return input.getName();
             }
         };
-    }
-
-    private static ThreadFactory daemonThreadsNamed(String nameFormat)
-    {
-        return new ThreadFactoryBuilder().setNameFormat(nameFormat).setDaemon(true).build();
     }
 }

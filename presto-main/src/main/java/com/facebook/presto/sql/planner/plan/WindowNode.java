@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.metadata.FunctionHandle;
+import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.operator.SortOrder;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.SortItem;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -38,9 +38,9 @@ public class WindowNode
     private final PlanNode source;
     private final List<Symbol> partitionBy;
     private final List<Symbol> orderBy;
-    private final Map<Symbol, SortItem.Ordering> orderings;
+    private final Map<Symbol, SortOrder> orderings;
     private final Map<Symbol, FunctionCall> windowFunctions;
-    private final Map<Symbol, FunctionHandle> functionHandles;
+    private final Map<Symbol, Signature> functionHandles;
 
     @JsonCreator
     public WindowNode(
@@ -48,9 +48,9 @@ public class WindowNode
             @JsonProperty("source") PlanNode source,
             @JsonProperty("partitionBy") List<Symbol> partitionBy,
             @JsonProperty("orderBy") List<Symbol> orderBy,
-            @JsonProperty("orderings") Map<Symbol, SortItem.Ordering> orderings,
+            @JsonProperty("orderings") Map<Symbol, SortOrder> orderings,
             @JsonProperty("windowFunctions") Map<Symbol, FunctionCall> windowFunctions,
-            @JsonProperty("functionHandles") Map<Symbol, FunctionHandle> functionHandles)
+            @JsonProperty("signatures") Map<Symbol, Signature> signatures)
     {
         super(id);
 
@@ -59,15 +59,15 @@ public class WindowNode
         checkNotNull(orderBy, "orderBy is null");
         checkArgument(orderings.size() == orderBy.size(), "orderBy and orderings sizes don't match");
         checkNotNull(windowFunctions, "windowFunctions is null");
-        checkNotNull(functionHandles, "functionHandles is null");
-        checkArgument(windowFunctions.keySet().equals(functionHandles.keySet()), "windowFunctions does not match functionHandles");
+        checkNotNull(signatures, "signatures is null");
+        checkArgument(windowFunctions.keySet().equals(signatures.keySet()), "windowFunctions does not match signatures");
 
         this.source = source;
         this.partitionBy = ImmutableList.copyOf(partitionBy);
         this.orderBy = ImmutableList.copyOf(orderBy);
         this.orderings = ImmutableMap.copyOf(orderings);
         this.windowFunctions = ImmutableMap.copyOf(windowFunctions);
-        this.functionHandles = ImmutableMap.copyOf(functionHandles);
+        this.functionHandles = ImmutableMap.copyOf(signatures);
     }
 
     @Override
@@ -101,7 +101,7 @@ public class WindowNode
     }
 
     @JsonProperty
-    public Map<Symbol, SortItem.Ordering> getOrderings()
+    public Map<Symbol, SortOrder> getOrderings()
     {
         return orderings;
     }
@@ -113,7 +113,7 @@ public class WindowNode
     }
 
     @JsonProperty
-    public Map<Symbol, FunctionHandle> getFunctionHandles()
+    public Map<Symbol, Signature> getSignatures()
     {
         return functionHandles;
     }
