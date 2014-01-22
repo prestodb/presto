@@ -16,102 +16,136 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.tuple.TupleInfo;
-import io.airlift.slice.Slice;
+import com.facebook.presto.operator.GroupByIdBlock;
+import com.facebook.presto.util.array.BooleanBigArray;
+import com.facebook.presto.util.array.DoubleBigArray;
+import com.google.common.base.Optional;
 
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
+import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
+import static com.google.common.base.Preconditions.checkState;
 
 public class DoubleSumAggregation
-        implements FixedWidthAggregationFunction
+        extends SimpleAggregationFunction
 {
     public static final DoubleSumAggregation DOUBLE_SUM = new DoubleSumAggregation();
 
-    @Override
-    public int getFixedSize()
+    public DoubleSumAggregation()
     {
-        return SINGLE_DOUBLE.getFixedSize();
+        super(SINGLE_DOUBLE, SINGLE_DOUBLE, DOUBLE);
     }
 
     @Override
-    public TupleInfo getFinalTupleInfo()
+    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, int valueChannel)
     {
-        return SINGLE_DOUBLE;
+        return new DoubleSumGroupedAccumulator(valueChannel, maskChannel);
     }
 
-    @Override
-    public TupleInfo getIntermediateTupleInfo()
+    public static class DoubleSumGroupedAccumulator
+            extends SimpleGroupedAccumulator
     {
-        return SINGLE_DOUBLE;
-    }
+        private final BooleanBigArray notNull;
+        private final DoubleBigArray sums;
 
-    @Override
-    public void initialize(Slice valueSlice, int valueOffset)
-    {
-        // mark value null
-        SINGLE_LONG.setNull(valueSlice, valueOffset, 0);
-    }
-
-    @Override
-    public void addInput(BlockCursor cursor, int field, Slice valueSlice, int valueOffset)
-    {
-        if (cursor.isNull(field)) {
-            return;
+        public DoubleSumGroupedAccumulator(int valueChannel, Optional<Integer> maskChannel)
+        {
+            super(valueChannel, SINGLE_DOUBLE, SINGLE_DOUBLE, maskChannel);
+            this.notNull = new BooleanBigArray();
+            this.sums = new DoubleBigArray();
         }
 
-        // mark value not null
-        SINGLE_LONG.setNotNull(valueSlice, valueOffset, 0);
+        @Override
+        public long getEstimatedSize()
+        {
+            return notNull.sizeOf() + sums.sizeOf();
+        }
 
-        // update current value
-        double currentValue = SINGLE_DOUBLE.getDouble(valueSlice, valueOffset, 0);
-        double newValue = cursor.getDouble(field);
-        SINGLE_DOUBLE.setDouble(valueSlice, valueOffset, 0, currentValue + newValue);
+        @Override
+        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock)
+        {
+            notNull.ensureCapacity(groupIdsBlock.getGroupCount());
+            sums.ensureCapacity(groupIdsBlock.getGroupCount());
+
+            BlockCursor values = valuesBlock.cursor();
+            BlockCursor masks = null;
+            if (maskBlock.isPresent()) {
+                masks = maskBlock.get().cursor();
+            }
+
+            for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
+                checkState(values.advanceNextPosition());
+                checkState(masks == null || masks.advanceNextPosition());
+
+                long groupId = groupIdsBlock.getGroupId(position);
+
+                if (!values.isNull() && (masks == null || masks.getBoolean())) {
+                    notNull.set(groupId, true);
+
+                    double value = values.getDouble();
+                    sums.add(groupId, value);
+                }
+            }
+            checkState(!values.advanceNextPosition());
+        }
+
+        @Override
+        public void evaluateFinal(int groupId, BlockBuilder output)
+        {
+            if (notNull.get((long) groupId)) {
+                double value = sums.get((long) groupId);
+                output.append(value);
+            }
+            else {
+                output.appendNull();
+            }
+        }
     }
 
     @Override
-    public void addInput(int positionCount, Block block, int field, Slice valueSlice, int valueOffset)
+    protected Accumulator createAccumulator(Optional<Integer> maskChannel, int valueChannel)
     {
-        // initialize with current value
-        boolean hasNonNull = !SINGLE_DOUBLE.isNull(valueSlice, valueOffset);
-        double sum = SINGLE_DOUBLE.getDouble(valueSlice, valueOffset, 0);
+        return new DoubleSumAccumulator(valueChannel, maskChannel);
+    }
 
-        // process block
-        BlockCursor cursor = block.cursor();
-        while (cursor.advanceNextPosition()) {
-            if (!cursor.isNull(field)) {
-                hasNonNull = true;
-                sum += cursor.getDouble(field);
+    public static class DoubleSumAccumulator
+            extends SimpleAccumulator
+    {
+        private boolean notNull;
+        private double sum;
+
+        public DoubleSumAccumulator(int valueChannel, Optional<Integer> maskChannel)
+        {
+            super(valueChannel, SINGLE_DOUBLE, SINGLE_DOUBLE, maskChannel);
+        }
+
+        @Override
+        protected void processInput(Block block, Optional<Block> maskBlock)
+        {
+            BlockCursor intermediates = block.cursor();
+            BlockCursor masks = null;
+            if (maskBlock.isPresent()) {
+                masks = maskBlock.get().cursor();
+            }
+
+            for (int position = 0; position < block.getPositionCount(); position++) {
+                checkState(intermediates.advanceNextPosition());
+                checkState(masks == null || masks.advanceNextPosition());
+                if (!intermediates.isNull() && (masks == null || masks.getBoolean())) {
+                    notNull = true;
+                    sum += intermediates.getDouble();
+                }
             }
         }
 
-        // write new value
-        if (hasNonNull) {
-            SINGLE_DOUBLE.setNotNull(valueSlice, valueOffset, 0);
-            SINGLE_DOUBLE.setDouble(valueSlice, valueOffset, 0, sum);
-        }
-    }
-
-    @Override
-    public void addIntermediate(BlockCursor cursor, int field, Slice valueSlice, int valueOffset)
-    {
-        addInput(cursor, field, valueSlice, valueOffset);
-    }
-
-    @Override
-    public void evaluateIntermediate(Slice valueSlice, int valueOffset, BlockBuilder output)
-    {
-        evaluateFinal(valueSlice, valueOffset, output);
-    }
-
-    @Override
-    public void evaluateFinal(Slice valueSlice, int valueOffset, BlockBuilder output)
-    {
-        if (!SINGLE_DOUBLE.isNull(valueSlice, valueOffset, 0)) {
-            double currentValue = SINGLE_DOUBLE.getDouble(valueSlice, valueOffset, 0);
-            output.append(currentValue);
-        }
-        else {
-            output.appendNull();
+        @Override
+        public void evaluateFinal(BlockBuilder out)
+        {
+            if (notNull) {
+                out.append(sum);
+            }
+            else {
+                out.appendNull();
+            }
         }
     }
 }

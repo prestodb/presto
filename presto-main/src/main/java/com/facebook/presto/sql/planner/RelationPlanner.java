@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.analyzer.Analysis;
@@ -112,7 +112,7 @@ class RelationPlanner
         }
 
         ImmutableList<Symbol> outputSymbols = outputSymbolsBuilder.build();
-        return new RelationPlan(new TableScanNode(idAllocator.getNextId(), handle, outputSymbols, columns.build(), Optional.<GeneratedPartitions>absent()), descriptor, outputSymbols);
+        return new RelationPlan(new TableScanNode(idAllocator.getNextId(), handle, outputSymbols, columns.build(), null, Optional.<GeneratedPartitions>absent()), descriptor, outputSymbols);
     }
 
     @Override
@@ -152,6 +152,21 @@ class RelationPlanner
         PlanBuilder leftPlanBuilder = initializePlanBuilder(leftPlan);
         PlanBuilder rightPlanBuilder = initializePlanBuilder(rightPlan);
 
+        List<Symbol> outputSymbols = ImmutableList.<Symbol>builder()
+                .addAll(leftPlan.getOutputSymbols())
+                .addAll(rightPlan.getOutputSymbols())
+                .build();
+
+        if (node.getType() == Join.Type.CROSS) {
+            return new RelationPlan(
+                    new JoinNode(idAllocator.getNextId(),
+                            JoinNode.Type.typeConvert(node.getType()),
+                            leftPlanBuilder.getRoot(),
+                            rightPlanBuilder.getRoot(),
+                            ImmutableList.<JoinNode.EquiJoinClause>of()),
+                    analysis.getOutputDescriptor(node), outputSymbols);
+        }
+
         List<EquiJoinClause> criteria = analysis.getJoinCriteria(node);
         Analysis.JoinInPredicates joinInPredicates = analysis.getJoinInPredicates(node);
 
@@ -172,11 +187,6 @@ class RelationPlanner
 
             clauses.add(new JoinNode.EquiJoinClause(leftSymbol, rightSymbol));
         }
-
-        List<Symbol> outputSymbols = ImmutableList.<Symbol>builder()
-                .addAll(leftPlan.getOutputSymbols())
-                .addAll(rightPlan.getOutputSymbols())
-                .build();
 
         return new RelationPlan(new JoinNode(idAllocator.getNextId(), JoinNode.Type.typeConvert(node.getType()), leftPlanBuilder.getRoot(), rightPlanBuilder.getRoot(), clauses.build()), analysis.getOutputDescriptor(node), outputSymbols);
     }
@@ -331,6 +341,7 @@ class RelationPlanner
                 node,
                 node.getOutputSymbols(),
                 ImmutableMap.<Symbol, FunctionCall>of(),
-                ImmutableMap.<Symbol, FunctionHandle>of());
+                ImmutableMap.<Symbol, Signature>of(),
+                ImmutableMap.<Symbol, Symbol>of());
     }
 }

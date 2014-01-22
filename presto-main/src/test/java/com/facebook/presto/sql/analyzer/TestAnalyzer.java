@@ -178,7 +178,14 @@ public class TestAnalyzer
     public void testDistinctAggregations()
             throws Exception
     {
-        assertFails(NOT_SUPPORTED, "SELECT COUNT(DISTINCT a) FROM t1");
+        analyze("SELECT COUNT(DISTINCT a), SUM(a) FROM t1");
+    }
+
+    @Test
+    public void testMultipleDistinctAggregations()
+            throws Exception
+    {
+        analyze("SELECT COUNT(DISTINCT a), COUNT(DISTINCT b) FROM t1");
     }
 
     @Test
@@ -215,7 +222,14 @@ public class TestAnalyzer
     public void testJoinOnConstantExpression()
             throws Exception
     {
-        assertFails(NOT_SUPPORTED, "SELECT * FROM t1 JOIN t2 ON 1 = 1");
+        analyze("SELECT * FROM t1 JOIN t2 ON 1 = 1");
+    }
+
+    @Test
+    public void testJoinOnNonBooleanExpression()
+            throws Exception
+    {
+        assertFails(TYPE_MISMATCH, "SELECT * FROM t1 JOIN t2 ON 5");
     }
 
     @Test
@@ -246,6 +260,12 @@ public class TestAnalyzer
             throws Exception
     {
         assertFails(AMBIGUOUS_ATTRIBUTE, "SELECT a x, b x FROM t1 ORDER BY x");
+    }
+
+    @Test
+    public void testImplicitCrossJoinNotSupported()
+    {
+        assertFails(NOT_SUPPORTED, "SELECT * FROM a, b");
     }
 
     @Test

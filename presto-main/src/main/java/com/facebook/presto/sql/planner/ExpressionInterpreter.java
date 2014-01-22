@@ -72,7 +72,6 @@ import java.util.Set;
 
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpression;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpressions;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -86,8 +85,8 @@ public class ExpressionInterpreter
     private final Visitor visitor;
 
     // identity-based cache for LIKE expressions with constant pattern and escape char
-    private final IdentityHashMap<LikePredicate, Regex> LIKE_PATTERN_CACHE = new IdentityHashMap<>();
-    private final IdentityHashMap<InListExpression, Set<Object>> IN_LIST_CACHE = new IdentityHashMap<>();
+    private final IdentityHashMap<LikePredicate, Regex> likePatternCache = new IdentityHashMap<>();
+    private final IdentityHashMap<InListExpression, Set<Object>> inListCache = new IdentityHashMap<>();
 
     public static ExpressionInterpreter expressionInterpreter(Expression expression, Metadata metadata, Session session)
     {
@@ -160,29 +159,26 @@ public class ExpressionInterpreter
             if (context instanceof TupleReadable[]) {
                 TupleReadable[] inputs = (TupleReadable[]) context;
                 TupleReadable tuple = inputs[channel];
-                int field = input.getField();
 
-                if (tuple.isNull(field)) {
+                if (tuple.isNull()) {
                     return null;
                 }
 
-                switch (tuple.getTupleInfo().getTypes().get(field)) {
+                switch (tuple.getTupleInfo().getType()) {
                     case BOOLEAN:
-                        return tuple.getBoolean(field);
+                        return tuple.getBoolean();
                     case FIXED_INT_64:
-                        return tuple.getLong(field);
+                        return tuple.getLong();
                     case DOUBLE:
-                        return tuple.getDouble(field);
+                        return tuple.getDouble();
                     case VARIABLE_BINARY:
-                        return tuple.getSlice(field);
+                        return tuple.getSlice();
                     default:
                         throw new UnsupportedOperationException("not yet implemented");
                 }
             }
             else if (context instanceof RecordCursor) {
                 RecordCursor cursor = (RecordCursor) context;
-                checkArgument(input.getField() == 0, "Field for cursor must be 0 but is %s", input.getField());
-
                 if (cursor.isNull(channel)) {
                     return null;
                 }
@@ -355,12 +351,12 @@ public class ExpressionInterpreter
             }
             InListExpression valueList = (InListExpression) valueListExpression;
 
-            Set<Object> set = IN_LIST_CACHE.get(valueList);
+            Set<Object> set = inListCache.get(valueList);
 
             // We use the presence of the node in the map to indicate that we've already done
             // the analysis below. If the value is null, it means that we can't apply the HashSet
             // optimization
-            if (!IN_LIST_CACHE.containsKey(valueList)) {
+            if (!inListCache.containsKey(valueList)) {
                 if (Iterables.all(valueList.getValues(), isNonNullLiteralPredicate())) {
                     // if all elements are constant, create a set with them
                     set = new HashSet<>();
@@ -368,7 +364,7 @@ public class ExpressionInterpreter
                         set.add(process(expression, context));
                     }
                 }
-                IN_LIST_CACHE.put(valueList, set);
+                inListCache.put(valueList, set);
             }
 
             if (set != null && !(value instanceof Expression)) {
@@ -839,7 +835,7 @@ public class ExpressionInterpreter
 
         private Regex getConstantPattern(LikePredicate node)
         {
-            Regex result = LIKE_PATTERN_CACHE.get(node);
+            Regex result = likePatternCache.get(node);
 
             if (result == null) {
                 StringLiteral pattern = (StringLiteral) node.getPattern();
@@ -847,7 +843,7 @@ public class ExpressionInterpreter
 
                 result = LikeUtils.likeToPattern(pattern.getSlice(), escape == null ? null : escape.getSlice());
 
-                LIKE_PATTERN_CACHE.put(node, result);
+                likePatternCache.put(node, result);
             }
 
             return result;

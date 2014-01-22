@@ -13,10 +13,12 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hadoop.HadoopFileSystemCache;
 import com.facebook.presto.hadoop.HadoopNative;
 import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
+import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -25,13 +27,9 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.serde2.ColumnProjectionUtils;
 import org.apache.hadoop.hive.serde2.SerDeException;
-import org.apache.hadoop.hive.serde2.columnar.BytesRefArrayWritable;
-import org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe;
-import org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
-import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.JobConf;
@@ -56,7 +54,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Lists.transform;
-import static org.apache.hadoop.hive.metastore.MetaStoreUtils.getDeserializer;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_NULL_FORMAT;
 
 public class HiveRecordSet
@@ -64,6 +61,7 @@ public class HiveRecordSet
 {
     static {
         HadoopNative.requireHadoopNative();
+        HadoopFileSystemCache.initialize();
     }
 
     private final HiveSplit split;
@@ -72,12 +70,14 @@ public class HiveRecordSet
     private final List<Integer> readHiveColumnIndexes;
     private final Configuration configuration;
     private final Path wrappedPath;
+    private final List<HiveRecordCursorProvider> cursorProviders;
 
-    public HiveRecordSet(HdfsEnvironment hdfsEnvironment, HiveSplit split, List<HiveColumnHandle> columns)
+    public HiveRecordSet(HdfsEnvironment hdfsEnvironment, HiveSplit split, List<HiveColumnHandle> columns, List<HiveRecordCursorProvider> cursorProviders)
     {
         this.split = checkNotNull(split, "split is null");
         this.columns = ImmutableList.copyOf(checkNotNull(columns, "columns is null"));
         this.columnTypes = ImmutableList.copyOf(Iterables.transform(columns, nativeTypeGetter()));
+        this.cursorProviders = ImmutableList.copyOf(checkNotNull(cursorProviders, "cursor providers is null"));
 
         // determine which hive columns we will read
         List<HiveColumnHandle> readColumns = ImmutableList.copyOf(filter(columns, not(isPartitionKeyPredicate())));
@@ -91,7 +91,7 @@ public class HiveRecordSet
 
         Path path = new Path(split.getPath());
         this.configuration = hdfsEnvironment.getConfiguration(path);
-        this.wrappedPath = hdfsEnvironment.getFileSystemWrapper().wrap(path);
+        this.wrappedPath = hdfsEnvironment.wrapInputPath(path);
 
         String nullSequence = split.getSchema().getProperty(SERIALIZATION_NULL_FORMAT);
         checkState(nullSequence == null || nullSequence.equals("\\N"), "Only '\\N' supported as null specifier, was '%s'", nullSequence);
@@ -111,61 +111,14 @@ public class HiveRecordSet
 
         RecordReader<?, ?> recordReader = createRecordReader(split, configuration, wrappedPath);
 
-        if (usesColumnarTextSerDe(split)) {
-            return new ColumnarTextHiveRecordCursor<>(
-                    bytesRecordReader(recordReader),
-                    split.getLength(),
-                    split.getSchema(),
-                    split.getPartitionKeys(),
-                    columns);
-        }
-        else if (usesColumnarBinarySerDe(split)) {
-            return new ColumnarBinaryHiveRecordCursor<>(
-                    bytesRecordReader(recordReader),
-                    split.getLength(),
-                    split.getSchema(),
-                    split.getPartitionKeys(),
-                    columns);
+        for (HiveRecordCursorProvider provider: cursorProviders) {
+            Optional<RecordCursor> cursor = provider.createHiveRecordCursor(split, recordReader, columns);
+            if (cursor.isPresent()) {
+                return cursor.get();
+            }
         }
 
-        return new GenericHiveRecordCursor<>(
-                genericRecordReader(recordReader),
-                split.getLength(),
-                split.getSchema(),
-                split.getPartitionKeys(),
-                columns);
-    }
-
-    @SuppressWarnings("unchecked")
-    private static RecordReader<?, BytesRefArrayWritable> bytesRecordReader(RecordReader<?, ?> recordReader)
-    {
-        return (RecordReader<?, BytesRefArrayWritable>) recordReader;
-    }
-
-    @SuppressWarnings("unchecked")
-    private static RecordReader<?, ? extends Writable> genericRecordReader(RecordReader<?, ?> recordReader)
-    {
-        return (RecordReader<?, ? extends Writable>) recordReader;
-    }
-
-    private static boolean usesColumnarBinarySerDe(HiveSplit split)
-    {
-        try {
-            return getDeserializer(null, split.getSchema()) instanceof LazyBinaryColumnarSerDe;
-        }
-        catch (MetaException e) {
-            throw Throwables.propagate(e);
-        }
-    }
-
-    private static boolean usesColumnarTextSerDe(HiveSplit split)
-    {
-        try {
-            return getDeserializer(null, split.getSchema()) instanceof ColumnarSerDe;
-        }
-        catch (MetaException e) {
-            throw Throwables.propagate(e);
-        }
+        throw new RuntimeException("Configured cursor providers did not provide a cursor");
     }
 
     private static HiveColumnHandle getFirstPrimitiveColumn(String clientId, Properties schema)
@@ -193,6 +146,13 @@ public class HiveRecordSet
         final InputFormat<?, ?> inputFormat = getInputFormat(configuration, split.getSchema(), true);
         final JobConf jobConf = new JobConf(configuration);
         final FileSplit fileSplit = createFileSplit(wrappedPath, split.getStart(), split.getLength());
+
+        // propagate serialization configuration to getRecordReader
+        for (String name : split.getSchema().stringPropertyNames()) {
+            if (name.startsWith("serialization.")) {
+                jobConf.set(name, split.getSchema().getProperty(name));
+            }
+        }
 
         try {
             return retry().stopOnIllegalExceptions().run("createRecordReader", new Callable<RecordReader<?, ?>>()

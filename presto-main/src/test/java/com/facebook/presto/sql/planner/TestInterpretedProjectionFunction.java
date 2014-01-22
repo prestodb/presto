@@ -24,7 +24,6 @@ import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleReadable;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMap.Builder;
-import com.google.common.collect.Iterables;
 import org.testng.annotations.Test;
 
 import javax.annotation.Nullable;
@@ -32,9 +31,9 @@ import javax.annotation.Nullable;
 import java.util.Map;
 
 import static com.facebook.presto.connector.dual.DualMetadata.DUAL_METADATA_MANAGER;
+import static com.facebook.presto.sql.analyzer.Type.BIGINT;
 import static com.facebook.presto.sql.analyzer.Type.BOOLEAN;
 import static com.facebook.presto.sql.analyzer.Type.DOUBLE;
-import static com.facebook.presto.sql.analyzer.Type.BIGINT;
 import static com.facebook.presto.sql.analyzer.Type.VARCHAR;
 import static com.facebook.presto.sql.parser.SqlParser.createExpression;
 import static com.facebook.presto.tuple.Tuples.NULL_BOOLEAN_TUPLE;
@@ -140,17 +139,17 @@ public class TestInterpretedProjectionFunction
     @Test
     public void testSymbolReference()
     {
-        assertProjection(BOOLEAN, createExpression("symbol"), true, ImmutableMap.of(new Symbol("symbol"), new Input(0, 0)), createTuple(true));
-        assertProjection(BOOLEAN, createExpression("symbol"), null, ImmutableMap.of(new Symbol("symbol"), new Input(0, 0)), NULL_BOOLEAN_TUPLE);
+        assertProjection(BOOLEAN, createExpression("symbol"), true, ImmutableMap.of(new Symbol("symbol"), new Input(0)), createTuple(true));
+        assertProjection(BOOLEAN, createExpression("symbol"), null, ImmutableMap.of(new Symbol("symbol"), new Input(0)), NULL_BOOLEAN_TUPLE);
 
-        assertProjection(BIGINT, createExpression("symbol"), 42L, ImmutableMap.of(new Symbol("symbol"), new Input(0, 0)), createTuple(42L));
-        assertProjection(BIGINT, createExpression("symbol"), null, ImmutableMap.of(new Symbol("symbol"), new Input(0, 0)), NULL_LONG_TUPLE);
+        assertProjection(BIGINT, createExpression("symbol"), 42L, ImmutableMap.of(new Symbol("symbol"), new Input(0)), createTuple(42L));
+        assertProjection(BIGINT, createExpression("symbol"), null, ImmutableMap.of(new Symbol("symbol"), new Input(0)), NULL_LONG_TUPLE);
 
-        assertProjection(DOUBLE, createExpression("symbol"), 11.1, ImmutableMap.of(new Symbol("symbol"), new Input(0, 0)), createTuple(11.1));
-        assertProjection(DOUBLE, createExpression("symbol"), null, ImmutableMap.of(new Symbol("symbol"), new Input(0, 0)), NULL_DOUBLE_TUPLE);
+        assertProjection(DOUBLE, createExpression("symbol"), 11.1, ImmutableMap.of(new Symbol("symbol"), new Input(0)), createTuple(11.1));
+        assertProjection(DOUBLE, createExpression("symbol"), null, ImmutableMap.of(new Symbol("symbol"), new Input(0)), NULL_DOUBLE_TUPLE);
 
-        assertProjection(VARCHAR, createExpression("symbol"), "foo", ImmutableMap.of(new Symbol("symbol"), new Input(0, 0)), createTuple("foo"));
-        assertProjection(VARCHAR, createExpression("symbol"), null, ImmutableMap.of(new Symbol("symbol"), new Input(0, 0)), NULL_STRING_TUPLE);
+        assertProjection(VARCHAR, createExpression("symbol"), "foo", ImmutableMap.of(new Symbol("symbol"), new Input(0)), createTuple("foo"));
+        assertProjection(VARCHAR, createExpression("symbol"), null, ImmutableMap.of(new Symbol("symbol"), new Input(0)), NULL_STRING_TUPLE);
     }
 
     public static void assertProjection(Type outputType, String expression, @Nullable Object expectedValue)
@@ -166,7 +165,7 @@ public class TestInterpretedProjectionFunction
     {
         Builder<Input, Type> inputTypes = ImmutableMap.builder();
         for (Input input : symbolToInputMappings.values()) {
-            TupleInfo.Type type = channels[input.getChannel()].getTupleInfo().getTypes().get(input.getField());
+            TupleInfo.Type type = channels[input.getChannel()].getTupleInfo().getType();
             switch (type) {
                 case BOOLEAN:
                     inputTypes.put(input, BOOLEAN);
@@ -198,7 +197,7 @@ public class TestInterpretedProjectionFunction
         projectionFunction.project(channels, builder);
 
         // extract single value
-        Object actualValue = Iterables.getOnlyElement(Iterables.concat(BlockAssertions.toValues(builder.build())));
+        Object actualValue = BlockAssertions.getOnlyValue(builder.build());
         assertEquals(actualValue, expectedValue);
     }
 }

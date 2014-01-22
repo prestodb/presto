@@ -17,8 +17,6 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleInfo.Type;
-import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import it.unimi.dsi.fastutil.Arrays;
@@ -114,81 +112,34 @@ public class PagesIndex
         indexes[channel].appendTo(position, output);
     }
 
-    public void sort(int orderByChannel, int[] sortFields, boolean[] sortOrder)
+    public void sort(int[] sortChannels, SortOrder[] sortOrders)
     {
-        ChannelIndex index = indexes[orderByChannel];
-        MultiSliceFieldOrderedTupleComparator comparator = new MultiSliceFieldOrderedTupleComparator(sortFields, sortOrder, index);
-        Arrays.quickSort(0, indexes[0].getValueAddresses().size(), comparator, this);
+        MultiSliceFieldOrderedTupleComparator comparator = new MultiSliceFieldOrderedTupleComparator(this, sortChannels, sortOrders);
+        Arrays.quickSort(0, positionCount, comparator, this);
     }
 
     public static class MultiSliceFieldOrderedTupleComparator
             extends AbstractIntComparator
     {
-        private final TupleInfo tupleInfo;
-        private final long[] sliceAddresses;
-        private final Slice[] slices;
-        private final Type[] types;
-        private final int[] sortFields;
-        private final boolean[] sortOrder;
+        private final PagesIndex pagesIndex;
+        private final int[] sortChannels;
+        private final SortOrder[] sortOrders;
 
-        public MultiSliceFieldOrderedTupleComparator(int[] sortFields, boolean[] sortOrder, ChannelIndex index)
+        public MultiSliceFieldOrderedTupleComparator(PagesIndex pagesIndex, int[] sortChannels, SortOrder[] sortOrders)
         {
-            this(sortFields, sortOrder, index.getTupleInfo(), index.getValueAddresses().elements(), index.getSlices().elements());
-        }
-
-        public MultiSliceFieldOrderedTupleComparator(int[] sortFields, boolean[] sortOrder, TupleInfo tupleInfo, long[] sliceAddresses, Slice... slices)
-        {
-            this.sortFields = sortFields;
-            this.sortOrder = sortOrder;
-            this.tupleInfo = tupleInfo;
-            this.sliceAddresses = sliceAddresses;
-            this.slices = slices;
-            List<Type> types = tupleInfo.getTypes();
-            this.types = types.toArray(new Type[types.size()]);
+            this.pagesIndex = pagesIndex;
+            this.sortChannels = sortChannels;
+            this.sortOrders = sortOrders;
         }
 
         @Override
         public int compare(int leftPosition, int rightPosition)
         {
-            long leftSliceAddress = sliceAddresses[leftPosition];
-            Slice leftSlice = slices[((int) (leftSliceAddress >> 32))];
-            int leftOffset = (int) leftSliceAddress;
-
-            long rightSliceAddress = sliceAddresses[rightPosition];
-            Slice rightSlice = slices[((int) (rightSliceAddress >> 32))];
-            int rightOffset = (int) rightSliceAddress;
-
-            for (int i = 0; i < sortFields.length; i++) {
-                int field = sortFields[i];
-                Type type = types[field];
-
-                // todo add support for nulls first, nulls last
-                int comparison;
-                switch (type) {
-                    case BOOLEAN:
-                        comparison = Boolean.compare(
-                                tupleInfo.getBoolean(leftSlice, leftOffset, field),
-                                tupleInfo.getBoolean(rightSlice, rightOffset, field));
-                        break;
-                    case FIXED_INT_64:
-                        comparison = Long.compare(
-                                tupleInfo.getLong(leftSlice, leftOffset, field),
-                                tupleInfo.getLong(rightSlice, rightOffset, field));
-                        break;
-                    case DOUBLE:
-                        comparison = Double.compare(
-                                tupleInfo.getDouble(leftSlice, leftOffset, field),
-                                tupleInfo.getDouble(rightSlice, rightOffset, field));
-                        break;
-                    case VARIABLE_BINARY:
-                        comparison = tupleInfo.getSlice(leftSlice, leftOffset, field)
-                                .compareTo(tupleInfo.getSlice(rightSlice, rightOffset, field));
-                        break;
-                    default:
-                        throw new AssertionError("unimplemented type: " + type);
-                }
-                if (comparison != 0) {
-                    return sortOrder[i] ? comparison : -comparison;
+            for (int i = 0; i < sortChannels.length; i++) {
+                ChannelIndex index = pagesIndex.getIndex(sortChannels[i]);
+                int compare = index.compare(sortOrders[i], leftPosition, rightPosition);
+                if (compare != 0) {
+                    return compare;
                 }
             }
             return 0;

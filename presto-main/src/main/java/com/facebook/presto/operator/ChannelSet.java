@@ -108,14 +108,12 @@ public class ChannelSet
         private boolean containsNull;
         private BlockBuilder blockBuilder;
 
+        // Note: Supporting multi-field channel sets (e.g. tuples) is much more difficult because of null handling, and hence is not supported by this class.
         public ChannelSetBuilder(TupleInfo tupleInfo, int expectedPositions, OperatorContext operatorContext)
         {
             this.tupleInfo = checkNotNull(tupleInfo, "tupleInfo is null");
             checkArgument(expectedPositions >= 0, "expectedPositions must be greater than or equal to zero");
             this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-
-            checkArgument(tupleInfo.getFieldCount() == 1, "ChannelSet only supports single field set building channels");
-            // Supporting multi-field channel sets (e.g. tuples) is much more difficult because of null handling, and hence is not supported by this class.
 
             // Construct the set from the source
             strategy = new SliceHashStrategy(tupleInfo);
@@ -139,7 +137,7 @@ public class ChannelSet
                 checkState(sourceCursor.advanceNextPosition());
 
                 // Record whether we have seen a null
-                containsNull |= sourceCursor.isNull(0); // There should only be one field in this channel!
+                containsNull |= sourceCursor.isNull();
 
                 long sourceAddress = encodeSyntheticAddress(LOOKUP_SLICE_INDEX, sourceCursor.getRawOffset());
 

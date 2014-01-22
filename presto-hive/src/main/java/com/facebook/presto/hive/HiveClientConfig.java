@@ -33,7 +33,8 @@ public class HiveClientConfig
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
     private DataSize maxSplitSize = new DataSize(64, Unit.MEGABYTE);
-    private int maxOutstandingSplits = 10_000;
+    private int maxOutstandingSplits = 1_000;
+    private int maxGlobalSplitIteratorThreads = 1_000;
     private int maxSplitIteratorThreads = 50;
     private int minPartitionBatchSize = 10;
     private int maxPartitionBatchSize = 100;
@@ -49,6 +50,9 @@ public class HiveClientConfig
     private int dfsConnectMaxRetries = 5;
 
     private String domainSocketPath;
+
+    private String s3AwsAccessKey;
+    private String s3AwsSecretKey;
 
     private List<String> resourceConfigFiles;
 
@@ -88,6 +92,19 @@ public class HiveClientConfig
     public HiveClientConfig setMaxSplitIteratorThreads(int maxSplitIteratorThreads)
     {
         this.maxSplitIteratorThreads = maxSplitIteratorThreads;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxGlobalSplitIteratorThreads()
+    {
+        return maxGlobalSplitIteratorThreads;
+    }
+
+    @Config("hive.max-global-split-iterator-threads")
+    public HiveClientConfig setMaxGlobalSplitIteratorThreads(int maxGlobalSplitIteratorThreads)
+    {
+        this.maxGlobalSplitIteratorThreads = maxGlobalSplitIteratorThreads;
         return this;
     }
 
@@ -262,6 +279,30 @@ public class HiveClientConfig
     public HiveClientConfig setDomainSocketPath(String domainSocketPath)
     {
         this.domainSocketPath = domainSocketPath;
+        return this;
+    }
+
+    public String getS3AwsAccessKey()
+    {
+        return s3AwsAccessKey;
+    }
+
+    @Config("hive.s3.aws-access-key")
+    public HiveClientConfig setS3AwsAccessKey(String s3AwsAccessKey)
+    {
+        this.s3AwsAccessKey = s3AwsAccessKey;
+        return this;
+    }
+
+    public String getS3AwsSecretKey()
+    {
+        return s3AwsSecretKey;
+    }
+
+    @Config("hive.s3.aws-secret-key")
+    public HiveClientConfig setS3AwsSecretKey(String s3AwsSecretKey)
+    {
+        this.s3AwsSecretKey = s3AwsSecretKey;
         return this;
     }
 }

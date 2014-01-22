@@ -24,13 +24,11 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class HdfsEnvironment
 {
     private final HdfsConfiguration hdfsConfiguration;
-    private final FileSystemWrapper fileSystemWrapper;
 
     @Inject
-    public HdfsEnvironment(HdfsConfiguration hdfsConfiguration, FileSystemWrapper fileSystemWrapper)
+    public HdfsEnvironment(HdfsConfiguration hdfsConfiguration)
     {
         this.hdfsConfiguration = checkNotNull(hdfsConfiguration, "hdfsConfiguration is null");
-        this.fileSystemWrapper = checkNotNull(fileSystemWrapper, "fileSystemWrapper is null");
     }
 
     public Configuration getConfiguration(Path path)
@@ -40,8 +38,8 @@ public class HdfsEnvironment
         return hdfsConfiguration.getConfiguration(host);
     }
 
-    public FileSystemWrapper getFileSystemWrapper()
+    public Path wrapInputPath(Path path)
     {
-        return fileSystemWrapper;
+        return path;
     }
 }

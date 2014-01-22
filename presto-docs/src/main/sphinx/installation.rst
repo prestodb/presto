@@ -8,3 +8,4 @@ Installation
     installation/deployment
     installation/discovery
     installation/cli
+    installation/jdbc

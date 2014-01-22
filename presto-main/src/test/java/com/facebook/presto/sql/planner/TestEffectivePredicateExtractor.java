@@ -15,11 +15,13 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.connector.dual.DualColumnHandle;
 import com.facebook.presto.connector.dual.DualTableHandle;
-import com.facebook.presto.metadata.FunctionHandle;
+import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.operator.SortOrder;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -42,7 +44,6 @@ import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.facebook.presto.sql.tree.SortItem;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
@@ -60,7 +61,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 
@@ -108,6 +108,7 @@ public class TestEffectivePredicateExtractor
                 new DualTableHandle("default"),
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
+                null,
                 Optional.<GeneratedPartitions>absent()
         );
 
@@ -131,6 +132,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.of(A, B, C),
                 ImmutableMap.of(C, fakeFunction("test"), D, fakeFunction("test")),
                 ImmutableMap.of(C, fakeFunctionHandle("test"), D, fakeFunctionHandle("test")),
+                ImmutableMap.<Symbol, Symbol>of(),
                 AggregationNode.Step.FINAL);
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node);
@@ -191,7 +193,7 @@ public class TestEffectivePredicateExtractor
                                 equals(AE, BE),
                                 equals(BE, CE),
                                 lessThan(CE, number(10)))),
-                1, ImmutableList.of(A), ImmutableMap.of(A, SortItem.Ordering.ASCENDING), true);
+                1, ImmutableList.of(A), ImmutableMap.of(A, SortOrder.ASC_NULLS_LAST), true);
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node);
 
@@ -235,7 +237,7 @@ public class TestEffectivePredicateExtractor
                                 equals(AE, BE),
                                 equals(BE, CE),
                                 lessThan(CE, number(10)))),
-                ImmutableList.of(A), ImmutableMap.of(A, SortItem.Ordering.ASCENDING));
+                ImmutableList.of(A), ImmutableMap.of(A, SortOrder.ASC_NULLS_LAST));
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node);
 
@@ -259,9 +261,9 @@ public class TestEffectivePredicateExtractor
                                 lessThan(CE, number(10)))),
                 ImmutableList.of(A),
                 ImmutableList.of(A),
-                ImmutableMap.of(A, SortItem.Ordering.ASCENDING),
+                ImmutableMap.of(A, SortOrder.ASC_NULLS_LAST),
                 ImmutableMap.<Symbol, FunctionCall>of(),
-                ImmutableMap.<Symbol, FunctionHandle>of());
+                ImmutableMap.<Symbol, Signature>of());
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node);
 
@@ -284,6 +286,7 @@ public class TestEffectivePredicateExtractor
                 new DualTableHandle("default"),
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
+                null,
                 Optional.<GeneratedPartitions>absent());
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node);
         Assert.assertEquals(effectivePredicate, BooleanLiteral.TRUE_LITERAL);
@@ -294,6 +297,7 @@ public class TestEffectivePredicateExtractor
                 new DualTableHandle("default"),
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
+                null,
                 Optional.<GeneratedPartitions>of(new GeneratedPartitions(
                         TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(scanAssignments.get(A), Domain.singleValue(1L))),
                         ImmutableList.<Partition>of())));
@@ -306,6 +310,7 @@ public class TestEffectivePredicateExtractor
                 new DualTableHandle("default"),
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
+                null,
                 Optional.<GeneratedPartitions>of(new GeneratedPartitions(
                         TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(scanAssignments.get(A), Domain.singleValue(1L))),
                         ImmutableList.<Partition>of(new DualPartition()))));
@@ -318,6 +323,7 @@ public class TestEffectivePredicateExtractor
                 new DualTableHandle("default"),
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
+                null,
                 Optional.<GeneratedPartitions>of(new GeneratedPartitions(
                         TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(scanAssignments.get(A), Domain.singleValue(1L))),
                         ImmutableList.<Partition>of(tupleDomainPartition(TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(
@@ -332,6 +338,7 @@ public class TestEffectivePredicateExtractor
                 new DualTableHandle("default"),
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
+                null,
                 Optional.<GeneratedPartitions>of(new GeneratedPartitions(
                         TupleDomain.all(),
                         ImmutableList.<Partition>of())));
@@ -344,6 +351,7 @@ public class TestEffectivePredicateExtractor
                 new DualTableHandle("default"),
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
+                null,
                 Optional.<GeneratedPartitions>of(new GeneratedPartitions(
                         TupleDomain.all(),
                         ImmutableList.<Partition>of(new DualPartition()))));
@@ -356,6 +364,7 @@ public class TestEffectivePredicateExtractor
                 new DualTableHandle("default"),
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
+                null,
                 Optional.<GeneratedPartitions>of(new GeneratedPartitions(
                         TupleDomain.all(),
                         ImmutableList.<Partition>of(tupleDomainPartition(TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(
@@ -370,6 +379,7 @@ public class TestEffectivePredicateExtractor
                 new DualTableHandle("default"),
                 ImmutableList.of(A),
                 assignments,
+                null,
                 Optional.<GeneratedPartitions>of(new GeneratedPartitions(
                         TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(
                                 scanAssignments.get(A), Domain.singleValue(1L),
@@ -434,6 +444,7 @@ public class TestEffectivePredicateExtractor
                 new DualTableHandle("default"),
                 ImmutableList.copyOf(leftAssignments.keySet()),
                 leftAssignments,
+                null,
                 Optional.<GeneratedPartitions>absent()
         );
 
@@ -443,6 +454,7 @@ public class TestEffectivePredicateExtractor
                 new DualTableHandle("default"),
                 ImmutableList.copyOf(rightAssignments.keySet()),
                 rightAssignments,
+                null,
                 Optional.<GeneratedPartitions>absent()
         );
 
@@ -485,6 +497,7 @@ public class TestEffectivePredicateExtractor
                 new DualTableHandle("default"),
                 ImmutableList.copyOf(leftAssignments.keySet()),
                 leftAssignments,
+                null,
                 Optional.<GeneratedPartitions>absent()
         );
 
@@ -494,6 +507,7 @@ public class TestEffectivePredicateExtractor
                 new DualTableHandle("default"),
                 ImmutableList.copyOf(rightAssignments.keySet()),
                 rightAssignments,
+                null,
                 Optional.<GeneratedPartitions>absent()
         );
 
@@ -536,6 +550,7 @@ public class TestEffectivePredicateExtractor
                 new DualTableHandle("default"),
                 ImmutableList.copyOf(leftAssignments.keySet()),
                 leftAssignments,
+                null,
                 Optional.<GeneratedPartitions>absent()
         );
 
@@ -545,6 +560,7 @@ public class TestEffectivePredicateExtractor
                 new DualTableHandle("default"),
                 ImmutableList.copyOf(rightAssignments.keySet()),
                 rightAssignments,
+                null,
                 Optional.<GeneratedPartitions>absent()
         );
 
@@ -634,9 +650,9 @@ public class TestEffectivePredicateExtractor
         return new FunctionCall(QualifiedName.of("test"), ImmutableList.<Expression>of());
     }
 
-    private static FunctionHandle fakeFunctionHandle(String name)
+    private static Signature fakeFunctionHandle(String name)
     {
-        return new FunctionHandle(Math.abs(new Random().nextInt()), name);
+        return new Signature(name, Type.NULL, ImmutableList.<Type>of());
     }
 
     private Set<Expression> normalizeConjuncts(Expression... conjuncts)

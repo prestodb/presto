@@ -21,7 +21,6 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.tuple.TupleInfo.Type.BOOLEAN;
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
-import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 import static com.facebook.presto.tuple.Tuples.NULL_LONG_TUPLE;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
@@ -42,15 +41,15 @@ public class TestTupleInfo
                 .append(true)
                 .build();
 
-        assertEquals(tuple.getBoolean(0), true);
+        assertEquals(tuple.getBoolean(), true);
         assertEquals(tuple.size(), SIZE_OF_BYTE + SIZE_OF_BYTE);
 
         tuple = info.builder()
                 .append(false)
                 .build();
 
-        assertFalse(tuple.isNull(0));
-        assertEquals(tuple.getBoolean(0), false);
+        assertFalse(tuple.isNull());
+        assertEquals(tuple.getBoolean(), false);
         assertEquals(tuple.size(), SIZE_OF_BYTE + SIZE_OF_BYTE);
     }
 
@@ -93,9 +92,9 @@ public class TestTupleInfo
                 .appendNull()
                 .build();
 
-        assertTrue(tuple.isNull(0));
+        assertTrue(tuple.isNull());
         // value of a null boolean is false
-        assertEquals(tuple.getBoolean(0), false);
+        assertEquals(tuple.getBoolean(), false);
         assertEquals(tuple.size(), SIZE_OF_BYTE + SIZE_OF_BYTE);
     }
 
@@ -129,7 +128,7 @@ public class TestTupleInfo
                 .append(42)
                 .build();
 
-        assertEquals(tuple.getLong(0), 42L);
+        assertEquals(tuple.getLong(), 42L);
         assertEquals(tuple.size(), SIZE_OF_LONG + SIZE_OF_BYTE);
     }
 
@@ -162,9 +161,9 @@ public class TestTupleInfo
                 .appendNull()
                 .build();
 
-        assertTrue(tuple.isNull(0));
+        assertTrue(tuple.isNull());
         // value of a null long is 0
-        assertEquals(tuple.getLong(0), 0L);
+        assertEquals(tuple.getLong(), 0L);
         assertEquals(tuple.size(), SIZE_OF_LONG + SIZE_OF_BYTE);
     }
 
@@ -172,7 +171,7 @@ public class TestTupleInfo
     public void testAppendWithNull()
     {
         Builder builder = TupleInfo.SINGLE_LONG.builder();
-        assertTrue(builder.append(NULL_LONG_TUPLE).build().isNull(0));
+        assertTrue(builder.append(NULL_LONG_TUPLE).build().isNull());
     }
 
     /**
@@ -205,7 +204,7 @@ public class TestTupleInfo
                 .append(42.42)
                 .build();
 
-        assertEquals(tuple.getDouble(0), 42.42);
+        assertEquals(tuple.getDouble(), 42.42);
         assertEquals(tuple.size(), SIZE_OF_DOUBLE + SIZE_OF_BYTE);
     }
 
@@ -238,9 +237,9 @@ public class TestTupleInfo
                 .appendNull()
                 .build();
 
-        assertTrue(tuple.isNull(0));
+        assertTrue(tuple.isNull());
         // value of a null double is 0
-        assertEquals(tuple.getDouble(0), 0.0);
+        assertEquals(tuple.getDouble(), 0.0);
         assertEquals(tuple.size(), SIZE_OF_DOUBLE + SIZE_OF_BYTE);
     }
 
@@ -275,7 +274,7 @@ public class TestTupleInfo
                 .build();
 
         assertEquals(tuple.size(), binary.length() + SIZE_OF_INT + SIZE_OF_BYTE);
-        assertEquals(tuple.getSlice(0), binary);
+        assertEquals(tuple.getSlice(), binary);
     }
 
     /**
@@ -308,8 +307,8 @@ public class TestTupleInfo
                 .appendNull()
                 .build();
 
-        assertTrue(tuple.isNull(0));
-        assertEquals(tuple.getSlice(0), Slices.EMPTY_SLICE);
+        assertTrue(tuple.isNull());
+        assertEquals(tuple.getSlice(), Slices.EMPTY_SLICE);
         assertEquals(tuple.size(), SIZE_OF_INT + SIZE_OF_BYTE);
     }
 
@@ -334,69 +333,6 @@ public class TestTupleInfo
         assertEquals(tupleSlice.getInt(SIZE_OF_BYTE), SIZE_OF_INT + SIZE_OF_BYTE);
     }
 
-    //
-    // Tuples with multiple tuples with multiple types do not have a declared memory layout.
-    //
-
-    @Test
-    public void testMultipleVariableLength()
-    {
-        TupleInfo info = new TupleInfo(VARIABLE_BINARY, VARIABLE_BINARY);
-
-        Slice binary1 = Slices.wrappedBuffer(new byte[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
-        Slice binary2 = Slices.wrappedBuffer(new byte[] {10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24});
-
-        Tuple tuple = info.builder()
-                .append(binary1)
-                .append(binary2)
-                .build();
-
-        assertEquals(tuple.getSlice(0), binary1);
-        assertEquals(tuple.getSlice(1), binary2);
-        assertEquals(tuple.size(), binary1.length() + binary2.length() + SIZE_OF_INT + SIZE_OF_INT + SIZE_OF_BYTE);
-    }
-
-    @Test
-    public void testMultipleFixedLength()
-    {
-        TupleInfo info = new TupleInfo(FIXED_INT_64, FIXED_INT_64);
-
-        Tuple tuple = info.builder()
-                .append(42)
-                .append(67)
-                .build();
-
-        assertEquals(tuple.getLong(0), 42L);
-        assertEquals(tuple.getLong(1), 67L);
-        assertEquals(tuple.size(), SIZE_OF_LONG + SIZE_OF_LONG + SIZE_OF_BYTE);
-    }
-
-    @Test
-    public void testMixed()
-    {
-        TupleInfo info = new TupleInfo(FIXED_INT_64, VARIABLE_BINARY, FIXED_INT_64, VARIABLE_BINARY, FIXED_INT_64, VARIABLE_BINARY);
-
-        Slice binary1 = Slices.wrappedBuffer(new byte[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
-        Slice binary2 = Slices.wrappedBuffer(new byte[] {10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24});
-        Slice binary3 = Slices.wrappedBuffer(new byte[] {30, 31, 32, 33, 34, 35});
-
-        Tuple tuple = info.builder()
-                .append(42)
-                .append(binary1)
-                .append(67)
-                .append(binary2)
-                .append(90)
-                .append(binary3)
-                .build();
-
-        assertEquals(tuple.getLong(0), 42L);
-        assertEquals(tuple.getSlice(1), binary1);
-        assertEquals(tuple.getLong(2), 67L);
-        assertEquals(tuple.getSlice(3), binary2);
-        assertEquals(tuple.getLong(4), 90L);
-        assertEquals(tuple.getSlice(5), binary3);
-    }
-
     @Test
     public void testSetNullAtNonZeroOffset()
             throws Exception
@@ -404,8 +340,8 @@ public class TestTupleInfo
         TupleInfo info = new TupleInfo(FIXED_INT_64);
         Slice slice = Slices.allocate(info.getFixedSize() * 2);
 
-        info.setNull(slice, FIXED_INT_64.getSize(), 0);
-        assertTrue(info.isNull(slice, FIXED_INT_64.getSize(), 0));
+        info.setNull(slice, FIXED_INT_64.getSize());
+        assertTrue(info.isNull(slice, FIXED_INT_64.getSize()));
     }
 
     @Test
@@ -416,14 +352,14 @@ public class TestTupleInfo
         Slice slice = Slices.allocate(info.getFixedSize() * 2);
 
         // initialize to nulls
-        info.setNull(slice, 0, 0);
-        assertTrue(info.isNull(slice, 0, 0));
+        info.setNull(slice, 0);
+        assertTrue(info.isNull(slice, 0));
 
-        info.setNull(slice, info.getFixedSize(), 0);
-        assertTrue(info.isNull(slice, info.getFixedSize(), 0));
+        info.setNull(slice, info.getFixedSize());
+        assertTrue(info.isNull(slice, info.getFixedSize()));
 
         // now test setNotNull
-        info.setNotNull(slice, info.getFixedSize(), 0);
-        assertFalse(info.isNull(slice, info.getFixedSize(), 0));
+        info.setNotNull(slice, info.getFixedSize());
+        assertFalse(info.isNull(slice, info.getFixedSize()));
     }
 }

@@ -24,12 +24,10 @@ import com.google.common.base.Objects;
 public class Input
 {
     private final int channel;
-    private final int field;
 
-    public Input(int channel, int field)
+    public Input(int channel)
     {
         this.channel = channel;
-        this.field = field;
     }
 
     public int getChannel()
@@ -37,15 +35,10 @@ public class Input
         return channel;
     }
 
-    public int getField()
-    {
-        return field;
-    }
-
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(channel, field);
+        return Objects.hashCode(channel);
     }
 
     @Override
@@ -58,7 +51,7 @@ public class Input
             return false;
         }
         final Input other = (Input) obj;
-        return Objects.equal(this.channel, other.channel) && Objects.equal(this.field, other.field);
+        return Objects.equal(this.channel, other.channel);
     }
 
     @Override
@@ -66,7 +59,6 @@ public class Input
     {
         return Objects.toStringHelper(this)
                 .add("channel", channel)
-                .add("field", field)
                 .toString();
     }
 
@@ -78,18 +70,6 @@ public class Input
             public Integer apply(Input input)
             {
                 return input.getChannel();
-            }
-        };
-    }
-
-    public static Function<Input, Integer> fieldGetter()
-    {
-        return new Function<Input, Integer>()
-        {
-            @Override
-            public Integer apply(Input input)
-            {
-                return input.getField();
             }
         };
     }

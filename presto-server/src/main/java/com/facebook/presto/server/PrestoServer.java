@@ -36,7 +36,6 @@ import io.airlift.tracetoken.TraceTokenModule;
 import org.weakref.jmx.guice.MBeanModule;
 
 import static com.facebook.presto.server.CodeCacheGcTrigger.installCodeCacheGcTrigger;
-
 import static com.facebook.presto.server.PrestoJvmRequirements.verifyJvmRequirements;
 
 public class PrestoServer

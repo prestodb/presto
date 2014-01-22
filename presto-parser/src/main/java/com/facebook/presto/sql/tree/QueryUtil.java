@@ -17,8 +17,10 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-public class QueryUtil
+public final class QueryUtil
 {
+    private QueryUtil() {}
+
     public static Expression nameReference(String name)
     {
         return new QualifiedNameReference(QualifiedName.of(name));

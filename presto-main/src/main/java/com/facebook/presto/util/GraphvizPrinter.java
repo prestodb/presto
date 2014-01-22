@@ -21,6 +21,7 @@ import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
+import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.MaterializedViewWriterNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
@@ -51,7 +52,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.sql.planner.DomainUtils.printableTupleDomainWithSymbols;
 import static com.google.common.collect.Maps.immutableEnumMap;
 import static java.lang.String.format;
 
@@ -72,7 +72,8 @@ public final class GraphvizPrinter
         SINK,
         WINDOW,
         UNION,
-        SORT
+        SORT,
+        MARK_DISTINCT
     }
 
     private static final Map<NodeType, String> NODE_COLORS = immutableEnumMap(ImmutableMap.<NodeType, String>builder()
@@ -90,11 +91,14 @@ public final class GraphvizPrinter
             .put(NodeType.SINK, "indianred1")
             .put(NodeType.WINDOW, "darkolivegreen4")
             .put(NodeType.UNION, "turquoise4")
+            .put(NodeType.MARK_DISTINCT, "violet")
             .build());
 
     static {
         Preconditions.checkState(NODE_COLORS.size() == NodeType.values().length);
     }
+
+    private GraphvizPrinter() {}
 
     public static String printLogical(List<PlanFragment> fragments)
     {
@@ -159,7 +163,7 @@ public final class GraphvizPrinter
                 .append(" {")
                 .append('\n');
 
-        output.append(format("label = \"%s\"", fragment.getPartitioning()))
+        output.append(format("label = \"%s\"", fragment.getDistribution()))
                 .append('\n');
 
         PlanNode plan = fragment.getRoot();
@@ -192,6 +196,13 @@ public final class GraphvizPrinter
         public Void visitSort(SortNode node, Void context)
         {
             printNode(node, format("Sort[%s]", Joiner.on(", ").join(node.getOrderBy())), NODE_COLORS.get(NodeType.SORT));
+            return node.getSource().accept(this, context);
+        }
+
+        @Override
+        public Void visitMarkDistinct(MarkDistinctNode node, Void context)
+        {
+            printNode(node, format("MarkDistinct[%s]", node.getMarkerSymbol()), format("%s => %s", node.getDistinctSymbols(), node.getMarkerSymbol()), NODE_COLORS.get(NodeType.MARK_DISTINCT));
             return node.getSource().accept(this, context);
         }
 
@@ -240,7 +251,12 @@ public final class GraphvizPrinter
         {
             StringBuilder builder = new StringBuilder();
             for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
-                builder.append(format("%s := %s\\n", entry.getKey(), entry.getValue()));
+                if (node.getMasks().containsKey(entry.getKey())) {
+                    builder.append(format("%s := %s (mask = %s)\\n", entry.getKey(), entry.getValue(), node.getMasks().get(entry.getKey())));
+                }
+                else {
+                    builder.append(format("%s := %s\\n", entry.getKey(), entry.getValue()));
+                }
             }
             printNode(node, format("Aggregate[%s]", node.getStep()), builder.toString(), NODE_COLORS.get(NodeType.AGGREGATE));
             return node.getSource().accept(this, context);
@@ -304,7 +320,7 @@ public final class GraphvizPrinter
         @Override
         public Void visitTableScan(TableScanNode node, Void context)
         {
-            printNode(node, format("TableScan[%s]", node.getTable()), format("domain=%s", printableTupleDomainWithSymbols(node.getPartitionsDomainSummary(), node.getAssignments())), NODE_COLORS.get(NodeType.TABLESCAN));
+            printNode(node, format("TableScan[%s]", node.getTable()), format("original constraint=%s", node.getOriginalConstraint()), NODE_COLORS.get(NodeType.TABLESCAN));
             return null;
         }
 

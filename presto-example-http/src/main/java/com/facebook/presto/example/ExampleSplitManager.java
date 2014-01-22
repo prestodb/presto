@@ -14,9 +14,11 @@
 package com.facebook.presto.example;
 
 import com.facebook.presto.spi.ConnectorSplitManager;
+import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.PartitionResult;
 import com.facebook.presto.spi.Split;
+import com.facebook.presto.spi.SplitSource;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TupleDomain;
 import com.google.common.collect.ImmutableList;
@@ -70,7 +72,7 @@ public class ExampleSplitManager
     }
 
     @Override
-    public Iterable<Split> getPartitionSplits(TableHandle tableHandle, List<Partition> partitions)
+    public SplitSource getPartitionSplits(TableHandle tableHandle, List<Partition> partitions)
     {
         checkNotNull(partitions, "partitions is null");
         checkArgument(partitions.size() == 1, "Expected one partition but got %s", partitions.size());
@@ -90,6 +92,6 @@ public class ExampleSplitManager
         }
         Collections.shuffle(splits);
 
-        return splits;
+        return new FixedSplitSource(connectorId, splits);
     }
 }

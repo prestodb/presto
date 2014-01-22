@@ -16,102 +16,131 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.tuple.TupleInfo;
-import io.airlift.slice.Slice;
+import com.facebook.presto.operator.GroupByIdBlock;
+import com.facebook.presto.util.array.BooleanBigArray;
+import com.facebook.presto.util.array.DoubleBigArray;
+import com.google.common.base.Optional;
 
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
+import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
+import static com.google.common.base.Preconditions.checkState;
 
 public class DoubleMinAggregation
-        implements FixedWidthAggregationFunction
+        extends SimpleAggregationFunction
 {
     public static final DoubleMinAggregation DOUBLE_MIN = new DoubleMinAggregation();
 
-    @Override
-    public int getFixedSize()
+    public DoubleMinAggregation()
     {
-        return SINGLE_DOUBLE.getFixedSize();
+        super(SINGLE_DOUBLE, SINGLE_DOUBLE, DOUBLE);
     }
 
     @Override
-    public TupleInfo getFinalTupleInfo()
+    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, int valueChannel)
     {
-        return SINGLE_DOUBLE;
+        // Min/max are not effected by distinct, so ignore it.
+        return new DoubleMinGroupedAccumulator(valueChannel);
     }
 
-    @Override
-    public TupleInfo getIntermediateTupleInfo()
+    public static class DoubleMinGroupedAccumulator
+            extends SimpleGroupedAccumulator
     {
-        return SINGLE_DOUBLE;
-    }
+        private final BooleanBigArray notNull;
+        private final DoubleBigArray minValues;
 
-    @Override
-    public void initialize(Slice valueSlice, int valueOffset)
-    {
-        // mark value null
-        SINGLE_DOUBLE.setNull(valueSlice, valueOffset, 0);
-        SINGLE_DOUBLE.setDouble(valueSlice, valueOffset, 0, Double.POSITIVE_INFINITY);
-    }
+        public DoubleMinGroupedAccumulator(int valueChannel)
+        {
+            super(valueChannel, SINGLE_DOUBLE, SINGLE_DOUBLE, Optional.<Integer>absent());
 
-    @Override
-    public void addInput(BlockCursor cursor, int field, Slice valueSlice, int valueOffset)
-    {
-        if (cursor.isNull(field)) {
-            return;
+            this.notNull = new BooleanBigArray();
+
+            this.minValues = new DoubleBigArray(Double.POSITIVE_INFINITY);
         }
 
-        // mark value not null
-        SINGLE_DOUBLE.setNotNull(valueSlice, valueOffset, 0);
+        @Override
+        public long getEstimatedSize()
+        {
+            return notNull.sizeOf() + minValues.sizeOf();
+        }
 
-        // update current value
-        double currentValue = SINGLE_DOUBLE.getDouble(valueSlice, valueOffset, 0);
-        double newValue = cursor.getDouble(field);
-        SINGLE_DOUBLE.setDouble(valueSlice, valueOffset, 0, Math.min(currentValue, newValue));
+        @Override
+        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock)
+        {
+            notNull.ensureCapacity(groupIdsBlock.getGroupCount());
+            minValues.ensureCapacity(groupIdsBlock.getGroupCount(), Double.POSITIVE_INFINITY);
+
+            BlockCursor values = valuesBlock.cursor();
+
+            for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
+                checkState(values.advanceNextPosition());
+
+                long groupId = groupIdsBlock.getGroupId(position);
+
+                if (!values.isNull()) {
+                    notNull.set(groupId, true);
+
+                    double value = values.getDouble();
+                    value = Math.min(value, minValues.get(groupId));
+                    minValues.set(groupId, value);
+                }
+            }
+            checkState(!values.advanceNextPosition());
+        }
+
+        @Override
+        public void evaluateFinal(int groupId, BlockBuilder output)
+        {
+            if (notNull.get((long) groupId)) {
+                double value = minValues.get((long) groupId);
+                output.append(value);
+            }
+            else {
+                output.appendNull();
+            }
+        }
     }
 
     @Override
-    public void addInput(int positionCount, Block block, int field, Slice valueSlice, int valueOffset)
+    protected Accumulator createAccumulator(Optional<Integer> maskChannel, int valueChannel)
     {
-        // initialize
-        boolean hasNonNull = !SINGLE_DOUBLE.isNull(valueSlice, valueOffset);
-        double min = SINGLE_DOUBLE.getDouble(valueSlice, valueOffset, 0);
+        // Min/max are not effected by distinct, so ignore it.
+        return new DoubleMinAccumulator(valueChannel);
+    }
 
-        // process block
-        BlockCursor cursor = block.cursor();
-        while (cursor.advanceNextPosition()) {
-            if (!cursor.isNull(field)) {
-                hasNonNull = true;
-                min = Math.min(min, cursor.getDouble(field));
+    public static class DoubleMinAccumulator
+            extends SimpleAccumulator
+    {
+        private boolean notNull;
+        private double min = Double.POSITIVE_INFINITY;
+
+        public DoubleMinAccumulator(int valueChannel)
+        {
+            super(valueChannel, SINGLE_DOUBLE, SINGLE_DOUBLE, Optional.<Integer>absent());
+        }
+
+        @Override
+        protected void processInput(Block block, Optional<Block> maskBlock)
+        {
+            BlockCursor values = block.cursor();
+
+            for (int position = 0; position < block.getPositionCount(); position++) {
+                checkState(values.advanceNextPosition());
+                if (!values.isNull()) {
+                    notNull = true;
+                    min = Math.min(min, values.getDouble());
+                }
             }
         }
 
-        // write new value
-        if (hasNonNull) {
-            SINGLE_DOUBLE.setNotNull(valueSlice, valueOffset, 0);
-            SINGLE_DOUBLE.setDouble(valueSlice, valueOffset, 0, min);
-        }
-    }
-
-    @Override
-    public void addIntermediate(BlockCursor cursor, int field, Slice valueSlice, int valueOffset)
-    {
-        addInput(cursor, field, valueSlice, valueOffset);
-    }
-
-    @Override
-    public void evaluateIntermediate(Slice valueSlice, int valueOffset, BlockBuilder output)
-    {
-        evaluateFinal(valueSlice, valueOffset, output);
-    }
-
-    @Override
-    public void evaluateFinal(Slice valueSlice, int valueOffset, BlockBuilder output)
-    {
-        if (!SINGLE_DOUBLE.isNull(valueSlice, valueOffset, 0)) {
-            double currentValue = SINGLE_DOUBLE.getDouble(valueSlice, valueOffset, 0);
-            output.append(currentValue);
-        }
-        else {
-            output.appendNull();
+        @Override
+        public void evaluateFinal(BlockBuilder out)
+        {
+            if (notNull) {
+                out.append(min);
+            }
+            else {
+                out.appendNull();
+            }
         }
     }
 }

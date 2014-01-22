@@ -23,7 +23,7 @@ import com.facebook.presto.sql.planner.PlanPrinter;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.tree.ExplainType;
-import com.facebook.presto.sql.tree.Query;
+import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.storage.StorageManager;
 import com.google.common.base.Optional;
 
@@ -52,54 +52,54 @@ public class QueryExplainer
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
     }
 
-    public String getPlan(Query query, ExplainType.Type planType)
+    public String getPlan(Statement statement, ExplainType.Type planType)
     {
         switch (planType) {
             case LOGICAL:
-                Plan plan = getLogicalPlan(query);
+                Plan plan = getLogicalPlan(statement);
                 return PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes());
             case DISTRIBUTED:
-                SubPlan subPlan = getDistributedPlan(query);
+                SubPlan subPlan = getDistributedPlan(statement);
                 return PlanPrinter.textDistributedPlan(subPlan);
         }
         throw new IllegalArgumentException("Unhandled plan type: " + planType);
     }
 
-    public String getGraphvizPlan(Query query, ExplainType.Type planType)
+    public String getGraphvizPlan(Statement statement, ExplainType.Type planType)
     {
         switch (planType) {
             case LOGICAL:
-                Plan plan = getLogicalPlan(query);
+                Plan plan = getLogicalPlan(statement);
                 return PlanPrinter.graphvizLogicalPlan(plan.getRoot(), plan.getTypes());
             case DISTRIBUTED:
-                SubPlan subPlan = getDistributedPlan(query);
+                SubPlan subPlan = getDistributedPlan(statement);
                 return PlanPrinter.graphvizDistributedPlan(subPlan);
         }
         throw new IllegalArgumentException("Unhandled plan type: " + planType);
     }
 
-    private Plan getLogicalPlan(Query query)
+    private Plan getLogicalPlan(Statement statement)
     {
-        // analyze query
+        // analyze statement
         Analyzer analyzer = new Analyzer(session, metadata, Optional.of(this));
 
-        Analysis analysis = analyzer.analyze(query);
+        Analysis analysis = analyzer.analyze(statement);
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
 
-        // plan query
+        // plan statement
         LogicalPlanner logicalPlanner = new LogicalPlanner(session, planOptimizers, idAllocator, metadata, periodicImportManager, storageManager);
         return logicalPlanner.plan(analysis);
     }
 
-    private SubPlan getDistributedPlan(Query query)
+    private SubPlan getDistributedPlan(Statement statement)
     {
-        // analyze query
+        // analyze statement
         Analyzer analyzer = new Analyzer(session, metadata, Optional.of(this));
 
-        Analysis analysis = analyzer.analyze(query);
+        Analysis analysis = analyzer.analyze(statement);
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
 
-        // plan query
+        // plan statement
         LogicalPlanner logicalPlanner = new LogicalPlanner(session, planOptimizers, idAllocator, metadata, periodicImportManager, storageManager);
         Plan plan = logicalPlanner.plan(analysis);
 

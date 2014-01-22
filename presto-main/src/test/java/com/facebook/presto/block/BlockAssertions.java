@@ -40,9 +40,21 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-public class BlockAssertions
+public final class BlockAssertions
 {
-    public static final TupleInfo COMPOSITE_SEQUENCE_TUPLE_INFO = new TupleInfo(Type.BOOLEAN, Type.FIXED_INT_64, Type.DOUBLE, Type.VARIABLE_BINARY);
+    private BlockAssertions() {}
+
+    public static Object getOnlyValue(Block block)
+    {
+        assertEquals(block.getPositionCount(), 1, "Block positions");
+
+        BlockCursor cursor = block.cursor();
+        Assert.assertTrue(cursor.advanceNextPosition());
+        Object value = cursor.getTuple().getObjectValue();
+        Assert.assertFalse(cursor.advanceNextPosition());
+
+        return value;
+    }
 
     public static void assertBlocksEquals(BlockIterable actual, BlockIterable expected)
     {
@@ -55,31 +67,31 @@ public class BlockAssertions
         assertFalse(expectedIterator.hasNext());
     }
 
-    public static List<List<Object>> toValues(BlockIterable blocks)
+    public static List<Object> toValues(BlockIterable blocks)
     {
-        ImmutableList.Builder<List<Object>> values = ImmutableList.builder();
+        List<Object> values = new ArrayList<>();
         for (Block block : blocks) {
             BlockCursor cursor = block.cursor();
             while (cursor.advanceNextPosition()) {
-                values.add(cursor.getTuple().toValues());
+                values.add(cursor.getTuple().getObjectValue());
             }
         }
-        return values.build();
+        return Collections.unmodifiableList(values);
     }
 
-    public static List<List<Object>> toValues(Block block)
+    public static List<Object> toValues(Block block)
     {
         BlockCursor cursor = block.cursor();
         return toValues(cursor);
     }
 
-    public static List<List<Object>> toValues(BlockCursor cursor)
+    public static List<Object> toValues(BlockCursor cursor)
     {
-        ImmutableList.Builder<List<Object>> values = ImmutableList.builder();
+        List<Object> values = new ArrayList<>();
         while (cursor.advanceNextPosition()) {
-            values.add(cursor.getTuple().toValues());
+            values.add(cursor.getTuple().getObjectValue());
         }
-        return values.build();
+        return Collections.unmodifiableList(values);
     }
 
     public static void assertBlockEquals(Block actual, Block expected)
@@ -107,10 +119,10 @@ public class BlockAssertions
         assertEqualsIgnoreOrder(actualTuples, expectedTuples);
     }
 
-    public static List<Tuple> toTuplesList(Block Block)
+    public static List<Tuple> toTuplesList(Block block)
     {
         ImmutableList.Builder<Tuple> tuples = ImmutableList.builder();
-        BlockCursor actualCursor = Block.cursor();
+        BlockCursor actualCursor = block.cursor();
         while (actualCursor.advanceNextPosition()) {
             tuples.add(actualCursor.getTuple());
         }
@@ -293,15 +305,12 @@ public class BlockAssertions
         return builder.build();
     }
 
-    public static Block createCompositeTupleSequenceBlock(int start, int end)
+    public static Block createBooleanSequenceBlock(int start, int end)
     {
-        BlockBuilder builder = new BlockBuilder(COMPOSITE_SEQUENCE_TUPLE_INFO);
+        BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_BOOLEAN);
 
         for (int i = start; i < end; i++) {
-            builder.append(i % 2 == 0)
-                    .append((long) i)
-                    .append((double) i)
-                    .append(Long.toString(i));
+            builder.append(i % 2 == 0);
         }
 
         return builder.build();
@@ -344,14 +353,9 @@ public class BlockAssertions
         return builder.build();
     }
 
-    public static BlockIterableBuilder blockIterableBuilder(Type... types)
+    public static BlockIterableBuilder blockIterableBuilder(Type type)
     {
-        return new BlockIterableBuilder(new TupleInfo(types));
-    }
-
-    public static BlockIterableBuilder blockIterableBuilder(TupleInfo tupleInfo)
-    {
-        return new BlockIterableBuilder(tupleInfo);
+        return new BlockIterableBuilder(new TupleInfo(type));
     }
 
     public static class BlockIterableBuilder

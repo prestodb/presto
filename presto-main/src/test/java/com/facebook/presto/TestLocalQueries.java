@@ -58,8 +58,10 @@ public class TestLocalQueries
     {
         tpchLocalQueryRunner = createTpchLocalQueryRunner(new Session("user", "test", catalog, schema, null, null), getExecutor());
 
+        tpchLocalQueryRunner.getMetadata().addFunctions(CUSTOM_FUNCTIONS);
+
         // dump query plan to console (for debugging)
-        // tpchLocalQueryRunner.textLogicalPlan();
+        // tpchLocalQueryRunner.printPlan();
     }
 
     @Override

@@ -39,8 +39,10 @@ import java.util.List;
 
 import static com.google.common.base.Charsets.UTF_8;
 
-public class LiteralInterpreter
+public final class LiteralInterpreter
 {
+    private LiteralInterpreter() {}
+
     public static Object evaluate(Expression node)
     {
         if (!(node instanceof Literal)) {

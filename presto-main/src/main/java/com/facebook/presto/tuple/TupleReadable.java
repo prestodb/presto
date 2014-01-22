@@ -21,13 +21,13 @@ public interface TupleReadable
 
     Tuple getTuple();
 
-    boolean getBoolean(int index);
+    boolean getBoolean();
 
-    long getLong(int index);
+    long getLong();
 
-    double getDouble(int index);
+    double getDouble();
 
-    Slice getSlice(int index);
+    Slice getSlice();
 
-    boolean isNull(int field);
+    boolean isNull();
 }

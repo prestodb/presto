@@ -32,7 +32,8 @@ public class TestHiveClientConfig
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(HiveClientConfig.class)
                 .setMaxSplitSize(new DataSize(64, Unit.MEGABYTE))
-                .setMaxOutstandingSplits(10_000)
+                .setMaxOutstandingSplits(1_000)
+                .setMaxGlobalSplitIteratorThreads(1_000)
                 .setMaxSplitIteratorThreads(50)
                 .setMetastoreCacheTtl(new Duration(1, TimeUnit.HOURS))
                 .setMetastoreRefreshInterval(new Duration(2, TimeUnit.MINUTES))
@@ -46,7 +47,9 @@ public class TestHiveClientConfig
                 .setDfsConnectMaxRetries(5)
                 .setFileSystemCacheTtl(new Duration(1, TimeUnit.DAYS))
                 .setResourceConfigFiles((String) null)
-                .setDomainSocketPath(null));
+                .setDomainSocketPath(null)
+                .setS3AwsAccessKey(null)
+                .setS3AwsSecretKey(null));
     }
 
     @Test
@@ -55,6 +58,7 @@ public class TestHiveClientConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("hive.max-split-size", "256MB")
                 .put("hive.max-outstanding-splits", "10")
+                .put("hive.max-global-split-iterator-threads", "10")
                 .put("hive.max-split-iterator-threads", "2")
                 .put("hive.metastore-cache-ttl", "2h")
                 .put("hive.metastore-refresh-interval", "30m")
@@ -69,11 +73,14 @@ public class TestHiveClientConfig
                 .put("hive.file-system-cache-ttl", "2d")
                 .put("hive.config.resources", "/foo.xml,/bar.xml")
                 .put("dfs.domain-socket-path", "/foo")
+                .put("hive.s3.aws-access-key", "abc123")
+                .put("hive.s3.aws-secret-key", "secret")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
                 .setMaxSplitSize(new DataSize(256, Unit.MEGABYTE))
                 .setMaxOutstandingSplits(10)
+                .setMaxGlobalSplitIteratorThreads(10)
                 .setMaxSplitIteratorThreads(2)
                 .setMetastoreCacheTtl(new Duration(2, TimeUnit.HOURS))
                 .setMetastoreRefreshInterval(new Duration(30, TimeUnit.MINUTES))
@@ -87,7 +94,9 @@ public class TestHiveClientConfig
                 .setDfsConnectMaxRetries(10)
                 .setFileSystemCacheTtl(new Duration(2, TimeUnit.DAYS))
                 .setResourceConfigFiles(ImmutableList.of("/foo.xml", "/bar.xml"))
-                .setDomainSocketPath("/foo");
+                .setDomainSocketPath("/foo")
+                .setS3AwsAccessKey("abc123")
+                .setS3AwsSecretKey("secret");
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

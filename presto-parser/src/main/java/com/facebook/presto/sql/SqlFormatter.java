@@ -238,7 +238,7 @@ public final class SqlFormatter
         @Override
         protected Void visitJoin(Join node, Integer indent)
         {
-            JoinCriteria criteria = node.getCriteria();
+            JoinCriteria criteria = node.getCriteria().orNull();
             String type = node.getType().toString();
             if (criteria instanceof NaturalJoin) {
                 type = "NATURAL " + type;
@@ -264,7 +264,7 @@ public final class SqlFormatter
                         .append(formatExpression(on.getExpression()))
                         .append(")");
             }
-            else if (!(criteria instanceof NaturalJoin)) {
+            else if (node.getType() != Join.Type.CROSS && !(criteria instanceof NaturalJoin)) {
                 throw new UnsupportedOperationException("unknown join criteria: " + criteria);
             }
 
@@ -287,7 +287,8 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitSampledRelation(SampledRelation node, Integer indent) {
+        protected Void visitSampledRelation(SampledRelation node, Integer indent)
+        {
             process(node.getRelation(), indent);
 
             builder.append(" TABLESAMPLE ")

@@ -16,20 +16,28 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.operator.GroupByIdBlock;
+import com.facebook.presto.operator.Page;
 import com.facebook.presto.tuple.TupleInfo;
-import io.airlift.slice.Slice;
+import com.facebook.presto.tuple.TupleInfo.Type;
+import com.facebook.presto.util.array.LongBigArray;
+import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
 
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
+import static com.google.common.base.Preconditions.checkState;
 
 public class CountAggregation
-        implements FixedWidthAggregationFunction
+        implements AggregationFunction
 {
     public static final CountAggregation COUNT = new CountAggregation();
 
     @Override
-    public int getFixedSize()
+    public List<Type> getParameterTypes()
     {
-        return SINGLE_LONG.getFixedSize();
+        return ImmutableList.of();
     }
 
     @Override
@@ -45,56 +53,172 @@ public class CountAggregation
     }
 
     @Override
-    public void initialize(Slice valueSlice, int valueOffset)
+    public CountGroupedAccumulator createGroupedAggregation(Optional<Integer> maskChannel, int[] argumentChannels)
     {
+        return new CountGroupedAccumulator(maskChannel);
     }
 
     @Override
-    public void addInput(int positionCount, Block block, int field, Slice valueSlice, int valueOffset)
+    public GroupedAccumulator createGroupedIntermediateAggregation()
     {
-        addCount(positionCount, valueSlice, valueOffset);
+        return new CountGroupedAccumulator(Optional.<Integer>absent());
     }
 
-    @Override
-    public void addInput(BlockCursor cursor, int field, Slice valueSlice, int valueOffset)
+    public static class CountGroupedAccumulator
+            implements GroupedAccumulator
     {
-        addCount(1, valueSlice, valueOffset);
-    }
+        private final LongBigArray counts;
+        private final Optional<Integer> maskChannel;
 
-    private void addCount(int positionCount, Slice valueSlice, int valueOffset)
-    {
-        long currentValue = SINGLE_LONG.getLong(valueSlice, valueOffset, 0);
-        SINGLE_LONG.setLong(valueSlice, valueOffset, 0, currentValue + positionCount);
-    }
-
-    @Override
-    public void addIntermediate(BlockCursor cursor, int field, Slice valueSlice, int valueOffset)
-    {
-        if (cursor.isNull(0)) {
-            return;
+        public CountGroupedAccumulator(Optional<Integer> maskChannel)
+        {
+            this.counts = new LongBigArray();
+            this.maskChannel = maskChannel;
         }
 
-        // update current value
-        long currentValue = SINGLE_LONG.getLong(valueSlice, valueOffset, 0);
-        long newValue = cursor.getLong(0);
-        SINGLE_LONG.setLong(valueSlice, valueOffset, 0, currentValue + newValue);
-    }
-
-    @Override
-    public void evaluateIntermediate(Slice valueSlice, int valueOffset, BlockBuilder output)
-    {
-        evaluateFinal(valueSlice, valueOffset, output);
-    }
-
-    @Override
-    public void evaluateFinal(Slice valueSlice, int valueOffset, BlockBuilder output)
-    {
-        if (!SINGLE_LONG.isNull(valueSlice, valueOffset, 0)) {
-            long currentValue = SINGLE_LONG.getLong(valueSlice, valueOffset, 0);
-            output.append(currentValue);
+        @Override
+        public long getEstimatedSize()
+        {
+            return counts.sizeOf();
         }
-        else {
-            output.appendNull();
+
+        @Override
+        public TupleInfo getFinalTupleInfo()
+        {
+            return SINGLE_LONG;
+        }
+
+        @Override
+        public TupleInfo getIntermediateTupleInfo()
+        {
+            return SINGLE_LONG;
+        }
+
+        public void addInput(GroupByIdBlock groupIdsBlock, Page page)
+        {
+            counts.ensureCapacity(groupIdsBlock.getGroupCount());
+
+            if (!maskChannel.isPresent()) {
+                for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
+                    long groupId = groupIdsBlock.getGroupId(position);
+                    counts.increment(groupId);
+                }
+            }
+            else {
+                BlockCursor cursor = page.getBlock(maskChannel.get()).cursor();
+                for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
+                    long groupId = groupIdsBlock.getGroupId(position);
+                    cursor.advanceNextPosition();
+                    if (cursor.getBoolean()) {
+                        counts.increment(groupId);
+                    }
+                }
+            }
+        }
+
+        @Override
+        public void addIntermediate(GroupByIdBlock groupIdsBlock, Block block)
+        {
+            counts.ensureCapacity(groupIdsBlock.getGroupCount());
+
+            BlockCursor intermediates = block.cursor();
+
+            for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
+                checkState(intermediates.advanceNextPosition());
+
+                long groupId = groupIdsBlock.getGroupId(position);
+                counts.add(groupId, intermediates.getLong());
+            }
+        }
+
+        @Override
+        public void evaluateIntermediate(int groupId, BlockBuilder output)
+        {
+            evaluateFinal(groupId, output);
+        }
+
+        public void evaluateFinal(int groupId, BlockBuilder output)
+        {
+            long value = counts.get((long) groupId);
+            output.append(value);
+        }
+    }
+
+    @Override
+    public CountAccumulator createAggregation(Optional<Integer> maskChannel, int... argumentChannels)
+    {
+        return new CountAccumulator(maskChannel);
+    }
+
+    @Override
+    public CountAccumulator createIntermediateAggregation()
+    {
+        return new CountAccumulator(Optional.<Integer>absent());
+    }
+
+    public static class CountAccumulator
+            implements Accumulator
+    {
+        private long count;
+        private final Optional<Integer> maskChannel;
+
+        public CountAccumulator(Optional<Integer> maskChannel)
+        {
+            this.maskChannel = maskChannel;
+        }
+
+        @Override
+        public TupleInfo getFinalTupleInfo()
+        {
+            return SINGLE_LONG;
+        }
+
+        @Override
+        public TupleInfo getIntermediateTupleInfo()
+        {
+            return SINGLE_LONG;
+        }
+
+        public void addInput(Page page)
+        {
+            if (!maskChannel.isPresent()) {
+                count += page.getPositionCount();
+            }
+            else {
+                BlockCursor masks = page.getBlock(maskChannel.get()).cursor();
+                while (masks.advanceNextPosition()) {
+                    if (masks.getBoolean()) {
+                        count++;
+                    }
+                }
+            }
+        }
+
+        @Override
+        public void addIntermediate(Block block)
+        {
+            BlockCursor intermediates = block.cursor();
+
+            for (int position = 0; position < block.getPositionCount(); position++) {
+                checkState(intermediates.advanceNextPosition());
+                count += intermediates.getLong();
+            }
+        }
+
+        @Override
+        public final Block evaluateIntermediate()
+        {
+            return evaluateFinal();
+        }
+
+        @Override
+        public final Block evaluateFinal()
+        {
+            BlockBuilder out = new BlockBuilder(getFinalTupleInfo());
+
+            out.append(count);
+
+            return out.build();
         }
     }
 }

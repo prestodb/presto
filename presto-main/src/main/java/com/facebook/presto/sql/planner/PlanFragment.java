@@ -17,6 +17,7 @@ import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.util.IterableTransformer;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -35,39 +36,52 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 @Immutable
 public class PlanFragment
 {
-    public enum Partitioning
+    public enum PlanDistribution
     {
         NONE,
-        HASH,
-        SOURCE
+        FIXED,
+        SOURCE,
+        COORDINATOR_ONLY
+    }
+
+    public static enum OutputPartitioning
+    {
+        NONE,
+        HASH
     }
 
     private final PlanFragmentId id;
     private final PlanNode root;
     private final Map<Symbol, Type> symbols;
-    private final Partitioning partitioning;
+    private final PlanDistribution distribution;
     private final PlanNodeId partitionedSource;
     private final List<TupleInfo> tupleInfos;
     private final List<PlanNode> sources;
     private final Set<PlanNodeId> sourceIds;
+    private final OutputPartitioning outputPartitioning;
+    private final List<Symbol> partitionBy;
 
     @JsonCreator
     public PlanFragment(
             @JsonProperty("id") PlanFragmentId id,
             @JsonProperty("root") PlanNode root,
             @JsonProperty("symbols") Map<Symbol, Type> symbols,
-            @JsonProperty("partitioning") Partitioning partitioning,
-            @JsonProperty("partitionedSource") PlanNodeId partitionedSource)
+            @JsonProperty("distribution") PlanDistribution distribution,
+            @JsonProperty("partitionedSource") PlanNodeId partitionedSource,
+            @JsonProperty("outputPartitioning") OutputPartitioning outputPartitioning,
+            @JsonProperty("partitionBy") List<Symbol> partitionBy)
     {
         this.id = checkNotNull(id, "id is null");
         this.root = checkNotNull(root, "root is null");
         this.symbols = checkNotNull(symbols, "symbols is null");
-        this.partitioning = checkNotNull(partitioning, "partitioning is null");
+        this.distribution = checkNotNull(distribution, "distribution is null");
         this.partitionedSource = partitionedSource;
+        this.partitionBy = ImmutableList.copyOf(checkNotNull(partitionBy, "partitionBy is null"));
 
         tupleInfos = IterableTransformer.on(root.getOutputSymbols())
                 .transform(Functions.forMap(symbols))
@@ -94,6 +108,8 @@ public class PlanFragment
             sourceIds.add(partitionedSource);
         }
         this.sourceIds = sourceIds.build();
+
+        this.outputPartitioning = checkNotNull(outputPartitioning, "outputPartitioning is null");
     }
 
     @JsonProperty
@@ -115,15 +131,42 @@ public class PlanFragment
     }
 
     @JsonProperty
-    public Partitioning getPartitioning()
+    public PlanDistribution getDistribution()
     {
-        return partitioning;
+        return distribution;
     }
 
     @JsonProperty
     public PlanNodeId getPartitionedSource()
     {
         return partitionedSource;
+    }
+
+    @JsonProperty
+    public OutputPartitioning getOutputPartitioning()
+    {
+        return outputPartitioning;
+    }
+
+    @JsonProperty
+    public List<Symbol> getPartitionBy()
+    {
+        return partitionBy;
+    }
+
+    public List<Integer> getPartitioningChannels()
+    {
+        checkState(outputPartitioning == OutputPartitioning.HASH, "fragment is not hash partitioned");
+        checkState(root instanceof SinkNode, "root is not an instance of SinkNode");
+        // We can convert the symbols directly into channels, because the root must be a sink and therefore the layout is fixed
+        return IterableTransformer.on(partitionBy).transform(new Function<Symbol, Integer>()
+        {
+            @Override
+            public Integer apply(Symbol input)
+            {
+                return root.getOutputSymbols().indexOf(input);
+            }
+        }).list();
     }
 
     public List<TupleInfo> getTupleInfos()
@@ -157,8 +200,9 @@ public class PlanFragment
     {
         return Objects.toStringHelper(this)
                 .add("id", id)
-                .add("partitioning", partitioning)
+                .add("distribution", distribution)
                 .add("partitionedSource", partitionedSource)
+                .add("outputPartitioning", outputPartitioning)
                 .toString();
     }
 

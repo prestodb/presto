@@ -16,93 +16,142 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.tuple.TupleInfo;
-import io.airlift.slice.Slice;
+import com.facebook.presto.operator.GroupByIdBlock;
+import com.facebook.presto.tuple.TupleInfo.Type;
+import com.facebook.presto.util.array.LongBigArray;
+import com.google.common.base.Optional;
 
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
+import static com.google.common.base.Preconditions.checkState;
 
 public class CountColumnAggregation
-        implements FixedWidthAggregationFunction
+        extends SimpleAggregationFunction
 {
-    public static final CountColumnAggregation COUNT_COLUMN = new CountColumnAggregation();
-
-    @Override
-    public int getFixedSize()
+    public CountColumnAggregation(Type parameterType)
     {
-        return SINGLE_LONG.getFixedSize();
+        super(SINGLE_LONG, SINGLE_LONG, parameterType);
     }
 
     @Override
-    public TupleInfo getFinalTupleInfo()
+    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, int valueChannel)
     {
-        return SINGLE_LONG;
+        return new CountColumnGroupedAccumulator(valueChannel, maskChannel);
     }
 
-    @Override
-    public TupleInfo getIntermediateTupleInfo()
+    public static class CountColumnGroupedAccumulator
+            extends SimpleGroupedAccumulator
     {
-        return SINGLE_LONG;
-    }
+        private final LongBigArray counts;
 
-    @Override
-    public void initialize(Slice valueSlice, int valueOffset)
-    {
-        SINGLE_LONG.setLong(valueSlice, valueOffset, 0, 0);
-    }
-
-    @Override
-    public void addInput(BlockCursor cursor, int field, Slice valueSlice, int valueOffset)
-    {
-        if (cursor.isNull(field)) {
-            return;
+        public CountColumnGroupedAccumulator(int valueChannel, Optional<Integer> maskChannel)
+        {
+            super(valueChannel, SINGLE_LONG, SINGLE_LONG, maskChannel);
+            this.counts = new LongBigArray();
         }
 
-        // update current value
-        long currentValue = SINGLE_LONG.getLong(valueSlice, valueOffset, 0);
-        SINGLE_LONG.setLong(valueSlice, valueOffset, 0, currentValue + 1);
+        @Override
+        public long getEstimatedSize()
+        {
+            return counts.sizeOf();
+        }
+
+        @Override
+        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock)
+        {
+            counts.ensureCapacity(groupIdsBlock.getGroupCount());
+
+            BlockCursor values = valuesBlock.cursor();
+            BlockCursor masks = null;
+            if (maskBlock.isPresent()) {
+                masks = maskBlock.get().cursor();
+            }
+
+            for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
+                checkState(values.advanceNextPosition());
+                checkState(masks == null || masks.advanceNextPosition());
+                if (!values.isNull() && (masks == null || masks.getBoolean())) {
+                    long groupId = groupIdsBlock.getGroupId(position);
+                    counts.increment(groupId);
+                }
+            }
+            checkState(!values.advanceNextPosition());
+        }
+
+        @Override
+        protected void processIntermediate(GroupByIdBlock groupIdsBlock, Block valuesBlock)
+        {
+            counts.ensureCapacity(groupIdsBlock.getGroupCount());
+
+            BlockCursor values = valuesBlock.cursor();
+
+            for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
+                checkState(values.advanceNextPosition());
+
+                if (!values.isNull()) {
+                    long groupId = groupIdsBlock.getGroupId(position);
+                    counts.add(groupId, values.getLong());
+                }
+            }
+            checkState(!values.advanceNextPosition());
+        }
+
+        @Override
+        public void evaluateFinal(int groupId, BlockBuilder output)
+        {
+            long value = counts.get((long) groupId);
+            output.append(value);
+        }
     }
 
     @Override
-    public void addInput(int positionCount, Block block, int field, Slice valueSlice, int valueOffset)
+    protected Accumulator createAccumulator(Optional<Integer> maskChannel, int valueChannel)
     {
-        // initialize with current value
-        long count = SINGLE_LONG.getLong(valueSlice, valueOffset, 0);
+        return new CountColumnAccumulator(valueChannel, maskChannel);
+    }
 
-        // process block
-        BlockCursor cursor = block.cursor();
-        while (cursor.advanceNextPosition()) {
-            if (!cursor.isNull(field)) {
-                count++;
+    public static class CountColumnAccumulator
+            extends SimpleAccumulator
+    {
+        private long count;
+
+        public CountColumnAccumulator(int valueChannel, Optional<Integer> maskChannel)
+        {
+            super(valueChannel, SINGLE_LONG, SINGLE_LONG, maskChannel);
+        }
+
+        @Override
+        protected void processInput(Block block, Optional<Block> maskBlock)
+        {
+            BlockCursor values = block.cursor();
+            BlockCursor mask = null;
+            if (maskBlock.isPresent()) {
+                mask = maskBlock.get().cursor();
+            }
+
+            for (int position = 0; position < block.getPositionCount(); position++) {
+                checkState(values.advanceNextPosition());
+                checkState(mask == null || mask.advanceNextPosition());
+                if (!values.isNull() && (mask == null || mask.getBoolean())) {
+                    count++;
+                }
             }
         }
 
-        // write new value
-        SINGLE_LONG.setLong(valueSlice, valueOffset, 0, count);
-    }
+        @Override
+        protected void processIntermediate(Block block)
+        {
+            BlockCursor intermediates = block.cursor();
 
-    @Override
-    public void addIntermediate(BlockCursor cursor, int field, Slice valueSlice, int valueOffset)
-    {
-        if (cursor.isNull(field)) {
-            return;
+            for (int position = 0; position < block.getPositionCount(); position++) {
+                checkState(intermediates.advanceNextPosition());
+                count += intermediates.getLong();
+            }
         }
 
-        // update current value
-        long currentValue = SINGLE_LONG.getLong(valueSlice, valueOffset, 0);
-        long newValue = cursor.getLong(field);
-        SINGLE_LONG.setLong(valueSlice, valueOffset, 0, currentValue + newValue);
-    }
-
-    @Override
-    public void evaluateIntermediate(Slice valueSlice, int valueOffset, BlockBuilder output)
-    {
-        evaluateFinal(valueSlice, valueOffset, output);
-    }
-
-    @Override
-    public void evaluateFinal(Slice valueSlice, int valueOffset, BlockBuilder output)
-    {
-        long currentValue = SINGLE_LONG.getLong(valueSlice, valueOffset, 0);
-        output.append(currentValue);
+        @Override
+        public void evaluateFinal(BlockBuilder out)
+        {
+            out.append(count);
+        }
     }
 }

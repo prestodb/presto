@@ -13,7 +13,8 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
-import com.facebook.presto.metadata.FunctionHandle;
+import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.DependencyExtractor;
@@ -24,6 +25,7 @@ import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
+import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.MaterializedViewWriterNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -33,11 +35,13 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.google.common.base.Predicates;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -45,6 +49,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 
 import java.util.Collection;
 import java.util.List;
@@ -57,7 +63,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.collect.Iterables.concat;
-import static com.google.common.collect.Iterables.filter;
 
 /**
  * Removes all computation that does is not referenced transitively from the root of the plan
@@ -138,14 +143,19 @@ public class PruneUnreferencedOutputs
             ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
                     .addAll(node.getGroupBy());
 
-            ImmutableMap.Builder<Symbol, FunctionHandle> functions = ImmutableMap.builder();
+            ImmutableMap.Builder<Symbol, Signature> functions = ImmutableMap.builder();
             ImmutableMap.Builder<Symbol, FunctionCall> functionCalls = ImmutableMap.builder();
+            ImmutableMap.Builder<Symbol, Symbol> masks = ImmutableMap.builder();
             for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
                 Symbol symbol = entry.getKey();
 
                 if (expectedOutputs.contains(symbol)) {
                     FunctionCall call = entry.getValue();
                     expectedInputs.addAll(DependencyExtractor.extractUnique(call));
+                    if (node.getMasks().containsKey(symbol)) {
+                        expectedInputs.add(node.getMasks().get(symbol));
+                        masks.put(symbol, node.getMasks().get(symbol));
+                    }
 
                     functionCalls.put(symbol, call);
                     functions.put(symbol, node.getFunctions().get(symbol));
@@ -154,7 +164,7 @@ public class PruneUnreferencedOutputs
 
             PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs.build());
 
-            return new AggregationNode(node.getId(), source, node.getGroupBy(), functionCalls.build(), functions.build());
+            return new AggregationNode(node.getId(), source, node.getGroupBy(), functionCalls.build(), functions.build(), masks.build());
         }
 
         @Override
@@ -165,7 +175,7 @@ public class PruneUnreferencedOutputs
                     .addAll(node.getPartitionBy())
                     .addAll(node.getOrderBy());
 
-            ImmutableMap.Builder<Symbol, FunctionHandle> functions = ImmutableMap.builder();
+            ImmutableMap.Builder<Symbol, Signature> functions = ImmutableMap.builder();
             ImmutableMap.Builder<Symbol, FunctionCall> functionCalls = ImmutableMap.builder();
             for (Map.Entry<Symbol, FunctionCall> entry : node.getWindowFunctions().entrySet()) {
                 Symbol symbol = entry.getKey();
@@ -175,7 +185,7 @@ public class PruneUnreferencedOutputs
                     expectedInputs.addAll(DependencyExtractor.extractUnique(call));
 
                     functionCalls.put(symbol, call);
-                    functions.put(symbol, node.getFunctionHandles().get(symbol));
+                    functions.put(symbol, node.getSignatures().get(symbol));
                 }
             }
 
@@ -206,7 +216,15 @@ public class PruneUnreferencedOutputs
             List<Symbol> newOutputSymbols = FluentIterable.from(node.getOutputSymbols())
                     .filter(in(requiredTableScanOutputs))
                     .toList();
-            return new TableScanNode(node.getId(), node.getTable(), newOutputSymbols, node.getAssignments(), node.getGeneratedPartitions());
+
+            Set<Symbol> requiredAssignmentSymbols = requiredTableScanOutputs;
+            if (!node.getPartitionsDomainSummary().isNone()) {
+                Set<Symbol> requiredPartitionDomainSymbols = Maps.filterValues(node.getAssignments(), Predicates.in(node.getPartitionsDomainSummary().getDomains().keySet())).keySet();
+                requiredAssignmentSymbols = Sets.union(requiredTableScanOutputs, requiredPartitionDomainSymbols);
+            }
+            Map<Symbol, ColumnHandle> newAssignments = Maps.filterKeys(node.getAssignments(), in(requiredAssignmentSymbols));
+
+            return new TableScanNode(node.getId(), node.getTable(), newOutputSymbols, newAssignments, node.getOriginalConstraint(), node.getGeneratedPartitions());
         }
 
         @Override
@@ -220,6 +238,23 @@ public class PruneUnreferencedOutputs
             PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs);
 
             return new FilterNode(node.getId(), source, node.getPredicate());
+        }
+
+        @Override
+        public PlanNode rewriteMarkDistinct(MarkDistinctNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
+        {
+            if (!expectedOutputs.contains(node.getMarkerSymbol())) {
+                return planRewriter.rewrite(node.getSource(), expectedOutputs);
+            }
+
+            Set<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
+                    .addAll(node.getDistinctSymbols())
+                    .addAll(expectedOutputs)
+                    .build();
+
+            PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs);
+
+            return new MarkDistinctNode(node.getId(), source, node.getMarkerSymbol(), node.getDistinctSymbols());
         }
 
         @Override
@@ -276,6 +311,14 @@ public class PruneUnreferencedOutputs
             PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs);
 
             return new SortNode(node.getId(), source, node.getOrderBy(), node.getOrderings());
+        }
+
+        @Override
+        public PlanNode rewriteTableWriter(TableWriterNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
+        {
+            PlanNode source = planRewriter.rewrite(node.getSource(), ImmutableSet.copyOf(node.getColumns()));
+
+            return new TableWriterNode(node.getId(), source, node.getTarget(), node.getColumns(), node.getColumnNames(), node.getOutputSymbols());
         }
 
         @Override

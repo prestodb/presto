@@ -17,9 +17,9 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFactory;
 import com.facebook.presto.operator.HashJoinOperator.HashJoinOperatorFactory;
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.util.MaterializedResult;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -34,7 +34,6 @@ import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
-import static com.facebook.presto.util.MaterializedResult.resultBuilder;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -69,7 +68,7 @@ public class TestHashJoinOperator
         Operator buildOperator = new StaticOperator(operatorContext, rowPagesBuilder(SINGLE_VARBINARY, SINGLE_LONG, SINGLE_LONG)
                 .addSequencePage(10, 20, 30, 40)
                 .build());
-        HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(1, buildOperator.getTupleInfos(), 0, 100);
+        HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(1, buildOperator.getTupleInfos(), Ints.asList(0), 100);
         Operator sourceHashProvider = hashBuilderOperatorFactory.createOperator(driverContext);
 
         Driver driver = new Driver(driverContext, buildOperator, sourceHashProvider);
@@ -85,12 +84,17 @@ public class TestHashJoinOperator
                 0,
                 hashBuilderOperatorFactory.getHashSupplier(),
                 ImmutableList.of(SINGLE_VARBINARY, SINGLE_LONG, SINGLE_LONG),
-                0);
+                Ints.asList(0));
 
         Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
 
         // expected
-        MaterializedResult expected = resultBuilder(new TupleInfo(VARIABLE_BINARY, FIXED_INT_64, FIXED_INT_64, VARIABLE_BINARY, FIXED_INT_64, FIXED_INT_64))
+        MaterializedResult expected = MaterializedResult.resultBuilder(VARIABLE_BINARY,
+                FIXED_INT_64,
+                FIXED_INT_64,
+                VARIABLE_BINARY,
+                FIXED_INT_64,
+                FIXED_INT_64)
                 .row("20", 1020, 2020, "20", 30, 40)
                 .row("21", 1021, 2021, "21", 31, 41)
                 .row("22", 1022, 2022, "22", 32, 42)
@@ -119,7 +123,7 @@ public class TestHashJoinOperator
                 .row("b")
                 .row("c")
                 .build());
-        HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(1, buildOperator.getTupleInfos(), 0, 100);
+        HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(1, buildOperator.getTupleInfos(), Ints.asList(0), 100);
         Operator sourceHashProvider = hashBuilderOperatorFactory.createOperator(driverContext);
 
         Driver driver = new Driver(driverContext, buildOperator, sourceHashProvider);
@@ -139,11 +143,11 @@ public class TestHashJoinOperator
                 0,
                 hashBuilderOperatorFactory.getHashSupplier(),
                 ImmutableList.of(SINGLE_VARBINARY),
-                0);
+                Ints.asList(0));
         Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
 
         // expected
-        MaterializedResult expected = resultBuilder(new TupleInfo(VARIABLE_BINARY, VARIABLE_BINARY))
+        MaterializedResult expected = MaterializedResult.resultBuilder(VARIABLE_BINARY, VARIABLE_BINARY)
                 .row("a", "a")
                 .row("a", "a")
                 .row("b", "b")
@@ -167,7 +171,7 @@ public class TestHashJoinOperator
                 .row("a")
                 .row("b")
                 .build());
-        HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(1, buildOperator.getTupleInfos(), 0, 100);
+        HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(1, buildOperator.getTupleInfos(), Ints.asList(0), 100);
         Operator sourceHashProvider = hashBuilderOperatorFactory.createOperator(driverContext);
 
         Driver driver = new Driver(driverContext, buildOperator, sourceHashProvider);
@@ -185,11 +189,11 @@ public class TestHashJoinOperator
                 0,
                 hashBuilderOperatorFactory.getHashSupplier(),
                 ImmutableList.of(SINGLE_VARBINARY),
-                0);
+                Ints.asList(0));
         Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
 
         // expected
-        MaterializedResult expected = resultBuilder(new TupleInfo(VARIABLE_BINARY, VARIABLE_BINARY))
+        MaterializedResult expected = MaterializedResult.resultBuilder(VARIABLE_BINARY, VARIABLE_BINARY)
                 .row("a", "a")
                 .row("a", "a")
                 .row("b", "b")
@@ -213,7 +217,7 @@ public class TestHashJoinOperator
                 .row("a")
                 .row("b")
                 .build());
-        HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(1, buildOperator.getTupleInfos(), 0, 100);
+        HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(1, buildOperator.getTupleInfos(), Ints.asList(0), 100);
         Operator sourceHashProvider = hashBuilderOperatorFactory.createOperator(driverContext);
 
         Driver driver = new Driver(driverContext, buildOperator, sourceHashProvider);
@@ -232,11 +236,11 @@ public class TestHashJoinOperator
                 0,
                 hashBuilderOperatorFactory.getHashSupplier(),
                 ImmutableList.of(SINGLE_VARBINARY),
-                0);
+                Ints.asList(0));
         Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
 
         // expected
-        MaterializedResult expected = resultBuilder(new TupleInfo(VARIABLE_BINARY, VARIABLE_BINARY))
+        MaterializedResult expected = MaterializedResult.resultBuilder(VARIABLE_BINARY, VARIABLE_BINARY)
                 .row("a", "a")
                 .row("a", "a")
                 .row("b", "b")
@@ -257,7 +261,7 @@ public class TestHashJoinOperator
                 .addSequencePage(10, 20, 30, 40)
                 .build());
 
-        HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(1, buildOperator.getTupleInfos(), 0, 100);
+        HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(1, buildOperator.getTupleInfos(), Ints.asList(0), 100);
         Operator hashBuilderOperator = hashBuilderOperatorFactory.createOperator(driverContext);
 
         Driver driver = new Driver(driverContext, buildOperator, hashBuilderOperator);
@@ -273,12 +277,17 @@ public class TestHashJoinOperator
                 0,
                 hashBuilderOperatorFactory.getHashSupplier(),
                 ImmutableList.of(SINGLE_VARBINARY, SINGLE_LONG, SINGLE_LONG),
-                0);
+                Ints.asList(0));
         Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
 
         // expected
         // expected
-        MaterializedResult expected = resultBuilder(new TupleInfo(VARIABLE_BINARY, FIXED_INT_64, FIXED_INT_64, VARIABLE_BINARY, FIXED_INT_64, FIXED_INT_64))
+        MaterializedResult expected = MaterializedResult.resultBuilder(VARIABLE_BINARY,
+                FIXED_INT_64,
+                FIXED_INT_64,
+                VARIABLE_BINARY,
+                FIXED_INT_64,
+                FIXED_INT_64)
                 .row("20", 1020, 2020, "20", 30, 40)
                 .row("21", 1021, 2021, "21", 31, 41)
                 .row("22", 1022, 2022, "22", 32, 42)
@@ -312,7 +321,7 @@ public class TestHashJoinOperator
                 .row("b")
                 .row("c")
                 .build());
-        HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(1, buildOperator.getTupleInfos(), 0, 100);
+        HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(1, buildOperator.getTupleInfos(), Ints.asList(0), 100);
         Operator sourceHashProvider = hashBuilderOperatorFactory.createOperator(driverContext);
 
         Driver driver = new Driver(driverContext, buildOperator, sourceHashProvider);
@@ -332,11 +341,11 @@ public class TestHashJoinOperator
                 0,
                 hashBuilderOperatorFactory.getHashSupplier(),
                 ImmutableList.of(SINGLE_VARBINARY),
-                0);
+                Ints.asList(0));
         Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
 
         // expected
-        MaterializedResult expected = resultBuilder(new TupleInfo(VARIABLE_BINARY, VARIABLE_BINARY))
+        MaterializedResult expected = MaterializedResult.resultBuilder(VARIABLE_BINARY, VARIABLE_BINARY)
                 .row("a", "a")
                 .row(null, null)
                 .row(null, null)
@@ -362,7 +371,7 @@ public class TestHashJoinOperator
                 .row("a")
                 .row("b")
                 .build());
-        HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(1, buildOperator.getTupleInfos(), 0, 100);
+        HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(1, buildOperator.getTupleInfos(), Ints.asList(0), 100);
         Operator sourceHashProvider = hashBuilderOperatorFactory.createOperator(driverContext);
 
         Driver driver = new Driver(driverContext, buildOperator, sourceHashProvider);
@@ -380,11 +389,11 @@ public class TestHashJoinOperator
                 0,
                 hashBuilderOperatorFactory.getHashSupplier(),
                 ImmutableList.of(SINGLE_VARBINARY),
-                0);
+                Ints.asList(0));
         Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
 
         // expected
-        MaterializedResult expected = resultBuilder(new TupleInfo(VARIABLE_BINARY, VARIABLE_BINARY))
+        MaterializedResult expected = MaterializedResult.resultBuilder(VARIABLE_BINARY, VARIABLE_BINARY)
                 .row("a", "a")
                 .row("a", "a")
                 .row("b", "b")
@@ -409,7 +418,7 @@ public class TestHashJoinOperator
                 .row("a")
                 .row("b")
                 .build());
-        HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(1, buildOperator.getTupleInfos(), 0, 100);
+        HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(1, buildOperator.getTupleInfos(), Ints.asList(0), 100);
         Operator sourceHashProvider = hashBuilderOperatorFactory.createOperator(driverContext);
 
         Driver driver = new Driver(driverContext, buildOperator, sourceHashProvider);
@@ -428,11 +437,11 @@ public class TestHashJoinOperator
                 0,
                 hashBuilderOperatorFactory.getHashSupplier(),
                 ImmutableList.of(SINGLE_VARBINARY),
-                0);
+                Ints.asList(0));
         Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
 
         // expected
-        MaterializedResult expected = resultBuilder(new TupleInfo(VARIABLE_BINARY, VARIABLE_BINARY))
+        MaterializedResult expected = MaterializedResult.resultBuilder(VARIABLE_BINARY, VARIABLE_BINARY)
                 .row("a", "a")
                 .row("a", "a")
                 .row("b", "b")
@@ -457,7 +466,7 @@ public class TestHashJoinOperator
                 .addSequencePage(10, 20, 30, 40)
                 .build());
 
-        Operator hashBuilderOperator = new HashBuilderOperatorFactory(1, buildOperator.getTupleInfos(), 0, 1_500_000).createOperator(driverContext);
+        Operator hashBuilderOperator = new HashBuilderOperatorFactory(1, buildOperator.getTupleInfos(), Ints.asList(0), 1_500_000).createOperator(driverContext);
 
         Driver driver = new Driver(driverContext, buildOperator, hashBuilderOperator);
         while (!driver.isFinished()) {

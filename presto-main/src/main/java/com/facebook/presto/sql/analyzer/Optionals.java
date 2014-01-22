@@ -17,8 +17,10 @@ import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 
-public class Optionals
+public final class Optionals
 {
+    private Optionals() {}
+
     public static Predicate<Optional<?>> isPresentPredicate()
     {
         return new Predicate<Optional<?>>()

@@ -125,7 +125,8 @@ public final class PagesSerde
             if (!sliceInput.isReadable()) {
                 endOfData();
                 blockEncodings = new BlockEncoding[0];
-            } else {
+            }
+            else {
                 int channelCount = sliceInput.readInt();
 
                 blockEncodings = new BlockEncoding[channelCount];

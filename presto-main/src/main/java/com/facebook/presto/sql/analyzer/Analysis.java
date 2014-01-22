@@ -72,6 +72,9 @@ public class Analysis
 
     private final IdentityHashMap<SampledRelation, Double> sampleRatios = new IdentityHashMap<>();
 
+    // for create table
+    private Optional<QualifiedTableName> createTableDestination = Optional.absent();
+
     // for materialized views
     private Optional<QualifiedTableName> materializedViewDestination = Optional.absent();
     private Optional<Integer> refreshInterval;
@@ -274,6 +277,16 @@ public class Analysis
         return columns.get(field);
     }
 
+    public void setCreateTableDestination(QualifiedTableName destination)
+    {
+        this.createTableDestination = Optional.of(destination);
+    }
+
+    public Optional<QualifiedTableName> getCreateTableDestination()
+    {
+        return createTableDestination;
+    }
+
     public void setMaterializedViewDestination(QualifiedTableName destination)
     {
         this.materializedViewDestination = Optional.of(destination);
@@ -370,4 +383,3 @@ public class Analysis
         }
     }
 }
-

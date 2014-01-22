@@ -45,6 +45,11 @@ public interface ShardManager
     void commitPartition(TableHandle tableHandle, String partition, List<? extends PartitionKey> partitionKeys, Map<UUID, String> shards);
 
     /**
+     * Commit an unpartitioned table.
+     */
+    void commitUnpartitionedTable(TableHandle tableHandle, Map<UUID, String> shards);
+
+    /**
      * Get the names of all partitions that have been successfully imported.
      *
      * @return list of partition names
