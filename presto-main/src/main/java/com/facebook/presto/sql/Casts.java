@@ -34,10 +34,10 @@ public final class Casts
                 return value;
             }
             else if (value instanceof Long) {
-                return ((Long) value).longValue() != 0;
+                return (Long) value != 0;
             }
             else if (value instanceof Double) {
-                return ((Double) value).doubleValue() != 0;
+                return (Double) value != 0;
             }
             else if (value instanceof Slice) {
                 String stringValue = ((Slice) value).toString(UTF_8).toLowerCase();
@@ -72,7 +72,7 @@ public final class Casts
                 return Long.parseLong(stringValue);
             }
             else if (value instanceof Double) {
-                return (long) MathFunctions.round(((Double) value).doubleValue());
+                return (long) MathFunctions.round((Double) value);
             }
         }
         catch (RuntimeException ignored) {
