@@ -100,9 +100,6 @@ public final class Casts
         catch (RuntimeException ignored) {
         }
 
-        if (value instanceof Slice) {
-            value = "'" + ((Slice) value).toString(UTF_8) + "'";
-        }
         throw new IllegalArgumentException(String.format("Cannot cast %s to VARCHAR", value));
     }
 
