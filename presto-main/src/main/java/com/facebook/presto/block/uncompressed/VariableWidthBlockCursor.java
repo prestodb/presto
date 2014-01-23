@@ -213,6 +213,12 @@ public class VariableWidthBlockCursor
         return type.compareTo(slice, entryOffset + SIZE_OF_BYTE, rightSlice, rightOffset);
     }
 
+    public boolean equalTo(Slice rightSlice, int rightOffset)
+    {
+        checkReadablePosition();
+        return type.equals(slice, entryOffset + SIZE_OF_BYTE, rightSlice, rightOffset);
+    }
+
     @Override
     public int calculateHashCode()
     {
