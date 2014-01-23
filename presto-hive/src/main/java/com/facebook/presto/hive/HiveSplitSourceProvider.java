@@ -167,7 +167,6 @@ class HiveSplitSourceProvider
             Iterator<String> nameIterator = partitionNames.iterator();
             for (Partition partition : partitions) {
                 checkState(nameIterator.hasNext(), "different number of partitions and partition names!");
-                semaphore.acquire();
                 final String partitionName = nameIterator.next();
                 final Properties schema = getPartitionSchema(table, partition);
                 final List<HivePartitionKey> partitionKeys = getPartitionKeys(table, partition);
@@ -217,6 +216,11 @@ class HiveSplitSourceProvider
                     }
                 }
 
+                // Acquire semaphore so that we only have a fixed number of outstanding partitions being processed asynchronously
+                // NOTE: there must not be any calls that throw in the space between acquiring the semaphore and setting the Future
+                // callback to release it. Otherwise, we will need a try-finally block around this section.
+                semaphore.acquire();
+
                 ListenableFuture<Void> partitionFuture = new AsyncRecursiveWalker(fs, suspendingExecutor).beginWalk(path, new FileStatusCallback()
                 {
                     @Override
@@ -250,6 +254,7 @@ class HiveSplitSourceProvider
                         markerQueue.finish();
                     }
                 });
+
                 futureBuilder.add(partitionFuture);
             }
 
