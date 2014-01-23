@@ -25,8 +25,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
-import it.unimi.dsi.fastutil.longs.Long2IntMap.Entry;
-import it.unimi.dsi.fastutil.objects.ObjectIterator;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -291,12 +289,13 @@ public class HashAggregationOperator
             final PageBuilder pageBuilder = new PageBuilder(types);
             return new AbstractIterator<Page>()
             {
-                private final ObjectIterator<Entry> pagePositionToGroup = groupByHash.getPagePositionToGroupId().long2IntEntrySet().fastIterator();
+                private final int groupCount = groupByHash.getGroupCount();
+                private int groupId;
 
                 @Override
                 protected Page computeNext()
                 {
-                    if (!pagePositionToGroup.hasNext()) {
+                    if (groupId >= groupCount) {
                         return endOfData();
                     }
 
@@ -308,18 +307,16 @@ public class HashAggregationOperator
                         groupByBlockBuilders[i] = pageBuilder.getBlockBuilder(i);
                     }
 
-                    while (!pageBuilder.isFull() && pagePositionToGroup.hasNext()) {
-                        Entry next = pagePositionToGroup.next();
-                        long pagePosition = next.getLongKey();
-                        int groupId = next.getIntValue();
-
-                        groupByHash.appendValuesTo(pagePosition, groupByBlockBuilders);
+                    while (!pageBuilder.isFull() && groupId < groupCount) {
+                        groupByHash.appendValuesTo(groupId, groupByBlockBuilders);
 
                         for (int i = 0; i < aggregators.size(); i++) {
                             Aggregator aggregator = aggregators.get(i);
                             BlockBuilder output = pageBuilder.getBlockBuilder(types.size() + i);
                             aggregator.evaluate(groupId, output);
                         }
+
+                        groupId++;
                     }
 
                     Page page = pageBuilder.build();
