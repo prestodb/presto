@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.OutputTableHandle;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -35,6 +36,8 @@ public class TableWriterNode
     private final List<Symbol> outputs;
     private final List<Symbol> columns;
     private final List<String> columnNames;
+    private final String catalog;
+    private final TableMetadata tableMetadata;
 
     @JsonCreator
     public TableWriterNode(
@@ -45,17 +48,43 @@ public class TableWriterNode
             @JsonProperty("columnNames") List<String> columnNames,
             @JsonProperty("outputs") List<Symbol> outputs)
     {
+        this(id, source, target, columns, columnNames, outputs, null, null);
+    }
+
+    public TableWriterNode(
+            PlanNodeId id,
+            PlanNode source,
+            OutputTableHandle target,
+            List<Symbol> columns,
+            List<String> columnNames,
+            List<Symbol> outputs,
+            String catalog,
+            TableMetadata tableMetadata)
+    {
         super(id);
 
         checkNotNull(columns, "columns is null");
         checkNotNull(columnNames, "columnNames is null");
         checkArgument(columns.size() == columnNames.size(), "columns and columnNames sizes don't match");
+        checkArgument((target == null) ^ (catalog == null && tableMetadata == null), "exactly one of target or (catalog, tableMetadata) must be set");
 
         this.source = checkNotNull(source, "source is null");
-        this.target = checkNotNull(target, "target is null");
+        this.target = target;
         this.columns = ImmutableList.copyOf(columns);
         this.columnNames = ImmutableList.copyOf(columnNames);
         this.outputs = ImmutableList.copyOf(checkNotNull(outputs, "outputs is null"));
+        this.catalog = catalog;
+        this.tableMetadata = tableMetadata;
+    }
+
+    public String getCatalog()
+    {
+        return catalog;
+    }
+
+    public TableMetadata getTableMetadata()
+    {
+        return tableMetadata;
     }
 
     @JsonProperty

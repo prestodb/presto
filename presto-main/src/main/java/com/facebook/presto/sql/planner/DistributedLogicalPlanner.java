@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.OutputTableHandle;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning;
 import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
@@ -61,6 +62,8 @@ import java.util.Map;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 /**
  * Splits a logical plan into fragments that can be shipped and executed on distributed nodes
@@ -355,8 +358,13 @@ public class DistributedLogicalPlanner
         @Override
         public SubPlanBuilder visitTableWriter(TableWriterNode node, Void context)
         {
+            // TODO: create table in pre-execution step, not here
+            // Part of the plan should be an Optional<StateChangeListener<QueryState>> and this
+            // callback can create the table and abort the table creation if the query fails.
+            OutputTableHandle target = metadata.beginCreateTable(node.getCatalog(), node.getTableMetadata());
+
             SubPlanBuilder current = node.getSource().accept(this, context);
-            current.setRoot(new TableWriterNode(node.getId(), current.getRoot(), node.getTarget(), node.getColumns(), node.getColumnNames(), node.getOutputSymbols()));
+            current.setRoot(new TableWriterNode(node.getId(), current.getRoot(), target, node.getColumns(), node.getColumnNames(), node.getOutputSymbols()));
             return current;
         }
 
@@ -364,6 +372,9 @@ public class DistributedLogicalPlanner
         public SubPlanBuilder visitTableCommit(TableCommitNode node, Void context)
         {
             SubPlanBuilder current = node.getSource().accept(this, context);
+            checkState(current.getRoot() instanceof TableWriterNode, "table commit node must be preceeded by table writer node");
+            OutputTableHandle target = ((TableWriterNode) current.getRoot()).getTarget();
+            checkNotNull(target, "target table handle should have been constructed when we visited the table writer node");
 
             if (current.getDistribution() != PlanDistribution.COORDINATOR_ONLY && !createSingleNodePlan) {
                 current.setRoot(new SinkNode(idAllocator.getNextId(), current.getRoot(), current.getRoot().getOutputSymbols()));
@@ -373,7 +384,7 @@ public class DistributedLogicalPlanner
                         .addChild(current.build());
             }
 
-            current.setRoot(new TableCommitNode(node.getId(), current.getRoot(), node.getTarget(), node.getOutputSymbols()));
+            current.setRoot(new TableCommitNode(node.getId(), current.getRoot(), target, node.getOutputSymbols()));
 
             return current;
         }

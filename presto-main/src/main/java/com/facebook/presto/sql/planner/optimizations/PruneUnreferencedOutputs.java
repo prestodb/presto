@@ -343,7 +343,7 @@ public class PruneUnreferencedOutputs
         {
             PlanNode source = planRewriter.rewrite(node.getSource(), ImmutableSet.copyOf(node.getColumns()));
 
-            return new TableWriterNode(node.getId(), source, node.getTarget(), node.getColumns(), node.getColumnNames(), node.getOutputSymbols());
+            return new TableWriterNode(node.getId(), source, node.getTarget(), node.getColumns(), node.getColumnNames(), node.getOutputSymbols(), node.getCatalog(), node.getTableMetadata());
         }
 
         @Override
