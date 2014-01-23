@@ -24,7 +24,6 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.ConnectorTableMetadata;
-import com.facebook.presto.spi.OutputTableHandle;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
@@ -128,11 +127,6 @@ public class LogicalPlanner
 
         TableMetadata tableMetadata = createTableMetadata(destination, getTableColumns(plan));
 
-        // TODO: create table in pre-execution step, not here
-        // Part of the plan should be an Optional<StateChangeListener<QueryState>> and this
-        // callback can create the table and abort the table creation if the query fails.
-        OutputTableHandle target = metadata.beginCreateTable(destination.getCatalogName(), tableMetadata);
-
         ImmutableList<Symbol> writerOutputs = ImmutableList.of(
                 symbolAllocator.newSymbol("partialrows", Type.BIGINT),
                 symbolAllocator.newSymbol("fragment", Type.VARCHAR));
@@ -140,17 +134,19 @@ public class LogicalPlanner
         TableWriterNode writerNode = new TableWriterNode(
                 idAllocator.getNextId(),
                 plan.getRoot(),
-                target,
+                null,
                 plan.getOutputSymbols(),
                 getColumnNames(tableMetadata),
-                writerOutputs);
+                writerOutputs,
+                destination.getCatalogName(),
+                tableMetadata);
 
         List<Symbol> outputs = ImmutableList.of(symbolAllocator.newSymbol("rows", Type.BIGINT));
 
         TableCommitNode commitNode = new TableCommitNode(
                 idAllocator.getNextId(),
                 writerNode,
-                target,
+                null,
                 outputs);
 
         return new RelationPlan(commitNode, analysis.getOutputDescriptor(), outputs);

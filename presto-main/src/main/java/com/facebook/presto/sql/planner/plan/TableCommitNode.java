@@ -23,6 +23,7 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 @Immutable
@@ -42,8 +43,9 @@ public class TableCommitNode
     {
         super(id);
 
+        checkArgument(target != null || source instanceof TableWriterNode);
         this.source = checkNotNull(source, "source is null");
-        this.target = checkNotNull(target, "target is null");
+        this.target = target;
         this.outputs = ImmutableList.copyOf(checkNotNull(outputs, "outputs is null"));
     }
 
