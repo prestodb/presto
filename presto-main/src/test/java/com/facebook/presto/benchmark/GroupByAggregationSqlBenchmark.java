@@ -26,7 +26,7 @@ public class GroupByAggregationSqlBenchmark
 {
     public GroupByAggregationSqlBenchmark(LocalQueryRunner localQueryRunner)
     {
-        super(localQueryRunner, "sql_groupby_agg", 5, 25, "select orderstatus, sum(totalprice) from orders group by orderstatus");
+        super(localQueryRunner, "sql_groupby_agg", 15, 100, "select orderstatus, sum(totalprice) from orders group by orderstatus");
     }
 
     public static void main(String[] args)

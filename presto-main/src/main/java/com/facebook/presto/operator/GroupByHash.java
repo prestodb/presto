@@ -18,27 +18,28 @@ import com.facebook.presto.block.BlockBuilderStatus;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.type.Type;
+import com.facebook.presto.util.array.LongBigArray;
 import com.google.common.collect.ImmutableList;
-import it.unimi.dsi.fastutil.longs.Long2IntOpenCustomHashMap;
-import it.unimi.dsi.fastutil.longs.LongHash;
-import it.unimi.dsi.fastutil.longs.LongHash.Strategy;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
+import java.util.Arrays;
 import java.util.List;
 
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.facebook.presto.type.BigintType.BIGINT;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static it.unimi.dsi.fastutil.HashCommon.arraySize;
+import static it.unimi.dsi.fastutil.HashCommon.maxFill;
+import static it.unimi.dsi.fastutil.HashCommon.murmurHash3;
 
 public class GroupByHash
 {
-    private static final long CURRENT_ROW_ADDRESS = 0xFF_FF_FF_FF_FF_FF_FF_FFL;
-
+    private static final float FILL_RATIO = 0.75f;
     private final List<Type> types;
     private final int[] channels;
 
@@ -46,8 +47,12 @@ public class GroupByHash
 
     private long completedPagesMemorySize;
 
-    private final PageBuilderHashStrategy hashStrategy;
-    private final PagePositionToGroupId pagePositionToGroupId;
+    private int maxFill;
+    private int mask;
+    private long[] key;
+    private int[] value;
+
+    private final LongBigArray groupAddress;
 
     private int nextGroupId;
 
@@ -60,14 +65,22 @@ public class GroupByHash
         this.pages = ObjectArrayList.wrap(new PageBuilder[1024], 0);
         this.pages.add(new PageBuilder(types));
 
-        this.hashStrategy = new PageBuilderHashStrategy();
-        this.pagePositionToGroupId = new PagePositionToGroupId(expectedSize, hashStrategy);
-        this.pagePositionToGroupId.defaultReturnValue(-1);
+        // reserve memory for the arrays
+        int hashSize = arraySize(expectedSize, FILL_RATIO);
+
+        maxFill = maxFill(hashSize, FILL_RATIO);
+        mask = hashSize - 1;
+        key = new long[hashSize];
+        Arrays.fill(key, -1);
+
+        value = new int[hashSize];
+
+        groupAddress = new LongBigArray();
     }
 
     public long getEstimatedSize()
     {
-        return completedPagesMemorySize + pages.get(pages.size() - 1).getMemorySize() + pagePositionToGroupId.getEstimatedSize();
+        return completedPagesMemorySize + pages.get(pages.size() - 1).getMemorySize() + sizeOf(key) + sizeOf(value);
     }
 
     public List<Type> getTypes()
@@ -75,47 +88,93 @@ public class GroupByHash
         return types;
     }
 
+    public int getGroupCount()
+    {
+        return nextGroupId;
+    }
+
+    public void appendValuesTo(int groupId, BlockBuilder[] builders)
+    {
+        long address = groupAddress.get(groupId);
+        PageBuilder page = pages.get(decodeSliceIndex(address));
+        page.appendValuesTo(decodePosition(address), builders);
+    }
+
     public GroupByIdBlock getGroupIds(Page page)
     {
         int positionCount = page.getPositionCount();
+
+        int maxPossibleGroupId = nextGroupId + positionCount;
+        groupAddress.ensureCapacity(maxPossibleGroupId);
+        if (maxPossibleGroupId > maxFill) {
+            rehash(maxPossibleGroupId);
+        }
 
         // we know the exact size required for the block
         BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(positionCount);
 
         // open cursors for group blocks
-        BlockCursor[] cursors = new BlockCursor[channels.length];
+        BlockCursor[] currentRow = new BlockCursor[channels.length];
         for (int i = 0; i < channels.length; i++) {
-            cursors[i] = page.getBlock(channels[i]).cursor();
+            currentRow[i] = page.getBlock(channels[i]).cursor();
         }
 
-        // use cursors in hash strategy to provide value for "current" row
-        hashStrategy.setCurrentRow(cursors);
-
-        for (int position = 0; position < positionCount; position++) {
-            for (BlockCursor cursor : cursors) {
+        // index pages
+        for (int position = 0; position < page.getPositionCount(); position++) {
+            for (BlockCursor cursor : currentRow) {
                 checkState(cursor.advanceNextPosition());
             }
 
-            int groupId = pagePositionToGroupId.get(CURRENT_ROW_ADDRESS);
-            if (groupId < 0) {
-                groupId = addNewGroup(cursors);
-            }
+            // get the group for the current row
+            int groupId = putIfAbsent(currentRow);
+
+            // output the group id for this row
             blockBuilder.append(groupId);
         }
+
         RandomAccessBlock block = blockBuilder.build();
         return new GroupByIdBlock(nextGroupId, block);
     }
 
-    private int addNewGroup(BlockCursor... row)
+    private int putIfAbsent(BlockCursor[] cursors)
     {
+        int hashPosition = (murmurHash3(hashCursor(cursors) ^ mask)) & mask;
+
+        // look for an empty slot or a slot containing this key
+        int groupId = -1;
+        while (key[hashPosition] != -1) {
+            long address = key[hashPosition];
+            if (positionEqualsCurrentRow(decodeSliceIndex(address), decodePosition(address), cursors)) {
+                // found an existing slot for this key
+                groupId = value[hashPosition];
+
+                break;
+            }
+            // increment position and mask to handler wrap around
+            hashPosition = (hashPosition + 1) & mask;
+        }
+
+        // did we find an existing group?
+        if (groupId < 0) {
+            groupId = addNewGroup(hashPosition, cursors);
+        }
+        return groupId;
+    }
+
+    private int addNewGroup(int hashPosition, BlockCursor[] cursors)
+    {
+        // add the row to the open page
         int pageIndex = pages.size() - 1;
         PageBuilder pageBuilder = pages.get(pageIndex);
-        pageBuilder.append(row);
+        pageBuilder.append(cursors);
 
         // record group id in hash
         int groupId = nextGroupId++;
         long address = encodeSyntheticAddress(pageIndex, pageBuilder.getPositionCount() - 1);
-        pagePositionToGroupId.put(address, groupId);
+
+        key[hashPosition] = address;
+        value[hashPosition] = groupId;
+        groupAddress.set(groupId, address);
 
         // create new page builder if this page is full
         if (pageBuilder.isFull()) {
@@ -127,93 +186,62 @@ public class GroupByHash
         return groupId;
     }
 
-    public Long2IntOpenCustomHashMap getPagePositionToGroupId()
+    private void rehash(int size)
     {
-        return pagePositionToGroupId;
+        int newSize = arraySize(size + 1, FILL_RATIO);
+
+        int newMask = newSize - 1; // Note that this is used by the hashing macro
+        long[] newKey = new long[newSize];
+        Arrays.fill(newKey, -1);
+        int[] newValue = new int[newSize];
+
+        int oldIndex = 0;
+        for (int groupId = 0; groupId < nextGroupId; groupId++) {
+            // seek to the next used slot
+            while (key[oldIndex] == -1) {
+                oldIndex++;
+            }
+
+            // get the address for this slot
+            long address = key[oldIndex];
+
+            // find an empty slot for the address
+            int pos = (murmurHash3(hashPosition(address) ^ newMask)) & newMask;
+            while (newKey[pos] != -1) {
+                pos = (pos + 1) & newMask;
+            }
+
+            // record the mapping
+            newKey[pos] = address;
+            newValue[pos] = value[oldIndex];
+            oldIndex++;
+        }
+
+        this.mask = newMask;
+        this.maxFill = maxFill(newSize, FILL_RATIO);
+        this.key = newKey;
+        this.value = newValue;
     }
 
-    public void appendValuesTo(long pagePosition, BlockBuilder[] builders)
+    private static int hashCursor(BlockCursor... cursors)
     {
-        PageBuilder page = pages.get(decodeSliceIndex(pagePosition));
-        page.appendValuesTo(decodePosition(pagePosition), builders);
+        int result = 0;
+        for (BlockCursor cursor : cursors) {
+            result = result * 31 + cursor.calculateHashCode();
+        }
+        return result;
     }
 
-    private class PageBuilderHashStrategy
-            implements Strategy
+    private int hashPosition(long sliceAddress)
     {
-        private BlockCursor[] currentRow;
+        int sliceIndex = decodeSliceIndex(sliceAddress);
+        int position = decodePosition(sliceAddress);
+        return pages.get(sliceIndex).hashCode(position);
+    }
 
-        public void setCurrentRow(BlockCursor[] currentRow)
-        {
-            this.currentRow = currentRow;
-        }
-
-        public void addPage(PageBuilder page)
-        {
-            pages.add(page);
-        }
-
-        @Override
-        public int hashCode(long sliceAddress)
-        {
-            if (sliceAddress == CURRENT_ROW_ADDRESS) {
-                return hashCurrentRow();
-            }
-            else {
-                return hashPosition(sliceAddress);
-            }
-        }
-
-        private int hashPosition(long sliceAddress)
-        {
-            int sliceIndex = decodeSliceIndex(sliceAddress);
-            int position = decodePosition(sliceAddress);
-            return pages.get(sliceIndex).hashCode(position);
-        }
-
-        private int hashCurrentRow()
-        {
-            int result = 0;
-            for (int channel = 0; channel < types.size(); channel++) {
-                BlockCursor cursor = currentRow[channel];
-                result = 31 * result + cursor.calculateHashCode();
-            }
-            return result;
-        }
-
-        @Override
-        public boolean equals(long leftSliceAddress, long rightSliceAddress)
-        {
-            // current row always equals itself
-            if (leftSliceAddress == CURRENT_ROW_ADDRESS && rightSliceAddress == CURRENT_ROW_ADDRESS) {
-                return true;
-            }
-
-            // current row == position
-            if (leftSliceAddress == CURRENT_ROW_ADDRESS) {
-                return positionEqualsCurrentRow(decodeSliceIndex(rightSliceAddress), decodePosition(rightSliceAddress));
-            }
-
-            // position == current row
-            if (rightSliceAddress == CURRENT_ROW_ADDRESS) {
-                return positionEqualsCurrentRow(decodeSliceIndex(leftSliceAddress), decodePosition(leftSliceAddress));
-            }
-
-            // position == position
-            return positionEqualsPosition(
-                    decodeSliceIndex(leftSliceAddress), decodePosition(leftSliceAddress),
-                    decodeSliceIndex(rightSliceAddress), decodePosition(rightSliceAddress));
-        }
-
-        private boolean positionEqualsCurrentRow(int sliceIndex, int position)
-        {
-            return pages.get(sliceIndex).equals(position, currentRow);
-        }
-
-        private boolean positionEqualsPosition(int leftSliceIndex, int leftPosition, int rightSliceIndex, int rightPosition)
-        {
-            return pages.get(leftSliceIndex).equals(leftPosition, pages.get(rightSliceIndex), rightPosition);
-        }
+    private boolean positionEqualsCurrentRow(int sliceIndex, int position, BlockCursor... currentRow)
+    {
+        return pages.get(sliceIndex).equals(position, currentRow);
     }
 
     private static class PageBuilder
@@ -298,21 +326,6 @@ public class GroupByHash
         public boolean isFull()
         {
             return full;
-        }
-    }
-
-    private static class PagePositionToGroupId
-            extends Long2IntOpenCustomHashMap
-    {
-        private PagePositionToGroupId(int expected, LongHash.Strategy strategy)
-        {
-            super(expected, strategy);
-            defaultReturnValue(-1);
-        }
-
-        public long getEstimatedSize()
-        {
-            return sizeOf(this.key) + sizeOf(this.value) + sizeOf(this.used);
         }
     }
 }
