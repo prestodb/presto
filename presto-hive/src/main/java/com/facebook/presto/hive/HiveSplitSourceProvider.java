@@ -356,7 +356,12 @@ class HiveSplitSourceProvider
             }
         }
         else {
-            // not splittable, use the hosts from the first block
+            // not splittable, use the hosts from the first block if it exists
+            List<HostAddress> addresses = ImmutableList.of();
+            if (blockLocations.length > 0) {
+                addresses = toHostAddress(blockLocations[0].getHosts());
+            }
+
             builder.add(new HiveSplit(connectorId,
                     table.getDbName(),
                     table.getTableName(),
@@ -367,7 +372,7 @@ class HiveSplitSourceProvider
                     length,
                     schema,
                     partitionKeys,
-                    toHostAddress(blockLocations[0].getHosts())));
+                    addresses));
         }
         return builder.build();
     }
