@@ -16,6 +16,7 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockBuilderStatus;
 import com.facebook.presto.operator.OperatorAssertion;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.type.Type;
@@ -28,7 +29,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
-import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertApproximateAggregation;
 import static com.facebook.presto.type.BigintType.BIGINT;
 import static com.facebook.presto.type.DoubleType.DOUBLE;
@@ -52,7 +52,7 @@ public abstract class AbstractTestApproximateAggregationFunction
     @Override
     public Block getSequenceBlock(int start, int length)
     {
-        BlockBuilder blockBuilder = getType().createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
+        BlockBuilder blockBuilder = getType().createBlockBuilder(new BlockBuilderStatus());
         for (int i = start; i < start + length; i++) {
             if (getType() == BIGINT) {
                 blockBuilder.append((long) i);
@@ -155,7 +155,7 @@ public abstract class AbstractTestApproximateAggregationFunction
                 }
             }
 
-            BlockBuilder builder = getType().createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
+            BlockBuilder builder = getType().createBlockBuilder(new BlockBuilderStatus());
             for (Number sample : sampledList.build()) {
                 if (getType() == BIGINT) {
                     builder.append(sample.longValue());

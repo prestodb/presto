@@ -104,6 +104,9 @@ public abstract class AbstractBenchmark
                 averageBenchmarkResults.addResults(results);
             }
         }
+        catch (Throwable t) {
+            throw new RuntimeException("Exception in " + getBenchmarkName(), t);
+        }
         finally {
             tearDown();
         }

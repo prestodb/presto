@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockBuilderStatus;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.type.Type;
@@ -25,7 +26,6 @@ import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 import java.util.List;
 
-import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
@@ -226,7 +226,7 @@ public class GroupByHash
         {
             ImmutableList.Builder<BlockBuilder> builder = ImmutableList.builder();
             for (Type type : types) {
-                builder.add(type.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE));
+                builder.add(type.createBlockBuilder(new BlockBuilderStatus()));
             }
             channels = builder.build();
         }

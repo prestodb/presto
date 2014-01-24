@@ -14,13 +14,13 @@
 package com.facebook.presto.serde;
 
 import com.facebook.presto.block.Block;
+import com.facebook.presto.block.BlockBuilderStatus;
 import com.facebook.presto.operator.Page;
 import io.airlift.slice.DynamicSliceOutput;
 import org.testng.annotations.Test;
 
 import java.util.Iterator;
 
-import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.serde.PagesSerde.readPages;
 import static com.facebook.presto.serde.PagesSerde.writePages;
@@ -33,7 +33,7 @@ public class TestPagesSerde
     @Test
     public void testRoundTrip()
     {
-        Block expectedBlock = VARCHAR.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE)
+        Block expectedBlock = VARCHAR.createBlockBuilder(new BlockBuilderStatus())
                 .append("alice")
                 .append("bob")
                 .append("charlie")
