@@ -14,16 +14,15 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.block.Block;
+import com.facebook.presto.block.BlockBuilderStatus;
 import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 import com.facebook.presto.operator.Page;
 import com.google.common.base.Preconditions;
-import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
-import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static com.facebook.presto.operator.aggregation.ApproximatePercentileAggregations.DOUBLE_APPROXIMATE_PERCENTILE_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.ApproximatePercentileAggregations.LONG_APPROXIMATE_PERCENTILE_AGGREGATION;
@@ -31,12 +30,11 @@ import static com.facebook.presto.operator.aggregation.ApproximatePercentileWeig
 import static com.facebook.presto.operator.aggregation.ApproximatePercentileWeightedAggregations.LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION;
 import static com.facebook.presto.type.BigintType.BIGINT;
 import static com.facebook.presto.type.DoubleType.DOUBLE;
-import static io.airlift.units.DataSize.Unit.BYTE;
 
 public class TestApproximatePercentileAggregation
 {
-    private static final Block EMPTY_DOUBLE_BLOCK = DOUBLE.createBlockBuilder(new DataSize(0, BYTE)).build();
-    private static final Block EMPTY_LONG_BLOCK = BIGINT.createBlockBuilder(new DataSize(0, BYTE)).build();
+    private static final Block EMPTY_DOUBLE_BLOCK = DOUBLE.createBlockBuilder(new BlockBuilderStatus()).build();
+    private static final Block EMPTY_LONG_BLOCK = BIGINT.createBlockBuilder(new BlockBuilderStatus()).build();
 
     @Test
     public void testLongPartialStep()
@@ -371,7 +369,7 @@ public class TestApproximatePercentileAggregation
 
     private static RunLengthEncodedBlock createRLEBlock(double percentile, int positionCount)
     {
-        RandomAccessBlock value = DOUBLE.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE)
+        RandomAccessBlock value = DOUBLE.createBlockBuilder(new BlockBuilderStatus())
                 .append(percentile)
                 .build()
                 .toRandomAccessBlock();

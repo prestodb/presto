@@ -15,13 +15,13 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockBuilderStatus;
 import com.google.common.base.Charsets;
 import com.google.common.collect.Ordering;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
-import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.facebook.presto.operator.aggregation.VarBinaryMaxAggregation.VAR_BINARY_MAX;
 import static com.facebook.presto.type.VarcharType.VARCHAR;
 
@@ -31,7 +31,7 @@ public class TestVarBinaryMaxAggregation
     @Override
     public Block getSequenceBlock(int start, int length)
     {
-        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
         for (int i = 0; i < length; i++) {
             blockBuilder.append(Slices.wrappedBuffer(Ints.toByteArray(i)));
         }

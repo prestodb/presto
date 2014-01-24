@@ -14,6 +14,7 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockBuilderStatus;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockEncoding.BlockEncodingFactory;
 import com.facebook.presto.block.FixedWidthBlockUtil.FixedWidthBlockBuilderFactory;
@@ -21,7 +22,6 @@ import com.facebook.presto.spi.ColumnType;
 import com.google.common.primitives.Booleans;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
-import io.airlift.units.DataSize;
 
 import static com.facebook.presto.block.FixedWidthBlockUtil.createIsolatedFixedWidthBlockBuilderFactory;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -64,9 +64,9 @@ public final class BooleanType
     }
 
     @Override
-    public BlockBuilder createBlockBuilder(DataSize maxBlockSize)
+    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus)
     {
-        return BLOCK_BUILDER_FACTORY.createFixedWidthBlockBuilder(maxBlockSize);
+        return BLOCK_BUILDER_FACTORY.createFixedWidthBlockBuilder(blockBuilderStatus);
     }
 
     @Override

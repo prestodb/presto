@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockBuilderStatus;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
@@ -29,7 +30,6 @@ import javax.annotation.Nullable;
 
 import java.util.Map;
 
-import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.facebook.presto.connector.dual.DualMetadata.DUAL_METADATA_MANAGER;
 import static com.facebook.presto.sql.analyzer.Type.BIGINT;
 import static com.facebook.presto.sql.analyzer.Type.BOOLEAN;
@@ -172,7 +172,7 @@ public class TestInterpretedProjectionFunction
         );
 
         // create output
-        BlockBuilder builder = outputType.getRawType().createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
+        BlockBuilder builder = outputType.getRawType().createBlockBuilder(new BlockBuilderStatus());
 
         // project
         projectionFunction.project(channels, builder);
@@ -184,7 +184,7 @@ public class TestInterpretedProjectionFunction
 
     private static BlockCursor createCursor(com.facebook.presto.sql.analyzer.Type type, Object value)
     {
-        BlockCursor cursor = type.getRawType().createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE).appendObject(value).build().cursor();
+        BlockCursor cursor = type.getRawType().createBlockBuilder(new BlockBuilderStatus()).appendObject(value).build().cursor();
         assertTrue(cursor.advanceNextPosition());
         return cursor;
     }

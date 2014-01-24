@@ -15,12 +15,12 @@ package com.facebook.presto.serde;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockAssertions;
+import com.facebook.presto.block.BlockBuilderStatus;
 import com.facebook.presto.block.BlockEncoding;
 import com.facebook.presto.block.uncompressed.VariableWidthBlockEncoding;
 import io.airlift.slice.DynamicSliceOutput;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.facebook.presto.type.VarcharType.VARCHAR;
 
 public class TestUncompressedBlockSerde
@@ -28,7 +28,7 @@ public class TestUncompressedBlockSerde
     @Test
     public void testRoundTrip()
     {
-        Block expectedBlock = VARCHAR.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE)
+        Block expectedBlock = VARCHAR.createBlockBuilder(new BlockBuilderStatus())
                 .append("alice")
                 .append("bob")
                 .append("charlie")
@@ -45,7 +45,7 @@ public class TestUncompressedBlockSerde
     @Test
     public void testCreateBlockWriter()
     {
-        Block block = VARCHAR.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE)
+        Block block = VARCHAR.createBlockBuilder(new BlockBuilderStatus())
                 .append("alice")
                 .append("bob")
                 .append("charlie")
@@ -55,7 +55,7 @@ public class TestUncompressedBlockSerde
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
         BlockEncoding blockEncoding = new UncompressedEncoder(sliceOutput).append(block).append(block).finish();
         Block actualBlock = blockEncoding.readBlock(sliceOutput.slice().getInput());
-        BlockAssertions.assertBlockEquals(actualBlock, VARCHAR.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE)
+        BlockAssertions.assertBlockEquals(actualBlock, VARCHAR.createBlockBuilder(new BlockBuilderStatus())
                 .append("alice")
                 .append("bob")
                 .append("charlie")
