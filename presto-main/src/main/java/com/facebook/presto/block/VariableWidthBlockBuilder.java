@@ -23,26 +23,25 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
-import io.airlift.units.DataSize;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 
 public class VariableWidthBlockBuilder
         extends AbstractVariableWidthRandomAccessBlock
         implements BlockBuilder
 {
-    private final int maxBlockSize;
+    private final BlockBuilderStatus blockBuilderStatus;
     private final SliceOutput sliceOutput;
     private final IntArrayList offsets = new IntArrayList(1024);
 
-    public VariableWidthBlockBuilder(VarcharType type, DataSize maxBlockSize)
+    public VariableWidthBlockBuilder(VarcharType type, BlockBuilderStatus blockBuilderStatus)
     {
         super(type);
 
-        checkNotNull(maxBlockSize, "maxBlockSize is null");
-        this.maxBlockSize = (int) maxBlockSize.toBytes();
-        this.sliceOutput = new DynamicSliceOutput((int) (this.maxBlockSize * 1.2));
+        this.blockBuilderStatus = checkNotNull(blockBuilderStatus, "blockBuilderStatus is null");
+        this.sliceOutput = new DynamicSliceOutput((int) (blockBuilderStatus.getMaxBlockSizeInBytes() * 1.2));
     }
 
     @Override
@@ -77,7 +76,7 @@ public class VariableWidthBlockBuilder
     @Override
     public boolean isFull()
     {
-        return sliceOutput.size() > maxBlockSize;
+        return blockBuilderStatus.isFull();
     }
 
     @Override
@@ -159,7 +158,12 @@ public class VariableWidthBlockBuilder
 
         sliceOutput.writeByte(0);
 
-        type.setSlice(sliceOutput, value, offset, length);
+        int bytesWritten = type.setSlice(sliceOutput, value, offset, length);
+
+        blockBuilderStatus.addBytes(SIZE_OF_BYTE + bytesWritten);
+        if (sliceOutput.size() > blockBuilderStatus.getMaxBlockSizeInBytes()) {
+            blockBuilderStatus.setFull();
+        }
 
         return this;
     }
@@ -169,6 +173,10 @@ public class VariableWidthBlockBuilder
     {
         offsets.add(sliceOutput.size());
         sliceOutput.writeByte(1);
+        blockBuilderStatus.addBytes(SIZE_OF_BYTE);
+        if (sliceOutput.size() > blockBuilderStatus.getMaxBlockSizeInBytes()) {
+            blockBuilderStatus.setFull();
+        }
         return this;
     }
 
@@ -184,7 +192,6 @@ public class VariableWidthBlockBuilder
         return Objects.toStringHelper(this)
                 .add("positionCount", offsets.size())
                 .add("size", sliceOutput.size())
-                .add("maxSize", maxBlockSize)
                 .add("type", type)
                 .toString();
     }

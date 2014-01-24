@@ -15,6 +15,7 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockBuilderStatus;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.operator.Page;
@@ -26,7 +27,6 @@ import javax.annotation.Nullable;
 
 import java.util.List;
 
-import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public abstract class SimpleAggregationFunction
@@ -230,7 +230,7 @@ public abstract class SimpleAggregationFunction
         @Override
         public final Block evaluateIntermediate()
         {
-            BlockBuilder out = intermediateType.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
+            BlockBuilder out = intermediateType.createBlockBuilder(new BlockBuilderStatus());
             evaluateIntermediate(out);
             return out.build();
         }
@@ -238,7 +238,7 @@ public abstract class SimpleAggregationFunction
         @Override
         public final Block evaluateFinal()
         {
-            BlockBuilder out = finalType.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
+            BlockBuilder out = finalType.createBlockBuilder(new BlockBuilderStatus());
             evaluateFinal(out);
             return out.build();
         }
