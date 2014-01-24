@@ -87,11 +87,13 @@ public class SimpleJoinProbe
     @Override
     public int getCurrentJoinPosition()
     {
+        if (currentRowContainsNull()) {
+            return -1;
+        }
         return hash.getJoinPosition(probeCursors);
     }
 
-    @Override
-    public boolean currentRowContainsNull()
+    private boolean currentRowContainsNull()
     {
         for (BlockCursor probeCursor : probeCursors) {
             if (probeCursor.isNull()) {
