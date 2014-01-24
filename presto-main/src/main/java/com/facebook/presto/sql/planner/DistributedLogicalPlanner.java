@@ -364,7 +364,7 @@ public class DistributedLogicalPlanner
             OutputTableHandle target = metadata.beginCreateTable(node.getCatalog(), node.getTableMetadata());
 
             SubPlanBuilder current = node.getSource().accept(this, context);
-            current.setRoot(new TableWriterNode(node.getId(), current.getRoot(), target, node.getColumns(), node.getColumnNames(), node.getOutputSymbols()));
+            current.setRoot(new TableWriterNode(node.getId(), current.getRoot(), target, node.getColumns(), node.getColumnNames(), node.getOutputSymbols(), node.getSampleWeightSymbol()));
             return current;
         }
 

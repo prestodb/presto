@@ -100,6 +100,10 @@ public final class PlanSanityChecker
 
             Preconditions.checkArgument(source.getOutputSymbols().containsAll(node.getDistinctSymbols()), "Invalid node. Mark distinct symbols (%s) not in source plan output (%s)", node.getDistinctSymbols(), source.getOutputSymbols());
 
+            if (node.getSampleWeightSymbol().isPresent()) {
+                Preconditions.checkArgument(source.getOutputSymbols().contains(node.getSampleWeightSymbol().get()), "Invalid node. Sample weight symbol (%s) is not in source plan output (%s)", node.getSampleWeightSymbol().get(), node.getSource().getOutputSymbols());
+            }
+
             return null;
         }
 
@@ -177,6 +181,10 @@ public final class PlanSanityChecker
             Preconditions.checkArgument(source.getOutputSymbols().containsAll(node.getOutputSymbols()), "Invalid node. Output symbols (%s) not in source plan output (%s)", node.getOutputSymbols(), node.getSource().getOutputSymbols());
             Preconditions.checkArgument(source.getOutputSymbols().containsAll(node.getOrderBy()), "Invalid node. Order by dependencies (%s) not in source plan output (%s)", node.getOrderBy(), node.getSource().getOutputSymbols());
 
+            if (node.getSampleWeight().isPresent()) {
+                Preconditions.checkArgument(source.getOutputSymbols().contains(node.getSampleWeight().get()), "Invalid node. Sample weight symbol (%s) is not in source plan output (%s)", node.getSampleWeight().get(), node.getSource().getOutputSymbols());
+            }
+
             return null;
         }
 
@@ -225,6 +233,10 @@ public final class PlanSanityChecker
             source.accept(this, context); // visit child
 
             verifyUniqueId(node);
+
+            if (node.getSampleWeight().isPresent()) {
+                Preconditions.checkArgument(source.getOutputSymbols().contains(node.getSampleWeight().get()), "Invalid node. Sample weight symbol (%s) is not in source plan output (%s)", node.getSampleWeight().get(), node.getSource().getOutputSymbols());
+            }
 
             return null;
         }
@@ -307,6 +319,10 @@ public final class PlanSanityChecker
             source.accept(this, context); // visit child
 
             verifyUniqueId(node);
+
+            if (node.getSampleWeightSymbol().isPresent()) {
+                Preconditions.checkArgument(source.getOutputSymbols().contains(node.getSampleWeightSymbol().get()), "Invalid node. Sample weight symbol (%s) is not in source plan output (%s)", node.getSampleWeightSymbol().get(), node.getSource().getOutputSymbols());
+            }
 
             return null;
         }

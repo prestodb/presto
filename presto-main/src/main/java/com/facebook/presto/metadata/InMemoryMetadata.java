@@ -107,6 +107,12 @@ public class InMemoryMetadata
     }
 
     @Override
+    public boolean canCreateSampledTables()
+    {
+        return false;
+    }
+
+    @Override
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(SchemaTablePrefix prefix)
     {
         checkNotNull(prefix, "prefix is null");

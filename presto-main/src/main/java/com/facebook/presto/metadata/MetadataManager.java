@@ -187,6 +187,14 @@ public class MetadataManager
     }
 
     @Override
+    public boolean canCreateSampledTables(String catalogName)
+    {
+        ConnectorMetadataEntry connectorMetadata = connectors.get(catalogName);
+        checkArgument(connectorMetadata != null, "Catalog %s does not exist", catalogName);
+        return connectorMetadata.getMetadata().canCreateSampledTables();
+    }
+
+    @Override
     public Map<QualifiedTableName, List<ColumnMetadata>> listTableColumns(QualifiedTablePrefix prefix)
     {
         checkNotNull(prefix, "prefix is null");

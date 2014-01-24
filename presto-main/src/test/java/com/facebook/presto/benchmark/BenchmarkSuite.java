@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
+import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalSampledQueryRunner;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -38,6 +39,7 @@ public class BenchmarkSuite
     public static List<AbstractBenchmark> createBenchmarks(ExecutorService executor)
     {
         LocalQueryRunner localQueryRunner = createLocalQueryRunner(executor);
+        LocalQueryRunner localSampledQueryRunner = createLocalSampledQueryRunner(executor);
 
         return ImmutableList.<AbstractBenchmark>of(
                 // hand built benchmarks
@@ -76,6 +78,12 @@ public class BenchmarkSuite
                 new SqlRegexpLikeBenchmark(localQueryRunner),
                 new SqlApproximatePercentileBenchmark(localQueryRunner),
                 new SqlBetweenBenchmark(localQueryRunner),
+
+                // Sampled sql benchmarks
+                new RenamingBenchmark("sampled_", new GroupBySumWithArithmeticSqlBenchmark(localSampledQueryRunner)),
+                new RenamingBenchmark("sampled_", new CountAggregationSqlBenchmark(localSampledQueryRunner)),
+                new RenamingBenchmark("sampled_", new SqlJoinWithPredicateBenchmark(localSampledQueryRunner)),
+                new RenamingBenchmark("sampled_", new SqlDoubleSumAggregationBenchmark(localSampledQueryRunner)),
 
                 // statistics benchmarks
                 new StatisticsBenchmark.LongVarianceBenchmark(localQueryRunner),

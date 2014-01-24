@@ -18,6 +18,7 @@ import com.facebook.presto.spi.OutputTableHandle;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.Immutable;
@@ -36,8 +37,10 @@ public class TableWriterNode
     private final List<Symbol> outputs;
     private final List<Symbol> columns;
     private final List<String> columnNames;
+    private final Optional<Symbol> sampleWeightSymbol;
     private final String catalog;
     private final TableMetadata tableMetadata;
+    private final boolean sampleWeightSupported;
 
     @JsonCreator
     public TableWriterNode(
@@ -46,9 +49,10 @@ public class TableWriterNode
             @JsonProperty("target") OutputTableHandle target,
             @JsonProperty("columns") List<Symbol> columns,
             @JsonProperty("columnNames") List<String> columnNames,
-            @JsonProperty("outputs") List<Symbol> outputs)
+            @JsonProperty("outputs") List<Symbol> outputs,
+            @JsonProperty("sampleWeightSymbol") Optional<Symbol> sampleWeightSymbol)
     {
-        this(id, source, target, columns, columnNames, outputs, null, null);
+        this(id, source, target, columns, columnNames, outputs, sampleWeightSymbol, null, null, false);
     }
 
     public TableWriterNode(
@@ -58,8 +62,10 @@ public class TableWriterNode
             List<Symbol> columns,
             List<String> columnNames,
             List<Symbol> outputs,
+            Optional<Symbol> sampleWeightSymbol,
             String catalog,
-            TableMetadata tableMetadata)
+            TableMetadata tableMetadata,
+            boolean sampleWeightSupported)
     {
         super(id);
 
@@ -73,8 +79,10 @@ public class TableWriterNode
         this.columns = ImmutableList.copyOf(columns);
         this.columnNames = ImmutableList.copyOf(columnNames);
         this.outputs = ImmutableList.copyOf(checkNotNull(outputs, "outputs is null"));
+        this.sampleWeightSymbol = checkNotNull(sampleWeightSymbol, "sampleWeightSymbol is null");
         this.catalog = catalog;
         this.tableMetadata = tableMetadata;
+        this.sampleWeightSupported = sampleWeightSupported;
     }
 
     public String getCatalog()
@@ -85,6 +93,17 @@ public class TableWriterNode
     public TableMetadata getTableMetadata()
     {
         return tableMetadata;
+    }
+
+    public boolean isSampleWeightSupported()
+    {
+        return sampleWeightSupported;
+    }
+
+    @JsonProperty
+    public Optional<Symbol> getSampleWeightSymbol()
+    {
+        return sampleWeightSymbol;
     }
 
     @JsonProperty

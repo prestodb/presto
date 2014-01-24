@@ -23,6 +23,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class NativeColumnHandle
         implements ColumnHandle
 {
+    // This is intentionally not named "$sampleWeight" because column names are lowercased and case insensitive
+    public static final String SAMPLE_WEIGHT_COLUMN_NAME = "$sample_weight";
     private final String columnName;
     private final long columnId;
 

@@ -164,12 +164,29 @@ public class TestDistributedQueries
                 "SELECT 1");
     }
 
+    @Test
+    public void testCreateSampledTableAsSelectLimit()
+            throws Exception
+    {
+        assertCreateTable(
+                "test_limit_sampled",
+                "SELECT orderkey FROM tpch_sampled.tiny.orders ORDER BY orderkey LIMIT 10",
+                "SELECT orderkey FROM (SELECT orderkey FROM orders) UNION ALL (SELECT orderkey FROM orders) ORDER BY orderkey LIMIT 10",
+                "SELECT 10");
+    }
+
     private void assertCreateTable(String table, @Language("SQL") String query, @Language("SQL") String rowCountQuery)
             throws Exception
     {
+        assertCreateTable(table, query, query, rowCountQuery);
+    }
+
+    private void assertCreateTable(String table, @Language("SQL") String query, @Language("SQL") String expectedQuery, @Language("SQL") String rowCountQuery)
+           throws Exception
+    {
         try {
             assertQuery("CREATE TABLE " +  table + " AS " + query, rowCountQuery);
-            assertQuery("SELECT * FROM " + table, query);
+            assertQuery("SELECT * FROM " + table, expectedQuery);
         }
         finally {
             QualifiedTableName name = new QualifiedTableName(DEFAULT_CATALOG, DEFAULT_SCHEMA, table);
@@ -240,7 +257,8 @@ public class TestDistributedQueries
 
         log.info("Loading data...");
         long startTime = System.nanoTime();
-        distributeData("tpch", TpchMetadata.TINY_SCHEMA_NAME);
+        distributeData("tpch", TpchMetadata.TINY_SCHEMA_NAME, getClientSession());
+        distributeData("tpch_sampled", TpchMetadata.TINY_SCHEMA_NAME, getSampledClientSession());
         log.info("Loading complete in %s", nanosSince(startTime).toString(SECONDS));
 
         return SESSION;
@@ -271,7 +289,7 @@ public class TestDistributedQueries
         Closeables.closeQuietly(discoveryServer);
     }
 
-    private void distributeData(String catalog, String schema)
+    private void distributeData(String catalog, String schema, ClientSession session)
             throws Exception
     {
         for (QualifiedTableName table : coordinator.getMetadata().listTables(new QualifiedTablePrefix(catalog, schema))) {
@@ -280,25 +298,31 @@ public class TestDistributedQueries
             }
             log.info("Running import for %s", table.getTableName());
             @Language("SQL") String sql = format("CREATE TABLE %s AS SELECT * FROM %s", table.getTableName(), table);
-            long rows = checkType(computeActual(sql).getMaterializedTuples().get(0).getField(0), Long.class, "rows");
+            long rows = checkType(compute(sql, session).getMaterializedTuples().get(0).getField(0), Long.class, "rows");
             log.info("Imported %s rows for %s", rows, table.getTableName());
         }
+    }
+
+    protected ClientSession getClientSession()
+    {
+        return new ClientSession(coordinator.getBaseUrl(), SESSION.getUser(), SESSION.getSource(), SESSION.getCatalog(), SESSION.getSchema(), true);
+    }
+
+    protected ClientSession getSampledClientSession()
+    {
+        return new ClientSession(coordinator.getBaseUrl(), SESSION.getUser(), SESSION.getSource(), SESSION.getCatalog(), "sampled", true);
     }
 
     @Override
     protected MaterializedResult computeActualSampled(@Language("SQL") String sql)
     {
-        ClientSession session = new ClientSession(coordinator.getBaseUrl(), SESSION.getUser(), SESSION.getSource(), "tpch_sampled", TpchMetadata.TINY_SCHEMA_NAME, true);
-
-        return compute(sql, session);
+        return compute(sql, getSampledClientSession());
     }
 
     @Override
     protected MaterializedResult computeActual(@Language("SQL") String sql)
     {
-        ClientSession session = new ClientSession(coordinator.getBaseUrl(), SESSION.getUser(), SESSION.getSource(), SESSION.getCatalog(), SESSION.getSchema(), true);
-
-        return compute(sql, session);
+        return compute(sql, getClientSession());
     }
 
     private MaterializedResult compute(@Language("SQL") String sql, ClientSession session)

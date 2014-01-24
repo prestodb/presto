@@ -18,6 +18,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
 
+import javax.annotation.Nullable;
+
 import static com.facebook.presto.metadata.MetadataUtil.checkSchemaName;
 import static com.facebook.presto.metadata.MetadataUtil.checkTableName;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -28,17 +30,21 @@ public class NativeTableHandle
     private final String schemaName;
     private final String tableName;
     private final long tableId;
+    @Nullable
+    private final NativeColumnHandle sampleWeightColumnHandle;
 
     @JsonCreator
     public NativeTableHandle(@JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
-            @JsonProperty("tableId") long tableId)
+            @JsonProperty("tableId") long tableId,
+            @JsonProperty("sampleWeightColumnHandle") NativeColumnHandle sampleWeightColumnHandle)
     {
         this.schemaName = checkSchemaName(schemaName);
         this.tableName = checkTableName(tableName);
 
         checkArgument(tableId > 0, "tableId must be greater than zero");
         this.tableId = tableId;
+        this.sampleWeightColumnHandle = sampleWeightColumnHandle;
     }
 
     @JsonProperty
@@ -57,6 +63,12 @@ public class NativeTableHandle
     public long getTableId()
     {
         return tableId;
+    }
+
+    @JsonProperty
+    public NativeColumnHandle getSampleWeightColumnHandle()
+    {
+        return sampleWeightColumnHandle;
     }
 
     @Override

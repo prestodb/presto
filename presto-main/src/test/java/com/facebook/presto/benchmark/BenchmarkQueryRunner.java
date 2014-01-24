@@ -29,6 +29,7 @@ import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.split.NativeDataStreamProvider;
 import com.facebook.presto.split.NativeSplitManager;
 import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.tpch.SampledTpchConnectorFactory;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.facebook.presto.util.LocalQueryRunner;
 import com.google.common.base.Throwables;
@@ -47,6 +48,29 @@ public final class BenchmarkQueryRunner
     {
     }
 
+    public static LocalQueryRunner createLocalSampledQueryRunner(ExecutorService executor)
+    {
+        Session session = new Session("user", "test", "default", "default", null, null);
+        LocalQueryRunner localQueryRunner = new LocalQueryRunner(session, executor);
+
+        // add sampled tpch
+        InMemoryNodeManager nodeManager = localQueryRunner.getNodeManager();
+        localQueryRunner.createCatalog("tpch_sampled", new SampledTpchConnectorFactory(nodeManager, 1), ImmutableMap.<String, String>of());
+
+        // add native
+        MetadataManager metadata = localQueryRunner.getMetadata();
+        NativeConnectorFactory nativeConnectorFactory = createNativeConnectorFactory(nodeManager, metadata, System.getProperty("tpchSampledCacheDir", "/tmp/tpch_sampled_data_cache"));
+        localQueryRunner.createCatalog("default", nativeConnectorFactory, ImmutableMap.<String, String>of());
+
+        if (!metadata.getTableHandle(new QualifiedTableName("default", "default", "orders")).isPresent()) {
+            localQueryRunner.execute("CREATE TABLE orders AS SELECT * FROM tpch_sampled.sf1.orders");
+        }
+        if (!metadata.getTableHandle(new QualifiedTableName("default", "default", "lineitem")).isPresent()) {
+            localQueryRunner.execute("CREATE TABLE lineitem AS SELECT * FROM tpch_sampled.sf1.lineitem");
+        }
+        return localQueryRunner;
+    }
+
     public static LocalQueryRunner createLocalQueryRunner(ExecutorService executor)
     {
         Session session = new Session("user", "test", "default", "default", null, null);
@@ -58,7 +82,7 @@ public final class BenchmarkQueryRunner
 
         // add native
         MetadataManager metadata = localQueryRunner.getMetadata();
-        NativeConnectorFactory nativeConnectorFactory = createNativeConnectorFactory(nodeManager, metadata);
+        NativeConnectorFactory nativeConnectorFactory = createNativeConnectorFactory(nodeManager, metadata, System.getProperty("tpchCacheDir", "/tmp/tpch_data_cache"));
         localQueryRunner.createCatalog("default", nativeConnectorFactory, ImmutableMap.<String, String>of());
 
         if (!metadata.getTableHandle(new QualifiedTableName("default", "default", "orders")).isPresent()) {
@@ -70,10 +94,10 @@ public final class BenchmarkQueryRunner
         return localQueryRunner;
     }
 
-    private static NativeConnectorFactory createNativeConnectorFactory(NodeManager nodeManager, Metadata metadata)
+    private static NativeConnectorFactory createNativeConnectorFactory(NodeManager nodeManager, Metadata metadata, String cacheDir)
     {
         try {
-            File dataDir = new File(System.getProperty("tpchCacheDir", "/tmp/tpch_data_cache"));
+            File dataDir = new File(cacheDir);
             File databaseDir = new File(dataDir, "db");
 
             IDBI localStorageManagerDbi = createDataSource(databaseDir, "StorageManager");

@@ -280,6 +280,12 @@ public class HiveClient
     }
 
     @Override
+    public boolean canCreateSampledTables()
+    {
+        return false;
+    }
+
+    @Override
     public Map<String, ColumnHandle> getColumnHandles(TableHandle tableHandle)
     {
         SchemaTableName tableName = getTableName(tableHandle);

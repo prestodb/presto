@@ -11,27 +11,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi;
+package com.facebook.presto.benchmark;
 
-public interface RecordSink
+import java.util.Map;
+
+public class RenamingBenchmark
+        extends AbstractBenchmark
 {
-    /**
-     *
-     * @param sampleWeight connectors that don't support sampling can safely ignore this parameter, as it will always be 1
-     */
-    void beginRecord(long sampleWeight);
+    private final AbstractBenchmark delegate;
 
-    void finishRecord();
+    public RenamingBenchmark(String prefix, AbstractBenchmark delegate)
+    {
+        super(prefix + delegate.getBenchmarkName(), delegate.getWarmupIterations(), delegate.getMeasuredIterations());
+        this.delegate = delegate;
+    }
 
-    void appendNull();
-
-    void appendBoolean(boolean value);
-
-    void appendLong(long value);
-
-    void appendDouble(double value);
-
-    void appendString(byte[] value);
-
-    String commit();
+    @Override
+    protected Map<String, Long> runOnce()
+    {
+        return delegate.runOnce();
+    }
 }
