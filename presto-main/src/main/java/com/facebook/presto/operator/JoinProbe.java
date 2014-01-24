@@ -19,8 +19,6 @@ public interface JoinProbe
 
     void appendTo(PageBuilder pageBuilder);
 
-    boolean currentRowContainsNull();
-
     int getChannelCount();
 
     int getCurrentJoinPosition();
