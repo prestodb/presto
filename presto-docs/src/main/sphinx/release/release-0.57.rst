@@ -39,7 +39,7 @@ to specify your AWS Access Key ID and Secret Access Key:
     hive.s3.aws-access-key=AKIAIOSFODNN7EXAMPLE
     hive.s3.aws-secret-key=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
 
-Miscellaenous
+Miscellaneous
 -------------
 
 * Allow specifying catalog and schema in the :doc:`/installation/jdbc` URL.
