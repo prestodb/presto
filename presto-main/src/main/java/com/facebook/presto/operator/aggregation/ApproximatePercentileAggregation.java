@@ -15,6 +15,7 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockBuilderStatus;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.operator.Page;
@@ -29,7 +30,6 @@ import io.airlift.stats.QuantileDigest;
 
 import java.util.List;
 
-import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.facebook.presto.type.BigintType.BIGINT;
 import static com.facebook.presto.type.DoubleType.DOUBLE;
 import static com.facebook.presto.type.VarcharType.VARCHAR;
@@ -344,7 +344,7 @@ public class ApproximatePercentileAggregation
         @Override
         public final Block evaluateIntermediate()
         {
-            BlockBuilder out = getIntermediateType().createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
+            BlockBuilder out = getIntermediateType().createBlockBuilder(new BlockBuilderStatus());
 
             if (digest.getCount() == 0.0) {
                 out.appendNull();
@@ -366,7 +366,7 @@ public class ApproximatePercentileAggregation
         @Override
         public final Block evaluateFinal()
         {
-            BlockBuilder out = getFinalType().createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
+            BlockBuilder out = getFinalType().createBlockBuilder(new BlockBuilderStatus());
             evaluate(out, parameterType, digest, percentile);
             return out.build();
         }

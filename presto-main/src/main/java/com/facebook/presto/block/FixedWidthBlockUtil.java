@@ -21,7 +21,6 @@ import com.facebook.presto.block.uncompressed.FixedWidthBlockEncoding;
 import com.facebook.presto.operator.aggregation.IsolatedClass;
 import com.facebook.presto.type.FixedWidthType;
 import com.google.common.base.Throwables;
-import io.airlift.units.DataSize;
 
 public class FixedWidthBlockUtil
 {
@@ -31,7 +30,7 @@ public class FixedWidthBlockUtil
 
     public interface FixedWidthBlockBuilderFactory
     {
-        BlockBuilder createFixedWidthBlockBuilder(DataSize maxBlockSize);
+        BlockBuilder createFixedWidthBlockBuilder(BlockBuilderStatus blockBuilderStatus);
 
         BlockBuilder createFixedWidthBlockBuilder(int positionCount);
 

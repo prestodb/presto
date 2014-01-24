@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockBuilderStatus;
 import com.facebook.presto.type.Type;
 import com.facebook.presto.util.IterableTransformer;
 import com.facebook.presto.util.MaterializedResult;
@@ -23,7 +24,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.type.BigintType.BIGINT;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
@@ -43,7 +43,7 @@ public final class OperatorAssertion
             @Override
             public Page apply(Page page)
             {
-                BlockBuilder builder = BIGINT.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
+                BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus());
                 for (int i = 0; i < page.getPositionCount(); i++) {
                     builder.append(sampleWeight);
                 }

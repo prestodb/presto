@@ -17,7 +17,6 @@ import com.facebook.presto.block.BlockEncoding.BlockEncodingFactory;
 import com.facebook.presto.block.FixedWidthBlockUtil.FixedWidthBlockBuilderFactory;
 import com.facebook.presto.block.uncompressed.FixedWidthBlockEncoding.FixedWidthBlockEncodingFactory;
 import com.facebook.presto.type.FixedWidthType;
-import io.airlift.units.DataSize;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -34,9 +33,9 @@ public class IsolatedFixedWidthBlockBuilderFactory
     }
 
     @Override
-    public BlockBuilder createFixedWidthBlockBuilder(DataSize maxBlockSize)
+    public BlockBuilder createFixedWidthBlockBuilder(BlockBuilderStatus blockBuilderStatus)
     {
-        return new FixedWidthBlockBuilder(type, maxBlockSize);
+        return new FixedWidthBlockBuilder(type, blockBuilderStatus);
     }
 
     @Override

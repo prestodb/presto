@@ -14,6 +14,7 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockBuilderStatus;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.VariableWidthBlockBuilder;
 import com.facebook.presto.spi.ColumnType;
@@ -21,7 +22,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.google.common.base.Charsets;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
-import io.airlift.units.DataSize;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 
@@ -68,16 +68,17 @@ public class VarcharType
         return slice.slice(offset + SIZE_OF_INT, getValueSize(slice, offset));
     }
 
-    public void setSlice(SliceOutput sliceOutput, Slice value, int offset, int length)
+    public int setSlice(SliceOutput sliceOutput, Slice value, int offset, int length)
     {
         sliceOutput.writeInt(length);
         sliceOutput.writeBytes(value, offset, length);
+        return length + SIZE_OF_INT;
     }
 
     @Override
-    public BlockBuilder createBlockBuilder(DataSize maxBlockSize)
+    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus)
     {
-        return new VariableWidthBlockBuilder(this, maxBlockSize);
+        return new VariableWidthBlockBuilder(this, blockBuilderStatus);
     }
 
     @Override

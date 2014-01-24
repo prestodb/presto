@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockBuilderStatus;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOperatorFactory;
 import com.facebook.presto.spi.PrestoException;
@@ -34,7 +35,6 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 
-import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
 import static com.facebook.presto.operator.OperatorAssertion.appendSampleWeight;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEqualsIgnoreOrder;
@@ -195,7 +195,7 @@ public class TestHashAggregationOperator
 
     public void testHashBuilderResize()
     {
-        BlockBuilder builder = VARCHAR.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
+        BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
         builder.append(new String(new byte[200_000])); // this must be larger than DEFAULT_MAX_BLOCK_SIZE, 64K
         builder.build();
 
@@ -226,7 +226,7 @@ public class TestHashAggregationOperator
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Task exceeded max memory size of 3MB")
     public void testHashBuilderResizeLimit()
     {
-        BlockBuilder builder = VARCHAR.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
+        BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
         builder.append(new String(new byte[5_000_000])); // this must be larger than DEFAULT_MAX_BLOCK_SIZE, 64K
         builder.build();
 

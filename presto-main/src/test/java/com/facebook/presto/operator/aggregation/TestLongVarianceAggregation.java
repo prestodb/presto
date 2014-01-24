@@ -15,9 +15,9 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockBuilderStatus;
 import org.apache.commons.math3.stat.descriptive.moment.Variance;
 
-import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.facebook.presto.operator.aggregation.VarianceAggregations.LONG_VARIANCE_INSTANCE;
 import static com.facebook.presto.type.BigintType.BIGINT;
 
@@ -27,7 +27,7 @@ public class TestLongVarianceAggregation
     @Override
     public Block getSequenceBlock(int start, int length)
     {
-        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus());
         for (int i = start; i < start + length; i++) {
             blockBuilder.append(i);
         }

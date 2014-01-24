@@ -14,11 +14,11 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockBuilderStatus;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.spi.ColumnType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
-import io.airlift.units.DataSize;
 
 public interface Type
 {
@@ -26,7 +26,7 @@ public interface Type
 
     Object getObjectValue(Slice slice, int offset);
 
-    BlockBuilder createBlockBuilder(DataSize maxBlockSize);
+    BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus);
 
     boolean equals(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset);
 

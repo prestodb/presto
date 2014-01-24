@@ -25,21 +25,22 @@ import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
+import static io.airlift.units.DataSize.Unit.BYTE;
 
 public class FixedWidthBlockBuilder
         extends AbstractFixedWidthBlock
         implements BlockBuilder
 {
-    private final int maxBlockSize;
+    private final BlockBuilderStatus blockBuilderStatus;
     private final SliceOutput sliceOutput;
     private int positionCount;
 
-    public FixedWidthBlockBuilder(FixedWidthType type, DataSize maxBlockSize)
+    public FixedWidthBlockBuilder(FixedWidthType type, BlockBuilderStatus blockBuilderStatus)
     {
         super(type);
 
-        this.maxBlockSize = (int) maxBlockSize.toBytes();
-        this.sliceOutput = new DynamicSliceOutput(this.maxBlockSize);
+        this.blockBuilderStatus = blockBuilderStatus;
+        this.sliceOutput = new DynamicSliceOutput(blockBuilderStatus.getMaxBlockSizeInBytes());
     }
 
     public FixedWidthBlockBuilder(FixedWidthType type, int positionCount)
@@ -49,7 +50,8 @@ public class FixedWidthBlockBuilder
         int entrySize = type.getFixedSize() + SIZE_OF_BYTE;
         Slice slice = Slices.allocate(entrySize * positionCount);
 
-        this.maxBlockSize = slice.length();
+        DataSize maxSize = new DataSize(slice.length(), BYTE);
+        this.blockBuilderStatus = new BlockBuilderStatus(maxSize, maxSize);
         this.sliceOutput = slice.getOutput();
     }
 
@@ -73,7 +75,7 @@ public class FixedWidthBlockBuilder
     @Override
     public boolean isFull()
     {
-        return sliceOutput.size() > maxBlockSize;
+        return blockBuilderStatus.isFull();
     }
 
     @Override
@@ -115,27 +117,27 @@ public class FixedWidthBlockBuilder
     @Override
     public BlockBuilder append(boolean value)
     {
-        positionCount++;
         sliceOutput.writeByte(0);
         type.setBoolean(sliceOutput, value);
+        entryAdded();
         return this;
     }
 
     @Override
     public BlockBuilder append(long value)
     {
-        positionCount++;
         sliceOutput.writeByte(0);
         type.setLong(sliceOutput, value);
+        entryAdded();
         return this;
     }
 
     @Override
     public BlockBuilder append(double value)
     {
-        positionCount++;
         sliceOutput.writeByte(0);
         type.setDouble(sliceOutput, value);
+        entryAdded();
         return this;
     }
 
@@ -160,11 +162,11 @@ public class FixedWidthBlockBuilder
     @Override
     public BlockBuilder append(Slice value, int offset, int length)
     {
-        positionCount++;
-
         sliceOutput.writeByte(0);
 
         type.setSlice(sliceOutput, value, offset, length);
+
+        entryAdded();
 
         return this;
     }
@@ -172,14 +174,23 @@ public class FixedWidthBlockBuilder
     @Override
     public BlockBuilder appendNull()
     {
-        positionCount++;
-
         sliceOutput.writeByte(1);
 
         // fixed width is always written regardless of null flag
         sliceOutput.writeZero(type.getFixedSize());
 
+        entryAdded();
+
         return this;
+    }
+
+    private void entryAdded()
+    {
+        positionCount++;
+        blockBuilderStatus.addBytes(SIZE_OF_BYTE + entrySize);
+        if (sliceOutput.size() > blockBuilderStatus.getMaxBlockSizeInBytes()) {
+            blockBuilderStatus.setFull();
+        }
     }
 
     @Override
@@ -194,7 +205,6 @@ public class FixedWidthBlockBuilder
         return Objects.toStringHelper(this)
                 .add("positionCount", positionCount)
                 .add("size", sliceOutput.size())
-                .add("maxSize", maxBlockSize)
                 .add("type", type)
                 .toString();
     }

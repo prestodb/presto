@@ -15,6 +15,7 @@ package com.facebook.presto.serde;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockAssertions;
+import com.facebook.presto.block.BlockBuilderStatus;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.OutputSupplier;
 import io.airlift.slice.DynamicSliceOutput;
@@ -23,7 +24,6 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.facebook.presto.serde.BlocksFileReader.readBlocks;
 import static com.facebook.presto.serde.TestingBlockEncodingManager.createTestingBlockEncodingManager;
 import static com.facebook.presto.type.VarcharType.VARCHAR;
@@ -45,7 +45,7 @@ public class TestFileBlocksSerde
             "charlie",
             "dave");
 
-    private final Block expectedBlock = VARCHAR.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE)
+    private final Block expectedBlock = VARCHAR.createBlockBuilder(new BlockBuilderStatus())
             .append("alice")
             .append("bob")
             .append("charlie")

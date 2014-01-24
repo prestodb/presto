@@ -15,11 +15,11 @@ package com.facebook.presto.serde;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockBuilderStatus;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockEncoding;
 import io.airlift.slice.SliceOutput;
 
-import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -44,7 +44,7 @@ public class UncompressedEncoder
         checkState(!finished, "already finished");
 
         if (encoding == null) {
-            blockBuilder = block.getType().createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
+            blockBuilder = block.getType().createBlockBuilder(new BlockBuilderStatus());
             encoding = blockBuilder.getEncoding();
         }
         BlockCursor cursor = block.cursor();
@@ -75,6 +75,6 @@ public class UncompressedEncoder
     {
         Block block = blockBuilder.build();
         encoding.writeBlock(sliceOutput, block);
-        blockBuilder = block.getType().createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
+        blockBuilder = block.getType().createBlockBuilder(new BlockBuilderStatus());
     }
 }

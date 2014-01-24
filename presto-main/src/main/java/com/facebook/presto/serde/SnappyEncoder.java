@@ -15,13 +15,13 @@ package com.facebook.presto.serde;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockBuilderStatus;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockEncoding;
 import com.facebook.presto.block.snappy.SnappyBlock;
 import com.facebook.presto.block.snappy.SnappyBlockEncoding;
 import io.airlift.slice.SliceOutput;
 
-import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -47,7 +47,7 @@ public class SnappyEncoder
 
         if (encoding == null) {
             encoding = new SnappyBlockEncoding(block.getType(), block.getEncoding());
-            blockBuilder = block.getType().createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
+            blockBuilder = block.getType().createBlockBuilder(new BlockBuilderStatus());
         }
         BlockCursor cursor = block.cursor();
         while (cursor.advanceNextPosition()) {
@@ -77,6 +77,6 @@ public class SnappyEncoder
     {
         SnappyBlock snappyBlock = new SnappyBlock(blockBuilder);
         encoding.writeBlock(sliceOutput, snappyBlock);
-        blockBuilder = snappyBlock.getType().createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
+        blockBuilder = snappyBlock.getType().createBlockBuilder(new BlockBuilderStatus());
     }
 }
