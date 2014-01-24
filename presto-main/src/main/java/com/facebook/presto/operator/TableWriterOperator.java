@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -38,12 +39,14 @@ public class TableWriterOperator
     {
         private final int operatorId;
         private final RecordSink recordSink;
+        private final Optional<Integer> sampleWeightChannel;
         private boolean closed;
 
-        public TableWriterOperatorFactory(int operatorId, RecordSink recordSink)
+        public TableWriterOperatorFactory(int operatorId, RecordSink recordSink, Optional<Integer> sampleWeightChannel)
         {
             this.operatorId = operatorId;
             this.recordSink = checkNotNull(recordSink, "recordSink is null");
+            this.sampleWeightChannel = checkNotNull(sampleWeightChannel, "sampleWeightChannel is null");
         }
 
         @Override
@@ -57,7 +60,7 @@ public class TableWriterOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext context = driverContext.addOperatorContext(operatorId, TableWriterOperator.class.getSimpleName());
-            return new TableWriterOperator(context, recordSink);
+            return new TableWriterOperator(context, recordSink, sampleWeightChannel);
         }
 
         @Override
@@ -74,14 +77,16 @@ public class TableWriterOperator
 
     private final OperatorContext operatorContext;
     private final RecordSink recordSink;
+    private final Optional<Integer> sampleWeightChannel;
 
     private State state = State.RUNNING;
     private long rowCount;
 
-    public TableWriterOperator(OperatorContext operatorContext, RecordSink recordSink)
+    public TableWriterOperator(OperatorContext operatorContext, RecordSink recordSink, Optional<Integer> sampleWeightChannel)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         this.recordSink = checkNotNull(recordSink, "recordSink is null");
+        this.sampleWeightChannel = checkNotNull(sampleWeightChannel, "sampleWeightChannel is null");
     }
 
     @Override
@@ -128,18 +133,38 @@ public class TableWriterOperator
         checkNotNull(page, "page is null");
         checkState(state == State.RUNNING, "Operator is %s", state);
 
-        BlockCursor[] cursors = new BlockCursor[page.getChannelCount()];
-        Type[] types = new Type[page.getChannelCount()];
-
-        for (int channel = 0; channel < cursors.length; channel++) {
-            cursors[channel] = page.getBlock(channel).cursor();
-            TupleInfo tupleInfo = cursors[channel].getTupleInfo();
-            types[channel] = tupleInfo.getType();
+        BlockCursor[] cursors;
+        Type[] types;
+        BlockCursor sampleWeightCursor = null;
+        if (sampleWeightChannel.isPresent()) {
+            cursors = new BlockCursor[page.getChannelCount() - 1];
+            types = new Type[page.getChannelCount() - 1];
+            sampleWeightCursor = page.getBlock(sampleWeightChannel.get()).cursor();
+        }
+        else {
+            cursors = new BlockCursor[page.getChannelCount()];
+            types = new Type[page.getChannelCount()];
         }
 
-        int rows = page.getPositionCount();
-        for (int position = 0; position < rows; position++) {
-            recordSink.beginRecord();
+        for (int inputChannel = 0, outputChannel = 0; inputChannel < page.getChannelCount(); inputChannel++) {
+            if (sampleWeightChannel.isPresent() && inputChannel == sampleWeightChannel.get()) {
+                continue;
+            }
+            cursors[outputChannel] = page.getBlock(inputChannel).cursor();
+            TupleInfo tupleInfo = cursors[outputChannel].getTupleInfo();
+            types[outputChannel] = tupleInfo.getType();
+            outputChannel++;
+        }
+
+        int rows = 0;
+        for (int position = 0; position < page.getPositionCount(); position++) {
+            long sampleWeight = 1;
+            if (sampleWeightCursor != null) {
+                checkArgument(sampleWeightCursor.advanceNextPosition());
+                sampleWeight = sampleWeightCursor.getLong();
+            }
+            rows += sampleWeight;
+            recordSink.beginRecord(sampleWeight);
             for (int i = 0; i < cursors.length; i++) {
                 checkArgument(cursors[i].advanceNextPosition());
                 writeField(cursors[i], types[i]);

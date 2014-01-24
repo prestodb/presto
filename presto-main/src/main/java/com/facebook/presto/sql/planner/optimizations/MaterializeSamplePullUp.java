@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.metadata.TableMetadata;
+import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.DeterminismEvaluator;
@@ -31,6 +33,7 @@ import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
+import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
@@ -50,6 +53,7 @@ import com.google.common.collect.Iterables;
 import java.util.List;
 import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class MaterializeSamplePullUp
@@ -83,6 +87,30 @@ public class MaterializeSamplePullUp
         public PlanNode rewriteNode(PlanNode node, Void context, PlanRewriter<Void> planRewriter)
         {
             return planRewriter.defaultRewrite(node, null);
+        }
+
+        @Override
+        public PlanNode rewriteTableWriter(TableWriterNode node, Void context, PlanRewriter<Void> planRewriter)
+        {
+            PlanNode source = planRewriter.rewrite(node.getSource(), null);
+            if (source instanceof MaterializeSampleNode) {
+                checkArgument(node.isSampleWeightSupported(), "Cannot write sampled data to a store that doesn't support sampling");
+                ConnectorTableMetadata connectorTableMetadata = node.getTableMetadata().getMetadata();
+                connectorTableMetadata = new ConnectorTableMetadata(connectorTableMetadata.getTable(), connectorTableMetadata.getColumns(), connectorTableMetadata.getOwner(), true);
+                return new TableWriterNode(node.getId(),
+                        ((MaterializeSampleNode) source).getSource(),
+                        node.getTarget(),
+                        node.getColumns(),
+                        node.getColumnNames(),
+                        node.getOutputSymbols(),
+                        Optional.of(((MaterializeSampleNode) source).getSampleWeightSymbol()),
+                        node.getCatalog(),
+                        new TableMetadata(node.getTableMetadata().getConnectorId(), connectorTableMetadata),
+                        node.isSampleWeightSupported());
+            }
+            else {
+                return planRewriter.defaultRewrite(node, null);
+            }
         }
 
         @Override

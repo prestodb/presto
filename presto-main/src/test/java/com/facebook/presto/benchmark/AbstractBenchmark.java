@@ -52,6 +52,16 @@ public abstract class AbstractBenchmark
         return benchmarkName;
     }
 
+    protected int getWarmupIterations()
+    {
+        return warmupIterations;
+    }
+
+    protected int getMeasuredIterations()
+    {
+        return measuredIterations;
+    }
+
     /**
      * Initialize any state necessary to run benchmark. This is run once at start up.
      */

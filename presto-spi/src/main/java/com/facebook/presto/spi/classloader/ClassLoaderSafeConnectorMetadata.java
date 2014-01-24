@@ -97,6 +97,12 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public boolean canCreateSampledTables()
+    {
+        return false;
+    }
+
+    @Override
     public Map<String, ColumnHandle> getColumnHandles(TableHandle tableHandle)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {

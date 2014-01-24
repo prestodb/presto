@@ -48,7 +48,11 @@ public class TestJsonTableHandle
     private static final Map<String, Object> NATIVE_AS_MAP = ImmutableMap.<String, Object>of("type", "native",
             "schemaName", "native_schema",
             "tableName", "native_table",
-            "tableId", 1);
+            "tableId", 1,
+            "sampleWeightColumnHandle", ImmutableMap.<String, Object>of("type", "native",
+                "columnName", NativeColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME,
+                "columnId", 1)
+            );
 
     private static final Map<String, Object> SYSTEM_AS_MAP = ImmutableMap.<String, Object>of("type", "system",
             "schemaName", "system_schema",
@@ -90,7 +94,7 @@ public class TestJsonTableHandle
     public void testNativeSerialize()
             throws Exception
     {
-        NativeTableHandle nativeHandle = new NativeTableHandle("native_schema", "native_table", 1);
+        NativeTableHandle nativeHandle = new NativeTableHandle("native_schema", "native_table", 1, new NativeColumnHandle(NativeColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME, 1));
 
         assertTrue(objectMapper.canSerialize(NativeTableHandle.class));
         String json = objectMapper.writeValueAsString(nativeHandle);

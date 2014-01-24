@@ -872,18 +872,21 @@ public class LocalExecutionPlanner
         public PhysicalOperation visitTableWriter(TableWriterNode node, LocalExecutionPlanContext context)
         {
             // serialize writes by forcing data through a single writer
-            PhysicalOperation source = createInMemoryExchange(node, context);
+            PhysicalOperation exchange = createInMemoryExchange(node, context);
+            PhysicalOperation source = node.getSource().accept(this, context);
+
+            Optional<Integer> sampleWeightChannel = node.getSampleWeightSymbol().transform(source.channelGetter());
 
             // create the table writer
             RecordSink recordSink = recordSinkManager.getRecordSink(node.getTarget());
-            OperatorFactory operatorFactory = new TableWriterOperatorFactory(context.getNextOperatorId(), recordSink);
+            OperatorFactory operatorFactory = new TableWriterOperatorFactory(context.getNextOperatorId(), recordSink, sampleWeightChannel);
 
             Map<Symbol, Input> layout = ImmutableMap.<Symbol, Input>builder()
                     .put(node.getOutputSymbols().get(0), new Input(0))
                     .put(node.getOutputSymbols().get(1), new Input(1))
                     .build();
 
-            return new PhysicalOperation(operatorFactory, layout, source);
+            return new PhysicalOperation(operatorFactory, layout, exchange);
         }
 
         private PhysicalOperation createInMemoryExchange(TableWriterNode node, LocalExecutionPlanContext context)

@@ -138,8 +138,10 @@ public class LogicalPlanner
                 plan.getOutputSymbols(),
                 getColumnNames(tableMetadata),
                 writerOutputs,
+                Optional.<Symbol>absent(),
                 destination.getCatalogName(),
-                tableMetadata);
+                tableMetadata,
+                metadata.canCreateSampledTables(destination.getCatalogName()));
 
         List<Symbol> outputs = ImmutableList.of(symbolAllocator.newSymbol("rows", Type.BIGINT));
 

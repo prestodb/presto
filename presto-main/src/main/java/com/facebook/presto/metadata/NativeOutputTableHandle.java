@@ -19,6 +19,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
+import javax.annotation.Nullable;
+
 import java.util.List;
 
 import static com.facebook.presto.metadata.MetadataUtil.checkSchemaName;
@@ -32,18 +34,22 @@ public class NativeOutputTableHandle
     private final String tableName;
     private final List<NativeColumnHandle> columnHandles;
     private final List<ColumnType> columnTypes;
+    @Nullable
+    private final NativeColumnHandle sampleWeightColumnHandle;
 
     @JsonCreator
     public NativeOutputTableHandle(
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("columnHandles") List<NativeColumnHandle> columnHandles,
-            @JsonProperty("columnTypes") List<ColumnType> columnTypes)
+            @JsonProperty("columnTypes") List<ColumnType> columnTypes,
+            @JsonProperty("sampleWeightColumnHandle") NativeColumnHandle sampleWeightColumnHandle)
     {
         this.schemaName = checkSchemaName(schemaName);
         this.tableName = checkTableName(tableName);
         this.columnHandles = ImmutableList.copyOf(checkNotNull(columnHandles, "columnHandles is null"));
         this.columnTypes = ImmutableList.copyOf(checkNotNull(columnTypes, "columnTypes is null"));
+        this.sampleWeightColumnHandle = sampleWeightColumnHandle;
     }
 
     @JsonProperty
@@ -68,6 +74,12 @@ public class NativeOutputTableHandle
     public List<ColumnType> getColumnTypes()
     {
         return columnTypes;
+    }
+
+    @JsonProperty
+    public NativeColumnHandle getSampleWeightColumnHandle()
+    {
+        return sampleWeightColumnHandle;
     }
 
     @Override

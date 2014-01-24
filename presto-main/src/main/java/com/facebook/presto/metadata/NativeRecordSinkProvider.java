@@ -59,7 +59,7 @@ public class NativeRecordSinkProvider
 
         ColumnFileHandle fileHandle = createStagingFileHandle(handle.getColumnHandles());
 
-        return new NativeRecordSink(nodeId, fileHandle, storageManager, handle.getColumnTypes());
+        return new NativeRecordSink(nodeId, fileHandle, storageManager, handle.getColumnTypes(), ((NativeOutputTableHandle) tableHandle).getSampleWeightColumnHandle());
     }
 
     private ColumnFileHandle createStagingFileHandle(List<NativeColumnHandle> columnHandles)

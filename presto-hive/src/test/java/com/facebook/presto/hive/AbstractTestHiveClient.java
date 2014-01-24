@@ -831,7 +831,7 @@ public abstract class AbstractTestHiveClient
         // write the records
         RecordSink sink = recordSinkProvider.getRecordSink(outputHandle);
 
-        sink.beginRecord();
+        sink.beginRecord(1);
         sink.appendLong(1);
         sink.appendString("hello".getBytes(UTF_8));
         sink.appendLong(123);
@@ -839,7 +839,7 @@ public abstract class AbstractTestHiveClient
         sink.appendBoolean(true);
         sink.finishRecord();
 
-        sink.beginRecord();
+        sink.beginRecord(1);
         sink.appendLong(2);
         sink.appendNull();
         sink.appendNull();
@@ -847,7 +847,7 @@ public abstract class AbstractTestHiveClient
         sink.appendNull();
         sink.finishRecord();
 
-        sink.beginRecord();
+        sink.beginRecord(1);
         sink.appendLong(3);
         sink.appendString("bye".getBytes(UTF_8));
         sink.appendLong(456);

@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.util.List;
 
 import static com.facebook.presto.tuple.TupleInfo.Type.fromColumnType;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -36,29 +37,47 @@ public class NativeRecordSink
     private final ColumnFileHandle fileHandle;
     private final LocalStorageManager storageManager;
     private final PageBuilder pageBuilder;
+    private final int sampleWeightField;
 
     private int field = -1;
 
-    public NativeRecordSink(String nodeId, ColumnFileHandle fileHandle, LocalStorageManager storageManager, List<ColumnType> columnTypes)
+    public NativeRecordSink(String nodeId, ColumnFileHandle fileHandle, LocalStorageManager storageManager, List<ColumnType> columnTypes, NativeColumnHandle sampleWeightColumnHandle)
     {
         this.nodeId = checkNotNull(nodeId, "nodeId is null");
         this.fileHandle = checkNotNull(fileHandle, "fileHandle is null");
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
-        pageBuilder = new PageBuilder(toTupleInfos(columnTypes));
+        List<TupleInfo> tupleInfos = toTupleInfos(columnTypes);
+        if (sampleWeightColumnHandle != null) {
+            checkArgument(sampleWeightColumnHandle.getColumnName().equals(NativeColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME), "sample weight column handle has wrong name");
+            // sample weight is always stored last in the table
+            sampleWeightField = columnTypes.size() - 1;
+        }
+        else {
+            sampleWeightField = -1;
+        }
+        pageBuilder = new PageBuilder(tupleInfos);
     }
 
     @Override
-    public void beginRecord()
+    public void beginRecord(long sampleWeight)
     {
         checkState(field == -1, "already in record");
         field = 0;
+        if (sampleWeightField >= 0) {
+            pageBuilder.getBlockBuilder(sampleWeightField).append(sampleWeight);
+        }
+    }
+
+    private int lastField()
+    {
+        return fileHandle.getFieldCount() - (sampleWeightField != -1 ? 1 : 0);
     }
 
     @Override
     public void finishRecord()
     {
         checkState(field != -1, "not in record");
-        checkState(field == fileHandle.getFieldCount(), "not all fields set");
+        checkState(field == lastField(), "not all fields set");
         field = -1;
 
         if (pageBuilder.isFull()) {
@@ -119,7 +138,7 @@ public class NativeRecordSink
     private BlockBuilder nextColumn()
     {
         checkState(field != -1, "not in record");
-        checkState(field < fileHandle.getFieldCount(), "all fields already set");
+        checkState(field < lastField(), "all fields already set");
         BlockBuilder builder = pageBuilder.getBlockBuilder(field);
         field++;
         return builder;

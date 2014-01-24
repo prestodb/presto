@@ -39,7 +39,7 @@ public class TableMetadata
         return connectorId;
     }
 
-    ConnectorTableMetadata getMetadata()
+    public ConnectorTableMetadata getMetadata()
     {
         return metadata;
     }

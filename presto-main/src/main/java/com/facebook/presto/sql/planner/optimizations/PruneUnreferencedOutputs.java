@@ -265,12 +265,15 @@ public class PruneUnreferencedOutputs
                 return planRewriter.rewrite(node.getSource(), expectedOutputs);
             }
 
-            Set<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
+            ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
                     .addAll(node.getDistinctSymbols())
-                    .addAll(expectedOutputs)
-                    .build();
+                    .addAll(expectedOutputs);
 
-            PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs);
+            if (node.getSampleWeightSymbol().isPresent()) {
+                expectedInputs.add(node.getSampleWeightSymbol().get());
+            }
+
+            PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs.build());
 
             return new MarkDistinctNode(node.getId(), source, node.getMarkerSymbol(), node.getDistinctSymbols(), node.getSampleWeightSymbol());
         }
@@ -307,7 +310,12 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode rewriteLimit(LimitNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
         {
-            PlanNode source = planRewriter.rewrite(node.getSource(), expectedOutputs);
+            ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
+                    .addAll(expectedOutputs);
+            if (node.getSampleWeight().isPresent()) {
+                expectedInputs.add(node.getSampleWeight().get());
+            }
+            PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs.build());
             return new LimitNode(node.getId(), source, node.getCount(), node.getSampleWeight());
         }
 
@@ -321,9 +329,14 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode rewriteTopN(TopNNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
         {
-            Set<Symbol> expectedInputs = ImmutableSet.copyOf(concat(expectedOutputs, node.getOrderBy()));
+            ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
+                    .addAll(expectedOutputs)
+                    .addAll(node.getOrderBy());
+            if (node.getSampleWeight().isPresent()) {
+                expectedInputs.add(node.getSampleWeight().get());
+            }
 
-            PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs);
+            PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs.build());
 
             return new TopNNode(node.getId(), source, node.getCount(), node.getOrderBy(), node.getOrderings(), node.isPartial(), node.getSampleWeight());
         }
@@ -341,9 +354,14 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode rewriteTableWriter(TableWriterNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
         {
-            PlanNode source = planRewriter.rewrite(node.getSource(), ImmutableSet.copyOf(node.getColumns()));
+            ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
+                    .addAll(node.getColumns());
+            if (node.getSampleWeightSymbol().isPresent()) {
+                expectedInputs.add(node.getSampleWeightSymbol().get());
+            }
+            PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs.build());
 
-            return new TableWriterNode(node.getId(), source, node.getTarget(), node.getColumns(), node.getColumnNames(), node.getOutputSymbols(), node.getCatalog(), node.getTableMetadata());
+            return new TableWriterNode(node.getId(), source, node.getTarget(), node.getColumns(), node.getColumnNames(), node.getOutputSymbols(), node.getSampleWeightSymbol(), node.getCatalog(), node.getTableMetadata(), node.isSampleWeightSupported());
         }
 
         @Override
