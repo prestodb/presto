@@ -15,6 +15,7 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockBuilderStatus;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.operator.GroupByIdBlock;
@@ -36,7 +37,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.facebook.presto.type.BigintType.BIGINT;
 import static com.facebook.presto.type.DoubleType.DOUBLE;
 import static com.facebook.presto.type.VarcharType.VARCHAR;
@@ -244,7 +244,7 @@ public class BootstrappedAggregation
 
             SliceOutput output = new DynamicSliceOutput(sizeEstimate);
             PagesSerde.writePages(blockEncodingManager, output, new Page(blocks));
-            BlockBuilder builder = VARCHAR.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
+            BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
             builder.append(output.slice());
             return builder.build();
         }
@@ -259,7 +259,7 @@ public class BootstrappedAggregation
                 statistics.addValue(getNumeric(cursor));
             }
 
-            BlockBuilder builder = VARCHAR.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
+            BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
             builder.append(formatApproximateOutput(statistics, confidence));
             return builder.build();
         }
@@ -337,7 +337,7 @@ public class BootstrappedAggregation
             Block[] blocks = new Block[accumulators.size()];
             int sizeEstimate = 64 * accumulators.size();
             for (int i = 0; i < accumulators.size(); i++) {
-                BlockBuilder builder = accumulators.get(i).getIntermediateType().createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
+                BlockBuilder builder = accumulators.get(i).getIntermediateType().createBlockBuilder(new BlockBuilderStatus());
                 accumulators.get(i).evaluateIntermediate(groupId, builder);
                 blocks[i] = builder.build();
                 sizeEstimate += blocks[i].getDataSize().toBytes();
@@ -353,7 +353,7 @@ public class BootstrappedAggregation
         {
             DescriptiveStatistics statistics = new DescriptiveStatistics();
             for (int i = 0; i < accumulators.size(); i++) {
-                BlockBuilder builder = accumulators.get(i).getFinalType().createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
+                BlockBuilder builder = accumulators.get(i).getFinalType().createBlockBuilder(new BlockBuilderStatus());
                 accumulators.get(i).evaluateFinal(groupId, builder);
                 BlockCursor cursor = builder.build().cursor();
                 checkArgument(cursor.advanceNextPosition(), "accumulator returned no results");

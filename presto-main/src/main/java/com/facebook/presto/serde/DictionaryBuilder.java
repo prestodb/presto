@@ -14,13 +14,12 @@
 package com.facebook.presto.serde;
 
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockBuilderStatus;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.type.Type;
 import it.unimi.dsi.fastutil.ints.Int2IntOpenCustomHashMap;
 import it.unimi.dsi.fastutil.ints.IntHash.Strategy;
-
-import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 
 public class DictionaryBuilder
 {
@@ -35,7 +34,7 @@ public class DictionaryBuilder
 
     public DictionaryBuilder(Type type)
     {
-        this.blockBuilder = type.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
+        this.blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
 
         this.hashStrategy = new BlockBuilderHashStrategy();
         this.positions = new Int2IntOpenCustomHashMap(1024, hashStrategy);

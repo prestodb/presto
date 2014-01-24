@@ -16,6 +16,7 @@ package com.facebook.presto.serde;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockBuilderStatus;
 import com.facebook.presto.block.BlockEncoding;
 import com.facebook.presto.block.RandomAccessBlock;
 import io.airlift.slice.DynamicSliceOutput;
@@ -23,7 +24,6 @@ import org.testng.annotations.Test;
 
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
 import static com.facebook.presto.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertTrue;
 
@@ -32,7 +32,7 @@ public class TestSnappyBlockSerde
     @Test
     public void testRoundTrip()
     {
-        Block block = VARCHAR.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE)
+        Block block = VARCHAR.createBlockBuilder(new BlockBuilderStatus())
                 .append("alice")
                 .append("bob")
                 .append("charlie")
@@ -51,7 +51,7 @@ public class TestSnappyBlockSerde
     @Test
     public void testLotsOfStuff()
     {
-        RandomAccessBlock block = VARCHAR.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE)
+        RandomAccessBlock block = VARCHAR.createBlockBuilder(new BlockBuilderStatus())
                 .append("alice")
                 .append("bob")
                 .append("charlie")
@@ -62,7 +62,7 @@ public class TestSnappyBlockSerde
         DynamicSliceOutput encoderOutput = new DynamicSliceOutput(1024);
         Encoder encoder = BlocksFileEncoding.SNAPPY.createBlocksWriter(encoderOutput);
 
-        BlockBuilder expectedBlockBuilder = VARCHAR.createBlockBuilder(DEFAULT_MAX_BLOCK_SIZE);
+        BlockBuilder expectedBlockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
 
         int count = 1000;
         for (int i = 0; i < count; i++) {
