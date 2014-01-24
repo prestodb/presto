@@ -178,20 +178,13 @@ public class HashJoinOperator
 
     private boolean advanceProbePosition()
     {
-        // advance cursors (only if we have initialized the cursors)
-        if (!advanceNextCursorPosition()) {
+        if (!probe.advanceNextPosition()) {
+            probe = null;
             return false;
         }
 
         // update join position
-        if (currentRowJoinPositionContainsNull()) {
-            // Null values will never match in an equijoin, so just omit them from the probe side
-            joinPosition = -1;
-        }
-        else {
-            joinPosition = probe.getCurrentJoinPosition();
-        }
-
+        joinPosition = probe.getCurrentJoinPosition();
         return true;
     }
 
@@ -212,19 +205,5 @@ public class HashJoinOperator
             }
         }
         return true;
-    }
-
-    public boolean advanceNextCursorPosition()
-    {
-        if (!probe.advanceNextPosition()) {
-            probe = null;
-            return false;
-        }
-        return true;
-    }
-
-    private boolean currentRowJoinPositionContainsNull()
-    {
-        return probe.currentRowContainsNull();
     }
 }

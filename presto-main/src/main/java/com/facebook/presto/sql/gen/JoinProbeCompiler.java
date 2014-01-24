@@ -25,6 +25,7 @@ import com.facebook.presto.byteCode.FieldDefinition;
 import com.facebook.presto.byteCode.LocalVariableDefinition;
 import com.facebook.presto.byteCode.ParameterizedType;
 import com.facebook.presto.byteCode.SmartClassWriter;
+import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.byteCode.instruction.LabelNode;
 import com.facebook.presto.operator.HashBuilderOperator.HashSupplier;
 import com.facebook.presto.operator.HashJoinOperator;
@@ -333,11 +334,18 @@ public class JoinProbeCompiler
 
     private void generateGetCurrentJoinPosition(ClassDefinition classDefinition, FieldDefinition hashField, FieldDefinition probeCursorsArrayField)
     {
-        classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
+        CompilerContext compilerContext = new CompilerContext(bootstrapMethod);
+        classDefinition.declareMethod(compilerContext,
                 a(PUBLIC),
                 "getCurrentJoinPosition",
                 type(int.class))
                 .getBody()
+                .append(new IfStatement(
+                        compilerContext,
+                        new Block(compilerContext).pushThis().invokeVirtual(classDefinition.getType(), "currentRowContainsNull", type(boolean.class)),
+                        new Block(compilerContext).push(-1).retInt(),
+                        null
+                ))
                 .pushThis()
                 .getField(hashField)
                 .pushThis()
@@ -349,7 +357,7 @@ public class JoinProbeCompiler
     private void generateCurrentRowContainsNull(ClassDefinition classDefinition, List<FieldDefinition> probeCursorFields)
     {
         Block body = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
-                a(PUBLIC),
+                a(PRIVATE),
                 "currentRowContainsNull",
                 type(boolean.class))
                 .getBody();

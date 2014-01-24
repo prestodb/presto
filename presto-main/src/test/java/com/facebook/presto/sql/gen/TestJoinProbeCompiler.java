@@ -107,8 +107,6 @@ public class TestJoinProbeCompiler
 
             joinProbe.appendTo(pageBuilder);
 
-            assertFalse(joinProbe.currentRowContainsNull());
-
             assertEquals(joinProbe.getCurrentJoinPosition(), hash.getJoinPosition(probeCursor));
         }
         assertFalse(joinProbe.advanceNextPosition());
